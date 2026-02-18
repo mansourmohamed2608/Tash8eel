@@ -1,0 +1,8 @@
+# Replace placeholder handles with actual GitHub users/teams
+* @REPLACE_WITH_TEAM
+
+/apps/api/ @REPLACE_WITH_BACKEND_TEAM
+/apps/worker/ @REPLACE_WITH_BACKEND_TEAM
+/apps/portal/ @REPLACE_WITH_FRONTEND_TEAM
+/packages/ @REPLACE_WITH_PLATFORM_TEAM
+/docs/ @REPLACE_WITH_DOCS_TEAM

@@ -1,0 +1,25 @@
+node_modules/
+dist/
+coverage/
+.env
+.env.local
+*.log
+.DS_Store
+.idea/
+.vscode/
+*.local
+
+# Build outputs
+.next/
+out/
+build/
+
+# Legacy folder (was migrated to apps/)
+Ai Agents/
+
+# Archive files
+*.zip
+*.tar.gz
+
+# Legacy root-level files (use apps/api/migrations instead)
+/migrations/

@@ -1,0 +1,1119 @@
+{
+  "info": {
+    "_postman_id": "operations-agent-mvp",
+    "name": "Operations Agent API",
+    "description": "Postman collection for the Operations Agent MVP - a conversational commerce platform with OpenAI GPT-4o-mini.\n\n## Authentication\n- Most endpoints require `x-api-key` header matching merchant API key\n- Admin endpoints require `x-admin-api-key` header\n\n## Environment Variables\n- `base_url`: http://localhost:3000/api\n- `merchant_id`: demo-merchant\n- `api_key`: demo-api-key-12345\n- `admin_key`: super-secret-admin-key",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000/api"
+    },
+    {
+      "key": "merchant_id",
+      "value": "demo-merchant"
+    },
+    {
+      "key": "api_key",
+      "value": "{{YOUR_MERCHANT_API_KEY}}"
+    },
+    {
+      "key": "admin_key",
+      "value": "{{YOUR_ADMIN_API_KEY}}"
+    }
+  ],
+  "item": [
+    {
+      "name": "A. Inbox - Process Message",
+      "item": [
+        {
+          "name": "Send Text Message",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{api_key}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"merchantId\": \"{{merchant_id}}\",\n  \"senderId\": \"+201234567890\",\n  \"channel\": \"whatsapp\",\n  \"text\": \"عايز أطلب 2 بيتزا مارجريتا\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/inbox/message",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "inbox", "message"]
+            },
+            "description": "Process an incoming customer message. The agent will:\n- Identify intent (order, track, inquiry)\n- Extract items and quantities\n- Collect missing info (address, phone)\n- Apply negotiation rules\n- Respond in Arabic"
+          },
+          "response": [
+            {
+              "name": "Order Confirmation",
+              "originalRequest": {
+                "method": "POST",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"merchantId\": \"demo-merchant\",\n  \"senderId\": \"+201234567890\",\n  \"channel\": \"whatsapp\",\n  \"text\": \"عايز أطلب 2 بيتزا مارجريتا\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/v1/inbox/message"
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"replyText\": \"أهلاً بيك! 🍕\\n\\nإتأكدت من طلبك:\\n• 2x بيتزا مارجريتا - 150 ج.م\\n\\nالإجمالي: 300 ج.م\\n\\nمحتاج عنوان التوصيل وموعد التسليم المناسب. ممكن تبعتهولي؟\",\n  \"conversationId\": \"conv-abc123\",\n  \"state\": \"collecting_info\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Send Tracking Request",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{api_key}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"merchantId\": \"{{merchant_id}}\",\n  \"senderId\": \"+201234567890\",\n  \"channel\": \"whatsapp\",\n  \"text\": \"فين الأوردر بتاعي؟\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/inbox/message",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "inbox", "message"]
+            },
+            "description": "Customer tracking their order"
+          },
+          "response": []
+        },
+        {
+          "name": "Provide Address",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "{{api_key}}"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{api_key}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"merchantId\": \"{{merchant_id}}\",\n  \"senderId\": \"+201234567890\",\n  \"channel\": \"whatsapp\",\n  \"text\": \"العنوان: 15 شارع التحرير، المعادي، القاهرة\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/inbox/message",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "inbox", "message"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Confirm Order",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{api_key}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"merchantId\": \"{{merchant_id}}\",\n  \"senderId\": \"+201234567890\",\n  \"channel\": \"whatsapp\",\n  \"text\": \"تمام، أكد الأوردر\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/inbox/message",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "inbox", "message"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Negotiate Discount",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{api_key}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"merchantId\": \"{{merchant_id}}\",\n  \"senderId\": \"+201234567890\",\n  \"channel\": \"whatsapp\",\n  \"text\": \"ممكن خصم؟ الطلب كبير\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/inbox/message",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "inbox", "message"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "B. Merchants - Configuration",
+      "item": [
+        {
+          "name": "Update Merchant Config",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{api_key}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"brandVoice\": \"ودود ومحترف، نستخدم إيموجي باعتدال\",\n  \"maxDiscount\": 15,\n  \"autoApproveBelow\": 500,\n  \"openingHours\": \"09:00-23:00\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/merchants/{{merchant_id}}/config",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "merchants", "{{merchant_id}}", "config"]
+            },
+            "description": "Update merchant configuration including:\n- Brand voice for LLM responses\n- Negotiation limits\n- Auto-approve thresholds\n- Operating hours"
+          },
+          "response": [
+            {
+              "name": "Config Updated",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"id\": \"demo-merchant\",\n  \"name\": \"Demo Restaurant\",\n  \"category\": \"FOOD\",\n  \"config\": {\n    \"brandVoice\": \"ودود ومحترف، نستخدم إيموجي باعتدال\",\n    \"maxDiscount\": 15,\n    \"autoApproveBelow\": 500,\n    \"openingHours\": \"09:00-23:00\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get Merchant Details",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{api_key}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/v1/merchants/{{merchant_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "merchants", "{{merchant_id}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Send WhatsApp Report",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{api_key}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/v1/merchants/{{merchant_id}}/reports/send-whatsapp",
+              "host": ["{{base_url}}"],
+              "path": [
+                "v1",
+                "merchants",
+                "{{merchant_id}}",
+                "reports",
+                "send-whatsapp"
+              ]
+            },
+            "description": "Send daily sales report to merchant via WhatsApp. Includes conversations, orders, revenue, and token usage for yesterday."
+          },
+          "response": [
+            {
+              "name": "Report Sent",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"report\": {\n    \"date\": \"2026-01-19\",\n    \"totalConversations\": 25,\n    \"ordersCreated\": 12,\n    \"totalRevenue\": 3500,\n    \"conversionRate\": 48,\n    \"tokenUsage\": 15000\n  },\n  \"message\": \"Report sent to WhatsApp\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "C. Catalog - Upsert",
+      "item": [
+        {
+          "name": "Upsert Catalog Items",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{api_key}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"sku\": \"PIZZA-MARG\",\n      \"nameAr\": \"بيتزا مارجريتا\",\n      \"nameEn\": \"Margherita Pizza\",\n      \"price\": 75,\n      \"available\": true,\n      \"category\": \"pizza\"\n    },\n    {\n      \"sku\": \"PIZZA-PEPP\",\n      \"nameAr\": \"بيتزا بيبروني\",\n      \"nameEn\": \"Pepperoni Pizza\",\n      \"price\": 95,\n      \"available\": true,\n      \"category\": \"pizza\"\n    },\n    {\n      \"sku\": \"DRINK-COLA\",\n      \"nameAr\": \"كوكاكولا\",\n      \"nameEn\": \"Coca Cola\",\n      \"price\": 15,\n      \"available\": true,\n      \"category\": \"drinks\"\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/catalog/upsert",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "catalog", "upsert"]
+            },
+            "description": "Bulk upsert catalog items. Uses SKU as unique key.\n\nRequired fields:\n- sku: Unique product identifier\n- nameAr: Arabic product name\n- price: Price in EGP\n\nOptional:\n- nameEn: English name\n- available: true/false\n- category: Product category"
+          },
+          "response": [
+            {
+              "name": "Catalog Updated",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"upserted\": 3,\n  \"items\": [\n    { \"sku\": \"PIZZA-MARG\", \"status\": \"updated\" },\n    { \"sku\": \"PIZZA-PEPP\", \"status\": \"created\" },\n    { \"sku\": \"DRINK-COLA\", \"status\": \"updated\" }\n  ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get Catalog",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{api_key}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/v1/catalog?available=true",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "catalog"],
+              "query": [
+                {
+                  "key": "available",
+                  "value": "true"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "D. Conversations - Get by ID",
+      "item": [
+        {
+          "name": "Get Conversation with History",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{api_key}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/v1/conversations/:conversationId?includeMessages=true",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "conversations", ":conversationId"],
+              "query": [
+                {
+                  "key": "includeMessages",
+                  "value": "true"
+                }
+              ],
+              "variable": [
+                {
+                  "key": "conversationId",
+                  "value": "conv-abc123"
+                }
+              ]
+            },
+            "description": "Retrieve a conversation by ID, optionally including full message history.\n\nQuery params:\n- includeMessages: true/false (default: false)"
+          },
+          "response": [
+            {
+              "name": "Conversation with Messages",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"id\": \"conv-abc123\",\n  \"merchantId\": \"demo-merchant\",\n  \"customerId\": \"cust-xyz\",\n  \"channel\": \"whatsapp\",\n  \"state\": \"confirming_order\",\n  \"cart\": [\n    { \"sku\": \"PIZZA-MARG\", \"nameAr\": \"بيتزا مارجريتا\", \"qty\": 2, \"price\": 75 }\n  ],\n  \"messages\": [\n    {\n      \"id\": \"msg-1\",\n      \"role\": \"customer\",\n      \"content\": \"عايز أطلب 2 بيتزا مارجريتا\",\n      \"createdAt\": \"2024-01-15T10:00:00Z\"\n    },\n    {\n      \"id\": \"msg-2\",\n      \"role\": \"assistant\",\n      \"content\": \"أهلاً بيك! إتأكدت من طلبك...\",\n      \"createdAt\": \"2024-01-15T10:00:02Z\"\n    }\n  ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "List Conversations",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{api_key}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/v1/conversations?state=active&limit=20",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "conversations"],
+              "query": [
+                {
+                  "key": "state",
+                  "value": "active"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "E. Orders - Get by ID",
+      "item": [
+        {
+          "name": "Get Order Details",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{api_key}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/v1/orders/:orderId",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "orders", ":orderId"],
+              "variable": [
+                {
+                  "key": "orderId",
+                  "value": "ord-123"
+                }
+              ]
+            },
+            "description": "Retrieve order by ID including shipment tracking info"
+          },
+          "response": [
+            {
+              "name": "Order with Shipment",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"id\": \"ord-123\",\n  \"merchantId\": \"demo-merchant\",\n  \"conversationId\": \"conv-abc123\",\n  \"customerId\": \"cust-xyz\",\n  \"items\": [\n    { \"sku\": \"PIZZA-MARG\", \"nameAr\": \"بيتزا مارجريتا\", \"qty\": 2, \"price\": 75 }\n  ],\n  \"totalAmount\": 150,\n  \"discountApplied\": 0,\n  \"finalAmount\": 150,\n  \"status\": \"confirmed\",\n  \"shipment\": {\n    \"id\": \"ship-456\",\n    \"courierName\": \"MockCourier\",\n    \"trackingNumber\": \"TRK-789\",\n    \"status\": \"out_for_delivery\",\n    \"eta\": \"2024-01-15T14:00:00Z\"\n  },\n  \"createdAt\": \"2024-01-15T10:05:00Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "List Orders",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{api_key}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/v1/orders?status=pending&limit=50",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "orders"],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "pending"
+                },
+                {
+                  "key": "limit",
+                  "value": "50"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "F. Admin - Replay DLQ Event",
+      "item": [
+        {
+          "name": "List DLQ Events",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-admin-api-key",
+                "value": "{{admin_key}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/v1/admin/dlq?limit=50",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "admin", "dlq"],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "50"
+                }
+              ]
+            },
+            "description": "List all events in the Dead Letter Queue"
+          },
+          "response": []
+        },
+        {
+          "name": "Replay Single DLQ Event",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-admin-api-key",
+                "value": "{{admin_key}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/v1/admin/replay/:dlqEventId",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "admin", "replay", ":dlqEventId"],
+              "variable": [
+                {
+                  "key": "dlqEventId",
+                  "value": "dlq-evt-123"
+                }
+              ]
+            },
+            "description": "Replay a single failed event from DLQ.\n\nThe event will be moved back to outbox with status 'pending' for reprocessing."
+          },
+          "response": [
+            {
+              "name": "Event Replayed",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"eventId\": \"dlq-evt-123\",\n  \"newStatus\": \"pending\",\n  \"message\": \"Event moved back to outbox for reprocessing\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Replay Batch DLQ Events",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-admin-api-key",
+                "value": "{{admin_key}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"eventIds\": [\"dlq-evt-123\", \"dlq-evt-456\", \"dlq-evt-789\"]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/admin/replay/batch",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "admin", "replay", "batch"]
+            },
+            "description": "Replay multiple DLQ events at once"
+          },
+          "response": []
+        },
+        {
+          "name": "Get DLQ Stats",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-admin-api-key",
+                "value": "{{admin_key}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/v1/admin/dlq/stats",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "admin", "dlq", "stats"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "G. Admin - Metrics",
+      "item": [
+        {
+          "name": "Get System Metrics",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-admin-api-key",
+                "value": "{{admin_key}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/v1/admin/metrics",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "admin", "metrics"]
+            },
+            "description": "Get system-wide metrics including:\n- Merchant counts\n- Order statistics\n- Conversation/message counts\n- Token usage\n- Event queue status\n- DLQ summary"
+          },
+          "response": [
+            {
+              "name": "System Metrics",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"merchants\": {\n    \"total\": 5,\n    \"active\": 4\n  },\n  \"orders\": {\n    \"total\": 1250,\n    \"pending\": 45,\n    \"confirmed\": 180,\n    \"shipped\": 75,\n    \"delivered\": 920,\n    \"cancelled\": 30\n  },\n  \"conversations\": {\n    \"total\": 3500,\n    \"today\": 125,\n    \"activeNow\": 18\n  },\n  \"messages\": {\n    \"total\": 28000,\n    \"today\": 890,\n    \"totalTokens\": 4500000\n  },\n  \"events\": {\n    \"pending\": 12,\n    \"processed\": 45000,\n    \"failed\": 8\n  },\n  \"dlq\": {\n    \"totalPending\": 3,\n    \"oldestAge\": \"2h 15m\"\n  },\n  \"timestamp\": \"2024-01-15T10:30:00Z\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "H. Admin - Seed Demo Data",
+      "item": [
+        {
+          "name": "Seed Demo Data",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-admin-api-key",
+                "value": "{{admin_key}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/v1/admin/seed",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "admin", "seed"]
+            },
+            "description": "Seed the database with demo data:\n- Demo merchant\n- Sample catalog items\n- Test conversations\n\nUse for development/testing only."
+          },
+          "response": [
+            {
+              "name": "Demo Data Seeded",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"seeded\": {\n    \"merchants\": 1,\n    \"catalogItems\": 10,\n    \"customers\": 3,\n    \"conversations\": 2\n  },\n  \"credentials\": {\n    \"merchantId\": \"demo-merchant\",\n    \"apiKey\": \"demo-api-key-12345\"\n  }\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "I. Vision/OCR",
+      "item": [
+        {
+          "name": "Process Payment Receipt",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{api_key}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"imageBase64\": \"BASE64_ENCODED_IMAGE_HERE\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/vision/receipt",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "vision", "receipt"]
+            },
+            "description": "Process an InstaPay/bank transfer receipt image using OCR.\n\nReturns extracted:\n- Sender name & account\n- Receiver name & account\n- Amount & currency\n- Reference number\n- Transaction date\n\nMax image size: ~10MB (JPEG, PNG, GIF, WebP)"
+          },
+          "response": [
+            {
+              "name": "Receipt Processed",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"success\": true,\n  \"receipt\": {\n    \"senderName\": \"أحمد محمد\",\n    \"senderAccount\": \"012345678901234\",\n    \"amount\": 250.00,\n    \"currency\": \"EGP\",\n    \"referenceNumber\": \"TXN123456789\",\n    \"paymentMethod\": \"InstaPay\"\n  },\n  \"confidence\": 0.92\n}"
+            }
+          ]
+        },
+        {
+          "name": "Analyze Product Image",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{api_key}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"imageBase64\": \"BASE64_ENCODED_IMAGE_HERE\",\n  \"merchantCategory\": \"electronics\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/vision/product",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "vision", "product"]
+            },
+            "description": "Analyze product image for catalog entry.\n\nExtracts:\n- Product name (Arabic & English)\n- Category & brand\n- Colors & sizes\n- Suggested price\n- Description"
+          },
+          "response": []
+        },
+        {
+          "name": "Analyze Medicine Image",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{api_key}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"imageBase64\": \"BASE64_ENCODED_IMAGE_HERE\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/vision/medicine",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "vision", "medicine"]
+            },
+            "description": "Analyze medicine/pharmaceutical image.\n\nExtracts:\n- Medicine name\n- Active ingredient\n- Dosage & form\n- Manufacturer\n- Instructions & warnings"
+          },
+          "response": []
+        },
+        {
+          "name": "Extract Text (General OCR)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{api_key}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"imageBase64\": \"BASE64_ENCODED_IMAGE_HERE\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/vision/extract-text",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "vision", "extract-text"]
+            },
+            "description": "General OCR - extract all text from any image.\n\nPreserves Arabic text and returns:\n- Full extracted text\n- Individual lines detected"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "J. Payments",
+      "item": [
+        {
+          "name": "Create Payment Link",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{api_key}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 500,\n  \"currency\": \"EGP\",\n  \"description\": \"طلب #123\",\n  \"customerName\": \"أحمد محمد\",\n  \"customerPhone\": \"+201234567890\",\n  \"expiresInHours\": 24\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/payments/links",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "payments", "links"]
+            },
+            "description": "Create a new payment link for customer.\n\nSupported payment methods:\n- InstaPay\n- Bank Transfer\n- Vodafone Cash"
+          },
+          "response": [
+            {
+              "name": "Payment Link Created",
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"id\": \"pl-abc123\",\n  \"linkCode\": \"PAY-XYZ789\",\n  \"amount\": 500,\n  \"currency\": \"EGP\",\n  \"paymentUrl\": \"https://tash8eel.app/pay/PAY-XYZ789\",\n  \"status\": \"PENDING\",\n  \"expiresAt\": \"2024-01-16T10:00:00Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "List Payment Links",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{api_key}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/v1/payments/links?status=PENDING&limit=20",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "payments", "links"],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "PENDING"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            },
+            "description": "List payment links for merchant.\n\nFilter by status: PENDING, VIEWED, PAID, EXPIRED, CANCELLED"
+          },
+          "response": []
+        },
+        {
+          "name": "Cancel Payment Link",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{api_key}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/v1/payments/links/:linkId",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "payments", "links", ":linkId"],
+              "variable": [
+                {
+                  "key": "linkId",
+                  "value": "pl-abc123"
+                }
+              ]
+            },
+            "description": "Cancel a pending or viewed payment link"
+          },
+          "response": []
+        },
+        {
+          "name": "Submit Payment Proof",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{api_key}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"paymentLinkId\": \"pl-abc123\",\n  \"imageBase64\": \"BASE64_ENCODED_RECEIPT_IMAGE\",\n  \"referenceNumber\": \"TXN123456789\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/payments/proofs",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "payments", "proofs"]
+            },
+            "description": "Submit payment proof (receipt screenshot).\n\nWill automatically:\n- Process image with OCR\n- Extract payment details\n- Auto-verify if confidence > 85% and amount matches"
+          },
+          "response": [
+            {
+              "name": "Auto-Verified Proof",
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "body": "{\n  \"id\": \"pp-xyz789\",\n  \"status\": \"APPROVED\",\n  \"autoVerified\": true,\n  \"ocrConfidence\": 0.92,\n  \"extractedAmount\": 500,\n  \"extractedReference\": \"TXN123456789\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Verify Payment Proof",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{api_key}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"approved\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/payments/proofs/:proofId/verify",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "payments", "proofs", ":proofId", "verify"],
+              "variable": [
+                {
+                  "key": "proofId",
+                  "value": "pp-xyz789"
+                }
+              ]
+            },
+            "description": "Manually verify/reject a payment proof"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "K. KPIs & Analytics",
+      "item": [
+        {
+          "name": "Get Recovered Carts KPI",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{api_key}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/v1/kpis/recovered-carts?days=30",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "kpis", "recovered-carts"],
+              "query": [
+                {
+                  "key": "days",
+                  "value": "30"
+                }
+              ]
+            },
+            "description": "Get cart recovery KPIs:\n- Total abandoned carts\n- Total recovered carts\n- Recovery rate %\n- Recovered value (EGP)\n- Average recovery time"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Delivery Failures KPI",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{api_key}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/v1/kpis/delivery-failures?days=30",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "kpis", "delivery-failures"],
+              "query": [
+                {
+                  "key": "days",
+                  "value": "30"
+                }
+              ]
+            },
+            "description": "Get delivery failure KPIs:\n- Total deliveries\n- Failure count & rate\n- Failures by reason\n- Top failure areas"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Agent Performance KPI",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{api_key}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/v1/kpis/agent-performance?days=30",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "kpis", "agent-performance"],
+              "query": [
+                {
+                  "key": "days",
+                  "value": "30"
+                }
+              ]
+            },
+            "description": "Get AI agent performance KPIs:\n- Total tasks & success rate\n- Human takeover rate\n- Token usage\n- Per-agent breakdown"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Revenue KPI",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{api_key}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/v1/kpis/revenue?days=30",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "kpis", "revenue"],
+              "query": [
+                {
+                  "key": "days",
+                  "value": "30"
+                }
+              ]
+            },
+            "description": "Get revenue KPIs:\n- Total revenue\n- Revenue change %\n- Average order value\n- Top products\n- Payment method breakdown"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Customer KPI",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{api_key}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/v1/kpis/customers?days=30",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "kpis", "customers"],
+              "query": [
+                {
+                  "key": "days",
+                  "value": "30"
+                }
+              ]
+            },
+            "description": "Get customer KPIs:\n- Total customers\n- New vs returning\n- Retention rate\n- Top customers\n- Regional distribution"
+          },
+          "response": []
+        },
+        {
+          "name": "Get KPI Summary",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-api-key",
+                "value": "{{api_key}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/v1/kpis/summary?days=30",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "kpis", "summary"],
+              "query": [
+                {
+                  "key": "days",
+                  "value": "30"
+                }
+              ]
+            },
+            "description": "Get combined KPI summary for dashboard"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Health Checks",
+      "item": [
+        {
+          "name": "Liveness Check",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "http://localhost:3000/health",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["health"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Readiness Check",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "http://localhost:3000/ready",
+              "protocol": "http",
+              "host": ["localhost"],
+              "port": "3000",
+              "path": ["ready"]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

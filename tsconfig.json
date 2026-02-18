@@ -1,0 +1,28 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "commonjs",
+    "lib": ["ES2022"],
+    "declaration": true,
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "moduleResolution": "node",
+    "baseUrl": ".",
+    "paths": {
+      "@tash8eel/shared": ["packages/shared/src"],
+      "@tash8eel/shared/*": ["packages/shared/src/*"],
+      "@tash8eel/agent-sdk": ["packages/agent-sdk/src"],
+      "@tash8eel/agent-sdk/*": ["packages/agent-sdk/src/*"]
+    }
+  },
+  "references": [
+    { "path": "packages/shared" },
+    { "path": "packages/agent-sdk" },
+    { "path": "apps/api" },
+    { "path": "apps/worker" }
+  ],
+  "exclude": ["node_modules", "dist", ".next"]
+}

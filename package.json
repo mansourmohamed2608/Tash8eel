@@ -1,0 +1,75 @@
+{
+  "name": "tash8eel",
+  "version": "1.0.0",
+  "description": "Tash8eel - AI-powered Operations Platform for Egyptian SMBs",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "build:api": "npm run build -w apps/api",
+    "build:worker": "npm run build -w apps/worker",
+    "build:portal": "npm run build -w apps/portal",
+    "build:packages": "npm run build -w packages/shared && npm run build -w packages/agent-sdk",
+    "build:ci": "npm run build:packages && npm run build:api && npm run build:worker && npm run build:portal",
+    "dev": "concurrently \"npm run dev:api\" \"npm run dev:worker\" \"npm run dev:portal\"",
+    "dev:api": "npm run start:dev -w apps/api",
+    "dev:worker": "npm run start:dev -w apps/worker",
+    "dev:portal": "npm run dev -w apps/portal",
+    "start:api": "npm run start:prod -w apps/api",
+    "start:worker": "npm run start:prod -w apps/worker",
+    "start:portal": "npm run start -w apps/portal",
+    "test": "npm run test --workspaces --if-present",
+    "test:api": "npm run test -w apps/api",
+    "test:worker": "npm run test -w apps/worker",
+    "test:unit": "npm run test -w apps/worker && npm run test -w apps/api -- --testPathIgnorePatterns=e2e",
+    "test:e2e": "npm run test:e2e -w apps/api",
+    "test:e2e:ci": "node scripts/run-e2e-tests.js",
+    "lint": "npm run lint --workspaces --if-present",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "db:migrate": "npm run db:migrate -w apps/api",
+    "db:seed": "npm run db:seed -w apps/api",
+    "db:seed:clean": "npm run db:seed:clean -w apps/api",
+    "db:neon:migrate": "node scripts/migrate-neon.js",
+    "db:neon:seed": "node scripts/migrate-neon.js seed",
+    "db:neon:setup": "node scripts/migrate-neon.js migrate-and-seed",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:build": "docker-compose build",
+    "docker:logs": "docker-compose logs -f",
+    "docker:test:up": "docker compose -f docker-compose.test.yml up -d --wait",
+    "docker:test:down": "docker compose -f docker-compose.test.yml down -v",
+    "go:check": "node scripts/go-check.js",
+    "audit:ci": "npm audit --audit-level=high",
+    "prepare": "husky install"
+  },
+  "devDependencies": {
+    "@types/multer": "^2.0.0",
+    "concurrently": "^8.2.2",
+    "husky": "^9.1.7",
+    "lint-staged": "^15.2.11",
+    "prettier": "^3.1.1",
+    "typescript": "^5.3.3"
+  },
+  "overrides": {
+    "glob": "^10.4.5",
+    "diff": "^8.0.0",
+    "js-yaml": "^4.1.0",
+    "inflight": "npm:@pnpm/npm-lifecycle@1.0.2",
+    "rimraf": "^5.0.0",
+    "tmp": "^0.2.4",
+    "fast-xml-parser": "^5.3.4",
+    "next": "^15.5.11"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,jsx,json,md,yml,yaml}": [
+      "prettier --write"
+    ]
+  }
+}

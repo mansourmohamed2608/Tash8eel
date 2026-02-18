@@ -1,0 +1,620 @@
+{
+  "info": {
+    "name": "Tash8eel Twilio WhatsApp Webhooks",
+    "description": "Postman collection for testing Twilio WhatsApp webhook integration with Tash8eel Operations Agent",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "twilioFrom",
+      "value": "whatsapp:+201234567890",
+      "type": "string",
+      "description": "Customer WhatsApp number"
+    },
+    {
+      "key": "twilioTo",
+      "value": "whatsapp:+14155238886",
+      "type": "string",
+      "description": "Twilio sandbox number (merchant)"
+    },
+    {
+      "key": "twilioAccountSid",
+      "value": "ACtest123",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Inbound Messages",
+      "description": "Simulate incoming WhatsApp messages from Twilio",
+      "item": [
+        {
+          "name": "1. Simple Text Message",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              },
+              {
+                "key": "X-Twilio-Signature",
+                "value": "test-signature-disabled-in-dev",
+                "description": "Twilio webhook signature (validation disabled in dev)"
+              }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "MessageSid",
+                  "value": "SM{{$timestamp}}",
+                  "description": "Unique message ID"
+                },
+                {
+                  "key": "AccountSid",
+                  "value": "{{twilioAccountSid}}"
+                },
+                {
+                  "key": "From",
+                  "value": "{{twilioFrom}}"
+                },
+                {
+                  "key": "To",
+                  "value": "{{twilioTo}}"
+                },
+                {
+                  "key": "Body",
+                  "value": "مرحبا، عايز أطلب قميص أزرق مقاس L",
+                  "description": "Arabic: Hello, I want to order a blue shirt size L"
+                },
+                {
+                  "key": "NumMedia",
+                  "value": "0"
+                },
+                {
+                  "key": "ProfileName",
+                  "value": "أحمد محمد"
+                },
+                {
+                  "key": "WaId",
+                  "value": "201234567890"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/webhooks/twilio/whatsapp",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "webhooks", "twilio", "whatsapp"]
+            },
+            "description": "Simulates a customer sending a text message via WhatsApp"
+          },
+          "response": []
+        },
+        {
+          "name": "2. Voice Note / Audio Message",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              },
+              {
+                "key": "X-Twilio-Signature",
+                "value": "test-signature-disabled-in-dev"
+              }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "MessageSid",
+                  "value": "SM{{$timestamp}}_voice"
+                },
+                {
+                  "key": "AccountSid",
+                  "value": "{{twilioAccountSid}}"
+                },
+                {
+                  "key": "From",
+                  "value": "{{twilioFrom}}"
+                },
+                {
+                  "key": "To",
+                  "value": "{{twilioTo}}"
+                },
+                {
+                  "key": "Body",
+                  "value": "",
+                  "description": "Empty body for voice messages"
+                },
+                {
+                  "key": "NumMedia",
+                  "value": "1"
+                },
+                {
+                  "key": "MediaUrl0",
+                  "value": "https://api.twilio.com/2010-04-01/Accounts/{{twilioAccountSid}}/Messages/SMxxx/Media/MEyyy",
+                  "description": "Twilio media URL (requires auth to download)"
+                },
+                {
+                  "key": "MediaContentType0",
+                  "value": "audio/ogg",
+                  "description": "WhatsApp voice notes are typically audio/ogg or audio/opus"
+                },
+                {
+                  "key": "ProfileName",
+                  "value": "أحمد محمد"
+                },
+                {
+                  "key": "WaId",
+                  "value": "201234567890"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/webhooks/twilio/whatsapp",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "webhooks", "twilio", "whatsapp"]
+            },
+            "description": "Simulates a customer sending a voice note. The system will:\n1. Download audio from MediaUrl0\n2. Transcribe using Whisper\n3. Process transcribed text as regular message"
+          },
+          "response": []
+        },
+        {
+          "name": "3. Location Message (Coordinates)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              },
+              {
+                "key": "X-Twilio-Signature",
+                "value": "test-signature-disabled-in-dev"
+              }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "MessageSid",
+                  "value": "SM{{$timestamp}}_location"
+                },
+                {
+                  "key": "AccountSid",
+                  "value": "{{twilioAccountSid}}"
+                },
+                {
+                  "key": "From",
+                  "value": "{{twilioFrom}}"
+                },
+                {
+                  "key": "To",
+                  "value": "{{twilioTo}}"
+                },
+                {
+                  "key": "Body",
+                  "value": "هذا عنواني",
+                  "description": "Arabic: This is my address"
+                },
+                {
+                  "key": "NumMedia",
+                  "value": "0"
+                },
+                {
+                  "key": "Latitude",
+                  "value": "30.0444",
+                  "description": "Cairo latitude"
+                },
+                {
+                  "key": "Longitude",
+                  "value": "31.2357",
+                  "description": "Cairo longitude"
+                },
+                {
+                  "key": "ProfileName",
+                  "value": "أحمد محمد"
+                },
+                {
+                  "key": "WaId",
+                  "value": "201234567890"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/webhooks/twilio/whatsapp",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "webhooks", "twilio", "whatsapp"]
+            },
+            "description": "Simulates a customer sharing their location via WhatsApp location sharing feature. Latitude and Longitude are provided by Twilio."
+          },
+          "response": []
+        },
+        {
+          "name": "4. Location Message (Google Maps URL)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              },
+              {
+                "key": "X-Twilio-Signature",
+                "value": "test-signature-disabled-in-dev"
+              }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "MessageSid",
+                  "value": "SM{{$timestamp}}_mapsurl"
+                },
+                {
+                  "key": "AccountSid",
+                  "value": "{{twilioAccountSid}}"
+                },
+                {
+                  "key": "From",
+                  "value": "{{twilioFrom}}"
+                },
+                {
+                  "key": "To",
+                  "value": "{{twilioTo}}"
+                },
+                {
+                  "key": "Body",
+                  "value": "العنوان هنا: https://maps.google.com/?q=30.0444,31.2357",
+                  "description": "Arabic: The address is here: [Google Maps link]"
+                },
+                {
+                  "key": "NumMedia",
+                  "value": "0"
+                },
+                {
+                  "key": "ProfileName",
+                  "value": "أحمد محمد"
+                },
+                {
+                  "key": "WaId",
+                  "value": "201234567890"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/webhooks/twilio/whatsapp",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "webhooks", "twilio", "whatsapp"]
+            },
+            "description": "Simulates a customer pasting a Google Maps URL. The system will extract coordinates from the URL."
+          },
+          "response": []
+        },
+        {
+          "name": "5. Image Attachment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              },
+              {
+                "key": "X-Twilio-Signature",
+                "value": "test-signature-disabled-in-dev"
+              }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "MessageSid",
+                  "value": "SM{{$timestamp}}_image"
+                },
+                {
+                  "key": "AccountSid",
+                  "value": "{{twilioAccountSid}}"
+                },
+                {
+                  "key": "From",
+                  "value": "{{twilioFrom}}"
+                },
+                {
+                  "key": "To",
+                  "value": "{{twilioTo}}"
+                },
+                {
+                  "key": "Body",
+                  "value": "ممكن ده بكام؟",
+                  "description": "Arabic: How much is this?"
+                },
+                {
+                  "key": "NumMedia",
+                  "value": "1"
+                },
+                {
+                  "key": "MediaUrl0",
+                  "value": "https://api.twilio.com/2010-04-01/Accounts/{{twilioAccountSid}}/Messages/SMxxx/Media/MEyyy.jpg"
+                },
+                {
+                  "key": "MediaContentType0",
+                  "value": "image/jpeg"
+                },
+                {
+                  "key": "ProfileName",
+                  "value": "أحمد محمد"
+                },
+                {
+                  "key": "WaId",
+                  "value": "201234567890"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/webhooks/twilio/whatsapp",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "webhooks", "twilio", "whatsapp"]
+            },
+            "description": "Simulates a customer sending an image (not voice note). Image attachments are stored but not processed for transcription."
+          },
+          "response": []
+        },
+        {
+          "name": "6. Order Confirmation Flow",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              },
+              {
+                "key": "X-Twilio-Signature",
+                "value": "test-signature-disabled-in-dev"
+              }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "MessageSid",
+                  "value": "SM{{$timestamp}}_confirm"
+                },
+                {
+                  "key": "AccountSid",
+                  "value": "{{twilioAccountSid}}"
+                },
+                {
+                  "key": "From",
+                  "value": "{{twilioFrom}}"
+                },
+                {
+                  "key": "To",
+                  "value": "{{twilioTo}}"
+                },
+                {
+                  "key": "Body",
+                  "value": "أيوه تمام، موافق على الطلب",
+                  "description": "Arabic: Yes okay, I agree to the order"
+                },
+                {
+                  "key": "NumMedia",
+                  "value": "0"
+                },
+                {
+                  "key": "ProfileName",
+                  "value": "أحمد محمد"
+                },
+                {
+                  "key": "WaId",
+                  "value": "201234567890"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/webhooks/twilio/whatsapp",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "webhooks", "twilio", "whatsapp"]
+            },
+            "description": "Simulates a customer confirming their order"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Status Callbacks",
+      "description": "Twilio message status updates",
+      "item": [
+        {
+          "name": "Message Delivered",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              },
+              {
+                "key": "X-Twilio-Signature",
+                "value": "test-signature-disabled-in-dev"
+              }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "MessageSid",
+                  "value": "SM_test_message_123"
+                },
+                {
+                  "key": "AccountSid",
+                  "value": "{{twilioAccountSid}}"
+                },
+                {
+                  "key": "From",
+                  "value": "{{twilioTo}}",
+                  "description": "From is merchant for outbound"
+                },
+                {
+                  "key": "To",
+                  "value": "{{twilioFrom}}",
+                  "description": "To is customer for outbound"
+                },
+                {
+                  "key": "MessageStatus",
+                  "value": "delivered"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/webhooks/twilio/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "webhooks", "twilio", "status"]
+            },
+            "description": "Twilio notifies us that our outbound message was delivered"
+          },
+          "response": []
+        },
+        {
+          "name": "Message Read",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              },
+              {
+                "key": "X-Twilio-Signature",
+                "value": "test-signature-disabled-in-dev"
+              }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "MessageSid",
+                  "value": "SM_test_message_123"
+                },
+                {
+                  "key": "AccountSid",
+                  "value": "{{twilioAccountSid}}"
+                },
+                {
+                  "key": "From",
+                  "value": "{{twilioTo}}"
+                },
+                {
+                  "key": "To",
+                  "value": "{{twilioFrom}}"
+                },
+                {
+                  "key": "MessageStatus",
+                  "value": "read"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/webhooks/twilio/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "webhooks", "twilio", "status"]
+            },
+            "description": "Twilio notifies us that our outbound message was read (blue checkmarks)"
+          },
+          "response": []
+        },
+        {
+          "name": "Message Failed",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              },
+              {
+                "key": "X-Twilio-Signature",
+                "value": "test-signature-disabled-in-dev"
+              }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "MessageSid",
+                  "value": "SM_test_message_456"
+                },
+                {
+                  "key": "AccountSid",
+                  "value": "{{twilioAccountSid}}"
+                },
+                {
+                  "key": "From",
+                  "value": "{{twilioTo}}"
+                },
+                {
+                  "key": "To",
+                  "value": "{{twilioFrom}}"
+                },
+                {
+                  "key": "MessageStatus",
+                  "value": "failed"
+                },
+                {
+                  "key": "ErrorCode",
+                  "value": "63016"
+                },
+                {
+                  "key": "ErrorMessage",
+                  "value": "The recipient is not a valid WhatsApp user"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/webhooks/twilio/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "webhooks", "twilio", "status"]
+            },
+            "description": "Twilio notifies us that our outbound message failed to deliver"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Admin",
+      "description": "Admin endpoints for Twilio management",
+      "item": [
+        {
+          "name": "List Merchant Phone Mappings",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-admin-api-key",
+                "value": "super-secret-admin-key"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/twilio/phone-mappings",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "admin", "twilio", "phone-mappings"]
+            },
+            "description": "List all merchant-to-phone number mappings (admin only)"
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

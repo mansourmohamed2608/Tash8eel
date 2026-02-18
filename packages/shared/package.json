@@ -1,0 +1,56 @@
+{
+  "name": "@tash8eel/shared",
+  "version": "1.0.0",
+  "description": "Shared utilities, logging, config, and error handling for Tash8eel",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.js",
+      "import": "./dist/index.js"
+    },
+    "./logger": {
+      "types": "./dist/logger/index.d.ts",
+      "require": "./dist/logger/index.js",
+      "import": "./dist/logger/index.js"
+    },
+    "./config": {
+      "types": "./dist/config/index.d.ts",
+      "require": "./dist/config/index.js",
+      "import": "./dist/config/index.js"
+    },
+    "./errors": {
+      "types": "./dist/errors/index.d.ts",
+      "require": "./dist/errors/index.js",
+      "import": "./dist/errors/index.js"
+    },
+    "./utils": {
+      "types": "./dist/utils/index.d.ts",
+      "require": "./dist/utils/index.js",
+      "import": "./dist/utils/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "clean": "rimraf dist",
+    "test": "jest --forceExit",
+    "test:watch": "jest --watch",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "dotenv": "^17.2.3",
+    "pino": "^8.17.2",
+    "pino-pretty": "^10.3.1",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.14",
+    "@types/node": "^20.10.6",
+    "@types/uuid": "^9.0.7",
+    "jest": "^29.7.0",
+    "rimraf": "^5.0.5",
+    "ts-jest": "^29.4.6",
+    "typescript": "^5.3.3"
+  }
+}

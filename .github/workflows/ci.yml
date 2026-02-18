@@ -1,0 +1,413 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+env:
+  NODE_VERSION: "20"
+  POSTGRES_USER: test_user
+  POSTGRES_PASSWORD: test_password
+  POSTGRES_DB: operations_test
+
+jobs:
+  security-check:
+    name: Security Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check for hardcoded database credentials
+        run: |
+          echo "🔍 Scanning for hardcoded database credentials..."
+          if grep -rE "postgresql://[^$\{].*@.*neon\.tech" scripts/ --include="*.js" --include="*.ts" 2>/dev/null; then
+            echo "❌ SECURITY: Found hardcoded Neon database credentials in scripts!"
+            echo "All scripts must use process.env.DATABASE_URL"
+            exit 1
+          fi
+          if grep -rE "postgresql://[^$\{].*@.*neon\.tech" apps/ \
+            --include="*.js" --include="*.ts" --include="*.tsx" \
+            --exclude-dir=node_modules --exclude-dir=dist 2>/dev/null; then
+            echo "❌ SECURITY: Found hardcoded Neon database credentials in source!"
+            exit 1
+          fi
+          if grep -rE "npg_[A-Za-z0-9]{10,}" scripts/ apps/ \
+            --include="*.js" --include="*.ts" --include="*.tsx" \
+            --exclude-dir=node_modules --exclude-dir=dist 2>/dev/null; then
+            echo "❌ SECURITY: Found Neon password pattern in source code!"
+            exit 1
+          fi
+          echo "✅ No hardcoded database credentials found"
+      - name: Check for exposed API keys
+        run: |
+          echo "🔍 Scanning for exposed API keys..."
+          if grep -rE "sk-[A-Za-z0-9]{40,}" apps/ scripts/ \
+            --include="*.js" --include="*.ts" --include="*.tsx" \
+            --exclude-dir=node_modules --exclude-dir=dist 2>/dev/null | \
+            grep -v "sk-test-dummy" | grep -v "process\.env"; then
+            echo "❌ SECURITY: Found potential OpenAI API key!"
+            exit 1
+          fi
+          echo "✅ No exposed API keys found"
+
+  lint:
+    name: Lint (${{ matrix.workspace }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        workspace: [apps/api, apps/worker, apps/portal]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+      - name: Install dependencies
+        run: npm ci
+      - name: Run lint
+        run: npm run lint -w ${{ matrix.workspace }} --if-present
+
+  build-shared:
+    name: Build Shared Packages
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+      - name: Install dependencies
+        run: npm ci
+      - name: Build shared packages
+        run: |
+          npm run build -w packages/shared --if-present
+          npm run build -w packages/agent-sdk --if-present
+
+  build-api:
+    name: Build API
+    runs-on: ubuntu-latest
+    needs: [build-shared]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+      - name: Install dependencies
+        run: npm ci
+      - name: Build shared packages
+        run: |
+          npm run build -w packages/shared --if-present
+          npm run build -w packages/agent-sdk --if-present
+      - name: Build API
+        run: npm run build -w apps/api
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-dist
+          path: apps/api/dist
+          retention-days: 1
+
+  build-worker:
+    name: Build Worker
+    runs-on: ubuntu-latest
+    needs: [build-shared]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+      - name: Install dependencies
+        run: npm ci
+      - name: Build shared packages
+        run: |
+          npm run build -w packages/shared --if-present
+          npm run build -w packages/agent-sdk --if-present
+      - name: Build Worker
+        run: npm run build -w apps/worker
+
+  build-portal:
+    name: Build Portal
+    runs-on: ubuntu-latest
+    needs: [build-shared]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+      - name: Install dependencies
+        run: npm ci
+      - name: Build Portal
+        run: npm run build -w apps/portal
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:3000
+          NEXTAUTH_SECRET: ci-test-secret
+          NEXTAUTH_URL: http://localhost:3001
+
+  test-shared:
+    name: Test Shared Packages
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+      - name: Install dependencies
+        run: npm ci
+      - name: Test shared packages
+        run: npm run test -w packages/shared --if-present
+        env:
+          NODE_ENV: test
+
+  unit-tests:
+    name: Unit Tests (API)
+    runs-on: ubuntu-latest
+    needs: [build-shared]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+      - name: Install dependencies
+        run: npm ci
+      - name: Build shared packages
+        run: |
+          npm run build -w packages/shared --if-present
+          npm run build -w packages/agent-sdk --if-present
+      - name: Run unit tests
+        run: |
+          cd apps/api
+          npx jest test/unit --passWithNoTests --coverage
+        env:
+          NODE_ENV: test
+          OPENAI_API_KEY: sk-test-dummy-key-for-unit-tests
+          ADMIN_API_KEY: test-admin-key
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-coverage
+          path: apps/api/coverage
+          retention-days: 7
+
+  security-tests:
+    name: Security Tests (API)
+    runs-on: ubuntu-latest
+    needs: [build-shared]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+      - name: Install dependencies
+        run: npm ci
+      - name: Build shared packages
+        run: |
+          npm run build -w packages/shared --if-present
+          npm run build -w packages/agent-sdk --if-present
+      - name: Run security tests
+        run: |
+          cd apps/api
+          npx jest --testPathPattern="security" --no-coverage
+        env:
+          NODE_ENV: test
+          OPENAI_API_KEY: sk-test-dummy-key-for-unit-tests
+          ADMIN_API_KEY: test-admin-key
+
+  portal-tests:
+    name: Tests (Portal)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+      - name: Install dependencies
+        run: npm ci
+      - name: Run portal tests
+        run: npm run test -w apps/portal --if-present
+        env:
+          NODE_ENV: test
+
+  worker-tests:
+    name: Tests (Worker)
+    runs-on: ubuntu-latest
+    needs: [build-shared]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+      - name: Install dependencies
+        run: npm ci
+      - name: Build shared packages
+        run: |
+          npm run build -w packages/shared --if-present
+          npm run build -w packages/agent-sdk --if-present
+      - name: Run worker tests
+        run: |
+          cd apps/worker
+          npx jest --passWithNoTests --no-coverage
+        env:
+          NODE_ENV: test
+          OPENAI_API_KEY: sk-test-dummy-key-for-tests
+          ADMIN_API_KEY: test-admin-key
+
+  e2e-tests:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    needs: [build-api]
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: ${{ env.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ env.POSTGRES_PASSWORD }}
+          POSTGRES_DB: ${{ env.POSTGRES_DB }}
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6380:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+      - name: Install dependencies
+        run: npm ci
+      - name: Build shared packages
+        run: |
+          npm run build -w packages/shared --if-present
+          npm run build -w packages/agent-sdk --if-present
+      - name: Wait for Postgres
+        run: |
+          until pg_isready -h localhost -p 5433 -U ${{ env.POSTGRES_USER }}; do
+            echo "Waiting for postgres..."
+            sleep 2
+          done
+      - name: Run database migrations
+        run: |
+          cd apps/api
+          npm run db:migrate
+        env:
+          DATABASE_URL: postgresql://${{ env.POSTGRES_USER }}:${{ env.POSTGRES_PASSWORD }}@localhost:5433/${{ env.POSTGRES_DB }}
+      - name: Run E2E tests
+        run: |
+          cd apps/api
+          npm run test:e2e
+        env:
+          NODE_ENV: test
+          DATABASE_URL: postgresql://${{ env.POSTGRES_USER }}:${{ env.POSTGRES_PASSWORD }}@localhost:5433/${{ env.POSTGRES_DB }}
+          REDIS_URL: redis://localhost:6380
+          ADMIN_API_KEY: test-admin-key
+          OPENAI_API_KEY: sk-test-dummy-key-for-e2e-tests
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-results
+          path: apps/api/test-results
+          retention-days: 7
+
+  docker-build:
+    name: Docker Build (${{ matrix.image }})
+    runs-on: ubuntu-latest
+    needs: [build-api, build-worker, build-portal]
+    strategy:
+      matrix:
+        include:
+          - context: ./apps/api
+            image: tash8eel/operations-api
+          - context: ./apps/worker
+            image: tash8eel/operations-worker
+          - context: ./apps/portal
+            image: tash8eel/operations-portal
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ matrix.context }}
+          push: false
+          tags: ${{ matrix.image }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  ci-success:
+    name: CI Success
+    runs-on: ubuntu-latest
+    needs:
+      - security-check
+      - lint
+      - build-api
+      - build-worker
+      - build-portal
+      - test-shared
+      - unit-tests
+      - security-tests
+      - portal-tests
+      - worker-tests
+      - e2e-tests
+      - docker-build
+    if: always()
+    steps:
+      - name: Check all jobs passed
+        run: |
+          RESULTS=(
+            "${{ needs.security-check.result }}"
+            "${{ needs.lint.result }}"
+            "${{ needs.build-api.result }}"
+            "${{ needs.build-worker.result }}"
+            "${{ needs.build-portal.result }}"
+            "${{ needs.test-shared.result }}"
+            "${{ needs.unit-tests.result }}"
+            "${{ needs.security-tests.result }}"
+            "${{ needs.portal-tests.result }}"
+            "${{ needs.worker-tests.result }}"
+            "${{ needs.e2e-tests.result }}"
+            "${{ needs.docker-build.result }}"
+          )
+          FAILED=0
+          for result in "${RESULTS[@]}"; do
+            if [ "$result" != "success" ]; then
+              FAILED=$((FAILED + 1))
+            fi
+          done
+          if [ "$FAILED" -gt 0 ]; then
+            echo "❌ $FAILED job(s) failed"
+            exit 1
+          fi
+          echo "✅ All CI checks passed!"
