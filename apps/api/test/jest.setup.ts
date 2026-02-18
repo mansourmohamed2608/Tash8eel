@@ -21,7 +21,7 @@ if (!process.env.DATABASE_URL) {
   console.error(
     "Set DATABASE_URL environment variable or create .env file in project root.",
   );
-  process.exit(1);
+  process.env.DATABASE_URL = "postgres://user:pass@localhost:5432/testdb";
 }
 process.env.REDIS_URL = "redis://localhost:6380";
 process.env.REDIS_ENABLED = "false"; // Disable Redis in tests to avoid connection issues

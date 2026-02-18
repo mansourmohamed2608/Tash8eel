@@ -2,9 +2,12 @@ const { Client } = require("pg");
 const bcrypt = require("bcrypt");
 
 async function main() {
-  const c = new Client(
-    "postgresql://neondb_owner:npg_UlYV0QCeKkB4@ep-twilight-boat-afzfn9ls-pooler.c-2.us-west-2.aws.neon.tech/neondb?sslmode=require",
-  );
+  const connectionString = process.env.DATABASE_URL;
+  if (!connectionString) {
+    throw new Error("DATABASE_URL is required. Set it in your environment.");
+  }
+
+  const c = new Client({ connectionString });
   await c.connect();
 
   const r = await c.query(

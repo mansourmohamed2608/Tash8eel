@@ -67,7 +67,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
       - name: Run lint
-        run: npm run lint -w ${{ matrix.workspace }} --if-present
+        working-directory: ${{ matrix.workspace }}
+        run: npm run lint --if-present
 
   build-shared:
     name: Build Shared Packages

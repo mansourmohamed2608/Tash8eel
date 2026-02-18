@@ -1292,7 +1292,7 @@ export default function InventoryPage() {
           status: toStockStatus(stock.available, threshold),
         };
       })
-      .filter((item): item is InventoryItem => item !== null);
+      .filter((item): item is NonNullable<typeof item> => item !== null);
   }, [
     categoryFilter,
     inventory,
