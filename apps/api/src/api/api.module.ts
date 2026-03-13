@@ -6,7 +6,6 @@ import {
   MerchantCatalogController,
   ConversationsController,
   OrdersController,
-  AdminController,
   HealthController,
   InventoryController,
   MetaWebhookController,
@@ -18,7 +17,6 @@ import {
   MerchantAssistantController,
   AnalyticsEventsController,
   AnalyticsEventsAdminController,
-  BillingController,
   BillingAdminController,
   QuoteRequestsController,
   QuoteRequestsAdminController,
@@ -29,7 +27,21 @@ import {
 import { AnalyticsController } from "./controllers/analytics.controller";
 import { FollowupsController } from "./controllers/followups.controller";
 import { MerchantPortalController } from "./controllers/merchant-portal.controller";
-import { PortalCompatController } from "./controllers/portal-compat.controller";
+// Portal sub-controllers (replaced portal-compat.controller.ts)
+import { PortalAgentActivityController } from "./controllers/portal-agent-activity.controller";
+import { PortalOnboardingController } from "./controllers/portal-onboarding.controller";
+import { PortalAnalyticsController } from "./controllers/portal-analytics.controller";
+import { PortalDeliveryController } from "./controllers/portal-delivery.controller";
+import { PortalInventoryController } from "./controllers/portal-inventory.controller";
+import { PortalCatalogController } from "./controllers/portal-catalog.controller";
+import { PortalKnowledgeBaseController } from "./controllers/portal-knowledge-base.controller";
+// Billing sub-controllers (replaced billing.controller.ts)
+import { BillingPlansController } from "./controllers/billing-plans.controller";
+import { BillingCheckoutController } from "./controllers/billing-checkout.controller";
+import { BillingSubscriptionsController } from "./controllers/billing-subscriptions.controller";
+// Admin sub-controllers (replaced admin.controller.ts)
+import { AdminOpsController } from "./controllers/admin-ops.controller";
+import { AdminMerchantsController } from "./controllers/admin-merchants.controller";
 import { InternalAiController } from "./controllers/internal-ai.controller";
 import {
   ProductionFeaturesController,
@@ -38,6 +50,7 @@ import {
 import { VisionController } from "./controllers/vision.controller";
 import { PaymentsController } from "./controllers/payments.controller";
 import { PublicPaymentsController } from "./controllers/public-payments.controller";
+import { PublicOrdersController } from "./controllers/public-orders.controller";
 import { KpiController } from "./controllers/kpi.controller";
 import { AgentTeamsController } from "./controllers/agent-teams.controller";
 import {
@@ -46,6 +59,18 @@ import {
   CustomerIntelligenceController,
 } from "./controllers/advanced-reports.controller";
 import { SeedController } from "./controllers/seed.controller";
+import {
+  BranchesController,
+  BranchAnalyticsController,
+} from "./controllers/branches.controller";
+import {
+  BranchStaffController,
+  BranchGoalsController,
+  BranchShiftsController,
+  BranchPLController,
+  BranchAlertsController,
+  BranchInventoryController,
+} from "./controllers/branch-extensions.controller";
 
 // Infrastructure imports
 import { DatabaseModule } from "../infrastructure/database/database.module";
@@ -88,9 +113,15 @@ import { RateLimitService } from "../shared/guards/rate-limit.guard";
     ConversationsController,
     OrdersController,
     FollowupsController,
-    AdminController,
     MerchantPortalController,
-    PortalCompatController,
+    // Portal sub-controllers
+    PortalAgentActivityController,
+    PortalOnboardingController,
+    PortalAnalyticsController,
+    PortalDeliveryController,
+    PortalInventoryController,
+    PortalCatalogController,
+    PortalKnowledgeBaseController,
     InventoryController,
     MetaWebhookController,
     InternalAiController,
@@ -101,6 +132,7 @@ import { RateLimitService } from "../shared/guards/rate-limit.guard";
     VisionController,
     PaymentsController,
     PublicPaymentsController,
+    PublicOrdersController,
     KpiController,
     EarlyAccessController,
     LoyaltyController,
@@ -109,7 +141,10 @@ import { RateLimitService } from "../shared/guards/rate-limit.guard";
     MerchantAssistantController,
     AnalyticsEventsController,
     AnalyticsEventsAdminController,
-    BillingController,
+    // Billing sub-controllers
+    BillingPlansController,
+    BillingCheckoutController,
+    BillingSubscriptionsController,
     BillingAdminController,
     QuoteRequestsController,
     QuoteRequestsAdminController,
@@ -120,7 +155,18 @@ import { RateLimitService } from "../shared/guards/rate-limit.guard";
     FinanceReportsController,
     AdvancedInventoryController,
     CustomerIntelligenceController,
+    BranchesController,
+    BranchAnalyticsController,
+    BranchStaffController,
+    BranchGoalsController,
+    BranchShiftsController,
+    BranchPLController,
+    BranchAlertsController,
+    BranchInventoryController,
     SeedController,
+    // Admin sub-controllers
+    AdminOpsController,
+    AdminMerchantsController,
   ],
   providers: [RateLimitService],
 })

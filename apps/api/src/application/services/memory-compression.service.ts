@@ -112,7 +112,11 @@ export class MemoryCompressionService {
   }
 
   /**
-   * Compress conversation history into a rolling summary
+   * Compress conversation history into a rolling summary.
+   *
+   * @internal Called internally by getConversationMemory. Not exposed via
+   * any public API route (BL-010: AI sink audit — compressHistory is an
+   * internal-only AI flow; no external entrypoint exists).
    */
   async compressConversation(
     conversationId: string,

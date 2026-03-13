@@ -21,27 +21,40 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   constructor(private configService: ConfigService) {}
 
   async onModuleInit() {
+    const redisUrl = this.configService.get<string>("REDIS_URL");
     const host = this.configService.get<string>("REDIS_HOST");
     const redisEnabled = this.configService.get<string>(
       "REDIS_ENABLED",
       "false",
     );
 
-    if (!host || redisEnabled === "false") {
+    if ((!redisUrl && !host) || redisEnabled === "false") {
       logger.info("Redis disabled or not configured, using fallback locking");
       return;
     }
 
     try {
-      this.client = new Redis({
-        host,
-        port: this.configService.get<number>("REDIS_PORT", 6379),
-        password: this.configService.get<string>("REDIS_PASSWORD") || undefined,
-        db: this.configService.get<number>("REDIS_DB", 0),
-        maxRetriesPerRequest: 1,
-        retryStrategy: () => null, // Don't retry - fail fast
-        lazyConnect: true,
-      });
+      if (redisUrl) {
+        // Support full connection strings: redis://, rediss:// (TLS for Upstash / Redis Cloud)
+        this.client = new Redis(redisUrl, {
+          maxRetriesPerRequest: 1,
+          retryStrategy: () => null, // Fail fast
+          lazyConnect: true,
+          // Disable tls auto-reject for cloud providers that use self-signed intermediates
+          // when the URL scheme is rediss:// ioredis enables TLS automatically
+        });
+      } else {
+        this.client = new Redis({
+          host,
+          port: this.configService.get<number>("REDIS_PORT", 6379),
+          password:
+            this.configService.get<string>("REDIS_PASSWORD") || undefined,
+          db: this.configService.get<number>("REDIS_DB", 0),
+          maxRetriesPerRequest: 1,
+          retryStrategy: () => null, // Don't retry - fail fast
+          lazyConnect: true,
+        });
+      }
 
       // Suppress connection error events
       this.client.on("error", () => {});

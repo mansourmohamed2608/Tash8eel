@@ -1,21 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useSession, signIn } from "next-auth/react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
-import { useToast } from "@/hooks/use-toast";
-import { portalApi } from "@/lib/authenticated-api";
-import { Loader2, Lock } from "lucide-react";
 
 export default function ForceChangePasswordPage() {
   const { data: session, status } = useSession();

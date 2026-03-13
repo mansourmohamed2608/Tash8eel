@@ -77,7 +77,7 @@ class PublicSubmitProofDto {
 @ApiTags("Public Payments")
 @Controller("v1/payments")
 @UseGuards(ThrottlerGuard)
-@Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 requests per minute for public endpoints
+@Throttle({ default: { limit: 3, ttl: 60000 } }) // BL-002: 3 req/min per IP for unauthenticated public endpoints
 export class PublicPaymentsController {
   private readonly logger = new Logger(PublicPaymentsController.name);
   private static readonly PROOF_UPLOAD_LIMIT_BYTES = 5 * 1024 * 1024;
@@ -118,65 +118,9 @@ export class PublicPaymentsController {
   })
   @ApiResponse({ status: 404, description: "Payment link not found" })
   async viewPaymentLink(@Param("code") code: string) {
-    // Validate code format (prevent injection / abuse)
-    if (
-      !code ||
-      code.length < 4 ||
-      code.length > 50 ||
-      !/^[A-Za-z0-9_-]+$/.test(code)
-    ) {
-      throw new NotFoundException("Payment link not found");
-    }
-
-    const link = await this.paymentService.getPaymentLinkByCode(code);
-    if (!link) {
-      throw new NotFoundException("Payment link not found");
-    }
-
-    // Check if expired
-    if (link.status === "PENDING" || link.status === "VIEWED") {
-      if (new Date() > link.expiresAt) {
-        return { ...link, status: "EXPIRED", isExpired: true };
-      }
-    }
-
-    // Get merchant payout details for the customer to use
-    const payoutDetails = await this.paymentService.getMerchantPayoutDetails(
-      link.merchantId,
+    throw new BadRequestException(
+      "Payment links are removed. Submit payment proofs through merchant review channels only.",
     );
-
-    return {
-      linkCode: link.linkCode,
-      amount: link.amount,
-      currency: link.currency,
-      description: link.description,
-      status: link.status,
-      expiresAt: link.expiresAt,
-      customerName: link.customerName,
-      allowedMethods: link.allowedMethods,
-      isPaid: link.status === "PAID",
-      isExpired: new Date() > link.expiresAt,
-      payoutDetails: {
-        instapay: payoutDetails.instapayAlias
-          ? { alias: payoutDetails.instapayAlias }
-          : null,
-        vodafoneCash: payoutDetails.vodafoneCashNumber
-          ? { number: payoutDetails.vodafoneCashNumber }
-          : null,
-        bankTransfer: payoutDetails.bankName
-          ? {
-              bankName: payoutDetails.bankName,
-              accountHolder: payoutDetails.bankAccountHolder,
-              accountNumber: payoutDetails.bankAccount,
-              iban: payoutDetails.bankIban,
-            }
-          : null,
-        preferredMethod: payoutDetails.preferredMethod,
-        merchantName: payoutDetails.merchantName,
-      },
-      proofInstructionAr:
-        "بعد التحويل ابعت صورة/سكرينشوت للإيصال هنا للتأكيد ✅",
-    };
   }
 
   /**
@@ -207,91 +151,8 @@ export class PublicPaymentsController {
     @Body() dto: PublicSubmitProofDto,
     @UploadedFile() proofImage?: Express.Multer.File,
   ) {
-    // Validate code format
-    if (
-      !code ||
-      code.length < 4 ||
-      code.length > 50 ||
-      !/^[A-Za-z0-9_-]+$/.test(code)
-    ) {
-      throw new NotFoundException("Payment link not found");
-    }
-
-    const uploadedImageBase64 = proofImage?.buffer?.length
-      ? `data:${proofImage.mimetype || "image/jpeg"};base64,${proofImage.buffer.toString("base64")}`
-      : undefined;
-    const imageBase64 = dto.imageBase64 || uploadedImageBase64;
-
-    // Validate base64 image if provided — prevent size bombs
-    if (imageBase64) {
-      if (imageBase64.length > MAX_BASE64_LENGTH) {
-        throw new BadRequestException("Image too large. Maximum 5MB.");
-      }
-      // Basic MIME validation: must start with data:image/ or be raw base64
-      if (
-        imageBase64.startsWith("data:") &&
-        !imageBase64.startsWith("data:image/")
-      ) {
-        throw new BadRequestException("Only image files are allowed.");
-      }
-    }
-
-    // Validate imageUrl if provided — prevent SSRF
-    if (dto.imageUrl) {
-      try {
-        const url = new URL(dto.imageUrl);
-        if (!["http:", "https:"].includes(url.protocol)) {
-          throw new BadRequestException("Invalid image URL protocol.");
-        }
-        // Block private IPs
-        const hostname = url.hostname.toLowerCase();
-        if (
-          hostname === "localhost" ||
-          hostname === "127.0.0.1" ||
-          hostname === "0.0.0.0" ||
-          hostname.startsWith("10.") ||
-          hostname.startsWith("192.168.") ||
-          hostname === "::1" ||
-          hostname.startsWith("169.254.")
-        ) {
-          throw new BadRequestException("Invalid image URL.");
-        }
-      } catch (e) {
-        if (e instanceof BadRequestException) throw e;
-        throw new BadRequestException("Invalid image URL format.");
-      }
-    }
-
-    const link = await this.paymentService.getPaymentLinkByCode(code);
-    if (!link) {
-      throw new NotFoundException("Payment link not found");
-    }
-
-    if (link.status === "PAID") {
-      return { message: "تم تأكيد الدفع لهذا الرابط بالفعل" };
-    }
-
-    if (link.status === "CANCELLED" || new Date() > link.expiresAt) {
-      throw new BadRequestException("رابط الدفع منتهي الصلاحية أو ملغي");
-    }
-
-    const input: SubmitPaymentProofInput = {
-      ...dto,
-      imageBase64,
-      merchantId: link.merchantId,
-      paymentLinkId: link.id,
-      orderId: link.orderId,
-      conversationId: link.conversationId,
-    };
-
-    this.logger.log({
-      msg: "Public proof submission",
-      linkCode: code,
-      proofType: dto.proofType,
-      hasImage: !!imageBase64,
-      hasRef: !!dto.referenceNumber,
-    });
-
-    return this.paymentService.submitPaymentProof(input);
+    throw new BadRequestException(
+      "Public payment-link proof submission is removed.",
+    );
   }
 }

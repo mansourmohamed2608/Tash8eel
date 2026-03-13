@@ -41,6 +41,7 @@ import {
 import { CopilotDispatcherService } from "../../application/llm/copilot-dispatcher.service";
 import { TranscriptionAdapterFactory } from "../../application/adapters/transcription.adapter";
 import { AuditService } from "../../application/services/audit.service";
+import { UsageGuardService } from "../../application/services/usage-guard.service";
 import {
   DESTRUCTIVE_INTENTS,
   hasPermissionForIntent,
@@ -80,6 +81,7 @@ export class CopilotController {
     private readonly transcriptionFactory: TranscriptionAdapterFactory,
     private readonly auditService: AuditService,
     private readonly aiCache: AiCacheService,
+    private readonly usageGuard: UsageGuardService,
   ) {}
 
   /**
@@ -123,8 +125,22 @@ export class CopilotController {
       throw new BadRequestException("Message is required");
     }
 
-    // Check AI daily call limit
-    const limitCheck = await this.checkAiCallLimit(merchantId);
+    const tokenCheck = await this.usageGuard.checkLimit(merchantId, "TOKENS");
+    if (!tokenCheck.allowed) {
+      return {
+        success: false,
+        intent: null,
+        error: "TOKEN_BUDGET_EXCEEDED",
+        reply: `⚠️ تم استنفاد سعة الذكاء الاصطناعي اليومية (${tokenCheck.used}/${tokenCheck.limit}). حاول غداً أو قم بالترقية.`,
+        limitExceeded: true,
+        usage: { used: tokenCheck.used, limit: tokenCheck.limit },
+      };
+    }
+
+    // AI daily call quota (copilot is available to all plans, but always metered)
+    const limitCheck = await this.usageGuard.consume(merchantId, "AI_CALLS", 1, {
+      metadata: { source: "COPILOT_TEXT" },
+    });
     if (!limitCheck.allowed) {
       return {
         success: false,
@@ -136,6 +152,22 @@ export class CopilotController {
       };
     }
 
+    const consumeTokenUsage = async (assistantReply: string, intent?: string) => {
+      const estimatedTokens = this.estimateTokenUsage(
+        dto.message.trim(),
+        dto.history || [],
+        assistantReply,
+      );
+      await this.usageGuard
+        .consume(merchantId, "TOKENS", estimatedTokens, {
+          metadata: {
+            source: "COPILOT_TEXT",
+            intent: intent || "UNKNOWN",
+          },
+        })
+        .catch(() => {});
+    };
+
     // Parse command with AI
     const result = await this.copilotAiService.parseCommand(
       merchantId,
@@ -146,6 +178,9 @@ export class CopilotController {
     );
 
     if (!result.success) {
+      await consumeTokenUsage(
+        result.message || "الذكاء الاصطناعي غير متاح مؤقتاً",
+      );
       return {
         success: false,
         error: result.error,
@@ -172,6 +207,8 @@ export class CopilotController {
         },
       });
 
+      await consumeTokenUsage(`⛔ ${roleMessage}`, command.intent);
+
       return {
         success: false,
         intent: command.intent,
@@ -183,6 +220,7 @@ export class CopilotController {
 
     // Check if feature is blocked
     if (result.featureBlocked) {
+      await consumeTokenUsage(command.reply_ar, command.intent);
       return {
         success: true,
         intent: command.intent,
@@ -234,10 +272,12 @@ export class CopilotController {
         await this.aiCache.set(cacheKey, response, ttl);
       }
 
+      await consumeTokenUsage(queryResult.replyAr, command.intent);
       return response;
     }
 
     // Destructive action - return preview for confirmation
+    await consumeTokenUsage(command.reply_ar, command.intent);
     return {
       intent: command.intent,
       confidence: command.confidence,
@@ -288,6 +328,72 @@ export class CopilotController {
       throw new BadRequestException("Audio URL or base64 data required");
     }
 
+    const tokenCheck = await this.usageGuard.checkLimit(merchantId, "TOKENS");
+    if (!tokenCheck.allowed) {
+      return {
+        success: false,
+        intent: null,
+        confidence: 0,
+        missing_fields: [],
+        needs_confirmation: false,
+        confirmation_text: null,
+        action: null,
+        user_message: `⚠️ تم استنفاد سعة الذكاء الاصطناعي اليومية (${tokenCheck.used}/${tokenCheck.limit}). حاول غداً أو قم بالترقية.`,
+        limitExceeded: true,
+      };
+    }
+
+    const aiLimit = await this.usageGuard.consume(merchantId, "AI_CALLS", 1, {
+      metadata: { source: "COPILOT_VOICE" },
+    });
+    if (!aiLimit.allowed) {
+      return {
+        success: false,
+        intent: null,
+        confidence: 0,
+        missing_fields: [],
+        needs_confirmation: false,
+        confirmation_text: null,
+        action: null,
+        user_message: `⚠️ تم استنفاد حد الأوامر الذكية اليومي (${aiLimit.used}/${aiLimit.limit}). يرجى الترقية أو المحاولة غداً.`,
+        limitExceeded: true,
+      };
+    }
+
+    const voiceLimit = await this.usageGuard.checkLimit(
+      merchantId,
+      "VOICE_MINUTES",
+    );
+    if (!voiceLimit.allowed) {
+      return {
+        success: false,
+        intent: null,
+        confidence: 0,
+        missing_fields: [],
+        needs_confirmation: false,
+        confirmation_text: null,
+        action: null,
+        user_message: `⚠️ تم استنفاد حد الدقائق الصوتية هذا الشهر (${voiceLimit.used.toFixed(1)}/${voiceLimit.limit}).`,
+        limitExceeded: true,
+      };
+    }
+
+    const consumeTokenUsage = async (assistantReply: string, intent?: string) => {
+      const estimatedTokens = this.estimateTokenUsage(
+        transcription?.text || "",
+        [],
+        assistantReply,
+      );
+      await this.usageGuard
+        .consume(merchantId, "TOKENS", estimatedTokens, {
+          metadata: {
+            source: "COPILOT_VOICE",
+            intent: intent || "UNKNOWN",
+          },
+        })
+        .catch(() => {});
+    };
+
     // Get transcription adapter
     const adapter = await this.transcriptionFactory.getAdapter();
 
@@ -304,7 +410,34 @@ export class CopilotController {
       prompt: "أمر تاجر: مصاريف، مخزون، طلبات، دفع",
     });
 
+    const voiceMinutes = Math.max(
+      0.01,
+      Number(transcription.duration || 0) / 60,
+    );
+    const voiceUsage = await this.usageGuard.consume(
+      merchantId,
+      "VOICE_MINUTES",
+      voiceMinutes,
+      {
+        metadata: { source: "COPILOT_VOICE" },
+      },
+    );
+    if (!voiceUsage.allowed) {
+      return {
+        success: false,
+        intent: null,
+        confidence: 0,
+        missing_fields: [],
+        needs_confirmation: false,
+        confirmation_text: null,
+        action: null,
+        user_message: `⚠️ تم استنفاد حد الدقائق الصوتية هذا الشهر (${voiceUsage.used.toFixed(1)}/${voiceUsage.limit}).`,
+        limitExceeded: true,
+      };
+    }
+
     if (!transcription.text) {
+      await consumeTokenUsage("لم نتمكن من فهم الصوت. جرب مرة تانية.");
       return {
         success: false,
         intent: null,
@@ -336,6 +469,7 @@ export class CopilotController {
     );
 
     if (!result.success) {
+      await consumeTokenUsage("حدث خطأ في معالجة الأمر");
       return {
         success: false,
         intent: null,
@@ -363,6 +497,8 @@ export class CopilotController {
         metadata: { userRole, source: "portal_voice" },
       });
 
+      await consumeTokenUsage(`⛔ ${roleMessage}`, command.intent);
+
       return {
         success: false,
         intent: command.intent,
@@ -384,6 +520,8 @@ export class CopilotController {
         command,
       );
 
+      await consumeTokenUsage(queryResult.replyAr, command.intent);
+
       return {
         success: true,
         intent: command.intent,
@@ -397,6 +535,8 @@ export class CopilotController {
         data: queryResult.data,
       };
     }
+
+    await consumeTokenUsage(command.reply_ar, command.intent);
 
     return {
       success: true,
@@ -675,69 +815,42 @@ export class CopilotController {
         provider: isConnected ? "whisper-1" : "mock",
       },
       vision: {
-        ocrAvailable: isConnected,
-        provider: isConnected ? "gpt-4o" : "mock",
+        ocrAvailable: false,
+        provider: "payment-proof-only",
       },
     };
   }
 
   // ============= Private Helpers =============
 
+  private estimateTokenUsage(
+    userText: string,
+    history: Array<{ role: "user" | "assistant"; content: string }>,
+    assistantReply: string,
+  ): number {
+    const historyChars = (history || []).reduce(
+      (sum, item) => sum + String(item?.content || "").length,
+      0,
+    );
+    const totalChars =
+      String(userText || "").length + historyChars + String(assistantReply || "").length;
+    // Approximation: ~1 token per 3 chars in mixed Arabic/English payloads.
+    return Math.max(120, Math.ceil(totalChars / 3));
+  }
+
   /**
    * Check if merchant has exceeded their daily AI call limit.
-   * Reads from the merchant's DB `limits` column (set by plan) + any active add-ons.
+   * Uses UsageGuard canonical limits (plan + credits).
    */
   private async checkAiCallLimit(
     merchantId: string,
   ): Promise<{ allowed: boolean; used: number; limit: number }> {
     try {
-      // Count today's copilot interactions
-      const countResult = await this.pool.query(
-        `SELECT COUNT(*) as call_count FROM copilot_history 
-         WHERE merchant_id = $1 AND created_at >= CURRENT_DATE`,
-        [merchantId],
-      );
-      const used = parseInt(countResult.rows[0]?.call_count || "0");
-
-      // Get merchant's plan limits from DB (set during subscription)
-      const merchantResult = await this.pool.query(
-        `SELECT m.limits FROM merchants m WHERE m.id = $1`,
-        [merchantId],
-      );
-
-      const limits = merchantResult.rows[0]?.limits;
-      let planLimit = limits?.aiCallsPerDay ?? 20;
-
-      // Check for active AI_CALLS add-on that increases the limit
-      if (planLimit !== -1) {
-        try {
-          const addonResult = await this.pool.query(
-            `SELECT tier_id FROM merchant_addons
-             WHERE merchant_id = $1 AND addon_type = 'AI_CALLS' AND status = 'active' AND expires_at > NOW()
-             ORDER BY created_at DESC LIMIT 1`,
-            [merchantId],
-          );
-          if (addonResult.rows.length > 0) {
-            // Add-on tier overrides the plan limit (add-on tier is always >= plan tier)
-            const addonTierLimits: Record<string, number> = {
-              BASIC: 300,
-              STANDARD: 500,
-              PROFESSIONAL: 1500,
-              UNLIMITED: -1,
-            };
-            const addonLimit =
-              addonTierLimits[addonResult.rows[0].tier_id] ?? planLimit;
-            planLimit = Math.max(planLimit, addonLimit);
-          }
-        } catch {
-          /* add-on table may not exist yet */
-        }
-      }
-
+      const check = await this.usageGuard.checkLimit(merchantId, "AI_CALLS");
       return {
-        allowed: planLimit === -1 || used < planLimit,
-        used,
-        limit: planLimit,
+        allowed: check.allowed,
+        used: check.used,
+        limit: check.limit,
       };
     } catch (error) {
       // On error, allow the call (fail open for UX)

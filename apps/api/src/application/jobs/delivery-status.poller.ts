@@ -49,6 +49,13 @@ export class DeliveryStatusPoller {
         msg: "Error in delivery status poller",
         error: error.message,
       });
+      try {
+        await this.pool.query(
+          `INSERT INTO job_failure_events (job_name, error_message, error_stack)
+           VALUES ($1, $2, $3)`,
+          ["delivery-status-poller", error.message, error.stack ?? null],
+        );
+      } catch { /* non-fatal */ }
     } finally {
       await this.redisService.releaseLock(lock);
     }

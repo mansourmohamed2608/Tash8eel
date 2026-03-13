@@ -4,7 +4,7 @@ export * from "./catalog.controller";
 export * from "./merchant-catalog.controller";
 export * from "./conversations.controller";
 export * from "./orders.controller";
-export * from "./admin.controller";
+// export * from "./admin.controller"; // REFACTORED → admin-ops + admin-merchants controllers
 export * from "./health.controller";
 export * from "./inventory.controller";
 export * from "./meta-webhook.controller";
@@ -12,13 +12,13 @@ export * from "./meta-webhook.controller";
 export * from "./notifications.controller";
 export * from "./analytics.controller";
 export * from "./merchant-portal.controller";
-export * from "./portal-compat.controller";
+// export * from "./portal-compat.controller"; // REFACTORED → portal-* sub-controllers
 export * from "./early-access.controller";
 export * from "./loyalty.controller";
 export * from "./feature-requests.controller";
 export * from "./assistant.controller";
 export * from "./analytics-events.controller";
-export * from "./billing.controller";
+// export * from "./billing.controller"; // REFACTORED → billing-plans + billing-checkout + billing-subscriptions
 export * from "./billing-admin.controller";
 export * from "./quote-requests.controller";
 export * from "./integrations.controller";

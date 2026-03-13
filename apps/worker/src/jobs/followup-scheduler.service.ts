@@ -101,6 +101,14 @@ export class FollowupSchedulerService {
         message: err.message,
         stack: err.stack,
       });
+      // BL-009: persist failure for alerting
+      this.pool
+        .query(
+          `INSERT INTO job_failure_events (job_name, error_message, error_stack)
+           VALUES ($1, $2, $3)`,
+          ["FollowupScheduler.processScheduledFollowups", err.message, err.stack ?? null],
+        )
+        .catch(() => {/* non-fatal */});
     }
   }
 

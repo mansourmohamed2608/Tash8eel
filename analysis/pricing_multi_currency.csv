@@ -1,0 +1,20 @@
+Plan,USD_Monthly,USD_Annual,EGP_Monthly,SAR_Monthly,AED_Monthly,OMR_Monthly,KWD_Monthly,EGP_Annual,SAR_Annual,AED_Annual,OMR_Annual,KWD_Annual,EGP_Monthly_VAT14,SAR_Monthly_VAT15,AED_Monthly_VAT5,OMR_Monthly_VAT5,KWD_Monthly_VAT0
+Starter,104,1061,3861,410,428,40,34,39377,4177,4363,408,352,4401,472,449,42,34
+Basic,159,1622,5902,626,654,61,53,60202,6386,6671,624,538,6728,720,687,64,53
+Growth,370,3774,13734,1457,1522,142,123,140092,14860,15523,1453,1251,15657,1675,1598,149,123
+Professional,1220,12444,45287,4804,5018,470,405,461924,48998,51185,4791,4126,51627,5525,5269,493,405
+Enterprise,3254,33191,120789,12813,13384,1253,1079,1232049,130689,136520,12779,11005,137699,14735,14053,1316,1079
+Addon: Extra WhatsApp Msgs (per 1k),7,N/A,260,27,28,3,2,N/A,N/A,N/A,N/A,N/A,296,31,29,3,2
+Addon: Extra AI Actions (per 100),0.9,N/A,33,4,4,0,0,N/A,N/A,N/A,N/A,N/A,38,5,4,0,0
+Addon: Extra AI Tokens (per 1M),3.2,N/A,119,13,13,1,1,N/A,N/A,N/A,N/A,N/A,135,15,14,1,1
+Addon: Extra Templates (per 100),9,N/A,334,35,37,3,3,N/A,N/A,N/A,N/A,N/A,381,40,39,3,3
+Addon: Extra Proof Checks (per 10),2,N/A,74,8,8,1,1,N/A,N/A,N/A,N/A,N/A,84,9,8,1,1
+Addon: Extra Voice Minutes (per 10),0.3,N/A,11,1,1,0,0,N/A,N/A,N/A,N/A,N/A,13,1,1,0,0
+Addon: Extra Calling Minutes (per 10),1.4,N/A,52,6,6,1,0,N/A,N/A,N/A,N/A,N/A,59,7,6,1,1
+Addon: Extra Map Queries (per 1k),20,N/A,741,79,82,8,7,N/A,N/A,N/A,N/A,N/A,844,91,86,8,7
+Addon: Extra Team Seat (per month),12,N/A,445,47,49,5,4,N/A,N/A,N/A,N/A,N/A,507,54,51,5,4
+Addon: Extra Branch (per month),35,N/A,1299,138,144,13,12,N/A,N/A,N/A,N/A,N/A,1481,159,151,14,12
+Addon: Extra WhatsApp Number (per month),22,N/A,817,87,90,8,7,N/A,N/A,N/A,N/A,N/A,931,100,95,9,7
+Addon: Extra Automation (per month),8,N/A,297,32,33,3,3,N/A,N/A,N/A,N/A,N/A,338,37,35,3,3
+Addon: Support Hour Standard (per hour),120,N/A,4454,473,494,46,40,N/A,N/A,N/A,N/A,N/A,5077,544,519,48,40
+Addon: Support Hour Enterprise (per hour),160,N/A,5939,630,658,62,53,N/A,N/A,N/A,N/A,N/A,6770,725,691,65,53

@@ -16,7 +16,7 @@ import {
  * Message Delivery Retry Worker
  *
  * Processes queued messages and retries failed deliveries with exponential backoff.
- * Currently uses mock delivery - will integrate with WhatsApp/Twilio later.
+ * Uses Meta WhatsApp Cloud API delivery and retries failed attempts.
  */
 @Injectable()
 export class MessageDeliveryWorker implements OnModuleInit, OnModuleDestroy {

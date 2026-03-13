@@ -77,6 +77,7 @@ import {
 import { AuditService } from "../../application/services/audit.service";
 import { StaffService } from "../../application/services/staff.service";
 import { InventoryAiService } from "../../application/llm/inventory-ai.service";
+import { ForecastEngineService } from "../../application/forecasting/forecast-engine.service";
 import {
   getCatalog,
   PLAN_ENTITLEMENTS,
@@ -126,6 +127,7 @@ export class MerchantPortalController {
     private readonly auditService: AuditService,
     private readonly staffService: StaffService,
     private readonly inventoryAiService: InventoryAiService,
+    private readonly forecastEngine: ForecastEngineService,
   ) {}
 
   /**
@@ -920,23 +922,39 @@ export class MerchantPortalController {
   ): Promise<{ conversations: any[]; total: number }> {
     const merchantId = this.getMerchantId(req);
 
-    let conversations = await this.conversationRepo.findByMerchant(merchantId);
+    // JOIN with customers so we get real names even without collectedInfo
+    const result = await this.pool.query(
+      `SELECT c.*,
+          cu.name  AS cust_name,
+          cu.phone AS cust_phone
+       FROM conversations c
+       LEFT JOIN customers cu ON cu.id = c.customer_id AND cu.merchant_id = c.merchant_id
+       WHERE c.merchant_id = $1
+       ORDER BY COALESCE(c.last_message_at, c.updated_at) DESC`,
+      [merchantId],
+    );
 
+    let rows: any[] = result.rows;
     if (state) {
-      conversations = conversations.filter(
-        (c: Conversation) => c.state === state,
-      );
+      rows = rows.filter((r: any) => r.state === state);
     }
 
+    const total = rows.length;
     const start = offset || 0;
     const end = start + (limit || 20);
-    const paginated = conversations.slice(start, end);
+    const paginated = rows.slice(start, end);
 
     return {
-      conversations: paginated.map((conv) =>
-        this.mapConversationToDto(conv, []),
-      ),
-      total: conversations.length,
+      conversations: paginated.map((row: any) => {
+        const conv = (this.conversationRepo as any).mapToEntity
+          ? (this.conversationRepo as any).mapToEntity(row)
+          : row;
+        return this.mapConversationToDto(conv, [], {
+          name: row.cust_name || undefined,
+          phone: row.cust_phone || undefined,
+        });
+      }),
+      total,
     };
   }
 
@@ -1536,57 +1554,52 @@ export class MerchantPortalController {
       : 30;
     const startDate = new Date(Date.now() - daysBack * 24 * 60 * 60 * 1000);
 
-    // Get conversation funnel data
+    // Get conversation funnel data — purely conversation-state based
+    // "completed" = conversations that reached ORDER_PLACED state
     const funnel = await this.pool.query(
-      `WITH scoped_conversations AS (
-         SELECT UPPER(COALESCE(state::text, '')) as state_norm
-         FROM conversations
-         WHERE merchant_id = $1
-           AND COALESCE(last_message_at, updated_at, created_at) >= $2
-       )
-       SELECT
-         COUNT(*) FILTER (WHERE state_norm <> '') as total_conversations,
-         COUNT(*) FILTER (WHERE state_norm IN (
+      `SELECT
+         COUNT(*) FILTER (WHERE UPPER(COALESCE(state::text, '')) <> '') as total_conversations,
+         COUNT(*) FILTER (WHERE UPPER(COALESCE(state::text, '')) IN (
            'COLLECTING_ITEMS', 'COLLECTING_VARIANTS', 'COLLECTING_CUSTOMER_INFO',
            'COLLECTING_ADDRESS', 'NEGOTIATING', 'CONFIRMING_ORDER', 'ORDER_PLACED'
          )) as added_to_cart,
-         COUNT(*) FILTER (WHERE state_norm IN (
+         COUNT(*) FILTER (WHERE UPPER(COALESCE(state::text, '')) IN (
            'COLLECTING_CUSTOMER_INFO', 'COLLECTING_ADDRESS', 'NEGOTIATING',
            'CONFIRMING_ORDER', 'ORDER_PLACED'
          )) as started_checkout,
-         COUNT(*) FILTER (WHERE state_norm = 'ORDER_PLACED') as completed_order
-       FROM scoped_conversations`,
+         COUNT(*) FILTER (WHERE UPPER(COALESCE(state::text, '')) = 'ORDER_PLACED') as completed_order
+       FROM conversations
+       WHERE merchant_id = $1
+         AND COALESCE(last_message_at, updated_at, created_at) >= $2`,
       [merchantId, startDate],
     );
 
     const f = funnel.rows[0];
-    const total = parseInt(f.total_conversations) || 1;
+    const totalConversations = parseInt(f.total_conversations) || 0;
+    const completedOrder = parseInt(f.completed_order) || 0;
+    const addedToCart = parseInt(f.added_to_cart) || 0;
+    const startedCheckout = parseInt(f.started_checkout) || 0;
+    const total = totalConversations || 1;
 
     return {
       period: { days: daysBack, startDate: startDate.toISOString() },
       funnel: {
-        totalConversations: parseInt(f.total_conversations) || 0,
-        addedToCart: parseInt(f.added_to_cart) || 0,
-        startedCheckout: parseInt(f.started_checkout) || 0,
-        completedOrder: parseInt(f.completed_order) || 0,
+        totalConversations,
+        addedToCart,
+        startedCheckout,
+        completedOrder,
       },
       rates: {
-        cartRate: Math.round((parseInt(f.added_to_cart) / total) * 100),
-        checkoutRate: Math.round((parseInt(f.started_checkout) / total) * 100),
-        conversionRate: Math.round((parseInt(f.completed_order) / total) * 100),
+        cartRate: Math.round((addedToCart / total) * 100),
+        checkoutRate: Math.round((startedCheckout / total) * 100),
+        conversionRate: Math.round((completedOrder / total) * 100),
         cartToCheckout:
-          f.added_to_cart > 0
-            ? Math.round(
-                (parseInt(f.started_checkout) / parseInt(f.added_to_cart)) *
-                  100,
-              )
+          addedToCart > 0
+            ? Math.round((startedCheckout / addedToCart) * 100)
             : 0,
         checkoutToOrder:
-          f.started_checkout > 0
-            ? Math.round(
-                (parseInt(f.completed_order) / parseInt(f.started_checkout)) *
-                  100,
-              )
+          startedCheckout > 0
+            ? Math.round((completedOrder / startedCheckout) * 100)
             : 0,
       },
     };
@@ -1775,13 +1788,15 @@ export class MerchantPortalController {
            SELECT * FROM json_rows
          )
          SELECT
-           item_id,
-           name,
+           MAX(item_id) as item_id,
+           LOWER(name) as name_key,
+           MAX(name) as name,
            SUM(quantity)::text as total_quantity,
            SUM(total_price)::text as total_revenue,
            COUNT(DISTINCT order_id)::text as order_count
          FROM unified
-         GROUP BY item_id, name
+         WHERE name IS NOT NULL AND LOWER(name) != 'unknown' AND LOWER(name) != 'منتج غير مسمى'
+         GROUP BY LOWER(name)
          ORDER BY SUM(quantity) DESC, SUM(total_price) DESC
          LIMIT $3`,
         [merchantId, startDate, maxResults],
@@ -1850,13 +1865,15 @@ export class MerchantPortalController {
            WHERE item_data IS NOT NULL
          )
          SELECT
-           item_id,
-           name,
+           MAX(item_id) as item_id,
+           LOWER(name) as name_key,
+           MAX(name) as name,
            SUM(quantity)::text as total_quantity,
            SUM(total_price)::text as total_revenue,
            COUNT(DISTINCT order_id)::text as order_count
          FROM json_rows
-         GROUP BY item_id, name
+         WHERE name IS NOT NULL AND LOWER(name) != 'unknown' AND LOWER(name) != 'منتج غير مسمى'
+         GROUP BY LOWER(name)
          ORDER BY SUM(quantity) DESC, SUM(total_price) DESC
          LIMIT $3`,
         [merchantId, startDate, maxResults],
@@ -2208,7 +2225,7 @@ export class MerchantPortalController {
         team: enabledFeatures.includes("TEAM"),
         audit: enabledFeatures.includes("AUDIT_LOGS"),
         payments: enabledFeatures.includes("PAYMENTS"),
-        vision: enabledFeatures.includes("VISION_OCR"),
+        vision: false,
         kpis: enabledFeatures.includes("KPI_DASHBOARD"),
         loyalty: enabledFeatures.includes("LOYALTY"),
         voiceNotes: enabledFeatures.includes("VOICE_NOTES"),
@@ -2941,11 +2958,6 @@ export class MerchantPortalController {
         paymentRemindersEnabled:
           (merchant as any).paymentRemindersEnabled ?? true,
         lowStockAlertsEnabled: (merchant as any).lowStockAlertsEnabled ?? true,
-        autoPaymentLinkOnConfirm:
-          (merchant as any).autoPaymentLinkOnConfirm ?? false,
-        requireCustomerContactForPaymentLink:
-          (merchant as any).requireCustomerContactForPaymentLink ?? true,
-        paymentLinkChannel: (merchant as any).paymentLinkChannel || "WHATSAPP",
       },
       preferences: {
         timezone: (merchant as any).timezone || "Africa/Cairo",
@@ -2996,9 +3008,6 @@ export class MerchantPortalController {
             notificationEmail: { type: "string" },
             paymentRemindersEnabled: { type: "boolean" },
             lowStockAlertsEnabled: { type: "boolean" },
-            autoPaymentLinkOnConfirm: { type: "boolean" },
-            requireCustomerContactForPaymentLink: { type: "boolean" },
-            paymentLinkChannel: { type: "string" },
           },
         },
         preferences: {
@@ -3041,9 +3050,6 @@ export class MerchantPortalController {
         whatsappNumber?: string;
         paymentRemindersEnabled?: boolean;
         lowStockAlertsEnabled?: boolean;
-        autoPaymentLinkOnConfirm?: boolean;
-        requireCustomerContactForPaymentLink?: boolean;
-        paymentLinkChannel?: string;
       };
       preferences?: {
         timezone?: string;
@@ -3111,26 +3117,6 @@ export class MerchantPortalController {
       updateEntries.push({
         column: "whatsapp_number",
         value: body.notifications.whatsappNumber?.replace(/\s/g, "") || null,
-      });
-    }
-    if (body.notifications?.autoPaymentLinkOnConfirm !== undefined) {
-      updateEntries.push({
-        column: "auto_payment_link_on_confirm",
-        value: body.notifications.autoPaymentLinkOnConfirm,
-      });
-    }
-    if (
-      body.notifications?.requireCustomerContactForPaymentLink !== undefined
-    ) {
-      updateEntries.push({
-        column: "require_customer_contact_for_payment_link",
-        value: body.notifications.requireCustomerContactForPaymentLink,
-      });
-    }
-    if (body.notifications?.paymentLinkChannel !== undefined) {
-      updateEntries.push({
-        column: "payment_link_channel",
-        value: body.notifications.paymentLinkChannel,
       });
     }
     if (body.preferences?.timezone)
@@ -3260,12 +3246,12 @@ export class MerchantPortalController {
   @ApiOperation({
     summary: "Get notification delivery configuration status",
     description:
-      "Returns SMTP/Twilio configuration availability for the merchant portal UI",
+      "Returns SMTP/Meta Cloud API configuration availability for the merchant portal UI",
   })
   async getNotificationConfigStatus(@Req() req: Request): Promise<any> {
     const merchantId = this.getMerchantId(req);
     const status = this.notificationsService.getDeliveryConfigStatus();
-    const twilioReady = status.whatsapp?.configured ?? false;
+    const metaReady = status.whatsapp?.configured ?? false;
 
     // Check if merchant has their own WhatsApp number + email registered
     let merchantWhatsApp: string | null = null;
@@ -3291,8 +3277,8 @@ export class MerchantPortalController {
 
     return {
       whatsapp: {
-        configured: twilioReady && !!merchantWhatsApp,
-        twilioReady,
+        configured: metaReady && !!merchantWhatsApp,
+        metaReady,
         numberRegistered: !!merchantWhatsApp,
         number: merchantWhatsApp || null,
       },
@@ -3475,7 +3461,7 @@ export class MerchantPortalController {
       throw new BadRequestException("SMTP غير مهيأ");
     }
     if (channel === "WHATSAPP" && !status.whatsapp.configured) {
-      throw new BadRequestException("Twilio/WhatsApp غير مهيأ");
+      throw new BadRequestException("Meta WhatsApp Cloud API غير مهيأ");
     }
     if (
       channel === "PUSH" &&
@@ -3828,11 +3814,20 @@ export class MerchantPortalController {
   private mapConversationToDto(
     conversation: Conversation,
     messages: Message[],
+    customerOverride?: { name?: string; phone?: string },
   ): any {
+    const info = conversation.collectedInfo as any;
+    // Guard: old seed stored booleans in collected_info — only use string values
+    const rawName = info?.customer_name;
+    const rawPhone = info?.phone;
+    const infoName = typeof rawName === 'string' && rawName.length > 0 ? rawName : undefined;
+    const infoPhone = typeof rawPhone === 'string' && rawPhone.length > 0 ? rawPhone : undefined;
     return {
       id: conversation.id,
       merchantId: conversation.merchantId,
       customerId: conversation.customerId,
+      customerName: customerOverride?.name || infoName || undefined,
+      customerPhone: customerOverride?.phone || infoPhone || undefined,
       senderId: conversation.senderId,
       state: conversation.state,
       cart: conversation.cart,
@@ -3852,7 +3847,7 @@ export class MerchantPortalController {
               id: msg.id,
               direction: msg.direction,
               senderId: msg.senderId,
-              text: msg.text,
+              text: msg.text || (msg as any).content,
               tokensUsed: msg.tokensUsed,
               status: (msg as any).status,
               createdAt: msg.createdAt,
@@ -4098,21 +4093,13 @@ export class MerchantPortalController {
     );
 
     const favoritesResult = await this.pool.query(
-      `SELECT 
-         COALESCE(item->>'name', item->>'productName', item->>'title', item->>'product_name', 'منتج') as product_name,
-         SUM(
-           COALESCE(
-             NULLIF(item->>'quantity', '')::numeric,
-             NULLIF(item->>'qty', '')::numeric,
-             1
-           )
-         )::int as total_quantity
-       FROM orders o
-       CROSS JOIN LATERAL jsonb_array_elements(
-         CASE WHEN jsonb_typeof(o.items) = 'array' THEN o.items ELSE '[]'::jsonb END
-       ) as item
+      `SELECT
+         oi.name as product_name,
+         SUM(oi.quantity)::int as total_quantity
+       FROM order_items oi
+       JOIN orders o ON o.id = oi.order_id
        WHERE o.merchant_id = $1 AND o.customer_id = $2 AND o.status NOT IN ('CANCELLED', 'DRAFT')
-       GROUP BY product_name
+       GROUP BY oi.name
        ORDER BY total_quantity DESC
        LIMIT 5`,
       [merchantId, id],
@@ -4688,6 +4675,972 @@ export class MerchantPortalController {
     };
   }
 
+  // ── Seasonal campaign ─────────────────────────────────────────────────────
+
+  @Post("campaigns/seasonal")
+  @RequiresFeature("LOYALTY")
+  @RequireRole("MANAGER")
+  @ApiOperation({
+    summary: "Send a seasonal/promotional campaign to all customers via WhatsApp",
+  })
+  @ApiBody({
+    schema: {
+      type: "object",
+      properties: {
+        title: { type: "string", description: "Campaign title / subject" },
+        message: { type: "string", description: "Message body (use {name} for personalisation)" },
+        recipientFilter: {
+          type: "string",
+          enum: ["all", "vip", "loyal", "regular", "at_risk", "new"],
+          description: "Which customer segment to target",
+        },
+      },
+      required: ["title", "message"],
+    },
+  })
+  async createSeasonalCampaign(
+    @Req() req: Request,
+    @Body()
+    body: { title: string; message: string; recipientFilter?: string },
+  ): Promise<any> {
+    const merchantId = this.getMerchantId(req);
+    const { title, message, recipientFilter = "all" } = body;
+
+    if (!title?.trim() || !message?.trim()) {
+      throw new BadRequestException("العنوان والرسالة مطلوبان");
+    }
+
+    const mcResult = await this.pool.query(
+      `SELECT name, config, whatsapp_number FROM merchants WHERE id = $1`,
+      [merchantId],
+    );
+    const merchantWhatsApp: string | null = mcResult.rows?.[0]?.whatsapp_number || null;
+    const brandName = mcResult.rows?.[0]?.config?.brandName || mcResult.rows?.[0]?.name || "المتجر";
+
+    const status = this.notificationsService.getDeliveryConfigStatus();
+    if (!status.whatsapp.configured || !merchantWhatsApp) {
+      throw new BadRequestException("واتساب غير مهيأ — أضف رقم واتساب في الإعدادات");
+    }
+
+    // Build recipient query based on segment
+    let recipientQuery = `
+      WITH customer_stats AS (
+        SELECT c.id, c.name, c.phone,
+          COUNT(DISTINCT o.id) as total_orders,
+          COALESCE(SUM(o.total), 0) as total_spent,
+          EXTRACT(DAYS FROM NOW() - MAX(o.created_at)) as days_since_last_order
+        FROM customers c
+        LEFT JOIN orders o ON c.id = o.customer_id AND o.status NOT IN ('CANCELLED')
+        WHERE c.merchant_id = $1 AND c.phone IS NOT NULL AND c.phone != ''
+        GROUP BY c.id, c.name, c.phone
+      )
+      SELECT id, name, phone FROM customer_stats WHERE `;
+    const segmentMap: Record<string, string> = {
+      all: "1=1",
+      vip: "total_orders >= 5 AND total_spent >= 1000 AND days_since_last_order < 30",
+      loyal: "total_orders >= 3 AND days_since_last_order < 60",
+      regular: "total_orders >= 1 AND days_since_last_order < 90",
+      new: "total_orders = 0 OR days_since_last_order IS NULL",
+      at_risk: "total_orders >= 1 AND days_since_last_order >= 90",
+    };
+    recipientQuery += segmentMap[recipientFilter] || "1=1";
+
+    const recipientsResult = await this.pool.query(recipientQuery, [merchantId]);
+    const recipients = recipientsResult.rows;
+
+    if (recipients.length === 0) {
+      return { sent: 0, totalTargeted: 0, message: "لا يوجد عملاء مطابقون للفئة المختارة" };
+    }
+
+    let sentCount = 0;
+    let failCount = 0;
+    for (const customer of recipients) {
+      try {
+        const personalMsg = (message + `\n\n— ${brandName}`).replace("{name}", customer.name || "عميلنا العزيز");
+        await this.notificationsService.sendBroadcastWhatsApp(customer.phone, personalMsg, merchantWhatsApp);
+        sentCount++;
+      } catch {
+        failCount++;
+      }
+    }
+
+    await this.auditService.logFromRequest(req, "CREATE", "CAMPAIGN", merchantId, {
+      metadata: { type: "SEASONAL", title, recipientFilter, targeted: recipients.length, sent: sentCount, failed: failCount },
+    });
+
+    return {
+      sent: sentCount,
+      failCount,
+      totalTargeted: recipients.length,
+      message: `تم إرسال الحملة الموسمية إلى ${sentCount} عميل`,
+    };
+  }
+
+  // ── Re-engagement campaign ────────────────────────────────────────────────
+
+  @Post("campaigns/reengagement")
+  @RequiresFeature("LOYALTY")
+  @RequireRole("MANAGER")
+  @ApiOperation({
+    summary: "Send a re-engagement campaign to inactive customers via WhatsApp",
+  })
+  @ApiBody({
+    schema: {
+      type: "object",
+      properties: {
+        inactiveDays: { type: "number", default: 60, description: "Target customers inactive for this many days" },
+        message: { type: "string", description: "Message body (use {name} and {days} as placeholders)" },
+        discountCode: { type: "string", description: "Optional promo code to include in message" },
+      },
+    },
+  })
+  async createReengagementCampaign(
+    @Req() req: Request,
+    @Body()
+    body: { inactiveDays?: number; message?: string; discountCode?: string },
+  ): Promise<any> {
+    const merchantId = this.getMerchantId(req);
+    const inactiveDays = Math.max(7, Number(body.inactiveDays || 60));
+
+    const mcResult = await this.pool.query(
+      `SELECT name, config, whatsapp_number FROM merchants WHERE id = $1`,
+      [merchantId],
+    );
+    const merchantWhatsApp: string | null = mcResult.rows?.[0]?.whatsapp_number || null;
+    const brandName = mcResult.rows?.[0]?.config?.brandName || mcResult.rows?.[0]?.name || "المتجر";
+
+    const status = this.notificationsService.getDeliveryConfigStatus();
+    if (!status.whatsapp.configured || !merchantWhatsApp) {
+      throw new BadRequestException("واتساب غير مهيأ — أضف رقم واتساب في الإعدادات");
+    }
+
+    const inactiveCustomers = await this.pool.query(
+      `
+      WITH stats AS (
+        SELECT c.id, c.name, c.phone,
+          COUNT(DISTINCT o.id) as total_orders,
+          EXTRACT(DAYS FROM NOW() - MAX(o.created_at)) as days_since_last_order
+        FROM customers c
+        LEFT JOIN orders o ON c.id = o.customer_id AND o.status NOT IN ('CANCELLED')
+        WHERE c.merchant_id = $1 AND c.phone IS NOT NULL AND c.phone != ''
+        GROUP BY c.id, c.name, c.phone
+        HAVING MAX(o.created_at) < NOW() - ($2 || ' days')::interval
+      )
+      SELECT id, name, phone, days_since_last_order FROM stats WHERE total_orders >= 1
+      ORDER BY days_since_last_order DESC LIMIT 300
+      `,
+      [merchantId, inactiveDays],
+    );
+
+    if (inactiveCustomers.rows.length === 0) {
+      return {
+        sent: 0,
+        totalTargeted: 0,
+        message: `لا يوجد عملاء غير نشطين منذ أكثر من ${inactiveDays} يوم`,
+      };
+    }
+
+    const defaultMessage = body.discountCode
+      ? `مشتقناك يا {name} 💙\nمرت {days} يوم ما طلبتش منا!\n\nاستخدم كود ${body.discountCode} واحصل على خصم خاص لك.\n\n— ${brandName}`
+      : `مشتقناك يا {name} 💙\nمرت {days} يوم ما طلبتش منا!\nبنستنى طلبك — ${brandName}`;
+
+    const campaignMessage = body.message || defaultMessage;
+
+    let sentCount = 0;
+    let failCount = 0;
+    for (const customer of inactiveCustomers.rows) {
+      try {
+        const personalMsg = campaignMessage
+          .replace("{name}", customer.name || "عميلنا")
+          .replace("{days}", String(Math.round(Number(customer.days_since_last_order || inactiveDays))));
+        await this.notificationsService.sendBroadcastWhatsApp(customer.phone, personalMsg, merchantWhatsApp);
+        sentCount++;
+      } catch {
+        failCount++;
+      }
+    }
+
+    await this.auditService.logFromRequest(req, "CREATE", "CAMPAIGN", merchantId, {
+      metadata: { type: "REENGAGEMENT", inactiveDays, discountCode: body.discountCode, targeted: inactiveCustomers.rows.length, sent: sentCount, failed: failCount },
+    });
+
+    return {
+      sent: sentCount,
+      failCount,
+      totalTargeted: inactiveCustomers.rows.length,
+      message: `تم إرسال حملة إعادة التفاعل إلى ${sentCount} عميل`,
+    };
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // SUPPLIER MANAGEMENT
+  // ═══════════════════════════════════════════════════════════════════════
+
+  @Get("suppliers")
+  @ApiOperation({ summary: "List all suppliers for this merchant" })
+  async getSuppliers(@Req() req: Request): Promise<any> {
+    const merchantId = this.getMerchantId(req);
+    const result = await this.pool.query(
+      `SELECT id, name, contact_name, phone, whatsapp_phone, email, address,
+              payment_terms, lead_time_days, notes, is_active,
+              auto_notify_low_stock, notify_threshold, last_auto_notified_at,
+              created_at, updated_at
+       FROM suppliers
+       WHERE merchant_id = $1
+       ORDER BY name ASC`,
+      [merchantId],
+    );
+    return { suppliers: result.rows };
+  }
+
+  @Post("suppliers")
+  @RequireRole("MANAGER")
+  @ApiOperation({ summary: "Create a new supplier" })
+  async createSupplier(
+    @Req() req: Request,
+    @Body() body: {
+      name: string;
+      contactName?: string;
+      phone?: string;
+      whatsappPhone?: string;
+      email?: string;
+      address?: string;
+      paymentTerms?: string;
+      leadTimeDays?: number;
+      notes?: string;
+      autoNotifyLowStock?: boolean;
+      notifyThreshold?: string;
+    },
+  ): Promise<any> {
+    const merchantId = this.getMerchantId(req);
+    if (!body?.name?.trim()) throw new BadRequestException("name مطلوب");
+
+    const result = await this.pool.query(
+      `INSERT INTO suppliers
+         (merchant_id, name, contact_name, phone, whatsapp_phone, email, address,
+          payment_terms, lead_time_days, notes,
+          auto_notify_low_stock, notify_threshold)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+       RETURNING *`,
+      [
+        merchantId,
+        body.name.trim(),
+        body.contactName || null,
+        body.phone || null,
+        body.whatsappPhone || body.phone || null,
+        body.email || null,
+        body.address || null,
+        body.paymentTerms || null,
+        body.leadTimeDays ?? 7,
+        body.notes || null,
+        body.autoNotifyLowStock ?? false,
+        body.notifyThreshold || "critical",
+      ],
+    );
+    return { supplier: result.rows[0] };
+  }
+
+  @Patch("suppliers/:supplierId")
+  @RequireRole("MANAGER")
+  @ApiOperation({ summary: "Update a supplier" })
+  async updateSupplier(
+    @Req() req: Request,
+    @Param("supplierId") supplierId: string,
+    @Body() body: Record<string, any>,
+  ): Promise<any> {
+    const merchantId = this.getMerchantId(req);
+    const existing = await this.pool.query(
+      `SELECT id FROM suppliers WHERE id = $1 AND merchant_id = $2`,
+      [supplierId, merchantId],
+    );
+    if (!existing.rows.length) throw new NotFoundException("Supplier not found");
+
+    const allowed: Record<string, string> = {
+      name: "name",
+      contactName: "contact_name",
+      phone: "phone",
+      whatsappPhone: "whatsapp_phone",
+      email: "email",
+      address: "address",
+      paymentTerms: "payment_terms",
+      leadTimeDays: "lead_time_days",
+      notes: "notes",
+      isActive: "is_active",
+      autoNotifyLowStock: "auto_notify_low_stock",
+      notifyThreshold: "notify_threshold",
+    };
+
+    const sets: string[] = [];
+    const values: any[] = [];
+    let idx = 1;
+    for (const [bodyKey, colName] of Object.entries(allowed)) {
+      if (body[bodyKey] !== undefined) {
+        sets.push(`${colName} = $${idx}`);
+        values.push(body[bodyKey]);
+        idx++;
+      }
+    }
+    if (!sets.length) throw new BadRequestException("لا يوجد حقول للتحديث");
+
+    sets.push(`updated_at = NOW()`);
+    values.push(supplierId);
+    values.push(merchantId);
+
+    const result = await this.pool.query(
+      `UPDATE suppliers SET ${sets.join(", ")}
+       WHERE id = $${idx} AND merchant_id = $${idx + 1}
+       RETURNING *`,
+      values,
+    );
+    return { supplier: result.rows[0] };
+  }
+
+  @Delete("suppliers/:supplierId")
+  @RequireRole("MANAGER")
+  @ApiOperation({ summary: "Delete a supplier" })
+  async deleteSupplier(
+    @Req() req: Request,
+    @Param("supplierId") supplierId: string,
+  ): Promise<any> {
+    const merchantId = this.getMerchantId(req);
+    const result = await this.pool.query(
+      `DELETE FROM suppliers WHERE id = $1 AND merchant_id = $2 RETURNING id`,
+      [supplierId, merchantId],
+    );
+    if (!result.rows.length) throw new NotFoundException("Supplier not found");
+    return { success: true };
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // AUTOMATION CENTER
+  // ═══════════════════════════════════════════════════════════════════════
+
+  @Get("automations")
+  @ApiOperation({ summary: "Get merchant automation settings" })
+  async getAutomations(@Req() req: Request): Promise<any> {
+    const merchantId = this.getMerchantId(req);
+
+    // Return current settings merged with defaults
+    const result = await this.pool.query(
+      `SELECT automation_type, is_enabled, config, last_run_at,
+              check_interval_hours, last_checked_at
+       FROM merchant_automations WHERE merchant_id = $1`,
+      [merchantId],
+    );
+
+    // Default configurations shown even if not yet saved
+    const DEFAULTS: Record<string, { label: string; labelEn: string; description: string; defaultConfig: Record<string, any> }> = {
+      SUPPLIER_LOW_STOCK: {
+        label: "تنبيه المورّد عند انخفاض المخزون",
+        labelEn: "Supplier Low-Stock Alert",
+        description: "يُرسل رسالة واتساب تلقائية للموردين يومياً عندما تنخفض منتجاتهم عن الحد الأدنى",
+        defaultConfig: { threshold: "critical", messageTemplate: "" },
+      },
+      REENGAGEMENT_AUTO: {
+        label: "حملة إعادة التفاعل التلقائية",
+        labelEn: "Auto Re-engagement Campaign",
+        description: "يُرسل تلقائياً رسالة أسبوعية للعملاء الذين توقفوا عن الطلب",
+        defaultConfig: { inactiveDays: 30, discountCode: "", messageTemplate: "" },
+      },
+      REVIEW_REQUEST: {
+        label: "طلب تقييم بعد التوصيل",
+        labelEn: "Post-Delivery Review Request",
+        description: "يُرسل رسالة للعميل بعد التوصيل لطلب تقييمه",
+        defaultConfig: { delayHours: 24, messageTemplate: "" },
+      },
+      NEW_CUSTOMER_WELCOME: {
+        label: "رسالة ترحيب بالعملاء الجدد",
+        labelEn: "New Customer Welcome",
+        description: "يُرسل رسالة ترحيب تلقائية لأي عميل يطلب لأول مرة",
+        defaultConfig: { messageTemplate: "" },
+      },
+      CHURN_PREVENTION: {
+        label: "الوقاية من فقدان العملاء",
+        labelEn: "Churn Prevention",
+        description: "يرصد تلقائياً العملاء المعرضين للتوقف عن الطلب ويرسل لهم عروضاً استثنائية",
+        defaultConfig: { silentDays: 60, discountCode: "", messageTemplate: "" },
+      },
+      QUOTE_FOLLOWUP: {
+        label: "متابعة عروض الأسعار تلقائياً",
+        labelEn: "Quote Follow-Up",
+        description: "يُرسل تذكيراً تلقائياً للعملاء الذين لم يردوا على عروض الأسعار",
+        defaultConfig: { ageHours: 48, messageTemplate: "" },
+      },
+      LOYALTY_MILESTONE: {
+        label: "مكافأة إنجازات نقاط الولاء",
+        labelEn: "Loyalty Milestone",
+        description: "يُرسل رسالة تهنئة عند وصول العميل لعتبة نقاط ولاء جديدة",
+        defaultConfig: { milestonePoints: 100, messageTemplate: "" },
+      },
+      EXPENSE_SPIKE_ALERT: {
+        label: "تنبيه الارتفاع المفاجئ في المصاريف",
+        labelEn: "Expense Spike Alert",
+        description: "يُنبّه عند ارتفاع مصاريف التشغيل بشكل غير طبيعي مقارنةً بالمتوسط الشهري",
+        defaultConfig: { spikeThreshold: 150 },
+      },
+      DELIVERY_SLA_BREACH: {
+        label: "تنبيه تجاوز مواعيد التوصيل",
+        labelEn: "Delivery SLA Breach",
+        description: "يُراقب الطلبات ويُنبّه فور تجاوز وقت التوصيل المتفق عليه",
+        defaultConfig: { slaHours: 48, notifyCustomer: true },
+      },
+      TOKEN_USAGE_WARNING: {
+        label: "تحذير استهلاك حصة الذكاء الاصطناعي",
+        labelEn: "AI Token Usage Warning",
+        description: "يُنبّه عند اقتراب الاستهلاك الشهري لحصة الذكاء الاصطناعي من حدودها",
+        defaultConfig: { warnPct: 80 },
+      },
+      AI_ANOMALY_DETECTION: {
+        label: "كشف الشذوذ الذكي في البيانات",
+        labelEn: "AI Anomaly Detection",
+        description: "يكتشف ويُبلّغ عن أنماط غير طبيعية في المبيعات أو الطلبات أو المدفوعات",
+        defaultConfig: {},
+      },
+      SEASONAL_STOCK_PREP: {
+        label: "التحضير التلقائي للمخزون الموسمي",
+        labelEn: "Seasonal Stock Prep",
+        description: "يُحلّل الأنماط التاريخية ويُوصي بتجديد المخزون قبل المواسم والإجازات",
+        defaultConfig: { warningDays: 14 },
+      },
+      SENTIMENT_MONITOR: {
+        label: "رصد مشاعر العملاء",
+        labelEn: "Sentiment Monitor",
+        description: "يُحلّل رسائل العملاء ويُنبّه عند رصد سخط أو مشاعر سلبية متكررة",
+        defaultConfig: { frustratedThresholdPct: 5 },
+      },
+      LEAD_SCORE: {
+        label: "تقييم العملاء المحتملين تلقائياً",
+        labelEn: "Lead Scoring",
+        description: "يُرتّب الفرص والعملاء المحتملين حسب احتمالية التحويل بالذكاء الاصطناعي",
+        defaultConfig: {},
+      },
+      AUTO_VIP_TAG: {
+        label: "تصنيف العملاء المميزين تلقائياً",
+        labelEn: "Auto VIP Tag",
+        description: "يُضيف وسم VIP تلقائياً للعملاء الذين يستوفون معايير الإنفاق والولاء",
+        defaultConfig: { minOrders: 5, minSpend: 1000 },
+      },
+      AT_RISK_TAG: {
+        label: "تصنيف العملاء في خطر",
+        labelEn: "At-Risk Tag",
+        description: "يُضيف وسم 'في خطر' للعملاء ذوي انخفاض التفاعل المعرضين للمغادرة",
+        defaultConfig: { silentDays: 21, minPriorOrders: 2 },
+      },
+      HIGH_RETURN_FLAG: {
+        label: "تحديد العملاء كثيري الإرجاع",
+        labelEn: "High Return Flag",
+        description: "يُحدّد ويُعلّم العملاء ذوي معدل الإلغاء أو الإرجاع المرتفع لمراجعتهم",
+        defaultConfig: { cancellationRatePct: 30, minOrders: 3 },
+      },
+    };
+
+    const saved = new Map(result.rows.map((r) => [r.automation_type, r]));
+
+    const automations = Object.entries(DEFAULTS).map(([type, meta]) => {
+      const row = saved.get(type);
+      return {
+        type,
+        label: meta.label,
+        labelEn: meta.labelEn,
+        description: meta.description,
+        isEnabled: row?.is_enabled ?? false,
+        config: { ...meta.defaultConfig, ...(row?.config || {}) },
+        lastRunAt: row?.last_run_at ?? null,
+        checkIntervalHours: row?.check_interval_hours ?? null,
+        lastCheckedAt: row?.last_checked_at ?? null,
+      };
+    });
+
+    // Recent run logs
+    const logs = await this.pool.query(
+      `SELECT automation_type, status, messages_sent, targets_found, run_at
+       FROM automation_run_logs
+       WHERE merchant_id = $1
+       ORDER BY run_at DESC LIMIT 40`,
+      [merchantId],
+    );
+
+    return { automations, recentLogs: logs.rows };
+  }
+
+  @Patch("automations/:type")
+  @RequireRole("MANAGER")
+  @ApiOperation({ summary: "Update automation setting (enable/disable/configure)" })
+  async updateAutomation(
+    @Req() req: Request,
+    @Param("type") type: string,
+    @Body() body: { isEnabled?: boolean; config?: Record<string, any> },
+  ): Promise<any> {
+    const merchantId = this.getMerchantId(req);
+    const VALID_TYPES = [
+      "SUPPLIER_LOW_STOCK", "REENGAGEMENT_AUTO", "REVIEW_REQUEST", "NEW_CUSTOMER_WELCOME",
+      "CHURN_PREVENTION", "QUOTE_FOLLOWUP", "LOYALTY_MILESTONE", "EXPENSE_SPIKE_ALERT",
+      "DELIVERY_SLA_BREACH", "TOKEN_USAGE_WARNING", "AI_ANOMALY_DETECTION", "SEASONAL_STOCK_PREP",
+      "SENTIMENT_MONITOR", "LEAD_SCORE", "AUTO_VIP_TAG", "AT_RISK_TAG", "HIGH_RETURN_FLAG",
+    ];
+    if (!VALID_TYPES.includes(type)) throw new BadRequestException("نوع الأتمتة غير صحيح");
+
+    const result = await this.pool.query(
+      `INSERT INTO merchant_automations (merchant_id, automation_type, is_enabled, config)
+       VALUES ($1, $2, $3, COALESCE($4::jsonb, '{}'))
+       ON CONFLICT (merchant_id, automation_type)
+       DO UPDATE SET
+         is_enabled = COALESCE($3, merchant_automations.is_enabled),
+         config     = CASE
+                        WHEN $4::jsonb IS NOT NULL
+                        THEN merchant_automations.config || $4::jsonb
+                        ELSE merchant_automations.config
+                      END,
+         updated_at = NOW()
+       RETURNING *`,
+      [
+        merchantId,
+        type,
+        body.isEnabled ?? null,
+        body.config ? JSON.stringify(body.config) : null,
+      ],
+    );
+    return { automation: result.rows[0] };
+  }
+
+  @Patch("automations/:type/schedule")
+  @RequireRole("MANAGER")
+  @ApiOperation({ summary: "Set how often an automation runs (hours between checks)" })
+  async setAutomationSchedule(
+    @Req() req: Request,
+    @Param("type") type: string,
+    @Body() body: { checkIntervalHours: number },
+  ): Promise<any> {
+    const merchantId = this.getMerchantId(req);
+    const hours = Math.max(1, Math.min(720, Number(body?.checkIntervalHours ?? 24)));
+    const result = await this.pool.query(
+      `INSERT INTO merchant_automations (merchant_id, automation_type, is_enabled, check_interval_hours)
+       VALUES ($1, $2, false, $3)
+       ON CONFLICT (merchant_id, automation_type)
+       DO UPDATE SET check_interval_hours = $3, updated_at = NOW()
+       RETURNING automation_type, is_enabled, check_interval_hours, last_checked_at`,
+      [merchantId, type, hours],
+    );
+    return { automation: result.rows[0] };
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // DEMAND FORECASTING & AI PREDICTIONS
+  // ═══════════════════════════════════════════════════════════════════════
+
+  @Get("analytics/forecast")
+  @ApiOperation({ summary: "AI demand forecast – stock predictions per product" })
+  async getDemandForecast(
+    @Req() req: Request,
+    @Query("refresh") refresh?: string,
+  ): Promise<any> {
+    const merchantId = this.getMerchantId(req);
+
+    // Return cached forecasts unless refresh=true
+    if (refresh !== "true") {
+      const cached = await this.pool.query(
+        `SELECT * FROM demand_forecasts
+         WHERE merchant_id = $1
+           AND computed_at > NOW() - INTERVAL '6 hours'
+         ORDER BY urgency DESC, days_until_stockout ASC NULLS LAST
+         LIMIT 100`,
+        [merchantId],
+      );
+      if (cached.rows.length > 0) {
+        return { forecasts: cached.rows, fresh: false, computedAt: cached.rows[0].computed_at };
+      }
+    }
+
+    // ── Compute forecasts from order history ─────────────────────────────
+    const salesData = await this.pool.query<{
+      product_id: string;
+      product_name: string;
+      current_stock: number;
+      reorder_level: number | null;
+      total_sold_30d: number;
+      total_sold_7d: number;
+      total_sold_prev7d: number;
+    }>(
+      `WITH order_sales AS (
+         SELECT
+           (item->>'variantId')::uuid AS variant_id,
+           (item->>'quantity')::int   AS quantity,
+           o.created_at
+         FROM orders o,
+              jsonb_array_elements(
+                CASE WHEN jsonb_typeof(o.items) = 'array' THEN o.items ELSE '[]'::jsonb END
+              ) AS item
+         WHERE o.merchant_id = $1
+           AND o.created_at >= NOW() - INTERVAL '30 days'
+           AND o.status NOT IN ('CANCELLED','REFUNDED')
+           AND (item->>'variantId') IS NOT NULL
+       ),
+       variant_sales AS (
+         SELECT os.variant_id, os.quantity, os.created_at,
+                iv.inventory_item_id
+         FROM order_sales os
+         JOIN inventory_variants iv ON iv.id = os.variant_id AND iv.merchant_id = $1
+       ),
+       item_stock AS (
+         SELECT iv.inventory_item_id,
+                COALESCE(SUM(iv.quantity_on_hand), 0) AS current_stock
+         FROM inventory_variants iv
+         WHERE iv.merchant_id = $1
+         GROUP BY iv.inventory_item_id
+       )
+       SELECT
+         ii.id                      AS product_id,
+         COALESCE(NULLIF(ii.name, ''), ci.name_ar, ci.name_en, ii.sku) AS product_name,
+         COALESCE(ist.current_stock, 0) AS current_stock,
+         ii.reorder_point           AS reorder_level,
+         COALESCE(SUM(vs.quantity) FILTER (WHERE vs.created_at >= NOW() - INTERVAL '30 days'), 0) AS total_sold_30d,
+         COALESCE(SUM(vs.quantity) FILTER (WHERE vs.created_at >= NOW() - INTERVAL '7 days'), 0)  AS total_sold_7d,
+         COALESCE(SUM(vs.quantity) FILTER (WHERE vs.created_at BETWEEN NOW() - INTERVAL '14 days' AND NOW() - INTERVAL '7 days'), 0) AS total_sold_prev7d
+       FROM inventory_items ii
+       LEFT JOIN catalog_items ci ON ci.id = ii.catalog_item_id AND ci.merchant_id = ii.merchant_id
+       LEFT JOIN variant_sales vs ON vs.inventory_item_id = ii.id
+       LEFT JOIN item_stock ist ON ist.inventory_item_id = ii.id
+       WHERE ii.merchant_id = $1
+       GROUP BY ii.id, ii.name, ci.name_ar, ci.name_en, ii.sku, ii.reorder_point, ist.current_stock
+       ORDER BY total_sold_30d DESC
+       LIMIT 80`,
+      [merchantId],
+    );
+
+    const forecasts = salesData.rows.map((row) => {
+      const avg30 = Number(row.total_sold_30d) / 30;
+      const avg7 = Number(row.total_sold_7d) / 7;
+      const avgPrev7 = Number(row.total_sold_prev7d) / 7;
+      const trendPct = avgPrev7 > 0 ? Math.round(((avg7 - avgPrev7) / avgPrev7) * 100) : 0;
+      const avgEffective = avg7 > 0 ? avg7 : avg30; // prefer recent
+      const stock = Number(row.current_stock);
+      const daysUntilStockout = avgEffective > 0 ? Math.round(stock / avgEffective) : null;
+      const forecast7d = Math.round(avgEffective * 7);
+      const forecast30d = Math.round(avgEffective * 30);
+      const reorderQty = Math.max(0, forecast30d - stock);
+
+      // Urgency
+      let urgency: string;
+      if (stock === 0) urgency = "critical";
+      else if (daysUntilStockout !== null && daysUntilStockout <= 3) urgency = "critical";
+      else if (daysUntilStockout !== null && daysUntilStockout <= 7) urgency = "high";
+      else if (daysUntilStockout !== null && daysUntilStockout <= 14) urgency = "medium";
+      else if (stock <= (Number(row.reorder_level) || 5)) urgency = "medium";
+      else urgency = "ok";
+
+      return {
+        productId: row.product_id,
+        productName: row.product_name,
+        currentStock: stock,
+        avgDailyOrders: Math.round(avgEffective * 10) / 10,
+        trendPct,
+        daysUntilStockout,
+        forecast7d,
+        forecast30d,
+        reorderSuggestion: reorderQty,
+        urgency,
+      };
+    });
+
+    // ── Persist forecasts ─────────────────────────────────────────────────
+    if (forecasts.length > 0) {
+      const values = forecasts
+        .map(
+          (f, i) => {
+            const base = i * 9;
+            return `($${base+1},$${base+2},$${base+3},$${base+4},$${base+5},$${base+6},$${base+7},$${base+8},$${base+9})`;
+          },
+        )
+        .join(",");
+      const params: any[] = [];
+      for (const f of forecasts) {
+        params.push(merchantId, f.productId, f.productName, f.currentStock, f.avgDailyOrders, f.daysUntilStockout, f.forecast7d, f.forecast30d, f.urgency);
+      }
+      await this.pool.query(
+        `INSERT INTO demand_forecasts
+           (merchant_id, product_id, product_name, current_stock, avg_daily_orders,
+            days_until_stockout, forecast_7d, forecast_30d, urgency)
+         VALUES ${values}
+         ON CONFLICT DO NOTHING`,
+        params,
+      ).catch(() => { /* non-fatal if insert fails */ });
+    }
+
+    // ── Summary stats ─────────────────────────────────────────────────────
+    const summary = {
+      critical: forecasts.filter((f) => f.urgency === "critical").length,
+      high: forecasts.filter((f) => f.urgency === "high").length,
+      medium: forecasts.filter((f) => f.urgency === "medium").length,
+      ok: forecasts.filter((f) => f.urgency === "ok").length,
+      trendingUp: forecasts.filter((f) => f.trendPct >= 20).length,
+      trendingDown: forecasts.filter((f) => f.trendPct <= -20).length,
+    };
+
+    return {
+      forecasts: forecasts.sort((a, b) => {
+        const order = ["critical", "high", "medium", "ok"];
+        return order.indexOf(a.urgency) - order.indexOf(b.urgency);
+      }),
+      summary,
+      fresh: true,
+      computedAt: new Date().toISOString(),
+    };
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // AI SUPPLIER DISCOVERY
+  // ═══════════════════════════════════════════════════════════════════════
+
+  @Get("suppliers/discover")
+  @RequireRole("MANAGER")
+  @ApiOperation({ summary: "AI-powered supplier discovery for a product/category" })
+  async discoverSuppliers(
+    @Req() req: Request,
+    @Query("q") query: string,
+    @Query("city") city?: string,
+  ): Promise<any> {
+    const merchantId = this.getMerchantId(req);
+    if (!query?.trim()) throw new BadRequestException("q (search query) is required");
+
+    // Check recent cache (within 24 h for same query)
+    const cached = await this.pool.query(
+      `SELECT results FROM supplier_discovery_results
+       WHERE merchant_id = $1 AND query = $2
+         AND created_at > NOW() - INTERVAL '24 hours'
+       ORDER BY created_at DESC LIMIT 1`,
+      [merchantId, query.trim()],
+    );
+    if (cached.rows.length) {
+      return { results: cached.rows[0].results, fromCache: true };
+    }
+
+    let results: any[] = [];
+
+    // ── Try Google Places API first ───────────────────────────────────────
+    const placesKey = process.env.GOOGLE_PLACES_API_KEY;
+    if (placesKey) {
+      try {
+        const searchTerm = encodeURIComponent(`موردين ${query} ${city ?? ""}`);
+        const url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${searchTerm}&language=ar&type=establishment&key=${placesKey}`;
+        const resp = await fetch(url);
+        const json = (await resp.json()) as any;
+        if (json.status === "OK") {
+          results = (json.results ?? []).slice(0, 8).map((p: any) => ({
+            name: p.name,
+            address: p.formatted_address,
+            phone: null, // Details API call would get phone (costs extra)
+            rating: p.rating,
+            totalRatings: p.user_ratings_total,
+            types: p.types,
+            placeId: p.place_id,
+            source: "google_maps",
+          }));
+        }
+      } catch { /* fall through to AI */ }
+    }
+
+    // ── Fallback: AI-generated suggestions ───────────────────────────────
+    if (!results.length && this.inventoryAiService.isConfigured()) {
+      try {
+        const merchant = await this.pool.query(
+          `SELECT name, city FROM merchants WHERE id = $1`,
+          [merchantId],
+        );
+        const merchantCity = merchant.rows[0]?.city ?? city ?? "السعودية";
+        const merchantName = merchant.rows[0]?.name ?? "";
+
+        // We call OpenAI directly via inventoryAiService's underlying client
+        // since there's no existing method for this. Use the public API through
+        // the existing generateSupplierMessage interface as a ping, then do
+        // a direct completion for discovery.
+        const aiResult = await (this.inventoryAiService as any).client?.chat?.completions?.create({
+          model: "gpt-4o-mini",
+          response_format: { type: "json_object" },
+          messages: [
+            {
+              role: "system",
+              content: "أنت مساعد تجاري متخصص في اكتشاف الموردين في المملكة العربية السعودية والمنطقة العربية. أجب دائماً بـ JSON.",
+            },
+            {
+              role: "user",
+              content: `بحث عن موردين لـ: "${query}"
+تاجر: ${merchantName} في ${merchantCity}
+
+أعطني 5 اقتراحات لموردين محتملين (شركات حقيقية أو أنواع من الموردين) مع:
+- name: الاسم
+- type: النوع (مصنّع / موزّع / تاجر جملة)
+- region: المنطقة الجغرافية
+- qualityTier: (premium/standard/budget)
+- searchTip: كيف يبحث عنهم (مثلاً اسم الشركة على Google)
+- notes: ملاحظة مفيدة
+
+أجب بـ: { "suppliers": [ ... ] }`,
+            },
+          ],
+          max_tokens: 800,
+        });
+
+        const content = aiResult?.choices?.[0]?.message?.content ?? "{}";
+        const parsed = JSON.parse(content);
+        results = (parsed.suppliers ?? []).map((s: any) => ({ ...s, source: "ai_suggestion" }));
+      } catch { /* non-fatal */ }
+    }
+
+    // ── Persist result ────────────────────────────────────────────────────
+    if (results.length > 0) {
+      await this.pool.query(
+        `INSERT INTO supplier_discovery_results (merchant_id, query, results) VALUES ($1,$2,$3)`,
+        [merchantId, query.trim(), JSON.stringify(results)],
+      ).catch(() => {});
+    }
+
+    return { results, fromCache: false };
+  }
+
+  @Get("suppliers/suggestions")
+  @RequireRole("MANAGER")
+  @ApiOperation({ summary: "Fetch AI-auto-discovered supplier suggestions saved by the background scheduler" })
+  async getSupplierSuggestions(@Req() req: Request): Promise<any> {
+    const merchantId = this.getMerchantId(req);
+    const rows = await this.pool.query(
+      `SELECT id, query, results, created_at
+       FROM supplier_discovery_results
+       WHERE merchant_id = $1
+       ORDER BY created_at DESC
+       LIMIT 20`,
+      [merchantId],
+    );
+    const all = rows.rows.flatMap((r) =>
+      (r.results as any[]).map((item) => ({ ...item, query: r.query, savedAt: r.created_at })),
+    );
+    return { suggestions: all, count: all.length };
+  }
+
+  // ── Supplier ↔ Product linking ────────────────────────────────────────────
+
+  @Get("suppliers/:supplierId/products")
+  @ApiOperation({ summary: "List products linked to a supplier" })
+  async getSupplierProducts(
+    @Req() req: Request,
+    @Param("supplierId") supplierId: string,
+  ): Promise<any> {
+    const merchantId = this.getMerchantId(req);
+    const result = await this.pool.query(
+      `SELECT sp.id AS link_id, sp.product_id, sp.unit_cost, sp.is_preferred, sp.notes,
+              COALESCE(NULLIF(ii.name, ''), ci.name_ar, ci.name_en, ii.sku) AS product_name,
+              COALESCE(ii.sku, ci.sku) AS sku,
+              COALESCE(
+                (SELECT SUM(iv.quantity_on_hand) FROM inventory_variants iv
+                 WHERE iv.inventory_item_id = ii.id AND iv.merchant_id = ii.merchant_id),
+                0
+              ) AS quantity_in_stock,
+              ii.reorder_point AS reorder_level
+       FROM supplier_products sp
+       LEFT JOIN inventory_items ii ON ii.id = sp.product_id AND ii.merchant_id = $2
+       LEFT JOIN catalog_items ci ON ci.id = ii.catalog_item_id AND ci.merchant_id = ii.merchant_id
+       WHERE sp.supplier_id = $1 AND (ii.merchant_id = $2 OR ii.id IS NULL)
+       ORDER BY COALESCE(NULLIF(ii.name, ''), ci.name_ar, ci.name_en, ii.sku) ASC`,
+      [supplierId, merchantId],
+    );
+    return { products: result.rows };
+  }
+
+  @Post("suppliers/:supplierId/products")
+  @RequireRole("MANAGER")
+  @ApiOperation({ summary: "Link a product to a supplier" })
+  async linkSupplierProduct(
+    @Req() req: Request,
+    @Param("supplierId") supplierId: string,
+    @Body() body: { productId: string; unitCost?: number; isPreferred?: boolean; notes?: string },
+  ): Promise<any> {
+    const merchantId = this.getMerchantId(req);
+    // Verify supplier belongs to merchant
+    const sup = await this.pool.query(
+      `SELECT id FROM suppliers WHERE id = $1 AND merchant_id = $2`,
+      [supplierId, merchantId],
+    );
+    if (!sup.rows.length) throw new NotFoundException("Supplier not found");
+    // Verify product belongs to merchant
+    const prod = await this.pool.query(
+      `SELECT id FROM inventory_items WHERE id = $1 AND merchant_id = $2`,
+      [body.productId, merchantId],
+    );
+    if (!prod.rows.length) throw new NotFoundException("Product not found");
+
+    const result = await this.pool.query(
+      `INSERT INTO supplier_products (supplier_id, product_id, unit_cost, is_preferred, notes)
+       VALUES ($1,$2,$3,$4,$5)
+       ON CONFLICT (supplier_id, product_id)
+       DO UPDATE SET unit_cost=$3, is_preferred=$4, notes=$5, updated_at=NOW()
+       RETURNING *`,
+      [supplierId, body.productId, body.unitCost ?? null, body.isPreferred ?? false, body.notes ?? null],
+    );
+    return { link: result.rows[0] };
+  }
+
+  @Delete("suppliers/:supplierId/products/:productId")
+  @RequireRole("MANAGER")
+  @ApiOperation({ summary: "Unlink a product from a supplier" })
+  async unlinkSupplierProduct(
+    @Req() req: Request,
+    @Param("supplierId") supplierId: string,
+    @Param("productId") productId: string,
+  ): Promise<any> {
+    const merchantId = this.getMerchantId(req);
+    const sup = await this.pool.query(
+      `SELECT id FROM suppliers WHERE id = $1 AND merchant_id = $2`,
+      [supplierId, merchantId],
+    );
+    if (!sup.rows.length) throw new NotFoundException("Supplier not found");
+    await this.pool.query(
+      `DELETE FROM supplier_products WHERE supplier_id = $1 AND product_id = $2`,
+      [supplierId, productId],
+    );
+    return { success: true };
+  }
+
+  // ── Direct supplier WhatsApp message ─────────────────────────────────────
+
+  @Post("campaigns/supplier-message")
+  @RequireRole("MANAGER")
+  @ApiOperation({ summary: "Send a WhatsApp message directly to a supplier phone number" })
+  @ApiBody({
+    schema: {
+      type: "object",
+      properties: {
+        phone: { type: "string", description: "Supplier phone number with country code" },
+        message: { type: "string", description: "Message text to send" },
+      },
+      required: ["phone", "message"],
+    },
+  })
+  async sendSupplierMessage(
+    @Req() req: Request,
+    @Body() body: { phone: string; message: string },
+  ): Promise<any> {
+    const merchantId = this.getMerchantId(req);
+    const phone = String(body?.phone || "").replace(/\s/g, "");
+    const message = String(body?.message || "").trim();
+
+    if (!phone || !message) {
+      throw new BadRequestException("الهاتف والرسالة مطلوبان");
+    }
+
+    const status = this.notificationsService.getDeliveryConfigStatus();
+    if (!status.whatsapp.configured) {
+      throw new BadRequestException("واتساب غير مهيأ");
+    }
+
+    const mcResult = await this.pool.query(`SELECT whatsapp_number FROM merchants WHERE id = $1`, [merchantId]);
+    const merchantWhatsApp: string | undefined = mcResult.rows?.[0]?.whatsapp_number || undefined;
+
+    await this.notificationsService.sendBroadcastWhatsApp(phone, message, merchantWhatsApp);
+
+    this.logger.log({ msg: "Supplier WhatsApp message sent", merchantId, to: phone });
+
+    return { success: true, message: "تم إرسال الرسالة للمورد" };
+  }
+
   @Get("reports/daily")
   @RequiresFeature("REPORTS")
   @ApiOperation({ summary: "Get daily business report" })
@@ -4865,10 +5818,12 @@ export class MerchantPortalController {
         try {
           // Get current stock
           const current = await client.query(
-            `SELECT pv.id, pv.sku, pv.stock_quantity, p.name as product_name
-             FROM product_variants pv
-             JOIN products p ON pv.product_id = p.id
-             WHERE pv.id = $1 AND p.merchant_id = $2`,
+            `SELECT iv.id, iv.sku, iv.quantity_on_hand AS stock_quantity,
+                    COALESCE(NULLIF(ii.name, ''), ci.name_ar, ci.name_en, ii.sku) AS product_name
+             FROM inventory_variants iv
+             JOIN inventory_items ii ON ii.id = iv.inventory_item_id
+             LEFT JOIN catalog_items ci ON ci.id = ii.catalog_item_id AND ci.merchant_id = ii.merchant_id
+             WHERE iv.id = $1 AND iv.merchant_id = $2`,
             [update.variantId, merchantId],
           );
 
@@ -4901,7 +5856,7 @@ export class MerchantPortalController {
           }
 
           await client.query(
-            `UPDATE product_variants SET stock_quantity = $1, updated_at = NOW() WHERE id = $2`,
+            `UPDATE inventory_variants SET quantity_on_hand = $1, updated_at = NOW() WHERE id = $2`,
             [newQuantity, update.variantId],
           );
 
@@ -4945,17 +5900,18 @@ export class MerchantPortalController {
 
     const result = await this.pool.query(
       `
-      SELECT 
-        p.category,
-        COUNT(DISTINCT p.id) as product_count,
-        COUNT(DISTINCT pv.id) as variant_count,
-        SUM(pv.stock_quantity) as total_units,
-        SUM(pv.stock_quantity * COALESCE(pv.cost_price, pv.price * 0.6)) as cost_value,
-        SUM(pv.stock_quantity * pv.price) as retail_value
-      FROM products p
-      JOIN product_variants pv ON p.id = pv.product_id
-      WHERE p.merchant_id = $1 AND p.is_active = true
-      GROUP BY p.category
+      SELECT
+        COALESCE(ii.category, ci.category, 'Uncategorized') AS category,
+        COUNT(DISTINCT ii.id)  AS product_count,
+        COUNT(DISTINCT iv.id)  AS variant_count,
+        COALESCE(SUM(iv.quantity_on_hand), 0) AS total_units,
+        COALESCE(SUM(iv.quantity_on_hand * COALESCE(iv.cost_price, ii.cost_price, 0)), 0) AS cost_value,
+        COALESCE(SUM(iv.quantity_on_hand * COALESCE(iv.price_modifier, ii.price, ci.base_price, 0)), 0) AS retail_value
+      FROM inventory_items ii
+      LEFT JOIN catalog_items ci ON ci.id = ii.catalog_item_id AND ci.merchant_id = ii.merchant_id
+      LEFT JOIN inventory_variants iv ON iv.inventory_item_id = ii.id AND iv.merchant_id = ii.merchant_id
+      WHERE ii.merchant_id = $1
+      GROUP BY COALESCE(ii.category, ci.category, 'Uncategorized')
       ORDER BY retail_value DESC
     `,
       [merchantId],
@@ -5025,28 +5981,30 @@ export class MerchantPortalController {
         SELECT 
           (item->>'variantId')::uuid as variant_id,
           MAX(o.created_at) as last_sale_date
-        FROM orders o, jsonb_array_elements(o.items) as item
+        FROM orders o, jsonb_array_elements(
+          CASE WHEN jsonb_typeof(o.items) = 'array' THEN o.items ELSE '[]'::jsonb END
+        ) as item
         WHERE o.merchant_id = $1 AND o.status NOT IN ('CANCELLED')
         GROUP BY (item->>'variantId')::uuid
       )
       SELECT 
-        pv.id as variant_id,
-        pv.sku,
-        p.name as product_name,
-        pv.variant_name,
-        pv.stock_quantity,
-        pv.price,
-        COALESCE(pv.cost_price, pv.price * 0.6) as cost_price,
+        iv.id as variant_id,
+        iv.sku,
+        COALESCE(NULLIF(ii.name, ''), ci.name_ar, ci.name_en, ii.sku) as product_name,
+        iv.name as variant_name,
+        iv.quantity_on_hand as stock_quantity,
+        COALESCE(iv.price_modifier, ii.price, ci.base_price, 0) as price,
+        COALESCE(iv.cost_price, ii.cost_price, 0) as cost_price,
         ls.last_sale_date,
-        EXTRACT(DAYS FROM NOW() - COALESCE(ls.last_sale_date, pv.created_at)) as days_without_sale
-      FROM product_variants pv
-      JOIN products p ON pv.product_id = p.id
-      LEFT JOIN last_sales ls ON pv.id = ls.variant_id
-      WHERE p.merchant_id = $1 
-        AND p.is_active = true
-        AND pv.stock_quantity > 0
+        EXTRACT(DAYS FROM NOW() - COALESCE(ls.last_sale_date, iv.created_at)) as days_without_sale
+      FROM inventory_variants iv
+      JOIN inventory_items ii ON iv.inventory_item_id = ii.id AND ii.merchant_id = iv.merchant_id
+      LEFT JOIN catalog_items ci ON ci.id = ii.catalog_item_id AND ci.merchant_id = ii.merchant_id
+      LEFT JOIN last_sales ls ON iv.id = ls.variant_id
+      WHERE iv.merchant_id = $1
+        AND iv.quantity_on_hand > 0
         AND (ls.last_sale_date IS NULL OR ls.last_sale_date < $2)
-      ORDER BY pv.stock_quantity * COALESCE(pv.cost_price, pv.price * 0.6) DESC
+      ORDER BY iv.quantity_on_hand * COALESCE(iv.cost_price, ii.cost_price, 0) DESC
     `,
       [merchantId, cutoffDate],
     );
@@ -5126,25 +6084,26 @@ export class MerchantPortalController {
         GROUP BY (item->>'variantId')::uuid
       )
       SELECT 
-        pv.id as variant_id,
-        pv.sku,
-        p.name as product_name,
-        pv.variant_name,
-        pv.stock_quantity,
-        pv.low_stock_threshold,
+        iv.id as variant_id,
+        iv.sku,
+        COALESCE(NULLIF(ii.name, ''), ci.name_ar, ci.name_en, ii.sku) as product_name,
+        iv.name as variant_name,
+        iv.quantity_on_hand as stock_quantity,
+        COALESCE(iv.low_stock_threshold, ii.low_stock_threshold, 5) as low_stock_threshold,
         COALESCE(sv.total_sold, 0) as total_sold,
         COALESCE(sv.daily_velocity, 0) as daily_velocity,
         CASE 
           WHEN COALESCE(sv.daily_velocity, 0) > 0 
-          THEN pv.stock_quantity / sv.daily_velocity 
+          THEN iv.quantity_on_hand / sv.daily_velocity 
           ELSE NULL 
         END as days_until_stockout
-      FROM product_variants pv
-      JOIN products p ON pv.product_id = p.id
-      LEFT JOIN sales_velocity sv ON pv.id = sv.variant_id
-      WHERE p.merchant_id = $1 AND p.is_active = true
+      FROM inventory_variants iv
+      JOIN inventory_items ii ON ii.id = iv.inventory_item_id AND ii.merchant_id = iv.merchant_id
+      LEFT JOIN catalog_items ci ON ci.id = ii.catalog_item_id AND ci.merchant_id = ii.merchant_id
+      LEFT JOIN sales_velocity sv ON iv.id = sv.variant_id
+      WHERE iv.merchant_id = $1
       ORDER BY 
-        CASE WHEN COALESCE(sv.daily_velocity, 0) > 0 THEN pv.stock_quantity / sv.daily_velocity ELSE 999999 END ASC
+        CASE WHEN COALESCE(sv.daily_velocity, 0) > 0 THEN iv.quantity_on_hand / sv.daily_velocity ELSE 999999 END ASC
     `,
       [merchantId, startDate, analysiseDays],
     );
@@ -6039,6 +6998,7 @@ export class MerchantPortalController {
 
     let result;
     let countResult;
+    let summaryRows: Array<{ status: string; count: string }> = [];
     try {
       result = await this.pool.query(query, params);
       // Get total count
@@ -6049,12 +7009,40 @@ export class MerchantPortalController {
         countParams.push(status);
       }
       countResult = await this.pool.query(countQuery, countParams);
+
+      const summaryResult = await this.pool.query<{
+        status: string;
+        count: string;
+      }>(
+        `SELECT status, COUNT(*)::text as count
+         FROM payment_proofs
+         WHERE merchant_id = $1
+         GROUP BY status`,
+        [merchantId],
+      );
+      summaryRows = summaryResult.rows;
     } catch (error: any) {
       if (error?.code === "42P01" || error?.code === "42703") {
-        return { proofs: [], total: 0, limit: limitNum, offset: offsetNum };
+        return {
+          proofs: [],
+          total: 0,
+          limit: limitNum,
+          offset: offsetNum,
+          summary: { total: 0, pending: 0, approved: 0, rejected: 0 },
+        };
       }
       throw error;
     }
+
+    const pending =
+      Number(summaryRows.find((row) => row.status === "PENDING")?.count || 0) ||
+      0;
+    const approved =
+      Number(summaryRows.find((row) => row.status === "APPROVED")?.count || 0) ||
+      0;
+    const rejected =
+      Number(summaryRows.find((row) => row.status === "REJECTED")?.count || 0) ||
+      0;
 
     return {
       proofs: result.rows.map((row) => ({
@@ -6074,6 +7062,32 @@ export class MerchantPortalController {
         ocrConfidence: row.ocr_confidence
           ? parseFloat(row.ocr_confidence)
           : null,
+        imagePhash: row.image_phash || null,
+        duplicateOfProofId: row.duplicate_of_proof_id || null,
+        duplicateDistance: row.duplicate_distance
+          ? parseInt(row.duplicate_distance, 10)
+          : null,
+        riskScore: row.risk_score ? parseInt(row.risk_score, 10) : 0,
+        riskLevel: row.risk_level || "LOW",
+        riskFlags: Array.isArray(row.risk_flags)
+          ? row.risk_flags
+          : typeof row.risk_flags === "string"
+            ? (() => {
+                try {
+                  const parsed = JSON.parse(row.risk_flags);
+                  return Array.isArray(parsed) ? parsed : [];
+                } catch {
+                  return [];
+                }
+              })()
+            : [],
+        manualReviewRequired:
+          row.manual_review_required === undefined ||
+          row.manual_review_required === null
+            ? true
+            : Boolean(row.manual_review_required),
+        reviewOutcome: row.review_outcome || null,
+        reviewNotes: row.review_notes || null,
         status: row.status,
         verifiedAt: row.verified_at,
         verifiedBy: row.verified_by,
@@ -6087,6 +7101,12 @@ export class MerchantPortalController {
       total: parseInt(countResult.rows[0].count, 10),
       limit: limitNum,
       offset: offsetNum,
+      summary: {
+        total: pending + approved + rejected,
+        pending,
+        approved,
+        rejected,
+      },
     };
   }
 
@@ -6242,27 +7262,9 @@ export class MerchantPortalController {
     @Query("limit") limit?: string,
     @Query("offset") offset?: string,
   ): Promise<any> {
-    const merchantId = this.getMerchantId(req);
-    const parsedLimit = Number(limit);
-    const parsedOffset = Number(offset);
-    const limitNum = Number.isFinite(parsedLimit) ? parsedLimit : 20;
-    const offsetNum = Number.isFinite(parsedOffset) ? parsedOffset : 0;
-
-    const result = await this.paymentService.listPaymentLinks(merchantId, {
-      status,
-      limit: limitNum,
-      offset: offsetNum,
-    });
-
-    return {
-      links: result.links.map((link) => ({
-        ...link,
-        publicUrl: this.paymentService.getPaymentLinkUrl(link.linkCode),
-      })),
-      total: result.total,
-      limit: limitNum,
-      offset: offsetNum,
-    };
+    throw new BadRequestException(
+      "Payment links have been removed. Use Payment Proof Verification workflow.",
+    );
   }
 
   @Post("payments/links")
@@ -6298,26 +7300,9 @@ export class MerchantPortalController {
       expiresInHours?: number;
     },
   ): Promise<any> {
-    const merchantId = this.getMerchantId(req);
-
-    const link = await this.paymentService.createPaymentLink({
-      merchantId,
-      orderId: body.orderId,
-      amount: body.amount,
-      currency: body.currency || "EGP",
-      description: body.description,
-      customerPhone: body.customerPhone,
-      customerName: body.customerName,
-      expiresInHours: body.expiresInHours || 24,
-    });
-
-    return {
-      success: true,
-      link: {
-        ...link,
-        publicUrl: this.paymentService.getPaymentLinkUrl(link.linkCode),
-      },
-    };
+    throw new BadRequestException(
+      "Payment links have been removed. Use Payment Proof Verification workflow.",
+    );
   }
 
   @Post("payments/links/:linkId/cancel")
@@ -6330,12 +7315,9 @@ export class MerchantPortalController {
     @Req() req: Request,
     @Param("linkId") linkId: string,
   ): Promise<any> {
-    const merchantId = this.getMerchantId(req);
-    const link = await this.paymentService.cancelPaymentLink(
-      linkId,
-      merchantId,
+    throw new BadRequestException(
+      "Payment links have been removed. Use Payment Proof Verification workflow.",
     );
-    return { success: true, link };
   }
 
   @Post("payments/links/:linkId/remind")
@@ -6348,45 +7330,9 @@ export class MerchantPortalController {
     @Req() req: Request,
     @Param("linkId") linkId: string,
   ): Promise<any> {
-    const merchantId = this.getMerchantId(req);
-    const link = await this.paymentService.getPaymentLinkById(
-      linkId,
-      merchantId,
+    throw new BadRequestException(
+      "Payment links have been removed. Use Payment Proof Verification workflow.",
     );
-
-    if (!link) {
-      throw new NotFoundException("Payment link not found");
-    }
-
-    if (link.status !== "PENDING" && link.status !== "VIEWED") {
-      throw new BadRequestException(
-        "Cannot send reminder for this link status",
-      );
-    }
-
-    // Create a reminder task in the outbox
-    await this.pool.query(
-      `INSERT INTO outbox_events (event_type, payload, merchant_id, status)
-       VALUES ('PAYMENT_REMINDER', $1, $2, 'PENDING')`,
-      [
-        JSON.stringify({
-          linkId: link.id,
-          linkCode: link.linkCode,
-          amount: link.amount,
-          currency: link.currency,
-          customerPhone: link.customerPhone,
-          publicUrl: this.paymentService.getPaymentLinkUrl(link.linkCode),
-        }),
-        merchantId,
-      ],
-    );
-
-    this.logger.log({ msg: "Payment reminder scheduled", linkId, merchantId });
-
-    return {
-      success: true,
-      message: "Reminder scheduled",
-    };
   }
 
   // ============== COD STATEMENT IMPORT ==============
@@ -6826,45 +7772,9 @@ export class MerchantPortalController {
     @Req() req: Request,
     @Query("status") status?: string,
   ): Promise<any> {
-    const merchantId = this.getMerchantId(req);
-
-    let query = `
-      SELECT poc.*, cust.phone as customer_phone, cust.name as customer_name
-      FROM product_ocr_confirmations poc
-      LEFT JOIN conversations c ON poc.conversation_id = c.id
-      LEFT JOIN customers cust ON c.customer_id = cust.id
-      WHERE poc.merchant_id = $1
-    `;
-    const params: unknown[] = [merchantId];
-
-    if (status) {
-      query += ` AND poc.status = $2`;
-      params.push(status);
-    } else {
-      query += ` AND poc.status = 'PENDING'`;
-    }
-
-    query += ` ORDER BY poc.created_at DESC LIMIT 50`;
-
-    const result = await this.pool.query(query, params);
-
-    return {
-      confirmations: result.rows.map((row) => ({
-        id: row.id,
-        conversationId: row.conversation_id,
-        customerPhone: row.customer_phone,
-        customerName: row.customer_name,
-        imageUrl: row.image_url,
-        ocrResult: row.ocr_result,
-        matchCandidates: row.match_candidates,
-        selectedProductId: row.selected_product_id,
-        status: row.status,
-        confirmedAt: row.confirmed_at,
-        expiresAt: row.expires_at,
-        createdAt: row.created_at,
-      })),
-      total: result.rows.length,
-    };
+    throw new BadRequestException(
+      "General OCR confirmations are removed. OCR is limited to payment proof verification.",
+    );
   }
 
   @Post("products/ocr/confirmations/:id/approve")
@@ -6875,17 +7785,9 @@ export class MerchantPortalController {
     @Req() req: Request,
     @Param("id") id: string,
   ): Promise<any> {
-    const merchantId = this.getMerchantId(req);
-    const result = await this.pool.query(
-      `UPDATE product_ocr_confirmations SET status = 'CONFIRMED', confirmed_at = NOW()
-       WHERE id = $1 AND merchant_id = $2 AND status = 'PENDING'
-       RETURNING id`,
-      [id, merchantId],
+    throw new BadRequestException(
+      "General OCR confirmations are removed. OCR is limited to payment proof verification.",
     );
-    if (result.rowCount === 0) {
-      throw new NotFoundException("Confirmation not found or already reviewed");
-    }
-    return { success: true };
   }
 
   @Post("products/ocr/confirmations/:id/reject")
@@ -6896,17 +7798,9 @@ export class MerchantPortalController {
     @Req() req: Request,
     @Param("id") id: string,
   ): Promise<any> {
-    const merchantId = this.getMerchantId(req);
-    const result = await this.pool.query(
-      `UPDATE product_ocr_confirmations SET status = 'REJECTED', confirmed_at = NOW()
-       WHERE id = $1 AND merchant_id = $2 AND status = 'PENDING'
-       RETURNING id`,
-      [id, merchantId],
+    throw new BadRequestException(
+      "General OCR confirmations are removed. OCR is limited to payment proof verification.",
     );
-    if (result.rowCount === 0) {
-      throw new NotFoundException("Confirmation not found or already reviewed");
-    }
-    return { success: true };
   }
 
   // ============== FOLLOWUP COMPLETE ==============
@@ -6926,37 +7820,48 @@ export class MerchantPortalController {
   ): Promise<any> {
     const merchantId = this.getMerchantId(req);
 
-    // Try to update in followups table first
-    const followupResult = await this.pool.query(
-      `UPDATE followups SET status = 'SENT', sent_at = NOW(), updated_at = NOW()
-       WHERE id = $1 AND merchant_id = $2 AND status = 'PENDING'
-       RETURNING id`,
-      [id, merchantId],
-    );
-    if (followupResult.rowCount && followupResult.rowCount > 0) {
-      return { success: true, source: "followups" };
+    // UUID validation helper — PostgreSQL rejects non-UUID strings with a hard error
+    const UUID_REGEX =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const isValidUuid = UUID_REGEX.test(id);
+
+    // Try to update in followups table first (only if id looks like a UUID)
+    if (isValidUuid) {
+      const followupResult = await this.pool.query(
+        `UPDATE followups SET status = 'SENT', sent_at = NOW(), updated_at = NOW()
+         WHERE id = $1 AND merchant_id = $2 AND status = 'PENDING'
+         RETURNING id`,
+        [id, merchantId],
+      );
+      if (followupResult.rowCount && followupResult.rowCount > 0) {
+        return { success: true, source: "followups" };
+      }
     }
 
     // If not found in followups table, the ID is an order ID from derived followups
     // Flag the order so it doesn't appear in followup queries again
-    const orderResult = await this.pool.query(
-      `UPDATE orders SET metadata = COALESCE(metadata, '{}'::jsonb) || '{"followup_resolved": true}'::jsonb,
-              updated_at = NOW()
-       WHERE id = $1 AND merchant_id = $2
-       RETURNING id`,
-      [id, merchantId],
-    );
-    if (orderResult.rowCount && orderResult.rowCount > 0) {
-      return { success: true, source: "orders" };
+    if (isValidUuid) {
+      const orderResult = await this.pool.query(
+        `UPDATE orders SET metadata = COALESCE(metadata, '{}'::jsonb) || '{"followup_resolved": true}'::jsonb,
+                updated_at = NOW()
+         WHERE id = $1 AND merchant_id = $2
+         RETURNING id`,
+        [id, merchantId],
+      );
+      if (orderResult.rowCount && orderResult.rowCount > 0) {
+        return { success: true, source: "orders" };
+      }
     }
 
     // If not found in orders table, try conversation-derived abandoned cart followups
+    // Also support non-UUID conversation IDs (e.g. demo IDs like "conv-demo-005")
+    // by using a text cast comparison instead of UUID cast
     const conversationResult = await this.pool.query(
       `UPDATE conversations
        SET context = COALESCE(context, '{}'::jsonb) || '{"followup_resolved": true}'::jsonb,
            next_followup_at = NULL,
            updated_at = NOW()
-       WHERE id = $1 AND merchant_id = $2
+       WHERE id::text = $1 AND merchant_id = $2
        RETURNING id`,
       [id, merchantId],
     );
@@ -7470,10 +8375,12 @@ export class MerchantPortalController {
     required: false,
     enum: ["today", "week", "month", "all"],
   })
+  @ApiQuery({ name: "branchId", required: false, type: "string" })
   @ApiResponse({ status: 200, description: "COD summary retrieved" })
   async getCodSummary(
     @Req() req: Request,
     @Query("period") period?: string,
+    @Query("branchId") branchId?: string,
   ): Promise<any> {
     const merchantId = this.getMerchantId(req);
 
@@ -7489,6 +8396,12 @@ export class MerchantPortalController {
       dateFilter = "AND o.created_at >= CURRENT_DATE - INTERVAL '30 days'";
     }
 
+    let branchFilter = "";
+    if (branchId) {
+      branchFilter = `AND o.branch_id = $${params.length + 1}`;
+      params.push(branchId);
+    }
+
     // Get COD orders summary
     const ordersResult = await this.pool.query(
       `SELECT 
@@ -7501,7 +8414,7 @@ export class MerchantPortalController {
         COUNT(*) FILTER (WHERE payment_method = 'COD' AND status = 'CANCELLED') as cancelled_orders,
         0 as returned_orders
        FROM orders o
-       WHERE merchant_id = $1 ${dateFilter}`,
+       WHERE merchant_id = $1 ${dateFilter} ${branchFilter}`,
       params,
     );
 
@@ -7530,10 +8443,10 @@ export class MerchantPortalController {
               s.courier, s.tracking_id as tracking_number, o.created_at
        FROM orders o
        LEFT JOIN shipments s ON s.order_id = o.id
-       WHERE o.merchant_id = $1 AND o.payment_method = 'COD'
+       WHERE o.merchant_id = $1 AND o.payment_method = 'COD' ${params.length > 1 ? "AND o.branch_id = $2" : ""}
        ORDER BY o.created_at DESC
        LIMIT 20`,
-      [merchantId],
+      branchId ? [merchantId, branchId] : [merchantId],
     );
 
     return {
@@ -8516,9 +9429,6 @@ export class MerchantPortalController {
     const merchantId = this.getMerchantId(req);
     const assignableStatuses = new Set([
       "CONFIRMED",
-      "BOOKED",
-      "SHIPPED",
-      "OUT_FOR_DELIVERY",
     ]);
 
     // Get driver info
@@ -8875,6 +9785,231 @@ export class MerchantPortalController {
     return { message: "Deleted" };
   }
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // AI: PRODUCT DESCRIPTION GENERATOR
+  // ─────────────────────────────────────────────────────────────────────────
+
+  @Post("inventory/:productId/ai-description")
+  @RequireRole("MANAGER")
+  async generateProductDescription(
+    @Req() req: Request,
+    @Param("productId") productId: string,
+  ): Promise<{ description: string }> {
+    const merchantId = this.getMerchantId(req);
+    const result = await this.pool.query(
+      `SELECT COALESCE(NULLIF(ii.name, ''), ci.name_ar, ci.name_en, ii.sku, '') AS name,
+              COALESCE(ii.description, ci.description_ar, '') AS description,
+              COALESCE(ii.category, ci.category, '') AS category,
+              COALESCE(ii.sku, ci.sku, '') AS sku
+       FROM inventory_items ii
+       LEFT JOIN catalog_items ci ON ci.id = ii.catalog_item_id AND ci.merchant_id = ii.merchant_id
+       WHERE ii.id = $1 AND ii.merchant_id = $2`,
+      [productId, merchantId],
+    );
+    if (!result.rows.length) throw new NotFoundException("Product not found");
+    const product = result.rows[0];
+
+    try {
+      const aiResult = await this.inventoryAiService.generateRestockInsight({
+        merchantId,
+        product: {
+          sku: product.sku || productId,
+          name: product.name,
+          currentQuantity: 0,
+          recommendedQuantity: 5,
+          avgDailySales: 1,
+          daysUntilStockout: 0,
+          urgency: "low",
+        },
+      });
+      if (aiResult.success && aiResult.data?.explanationAr) {
+        return { description: aiResult.data.explanationAr };
+      }
+    } catch (_) {
+      // fall through to fallback
+    }
+
+    const fallbackDesc = `${product.name} — منتج عالي الجودة متوفر لدينا.${product.category ? ` الفئة: ${product.category}.` : ""} للاستفسار والطلب تواصل معنا عبر واتساب.`;
+    return { description: fallbackDesc };
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // AI: CAMPAIGN AUDIENCE SUGGESTION
+  // ─────────────────────────────────────────────────────────────────────────
+
+  @Post("campaigns/suggest-audience")
+  @RequireRole("MANAGER")
+  async suggestCampaignAudience(
+    @Req() req: Request,
+    @Body() body: { goal: string },
+  ): Promise<{
+    recommendedSegmentId: string | null;
+    segmentName: string;
+    reason: string;
+    estimatedSize: number;
+    segments: Array<{ id: string; name: string; size: number; match_score: number }>;
+  }> {
+    const merchantId = this.getMerchantId(req);
+    const goal = (body.goal ?? "").toLowerCase();
+
+    const segsResult = await this.pool.query(
+      `SELECT cs.id, cs.name,
+              COUNT(DISTINCT c.id)::int AS estimated_size
+       FROM customer_segments cs
+       LEFT JOIN customers c ON c.merchant_id = cs.merchant_id
+       WHERE cs.merchant_id = $1
+       GROUP BY cs.id, cs.name
+       ORDER BY estimated_size DESC`,
+      [merchantId],
+    );
+
+    const scored = segsResult.rows.map((seg) => {
+      const segName = (seg.name ?? "").toLowerCase();
+      let score = 0;
+      if (goal.includes("استرجاع") || goal.includes("عودة") || goal.includes("خامل")) {
+        if (segName.includes("خامل") || segName.includes("قديم") || segName.includes("غير نشط")) score += 50;
+        if (segName.includes("at_risk") || segName.includes("خطر")) score += 40;
+      }
+      if (goal.includes("vip") || goal.includes("مميز") || goal.includes("كبار")) {
+        if (segName.includes("vip") || segName.includes("مميز") || segName.includes("كبار")) score += 50;
+      }
+      if (goal.includes("جديد") || goal.includes("ترحيب")) {
+        if (segName.includes("جديد") || segName.includes("new")) score += 50;
+      }
+      if (goal.includes("خصم") || goal.includes("عرض") || goal.includes("تخفيض")) score += 20;
+      return { id: seg.id, name: seg.name, size: seg.estimated_size, match_score: score };
+    });
+    scored.sort((a, b) => b.match_score - a.match_score);
+    const best = scored[0];
+
+    const reasons: Record<string, string> = {
+      استرجاع: "العملاء الخاملون هم أفضل جمهور لحملات إعادة الاستهداف",
+      vip: "العملاء المميزون يستجيبون بشكل أفضل للعروض الحصرية",
+      جديد: "العملاء الجدد في مرحلة بناء الولاء — الترحيب يرفع معدل الاحتفاظ",
+      خصم: "الشريحة العامة تعطي أكبر انتشار لحملات الخصومات",
+    };
+    const matchedKey = Object.keys(reasons).find((k) => goal.includes(k));
+    const reason = matchedKey
+      ? reasons[matchedKey]
+      : best
+        ? `شريحة "${best.name}" تضم ${best.size} عميل وهي الأنسب لهدفك`
+        : "لم يتم العثور على شرائح. أنشئ شرائح عملاء أولاً من صفحة الشرائح";
+
+    return {
+      recommendedSegmentId: best?.id ?? null,
+      segmentName: best?.name ?? "—",
+      reason,
+      estimatedSize: best?.size ?? 0,
+      segments: scored.slice(0, 5),
+    };
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // ANALYTICS: SUBSCRIPTION USAGE
+  // ─────────────────────────────────────────────────────────────────────────
+
+  @Get("analytics/subscription-usage")
+  @RequireRole("MANAGER")
+  async getSubscriptionUsage(@Req() req: Request): Promise<{
+    tokensUsed: number;
+    tokenLimit: number;
+    tokenPct: number;
+    conversationsUsed: number;
+    conversationLimit: number;
+    conversationPct: number;
+    planName: string;
+    periodEnd: string | null;
+  }> {
+    const merchantId = this.getMerchantId(req);
+
+    const result = await this.pool.query(
+      `SELECT
+         COALESCE(SUM(mtu.tokens_used), 0)::int AS tokens_used,
+         COALESCE(sp.monthly_token_limit, 10000) AS token_limit,
+         COALESCE(sp.monthly_conversation_limit, 500) AS conversation_limit,
+         COALESCE(sp.name, 'Basic') AS plan_name,
+         sub.current_period_end,
+         (SELECT COUNT(DISTINCT id)::int FROM conversations
+          WHERE merchant_id = $1 AND created_at >= date_trunc('month', NOW())) AS conversations_used
+       FROM merchants m
+       LEFT JOIN subscriptions sub ON sub.merchant_id = m.id AND sub.status = 'ACTIVE'
+       LEFT JOIN subscription_plans sp ON sp.id = sub.plan_id
+       LEFT JOIN merchant_token_usage mtu ON mtu.merchant_id = m.id
+         AND mtu.usage_date >= date_trunc('month', NOW())
+       WHERE m.id = $1
+       GROUP BY sp.monthly_token_limit, sp.monthly_conversation_limit, sp.name,
+                sub.current_period_end`,
+      [merchantId],
+    );
+
+    const row = result.rows[0] ?? {
+      tokens_used: 0,
+      token_limit: 10000,
+      conversation_limit: 500,
+      plan_name: "Basic",
+      current_period_end: null,
+      conversations_used: 0,
+    };
+
+    return {
+      tokensUsed: Number(row.tokens_used),
+      tokenLimit: Number(row.token_limit),
+      tokenPct: row.token_limit > 0 ? Math.round((row.tokens_used / row.token_limit) * 100) : 0,
+      conversationsUsed: Number(row.conversations_used),
+      conversationLimit: Number(row.conversation_limit),
+      conversationPct:
+        row.conversation_limit > 0
+          ? Math.round((row.conversations_used / row.conversation_limit) * 100)
+          : 0,
+      planName: row.plan_name,
+      periodEnd: row.current_period_end ?? null,
+    };
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // ANALYTICS: WHATSAPP DELIVERY TREND
+  // ─────────────────────────────────────────────────────────────────────────
+
+  @Get("analytics/whatsapp-delivery-trend")
+  @RequireRole("MANAGER")
+  async getWhatsappDeliveryTrend(
+    @Req() req: Request,
+    @Query("days") days = "14",
+  ): Promise<{
+    trend: Array<{ date: string; sent: number; delivered: number; failed: number; rate: number }>;
+    overallRate: number;
+  }> {
+    const merchantId = this.getMerchantId(req);
+    const daysInt = Math.min(Math.max(parseInt(days, 10) || 14, 1), 90);
+
+    const result = await this.pool.query(
+      `SELECT
+         date_trunc('day', created_at)::date::text AS date,
+         COUNT(*) FILTER (WHERE direction = 'outbound')::int AS sent,
+         COUNT(*) FILTER (WHERE direction = 'outbound' AND delivery_status = 'DELIVERED')::int AS delivered,
+         COUNT(*) FILTER (WHERE direction = 'outbound' AND delivery_status = 'FAILED')::int AS failed
+       FROM messages
+       WHERE merchant_id = $1
+         AND direction = 'outbound'
+         AND created_at >= NOW() - INTERVAL '1 day' * $2
+       GROUP BY 1
+       ORDER BY 1 ASC`,
+      [merchantId, daysInt],
+    );
+
+    const trend = result.rows.map((r) => ({
+      date: r.date,
+      sent: r.sent,
+      delivered: r.delivered,
+      failed: r.failed,
+      rate: r.sent > 0 ? Math.round((r.delivered / r.sent) * 100) : 0,
+    }));
+
+    const totalSent = trend.reduce((s, r) => s + r.sent, 0);
+    const totalDelivered = trend.reduce((s, r) => s + r.delivered, 0);
+    return { trend, overallRate: totalSent > 0 ? Math.round((totalDelivered / totalSent) * 100) : 0 };
+  }
+
   // ─── Helper: build WHERE clause from segment rules ────────────
   private buildSegmentWhere(
     rules: any[],
@@ -8913,5 +10048,189 @@ export class MerchantPortalController {
 
     const joiner = matchType === "any" ? " OR " : " AND ";
     return { where: conditions.join(joiner), params };
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // ADVANCED FORECAST PLATFORM ENDPOINTS
+  // ═══════════════════════════════════════════════════════════════════════
+
+  @Get("forecast/demand")
+  @ApiOperation({ summary: "Advanced demand forecast with Holt-Winters + confidence bands" })
+  async getAdvancedDemandForecast(
+    @Req() req: Request,
+    @Query("productId") productId?: string,
+    @Query("urgency") urgency?: string,
+    @Query("page") page = "1",
+    @Query("limit") limit = "50",
+  ): Promise<any> {
+    const merchantId = this.getMerchantId(req);
+    const results = await this.forecastEngine.computeDemandForecast(
+      merchantId,
+      productId,
+      90,
+    );
+    const filtered = urgency
+      ? results.filter((r) => r.urgency === urgency)
+      : results;
+    const p = Math.max(1, parseInt(page, 10));
+    const l = Math.min(100, Math.max(1, parseInt(limit, 10)));
+    const total = filtered.length;
+    const items = filtered.slice((p - 1) * l, p * l);
+    const summary = {
+      critical: results.filter((r) => r.urgency === "critical").length,
+      high: results.filter((r) => r.urgency === "high").length,
+      medium: results.filter((r) => r.urgency === "medium").length,
+      ok: results.filter((r) => r.urgency === "ok").length,
+    };
+    return { items, total, page: p, limit: l, summary };
+  }
+
+  @Get("forecast/demand/:productId/history")
+  @ApiOperation({ summary: "Daily demand history + predictions for a single product" })
+  async getDemandForecastHistory(
+    @Req() req: Request,
+    @Param("productId") productId: string,
+  ): Promise<any> {
+    const merchantId = this.getMerchantId(req);
+    const results = await this.forecastEngine.computeDemandForecast(merchantId, productId, 90);
+    if (!results.length) throw new NotFoundException("Product not found or no data");
+    const item = results[0];
+    return {
+      productId: item.productId,
+      productName: item.productName,
+      historicalData: item.historicalData,
+      forecast7d: item.forecast7d,
+      forecast14d: item.forecast14d,
+      forecast30d: item.forecast30d,
+      lower7d: item.lower7d,
+      upper7d: item.upper7d,
+      lower30d: item.lower30d,
+      upper30d: item.upper30d,
+      mape7d: item.mape7d,
+      confidence: item.confidence,
+      trendPct: item.trendPct,
+      reasonCodes: item.reasonCodes,
+    };
+  }
+
+  @Get("forecast/cashflow")
+  @ApiOperation({ summary: "30-day cash-flow projection + runway calculation" })
+  async getCashFlowForecast(
+    @Req() req: Request,
+    @Query("days") days = "30",
+  ): Promise<any> {
+    const merchantId = this.getMerchantId(req);
+    const d = Math.min(90, Math.max(7, parseInt(days, 10) || 30));
+    return this.forecastEngine.computeCashFlowForecast(merchantId, d);
+  }
+
+  @Get("forecast/churn")
+  @ApiOperation({ summary: "At-risk customers ranked by churn probability" })
+  async getChurnForecast(
+    @Req() req: Request,
+    @Query("limit") limit = "50",
+  ): Promise<any> {
+    const merchantId = this.getMerchantId(req);
+    const l = Math.min(200, Math.max(1, parseInt(limit, 10) || 50));
+    const items = await this.forecastEngine.computeChurnForecast(merchantId, l);
+    const summary = {
+      critical: items.filter((i) => i.riskLevel === "critical").length,
+      high: items.filter((i) => i.riskLevel === "high").length,
+      medium: items.filter((i) => i.riskLevel === "medium").length,
+      total: items.length,
+    };
+    return { items, summary };
+  }
+
+  @Get("forecast/workforce")
+  @ApiOperation({ summary: "Hourly/daily workforce load forecast (next 7 days)" })
+  async getWorkforceForecast(@Req() req: Request): Promise<any> {
+    const merchantId = this.getMerchantId(req);
+    return this.forecastEngine.computeWorkforceLoadForecast(merchantId);
+  }
+
+  @Get("forecast/delivery-risk")
+  @ApiOperation({ summary: "Delivery delay probability for active orders" })
+  async getDeliveryRiskForecast(@Req() req: Request): Promise<any> {
+    const merchantId = this.getMerchantId(req);
+    const items = await this.forecastEngine.computeDeliveryEtaForecast(merchantId);
+    const high = items.filter((i) => i.delayProbability >= 0.5);
+    return { items, highRiskCount: high.length };
+  }
+
+  @Get("forecast/model-metrics")
+  @ApiOperation({ summary: "MAPE / accuracy metrics from last backtest" })
+  async getForecastModelMetrics(@Req() req: Request): Promise<any> {
+    const merchantId = this.getMerchantId(req);
+    const metrics = await this.forecastEngine.backtestDemand(merchantId);
+    const history = await this.pool.query(
+      `SELECT forecast_type, mape, wmape, bias, mae, sample_size, evaluated_at
+       FROM forecast_model_metrics
+       WHERE merchant_id = $1
+       ORDER BY evaluated_at DESC LIMIT 30`,
+      [merchantId],
+    );
+    return { latest: metrics, history: history.rows };
+  }
+
+  @Get("forecast/replenishment")
+  @ApiOperation({ summary: "Pending replenishment / PO recommendations" })
+  async getReplenishmentList(
+    @Req() req: Request,
+    @Query("status") status = "pending",
+  ): Promise<any> {
+    const merchantId = this.getMerchantId(req);
+    const VALID_STATUS = ["pending", "approved", "ordered", "dismissed"];
+    const s = VALID_STATUS.includes(status) ? status : "pending";
+    const rows = await this.pool.query(
+      `SELECT rr.*, COALESCE(NULLIF(ii.name, ''), ci.name_ar, ci.name_en, ii.sku, 'منتج') AS product_name
+       FROM replenishment_recommendations rr
+       LEFT JOIN inventory_items ii ON ii.id = rr.product_id
+       LEFT JOIN catalog_items ci ON ci.id = ii.catalog_item_id AND ci.merchant_id = ii.merchant_id
+       WHERE rr.merchant_id = $1 AND rr.status = $2
+       ORDER BY rr.urgency DESC, rr.computed_at DESC
+       LIMIT 100`,
+      [merchantId, s],
+    );
+    return { items: rows.rows, total: rows.rowCount };
+  }
+
+  @Post("forecast/what-if")
+  @ApiOperation({ summary: "What-if scenario simulator (demand, cashflow, campaign, pricing)" })
+  async runWhatIfScenario(
+    @Req() req: Request,
+    @Body() body: { type: "demand" | "cashflow" | "campaign" | "pricing"; params: Record<string, any> },
+  ): Promise<any> {
+    const merchantId = this.getMerchantId(req);
+    if (!body?.type) throw new BadRequestException("type is required");
+    const result = await this.forecastEngine.runWhatIf(merchantId, body);
+    // Persist scenario for history
+    await this.pool.query(
+      `INSERT INTO what_if_scenarios (merchant_id, scenario_type, input_params, result_summary)
+       VALUES ($1, $2, $3::jsonb, $4::jsonb)`,
+      [merchantId, body.type, JSON.stringify(body.params), JSON.stringify(result)],
+    ).catch(() => {/* non-critical */});
+    return result;
+  }
+
+  @Post("forecast/replenishment/:id/approve")
+  @RequireRole("MANAGER")
+  @ApiOperation({ summary: "Approve a replenishment recommendation (creates PO marker)" })
+  async approveReplenishment(
+    @Req() req: Request,
+    @Param("id") id: string,
+    @Body() body: { poReference?: string } = {},
+  ): Promise<any> {
+    const merchantId = this.getMerchantId(req);
+    const staffId = this.getSafeStaffId(req);
+    const result = await this.pool.query(
+      `UPDATE replenishment_recommendations
+       SET status = 'approved', approved_by = $3, po_reference = $4, updated_at = NOW()
+       WHERE id = $1 AND merchant_id = $2
+       RETURNING *`,
+      [id, merchantId, staffId ?? null, body.poReference ?? null],
+    );
+    if (!result.rowCount) throw new NotFoundException("Recommendation not found");
+    return { ok: true, updated: result.rows[0] };
   }
 }

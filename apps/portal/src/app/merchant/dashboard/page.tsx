@@ -41,6 +41,7 @@ import {
   cn,
 } from "@/lib/utils";
 import { merchantApi } from "@/lib/api";
+import portalApi from "@/lib/authenticated-api";
 import { useMerchant } from "@/hooks/use-merchant";
 import {
   AiInsightsCard,
@@ -106,6 +107,12 @@ export default function MerchantDashboard() {
   const [periodDays, setPeriodDays] = useState<number>(() =>
     getStoredReportingDays(30),
   );
+  const [subUsage, setSubUsage] = useState<{
+    tokensUsed: number; tokenLimit: number; tokenPct: number;
+    conversationsUsed: number; conversationLimit: number; conversationPct: number;
+    planName: string; periodEnd: string | null;
+  } | null>(null);
+  const [aiBrief, setAiBrief] = useState<string | null>(null);
   const effectivePeriodDays = useMemo(
     () => resolveReportingDays(periodDays),
     [periodDays],
@@ -148,6 +155,15 @@ export default function MerchantDashboard() {
         effectivePeriodDays,
       );
       setData(result);
+      // Fetch subscription usage and AI brief in background.
+      // Skip in demo mode — no session → 401 → signOut redirect loop.
+      if (!isDemo) {
+        portalApi.getSubscriptionUsage().then((r) => setSubUsage(r)).catch(() => null);
+        portalApi.getCfoAiBrief().then((r) => {
+          const brief = (r as any)?.data?.summaryAr || (r as any)?.summaryAr || null;
+          if (brief) setAiBrief(brief);
+        }).catch(() => null);
+      }
     } catch (err) {
       console.error("Failed to fetch dashboard data");
       setError(
@@ -473,6 +489,92 @@ export default function MerchantDashboard() {
                 <p className="text-xs">
                   تحقق من إعدادات المصروفات أو أعد التحديث.
                 </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Subscription Usage + AI Brief Row */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Subscription Usage Bar */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <TrendingUp className="h-4 w-4 text-blue-500" />
+              استخدام الخطة الحالية
+              {subUsage && (
+                <Badge variant="outline" className="text-xs mr-auto">{subUsage.planName}</Badge>
+              )}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {subUsage ? (
+              <>
+                <div>
+                  <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                    <span>الرسائل (توكن AI)</span>
+                    <span>{subUsage.tokensUsed.toLocaleString()} / {subUsage.tokenLimit.toLocaleString()}</span>
+                  </div>
+                  <div className="h-2 rounded-full bg-muted overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all ${
+                        subUsage.tokenPct >= 90 ? "bg-red-500" :
+                        subUsage.tokenPct >= 70 ? "bg-amber-400" : "bg-blue-500"
+                      }`}
+                      style={{ width: `${Math.min(subUsage.tokenPct, 100)}%` }}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                    <span>المحادثات هذا الشهر</span>
+                    <span>{subUsage.conversationsUsed} / {subUsage.conversationLimit}</span>
+                  </div>
+                  <div className="h-2 rounded-full bg-muted overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all ${
+                        subUsage.conversationPct >= 90 ? "bg-red-500" :
+                        subUsage.conversationPct >= 70 ? "bg-amber-400" : "bg-green-500"
+                      }`}
+                      style={{ width: `${Math.min(subUsage.conversationPct, 100)}%` }}
+                    />
+                  </div>
+                </div>
+                {subUsage.periodEnd && (
+                  <p className="text-xs text-muted-foreground">
+                    تجديد الخطة: {new Date(subUsage.periodEnd).toLocaleDateString("ar-EG")}
+                  </p>
+                )}
+              </>
+            ) : (
+              <div className="h-16 flex items-center justify-center text-xs text-muted-foreground animate-pulse">
+                جارٍ تحميل بيانات الاستخدام...
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Daily AI Brief */}
+        <Card className="border-purple-100">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <DollarSign className="h-4 w-4 text-purple-500" />
+              تقرير AI اليومي
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {aiBrief ? (
+              <p className="text-sm text-muted-foreground leading-relaxed" dir="rtl">{aiBrief}</p>
+            ) : (
+              <div className="h-16 flex items-center justify-center text-xs text-muted-foreground">
+                {hasPro ? (
+                  <span className="animate-pulse">يجهز الذكاء الاصطناعي تقريره اليومي...</span>
+                ) : (
+                  <Link href="/merchant/plan" className="text-primary hover:underline flex items-center gap-1">
+                    ترقية للخطة الاحترافية <ArrowUpRight className="h-3 w-3" />
+                  </Link>
+                )}
               </div>
             )}
           </CardContent>

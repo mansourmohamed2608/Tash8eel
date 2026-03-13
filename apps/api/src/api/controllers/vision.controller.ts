@@ -20,18 +20,14 @@ import {
   EntitlementGuard,
   RequiresFeature,
 } from "../../shared/guards/entitlement.guard";
-import {
-  ProcessReceiptDto,
-  AnalyzeProductDto,
-  AnalyzeMedicineDto,
-  ExtractTextDto,
-  VISION_SECURITY,
-} from "../dto/vision.dto";
+import { RolesGuard, RequireRole } from "../../shared/guards/roles.guard";
+import { ProcessReceiptDto } from "../dto/vision.dto";
 
 @ApiTags("Vision/OCR")
 @ApiSecurity("x-api-key")
-@UseGuards(MerchantApiKeyGuard, EntitlementGuard)
-@RequiresFeature("VISION_OCR")
+@UseGuards(MerchantApiKeyGuard, RolesGuard, EntitlementGuard)
+@RequireRole("AGENT") // BL-003: only AGENT+ staff (not VIEWER) may submit images to Vision OCR
+@RequiresFeature("PAYMENTS") // Payment proof OCR — only active use case
 @Controller("v1/vision")
 export class VisionController {
   private readonly logger = new Logger(VisionController.name);
@@ -43,7 +39,7 @@ export class VisionController {
   @ApiOperation({
     summary: "Process payment receipt",
     description:
-      "Analyze InstaPay/bank transfer receipt image and extract payment details",
+      "OCR-assisted extraction for WhatsApp payment proof verification",
   })
   @ApiBody({ type: ProcessReceiptDto })
   @ApiResponse({ status: 200, description: "Receipt processed successfully" })
@@ -59,53 +55,27 @@ export class VisionController {
     return result;
   }
 
-  @Post("product")
+  /**
+   * BL-010: Wire classifyPaymentProof as a first-class endpoint.
+   * Useful when the caller only needs to know the payment method (INSTAPAY,
+   * VODAFONE_CASH, etc.) without spending tokens on full receipt extraction.
+   */
+  @Post("classify")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: "Analyze product image",
+    summary: "Classify payment proof — detect payment method only",
     description:
-      "Analyze product image for catalog entry - extracts name, category, colors, suggested price, etc.",
+      "Returns the detected payment method, confidence score, and key indicators. " +
+      "Cheaper than /receipt when full extraction is not required.",
   })
-  @ApiBody({ type: AnalyzeProductDto })
-  @ApiResponse({ status: 200, description: "Product analyzed successfully" })
-  async analyzeProduct(@Body() dto: AnalyzeProductDto) {
-    this.logger.log("Analyzing product image");
-    const result = await this.visionService.analyzeProductImage(
-      dto.imageBase64,
-      dto.merchantCategory,
-    );
-    return result;
-  }
-
-  @Post("medicine")
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({
-    summary: "Analyze medicine image",
-    description:
-      "Analyze medicine/pharmaceutical image - extracts medicine name, dosage, instructions, warnings",
-  })
-  @ApiBody({ type: AnalyzeMedicineDto })
-  @ApiResponse({ status: 200, description: "Medicine analyzed successfully" })
-  async analyzeMedicine(@Body() dto: AnalyzeMedicineDto) {
-    this.logger.log("Analyzing medicine image");
-    const result = await this.visionService.analyzeMedicineImage(
+  @ApiBody({ type: ProcessReceiptDto })
+  @ApiResponse({ status: 200, description: "Payment method classified" })
+  @ApiResponse({ status: 400, description: "Classification failed" })
+  async classifyPaymentProof(@Body() dto: ProcessReceiptDto) {
+    this.logger.log("Classifying payment proof");
+    const result = await this.visionService.classifyPaymentProof(
       dto.imageBase64,
     );
-    return result;
-  }
-
-  @Post("extract-text")
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({
-    summary: "Extract text from image (OCR)",
-    description:
-      "General OCR - extract all text from any image, preserving Arabic text",
-  })
-  @ApiBody({ type: ExtractTextDto })
-  @ApiResponse({ status: 200, description: "Text extracted successfully" })
-  async extractText(@Body() dto: ExtractTextDto) {
-    this.logger.log("Extracting text from image");
-    const result = await this.visionService.extractText(dto.imageBase64);
     return result;
   }
 }

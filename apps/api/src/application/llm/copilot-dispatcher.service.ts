@@ -9,7 +9,6 @@ import { Injectable, Inject } from "@nestjs/common";
 import { Pool } from "pg";
 import { DATABASE_POOL } from "../../infrastructure/database/database.module";
 import { AuditService } from "../services/audit.service";
-import { PaymentService } from "../services/payment.service";
 import { createLogger } from "../../shared/logging/logger";
 import { CopilotCommand, CopilotIntent, PendingAction } from "./copilot-schema";
 
@@ -40,7 +39,6 @@ export class CopilotDispatcherService {
   constructor(
     @Inject(DATABASE_POOL) private readonly pool: Pool,
     private readonly auditService: AuditService,
-    private readonly paymentService: PaymentService,
   ) {}
 
   /**
@@ -66,7 +64,13 @@ export class CopilotDispatcherService {
           result = await this.executeAskExpenseSummary(merchantId, command);
           break;
         case "CREATE_PAYMENT_LINK":
-          result = await this.executeCreatePaymentLink(merchantId, command);
+          result = {
+            success: false,
+            intent: "CREATE_PAYMENT_LINK",
+            action: "UNSUPPORTED",
+            replyAr:
+              "ميزة روابط الدفع اتشالت. استخدم صفحة مراجعة إثباتات الدفع داخل النظام.",
+          };
           break;
         case "ASK_COD_STATUS":
           result = await this.executeAskCodStatus(merchantId, command);
@@ -302,63 +306,12 @@ export class CopilotDispatcherService {
     merchantId: string,
     command: CopilotCommand,
   ): Promise<DispatchResult> {
-    const { paymentLink } = command.entities;
-
-    // Find order if order number provided
-    let orderId = paymentLink?.orderId;
-    let amount = paymentLink?.amount;
-    let customerPhone = paymentLink?.customerPhone;
-    let customerName = paymentLink?.customerName;
-
-    if (paymentLink?.orderNumber && !orderId) {
-      const orderResult = await this.pool.query(
-        `SELECT id, total, customer_phone, customer_name FROM orders 
-         WHERE merchant_id = $1 AND order_number = $2`,
-        [merchantId, paymentLink.orderNumber],
-      );
-      if (orderResult.rows.length > 0) {
-        orderId = orderResult.rows[0].id;
-        amount = amount || parseFloat(orderResult.rows[0].total);
-        customerPhone = customerPhone || orderResult.rows[0].customer_phone;
-        customerName = customerName || orderResult.rows[0].customer_name;
-      }
-    }
-
-    if (!amount) {
-      return {
-        success: false,
-        intent: "CREATE_PAYMENT_LINK",
-        action: "CREATE_PAYMENT_LINK",
-        error: "Amount is required",
-        replyAr: "المبلغ مطلوب لإنشاء لينك الدفع",
-      };
-    }
-
-    // Use PaymentService for proper status, audit logging, and URL generation
-    const link = await this.paymentService.createPaymentLink({
-      merchantId,
-      orderId,
-      amount,
-      currency: "EGP",
-      description: paymentLink?.description || `لينك دفع من الكوبايلوت`,
-      customerPhone,
-      customerName,
-      expiresInHours: 168, // 7 days
-    });
-
-    const paymentUrl = this.paymentService.getPaymentLinkUrl(link.linkCode);
-
     return {
-      success: true,
+      success: false,
       intent: "CREATE_PAYMENT_LINK",
-      action: "PAYMENT_LINK_CREATED",
-      data: {
-        paymentLinkId: link.id,
-        linkCode: link.linkCode,
-        amount: link.amount,
-        url: paymentUrl,
-      },
-      replyAr: `✅ تم إنشاء لينك الدفع:\n💰 المبلغ: ${amount} جنيه\n🔗 ${paymentUrl}`,
+      action: "UNSUPPORTED",
+      replyAr:
+        "ميزة روابط الدفع اتشالت. استخدم صفحة مراجعة إثباتات الدفع داخل النظام.",
     };
   }
 

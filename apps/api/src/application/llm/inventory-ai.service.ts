@@ -1,9 +1,11 @@
-import { Injectable, Inject } from "@nestjs/common";
+import { Injectable, Inject, forwardRef } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import OpenAI from "openai";
 import { z } from "zod";
 import { createLogger } from "../../shared/logging/logger";
 import { MERCHANT_REPOSITORY, IMerchantRepository } from "../../domain/ports";
+import { AiMetricsService } from "../../shared/services/ai-metrics.service";
+import { NotificationsService } from "../services/notifications.service";
 import { MerchantContextService } from "./merchant-context.service";
 import { getTodayDate } from "../../shared/utils/helpers";
 
@@ -105,12 +107,19 @@ export class InventoryAiService {
   private model: string;
   /** Circuit breaker: when OpenAI returns 429, stop calling until this timestamp */
   private quotaBlockedUntil = 0;
+  /** Throttle: only send one OpenAI-429 notification per merchant per hour */
+  private readonly quotaNotifiedAt = new Map<string, number>();
+  /** Throttle: only send one budget-exhausted notification per merchant per hour */
+  private readonly budgetNotifiedAt = new Map<string, number>();
 
   constructor(
     private configService: ConfigService,
     @Inject(MERCHANT_REPOSITORY)
     private merchantRepository: IMerchantRepository,
     private readonly contextService: MerchantContextService,
+    private readonly aiMetrics: AiMetricsService,
+    @Inject(forwardRef(() => NotificationsService))
+    private readonly notificationsService: NotificationsService,
   ) {
     const apiKey = this.configService.get<string>("OPENAI_API_KEY");
     if (apiKey) {
@@ -122,6 +131,60 @@ export class InventoryAiService {
   /** Returns true if OpenAI quota is currently blocked (429 circuit breaker) */
   isQuotaBlocked(): boolean {
     return Date.now() < this.quotaBlockedUntil;
+  }
+
+  /** Fire one SYSTEM_ALERT when the platform's OpenAI API key returns 429 (external quota). Admin issue. */
+  private fireOpenAiQuotaNotification(merchantId: string): void {
+    const now = Date.now();
+    const last = this.quotaNotifiedAt.get(merchantId) || 0;
+    if (now - last < 60 * 60 * 1000) return; // already notified in the last hour
+    this.quotaNotifiedAt.set(merchantId, now);
+    void this.notificationsService
+      .create({
+        merchantId,
+        type: "SYSTEM_ALERT",
+        title: "⚠️ OpenAI API quota exhausted",
+        titleAr: "⚠️ تنبيه: نفدت حصة OpenAI API",
+        message:
+          "The OpenAI API key returned a 429 error — the platform's external AI quota is exhausted. AI-powered inventory features are temporarily paused. Please check the OpenAI billing dashboard.",
+        messageAr:
+          "مفتاح OpenAI API أعاد خطأ 429 — نفدت حصة الذكاء الاصطناعي الخارجية. ميزات المخزون الذكية متوقفة مؤقتاً. تحقق من لوحة الفوترة على OpenAI.",
+        priority: "URGENT",
+        channels: ["IN_APP"],
+        data: { alertKind: "OPENAI_QUOTA_EXHAUSTED" },
+        actionUrl: "https://platform.openai.com/account/billing",
+        expiresInHours: 24,
+      })
+      .catch((err) =>
+        logger.warn("Failed to create OpenAI quota notification", { err, merchantId }),
+      );
+  }
+
+  /** Fire one SYSTEM_ALERT when THIS merchant's daily token budget is consumed. Merchant issue. */
+  private fireBudgetExhaustedNotification(merchantId: string): void {
+    const now = Date.now();
+    const last = this.budgetNotifiedAt.get(merchantId) || 0;
+    if (now - last < 60 * 60 * 1000) return;
+    this.budgetNotifiedAt.set(merchantId, now);
+    void this.notificationsService
+      .create({
+        merchantId,
+        type: "SYSTEM_ALERT",
+        title: "Daily AI quota exhausted",
+        titleAr: "نفدت حصة الذكاء الاصطناعي اليومية",
+        message:
+          "Your daily AI token budget has been fully consumed. AI-powered inventory features will be unavailable until midnight when the quota resets automatically.",
+        messageAr:
+          "استنفدت حصتك اليومية من رصيد الذكاء الاصطناعي. ميزات المخزون الذكية غير متاحة حتى منتصف الليل حين تتجدد الحصة تلقائياً.",
+        priority: "HIGH",
+        channels: ["IN_APP"],
+        data: { alertKind: "MERCHANT_BUDGET_EXHAUSTED" },
+        actionUrl: "/merchant/settings",
+        expiresInHours: 24,
+      })
+      .catch((err) =>
+        logger.warn("Failed to create budget notification", { err, merchantId }),
+      );
   }
 
   private async checkAndDeductBudget(
@@ -271,6 +334,7 @@ export class InventoryAiService {
     const knowledgeBaseSummary = await this.getKnowledgeBaseSummary(merchantId);
 
     if (!(await this.checkAndDeductBudget(merchantId, estimatedTokens))) {
+      this.fireBudgetExhaustedNotification(merchantId);
       return { success: false, error: "Token budget exceeded" };
     }
 
@@ -330,6 +394,13 @@ ${alternatives.map((a, i) => `${i + 1}. ${a.name} (${a.sku}) - ${a.price} جني
       const parsed = JSON.parse(content);
       const validated = SubstitutionRankingSchema.parse(parsed);
 
+      void this.aiMetrics.record({
+        serviceName: "InventoryAiService",
+        methodName: "rankSubstitutions",
+        merchantId,
+        outcome: "success",
+        tokensUsed,
+      });
       logger.info("Substitution ranking generated", {
         merchantId,
         tokensUsed,
@@ -342,8 +413,15 @@ ${alternatives.map((a, i) => `${i + 1}. ${a.name} (${a.sku}) - ${a.price} جني
       logger.error("Failed to generate substitution ranking", err, {
         merchantId,
       });
+      void this.aiMetrics.record({
+        serviceName: "InventoryAiService",
+        methodName: "rankSubstitutions",
+        merchantId,
+        outcome: "error",
+      });
       if (err?.status === 429 || err?.message?.includes("429")) {
         this.quotaBlockedUntil = Date.now() + 5 * 60 * 1000;
+        this.fireOpenAiQuotaNotification(merchantId);
         return { success: false, error: "AI_QUOTA_EXHAUSTED" };
       }
       return { success: false, error: "AI_TEMPORARILY_UNAVAILABLE" };
@@ -379,6 +457,7 @@ ${alternatives.map((a, i) => `${i + 1}. ${a.name} (${a.sku}) - ${a.price} جني
     }
 
     if (!(await this.checkAndDeductBudget(merchantId, estimatedTokens))) {
+      this.fireBudgetExhaustedNotification(merchantId);
       return { success: false, error: "Token budget exceeded" };
     }
 
@@ -435,6 +514,13 @@ ${liveContext ? `=== بيانات النظام الحية ===\n${liveContext}\n`
       const parsed = JSON.parse(content);
       const validated = RestockInsightSchema.parse(parsed);
 
+      void this.aiMetrics.record({
+        serviceName: "InventoryAiService",
+        methodName: "generateRestockInsight",
+        merchantId,
+        outcome: "success",
+        tokensUsed,
+      });
       logger.info("Restock insight generated", {
         merchantId,
         tokensUsed,
@@ -445,9 +531,16 @@ ${liveContext ? `=== بيانات النظام الحية ===\n${liveContext}\n`
     } catch (error) {
       const err = error as any;
       logger.error("Failed to generate restock insight", err, { merchantId });
+      void this.aiMetrics.record({
+        serviceName: "InventoryAiService",
+        methodName: "generateRestockInsight",
+        merchantId,
+        outcome: "error",
+      });
       // Circuit breaker: block further calls for 5 minutes on 429
       if (err?.status === 429 || err?.message?.includes("429")) {
         this.quotaBlockedUntil = Date.now() + 5 * 60 * 1000;
+        this.fireOpenAiQuotaNotification(merchantId);
         return { success: false, error: "AI_QUOTA_EXHAUSTED" };
       }
       return { success: false, error: "AI_TEMPORARILY_UNAVAILABLE" };
@@ -472,35 +565,57 @@ ${liveContext ? `=== بيانات النظام الحية ===\n${liveContext}\n`
     const knowledgeBaseSummary = await this.getKnowledgeBaseSummary(merchantId);
 
     if (!(await this.checkAndDeductBudget(merchantId, estimatedTokens))) {
+      this.fireBudgetExhaustedNotification(merchantId);
       return { success: false, error: "Token budget exceeded" };
     }
 
     try {
+      const criticalItems  = products.filter((p) => p.urgency === "critical");
+      const warningItems   = products.filter((p) => p.urgency !== "critical");
+      const urgencyNote    = criticalItems.length > 0
+        ? `⚠️ ${criticalItems.length} منتج نفد تماماً (كمية = 0) ويحتاج توريد عاجل.`
+        : "";
+
       const productsList = products
         .map(
           (p) =>
-            `- ${p.name} (${p.sku}): ${p.quantity} قطعة ${p.urgency === "critical" ? "⚠️ عاجل" : ""}`,
+            `- ${p.name} (${p.sku}): ${p.quantity} قطعة متوفرة ${p.urgency === "critical" ? "⚠️ نفد – عاجل جداً" : "🟠 منخفض"}`,
         )
         .join("\n");
 
-      const prompt = `اكتب رسالة رسمية بالعربية المصرية من "${merchantName}" للمورد ${supplierName || ""} لطلب المنتجات التالية:
+      const prompt = `أنت مساعد ذكاء اصطناعي لإدارة المخزون في منشأة تجارية عربية.
+مهمتك: كتابة رسالة واتساب تجارية رسمية وفعّالة باللغة العربية الفصحى المحكية.
 
+المرسِل: ${merchantName}
+المستقبِل (المورّد): ${supplierName || "المورد الكريم"}
+
+${urgencyNote}
+
+المنتجات المطلوبة:
 ${productsList}
 
-معلومات النشاط من قاعدة المعرفة:
+معلومات إضافية عن النشاط التجاري:
 ${knowledgeBaseSummary || "لا توجد معلومات إضافية."}
 
-الرسالة يجب أن تكون:
-1. مهنية ومحترمة
-2. واضحة في الطلب
-3. تطلب تأكيد موعد التسليم`;
+متطلبات الرسالة:
+1. ابدأ بتحية احترافية مخصصة للمورد
+2. وضّح الغرض مباشرة (طلب إعادة تزويد عاجل / اعتيادي)
+3. اذكر كل منتج مع الكمية الحالية ومقترح الكمية المطلوبة (ضاعف كمية الطلب الأدنى × 2 إذا لم يُحدد)
+4. اطلب تأكيد: التوفر، السعر النهائي، موعد التسليم المتوقع
+5. أضف طلباً لاقتراح بديل إن لم يكن المنتج متوفراً
+6. اختم بشكر وتوقع رد سريع
+7. الطول المناسب: 150-250 كلمة. لا تكتب أقل.
+8. لا تتضمن أرقام مرجعية وهمية أو أسماء موظفين
+
+رُد بـ JSON فقط بهذا الشكل:
+{"messageAr": "...نص الرسالة الكامل..."}`;
 
       const response = await this.client.chat.completions.create({
         model: this.model,
         messages: [
           {
             role: "system",
-            content: "أنت كاتب رسائل تجارية محترف. ترد بـ JSON فقط.",
+            content: "أنت كاتب رسائل تجارية محترف متخصص في قطاع التجزئة والتوريد. ترد بـ JSON فقط دون أي نص خارجه.",
           },
           { role: "user", content: prompt },
         ],
@@ -520,6 +635,13 @@ ${knowledgeBaseSummary || "لا توجد معلومات إضافية."}
       const parsed = JSON.parse(content);
       const validated = SupplierMessageSchema.parse(parsed);
 
+      void this.aiMetrics.record({
+        serviceName: "InventoryAiService",
+        methodName: "generateSupplierMessage",
+        merchantId,
+        outcome: "success",
+        tokensUsed,
+      });
       logger.info("Supplier message generated", {
         merchantId,
         tokensUsed,
@@ -530,8 +652,15 @@ ${knowledgeBaseSummary || "لا توجد معلومات إضافية."}
     } catch (error) {
       const err = error as any;
       logger.error("Failed to generate supplier message", err, { merchantId });
+      void this.aiMetrics.record({
+        serviceName: "InventoryAiService",
+        methodName: "generateSupplierMessage",
+        merchantId,
+        outcome: "error",
+      });
       if (err?.status === 429 || err?.message?.includes("429")) {
         this.quotaBlockedUntil = Date.now() + 5 * 60 * 1000;
+        this.fireOpenAiQuotaNotification(merchantId);
         return { success: false, error: "AI_QUOTA_EXHAUSTED" };
       }
       return { success: false, error: "AI_TEMPORARILY_UNAVAILABLE" };

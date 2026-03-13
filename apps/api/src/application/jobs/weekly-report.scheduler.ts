@@ -2,9 +2,9 @@ import { Injectable, Logger, Inject } from "@nestjs/common";
 import { Cron } from "@nestjs/schedule";
 import { Pool } from "pg";
 import { DATABASE_POOL } from "../../infrastructure/database/database.module";
-import { OutboxService } from "../events/outbox.service";
-import { EVENT_TYPES } from "../events/event-types";
+import { NotificationsService } from "../services/notifications.service";
 import { RedisService } from "../../infrastructure/redis/redis.service";
+import { FinanceAiService } from "../llm/finance-ai.service";
 
 interface PeriodStats {
   merchantId: string;
@@ -46,8 +46,9 @@ export class WeeklyReportScheduler {
 
   constructor(
     @Inject(DATABASE_POOL) private readonly pool: Pool,
-    private readonly outboxService: OutboxService,
+    private readonly notificationsService: NotificationsService,
     private readonly redisService: RedisService,
+    private readonly financeAiService: FinanceAiService,
   ) {}
 
   /**
@@ -84,6 +85,13 @@ export class WeeklyReportScheduler {
         msg: "Error in weekly report scheduler",
         error: error.message,
       });
+      try {
+        await this.pool.query(
+          `INSERT INTO job_failure_events (job_name, error_message, error_stack)
+           VALUES ($1, $2, $3)`,
+          ["weekly-report-scheduler", error.message, error.stack ?? null],
+        );
+      } catch { /* non-fatal */ }
     } finally {
       await this.redisService.releaseLock(lock);
     }
@@ -124,6 +132,13 @@ export class WeeklyReportScheduler {
         msg: "Error in monthly report scheduler",
         error: error.message,
       });
+      try {
+        await this.pool.query(
+          `INSERT INTO job_failure_events (job_name, error_message, error_stack)
+           VALUES ($1, $2, $3)`,
+          ["monthly-report-scheduler", error.message, error.stack ?? null],
+        );
+      } catch { /* non-fatal */ }
     } finally {
       await this.redisService.releaseLock(lock);
     }
@@ -157,7 +172,38 @@ export class WeeklyReportScheduler {
 
         // Send via WhatsApp if enabled
         if (merchant.whatsapp_reports_enabled && merchant.notification_phone) {
-          await this.sendReportNotification(merchant.id, stats);
+          // Generate AI brief (best-effort)
+          let aiBrief: string | null = null;
+          try {
+            const briefResult = await this.financeAiService.generateCfoBrief({
+              merchantId: merchant.id,
+              comparison: {
+                previousPeriod: {
+                  totalRevenue: stats.totalRevenue * (1 - stats.comparedToPrevious.revenueChange / 100),
+                  totalCogs: 0, grossProfit: 0, grossMargin: 0,
+                  totalExpenses: 0, netProfit: 0, netMargin: 0,
+                  codCollected: 0, codPending: 0,
+                  averageOrderValue: stats.averageOrderValue,
+                  orderCount: Math.round(stats.ordersCreated * (1 - stats.comparedToPrevious.ordersChange / 100)),
+                },
+                currentPeriod: {
+                  totalRevenue: stats.totalRevenue,
+                  totalCogs: 0, grossProfit: stats.totalRevenue * 0.4, grossMargin: 40,
+                  totalExpenses: 0, netProfit: stats.totalRevenue * 0.25, netMargin: 25,
+                  codCollected: 0, codPending: 0,
+                  averageOrderValue: stats.averageOrderValue,
+                  orderCount: stats.ordersCreated,
+                },
+                periodType,
+              },
+              topProducts: (stats.topProducts ?? []).map(p => ({ name: p.name, revenue: p.revenue, margin: 35 })),
+              topExpenses: [],
+            });
+            if (briefResult.success && briefResult.data?.summaryAr) {
+              aiBrief = `\n\n🤖 تحليل الذكاء الاصطناعي:\n${briefResult.data.summaryAr}`;
+            }
+          } catch { /* non-fatal */ }
+          await this.sendReportNotification(merchant.id, stats, merchant.notification_phone, aiBrief ?? "");
         }
 
         this.logger.log({
@@ -355,6 +401,8 @@ export class WeeklyReportScheduler {
   private async sendReportNotification(
     merchantId: string,
     stats: PeriodStats,
+    phone: string,
+    aiSuffix: string = "",
   ): Promise<void> {
     const periodLabel = stats.periodType === "weekly" ? "الأسبوعي" : "الشهري";
     const changeEmoji = (change: number) => (change >= 0 ? "📈" : "📉");
@@ -383,21 +431,20 @@ ${
 }
 `;
 
-    await this.outboxService.publishEvent({
-      eventType: EVENT_TYPES.MERCHANT_ALERTED,
-      aggregateType: "Merchant",
-      aggregateId: merchantId,
-      merchantId,
-      payload: {
+    try {
+      await this.notificationsService.sendBroadcastWhatsApp(phone, message + aiSuffix);
+      this.logger.log({
+        msg: `${stats.periodType} report delivered via WhatsApp`,
         merchantId,
-        alertType: `${stats.periodType}_report`,
-        message,
-        metadata: {
-          stats,
-          sendViaWhatsApp: true,
-        },
-      },
-    });
+        phone: phone.slice(0, 6) + "****",
+      });
+    } catch (err: any) {
+      this.logger.warn({
+        msg: `Failed to deliver ${stats.periodType} report via WhatsApp`,
+        merchantId,
+        error: err.message,
+      });
+    }
   }
 
   /**

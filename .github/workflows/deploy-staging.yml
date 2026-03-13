@@ -1,0 +1,175 @@
+name: Deploy — Staging
+
+# Triggers: every push to main after CI passes
+on:
+  workflow_run:
+    workflows: ["CI"]
+    branches: [main]
+    types: [completed]
+
+env:
+  NODE_VERSION: "20"
+  REGISTRY: ghcr.io/${{ github.repository_owner }}
+
+jobs:
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    environment: staging          # Requires a "staging" environment in GitHub Settings
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Set deploy SHA
+        id: sha
+        run: echo "sha=${GITHUB_SHA::8}" >> $GITHUB_OUTPUT
+
+      # ── Build & push Docker images ───────────────────────────────────────
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push API image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          dockerfile: apps/api/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/api:staging
+            ${{ env.REGISTRY }}/api:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push Worker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          dockerfile: apps/worker/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/worker:staging
+            ${{ env.REGISTRY }}/worker:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push Portal image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          dockerfile: apps/portal/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/portal:staging
+            ${{ env.REGISTRY }}/portal:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # ── Deploy to staging server / cloud ────────────────────────────────
+      # Replace the block below with your actual deploy mechanism:
+      # - docker-compose SSH deploy
+      # - kubectl rollout
+      # - fly.io deploy
+      # - render.com deploy hook
+      # The example below uses a generic SSH deploy script.
+      - name: Deploy to staging via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.STAGING_HOST }}
+          username: ${{ secrets.STAGING_USER }}
+          key: ${{ secrets.STAGING_SSH_KEY }}
+          script: |
+            cd /opt/tash8eel
+            export IMAGE_TAG=${{ github.sha }}
+            docker compose -f docker-compose.staging.yml pull
+            docker compose -f docker-compose.staging.yml up -d --remove-orphans
+            docker image prune -f --filter "until=24h"
+
+      # ── Smoke tests ──────────────────────────────────────────────────────
+      - name: Wait for staging to be healthy
+        run: |
+          echo "Waiting for staging to respond..."
+          for i in {1..30}; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+              ${{ secrets.STAGING_API_URL }}/health || echo "000")
+            if [ "$STATUS" = "200" ]; then
+              echo "✅ API is up (attempt $i)"
+              break
+            fi
+            echo "Attempt $i: status=$STATUS, retrying in 5s..."
+            sleep 5
+            if [ "$i" = "30" ]; then
+              echo "❌ Staging did not become healthy after 150s"
+              exit 1
+            fi
+          done
+
+      - name: Readiness probe
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            ${{ secrets.STAGING_API_URL }}/ready)
+          if [ "$STATUS" != "200" ]; then
+            echo "❌ /ready returned $STATUS — database may be unavailable"
+            exit 1
+          fi
+          echo "✅ /ready returned 200"
+
+      - name: Portal smoke test
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            ${{ secrets.STAGING_PORTAL_URL }})
+          if [ "$STATUS" != "200" ]; then
+            echo "❌ Portal returned $STATUS"
+            exit 1
+          fi
+          echo "✅ Portal is up"
+
+      # ── Run E2E tests against staging ───────────────────────────────────
+      - name: Setup Node.js for E2E tests
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build shared packages
+        run: npm run build:packages
+
+      - name: Run E2E tests against staging
+        run: |
+          cd apps/api
+          npx jest --config ./test/jest-e2e.json --passWithNoTests
+        env:
+          NODE_ENV: test
+          E2E_BASE_URL: ${{ secrets.STAGING_API_URL }}
+          ADMIN_API_KEY: ${{ secrets.STAGING_ADMIN_API_KEY }}
+          OPENAI_API_KEY: sk-test-dummy-for-staging-e2e
+
+      - name: Notify deployment success
+        if: success()
+        run: |
+          echo "✅ Staging deploy succeeded: SHA=${{ github.sha }}"
+          # Optional: post to Slack/Teams webhook
+          # curl -X POST ${{ secrets.SLACK_WEBHOOK }} \
+          #   -H 'Content-type: application/json' \
+          #   --data '{"text":"✅ Staging deploy succeeded: ${{ github.sha }}"}'
+
+      - name: Notify deployment failure + auto-rollback trigger
+        if: failure()
+        run: |
+          echo "❌ Staging deploy FAILED: SHA=${{ github.sha }}"
+          # The previous images tagged :staging are still running.
+          # No rollback action needed here — staging server keeps running
+          # the last-known-good image until a successful deploy overwrites it.
+          exit 1

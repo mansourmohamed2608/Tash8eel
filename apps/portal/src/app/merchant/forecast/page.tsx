@@ -1,0 +1,746 @@
+"use client";
+
+import { useState, useEffect, useCallback } from "react";
+import { PageHeader } from "@/components/layout";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { DashboardSkeleton } from "@/components/ui/skeleton";
+import { AreaChart, BarChart } from "@/components/charts";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Slider } from "@/components/ui/slider";
+import {
+  Brain,
+  TrendingUp,
+  TrendingDown,
+  AlertTriangle,
+  PackageX,
+  RefreshCw,
+  CheckCircle,
+  DollarSign,
+  Users,
+  Clock,
+  Truck,
+  Activity,
+  BarChart3,
+  Play,
+  CheckSquare,
+} from "lucide-react";
+import { cn, formatCurrency, formatNumber } from "@/lib/utils";
+import portalApi from "@/lib/authenticated-api";
+import { useToast } from "@/hooks/use-toast";
+
+// ─── Urgency badge helper ─────────────────────────────────────────────────────
+const UrgencyBadge = ({ urgency }: { urgency: string }) => {
+  const map: Record<string, { label: string; cls: string }> = {
+    critical: { label: "حرج", cls: "bg-red-100 text-red-700 border-red-200" },
+    high:     { label: "مرتفع", cls: "bg-orange-100 text-orange-700 border-orange-200" },
+    medium:   { label: "متوسط", cls: "bg-yellow-100 text-yellow-700 border-yellow-200" },
+    low:      { label: "منخفض", cls: "bg-blue-100 text-blue-700 border-blue-200" },
+    ok:       { label: "جيد", cls: "bg-green-100 text-green-700 border-green-200" },
+  };
+  const { label, cls } = map[urgency] ?? map.ok;
+  return <span className={cn("px-2 py-0.5 rounded-full text-xs font-medium border", cls)}>{label}</span>;
+};
+
+// ─── Confidence bar ────────────────────────────────────────────────────────────
+const ConfidenceBar = ({ value }: { value: number }) => {
+  const pct = Math.round(value * 100);
+  const color = pct >= 75 ? "bg-green-500" : pct >= 50 ? "bg-yellow-500" : "bg-red-400";
+  return (
+    <div className="flex items-center gap-2 text-xs text-gray-500">
+      <div className="w-20 h-1.5 rounded-full bg-gray-200 overflow-hidden">
+        <div className={cn("h-full rounded-full", color)} style={{ width: `${pct}%` }} />
+      </div>
+      <span>{pct}%</span>
+    </div>
+  );
+};
+
+export default function ForecastPage() {
+  const { toast } = useToast();
+  const [activeTab, setActiveTab] = useState("demand");
+  const [loading, setLoading] = useState(true);
+
+  // Demand
+  const [demandData, setDemandData] = useState<any>(null);
+  const [demandFilter, setDemandFilter] = useState<string>("all");
+  const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
+  const [productHistory, setProductHistory] = useState<any>(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
+
+  // Replenishment
+  const [replenishment, setReplenishment] = useState<any>(null);
+  const [approvingId, setApprovingId] = useState<string | null>(null);
+
+  // Cash flow
+  const [cashflow, setCashflow] = useState<any>(null);
+
+  // Churn
+  const [churnData, setChurnData] = useState<any>(null);
+
+  // Workforce
+  const [workforce, setWorkforce] = useState<any>(null);
+
+  // Model metrics
+  const [metrics, setMetrics] = useState<any>(null);
+
+  // What-if
+  const [whatIfType, setWhatIfType] = useState<"demand" | "cashflow" | "campaign" | "pricing">("pricing");
+  const [whatIfParams, setWhatIfParams] = useState<Record<string, any>>({ priceDeltaPct: 10 });
+  const [whatIfResult, setWhatIfResult] = useState<any>(null);
+  const [runningWhatIf, setRunningWhatIf] = useState(false);
+
+  // Load data
+  const loadDemand = useCallback(async (urgency?: string) => {
+    try {
+      const res = await portalApi.getDemandForecast({ urgency: urgency === "all" ? undefined : urgency });
+      setDemandData(res);
+    } catch {
+      toast({ title: "خطأ", description: "تعذّر تحميل بيانات الطلب", variant: "destructive" });
+    }
+  }, [toast]);
+
+  const loadAll = useCallback(async () => {
+    setLoading(true);
+    try {
+      await Promise.allSettled([
+        loadDemand(),
+        portalApi.getReplenishmentList().then(setReplenishment),
+        portalApi.getCashFlowForecast(30).then(setCashflow),
+        portalApi.getChurnForecast(50).then(setChurnData),
+        portalApi.getWorkforceForecast().then(setWorkforce),
+        portalApi.getForecastModelMetrics().then(setMetrics),
+      ]);
+    } finally {
+      setLoading(false);
+    }
+  }, [loadDemand]);
+
+  useEffect(() => { loadAll(); }, [loadAll]);
+
+  const loadProductHistory = async (productId: string) => {
+    setHistoryLoading(true);
+    try {
+      const res = await portalApi.getDemandForecastHistory(productId);
+      setProductHistory(res);
+      setSelectedProduct(productId);
+    } catch {
+      toast({ title: "خطأ", description: "تعذّر تحميل تاريخ المنتج", variant: "destructive" });
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  const handleApprove = async (id: string) => {
+    setApprovingId(id);
+    try {
+      await portalApi.approveReplenishment(id);
+      toast({ title: "تمت الموافقة", description: "تمت الموافقة على أمر التوريد" });
+      portalApi.getReplenishmentList().then(setReplenishment);
+    } catch {
+      toast({ title: "خطأ", description: "تعذّرت الموافقة", variant: "destructive" });
+    } finally {
+      setApprovingId(null);
+    }
+  };
+
+  const runWhatIf = async () => {
+    setRunningWhatIf(true);
+    try {
+      const res = await portalApi.runWhatIfScenario({ type: whatIfType, params: whatIfParams });
+      setWhatIfResult(res);
+    } catch {
+      toast({ title: "خطأ", description: "تعذّر تشغيل السيناريو", variant: "destructive" });
+    } finally {
+      setRunningWhatIf(false);
+    }
+  };
+
+  if (loading) return <DashboardSkeleton />;
+
+  // Chart data helpers
+  const cashflowChartData = (cashflow?.projection ?? []).map((p: any) => ({
+    name: new Date(p.date).toLocaleDateString("ar-SA", { month: "short", day: "numeric" }),
+    الرصيد: p.balance,
+    واردات: p.inflow,
+    صادرات: p.outflow,
+  }));
+
+  const workforceHourData = (workforce?.hourPattern ?? []).map((h: any) => ({
+    name: `${h.hour}:00`,
+    رسائل: h.avgMessages,
+  }));
+
+  const workforceDayData = (workforce?.dayPattern ?? []).map((d: any) => ({
+    name: d.dayName,
+    رسائل: d.avgMessages,
+  }));
+
+  const churnByRisk = [
+    { name: "حرج", count: churnData?.summary?.critical ?? 0 },
+    { name: "مرتفع", count: churnData?.summary?.high ?? 0 },
+    { name: "متوسط", count: churnData?.summary?.medium ?? 0 },
+  ];
+
+  return (
+    <div className="space-y-6 p-6" dir="rtl">
+      <PageHeader
+        title="منصة التنبؤات الذكية"
+        description="تحليلات متقدمة وتوقعات مدعومة بالذكاء الاصطناعي"
+        actions={
+          <Button variant="outline" size="sm" onClick={loadAll}>
+            <RefreshCw className="w-4 h-4 ml-2" />
+            تحديث
+          </Button>
+        }
+      />
+
+      {/* Summary row */}
+      {demandData?.summary && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {[
+            { label: "حرج", value: demandData.summary.critical, color: "text-red-600", icon: AlertTriangle },
+            { label: "مرتفع", value: demandData.summary.high, color: "text-orange-600", icon: TrendingDown },
+            { label: "عملاء معرضون للاضطراب", value: churnData?.summary?.critical ?? 0, color: "text-purple-600", icon: Users },
+            { label: "توصيات توريد", value: replenishment?.total ?? 0, color: "text-blue-600", icon: PackageX },
+          ].map((s) => (
+            <Card key={s.label} className="border-0 shadow-sm">
+              <CardContent className="p-4 flex items-center gap-3">
+                <div className={cn("p-2 rounded-lg bg-gray-100", s.color)}>
+                  <s.icon className="w-5 h-5" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">{s.value}</p>
+                  <p className="text-xs text-gray-500">{s.label}</p>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="grid grid-cols-4 md:grid-cols-7 w-full mb-4">
+          <TabsTrigger value="demand"><TrendingUp className="w-4 h-4 ml-1" />الطلب</TabsTrigger>
+          <TabsTrigger value="replenishment"><PackageX className="w-4 h-4 ml-1" />التوريد</TabsTrigger>
+          <TabsTrigger value="cashflow"><DollarSign className="w-4 h-4 ml-1" />التدفقات</TabsTrigger>
+          <TabsTrigger value="churn"><Users className="w-4 h-4 ml-1" />الاضطراب</TabsTrigger>
+          <TabsTrigger value="workforce"><Activity className="w-4 h-4 ml-1" />العمالة</TabsTrigger>
+          <TabsTrigger value="whatif"><Brain className="w-4 h-4 ml-1" />ماذا لو</TabsTrigger>
+          <TabsTrigger value="metrics"><BarChart3 className="w-4 h-4 ml-1" />الدقة</TabsTrigger>
+        </TabsList>
+
+        {/* ─── DEMAND TAB ────────────────────────────────────────────────── */}
+        <TabsContent value="demand" className="space-y-4">
+          <div className="flex gap-3 flex-wrap items-center">
+            <Select value={demandFilter} onValueChange={(v) => { setDemandFilter(v); loadDemand(v); }}>
+              <SelectTrigger className="w-40">
+                <SelectValue placeholder="الأولوية" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">الكل</SelectItem>
+                <SelectItem value="critical">حرج</SelectItem>
+                <SelectItem value="high">مرتفع</SelectItem>
+                <SelectItem value="medium">متوسط</SelectItem>
+                <SelectItem value="ok">جيد</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-sm text-gray-500">{demandData?.total ?? 0} منتج</p>
+          </div>
+
+          {/* Product history chart */}
+          {selectedProduct && productHistory && (
+            <Card className="border-0 shadow-sm">
+              <CardHeader>
+                <CardTitle className="text-base">{productHistory.productName} — تاريخ المبيعات والتوقعات</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {historyLoading ? (
+                  <div className="h-48 flex items-center justify-center text-gray-400">جاري التحميل...</div>
+                ) : (
+                  <AreaChart
+                    data={[
+                      ...(productHistory.historicalData ?? []).map((d: any) => ({
+                        name: new Date(d.date).toLocaleDateString("ar-SA", { month: "short", day: "numeric" }),
+                        "فعلي": d.value,
+                      })),
+                    ]}
+                    series={[{ key: "فعلي", color: "#3b82f6" }]}
+                    height={200}
+                  />
+                )}
+                <div className="grid grid-cols-3 gap-4 mt-4 text-center">
+                  {[
+                    { label: "توقع 7 أيام", value: productHistory.forecast7d },
+                    { label: "توقع 14 يوم", value: productHistory.forecast14d },
+                    { label: "توقع 30 يوم", value: productHistory.forecast30d },
+                  ].map((s) => (
+                    <div key={s.label}>
+                      <p className="font-bold text-lg">{formatNumber(s.value)}</p>
+                      <p className="text-xs text-gray-500">{s.label}</p>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex items-center gap-4 mt-3 text-sm text-gray-500">
+                  <span>دقة النموذج:</span>
+                  <ConfidenceBar value={productHistory.confidence} />
+                  <span>MAPE: {productHistory.mape7d}%</span>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Product table */}
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b bg-gray-50 text-gray-600">
+                  <th className="px-3 py-2 text-right">المنتج</th>
+                  <th className="px-3 py-2 text-center">المخزون</th>
+                  <th className="px-3 py-2 text-center">أيام للنفاد</th>
+                  <th className="px-3 py-2 text-center">7 أيام</th>
+                  <th className="px-3 py-2 text-center">30 يوم</th>
+                  <th className="px-3 py-2 text-center">الاتجاه</th>
+                  <th className="px-3 py-2 text-center">الأولوية</th>
+                  <th className="px-3 py-2 text-center">الثقة</th>
+                  <th className="px-3 py-2" />
+                </tr>
+              </thead>
+              <tbody>
+                {(demandData?.items ?? []).map((item: any) => (
+                  <tr
+                    key={item.productId}
+                    className="border-b hover:bg-gray-50 cursor-pointer"
+                    onClick={() => loadProductHistory(item.productId)}
+                  >
+                    <td className="px-3 py-2 font-medium max-w-[180px] truncate">{item.productName}</td>
+                    <td className="px-3 py-2 text-center">{formatNumber(item.currentStock)}</td>
+                    <td className="px-3 py-2 text-center">
+                      {item.daysUntilStockout !== null ? (
+                        <span className={cn(item.daysUntilStockout <= 7 ? "text-red-600 font-semibold" : "")}>
+                          {item.daysUntilStockout} يوم
+                        </span>
+                      ) : "—"}
+                    </td>
+                    <td className="px-3 py-2 text-center">{formatNumber(item.forecast7d)}</td>
+                    <td className="px-3 py-2 text-center">{formatNumber(item.forecast30d)}</td>
+                    <td className="px-3 py-2 text-center">
+                      <span className={cn("flex items-center justify-center gap-1 text-xs",
+                        item.trendPct >= 10 ? "text-green-600" : item.trendPct <= -10 ? "text-red-600" : "text-gray-500"
+                      )}>
+                        {item.trendPct >= 10 ? <TrendingUp className="w-3 h-3" /> : item.trendPct <= -10 ? <TrendingDown className="w-3 h-3" /> : null}
+                        {item.trendPct > 0 ? "+" : ""}{item.trendPct}%
+                      </span>
+                    </td>
+                    <td className="px-3 py-2 text-center"><UrgencyBadge urgency={item.urgency} /></td>
+                    <td className="px-3 py-2"><ConfidenceBar value={item.confidence} /></td>
+                    <td className="px-3 py-2 text-center text-xs text-blue-600 hover:underline" onClick={(e) => { e.stopPropagation(); loadProductHistory(item.productId); }}>
+                      تفاصيل
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {!demandData?.items?.length && (
+              <div className="text-center py-12 text-gray-400">لا توجد بيانات — قم بتشغيل أول دورة تنبؤ أولاً</div>
+            )}
+          </div>
+        </TabsContent>
+
+        {/* ─── REPLENISHMENT TAB ─────────────────────────────────────────── */}
+        <TabsContent value="replenishment" className="space-y-4">
+          <h3 className="text-sm font-medium text-gray-700">توصيات أوامر الشراء المعلقة</h3>
+          {!(replenishment?.items?.length) ? (
+            <div className="text-center py-12 text-gray-400">لا توجد توصيات معلقة</div>
+          ) : (
+            <div className="space-y-3">
+              {(replenishment?.items ?? []).map((item: any) => (
+                <Card key={item.id} className="border-0 shadow-sm">
+                  <CardContent className="p-4 flex items-center justify-between gap-4">
+                    <div className="flex-1">
+                      <p className="font-medium">{item.product_name ?? item.product_id}</p>
+                      <div className="mt-1 flex flex-wrap gap-3 text-xs text-gray-500">
+                        <span>توصية: <b>{formatNumber(item.recommended_qty)}</b> وحدة</span>
+                        <span>نقطة إعادة الطلب: <b>{formatNumber(item.reorder_point)}</b></span>
+                        <span>مخزون أمان: <b>{formatNumber(item.safety_stock)}</b></span>
+                        {item.est_stockout_date && (
+                          <span className="text-red-500">نفاد متوقع: <b>{new Date(item.est_stockout_date).toLocaleDateString("ar-SA")}</b></span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <UrgencyBadge urgency={item.urgency} />
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={approvingId === item.id}
+                        onClick={() => handleApprove(item.id)}
+                      >
+                        <CheckSquare className="w-4 h-4 ml-1 text-green-600" />
+                        موافقة
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        {/* ─── CASHFLOW TAB ──────────────────────────────────────────────── */}
+        <TabsContent value="cashflow" className="space-y-4">
+          {cashflow && (
+            <>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {[
+                  { label: "الرصيد الحالي (تقريبي)", value: formatCurrency(cashflow.currentBalance), color: "text-blue-600" },
+                  { label: "متوسط الواردات اليومي", value: formatCurrency(cashflow.avgDailyInflow), color: "text-green-600" },
+                  { label: "متوسط الصادرات اليومي", value: formatCurrency(cashflow.avgDailyOutflow), color: "text-red-600" },
+                  { label: "أيام الاحتياطي", value: cashflow.runwayDays !== null ? `${cashflow.runwayDays} يوم` : "كافٍ", color: cashflow.runwayDays !== null && cashflow.runwayDays < 30 ? "text-red-600" : "text-green-600" },
+                ].map((s) => (
+                  <Card key={s.label} className="border-0 shadow-sm">
+                    <CardContent className="p-4">
+                      <p className={cn("text-xl font-bold", s.color)}>{s.value}</p>
+                      <p className="text-xs text-gray-500 mt-1">{s.label}</p>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+
+              <Card className="border-0 shadow-sm">
+                <CardHeader><CardTitle className="text-base">توقع التدفق النقدي — 30 يوم</CardTitle></CardHeader>
+                <CardContent>
+                  <AreaChart
+                    data={cashflowChartData}
+                    series={[
+                      { key: "الرصيد", color: "#3b82f6" },
+                      { key: "واردات", color: "#22c55e" },
+                      { key: "صادرات", color: "#ef4444" },
+                    ]}
+                    height={260}
+                  />
+                </CardContent>
+              </Card>
+
+              {cashflow.riskDays?.length > 0 && (
+                <Card className="border-0 shadow-sm border-l-4 border-l-red-400">
+                  <CardContent className="p-4">
+                    <p className="font-medium text-red-700 text-sm mb-2 flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4" /> أيام تحذير
+                    </p>
+                    <div className="space-y-1">
+                      {cashflow.riskDays.slice(0, 5).map((rd: any) => (
+                        <div key={rd.date} className="text-xs text-gray-600 flex justify-between">
+                          <span>{new Date(rd.date).toLocaleDateString("ar-SA")}</span>
+                          <span className="text-red-500">{rd.reason}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </>
+          )}
+        </TabsContent>
+
+        {/* ─── CHURN TAB ─────────────────────────────────────────────────── */}
+        <TabsContent value="churn" className="space-y-4">
+          <div className="grid grid-cols-3 gap-4 mb-2">
+            {churnByRisk.map((r) => (
+              <Card key={r.name} className="border-0 shadow-sm text-center">
+                <CardContent className="p-4">
+                  <p className="text-2xl font-bold">{r.count}</p>
+                  <p className="text-xs text-gray-500">{r.name}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b bg-gray-50 text-gray-600">
+                  <th className="px-3 py-2 text-right">العميل</th>
+                  <th className="px-3 py-2 text-center">أيام منذ آخر طلب</th>
+                  <th className="px-3 py-2 text-center">دورة الطلب</th>
+                  <th className="px-3 py-2 text-center">احتمالية الاضطراب</th>
+                  <th className="px-3 py-2 text-center">القيمة الإجمالية</th>
+                  <th className="px-3 py-2">الإجراء المقترح</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(churnData?.items ?? []).map((c: any) => (
+                  <tr key={c.customerId} className="border-b hover:bg-gray-50">
+                    <td className="px-3 py-2">
+                      <p className="font-medium">{c.customerName}</p>
+                      <p className="text-xs text-gray-400">{c.customerPhone}</p>
+                    </td>
+                    <td className="px-3 py-2 text-center">{c.daysSinceLastOrder}</td>
+                    <td className="px-3 py-2 text-center">{c.avgOrderCycleDays} يوم</td>
+                    <td className="px-3 py-2 text-center">
+                      <span className={cn("font-semibold",
+                        c.churnProbability >= 0.8 ? "text-red-600" :
+                        c.churnProbability >= 0.5 ? "text-orange-500" : "text-yellow-600"
+                      )}>
+                        {Math.round(c.churnProbability * 100)}%
+                      </span>
+                    </td>
+                    <td className="px-3 py-2 text-center">{formatCurrency(c.lifetimeValue)}</td>
+                    <td className="px-3 py-2 text-xs text-gray-600">{c.recommendedAction}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {!churnData?.items?.length && <div className="text-center py-12 text-gray-400">لا توجد بيانات</div>}
+          </div>
+        </TabsContent>
+
+        {/* ─── WORKFORCE TAB ─────────────────────────────────────────────── */}
+        <TabsContent value="workforce" className="space-y-4">
+          {workforce && (
+            <>
+              <div className="grid grid-cols-2 gap-4">
+                <Card className="border-0 shadow-sm">
+                  <CardHeader><CardTitle className="text-sm">متوسط الرسائل حسب اليوم</CardTitle></CardHeader>
+                  <CardContent>
+                    <BarChart data={workforceDayData} series={[{ key: "رسائل", color: "#6366f1" }]} height={200} />
+                  </CardContent>
+                </Card>
+                <Card className="border-0 shadow-sm">
+                  <CardHeader><CardTitle className="text-sm">متوسط الرسائل حسب الساعة</CardTitle></CardHeader>
+                  <CardContent>
+                    <BarChart data={workforceHourData} series={[{ key: "رسائل", color: "#8b5cf6" }]} height={200} />
+                  </CardContent>
+                </Card>
+              </div>
+
+              <Card className="border-0 shadow-sm">
+                <CardHeader><CardTitle className="text-sm">توقعات الأسبوع القادم</CardTitle></CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-7 gap-2">
+                    {(workforce.nextSevenDays ?? []).map((d: any) => (
+                      <div key={d.date} className="text-center p-2 rounded bg-gray-50">
+                        <p className="text-xs text-gray-500">{new Date(d.date).toLocaleDateString("ar-SA", { weekday: "short" })}</p>
+                        <p className="font-semibold mt-1">{d.forecastMessages}</p>
+                        <p className="text-xs text-gray-400">رسالة</p>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-xs text-gray-400 mt-3">
+                    أوقات الذروة: <b>{workforce.peakDay}</b> الساعة <b>{workforce.peakHour}:00</b>
+                  </p>
+                </CardContent>
+              </Card>
+            </>
+          )}
+        </TabsContent>
+
+        {/* ─── WHAT-IF TAB ───────────────────────────────────────────────── */}
+        <TabsContent value="whatif" className="space-y-4">
+          <Card className="border-0 shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Brain className="w-5 h-5 text-purple-500" />
+                محاكي السيناريوهات
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              <div>
+                <Label className="mb-2 block text-sm">نوع السيناريو</Label>
+                <div className="flex gap-2 flex-wrap">
+                  {[
+                    { v: "pricing", label: "تغيير السعر" },
+                    { v: "demand", label: "تغيير المهلة" },
+                    { v: "cashflow", label: "تدفق نقدي" },
+                    { v: "campaign", label: "حملة تسويقية" },
+                  ].map((opt) => (
+                    <Button
+                      key={opt.v}
+                      size="sm"
+                      variant={whatIfType === opt.v ? "default" : "outline"}
+                      onClick={() => { setWhatIfType(opt.v as any); setWhatIfParams({}); setWhatIfResult(null); }}
+                    >
+                      {opt.label}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Type-specific controls */}
+              {whatIfType === "pricing" && (
+                <div className="space-y-3">
+                  <Label className="text-sm">تغيير السعر بنسبة: {whatIfParams.priceDeltaPct ?? 10}%</Label>
+                  <Slider
+                    min={-30} max={50} step={5}
+                    value={[whatIfParams.priceDeltaPct ?? 10]}
+                    onValueChange={([v]) => setWhatIfParams({ priceDeltaPct: v })}
+                    className="w-full"
+                  />
+                  <p className="text-xs text-gray-400">المرونة السعرية المفترضة: -1.5 (1% ارتفاع سعر → 1.5% تراجع حجم)</p>
+                </div>
+              )}
+
+              {whatIfType === "demand" && (
+                <div className="space-y-3">
+                  <Label className="text-sm">مهلة التوريد الجديدة (أيام)</Label>
+                  <Input
+                    type="number" min={1} max={90}
+                    value={whatIfParams.newLeadTimeDays ?? 5}
+                    onChange={(e) => setWhatIfParams({ newLeadTimeDays: parseInt(e.target.value) || 5 })}
+                    className="w-32"
+                  />
+                </div>
+              )}
+
+              {whatIfType === "cashflow" && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-sm">إيرادات إضافية يومية</Label>
+                    <Input type="number" value={whatIfParams.extraRevenue ?? 0}
+                      onChange={(e) => setWhatIfParams({ ...whatIfParams, extraRevenue: parseFloat(e.target.value) || 0 })} />
+                  </div>
+                  <div>
+                    <Label className="text-sm">نفقات إضافية يومية</Label>
+                    <Input type="number" value={whatIfParams.extraExpense ?? 0}
+                      onChange={(e) => setWhatIfParams({ ...whatIfParams, extraExpense: parseFloat(e.target.value) || 0 })} />
+                  </div>
+                </div>
+              )}
+
+              {whatIfType === "campaign" && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-sm">نسبة الخصم %</Label>
+                    <Input type="number" min={0} max={80} value={whatIfParams.discountPct ?? 15}
+                      onChange={(e) => setWhatIfParams({ ...whatIfParams, discountPct: parseFloat(e.target.value) || 15 })} />
+                  </div>
+                  <div>
+                    <Label className="text-sm">تكلفة الحملة</Label>
+                    <Input type="number" value={whatIfParams.campaignCost ?? 0}
+                      onChange={(e) => setWhatIfParams({ ...whatIfParams, campaignCost: parseFloat(e.target.value) || 0 })} />
+                  </div>
+                </div>
+              )}
+
+              <Button onClick={runWhatIf} disabled={runningWhatIf} className="gap-2">
+                <Play className="w-4 h-4" />
+                {runningWhatIf ? "جاري التحليل..." : "تشغيل السيناريو"}
+              </Button>
+
+              {/* Result */}
+              {whatIfResult && (
+                <div className={cn(
+                  "p-4 rounded-lg border",
+                  whatIfResult.delta >= 0 ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200"
+                )}>
+                  <p className="font-semibold text-sm mb-3">{whatIfResult.scenarioType}</p>
+                  <div className="grid grid-cols-3 gap-4 text-center">
+                    <div>
+                      <p className="text-lg font-bold">{formatNumber(whatIfResult.baselineValue)}</p>
+                      <p className="text-xs text-gray-500">الأساس</p>
+                    </div>
+                    <div>
+                      <p className={cn("text-lg font-bold", whatIfResult.delta >= 0 ? "text-green-600" : "text-red-600")}>
+                        {whatIfResult.delta >= 0 ? "+" : ""}{formatNumber(whatIfResult.delta)}
+                      </p>
+                      <p className="text-xs text-gray-500">التغيير</p>
+                    </div>
+                    <div>
+                      <p className="text-lg font-bold">{formatNumber(whatIfResult.adjustedValue)}</p>
+                      <p className="text-xs text-gray-500">المتوقع</p>
+                    </div>
+                  </div>
+                  <p className={cn("text-center text-sm mt-2 font-medium",
+                    whatIfResult.deltaPct >= 0 ? "text-green-600" : "text-red-600"
+                  )}>
+                    {whatIfResult.deltaPct >= 0 ? "+" : ""}{whatIfResult.deltaPct}%
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ─── MODEL METRICS TAB ─────────────────────────────────────────── */}
+        <TabsContent value="metrics" className="space-y-4">
+          {metrics?.latest && (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {[
+                { label: "MAPE", value: `${metrics.latest.mape}%`, description: "Mean Absolute % Error", good: metrics.latest.mape < 20 },
+                { label: "WMAPE", value: `${metrics.latest.wmape}%`, description: "Weighted MAPE", good: metrics.latest.wmape < 20 },
+                { label: "Bias", value: metrics.latest.bias, description: "Systematic skew", good: Math.abs(metrics.latest.bias) < 5 },
+                { label: "MAE", value: metrics.latest.mae, description: "Mean Absolute Error", good: true },
+              ].map((m) => (
+                <Card key={m.label} className="border-0 shadow-sm">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs text-gray-500 font-mono">{m.label}</span>
+                      {m.good
+                        ? <CheckCircle className="w-4 h-4 text-green-500" />
+                        : <AlertTriangle className="w-4 h-4 text-orange-400" />}
+                    </div>
+                    <p className="text-2xl font-bold">{m.value}</p>
+                    <p className="text-xs text-gray-400">{m.description}</p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+
+          {metrics?.history?.length > 0 && (
+            <Card className="border-0 shadow-sm">
+              <CardHeader><CardTitle className="text-sm">سجل دقة النموذج</CardTitle></CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b bg-gray-50 text-gray-600">
+                        <th className="px-3 py-2 text-right">النوع</th>
+                        <th className="px-3 py-2 text-center">MAPE</th>
+                        <th className="px-3 py-2 text-center">WMAPE</th>
+                        <th className="px-3 py-2 text-center">Bias</th>
+                        <th className="px-3 py-2 text-center">عينة</th>
+                        <th className="px-3 py-2 text-center">التاريخ</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {metrics.history.map((h: any, i: number) => (
+                        <tr key={i} className="border-b hover:bg-gray-50">
+                          <td className="px-3 py-2 font-mono text-xs">{h.forecast_type}</td>
+                          <td className="px-3 py-2 text-center">{h.mape}%</td>
+                          <td className="px-3 py-2 text-center">{h.wmape}%</td>
+                          <td className="px-3 py-2 text-center">{h.bias}</td>
+                          <td className="px-3 py-2 text-center">{h.sample_size}</td>
+                          <td className="px-3 py-2 text-center text-gray-400 text-xs">
+                            {h.evaluated_at ? new Date(h.evaluated_at).toLocaleDateString("ar-SA") : "—"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {!metrics?.latest && (
+            <div className="text-center py-16 text-gray-400">
+              <Brain className="w-10 h-10 mx-auto mb-3 opacity-30" />
+              <p>لا توجد مقاييس بعد — تعمل الدورة الليلية على حساب الدقة</p>
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}

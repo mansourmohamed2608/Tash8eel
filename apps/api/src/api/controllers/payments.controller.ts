@@ -12,6 +12,7 @@ import {
   HttpCode,
   HttpStatus,
   NotFoundException,
+  BadRequestException,
 } from "@nestjs/common";
 import {
   ApiTags,
@@ -24,7 +25,6 @@ import {
 } from "@nestjs/swagger";
 import {
   PaymentService,
-  CreatePaymentLinkInput,
   SubmitPaymentProofInput,
 } from "../../application/services/payment.service";
 import { MerchantApiKeyGuard } from "../../shared/guards/merchant-api-key.guard";
@@ -153,13 +153,9 @@ export class PaymentsController {
     @MerchantId() merchantId: string,
     @Body() dto: CreatePaymentLinkDto,
   ) {
-    const input: CreatePaymentLinkInput = { ...dto, merchantId };
-    const link = await this.paymentService.createPaymentLink(input);
-
-    return {
-      ...link,
-      paymentUrl: this.paymentService.getPaymentLinkUrl(link.linkCode),
-    };
+    throw new BadRequestException(
+      "Payment links are no longer available. Use Payment Proof Verification workflow.",
+    );
   }
 
   @Get("links")
@@ -177,20 +173,9 @@ export class PaymentsController {
     @Query("limit") limit?: number,
     @Query("offset") offset?: number,
   ) {
-    const safeLimit = Number.isFinite(Number(limit)) ? Number(limit) : 20;
-    const safeOffset = Number.isFinite(Number(offset)) ? Number(offset) : 0;
-    const result = await this.paymentService.listPaymentLinks(merchantId, {
-      status,
-      limit: safeLimit,
-      offset: safeOffset,
-    });
-    return {
-      links: result.links.map((link) => ({
-        ...link,
-        paymentUrl: this.paymentService.getPaymentLinkUrl(link.linkCode),
-      })),
-      total: result.total,
-    };
+    throw new BadRequestException(
+      "Payment links are no longer available. Use Payment Proof Verification workflow.",
+    );
   }
 
   @Get("links/:id")
@@ -200,14 +185,9 @@ export class PaymentsController {
     @MerchantId() merchantId: string,
     @Param("id") id: string,
   ) {
-    const link = await this.paymentService.getPaymentLinkById(id, merchantId);
-    if (!link) {
-      throw new NotFoundException("Payment link not found");
-    }
-    return {
-      ...link,
-      paymentUrl: this.paymentService.getPaymentLinkUrl(link.linkCode),
-    };
+    throw new BadRequestException(
+      "Payment links are no longer available. Use Payment Proof Verification workflow.",
+    );
   }
 
   @Delete("links/:id")
@@ -217,7 +197,9 @@ export class PaymentsController {
     @MerchantId() merchantId: string,
     @Param("id") id: string,
   ) {
-    return this.paymentService.cancelPaymentLink(id, merchantId);
+    throw new BadRequestException(
+      "Payment links are no longer available. Use Payment Proof Verification workflow.",
+    );
   }
 
   // NOTE: Public payment link view endpoint moved to PublicPaymentsController

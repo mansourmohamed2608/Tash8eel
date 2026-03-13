@@ -84,7 +84,7 @@ export class MessageRepository implements IMessageRepository {
       providerMessageId: row.provider_message_id as string | undefined,
       direction: row.direction as MessageDirection,
       senderId: row.sender_id as string,
-      text: row.text as string | undefined,
+      text: (row.text as string | undefined) || (row.content as string | undefined),
       attachments: row.attachments as Message["attachments"],
       metadata: row.metadata as Message["metadata"],
       llmUsed: row.llm_used as boolean,

@@ -18,7 +18,10 @@ async function main() {
   try {
     await seedDemoMerchant(pool);
     await seedInventory(pool);
+    await seedCustomers(pool);
+    await seedConversations(pool);
     await seedOrders(pool);
+    await seedMessages(pool);
     console.log("\n✅ Seeding completed successfully!");
   } catch (error) {
     console.error("❌ Error:", error.message);
@@ -376,6 +379,84 @@ async function seedOrders(pool) {
         custName,
         custPhone,
       ],
+    );
+  }
+}
+
+async function seedCustomers(pool) {
+  console.log("  → Seeding demo customers...");
+  const customers = [
+    ["11111111-1111-1111-1111-111111111111", "+201001234567", "أحمد محمد"],
+    ["22222222-2222-2222-2222-222222222222", "+201002345678", "فاطمة علي"],
+    ["33333333-3333-3333-3333-333333333333", "+201003456789", "محمود حسن"],
+    ["44444444-4444-4444-4444-444444444444", "+201004567890", "سارة أحمد"],
+    ["55555555-5555-5555-5555-555555555555", "+201005678901", "خالد إبراهيم"],
+    ["66666666-6666-6666-6666-666666666666", "+201006789012", "احمد سامح"],
+  ];
+  for (const [id, phone, name] of customers) {
+    await pool.query(
+      `INSERT INTO customers (id, merchant_id, sender_id, phone, name, created_at, updated_at)
+       VALUES ($1, 'demo-merchant', $2, $2, $3, NOW(), NOW())
+       ON CONFLICT (id) DO NOTHING;`,
+      [id, phone, name],
+    );
+  }
+}
+
+async function seedConversations(pool) {
+  console.log("  → Seeding demo conversations...");
+  // conv-001 to conv-005: provide FK targets for existing orders
+  const convos = [
+    ["conv-001", "+201001234567", "11111111-1111-1111-1111-111111111111", "ORDER_PLACED", "6 days"],
+    ["conv-002", "+201002345678", "22222222-2222-2222-2222-222222222222", "ORDER_PLACED", "4 days"],
+    ["conv-003", "+201003456789", "33333333-3333-3333-3333-333333333333", "ORDER_PLACED", "2 days"],
+    ["conv-004", "+201004567890", "44444444-4444-4444-4444-444444444444", "ORDER_PLACED", "12 hours"],
+    ["conv-005", "+201005678901", "55555555-5555-5555-5555-555555555555", "ORDER_PLACED", "4 days"],
+  ];
+  for (const [id, phone, custId, state, interval] of convos) {
+    await pool.query(
+      `INSERT INTO conversations (id, merchant_id, customer_id, sender_id, state, last_message_at, created_at, updated_at)
+       VALUES ($1, 'demo-merchant', $2::uuid, $3, $4::conversation_state,
+         NOW() - INTERVAL '${interval}', NOW() - INTERVAL '${interval}', NOW() - INTERVAL '${interval}')
+       ON CONFLICT (id) DO NOTHING;`,
+      [id, custId, phone, state],
+    );
+  }
+  // conv-006: AC maintenance conversation — exact timestamps from screenshot (02:28–02:29 Cairo, UTC+3)
+  // Use subquery for customer_id so it works even if the customer UUID wasn't inserted above
+  await pool.query(
+    `INSERT INTO conversations (id, merchant_id, customer_id, sender_id, state, collected_info, last_message_at, created_at, updated_at)
+     VALUES ('conv-006', 'demo-merchant',
+       (SELECT id FROM customers WHERE merchant_id = 'demo-merchant' AND sender_id = '+201006789012' LIMIT 1),
+       '+201006789012', 'CLOSED'::conversation_state,
+       $1::jsonb, $2::timestamptz, $3::timestamptz, $2::timestamptz)
+     ON CONFLICT (id) DO NOTHING;`,
+    [
+      JSON.stringify({ customer_name: "احمد سامح", phone: "+201006789012" }),
+      "2026-03-08 02:29:45+03",
+      "2026-03-08 02:28:00+03",
+    ],
+  );
+}
+
+async function seedMessages(pool) {
+  console.log("  → Seeding demo messages...");
+  // Maintenance request: AC weak cooling unit 12B — times from screenshot (Cairo UTC+3)
+  const messages = [
+    ["c0060001-0000-0000-0000-000000000001", "inbound",  "+201006789012", "عندي مشكلة في التكييف في الوحدة 12B",                                "2026-03-08 02:28:00+03"],
+    ["c0060002-0000-0000-0000-000000000002", "outbound", "ai-agent",      "حاضر. ممكن اسم حضرتك للتأكيد؟",                                       "2026-03-08 02:28:20+03"],
+    ["c0060003-0000-0000-0000-000000000003", "inbound",  "+201006789012", "احمد سامح",                                                            "2026-03-08 02:28:40+03"],
+    ["c0060004-0000-0000-0000-000000000004", "outbound", "ai-agent",      "تم. المشكلة إن التكييف لا يعمل أم التبريد ضعيف؟",                    "2026-03-08 02:28:55+03"],
+    ["c0060005-0000-0000-0000-000000000005", "inbound",  "+201006789012", "التبريد ضعيف",                                                         "2026-03-08 02:29:10+03"],
+    ["c0060006-0000-0000-0000-000000000006", "outbound", "ai-agent",      "تم تسجيل طلب الصيانة للوحدة 12B، وسيتم التواصل معك لتأكيد الموعد.", "2026-03-08 02:29:25+03"],
+    ["c0060007-0000-0000-0000-000000000007", "inbound",  "+201006789012", "شكرًا",                                                                "2026-03-08 02:29:45+03"],
+  ];
+  for (const [id, direction, senderId, text, createdAt] of messages) {
+    await pool.query(
+      `INSERT INTO messages (id, conversation_id, merchant_id, direction, sender_id, text, created_at)
+       VALUES ($1::uuid, 'conv-006', 'demo-merchant', $2, $3, $4, $5::timestamptz)
+       ON CONFLICT (id) DO NOTHING;`,
+      [id, direction, senderId, text, createdAt],
     );
   }
 }

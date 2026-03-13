@@ -1,0 +1,28 @@
+﻿
+> tash8eel@1.0.0 dev
+> concurrently "npm run dev:api" "npm run dev:worker" "npm run dev:portal"
+
+[0] 
+[0] > tash8eel@1.0.0 dev:api
+[0] > npm run start:dev -w apps/api
+[0] 
+[1] 
+[1] > tash8eel@1.0.0 dev:worker
+[1] > npm run start:dev -w apps/worker
+[1] 
+[2] 
+[2] > tash8eel@1.0.0 dev:portal
+[2] > npm run dev -w apps/portal
+[2] 
+[1] 
+[1] > @tash8eel/worker@1.0.0 start:dev
+[1] > nest start --watch
+[1] 
+[0] 
+[0] > @tash8eel/api@1.0.0 start:dev
+[0] > nest start --watch
+[0] 
+[2] 
+[2] > @tash8eel/portal@1.0.0 dev
+[2] > next dev -p 3001
+[2] 

@@ -21,7 +21,8 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { portalApi } from "@/lib/authenticated-api";
-import { Copy, Eye, EyeOff, RefreshCw, Send, Link2 } from "lucide-react";
+import { Copy, Eye, EyeOff, RefreshCw, Send, Link2, Sheet, CheckCircle2, Circle, Trash2, ExternalLink } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { PageHeader } from "@/components/layout";
 
 export default function IntegrationsPage() {
@@ -67,6 +68,14 @@ export default function IntegrationsPage() {
   });
   const [savingMapping, setSavingMapping] = useState(false);
   const [savingPull, setSavingPull] = useState(false);
+
+  // Google Sheets outbound webhook state
+  const [gsWebhook, setGsWebhook] = useState<any | null>(null);
+  const [gsUrl, setGsUrl] = useState("");
+  const [gsEvents, setGsEvents] = useState<string[]>(["order.created", "order.delivered", "order.cancelled"]);
+  const [gsSaving, setGsSaving] = useState(false);
+  const [gsScriptCopied, setGsScriptCopied] = useState(false);
+  const [gsShowScript, setGsShowScript] = useState(false);
   const [syncMode, setSyncMode] = useState<"orders" | "payments" | "both">(
     "both",
   );
@@ -116,6 +125,17 @@ export default function IntegrationsPage() {
   useEffect(() => {
     fetchIntegration();
   }, [fetchIntegration]);
+
+  useEffect(() => {
+    portalApi.getWebhooks().then((hooks: any[]) => {
+      const gs = (hooks || []).find((h: any) => h.name === "__google_sheets__");
+      if (gs) {
+        setGsWebhook(gs);
+        setGsUrl(gs.url);
+        setGsEvents(gs.events || ["order.created", "order.delivered", "order.cancelled"]);
+      }
+    }).catch(() => {});
+  }, []);
 
   const copyValue = async (value: string) => {
     try {
@@ -187,6 +207,131 @@ export default function IntegrationsPage() {
       });
     } finally {
       setSavingPull(false);
+    }
+  };
+
+  const GS_EVENTS = [
+    { value: "order.created", label: "طلب جديد" },
+    { value: "order.confirmed", label: "طلب مؤكد" },
+    { value: "order.shipped", label: "طلب شُحن" },
+    { value: "order.delivered", label: "طلب وصل" },
+    { value: "order.cancelled", label: "طلب ملغي" },
+    { value: "payment.received", label: "دفعة مستلمة" },
+    { value: "customer.created", label: "عميل جديد" },
+    { value: "conversation.started", label: "محادثة جديدة" },
+  ];
+
+  const GS_APPS_SCRIPT = `// ═══════════════════════════════════════════
+// تشغيل — Google Sheets Webhook Receiver
+// 1. افتح جدول Google Sheets جديد
+// 2. Extensions > Apps Script
+// 3. الصق هذا الكود بالكامل واحفظ
+// 4. Deploy > New Deployment > Web app
+//    Execute as: Me | Who has access: Anyone
+// 5. انسخ الرابط والصقه في حقل الرابط أدناه
+// ═══════════════════════════════════════════
+
+function doPost(e) {
+  try {
+    var payload = JSON.parse(e.postData.contents);
+    var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+
+    // Add header row if sheet is empty
+    if (sheet.getLastRow() === 0) {
+      sheet.appendRow([
+        "التاريخ", "الحدث", "رقم الطلب",
+        "اسم العميل", "هاتف العميل",
+        "الإجمالي", "الحالة", "العنوان"
+      ]);
+    }
+
+    var d = payload.data || {};
+    var order = d.order || d;
+    var customer = d.customer || {};
+
+    sheet.appendRow([
+      new Date(payload.timestamp || Date.now()),
+      payload.event || "",
+      order.orderNumber || order.id || "",
+      customer.name || order.customerName || "",
+      customer.phone || order.customerPhone || "",
+      order.total || order.amount || "",
+      order.status || "",
+      customer.address || order.deliveryAddress || ""
+    ]);
+
+    return ContentService
+      .createTextOutput(JSON.stringify({ ok: true }))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService
+      .createTextOutput(JSON.stringify({ ok: false, error: err.toString() }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}`;
+
+  const handleGsToggleEvent = (ev: string) => {
+    setGsEvents((prev) =>
+      prev.includes(ev) ? prev.filter((e) => e !== ev) : [...prev, ev]
+    );
+  };
+
+  const handleGsSave = async () => {
+    if (!gsUrl.trim()) {
+      toast({ title: "خطأ", description: "أدخل رابط Apps Script أولاً", variant: "destructive" });
+      return;
+    }
+    if (gsEvents.length === 0) {
+      toast({ title: "خطأ", description: "اختر حدثاً واحداً على الأقل", variant: "destructive" });
+      return;
+    }
+    try {
+      setGsSaving(true);
+      if (gsWebhook) {
+        const updated = await portalApi.updateWebhook(gsWebhook.id, { name: "__google_sheets__", url: gsUrl, events: gsEvents });
+        setGsWebhook(updated);
+      } else {
+        const created = await portalApi.createWebhook({ name: "__google_sheets__", url: gsUrl, events: gsEvents });
+        setGsWebhook(created);
+      }
+      toast({ title: "تم الحفظ", description: "تم ربط جداول جوجل بنجاح" });
+    } catch (err: any) {
+      toast({ title: "خطأ", description: err?.message || "فشل الحفظ", variant: "destructive" });
+    } finally {
+      setGsSaving(false);
+    }
+  };
+
+  const handleGsTest = async () => {
+    if (!gsWebhook) return;
+    try {
+      await portalApi.testWebhook(gsWebhook.id);
+      toast({ title: "تم الاختبار", description: "تم إرسال صف تجريبي إلى الشيت" });
+    } catch (err: any) {
+      toast({ title: "خطأ", description: err?.message || "فشل الاختبار", variant: "destructive" });
+    }
+  };
+
+  const handleGsDelete = async () => {
+    if (!gsWebhook) return;
+    try {
+      await portalApi.deleteWebhook(gsWebhook.id);
+      setGsWebhook(null);
+      setGsUrl("");
+      setGsEvents(["order.created", "order.delivered", "order.cancelled"]);
+      toast({ title: "تم الحذف", description: "تم إزالة تكامل جداول جوجل" });
+    } catch (err: any) {
+      toast({ title: "خطأ", description: err?.message || "فشل الحذف", variant: "destructive" });
+    }
+  };
+
+  const handleGsCopyScript = async () => {
+    try {
+      await navigator.clipboard.writeText(GS_APPS_SCRIPT);
+      setGsScriptCopied(true);
+      setTimeout(() => setGsScriptCopied(false), 2500);
+    } catch {
+      toast({ title: "خطأ", description: "تعذر النسخ", variant: "destructive" });
     }
   };
 
@@ -682,6 +827,147 @@ export default function IntegrationsPage() {
               حفظ إعدادات السحب
             </Button>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* ─── Google Sheets Integration ─── */}
+      <Card className="border-green-200">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <CardTitle className="flex items-center gap-2">
+                <Sheet className="h-5 w-5 text-green-600" />
+                تكامل جداول جوجل (Google Sheets)
+                {gsWebhook && (
+                  <Badge
+                    className={
+                      gsWebhook.status === "ACTIVE"
+                        ? "bg-green-500 text-white"
+                        : gsWebhook.status === "FAILING"
+                          ? "bg-red-500 text-white"
+                          : "bg-yellow-500 text-white"
+                    }
+                  >
+                    {gsWebhook.status === "ACTIVE" ? "مُفعَّل" : gsWebhook.status === "FAILING" ? "يفشل" : "موقوف"}
+                  </Badge>
+                )}
+              </CardTitle>
+              <CardDescription>
+                أرسل بيانات الطلبات والمحادثات مباشرة إلى جدول Google Sheets في الوقت الفعلي — بدون Zapier أو أي أداة وسيطة.
+              </CardDescription>
+            </div>
+            {gsWebhook && (
+              <Button variant="ghost" size="sm" onClick={handleGsDelete} className="text-red-500 hover:text-red-600">
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-5">
+
+          {/* Step 1 — Deploy Apps Script */}
+          <div className="rounded-lg border p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-green-100 text-green-700 text-xs font-bold">1</span>
+              <span className="font-semibold text-sm">انشر Apps Script في جدولك</span>
+              <Button
+                variant="link"
+                size="sm"
+                className="text-xs text-muted-foreground ml-auto"
+                onClick={() => setGsShowScript((v) => !v)}
+              >
+                {gsShowScript ? "إخفاء الكود" : "عرض الكود"}
+              </Button>
+            </div>
+            <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
+              <li>افتح جدول Google Sheets جديد</li>
+              <li>Extensions &rarr; Apps Script</li>
+              <li>احذف الكود الموجود والصق الكود أدناه</li>
+              <li>Deploy &rarr; New Deployment &rarr; Web app</li>
+              <li>Execute as: <strong>Me</strong> — Who has access: <strong>Anyone</strong></li>
+              <li>انسخ رابط الـ Web app</li>
+            </ol>
+            {gsShowScript && (
+              <div className="relative">
+                <pre className="rounded-md bg-muted p-3 text-xs overflow-x-auto whitespace-pre-wrap font-mono leading-relaxed" dir="ltr">{GS_APPS_SCRIPT}</pre>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="absolute top-2 right-2 gap-1"
+                  onClick={handleGsCopyScript}
+                >
+                  {gsScriptCopied ? <CheckCircle2 className="h-3 w-3 text-green-600" /> : <Copy className="h-3 w-3" />}
+                  {gsScriptCopied ? "تم النسخ" : "نسخ"}
+                </Button>
+              </div>
+            )}
+            {!gsShowScript && (
+              <Button variant="outline" size="sm" className="gap-1" onClick={handleGsCopyScript}>
+                {gsScriptCopied ? <CheckCircle2 className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+                {gsScriptCopied ? "تم نسخ الكود" : "نسخ كود Apps Script"}
+              </Button>
+            )}
+          </div>
+
+          {/* Step 2 — Paste URL */}
+          <div className="rounded-lg border p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-green-100 text-green-700 text-xs font-bold">2</span>
+              <span className="font-semibold text-sm">الصق رابط Web app هنا</span>
+            </div>
+            <Input
+              dir="ltr"
+              placeholder="https://script.google.com/macros/s/.../exec"
+              value={gsUrl}
+              onChange={(e) => setGsUrl(e.target.value)}
+            />
+          </div>
+
+          {/* Step 3 — Choose events */}
+          <div className="rounded-lg border p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-green-100 text-green-700 text-xs font-bold">3</span>
+              <span className="font-semibold text-sm">اختر الأحداث التي تريد تسجيلها في الشيت</span>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+              {GS_EVENTS.map((ev) => (
+                <label
+                  key={ev.value}
+                  className="flex items-center gap-2 cursor-pointer text-sm rounded-md border p-2 hover:bg-muted/50 transition-colors"
+                >
+                  <Checkbox
+                    checked={gsEvents.includes(ev.value)}
+                    onCheckedChange={() => handleGsToggleEvent(ev.value)}
+                  />
+                  {ev.label}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button onClick={handleGsSave} disabled={gsSaving} className="gap-1">
+              {gsSaving ? <RefreshCw className="h-4 w-4 animate-spin" /> : null}
+              {gsWebhook ? "تحديث الربط" : "ربط الشيت"}
+            </Button>
+            {gsWebhook && (
+              <Button variant="outline" onClick={handleGsTest} className="gap-1">
+                <Send className="h-4 w-4" />
+                إرسال صف تجريبي
+              </Button>
+            )}
+            {gsWebhook?.lastTriggeredAt && (
+              <span className="text-xs text-muted-foreground">
+                آخر إرسال: {new Date(gsWebhook.lastTriggeredAt).toLocaleString("ar-EG")}
+              </span>
+            )}
+          </div>
+
+          <p className="text-xs text-muted-foreground border-t pt-3">
+            💡 التكامل ثنائي الاتجاه: تشغيل يُرسل إلى الشيت تلقائياً عند كل حدث،
+            ولربط الاتجاه العكسي (الشيت → تشغيل) استخدم Apps Script onEdit مع رابط الاستقبال في قسم ERP أعلاه.
+          </p>
         </CardContent>
       </Card>
 

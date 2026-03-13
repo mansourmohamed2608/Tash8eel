@@ -72,9 +72,14 @@ function parseConnectionString(connectionString: string): {
 
         const sslFlag = configService.get<string>("DATABASE_SSL") === "true";
         const resolvedSsl = sslFlag || connectionConfig.ssl;
+        // rejectUnauthorized must be true in production to validate the server's
+        // TLS certificate and prevent man-in-the-middle attacks.
+        // Set DATABASE_SSL_REJECT_UNAUTHORIZED=false ONLY for local dev with self-signed certs.
+        const rejectUnauthorized =
+          configService.get<string>("DATABASE_SSL_REJECT_UNAUTHORIZED") !== "false";
         const pool = new Pool({
           ...connectionConfig,
-          ssl: resolvedSsl ? { rejectUnauthorized: false } : false,
+          ssl: resolvedSsl ? { rejectUnauthorized } : false,
           max: 20,
           idleTimeoutMillis: 30000,
           connectionTimeoutMillis: 15000,

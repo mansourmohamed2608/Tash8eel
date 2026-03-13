@@ -344,3 +344,17 @@ MIT
 ---
 
 Built with ❤️ for Egyptian e-commerce — تشغيل
+
+## Plans & Billing Notes
+
+- `WhatsApp Message Capacity / month` = إجمالي سعة الرسائل التشغيلية (خدمة/جلسات).
+- `Paid Template Messages / month` = فقط الرسائل المدفوعة (Broadcast/OTP وخارج نافذة 24 ساعة).
+- `AI Replies & Actions / day` = عدد طلبات الذكاء الاصطناعي اليومية (Copilot + ردود/أوامر).
+- `AI Capacity / day` = ميزانية الرموز اليومية؛ قد ينفد هذا الحد حتى لو بقي عدد طلبات AI.
+
+### Payment Proof Fraud Workflow
+
+- OCR في إثبات الدفع هو مساعد استخراج فقط، وليس ضمان تحقق.
+- كل إثبات يمر عبر تقييم مخاطر (risk score + flags) مع كشف التكرار (pHash).
+- القرار افتراضيًا مراجعة بشرية `Approve/Reject`.
+- يمكن فقط تفعيل auto-approve للحالات منخفضة المخاطر إذا قام التاجر بذلك صراحة.

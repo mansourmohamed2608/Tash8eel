@@ -1185,9 +1185,11 @@ export function generatePaymentsInsights(data: {
     insights.push({
       id: "no-payment-links",
       severity: "tip",
-      title: "أنشئ رابط دفع",
+      title: "فعّل مراجعة إثباتات الدفع",
       description:
-        "روابط الدفع تسهّل على العملاء الدفع إلكترونياً وتقلل الاعتماد على الدفع عند الاستلام.",
+        "أرسل تعليمات الدفع عبر واتساب واطلب من العميل رفع إثبات الدفع للمراجعة اليدوية.",
+      actionLabel: "فتح إثباتات الدفع",
+      actionHref: "/merchant/payments/proofs",
     });
   }
 
@@ -1235,7 +1237,7 @@ export function generateWebhooksInsights(data: {
     insights.push({
       id: "webhook-failures",
       severity: "critical",
-      title: `${data.failureCount} فشل في إرسال Webhook`,
+      title: `${data.failureCount} فشل في إرسال تكامل POS`,
       description:
         "تحقق من صحة عنوان URL وأن الخادم الطرف الآخر يستجيب بشكل صحيح.",
     });
@@ -1247,7 +1249,7 @@ export function generateWebhooksInsights(data: {
       severity: "tip",
       title: "ربط النظام بأدوات خارجية",
       description:
-        "Webhooks تمكنك من إرسال بيانات الطلبات تلقائياً لنظام ERP أو محاسبة.",
+        "POS Integrations تمكنك من إرسال بيانات الطلبات تلقائياً لنظام ERP أو محاسبة.",
     });
   }
 

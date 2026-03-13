@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import { cn, formatCurrency, formatNumber } from "@/lib/utils";
 import { merchantApi } from "@/lib/api";
+import portalApi from "@/lib/authenticated-api";
 import { useMerchant } from "@/hooks/use-merchant";
 import { useRoleAccess } from "@/hooks/use-role-access";
 import { useToast } from "@/hooks/use-toast";
@@ -170,7 +171,10 @@ export default function ReportsPage() {
   const [period, setPeriod] = useState<number>(() =>
     getStoredReportingDays(30),
   );
-  const effectivePeriodDays = useMemo(
+  const [waTrend, setWaTrend] = useState<{
+    trend: Array<{ name: string; value: number; delivered: number; failed: number; rate: number }>;
+    overallRate: number;
+  } | null>(null);  const effectivePeriodDays = useMemo(
     () => resolveReportingDays(period),
     [period],
   );
@@ -207,6 +211,22 @@ export default function ReportsPage() {
         }),
       );
       setPopularProducts(mappedProducts);
+
+      // Fetch WhatsApp delivery trend in background
+      portalApi.getWhatsappDeliveryTrend(14).then((r) => {
+        if (r?.trend?.length) {
+          setWaTrend({
+            trend: r.trend.map((d) => ({
+              name: d.date,
+              value: d.sent,
+              delivered: d.delivered,
+              failed: d.failed,
+              rate: d.rate,
+            })),
+            overallRate: r.overallRate,
+          });
+        }
+      }).catch(() => null);
     } catch (err) {
       console.error("Failed to fetch reports:", err);
       setError(err instanceof Error ? err.message : "فشل في تحميل التقارير");
@@ -667,6 +687,74 @@ export default function ReportsPage() {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* WhatsApp Delivery Trend */}
+      {waTrend && (
+        <Card>
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base flex items-center gap-2">
+                <MessageCircle className="h-5 w-5 text-green-500" />
+                معدل تسليم واتساب (14 يوم)
+              </CardTitle>
+              <span className={cn(
+                "text-sm font-bold px-2 py-0.5 rounded",
+                waTrend.overallRate >= 90 ? "bg-green-100 text-green-700" :
+                waTrend.overallRate >= 70 ? "bg-amber-100 text-amber-700" :
+                "bg-red-100 text-red-700"
+              )}>
+                {waTrend.overallRate}%
+              </span>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <AreaChart
+              data={waTrend.trend}
+              title=""
+              color="#22c55e"
+            />
+            <div className="flex items-center gap-6 mt-2 text-xs text-muted-foreground">
+              <span>إجمالي المرسل: {waTrend.trend.reduce((s, r) => s + r.value, 0).toLocaleString("ar-EG")}</span>
+              <span>مسلّم: {waTrend.trend.reduce((s, r) => s + r.delivered, 0).toLocaleString("ar-EG")}</span>
+              <span>فشل: {waTrend.trend.reduce((s, r) => s + r.failed, 0).toLocaleString("ar-EG")}</span>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* WhatsApp Delivery Trend */}
+      {waTrend && (
+        <Card>
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base flex items-center gap-2">
+                <MessageCircle className="h-5 w-5 text-green-500" />
+                معدل تسليم واتساب (14 يوم)
+              </CardTitle>
+              <span className={cn(
+                "text-sm font-bold px-2 py-0.5 rounded",
+                waTrend.overallRate >= 90 ? "bg-green-100 text-green-700" :
+                waTrend.overallRate >= 70 ? "bg-amber-100 text-amber-700" :
+                "bg-red-100 text-red-700"
+              )}>
+                {waTrend.overallRate}%
+              </span>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <AreaChart
+              data={waTrend.trend}
+              title=""
+              color="#22c55e"
+            />
+            <div className="flex items-center gap-6 mt-2 text-xs text-muted-foreground">
+              <span>إجمالي المرسل: {waTrend.trend.reduce((s, r) => s + r.value, 0).toLocaleString("ar-EG")}</span>
+              <span>مسلَّم: {waTrend.trend.reduce((s, r) => s + r.delivered, 0).toLocaleString("ar-EG")}</span>
+              <span>فشل: {waTrend.trend.reduce((s, r) => s + r.failed, 0).toLocaleString("ar-EG")}</span>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Quick Links to Sub-Reports */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

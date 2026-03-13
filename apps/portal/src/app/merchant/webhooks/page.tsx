@@ -184,7 +184,7 @@ export default function WebhooksPage() {
       console.error("Failed to fetch webhooks:", error);
       toast({
         title: "خطأ",
-        description: "فشل في تحميل Webhooks",
+        description: "فشل في تحميل تكاملات POS",
         variant: "destructive",
       });
     } finally {
@@ -228,12 +228,12 @@ export default function WebhooksPage() {
       setLastTestedUrl(null);
       setTestMessage(null);
       setIsCreateOpen(false);
-      toast({ title: "تم الإنشاء", description: "تم إنشاء Webhook بنجاح" });
+      toast({ title: "تم الإنشاء", description: "تم إنشاء تكامل POS بنجاح" });
       fetchWebhooks();
     } catch (error) {
       toast({
         title: "خطأ",
-        description: "فشل في إنشاء Webhook",
+        description: "فشل في إنشاء تكامل POS",
         variant: "destructive",
       });
     } finally {
@@ -257,7 +257,7 @@ export default function WebhooksPage() {
       );
       toast({
         title: webhook.isActive ? "تم الإيقاف" : "تم التفعيل",
-        description: webhook.isActive ? "تم إيقاف Webhook" : "تم تفعيل Webhook",
+        description: webhook.isActive ? "تم إيقاف تكامل POS" : "تم تفعيل تكامل POS",
       });
     } catch (error) {
       toast({
@@ -312,11 +312,11 @@ export default function WebhooksPage() {
     try {
       await portalApi.deleteWebhook(webhookId);
       setWebhooks(webhooks.filter((w) => w.id !== webhookId));
-      toast({ title: "تم الحذف", description: "تم حذف Webhook بنجاح" });
+      toast({ title: "تم الحذف", description: "تم حذف تكامل POS بنجاح" });
     } catch (error) {
       toast({
         title: "خطأ",
-        description: "فشل في حذف Webhook",
+        description: "فشل في حذف تكامل POS",
         variant: "destructive",
       });
     }
@@ -415,7 +415,7 @@ export default function WebhooksPage() {
         <>
           {/* AI Webhooks Insights */}
           <AiInsightsCard
-            title="مساعد Webhooks"
+            title="مساعد تكاملات نقاط البيع"
             insights={generateWebhooksInsights({
               totalWebhooks: webhooks.length,
               activeWebhooks: webhooks.filter((w) => w.isActive).length,
@@ -427,8 +427,8 @@ export default function WebhooksPage() {
             loading={loading}
           />
           <PageHeader
-            title="Webhooks"
-            description="إدارة تكاملات Webhook للأحداث المختلفة"
+            title="تكاملات نقاط البيع"
+            description="إدارة تكاملات POS وإشعارات الأحداث"
             actions={
               <>
                 <Button variant="outline" onClick={fetchWebhooks}>
@@ -439,22 +439,22 @@ export default function WebhooksPage() {
                   <DialogTrigger asChild>
                     <Button>
                       <Plus className="h-4 w-4" />
-                      إنشاء Webhook
+                      إنشاء تكامل POS
                     </Button>
                   </DialogTrigger>
                   <DialogContent className="max-w-2xl">
                     <DialogHeader>
-                      <DialogTitle>إنشاء Webhook جديد</DialogTitle>
+                      <DialogTitle>إنشاء تكامل POS جديد</DialogTitle>
                       <DialogDescription>
-                        قم بإعداد Webhook لاستقبال إشعارات عن الأحداث
+                        قم بإعداد تكامل POS لاستقبال إشعارات الأحداث
                       </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto">
                       <div className="space-y-2">
-                        <Label htmlFor="name">اسم Webhook</Label>
+                        <Label htmlFor="name">اسم التكامل</Label>
                         <Input
                           id="name"
-                          placeholder="مثال: Webhook الطلبات"
+                          placeholder="مثال: تكامل طلبات POS"
                           value={form.name}
                           onChange={(e) =>
                             setForm({ ...form, name: e.target.value })
@@ -549,7 +549,7 @@ export default function WebhooksPage() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">
-                  إجمالي Webhooks
+                  إجمالي تكاملات POS
                 </CardTitle>
                 <Webhook className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
@@ -606,16 +606,16 @@ export default function WebhooksPage() {
 
           <Tabs defaultValue="webhooks">
             <TabsList>
-              <TabsTrigger value="webhooks">Webhooks</TabsTrigger>
+              <TabsTrigger value="webhooks">تكاملات نقاط البيع</TabsTrigger>
               <TabsTrigger value="deliveries">سجل الإرسال</TabsTrigger>
             </TabsList>
 
             <TabsContent value="webhooks" className="mt-4">
               <Card>
                 <CardHeader>
-                  <CardTitle>قائمة Webhooks</CardTitle>
+                  <CardTitle>قائمة تكاملات POS</CardTitle>
                   <CardDescription>
-                    جميع Webhooks المُعدة وحالتها
+                    جميع تكاملات POS المُعدة وحالتها
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -762,14 +762,14 @@ export default function WebhooksPage() {
               <Card>
                 <CardHeader>
                   <CardTitle>سجل الإرسال</CardTitle>
-                  <CardDescription>آخر محاولات إرسال Webhook</CardDescription>
+                  <CardDescription>آخر محاولات إرسال تكامل POS</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <Table>
                     <TableHeader>
                       <TableRow>
                         <TableHead>الحدث</TableHead>
-                        <TableHead>Webhook</TableHead>
+                        <TableHead>التكامل</TableHead>
                         <TableHead>الحالة</TableHead>
                         <TableHead>كود الاستجابة</TableHead>
                         <TableHead>المحاولة</TableHead>
@@ -834,7 +834,7 @@ export default function WebhooksPage() {
           {/* Documentation Card */}
           <Card>
             <CardHeader>
-              <CardTitle>كيفية التحقق من صحة Webhook</CardTitle>
+              <CardTitle>كيفية التحقق من صحة تكامل POS</CardTitle>
               <CardDescription>
                 استخدم مفتاح التوقيع للتحقق من صحة الطلبات الواردة
               </CardDescription>

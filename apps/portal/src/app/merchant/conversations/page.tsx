@@ -170,9 +170,11 @@ export default function ConversationsPage() {
   const [takingOver, setTakingOver] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const normalizeSenderDisplay = useCallback((value?: string) => {
-    if (!value) return "عميل";
-    const cleaned = value
+  const normalizeSenderDisplay = useCallback((value?: string | number | null) => {
+    if (value == null) return "عميل";
+    const str = String(value);
+    if (!str) return "عميل";
+    const cleaned = str
       .replace(/^whatsapp:/i, "")
       .replace(/@c\.us$/i, "")
       .trim();
@@ -188,17 +190,13 @@ export default function ConversationsPage() {
 
   const getDisplayName = useCallback(
     (conversation: Conversation) => {
-      if (
-        conversation.customerName &&
-        conversation.customerName.trim().length > 0
-      ) {
-        return conversation.customerName.trim();
+      const name = conversation.customerName != null ? String(conversation.customerName) : "";
+      if (name.trim().length > 0) {
+        return name.trim();
       }
-      if (
-        conversation.customerPhone &&
-        conversation.customerPhone.trim().length > 0
-      ) {
-        return normalizeSenderDisplay(conversation.customerPhone);
+      const phone = conversation.customerPhone != null ? String(conversation.customerPhone) : "";
+      if (phone.trim().length > 0) {
+        return normalizeSenderDisplay(phone);
       }
       return normalizeSenderDisplay(conversation.senderId);
     },
@@ -349,16 +347,18 @@ export default function ConversationsPage() {
   };
 
   // Calculate stats
+  // "completed" = only ORDER_PLACED (conversations that resulted in an actual order)
+  // "active" = everything that is not ORDER_PLACED (includes CLOSED, HUMAN_TAKEOVER, etc.)
   const stats = {
     total: conversations.length,
     active: conversations.filter(
-      (c) => !["ORDER_PLACED", "CLOSED"].includes(getEffectiveState(c)),
+      (c) => getEffectiveState(c) !== "ORDER_PLACED",
     ).length,
     humanTakeover: conversations.filter(
       (c) => getEffectiveState(c) === "HUMAN_TAKEOVER",
     ).length,
-    completed: conversations.filter((c) =>
-      ["ORDER_PLACED", "CLOSED"].includes(getEffectiveState(c)),
+    completed: conversations.filter(
+      (c) => getEffectiveState(c) === "ORDER_PLACED",
     ).length,
   };
 

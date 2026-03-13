@@ -52,6 +52,7 @@ import {
   Truck,
   Store,
   Image,
+  Building2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -166,8 +167,44 @@ const merchantNavItems: NavItem[] = [
     featureKey: "inventory",
     upgradeText: "ترقية لإدارة المخزون",
   },
-  { href: "/merchant/pos-integrations", label: "التكاملات", icon: Store },
+  {
+    href: "/merchant/pos-integrations",
+    label: "POS Integrations",
+    icon: Store,
+    featureKey: "webhooks",
+    upgradeText: "ترقية لتفعيل POS Integrations",
+  },
   { href: "/merchant/import-export", label: "استيراد/تصدير", icon: Upload },
+
+  // SUPPLIER & AUTOMATION SECTION
+  {
+    href: "/merchant/suppliers",
+    label: "الموردون",
+    icon: Truck,
+    featureKey: "inventory",
+    upgradeText: "ترقية لإدارة الموردين",
+  },
+  {
+    href: "/merchant/automations",
+    label: "محرك الأتمتة",
+    icon: Cpu,
+    featureKey: "inventory",
+    upgradeText: "ترقية لتفعيل الأتمتة",
+  },
+  {
+    href: "/merchant/analytics/forecast",
+    label: "توقعات الطلب",
+    icon: TrendingUp,
+    featureKey: "inventory",
+    upgradeText: "ترقية لتوقعات الطلب",
+  },
+  {
+    href: "/merchant/forecast",
+    label: "منصة التنبؤات",
+    icon: Brain,
+    featureKey: "inventory",
+    upgradeText: "ترقية لمنصة التنبؤات الذكية",
+  },
 
   // FINANCE AGENT (ثالثاً)
   {
@@ -238,6 +275,20 @@ const merchantNavItems: NavItem[] = [
     icon: Wallet,
     featureKey: "reports",
     upgradeText: "ترقية للمصروفات",
+  },
+  {
+    href: "/merchant/branches",
+    label: "الفروع",
+    icon: Building2,
+    featureKey: "reports",
+    upgradeText: "ترقية لإدارة الفروع",
+  },
+  {
+    href: "/merchant/branches/comparison",
+    label: "مقارنة الفروع",
+    icon: BarChart3,
+    featureKey: "reports",
+    upgradeText: "ترقية لمقارنة الفروع",
   },
   {
     href: "/merchant/payments/cod",

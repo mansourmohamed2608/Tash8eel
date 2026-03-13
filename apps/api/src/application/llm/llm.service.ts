@@ -1,8 +1,10 @@
-import { Injectable, Inject } from "@nestjs/common";
+import { Injectable, Inject, forwardRef } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import OpenAI from "openai";
 import { createLogger } from "../../shared/logging/logger";
 import { MERCHANT_REPOSITORY, IMerchantRepository } from "../../domain/ports";
+import { AiMetricsService } from "../../shared/services/ai-metrics.service";
+import { NotificationsService } from "../services/notifications.service";
 import { Merchant } from "../../domain/entities/merchant.entity";
 import { Conversation } from "../../domain/entities/conversation.entity";
 import { CatalogItem } from "../../domain/entities/catalog.entity";
@@ -21,6 +23,49 @@ import {
 } from "./llm-schema";
 
 const logger = createLogger("LlmService");
+
+/**
+ * Exported so it can be unit-tested without instantiating LlmService.
+ * Returns true when a WhatsApp message is CLEARLY unrelated to ordering
+ * (sports, jokes, weather, etc.) — zero OpenAI tokens spent for these.
+ */
+export function isObviouslyOffTopic(text: string): boolean {
+  const t = text.trim();
+  if (!t || t.length < 3) return false;
+
+  const hardDenyPatterns = [
+    // General knowledge
+    /ما\s*(هي|هو|اسم)\s*(عاصمة|رئيس|حكومة|دولة|تاريخ)/i,
+    // Jokes / stories
+    /احكيلي\s*(نكتة|حكاية|قصة)/i,
+    /قولي\s*نكتة/i,
+    /نكتة\s*مضحكة/i,
+    // Weather forecast
+    /الطقس\s*(إيه|ايه|امبارح|النهارده|بكره|دلوقتي)/i,
+    // Politics
+    /(رأيك|رايك)\s*في\s*(السياسة|الحكومة|الرئيس)/i,
+    // Programming help (no "حل" — too broad, could be "help with my order")
+    /اكتبلي\s*(كود|code|برنامج|سكريبت)/i,
+    /عايز\s*(كود|code)\s*(بـ|في|على)/i,
+    // Translation unrelated to ordering
+    /ترجملي\s+(?!.{0,20}(منتج|طلب|عنوان))/i,
+    // Sports
+    /(كرة\s*القدم|كورة\s*(دلوقتي|امبارح|بكره|النهارده)|ليفربول|برشلونة|ريال\s*مدريد|منتخب\s*(مصر|سوريا|مغرب)|نتيجة\s*(مباراة|المباراة)|ميسي|رونالدو|نيمار)/i,
+    // News headlines
+    /(أهم|آخر)\s*(أخبار|الأخبار)/i,
+    // Medical symptoms
+    /عندي\s*(ألم|وجع|مرض|صداع|حمى|كحة|حساسية)\s/i,
+    // Celebrities / pure entertainment with no product context
+    /فيلم\s*(إيه|حلو|جديد|نشوفه)\b/i,
+    /مسلسل\s*(إيه|جديد|حلو|ينتهي)\b/i,
+    // Religion Q&A
+    /ما\s*(حكم|رأي\s*الدين)\s*(في|على)/i,
+    // Pure math expression (no text at all)
+    /^[\d\s\+\-\*\/\^\(\)=]+$/,
+  ];
+
+  return hardDenyPatterns.some((re) => re.test(t));
+}
 
 export interface LlmContext {
   merchant: Merchant;
@@ -93,11 +138,18 @@ export class LlmService {
   private timeoutMs: number;
   private isTestMode: boolean;
   private strictAiMode: boolean;
+  /** Throttle: only send one OpenAI-429 notification per merchant per hour */
+  private readonly quotaNotifiedAt = new Map<string, number>();
+  /** Throttle: only send one budget-exhausted notification per merchant per hour */
+  private readonly budgetNotifiedAt = new Map<string, number>();
 
   constructor(
     private configService: ConfigService,
     @Inject(MERCHANT_REPOSITORY)
     private merchantRepository: IMerchantRepository,
+    private readonly aiMetrics: AiMetricsService,
+    @Inject(forwardRef(() => NotificationsService))
+    private readonly notificationsService: NotificationsService,
   ) {
     const apiKey = this.configService.get<string>("OPENAI_API_KEY") || "";
 
@@ -164,14 +216,34 @@ export class LlmService {
         merchantId: merchant.id,
         remaining: budgetCheck.remaining,
       });
+      this.fireBudgetExhaustedNotification(merchant.id);
       return this.createFallbackResponse(context);
     }
 
     try {
+      // ── Off-topic pre-filter ──────────────────────────────────────────────
+      // Detect obviously off-topic messages (general knowledge, jokes, etc.)
+      // before spending any tokens on OpenAI.
+      if (this.isObviouslyOffTopic(customerMessage)) {
+        return createLlmResult(
+          {
+            actionType: ActionType.ASK_CLARIFYING_QUESTION,
+            reply_ar:
+              "أنا هنا بس لخدمة طلبات المتجر! 😊 إيه إللي تحتاجه من منتجاتنا؟",
+            confidence: 1.0,
+            missing_slots: [],
+          },
+          0,
+          false,
+        );
+      }
+      // ─────────────────────────────────────────────────────────────────────
+
       const systemPrompt = this.buildSystemPrompt(merchant, catalogItems);
       const conversationHistory = this.buildConversationHistory(recentMessages);
       const userPrompt = this.buildUserPrompt(conversation, customerMessage);
 
+      const _aiCallStart = Date.now(); // BL-004 metric latency
       const response = await withTimeout(
         withRetry(
           () => this.callOpenAI(systemPrompt, conversationHistory, userPrompt),
@@ -197,6 +269,14 @@ export class LlmService {
         getTodayDate(),
         tokensUsed,
       );
+      void this.aiMetrics.record({
+        serviceName: "LlmService",
+        methodName: "processMessage",
+        merchantId: merchant.id,
+        outcome: "success",
+        tokensUsed,
+        latencyMs: Date.now() - _aiCallStart,
+      });
 
       // Check confidence threshold
       if (validated.confidence < 0.5) {
@@ -216,6 +296,21 @@ export class LlmService {
         errorName: err.name,
         timeoutMs: this.timeoutMs,
       });
+      const is429 =
+        (err as any)?.status === 429 || err.message?.includes("429");
+      void this.aiMetrics.record({
+        serviceName: "LlmService",
+        methodName: "processMessage",
+        merchantId: merchant.id,
+        outcome: err.message?.includes("timed out")
+          ? "timeout"
+          : is429
+            ? "error"
+            : "error",
+      });
+      if (is429) {
+        this.fireOpenAiQuotaNotification(merchant.id);
+      }
       return this.createFallbackResponse(context);
     }
   }
@@ -356,7 +451,25 @@ ${catalogSummary}
   - لو المنتج له مقاسات وألوان → اسأل عن الاتنين قبل التأكيد
   - مثال: "إيه المقاس والون اللي تحبه للبنطلون الجينز؟ عندنا مقاسات 30-38 وألوان أزرق وأسود ورمادي"
   - ❌ متأكدش الطلب لو في مقاس أو لون ناقص
+
+# 🚫 قاعدة الحظر - الرسائل خارج الموضوع (مهم جداً لتوفير الموارد):
+- أي رسالة مش متعلقة بالمنتجات أو الطلبات أو التوصيل 👉 رد قصير ومباشر وإعادة توجيه **بدون** الإجابة
+- أمثلة محظورة: "ما هي عاصمة فرنسا؟" / "احكيلي نكتة" / "ترجملي الفقرة دي" / "اكتبلي كود"
+- الرد الصح: "أنا هنا بس لخدمة طلبات المتجر! 😊 إيه إللي تحتاجه من منتجاتنا؟"
+- actionType يكون "ASK_CLARIFYING_QUESTION" دايماً في الحالة دي
 `;
+  }
+
+  /**
+   * Returns true for messages that are CLEARLY unrelated to ordering.
+   *
+   * Strategy: hard denylist only — specific patterns with near-zero risk of
+   * false positives. We intentionally do NOT try to block "unknown" messages
+   * because the cost of blocking a real customer is higher than the cost of
+   * one extra OpenAI call.
+   */
+  private isObviouslyOffTopic(text: string): boolean {
+    return isObviouslyOffTopic(text);
   }
 
   private getCategoryRules(category: string): string {
@@ -372,8 +485,10 @@ ${catalogSummary}
   private buildCatalogSummary(items: CatalogItem[]): string {
     if (items.length === 0) return "لا توجد منتجات متاحة حالياً";
 
+    // NOTE: cap raised from 20 → 80 to prevent the LLM silently missing items.
+    // The RAG retrieval layer will narrow this further once embeddings are live.
     return items
-      .slice(0, 20)
+      .slice(0, 80)
       .map((item) => {
         const variants =
           item.variants.length > 0
@@ -653,6 +768,13 @@ ${JSON.stringify(request.contextData, null, 2)}
         getTodayDate(),
         tokensUsed,
       );
+      void this.aiMetrics.record({
+        serviceName: "LlmService",
+        methodName: "agentReason",
+        merchantId: request.merchantId,
+        outcome: "success",
+        tokensUsed,
+      });
 
       const content = response.choices?.[0]?.message?.content || "{}";
       let parsed: any;
@@ -685,6 +807,12 @@ ${JSON.stringify(request.contextData, null, 2)}
       logger.error("Agent reasoning failed", err, {
         merchantId: request.merchantId,
         checkType: request.checkType,
+      });
+      void this.aiMetrics.record({
+        serviceName: "LlmService",
+        methodName: "agentReason",
+        merchantId: request.merchantId,
+        outcome: "error",
       });
       return { success: false, tokensUsed: 0, error: err.message };
     }
@@ -1018,6 +1146,74 @@ recentAgentActions: آخر 10 إجراءات اتخذها الوكلاء في آ
       0,
       false,
     );
+  }
+
+  /**
+   * Fired when the platform's OpenAI API key returns 429 (external quota exhausted).
+   * This is an admin/platform issue — the API key needs to be checked/upgraded.
+   * Throttled to once per hour per merchant.
+   */
+  private fireOpenAiQuotaNotification(merchantId: string): void {
+    const now = Date.now();
+    const last = this.quotaNotifiedAt.get(merchantId) || 0;
+    if (now - last < 60 * 60 * 1000) return;
+    this.quotaNotifiedAt.set(merchantId, now);
+    void this.notificationsService
+      .create({
+        merchantId,
+        type: "SYSTEM_ALERT",
+        title: "⚠️ OpenAI API quota exhausted",
+        titleAr: "⚠️ تنبيه: نفدت حصة OpenAI API",
+        message:
+          "The OpenAI API key returned a 429 error — the platform's external AI quota is exhausted. Incoming WhatsApp messages will receive fallback replies. Please check the OpenAI billing dashboard and upgrade the plan.",
+        messageAr:
+          "مفتاح OpenAI API أعاد خطأ 429 — نفدت حصة الذكاء الاصطناعي الخارجية للمنصة. رسائل الواتساب ستتلقى ردوداً بديلة. تحقق من لوحة الفوترة على OpenAI وقم بترقية الخطة.",
+        priority: "URGENT",
+        channels: ["IN_APP"],
+        data: { alertKind: "OPENAI_QUOTA_EXHAUSTED" },
+        actionUrl: "https://platform.openai.com/account/billing",
+        expiresInHours: 24,
+      })
+      .catch((err) =>
+        logger.warn("Failed to create OpenAI quota notification", {
+          err,
+          merchantId,
+        }),
+      );
+  }
+
+  /**
+   * Fired when THIS merchant's daily token budget on the platform is fully consumed.
+   * This is a per-merchant issue — they need to wait for midnight reset or upgrade.
+   * Throttled to once per hour per merchant.
+   */
+  private fireBudgetExhaustedNotification(merchantId: string): void {
+    const now = Date.now();
+    const last = this.budgetNotifiedAt.get(merchantId) || 0;
+    if (now - last < 60 * 60 * 1000) return;
+    this.budgetNotifiedAt.set(merchantId, now);
+    void this.notificationsService
+      .create({
+        merchantId,
+        type: "SYSTEM_ALERT",
+        title: "Daily AI quota exhausted",
+        titleAr: "نفدت حصة الذكاء الاصطناعي اليومية",
+        message:
+          "Your daily AI token budget has been fully consumed. Incoming WhatsApp messages will receive fallback replies until midnight when the quota resets automatically.",
+        messageAr:
+          "استنفدت حصتك اليومية من رصيد الذكاء الاصطناعي. رسائل الواتساب ستتلقى ردوداً احتياطية حتى منتصف الليل حين تتجدد الحصة تلقائياً.",
+        priority: "HIGH",
+        channels: ["IN_APP"],
+        data: { alertKind: "MERCHANT_BUDGET_EXHAUSTED" },
+        actionUrl: "/merchant/settings",
+        expiresInHours: 24,
+      })
+      .catch((err) =>
+        logger.warn("Failed to create budget notification", {
+          err,
+          merchantId,
+        }),
+      );
   }
 
   private createFallbackResponse(context: LlmContext): LlmResult {

@@ -1,0 +1,261 @@
+﻿{
+  "auditReportVersion": 2,
+  "vulnerabilities": {
+    "@nestjs/cli": {
+      "name": "@nestjs/cli",
+      "severity": "high",
+      "isDirect": true,
+      "via": [
+        "fork-ts-checker-webpack-plugin",
+        "webpack"
+      ],
+      "effects": [],
+      "range": "6.6.4-rc.1 - 6.6.4-rc.3 || >=6.7.0",
+      "nodes": [
+        "node_modules/@nestjs/cli"
+      ],
+      "fixAvailable": {
+        "name": "@nestjs/cli",
+        "version": "6.6.4",
+        "isSemVerMajor": true
+      }
+    },
+    "@nestjs/config": {
+      "name": "@nestjs/config",
+      "severity": "moderate",
+      "isDirect": true,
+      "via": [
+        "lodash"
+      ],
+      "effects": [],
+      "range": "1.1.6 - 4.0.2",
+      "nodes": [
+        "node_modules/@nestjs/config"
+      ],
+      "fixAvailable": {
+        "name": "@nestjs/config",
+        "version": "4.0.3",
+        "isSemVerMajor": true
+      }
+    },
+    "@nestjs/swagger": {
+      "name": "@nestjs/swagger",
+      "severity": "moderate",
+      "isDirect": true,
+      "via": [
+        "lodash"
+      ],
+      "effects": [],
+      "range": "1.1.0 - 1.1.4 || 3.0.1 - 11.2.5",
+      "nodes": [
+        "node_modules/@nestjs/swagger"
+      ],
+      "fixAvailable": {
+        "name": "@nestjs/swagger",
+        "version": "11.2.6",
+        "isSemVerMajor": true
+      }
+    },
+    "axios": {
+      "name": "axios",
+      "severity": "high",
+      "isDirect": true,
+      "via": [
+        {
+          "source": 1113275,
+          "name": "axios",
+          "dependency": "axios",
+          "title": "Axios is Vulnerable to Denial of Service via __proto__ Key in mergeConfig",
+          "url": "https://github.com/advisories/GHSA-43fc-jf86-j433",
+          "severity": "high",
+          "cwe": [
+            "CWE-754"
+          ],
+          "cvss": {
+            "score": 7.5,
+            "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+          },
+          "range": ">=1.0.0 <=1.13.4"
+        }
+      ],
+      "effects": [],
+      "range": "1.0.0 - 1.13.4",
+      "nodes": [
+        "node_modules/axios"
+      ],
+      "fixAvailable": true
+    },
+    "fork-ts-checker-webpack-plugin": {
+      "name": "fork-ts-checker-webpack-plugin",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "webpack"
+      ],
+      "effects": [
+        "@nestjs/cli"
+      ],
+      "range": ">=7.0.0-alpha.1",
+      "nodes": [
+        "node_modules/fork-ts-checker-webpack-plugin"
+      ],
+      "fixAvailable": {
+        "name": "@nestjs/cli",
+        "version": "6.6.4",
+        "isSemVerMajor": true
+      }
+    },
+    "lodash": {
+      "name": "lodash",
+      "severity": "moderate",
+      "isDirect": false,
+      "via": [
+        {
+          "source": 1112455,
+          "name": "lodash",
+          "dependency": "lodash",
+          "title": "Lodash has Prototype Pollution Vulnerability in `_.unset` and `_.omit` functions",
+          "url": "https://github.com/advisories/GHSA-xxjr-mmjv-4gpg",
+          "severity": "moderate",
+          "cwe": [
+            "CWE-1321"
+          ],
+          "cvss": {
+            "score": 6.5,
+            "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:L/A:L"
+          },
+          "range": ">=4.0.0 <=4.17.22"
+        }
+      ],
+      "effects": [
+        "@nestjs/config",
+        "@nestjs/swagger"
+      ],
+      "range": "4.0.0 - 4.17.21",
+      "nodes": [
+        "node_modules/@nestjs/config/node_modules/lodash",
+        "node_modules/@nestjs/swagger/node_modules/lodash"
+      ],
+      "fixAvailable": {
+        "name": "@nestjs/config",
+        "version": "4.0.3",
+        "isSemVerMajor": true
+      }
+    },
+    "serialize-javascript": {
+      "name": "serialize-javascript",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        {
+          "source": 1113686,
+          "name": "serialize-javascript",
+          "dependency": "serialize-javascript",
+          "title": "Serialize JavaScript is Vulnerable to RCE via RegExp.flags and Date.prototype.toISOString()",
+          "url": "https://github.com/advisories/GHSA-5c6j-r48x-rmvq",
+          "severity": "high",
+          "cwe": [
+            "CWE-96"
+          ],
+          "cvss": {
+            "score": 8.1,
+            "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H"
+          },
+          "range": "<=7.0.2"
+        }
+      ],
+      "effects": [
+        "terser-webpack-plugin"
+      ],
+      "range": "<=7.0.2",
+      "nodes": [
+        "node_modules/serialize-javascript"
+      ],
+      "fixAvailable": {
+        "name": "@nestjs/cli",
+        "version": "6.6.4",
+        "isSemVerMajor": true
+      }
+    },
+    "terser-webpack-plugin": {
+      "name": "terser-webpack-plugin",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "serialize-javascript",
+        "webpack"
+      ],
+      "effects": [
+        "webpack"
+      ],
+      "range": "*",
+      "nodes": [
+        "node_modules/terser-webpack-plugin"
+      ],
+      "fixAvailable": {
+        "name": "@nestjs/cli",
+        "version": "6.6.4",
+        "isSemVerMajor": true
+      }
+    },
+    "ts-loader": {
+      "name": "ts-loader",
+      "severity": "high",
+      "isDirect": true,
+      "via": [
+        "webpack"
+      ],
+      "effects": [],
+      "range": ">=9.2.2",
+      "nodes": [
+        "node_modules/ts-loader"
+      ],
+      "fixAvailable": {
+        "name": "ts-loader",
+        "version": "9.2.1",
+        "isSemVerMajor": true
+      }
+    },
+    "webpack": {
+      "name": "webpack",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "terser-webpack-plugin"
+      ],
+      "effects": [
+        "@nestjs/cli",
+        "fork-ts-checker-webpack-plugin",
+        "terser-webpack-plugin",
+        "ts-loader"
+      ],
+      "range": ">=4.26.0",
+      "nodes": [
+        "node_modules/webpack"
+      ],
+      "fixAvailable": {
+        "name": "@nestjs/cli",
+        "version": "6.6.4",
+        "isSemVerMajor": true
+      }
+    }
+  },
+  "metadata": {
+    "vulnerabilities": {
+      "info": 0,
+      "low": 0,
+      "moderate": 3,
+      "high": 7,
+      "critical": 0,
+      "total": 10
+    },
+    "dependencies": {
+      "prod": 738,
+      "dev": 946,
+      "optional": 105,
+      "peer": 0,
+      "peerOptional": 0,
+      "total": 1733
+    }
+  }
+}

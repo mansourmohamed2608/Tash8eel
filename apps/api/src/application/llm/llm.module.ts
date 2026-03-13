@@ -9,11 +9,19 @@ import { MerchantAssistantService } from "./merchant-assistant.service";
 import { CopilotAiService } from "./copilot-ai.service";
 import { CopilotDispatcherService } from "./copilot-dispatcher.service";
 import { MerchantContextService } from "./merchant-context.service";
+import { EmbeddingService } from "./embedding.service";
+import { VectorSearchService } from "./vector-search.service";
 import { RepositoriesModule } from "../../infrastructure/repositories";
 import { ServicesModule } from "../services/services.module";
+import { DatabaseModule } from "../../infrastructure/database/database.module";
 
 @Module({
-  imports: [ConfigModule, RepositoriesModule, forwardRef(() => ServicesModule)],
+  imports: [
+    ConfigModule,
+    DatabaseModule,
+    RepositoriesModule,
+    forwardRef(() => ServicesModule),
+  ],
   providers: [
     LlmService,
     InventoryAiService,
@@ -24,6 +32,8 @@ import { ServicesModule } from "../services/services.module";
     CopilotAiService,
     CopilotDispatcherService,
     MerchantContextService,
+    EmbeddingService,
+    VectorSearchService,
   ],
   exports: [
     LlmService,
@@ -35,6 +45,8 @@ import { ServicesModule } from "../services/services.module";
     CopilotAiService,
     CopilotDispatcherService,
     MerchantContextService,
+    EmbeddingService,
+    VectorSearchService,
   ],
 })
 export class LlmModule {}

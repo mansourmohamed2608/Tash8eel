@@ -34,6 +34,13 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Slider } from "@/components/ui/slider";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Gift,
   Send,
   UserMinus,
@@ -49,6 +56,7 @@ import {
   Zap,
   Video,
   Share2,
+  Sparkles,
 } from "lucide-react";
 import { authenticatedFetch } from "@/lib/authenticated-api";
 import { useMerchant } from "@/hooks/use-merchant";
@@ -84,6 +92,58 @@ export default function WinbackCampaignsPage() {
   const [message, setMessage] = useState(
     "وحشتنا! 🎁 عرض خاص لك — خصم {discount}% على طلبك القادم. العرض ساري لمدة {days} أيام فقط!",
   );
+
+  // Seasonal campaign state
+  const [showSeasonal, setShowSeasonal] = useState(false);
+  const [seasonalMsg, setSeasonalMsg] = useState(
+    "مرحباً {name}! 🎉 بمناسبة العيد، استمتع بعروضنا الحصرية. تسوق الآن وادخل كود الخصم: {code}",
+  );
+  const [seasonalSegment, setSeasonalSegment] = useState<
+    "all" | "vip" | "loyal" | "regular" | "new" | "at_risk"
+  >("all");
+  const [seasonalOccasion, setSeasonalOccasion] = useState("");
+  const [seasonalCode, setSeasonalCode] = useState("");
+  const [sendingSeasonal, setSendingSeasonal] = useState(false);
+  const [seasonalResult, setSeasonalResult] = useState<CampaignResult | null>(null);
+  const [seasonalError, setSeasonalError] = useState<string | null>(null);
+  const [generatingSeasonalMsg, setGeneratingSeasonalMsg] = useState(false);
+
+  // Re-engagement campaign state
+  const [showReengagement, setShowReengagement] = useState(false);
+  const [reengageMsg, setReengageMsg] = useState(
+    "مرحبًا {name}! غبت عنا {days} يوم — يسعدنا رجوعك. خصم خاص ينتظرك باستخدام كود: {code}",
+  );
+  const [reengageInactiveDays, setReengageInactiveDays] = useState(30);
+  const [reengageCode, setReengageCode] = useState("");
+  const [sendingReengagement, setSendingReengagement] = useState(false);
+  const [reengagementResult, setReengagementResult] = useState<CampaignResult | null>(null);
+  const [reengagementError, setReengagementError] = useState<string | null>(null);
+  const [generatingReengageMsg, setGeneratingReengageMsg] = useState(false);
+
+  // AI audience suggestion state
+  const [aiAudienceGoal, setAiAudienceGoal] = useState("");
+  const [aiAudienceLoading, setAiAudienceLoading] = useState(false);
+  const [aiAudienceResult, setAiAudienceResult] = useState<{
+    recommendedSegmentId: string | null;
+    segmentName: string;
+    reason: string;
+    estimatedSize: number;
+    segments: Array<{ id: string; name: string; size: number; match_score: number }>;
+  } | null>(null);
+
+  const handleAiAudienceSuggest = useCallback(async () => {
+    if (!aiAudienceGoal.trim()) return;
+    setAiAudienceLoading(true);
+    setAiAudienceResult(null);
+    try {
+      const res = await portalApi.suggestCampaignAudience(aiAudienceGoal);
+      setAiAudienceResult(res as any);
+    } catch {
+      /* ignore */
+    } finally {
+      setAiAudienceLoading(false);
+    }
+  }, [aiAudienceGoal]);
 
   useEffect(() => {
     if (!apiKey) return;
@@ -130,6 +190,53 @@ export default function WinbackCampaignsPage() {
     }
   }, [discountPercent, validDays, message]);
 
+  const handleSeasonalCampaign = useCallback(async () => {
+    setSendingSeasonal(true);
+    setSeasonalError(null);
+    setSeasonalResult(null);
+    try {
+      const data = await portalApi.createSeasonalCampaign({
+        message: seasonalMsg,
+        segment: seasonalSegment,
+        occasion: seasonalOccasion || undefined,
+        discountCode: seasonalCode || undefined,
+      });
+      setSeasonalResult({
+        sent: data.sent || 0,
+        totalTargeted: data.totalTargeted || 0,
+        message: data.message || "تم إرسال الحملة بنجاح",
+      });
+      setShowSeasonal(false);
+    } catch (err: any) {
+      setSeasonalError(err?.message || "فشل إرسال الحملة الموسمية");
+    } finally {
+      setSendingSeasonal(false);
+    }
+  }, [seasonalMsg, seasonalSegment, seasonalOccasion, seasonalCode]);
+
+  const handleReengagementCampaign = useCallback(async () => {
+    setSendingReengagement(true);
+    setReengagementError(null);
+    setReengagementResult(null);
+    try {
+      const data = await portalApi.createReengagementCampaign({
+        message: reengageMsg,
+        inactiveDays: reengageInactiveDays,
+        discountCode: reengageCode || undefined,
+      });
+      setReengagementResult({
+        sent: data.sent || 0,
+        totalTargeted: data.totalTargeted || 0,
+        message: data.message || "تم إرسال الحملة بنجاح",
+      });
+      setShowReengagement(false);
+    } catch (err: any) {
+      setReengagementError(err?.message || "فشل إرسال حملة إعادة التفاعل");
+    } finally {
+      setSendingReengagement(false);
+    }
+  }, [reengageMsg, reengageInactiveDays, reengageCode]);
+
   const campaignTypes = [
     {
       id: "winback",
@@ -144,6 +251,30 @@ export default function WinbackCampaignsPage() {
       channel: "واتساب",
     },
     {
+      id: "seasonal",
+      title: "حملة موسمية",
+      titleEn: "Seasonal Campaign",
+      description:
+        "إرسال رسائل ترويجية موسمية لشريحة مختارة من العملاء (عيد، تخفيضات، مناسبات)",
+      icon: Sparkles,
+      color: "text-green-500",
+      bgColor: "bg-green-50 dark:bg-green-950",
+      available: true,
+      channel: "واتساب",
+    },
+    {
+      id: "reengagement",
+      title: "إعادة التفاعل",
+      titleEn: "Re-engagement",
+      description:
+        "إرسال رسائل تذكيرية مع كود خصم للعملاء الذين توقفوا عن الطلب",
+      icon: Zap,
+      color: "text-blue-500",
+      bgColor: "bg-blue-50 dark:bg-blue-950",
+      available: true,
+      channel: "واتساب",
+    },
+    {
       id: "loyalty",
       title: "مكافأة الولاء",
       titleEn: "Loyalty Reward",
@@ -151,17 +282,6 @@ export default function WinbackCampaignsPage() {
       icon: Gift,
       color: "text-purple-500",
       bgColor: "bg-purple-50 dark:bg-purple-950",
-      available: false,
-      channel: "واتساب",
-    },
-    {
-      id: "reengagement",
-      title: "إعادة التفاعل",
-      titleEn: "Re-engagement",
-      description: "إرسال رسائل تذكيرية للعملاء الذين لديهم سلة مشتريات متروكة",
-      icon: Zap,
-      color: "text-blue-500",
-      bgColor: "bg-blue-50 dark:bg-blue-950",
       available: false,
       channel: "واتساب",
     },
@@ -333,6 +453,63 @@ export default function WinbackCampaignsPage() {
         </Card>
       </div>
 
+      {/* AI Audience Picker */}
+      <Card className="border-purple-100 bg-gradient-to-br from-purple-50 to-white dark:from-purple-950/30 dark:to-background">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-purple-500" />
+            اقتراح الجمهور بالذكاء الاصطناعي
+          </CardTitle>
+          <CardDescription>
+            اكتب هدف حملتك بالعربي وسيقترح الذكاء الاصطناعي أفضل شريحة عملاء لاستهدافها
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex gap-2">
+            <Input
+              placeholder="مثال: استرجاع العملاء الخاملين بخصم..."
+              value={aiAudienceGoal}
+              onChange={(e) => setAiAudienceGoal(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleAiAudienceSuggest()}
+              dir="rtl"
+            />
+            <Button
+              onClick={handleAiAudienceSuggest}
+              disabled={aiAudienceLoading || !aiAudienceGoal.trim()}
+              className="shrink-0"
+            >
+              {aiAudienceLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              اقتراح
+            </Button>
+          </div>
+          {aiAudienceResult && (
+            <div className="rounded-lg border bg-background p-4 space-y-3">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="font-medium text-sm">الشريحة المقترحة: <span className="text-purple-600">{aiAudienceResult.segmentName}</span></p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{aiAudienceResult.reason}</p>
+                </div>
+                <Badge variant="outline" className="shrink-0">
+                  {aiAudienceResult.estimatedSize.toLocaleString("ar-EG")} عميل
+                </Badge>
+              </div>
+              {aiAudienceResult.segments.length > 1 && (
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">شرائح أخرى مناسبة:</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {aiAudienceResult.segments.slice(1, 4).map((s) => (
+                      <Badge key={s.id} variant="secondary" className="text-xs">
+                        {s.name} ({s.size})
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Campaign Types */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {campaignTypes.map((type) => (
@@ -342,9 +519,19 @@ export default function WinbackCampaignsPage() {
             onClick={
               type.available
                 ? () => {
-                    setShowCreate(true);
-                    setResult(null);
-                    setError(null);
+                    if (type.id === "winback") {
+                      setShowCreate(true);
+                      setResult(null);
+                      setError(null);
+                    } else if (type.id === "seasonal") {
+                      setShowSeasonal(true);
+                      setSeasonalResult(null);
+                      setSeasonalError(null);
+                    } else if (type.id === "reengagement") {
+                      setShowReengagement(true);
+                      setReengagementResult(null);
+                      setReengagementError(null);
+                    }
                   }
                 : undefined
             }
@@ -558,6 +745,272 @@ export default function WinbackCampaignsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Seasonal Campaign Dialog */}
+      <Dialog open={showSeasonal} onOpenChange={setShowSeasonal}>
+        <DialogContent className="max-w-lg" dir="rtl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-green-500" />
+              حملة موسمية
+            </DialogTitle>
+            <DialogDescription>
+              إرسال رسالة ترويجية لشريحة مختارة من عملائك
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-3">
+            {/* Segment */}
+            <div className="space-y-2">
+              <Label>الشريحة المستهدفة</Label>
+              <Select
+                value={seasonalSegment}
+                onValueChange={(v) => setSeasonalSegment(v as any)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">جميع العملاء</SelectItem>
+                  <SelectItem value="vip">VIP فقط</SelectItem>
+                  <SelectItem value="loyal">العملاء المخلصون</SelectItem>
+                  <SelectItem value="regular">العملاء العاديون</SelectItem>
+                  <SelectItem value="new">العملاء الجدد</SelectItem>
+                  <SelectItem value="at_risk">العملاء المعرّضون للخسارة</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Occasion */}
+            <div className="space-y-2">
+              <Label>المناسبة (اختياري)</Label>
+              <Input
+                placeholder="مثال: عيد الفطر، تخفيضات الصيف..."
+                value={seasonalOccasion}
+                onChange={(e) => setSeasonalOccasion(e.target.value)}
+              />
+            </div>
+
+            {/* Discount code */}
+            <div className="space-y-2">
+              <Label>كود الخصم (اختياري)</Label>
+              <Input
+                placeholder="مثال: EID20"
+                value={seasonalCode}
+                onChange={(e) => setSeasonalCode(e.target.value.toUpperCase())}
+                dir="ltr"
+              />
+            </div>
+
+            {/* Message */}
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <MessageSquare className="h-4 w-4" />
+                نص الرسالة
+              </Label>
+              <div className="flex gap-2 mb-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={generatingSeasonalMsg}
+                  onClick={async () => {
+                    setGeneratingSeasonalMsg(true);
+                    try {
+                      const r = await portalApi.chatWithAssistant(
+                        `أنت كاتب تسويقي محترف. اكتب رسالة واتساب قصيرة (3-4 أسطر) لحملة موسمية.
+المناسبة: ${seasonalOccasion || "عروض حصرية"}
+كود الخصم: ${seasonalCode || "لا يوجد"}
+الشريحة: ${seasonalSegment}
+استخدم {name} لاسم العميل و{code} لكود الخصم إذا توفر.
+اكتب بالعربية المصرية العامية. مختصرة وجذابة.
+أرجع نص الرسالة فقط.`,
+                      );
+                      if (r.reply) setSeasonalMsg(r.reply);
+                    } catch {}
+                    setGeneratingSeasonalMsg(false);
+                  }}
+                  className="text-purple-700 border-purple-300 hover:bg-purple-50"
+                >
+                  {generatingSeasonalMsg ? (
+                    <Loader2 className="h-3 w-3 animate-spin ml-1" />
+                  ) : (
+                    <Zap className="h-3 w-3 ml-1" />
+                  )}
+                  اقتراح بالذكاء الاصطناعي
+                </Button>
+              </div>
+              <Textarea
+                value={seasonalMsg}
+                onChange={(e) => setSeasonalMsg(e.target.value)}
+                rows={4}
+                className="text-sm"
+              />
+              <p className="text-xs text-muted-foreground">
+                استخدم {"{name}"} لاسم العميل و{"{code}"} لكود الخصم
+              </p>
+            </div>
+
+            {seasonalError && (
+              <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 dark:bg-red-950 p-3 rounded-lg">
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+                {seasonalError}
+              </div>
+            )}
+            {seasonalResult && (
+              <div className="flex items-center gap-2 text-sm text-green-600 bg-green-50 dark:bg-green-950 p-3 rounded-lg">
+                <CheckCircle2 className="h-4 w-4 shrink-0" />
+                تم إرسال {seasonalResult.sent} رسالة من {seasonalResult.totalTargeted} عميل
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowSeasonal(false)} disabled={sendingSeasonal}>
+              إلغاء
+            </Button>
+            <Button onClick={handleSeasonalCampaign} disabled={sendingSeasonal || !seasonalMsg.trim()}>
+              {sendingSeasonal ? (
+                <>
+                  <Loader2 className="h-4 w-4 ml-2 animate-spin" />
+                  جاري الإرسال...
+                </>
+              ) : (
+                <>
+                  <Send className="h-4 w-4 ml-2" />
+                  إرسال عبر واتساب
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Re-engagement Campaign Dialog */}
+      <Dialog open={showReengagement} onOpenChange={setShowReengagement}>
+        <DialogContent className="max-w-lg" dir="rtl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Zap className="h-5 w-5 text-blue-500" />
+              حملة إعادة التفاعل
+            </DialogTitle>
+            <DialogDescription>
+              إرسال رسالة تذكيرية مع كود خصم للعملاء الذين توقفوا عن الطلب
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-3">
+            {/* Inactive days */}
+            <div className="space-y-2">
+              <Label className="flex items-center justify-between">
+                <span>الحد الأدنى لأيام الغياب</span>
+                <Badge variant="secondary">{reengageInactiveDays} يوم</Badge>
+              </Label>
+              <Slider
+                value={[reengageInactiveDays]}
+                onValueChange={([v]) => setReengageInactiveDays(v)}
+                min={7}
+                max={180}
+                step={7}
+              />
+              <p className="text-xs text-muted-foreground">
+                سيتم استهداف عملاء لم يطلبوا منذ {reengageInactiveDays}+ يوم
+              </p>
+            </div>
+
+            {/* Discount code */}
+            <div className="space-y-2">
+              <Label>كود الخصم (اختياري)</Label>
+              <Input
+                placeholder="مثال: BACK15"
+                value={reengageCode}
+                onChange={(e) => setReengageCode(e.target.value.toUpperCase())}
+                dir="ltr"
+              />
+            </div>
+
+            {/* Message */}
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <MessageSquare className="h-4 w-4" />
+                نص الرسالة
+              </Label>
+              <div className="flex gap-2 mb-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={generatingReengageMsg}
+                  onClick={async () => {
+                    setGeneratingReengageMsg(true);
+                    try {
+                      const r = await portalApi.chatWithAssistant(
+                        `أنت كاتب تسويقي محترف. اكتب رسالة واتساب قصيرة (3-4 أسطر) لإعادة استرجاع عميل بعيد.
+أيام الغياب: ${reengageInactiveDays} يوم على الأقل
+كود الخصم: ${reengageCode || "لا يوجد"}
+استخدم {name} لاسم العميل و{days} لعدد الأيام و{code} لكود الخصم إذا توفر.
+اكتب بالعربية المصرية العامية. مختصرة وجذابة.
+أرجع نص الرسالة فقط.`,
+                      );
+                      if (r.reply) setReengageMsg(r.reply);
+                    } catch {}
+                    setGeneratingReengageMsg(false);
+                  }}
+                  className="text-purple-700 border-purple-300 hover:bg-purple-50"
+                >
+                  {generatingReengageMsg ? (
+                    <Loader2 className="h-3 w-3 animate-spin ml-1" />
+                  ) : (
+                    <Zap className="h-3 w-3 ml-1" />
+                  )}
+                  اقتراح بالذكاء الاصطناعي
+                </Button>
+              </div>
+              <Textarea
+                value={reengageMsg}
+                onChange={(e) => setReengageMsg(e.target.value)}
+                rows={4}
+                className="text-sm"
+              />
+              <p className="text-xs text-muted-foreground">
+                استخدم {"{name}"} لاسم العميل، {"{days}"} لعدد أيام الغياب، {"{code}"} لكود الخصم
+              </p>
+            </div>
+
+            {reengagementError && (
+              <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 dark:bg-red-950 p-3 rounded-lg">
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+                {reengagementError}
+              </div>
+            )}
+            {reengagementResult && (
+              <div className="flex items-center gap-2 text-sm text-green-600 bg-green-50 dark:bg-green-950 p-3 rounded-lg">
+                <CheckCircle2 className="h-4 w-4 shrink-0" />
+                تم إرسال {reengagementResult.sent} رسالة من {reengagementResult.totalTargeted} عميل
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowReengagement(false)} disabled={sendingReengagement}>
+              إلغاء
+            </Button>
+            <Button onClick={handleReengagementCampaign} disabled={sendingReengagement || !reengageMsg.trim()}>
+              {sendingReengagement ? (
+                <>
+                  <Loader2 className="h-4 w-4 ml-2 animate-spin" />
+                  جاري الإرسال...
+                </>
+              ) : (
+                <>
+                  <Send className="h-4 w-4 ml-2" />
+                  إرسال عبر واتساب
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

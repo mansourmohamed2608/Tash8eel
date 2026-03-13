@@ -1,7 +1,9 @@
 /**
  * Internal Seed Controller
  * Provides API endpoint for seeding demo data.
- * Protected: only available in non-production environments.
+ * Protected:
+ *   1. Only available in non-production environments (NODE_ENV check).
+ *   2. Requires a valid x-admin-api-key header (AdminApiKeyGuard).
  */
 import {
   Controller,
@@ -11,10 +13,13 @@ import {
   HttpStatus,
   ForbiddenException,
   Logger,
+  UseGuards,
 } from "@nestjs/common";
+import { AdminApiKeyGuard } from "../../shared/guards/admin-api-key.guard";
 import { SeedService } from "../../application/services/seed.service";
 
 @Controller("internal/seed")
+@UseGuards(AdminApiKeyGuard)
 export class SeedController {
   private readonly logger = new Logger(SeedController.name);
 

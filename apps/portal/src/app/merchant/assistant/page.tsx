@@ -481,7 +481,10 @@ export default function MerchantAssistantPage() {
               cmd: "إيه المنتجات اللي قربت تخلص؟",
             },
             { label: "💰 إيرادات اليوم", cmd: "إيرادات اليوم كام؟" },
-            { label: "🔗 لينك دفع 500 جنيه", cmd: "اعمل لينك دفع 500 جنيه" },
+            {
+              label: "🧾 راجع إثباتات الدفع",
+              cmd: "افتح مراجعة إثباتات الدفع",
+            },
           ].map((ex) => (
             <Button
               key={ex.cmd}

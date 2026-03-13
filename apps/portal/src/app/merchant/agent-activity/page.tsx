@@ -167,6 +167,17 @@ export default function AgentActivityPage() {
   const [filter, setFilter] = useState<string>("ALL");
   const [acknowledging, setAcknowledging] = useState<string | null>(null);
 
+  // Compute a 24-hour activity heatmap from the loaded actions
+  const heatmap = (() => {
+    const hours = Array.from({ length: 24 }, (_, i) => ({ hour: i, count: 0 }));
+    actions.forEach((a) => {
+      const h = new Date(a.created_at).getHours();
+      hours[h].count += 1;
+    });
+    const max = Math.max(...hours.map((h) => h.count), 1);
+    return hours.map((h) => ({ ...h, intensity: Math.round((h.count / max) * 4) }));
+  })();
+
   const fetchData = useCallback(async () => {
     try {
       const params: any = { limit: 100 };
@@ -289,6 +300,38 @@ export default function AgentActivityPage() {
             </CardContent>
           </Card>
         </div>
+      )}
+
+      {/* ─── Activity Heatmap ───────────────────────── */}
+      {actions.length > 0 && (
+        <Card>
+          <CardContent className="pt-4 pb-3">
+            <p className="text-xs font-medium text-muted-foreground mb-2">نشاط الوكلاء حسب الساعة</p>
+            <div className="flex items-end gap-1 flex-wrap" dir="ltr">
+              {heatmap.map(({ hour, count, intensity }) => {
+                const colors = [
+                  "bg-muted",
+                  "bg-blue-200",
+                  "bg-blue-400",
+                  "bg-blue-600",
+                  "bg-blue-800",
+                ];
+                return (
+                  <div key={hour} className="flex flex-col items-center gap-0.5 group relative">
+                    <div
+                      className={`w-6 rounded-sm transition-all ${colors[intensity]} cursor-default`}
+                      style={{ height: `${8 + intensity * 8}px` }}
+                      title={`${hour}:00 — ${count} نشاط`}
+                    />
+                    {(hour % 6 === 0) && (
+                      <span className="text-[9px] text-muted-foreground">{hour}:00</span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* ─── Filter Tabs ────────────────────────────── */}

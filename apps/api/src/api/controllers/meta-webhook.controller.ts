@@ -26,7 +26,6 @@ import { v4 as uuidv4 } from "uuid";
 import { ConfigService } from "@nestjs/config";
 import { DATABASE_POOL } from "../../infrastructure/database/database.module";
 import { InboxService } from "../../application/services/inbox.service";
-import { ProductOcrService } from "../../application/services/product-ocr.service";
 import {
   IMetaWhatsAppAdapter,
   META_WHATSAPP_ADAPTER,
@@ -37,6 +36,7 @@ import { TranscriptionAdapterFactory } from "../../application/adapters/transcri
 import { CopilotAiService } from "../../application/llm/copilot-ai.service";
 import { CopilotDispatcherService } from "../../application/llm/copilot-dispatcher.service";
 import { DriverStatusService } from "../../application/services/driver-status.service";
+import { UsageGuardService } from "../../application/services/usage-guard.service";
 
 @ApiTags("Webhooks")
 @Controller("v1/webhooks/meta")
@@ -51,9 +51,9 @@ export class MetaWebhookController {
     private readonly inboxService: InboxService,
     private readonly driverStatusService: DriverStatusService,
     private readonly transcriptionFactory: TranscriptionAdapterFactory,
-    private readonly productOcrService: ProductOcrService,
     private readonly copilotAiService: CopilotAiService,
     private readonly copilotDispatcher: CopilotDispatcherService,
+    private readonly usageGuard: UsageGuardService,
   ) {}
 
   // ============================================================================
@@ -191,6 +191,27 @@ export class MetaWebhookController {
         displayName: merchantMapping.displayName,
       });
 
+      // BL-008: Deduplicate inbound webhook — Meta may retry the same message
+      if (parsed.messageId) {
+        try {
+          const dedup = await this.pool.query(
+            `INSERT INTO inbound_webhook_events (provider, message_id, merchant_id)
+             VALUES ('META', $1, $2)
+             ON CONFLICT (provider, message_id) DO NOTHING
+             RETURNING id`,
+            [parsed.messageId, merchantId],
+          );
+          if ((dedup.rowCount ?? 0) === 0) {
+            this.logger.warn({
+              msg: "Duplicate Meta webhook; skipping",
+              messageId: parsed.messageId,
+              correlationId,
+            });
+            return;
+          }
+        } catch { /* proceed if table not yet migrated */ }
+      }
+
       const driverStatus = await this.driverStatusService.processDriverMessage({
         merchantId,
         senderId: parsed.fromNumber,
@@ -273,92 +294,34 @@ export class MetaWebhookController {
       // Handle location messages
       let locationData: any;
       if (parsed.hasLocation) {
-        locationData = this.extractLocationData(parsed);
-        if (!effectiveText || effectiveText.trim() === "") {
-          effectiveText = `📍 موقعي: ${locationData?.lat}, ${locationData?.lng}`;
-        }
-      }
-
-      // Handle product image OCR
-      let productOcrHandled = false;
-      if (parsed.hasMedia && !parsed.isVoiceNote) {
-        const imageIndex = parsed.mediaContentTypes.findIndex((type) =>
-          this.productOcrService.isProcessableImage(type),
-        );
-
-        if (imageIndex !== -1) {
-          const imageMediaId = parsed.mediaIds[imageIndex];
-          this.logger.log({
-            msg: "Processing product image from WhatsApp",
-            correlationId,
-            imageContentType: parsed.mediaContentTypes[imageIndex],
-          });
-
-          try {
-            // Download image first (Meta requires media ID download)
-            const { buffer } =
-              await this.metaAdapter.downloadMedia(imageMediaId);
-            // Convert to data URL for OCR service
-            const base64 = buffer.toString("base64");
-            const dataUrl = `data:${parsed.mediaContentTypes[imageIndex]};base64,${base64}`;
-
-            const conversation = await this.getOrCreateConversation(
-              merchantId,
-              parsed.fromNumber,
-            );
-            const ocrResult = await this.productOcrService.processProductImage(
-              dataUrl,
-              merchantId,
-              parsed.fromNumber,
-              conversation?.id,
-              merchantMapping.displayName,
-            );
-
-            if (ocrResult.success && ocrResult.confirmationMessage) {
-              await this.metaAdapter.sendTextMessage(
-                parsed.fromNumber,
-                ocrResult.confirmationMessage,
-                parsed.phoneNumberId,
-              );
-              productOcrHandled = true;
-              return;
-            } else if (!ocrResult.success) {
-              effectiveText = effectiveText || "";
-              if (effectiveText) effectiveText += "\n\n";
-              effectiveText += "[📷 صورة - لم نتمكن من التعرف على المنتج]";
-            }
-          } catch (error) {
-            this.logger.error({
-              msg: "Product OCR processing failed",
+        const mapLimit = await this.usageGuard.consume(
+          merchantId,
+          "MAP_LOOKUPS",
+          1,
+          {
+            metadata: {
+              source: "WHATSAPP_LOCATION",
               correlationId,
-              error: (error as Error).message,
-            });
-          }
-        }
-      }
-
-      // Check for pending OCR confirmation response
-      if (!productOcrHandled && effectiveText) {
-        const confirmationResponse =
-          await this.productOcrService.handleConfirmationResponse(
+            },
+          },
+        );
+        if (!mapLimit.allowed) {
+          this.logger.warn({
+            msg: "Map lookup limit exceeded; skipping location enrichment",
+            correlationId,
             merchantId,
-            parsed.fromNumber,
-            effectiveText,
-          );
-
-        if (confirmationResponse.handled) {
-          if (confirmationResponse.selectedItem) {
-            effectiveText = `أريد ${confirmationResponse.selectedItem.name || confirmationResponse.selectedItem.nameAr}`;
-          } else if (confirmationResponse.message) {
-            await this.metaAdapter.sendTextMessage(
-              parsed.fromNumber,
-              confirmationResponse.message,
-              parsed.phoneNumberId,
-            );
-            return;
+            used: mapLimit.used,
+            limit: mapLimit.limit,
+          });
+        } else {
+          locationData = this.extractLocationData(parsed);
+          if (!effectiveText || effectiveText.trim() === "") {
+            effectiveText = `📍 موقعي: ${locationData?.lat}, ${locationData?.lng}`;
           }
         }
       }
+
+      // Product OCR flow is removed. OCR is reserved for payment proof verification only.
 
       // Log inbound message
       await this.metaAdapter.logInboundMessage(parsed);
@@ -369,6 +332,9 @@ export class MetaWebhookController {
         senderId: parsed.fromNumber,
         text: effectiveText,
         correlationId,
+        // Pass the WA business number that received the message so the
+        // conversation can be routed to the correct branch.
+        destinationPhone: parsed.toNumber || undefined,
       });
 
       this.logger.log({
@@ -380,7 +346,15 @@ export class MetaWebhookController {
         duration: Date.now() - startTime,
       });
 
-      // Send reply via Meta
+      // Send reply via Meta (skip if empty — e.g. inactive/expired merchant)
+      if (!inboxResponse.replyText) {
+        this.logger.debug({
+          msg: "No reply to send (suppressed)",
+          correlationId,
+        });
+        return;
+      }
+
       const sendResult = await this.metaAdapter.sendTextMessage(
         parsed.fromNumber,
         inboxResponse.replyText,
@@ -467,6 +441,16 @@ export class MetaWebhookController {
       throw new BadRequestException("No audio media ID provided");
     }
 
+    const voiceLimit = await this.usageGuard.checkLimit(
+      merchantId,
+      "VOICE_MINUTES",
+    );
+    if (!voiceLimit.allowed) {
+      throw new BadRequestException(
+        `Voice minute limit exceeded (${voiceLimit.used.toFixed(1)}/${voiceLimit.limit})`,
+      );
+    }
+
     // Download audio from Meta
     const { buffer, contentType } = await this.metaAdapter.downloadMedia(
       parsed.audioMediaId,
@@ -483,6 +467,24 @@ export class MetaWebhookController {
     const startTranscription = Date.now();
     const result = await adapter.transcribe(buffer, { language: "ar" });
     const processingTime = Date.now() - startTranscription;
+
+    const consumed = await this.usageGuard.consume(
+      merchantId,
+      "VOICE_MINUTES",
+      Math.max(0.01, Number(result.duration || 0) / 60),
+      {
+        metadata: {
+          source: "WHATSAPP_VOICE_NOTE",
+          correlationId,
+          provider: "whisper",
+        },
+      },
+    );
+    if (!consumed.allowed) {
+      throw new BadRequestException(
+        `Voice minute limit exceeded (${consumed.used.toFixed(1)}/${consumed.limit})`,
+      );
+    }
 
     // Store transcription
     await this.storeTranscription({
@@ -574,24 +576,4 @@ export class MetaWebhookController {
     );
   }
 
-  private async getOrCreateConversation(
-    merchantId: string,
-    customerPhone: string,
-  ): Promise<{ id: string } | null> {
-    try {
-      const result = await this.pool.query(
-        `SELECT id FROM conversations 
-         WHERE merchant_id = $1 AND customer_phone = $2 AND status != 'CLOSED'
-         ORDER BY created_at DESC LIMIT 1`,
-        [merchantId, customerPhone],
-      );
-      return result.rows.length > 0 ? { id: result.rows[0].id } : null;
-    } catch (error) {
-      this.logger.warn({
-        msg: "Could not lookup conversation",
-        error: (error as Error).message,
-      });
-      return null;
-    }
-  }
 }

@@ -2,6 +2,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import OpenAI from "openai";
 import { withRetry, withTimeout } from "../../shared/utils/helpers";
+import { AiMetricsService } from "../../shared/services/ai-metrics.service";
 
 export interface OcrResult {
   success: boolean;
@@ -65,7 +66,10 @@ export class VisionService {
   private strictAiMode: boolean;
   private timeoutMs: number;
 
-  constructor(private configService: ConfigService) {
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly aiMetrics: AiMetricsService,
+  ) {
     const apiKey = this.configService.get<string>("OPENAI_API_KEY") || "";
 
     this.isTestMode =
@@ -107,8 +111,11 @@ export class VisionService {
   }
 
   /**
-   * Classify payment proof image to detect payment method
-   * Used when customer submits proof without specifying method
+   * Classify payment proof image to detect payment method.
+   *
+   * @internal This method is called by PaymentService internally.
+   * It is not exposed via any public API route (BL-010: AI sink audit).
+   * Used when customer submits proof without specifying method.
    */
   async classifyPaymentProof(imageBase64: string): Promise<{
     paymentMethod: ReceiptData["paymentMethod"];
@@ -148,13 +155,10 @@ Classification rules:
 - WALLET: Orange/Etisalat/WE branding for mobile money
 - UNKNOWN: Cannot determine`;
 
-      const response = await withTimeout(
-        withRetry(() => this.analyzeImage(imageBase64, prompt), {
-          maxRetries: 2,
-          initialDelayMs: 1000,
-        }),
-        this.timeoutMs,
-        "Vision API request timed out",
+      const response = await this.analyzeImageWithMetrics(
+        imageBase64,
+        prompt,
+        "classifyPaymentProof",
       );
 
       const cleaned = response.replace(/```json\n?|\n?```/g, "").trim();
@@ -193,13 +197,10 @@ Classification rules:
     }
 
     try {
-      const response = await withTimeout(
-        withRetry(
-          () => this.analyzeImage(imageBase64, this.getReceiptPrompt()),
-          { maxRetries: 2, initialDelayMs: 1000 },
-        ),
-        this.timeoutMs,
-        "Vision API request timed out",
+      const response = await this.analyzeImageWithMetrics(
+        imageBase64,
+        this.getReceiptPrompt(),
+        "processPaymentReceipt",
       );
 
       const parsedData = this.parseReceiptResponse(response);
@@ -244,17 +245,10 @@ Classification rules:
     }
 
     try {
-      const response = await withTimeout(
-        withRetry(
-          () =>
-            this.analyzeImage(
-              imageBase64,
-              this.getProductPrompt(merchantCategory),
-            ),
-          { maxRetries: 2, initialDelayMs: 1000 },
-        ),
-        this.timeoutMs,
-        "Vision API request timed out",
+      const response = await this.analyzeImageWithMetrics(
+        imageBase64,
+        this.getProductPrompt(merchantCategory),
+        "analyzeProductImage",
       );
 
       const parsedData = this.parseProductResponse(response);
@@ -298,13 +292,10 @@ Classification rules:
     }
 
     try {
-      const response = await withTimeout(
-        withRetry(
-          () => this.analyzeImage(imageBase64, this.getMedicinePrompt()),
-          { maxRetries: 2, initialDelayMs: 1000 },
-        ),
-        this.timeoutMs,
-        "Vision API request timed out",
+      const response = await this.analyzeImageWithMetrics(
+        imageBase64,
+        this.getMedicinePrompt(),
+        "analyzeMedicineImage",
       );
 
       const parsedData = this.parseMedicineResponse(response);
@@ -350,12 +341,9 @@ Classification rules:
     }
 
     try {
-      const response = await withTimeout(
-        withRetry(
-          () =>
-            this.analyzeImage(
-              imageBase64,
-              `استخرج كل النص الموجود في هذه الصورة بدقة عالية.
+      const response = await this.analyzeImageWithMetrics(
+        imageBase64,
+        `استخرج كل النص الموجود في هذه الصورة بدقة عالية.
 
 === تعليمات مهمة ===
 1. حافظ على النص العربي كما هو بالضبط بدون تغيير حروف أو تشكيل
@@ -365,11 +353,7 @@ Classification rules:
 5. لو فيه نص مش واضح أو مقروء جزئياً، اكتب ما تقدر تقرأه وضع [...] مكان الجزء غير الواضح
 6. اقرأ أكواد QR أو باركود لو ظاهرة (اذكر وجودها فقط)
 7. ميّز بين العناوين والنص العادي لو ممكن`,
-            ),
-          { maxRetries: 2, initialDelayMs: 1000 },
-        ),
-        this.timeoutMs,
-        "Vision API request timed out",
+        "extractText",
       );
 
       return {
@@ -417,6 +401,47 @@ Classification rules:
     });
 
     return response.choices[0]?.message?.content || "";
+  }
+
+  /**
+   * BL-004: Wraps every analyzeImage call with timing + AiMetrics recording.
+   * Metrics are tagged by the calling public method name.
+   * Throws on failure so the caller's catch block can still convert it to a
+   * user-facing error response.
+   */
+  private async analyzeImageWithMetrics(
+    imageBase64: string,
+    prompt: string,
+    methodName: string,
+  ): Promise<string> {
+    const start = Date.now();
+    try {
+      const result = await withTimeout(
+        withRetry(() => this.analyzeImage(imageBase64, prompt), {
+          maxRetries: 2,
+          initialDelayMs: 1000,
+        }),
+        this.timeoutMs,
+        "Vision API request timed out",
+      );
+      void this.aiMetrics.record({
+        serviceName: "VisionService",
+        methodName,
+        outcome: "success",
+        latencyMs: Date.now() - start,
+      });
+      return result;
+    } catch (error) {
+      void this.aiMetrics.record({
+        serviceName: "VisionService",
+        methodName,
+        outcome: (error as Error)?.message?.includes("timed out")
+          ? "timeout"
+          : "error",
+        latencyMs: Date.now() - start,
+      });
+      throw error;
+    }
   }
 
   private getReceiptPrompt(): string {

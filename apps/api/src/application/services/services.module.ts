@@ -24,6 +24,11 @@ import { IntegrationService } from "./integration.service";
 import { CustomerReorderService } from "./customer-reorder.service";
 import { DriverStatusService } from "./driver-status.service";
 import { SeedService } from "./seed.service";
+import { UsageGuardService } from "./usage-guard.service";
+import { BillingCatalogService } from "./billing-catalog.service";
+import { RagRetrievalService } from "./rag-retrieval.service";
+import { IdempotencyService } from "../../shared/services/idempotency.service";
+import { AiMetricsService } from "../../shared/services/ai-metrics.service";
 
 // Infrastructure dependencies
 import { RepositoriesModule } from "../../infrastructure/repositories/repositories.module";
@@ -68,6 +73,11 @@ import { PoliciesModule } from "../policies/policies.module";
     CustomerReorderService,
     DriverStatusService,
     SeedService,
+    UsageGuardService,
+    BillingCatalogService,
+    RagRetrievalService,
+    IdempotencyService,
+    AiMetricsService,
   ],
   exports: [
     InboxService,
@@ -92,6 +102,11 @@ import { PoliciesModule } from "../policies/policies.module";
     CustomerReorderService,
     DriverStatusService,
     SeedService,
+    UsageGuardService,
+    BillingCatalogService,
+    RagRetrievalService,
+    IdempotencyService,
+    AiMetricsService,
   ],
 })
 export class ServicesModule {}

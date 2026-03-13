@@ -22,17 +22,23 @@ export type FeatureType =
   | "ORDERS" // Order management
   | "CATALOG" // Product catalog
   | "INVENTORY" // Stock tracking
-  | "PAYMENTS" // Payment links and proofs
-  | "VISION_OCR" // Image processing (receipts, products)
+  | "PAYMENTS" // Payment proof verification
+  | "VISION_OCR" // Internal — payment proof scanning only; metered via paymentProofScansPerMonth limit
   | "VOICE_NOTES" // Voice transcription
   | "REPORTS" // Analytics and reports
-  | "WEBHOOKS" // Outbound webhooks
+  | "WEBHOOKS" // POS integrations (internal key kept)
   | "TEAM" // Multi-user access
   | "LOYALTY" // Loyalty program
   | "NOTIFICATIONS" // Push notifications
   | "AUDIT_LOGS" // Security audit trail
   | "KPI_DASHBOARD" // KPI metrics
-  | "API_ACCESS"; // Direct API access
+  | "API_ACCESS" // Direct API access
+  | "COPILOT_CHAT" // Copilot in portal
+  | "CUSTOM_INTEGRATIONS" // Enterprise
+  | "SLA" // Enterprise
+  | "AUTOMATIONS" // Automation engine (Growth+)
+  | "FORECASTING" // Predictive forecasting platform (Pro+)
+  | "VOICE_CALLING"; // AI voice calling engine (Enterprise)
 
 // ============= Dependency Rules =============
 export const AGENT_DEPENDENCIES: Record<AgentType, AgentType[]> = {
@@ -74,6 +80,12 @@ export const FEATURE_DEPENDENCIES: Record<FeatureType, FeatureType[]> = {
   AUDIT_LOGS: [], // Standalone
   KPI_DASHBOARD: ["ORDERS"], // Requires orders data
   API_ACCESS: [], // Standalone
+  COPILOT_CHAT: [], // Standalone
+  CUSTOM_INTEGRATIONS: [], // Enterprise
+  SLA: [], // Enterprise
+  AUTOMATIONS: ["ORDERS"], // Requires orders data
+  FORECASTING: ["INVENTORY", "ORDERS"], // Requires inventory + orders
+  VOICE_CALLING: ["CONVERSATIONS"], // Requires conversations
 };
 
 // ============= Feature-to-Agent Mapping =============
@@ -88,8 +100,9 @@ export const FEATURE_AGENT_MAP: Partial<Record<FeatureType, AgentType>> = {
   NOTIFICATIONS: "OPS_AGENT",
   AUDIT_LOGS: "OPS_AGENT",
   API_ACCESS: "OPS_AGENT",
+  COPILOT_CHAT: "OPS_AGENT",
   REPORTS: "FINANCE_AGENT",
-  LOYALTY: "MARKETING_AGENT",
+  LOYALTY: "OPS_AGENT", // Implemented standalone, no longer gated on MARKETING_AGENT
   KPI_DASHBOARD: "FINANCE_AGENT",
 };
 
@@ -103,6 +116,7 @@ export interface MerchantEntitlements {
 export type PlanType =
   | "TRIAL"
   | "STARTER"
+  | "BASIC"
   | "GROWTH"
   | "PRO"
   | "ENTERPRISE"
@@ -115,6 +129,16 @@ export interface PlanLimits {
   teamMembers: number; // -1 = unlimited
   tokenBudgetDaily: number; // -1 = unlimited (AI tokens)
   aiCallsPerDay: number; // -1 = unlimited (copilot + vision + voice calls)
+  paidTemplatesPerMonth: number; // -1 = unlimited
+  paymentProofScansPerMonth: number; // -1 = unlimited
+  voiceMinutesPerMonth: number; // -1 = unlimited
+  mapsLookupsPerMonth: number; // -1 = unlimited
+  posConnections: number; // -1 = unlimited
+  branches: number; // -1 = unlimited
+  retentionDays?: number;
+  alertRules?: number;
+  automations?: number;
+  autoRunsPerDay?: number;
 }
 
 // ============= Per-Feature Pricing (EGP/month) =============
@@ -144,17 +168,23 @@ export const FEATURE_PRICES_EGP: Record<FeatureType, number> = {
   ORDERS: 79, // IMPLEMENTED — DB + processing pipeline + infra
   CATALOG: 49, // IMPLEMENTED — image storage + search indexing
   INVENTORY: 149, // IMPLEMENTED — stock tracking + AI predictions + DB
-  PAYMENTS: 129, // IMPLEMENTED — payment links + OCR verification + gateway
-  VISION_OCR: 149, // IMPLEMENTED — GPT-4o image processing (~0.75 EGP/img)
+  PAYMENTS: 129, // IMPLEMENTED — payment proof verification + OCR-assisted review
+  VISION_OCR: 0, // Internal — included in PAYMENTS; metered by paymentProofScansPerMonth limit (not a standalone purchasable feature)
   VOICE_NOTES: 69, // IMPLEMENTED — Whisper transcription + storage
   REPORTS: 99, // IMPLEMENTED — analytics + AI summarization
   WEBHOOKS: 49, // IMPLEMENTED — external integrations + rate limiting
   TEAM: 79, // IMPLEMENTED — multi-user + RBAC + session management
-  LOYALTY: 0, // COMING_SOON — depends on stub Marketing agent
+  LOYALTY: 149, // IMPLEMENTED — loyalty tiers + promotions + points system
   NOTIFICATIONS: 39, // IMPLEMENTED — push + email + WhatsApp notifications
   AUDIT_LOGS: 49, // IMPLEMENTED — security audit trail + storage
   KPI_DASHBOARD: 79, // IMPLEMENTED — analytics compute + visualization
   API_ACCESS: 99, // IMPLEMENTED — API keys + rate limiting + docs
+  COPILOT_CHAT: 0, // Included in all plans, metered by quota
+  CUSTOM_INTEGRATIONS: 0, // Enterprise custom pricing
+  SLA: 0, // Enterprise custom pricing
+  AUTOMATIONS: 249, // Automation engine add-on
+  FORECASTING: 349, // Forecasting platform add-on (Holt-Winters + safety stock engine)
+  VOICE_CALLING: 0, // Enterprise — custom pricing via voice packs
 };
 
 // Agent add-on prices (EGP/month)
@@ -187,9 +217,9 @@ export const AGENT_PRICES_EGP: Record<AgentType, number> = {
 // Vision/OCR uses GPT-4o exclusively: ~0.75 EGP/image
 // Whisper voice transcription: ~0.10 EGP/note (20s avg)
 // ─────────────────────────────────────────────────────────────────
-// 1 typical conversation ≈ 3-4 AI calls = ~0.15-0.20 EGP
-// Copilot session: ~2-5 AI calls = ~0.10-0.25 EGP
-// So 100 AI calls/day ≈ ~25-33 conversations/day
+// NOTE: Actual billing is DB-driven via usage_packs table (AI_CAPACITY_S/M/L/XL),
+// not this constant. This constant describes named upgrade tiers for plan AI limits;
+// usage_packs are one-time top-up add-ons. Values here are for reference / UI labelling only.
 export const AI_USAGE_TIERS = {
   BASIC: {
     aiCallsPerDay: 300,
@@ -217,12 +247,16 @@ export const AI_USAGE_TIERS = {
   },
 } as const;
 
-// Message volume tiers (EGP/month)
+// Message volume tiers (EGP/month add-ons)
+// ── IMPORTANT: These are REPLACEMENT tiers, not stackable additions ──
+// If a merchant on GROWTH (30k msgs/mo included) buys STANDARD tier (50k/399 EGP),
+// their limit becomes 50k — NOT 80k. The tier REPLACES the plan's included quota.
+// Use case: merchant who needs more messages than their plan includes, without upgrading the whole plan.
 // Via Meta Cloud API: service conversations FREE, utility in CSW FREE.
-// Cost per msg is ~0 for service. Only proactive marketing costs real money.
-// Tiers are fair-use caps (platform capacity), not cost pass-through.
-// Marketing templates: ~3.70 EGP/msg billed separately at cost (pass-through).
-// Tiers REPLACE plan's included message quota.
+// Cost per msg ~0 for service. Only proactive marketing templates cost real money (~3.70 EGP/msg).
+// ─────────────────────────────────────────────────────────────────
+// NOTE: Actual billing is DB-driven via usage_packs table, not this constant.
+// This constant is for reference / seeding only.
 export const MESSAGE_TIERS = {
   STARTER: {
     messagesPerMonth: 10_000,
@@ -254,14 +288,11 @@ export const MESSAGE_TIERS = {
 // Infra per merchant: ~70 EGP/mo | WA number: FREE (Meta Cloud API)
 // Main cost driver: AI compute. Messaging is essentially zero-cost.
 //
-// STARTER  33 convos/day target | 10K msgs (~1,000 convos/mo)
-//   cost @35%: 0 msgs + 100 AI/day×0.05×30 + 70 infra = ~220 EGP → 449 EGP → 104% margin
-// GROWTH   50 convos/day target | 15K msgs (~1,500 convos/mo)
-//   cost @35%: 0 msgs + 175 AI/day×0.05×30 + 70 infra = ~333 EGP → 799 EGP → 140% margin
-// PRO     167 convos/day target | 50K msgs (~5,000 convos/mo)
-//   cost @35%: 0 msgs + 525 AI/day×0.05×30 + 70 infra = ~858 EGP → 1,499 EGP → 75% margin
-// ENTERPRISE 500+ convos/day | unlimited
-//   cost: variable. 2,999 EGP covers avg usage with healthy margin.
+// STARTER    25 convos/day  | 5K msgs    | 100 AI calls/day  → 999 EGP/mo
+// BASIC      37 convos/day  | 15K msgs   | 200 AI calls/day  → 2,200 EGP/mo
+// GROWTH    125 convos/day  | 30K msgs   | 500 AI calls/day  → 4,800 EGP/mo
+// PRO       625 convos/day  | 100K msgs  | 2,500 AI calls/day → 10,000 EGP/mo
+// ENTERPRISE 1250 convos/day | 250K msgs | 5,000 AI calls/day → 21,500 EGP/mo
 // ─────────────────────────────────────────────────────────────────
 
 export const PLAN_ENTITLEMENTS: Record<
@@ -277,100 +308,181 @@ export const PLAN_ENTITLEMENTS: Record<
 > = {
   // TRIAL: 14-day trial — one-time only, NO permanent free plan
   TRIAL: {
-    enabledAgents: ["OPS_AGENT"],
-    enabledFeatures: ["CONVERSATIONS", "ORDERS", "CATALOG"],
+    enabledAgents: ["OPS_AGENT", "INVENTORY_AGENT", "FINANCE_AGENT"],
+    enabledFeatures: [
+      "CONVERSATIONS",
+      "ORDERS",
+      "CATALOG",
+      "INVENTORY",
+      "REPORTS",
+      "NOTIFICATIONS",
+      "VOICE_NOTES",
+      "PAYMENTS",
+      "COPILOT_CHAT",
+    ],
     limits: {
       messagesPerMonth: 50,
       whatsappNumbers: 1,
       teamMembers: 1,
       tokenBudgetDaily: 5_000,
       aiCallsPerDay: 20,
+      paidTemplatesPerMonth: 5,
+      paymentProofScansPerMonth: 10,
+      voiceMinutesPerMonth: 5,
+      mapsLookupsPerMonth: 50,
+      posConnections: 0,
+      branches: 1,
     },
     price: 0,
     currency: "EGP",
     trialDays: 14,
   },
-  // Starter: Solo merchant, ~33 conversations/day
-  // 10,000 msgs ≈ 1,000 conversations/month (msgs are FREE via Meta Cloud API)
-  // Only OPS agent (implemented). Cost @35%: ~220 EGP → 449 EGP → 104% margin
+  // STARTER — entry-level tier (999 EGP/mo)
+  // Basic AI WhatsApp + order taking only. No inventory agent.
   STARTER: {
     enabledAgents: ["OPS_AGENT"],
     enabledFeatures: [
       "CONVERSATIONS",
       "ORDERS",
       "CATALOG",
-      "VOICE_NOTES",
+      "PAYMENTS",
       "REPORTS",
       "NOTIFICATIONS",
+      "WEBHOOKS",
+      "VOICE_NOTES",
+      "COPILOT_CHAT",
     ],
     limits: {
-      messagesPerMonth: 10_000,
+      messagesPerMonth: 5_000,
       whatsappNumbers: 1,
       teamMembers: 1,
-      tokenBudgetDaily: 150_000,
-      aiCallsPerDay: 300,
+      tokenBudgetDaily: 50_000,
+      aiCallsPerDay: 100,
+      paidTemplatesPerMonth: 5,
+      paymentProofScansPerMonth: 25,
+      voiceMinutesPerMonth: 20,
+      mapsLookupsPerMonth: 100,
+      posConnections: 0,
+      branches: 1,
     },
-    price: 449,
+    price: 999,
     currency: "EGP",
   },
-  // Growth: Growing business, ~50 conversations/day
-  // 15,000 msgs ≈ 1,500 conversations/month (msgs FREE via Meta Cloud API)
-  // OPS + INVENTORY (both implemented). Cost @35%: ~333 EGP → 799 EGP → 140% margin
-  GROWTH: {
-    enabledAgents: ["OPS_AGENT", "INVENTORY_AGENT"],
+  // BASIC — standard entry tier (2,200 EGP/mo)
+  // All 3 agents + inventory + payment links + API access. No team, no automations.
+  BASIC: {
+    enabledAgents: ["OPS_AGENT", "INVENTORY_AGENT", "FINANCE_AGENT"],
     enabledFeatures: [
       "CONVERSATIONS",
       "ORDERS",
       "CATALOG",
-      "VOICE_NOTES",
+      "INVENTORY",
       "REPORTS",
       "NOTIFICATIONS",
-      "INVENTORY",
+      "PAYMENTS",
+      "WEBHOOKS",
       "API_ACCESS",
+      "VOICE_NOTES",
+      "COPILOT_CHAT",
     ],
     limits: {
       messagesPerMonth: 15_000,
-      whatsappNumbers: 2,
-      teamMembers: 2,
-      tokenBudgetDaily: 300_000,
-      aiCallsPerDay: 500,
+      whatsappNumbers: 1,
+      teamMembers: 1,
+      tokenBudgetDaily: 200_000,
+      aiCallsPerDay: 200,
+      paidTemplatesPerMonth: 15,
+      paymentProofScansPerMonth: 50,
+      voiceMinutesPerMonth: 30,
+      mapsLookupsPerMonth: 200,
+      posConnections: 0,
+      branches: 1,
     },
-    price: 799,
+    price: 2_200,
     currency: "EGP",
   },
-  // Pro: Established business, ~167 conversations/day (handles 100+ orders/day easily)
-  // 50,000 msgs ≈ 5,000 conversations/month (msgs FREE via Meta Cloud API)
-  // OPS + INVENTORY + FINANCE (all implemented). Cost @35%: ~858 EGP → 1,499 EGP → 75% margin
+  // GROWTH — active business tier (4,800 EGP/mo)
+  // Adds team + loyalty + automations + broadcasts.
+  GROWTH: {
+    enabledAgents: ["OPS_AGENT", "INVENTORY_AGENT", "FINANCE_AGENT"],
+    enabledFeatures: [
+      "CONVERSATIONS",
+      "ORDERS",
+      "CATALOG",
+      "INVENTORY",
+      "REPORTS",
+      "NOTIFICATIONS",
+      "PAYMENTS",
+      "WEBHOOKS",
+      "API_ACCESS",
+      "COPILOT_CHAT",
+      "TEAM",
+      "LOYALTY",
+      "AUTOMATIONS",
+      "VOICE_NOTES",
+    ],
+    limits: {
+      messagesPerMonth: 30_000,
+      whatsappNumbers: 2,
+      teamMembers: 2,
+      tokenBudgetDaily: 400_000,
+      aiCallsPerDay: 500,
+      paidTemplatesPerMonth: 30,
+      paymentProofScansPerMonth: 150,
+      voiceMinutesPerMonth: 60,
+      mapsLookupsPerMonth: 700,
+      posConnections: 1,
+      branches: 1,
+      automations: 10,
+      autoRunsPerDay: 5,
+    },
+    price: 4_800,
+    currency: "EGP",
+  },
+  // PRO — professional tier (10,000 EGP/mo)
+  // Adds voice notes, photo reading, KPI dashboard, audit logs, forecasting, multi-branch.
   PRO: {
     enabledAgents: ["OPS_AGENT", "INVENTORY_AGENT", "FINANCE_AGENT"],
     enabledFeatures: [
       "CONVERSATIONS",
       "ORDERS",
       "CATALOG",
-      "VOICE_NOTES",
+      "INVENTORY",
       "REPORTS",
       "NOTIFICATIONS",
-      "INVENTORY",
-      "API_ACCESS",
+      "VOICE_NOTES",
       "PAYMENTS",
-      "VISION_OCR",
-      "KPI_DASHBOARD",
-      "WEBHOOKS",
+      "COPILOT_CHAT",
       "TEAM",
+      "API_ACCESS",
+      "WEBHOOKS",
+      "KPI_DASHBOARD",
       "AUDIT_LOGS",
+      "LOYALTY",
+      "AUTOMATIONS",
+      "FORECASTING",
     ],
     limits: {
-      messagesPerMonth: 50_000,
+      messagesPerMonth: 100_000,
       whatsappNumbers: 3,
-      teamMembers: 3,
-      tokenBudgetDaily: 800_000,
-      aiCallsPerDay: 1_500,
+      teamMembers: 5,
+      tokenBudgetDaily: 1_000_000,
+      aiCallsPerDay: 2_500,
+      paidTemplatesPerMonth: 50,
+      paymentProofScansPerMonth: 400,
+      voiceMinutesPerMonth: 120,
+      mapsLookupsPerMonth: 2000,
+      posConnections: 3,
+      branches: 2,
+      retentionDays: 90,
+      automations: 50,
+      autoRunsPerDay: 20,
     },
-    price: 1_499,
+    price: 10_000,
     currency: "EGP",
   },
-  // Enterprise: Large business, 500+ conversations/day, unlimited
-  // All 3 implemented agents + everything. Variable cost, 2,999 covers average.
+  // ENTERPRISE — max scale (21,500 EGP/mo)
+  // Everything in Pro + voice calling + custom integrations + SLA.
   ENTERPRISE: {
     enabledAgents: ["OPS_AGENT", "INVENTORY_AGENT", "FINANCE_AGENT"],
     enabledFeatures: [
@@ -379,7 +491,6 @@ export const PLAN_ENTITLEMENTS: Record<
       "CATALOG",
       "INVENTORY",
       "PAYMENTS",
-      "VISION_OCR",
       "VOICE_NOTES",
       "REPORTS",
       "WEBHOOKS",
@@ -388,20 +499,37 @@ export const PLAN_ENTITLEMENTS: Record<
       "AUDIT_LOGS",
       "KPI_DASHBOARD",
       "API_ACCESS",
+      "COPILOT_CHAT",
+      "CUSTOM_INTEGRATIONS",
+      "SLA",
+      "LOYALTY",
+      "AUTOMATIONS",
+      "FORECASTING",
+      "VOICE_CALLING",
     ],
     limits: {
-      messagesPerMonth: -1,
-      whatsappNumbers: -1,
+      messagesPerMonth: 250_000,
+      whatsappNumbers: 5,
       teamMembers: 10,
-      tokenBudgetDaily: -1,
-      aiCallsPerDay: -1,
+      tokenBudgetDaily: 1_750_000,
+      aiCallsPerDay: 5_000,
+      paidTemplatesPerMonth: 100,
+      paymentProofScansPerMonth: 1_200,
+      voiceMinutesPerMonth: 240,
+      mapsLookupsPerMonth: 6000,
+      posConnections: 5,
+      branches: 5,
+      retentionDays: 90,
+      alertRules: 30,
+      automations: -1,
+      autoRunsPerDay: -1,
     },
-    price: 2_999,
+    price: 21_500,
     currency: "EGP",
   },
   // Custom: Fully configurable per merchant
   CUSTOM: {
-    enabledAgents: ["OPS_AGENT"], // Base - will be customized per merchant
+    enabledAgents: ["OPS_AGENT"], // Base - customized per merchant
     enabledFeatures: ["CONVERSATIONS", "ORDERS", "CATALOG"],
     limits: {
       messagesPerMonth: -1,
@@ -409,6 +537,12 @@ export const PLAN_ENTITLEMENTS: Record<
       teamMembers: -1,
       tokenBudgetDaily: -1,
       aiCallsPerDay: -1,
+      paidTemplatesPerMonth: -1,
+      paymentProofScansPerMonth: -1,
+      voiceMinutesPerMonth: -1,
+      mapsLookupsPerMonth: -1,
+      posConnections: -1,
+      branches: -1,
     },
     // Custom pricing negotiated per merchant
   },
@@ -623,13 +757,19 @@ export function getFeatureDisplayName(feature: FeatureType): string {
     VISION_OCR: "Vision/OCR",
     VOICE_NOTES: "Voice Notes",
     REPORTS: "Reports",
-    WEBHOOKS: "Webhooks",
+    WEBHOOKS: "POS Integrations",
     TEAM: "Team Management",
     LOYALTY: "Loyalty Program",
     NOTIFICATIONS: "Notifications",
     AUDIT_LOGS: "Audit Logs",
     KPI_DASHBOARD: "KPI Dashboard",
     API_ACCESS: "API Access",
+    COPILOT_CHAT: "Copilot Chat",
+    CUSTOM_INTEGRATIONS: "Custom Integrations",
+    SLA: "SLA",
+    AUTOMATIONS: "Automations",
+    FORECASTING: "Forecasting",
+    VOICE_CALLING: "Voice Calling",
   };
   return names[feature] || feature;
 }
@@ -802,21 +942,14 @@ export const FEATURE_CATALOG: FeatureCatalogEntry[] = [
     id: "PAYMENTS",
     nameAr: "المدفوعات",
     nameEn: "Payments",
-    descriptionAr: "روابط الدفع وإثباتات الدفع",
-    descriptionEn: "Payment links and proofs",
+    descriptionAr: "التحقق من إثباتات الدفع",
+    descriptionEn: "Payment proof verification",
     status: "available",
     requiredAgent: "FINANCE_AGENT",
     dependencies: ["ORDERS"],
   },
-  {
-    id: "VISION_OCR",
-    nameAr: "الرؤية البصرية",
-    nameEn: "Vision/OCR",
-    descriptionAr: "معالجة الصور والإيصالات",
-    descriptionEn: "Image and receipt processing",
-    status: "available",
-    dependencies: [],
-  },
+  // VISION_OCR is internal — not shown in UI. Payment proof scanning is part of PAYMENTS feature.
+  // Metered daily via paymentProofScansPerMonth plan limit.
   {
     id: "VOICE_NOTES",
     nameAr: "الرسائل الصوتية",
@@ -860,9 +993,7 @@ export const FEATURE_CATALOG: FeatureCatalogEntry[] = [
     nameEn: "Loyalty",
     descriptionAr: "نقاط ومكافآت العملاء",
     descriptionEn: "Customer points and rewards",
-    status: "coming_soon",
-    eta: "Q2 2026",
-    requiredAgent: "MARKETING_AGENT",
+    status: "available",
     dependencies: ["ORDERS"],
   },
   {

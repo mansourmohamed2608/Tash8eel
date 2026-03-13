@@ -31,6 +31,8 @@ import {
 import { AddressDepthService } from "./address-depth.service";
 import { PaymentService } from "./payment.service";
 import { CustomerReorderService } from "./customer-reorder.service";
+import { UsageGuardService } from "./usage-guard.service";
+import { RagRetrievalService } from "./rag-retrieval.service";
 
 // Repository imports
 import {
@@ -90,6 +92,12 @@ export interface InboxMessageParams {
   /** Voice note parameters - if provided, will be transcribed */
   voiceNote?: VoiceNoteParams;
   correlationId?: string;
+  /**
+   * The WhatsApp Business number that received this message.
+   * Used to route the conversation to the correct branch when the merchant
+   * operates multiple branches with distinct WA numbers.
+   */
+  destinationPhone?: string;
 }
 
 export interface InboxResponse {
@@ -138,6 +146,8 @@ export class InboxService {
     private readonly addressDepthService: AddressDepthService,
     private readonly paymentService: PaymentService,
     private readonly customerReorderService: CustomerReorderService,
+    private readonly usageGuard: UsageGuardService,
+    private readonly ragRetrieval: RagRetrievalService,
   ) {}
 
   private readonly LOCK_TTL_MS = 30000; // 30 seconds
@@ -161,62 +171,22 @@ export class InboxService {
 
   /**
    * Check if merchant has exceeded their monthly message limit.
-   * Reads from the merchant's DB `limits` column + any active MESSAGE add-ons.
+   * Uses UsageGuard canonical limits (plan + usage pack credits).
    */
   private async checkMonthlyMessageLimit(
     merchantId: string,
+    consumeOneUnit = false,
   ): Promise<{ allowed: boolean; used: number; limit: number }> {
     try {
-      // Count messages this calendar month for this merchant
-      const countResult = await this.pool.query(
-        `SELECT COUNT(*) as msg_count FROM messages
-         WHERE merchant_id = $1
-           AND created_at >= date_trunc('month', CURRENT_DATE)`,
-        [merchantId],
-      );
-      const used = parseInt(countResult.rows[0]?.msg_count || "0");
-
-      // Get merchant's plan limit from DB
-      const merchantResult = await this.pool.query(
-        `SELECT m.limits FROM merchants m WHERE m.id = $1`,
-        [merchantId],
-      );
-
-      const limits = merchantResult.rows[0]?.limits;
-      let planLimit = limits?.messagesPerMonth ?? 1000;
-
-      // -1 means unlimited (ENTERPRISE / CUSTOM)
-      if (planLimit === -1) {
-        return { allowed: true, used, limit: -1 };
-      }
-
-      // Check for active MESSAGES add-on
-      try {
-        const addonResult = await this.pool.query(
-          `SELECT tier_id FROM merchant_addons
-           WHERE merchant_id = $1 AND addon_type = 'MESSAGES' AND status = 'active' AND expires_at > NOW()
-           ORDER BY created_at DESC LIMIT 1`,
-          [merchantId],
-        );
-        if (addonResult.rows.length > 0) {
-          const addonTierLimits: Record<string, number> = {
-            BASIC: 10000,
-            STANDARD: 15000,
-            PROFESSIONAL: 50000,
-            UNLIMITED: -1,
-          };
-          const addonLimit =
-            addonTierLimits[addonResult.rows[0].tier_id] ?? planLimit;
-          planLimit = Math.max(planLimit, addonLimit);
-        }
-      } catch {
-        /* merchant_addons table may not exist yet */
-      }
-
+      const usage = consumeOneUnit
+        ? await this.usageGuard.consume(merchantId, "MESSAGES", 1, {
+            metadata: { source: "WHATSAPP_INBOUND" },
+          })
+        : await this.usageGuard.checkLimit(merchantId, "MESSAGES");
       return {
-        allowed: planLimit === -1 || used < planLimit,
-        used,
-        limit: planLimit,
+        allowed: usage.allowed,
+        used: usage.used,
+        limit: usage.limit,
       };
     } catch (error) {
       // Fail open — don't block messages on DB errors
@@ -244,7 +214,10 @@ export class InboxService {
     });
 
     // ── Monthly message limit check ──
-    const messageLimit = await this.checkMonthlyMessageLimit(params.merchantId);
+    const messageLimit = await this.checkMonthlyMessageLimit(
+      params.merchantId,
+      true,
+    );
     if (!messageLimit.allowed) {
       this.logger.warn({
         message: "Monthly message limit exceeded",
@@ -419,9 +392,17 @@ export class InboxService {
     }
 
     if (!merchant.isActive) {
-      throw new BadRequestException(
-        `Merchant ${params.merchantId} is not active`,
-      );
+      this.logger.warn({
+        message: "Merchant is inactive (subscription expired) — suppressing reply",
+        merchantId: params.merchantId,
+        correlationId,
+      });
+      return {
+        conversationId: "",
+        replyText: "",
+        action: ActionType.ASK_CLARIFYING_QUESTION,
+        cart: { items: [] },
+      };
     }
 
     // 2. Get or create conversation
@@ -434,6 +415,7 @@ export class InboxService {
       conversation = await this.createNewConversation(
         params.merchantId,
         params.senderId,
+        params.destinationPhone,
       );
     }
 
@@ -447,6 +429,23 @@ export class InboxService {
         params.merchantId,
         params.senderId,
       );
+    }
+
+    // Pre-fill collectedInfo from returning customer data so AI never re-asks
+    if (customer.name || customer.phone || customer.address) {
+      const existing = conversation.collectedInfo as any;
+      const prefill: Record<string, any> = { ...existing };
+      if (!existing?.customerName && customer.name) prefill.customerName = customer.name;
+      if (!existing?.phone && customer.phone) prefill.phone = customer.phone;
+      if (!existing?.address && customer.address) prefill.address = customer.address;
+      const changed =
+        prefill.customerName !== existing?.customerName ||
+        prefill.phone !== existing?.phone ||
+        prefill.address !== existing?.address;
+      if (changed) {
+        await this.conversationRepo.update(conversation.id, { collectedInfo: prefill });
+        conversation = { ...conversation, collectedInfo: prefill };
+      }
     }
 
     // 4. Store incoming message
@@ -610,8 +609,13 @@ export class InboxService {
     }
     // ======== END REORDER FLOW ========
 
-    // 6. Get catalog items and recent messages
-    const catalogItems = await this.catalogRepo.findByMerchant(merchant.id);
+    // 6. Get catalog items (RAG: semantically relevant + diverse + stock-aware)
+    //    Falls back to pg_trgm text search, then full catalog if embeddings not yet ready.
+    const catalogItems = await this.ragRetrieval.retrieveForQuery(
+      merchant.id,
+      params.text,
+      10,
+    );
     const recentMessages = await this.messageRepo.findByConversation(
       conversation.id,
     );
@@ -1023,38 +1027,9 @@ export class InboxService {
       return undefined;
     }
 
-    const requiresContact =
-      merchant.requireCustomerContactForPaymentLink ?? true;
-    const normalizedPhone = customerPhone?.trim();
-
-    if (requiresContact && !normalizedPhone) {
-      return "لإرسال رابط الدفع تلقائياً، نحتاج رقم هاتفك. من فضلك أرسل رقم واتساب/الهاتف لاستكمال الدفع.";
-    }
-
-    try {
-      const link = await this.paymentService.createPaymentLink({
-        merchantId: merchant.id,
-        orderId: order.id,
-        conversationId: conversation.id,
-        customerId: customer.id,
-        amount,
-        currency: merchant.currency || "EGP",
-        description: `طلب رقم ${orderNumber}`,
-        customerPhone: normalizedPhone,
-        customerName,
-      });
-
-      const linkUrl = this.paymentService.getPaymentLinkUrl(link.linkCode);
-      return `🔗 رابط الدفع للطلب #${orderNumber}\n${linkUrl}`;
-    } catch (error: any) {
-      this.logger.warn({
-        msg: "Auto payment link creation failed",
-        merchantId: merchant.id,
-        orderId: order.id,
-        error: error?.message || "unknown",
-      });
-      return undefined;
-    }
+    // Product rule: payment links are removed.
+    // Payment verification remains available through proof review workflow only.
+    return undefined;
   }
 
   /**
@@ -1094,11 +1069,51 @@ export class InboxService {
   private async createNewConversation(
     merchantId: string,
     senderId: string,
+    destinationPhone?: string,
   ): Promise<Conversation> {
+    // ── Branch routing ──────────────────────────────────────────────────────
+    // When a merchant has multiple branches with distinct WA numbers, route
+    // the new conversation to the branch whose whatsapp_number matches the
+    // destination number this message was sent to.
+    let branchId: string | null = null;
+    if (destinationPhone) {
+      try {
+        const branchRes = await this.pool.query<{ id: string }>(
+          `SELECT id FROM merchant_branches
+           WHERE merchant_id = $1 AND whatsapp_number = $2
+           LIMIT 1`,
+          [merchantId, destinationPhone],
+        );
+        if (branchRes.rows.length > 0) {
+          branchId = branchRes.rows[0].id;
+          this.logger.log({
+            message: "Routing conversation to branch by WA number",
+            merchantId,
+            senderId,
+            branchId,
+            destinationPhone,
+          });
+        }
+      } catch (err) {
+        this.logger.warn({
+          message: "Branch WA lookup failed — proceeding without branch",
+          err,
+        });
+      }
+    }
+
     const conversation = await this.conversationRepo.create({
       merchantId,
       senderId,
     });
+
+    // Assign branch if found
+    if (branchId) {
+      await this.pool.query(
+        `UPDATE conversations SET branch_id = $1 WHERE id = $2`,
+        [branchId, conversation.id],
+      );
+    }
 
     // Set phone from senderId (WhatsApp number) by default
     await this.conversationRepo.update(conversation.id, {
@@ -1117,6 +1132,7 @@ export class InboxService {
       conversationId: conversation.id,
       merchantId,
       senderId,
+      branchId,
       phoneAutoSet: senderId,
     });
 

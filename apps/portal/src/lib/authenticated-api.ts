@@ -6,6 +6,9 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
 // to avoid CORS. Server-side requests can hit the API directly.
 const getBaseUrl = () => (typeof window !== "undefined" ? "" : API_BASE_URL);
 
+// Prevent multiple concurrent 401s from each triggering their own signOut
+let isSigningOut = false;
+
 export interface ApiError extends Error {
   status: number;
   code?: string;
@@ -182,9 +185,11 @@ export async function authenticatedFetch<T>(
     if (!response.ok) {
       // 401 = invalid/expired token → force redirect to login
       if (response.status === 401 && typeof window !== "undefined") {
-        // Clear the session and redirect
-        const { signOut } = await import("next-auth/react");
-        await signOut({ callbackUrl: "/login", redirect: true });
+        if (!isSigningOut) {
+          isSigningOut = true;
+          const { signOut } = await import("next-auth/react");
+          await signOut({ callbackUrl: "/login", redirect: true });
+        }
         return new Promise(() => {}) as T; // never resolves, page is redirecting
       }
 
@@ -441,6 +446,11 @@ export const portalApi = {
 
   getAutoAssignSettings: () =>
     authenticatedFetch<any>("/api/v1/portal/delivery/auto-assign-settings"),
+
+  getDeliveryPartners: () =>
+    authenticatedFetch<{ partners: Array<{ id: string; nameAr: string; nameEn: string }> }>(
+      "/api/v1/portal/delivery/partners",
+    ),
 
   updateAutoAssignSettings: (data: {
     autoAssign?: boolean;
@@ -872,7 +882,9 @@ export const portalApi = {
     if (options?.unreadOnly) query.set("unreadOnly", "true");
     if (options?.limit) query.set("limit", String(options.limit));
     if (options?.offset) query.set("offset", String(options.offset));
-    return authenticatedFetch<any>(`/api/v1/portal/notifications?${query}`);
+    return authenticatedFetch<any>(
+      `/api/v1/merchants/${merchantId}/notifications?${query}`,
+    );
   },
 
   markNotificationRead: (merchantId: string, notificationId: string) =>
@@ -1444,6 +1456,7 @@ export const portalApi = {
     startDate?: string;
     endDate?: string;
     courier?: string;
+    branchId?: string;
   }) => {
     const query = new URLSearchParams();
     if (params?.period) query.set("period", params.period);
@@ -1453,6 +1466,7 @@ export const portalApi = {
     if (params?.startDate) query.set("startDate", params.startDate);
     if (params?.endDate) query.set("endDate", params.endDate);
     if (params?.courier) query.set("courier", params.courier);
+    if (params?.branchId) query.set("branchId", params.branchId);
     const qs = query.toString();
     return authenticatedFetch<{
       summary: {
@@ -1717,6 +1731,135 @@ export const portalApi = {
       body: options || {},
     }),
 
+  // --- Seasonal Campaign ---
+  createSeasonalCampaign: (options: {
+    message: string;
+    segment?: "all" | "vip" | "loyal" | "regular" | "new" | "at_risk";
+    occasion?: string;
+    discountCode?: string;
+  }) =>
+    authenticatedFetch<{ sent: number; totalTargeted: number; message: string }>(
+      "/api/v1/portal/campaigns/seasonal",
+      { method: "POST", body: options },
+    ),
+
+  // --- Re-engagement Campaign ---
+  createReengagementCampaign: (options: {
+    message: string;
+    inactiveDays?: number;
+    discountCode?: string;
+  }) =>
+    authenticatedFetch<{ sent: number; totalTargeted: number; message: string }>(
+      "/api/v1/portal/campaigns/reengagement",
+      { method: "POST", body: options },
+    ),
+
+  // --- Supplier Message ---
+  sendSupplierMessage: (options: {
+    supplierPhone: string;
+    message: string;
+    supplierName?: string;
+  }) =>
+    authenticatedFetch<{ success: boolean; message: string }>(
+      "/api/v1/portal/campaigns/supplier-message",
+      { method: "POST", body: options },
+    ),
+
+  // --- Supplier Management ---
+  getSuppliers: () =>
+    authenticatedFetch<{ suppliers: any[] }>("/api/v1/portal/suppliers"),
+
+  createSupplier: (data: {
+    name: string;
+    contactName?: string;
+    phone?: string;
+    whatsappPhone?: string;
+    email?: string;
+    address?: string;
+    paymentTerms?: string;
+    leadTimeDays?: number;
+    notes?: string;
+    autoNotifyLowStock?: boolean;
+    notifyThreshold?: string;
+  }) =>
+    authenticatedFetch<{ supplier: any }>("/api/v1/portal/suppliers", {
+      method: "POST",
+      body: data,
+    }),
+
+  updateSupplier: (id: string, data: Record<string, any>) =>
+    authenticatedFetch<{ supplier: any }>(`/api/v1/portal/suppliers/${id}`, {
+      method: "PATCH",
+      body: data,
+    }),
+
+  deleteSupplier: (id: string) =>
+    authenticatedFetch<{ success: boolean }>(`/api/v1/portal/suppliers/${id}`, {
+      method: "DELETE",
+    }),
+
+  // --- Automation Center ---
+  getAutomations: () =>
+    authenticatedFetch<{ automations: any[]; recentLogs: any[] }>(
+      "/api/v1/portal/automations",
+    ),
+
+  updateAutomation: (
+    type: string,
+    data: { isEnabled?: boolean; config?: Record<string, any> },
+  ) =>
+    authenticatedFetch<{ automation: any }>(
+      `/api/v1/portal/automations/${type}`,
+      { method: "PATCH", body: data },
+    ),
+
+  setAutomationSchedule: (type: string, checkIntervalHours: number) =>
+    authenticatedFetch<{ automation: any }>(
+      `/api/v1/portal/automations/${type}/schedule`,
+      { method: "PATCH", body: { checkIntervalHours } },
+    ),
+
+  // --- Demand Forecasting ---
+  getDemandForecast: (refresh = false) =>
+    authenticatedFetch<{
+      forecasts: any[];
+      summary: Record<string, number>;
+      fresh: boolean;
+      computedAt: string;
+    }>(`/api/v1/portal/analytics/forecast${refresh ? "?refresh=true" : ""}`),
+
+  // --- Supplier Discovery ---
+  discoverSuppliers: (query: string, city?: string) =>
+    authenticatedFetch<{ results: any[]; fromCache: boolean }>(
+      `/api/v1/portal/suppliers/discover?q=${encodeURIComponent(query)}${city ? `&city=${encodeURIComponent(city)}` : ""}`,
+    ),
+
+  getSupplierSuggestions: () =>
+    authenticatedFetch<{ suggestions: any[]; count: number }>(
+      `/api/v1/portal/suppliers/suggestions`,
+    ),
+
+  // --- Supplier ↔ Product linking ---
+  getSupplierProducts: (supplierId: string) =>
+    authenticatedFetch<{ products: any[] }>(
+      `/api/v1/portal/suppliers/${supplierId}/products`,
+    ),
+
+  linkSupplierProduct: (
+    supplierId: string,
+    data: { productId: string; unitCost?: number; isPreferred?: boolean; notes?: string },
+  ) =>
+    authenticatedFetch<{ link: any }>(
+      `/api/v1/portal/suppliers/${supplierId}/products`,
+      { method: "POST", body: data },
+    ),
+
+  unlinkSupplierProduct: (supplierId: string, productId: string) =>
+    authenticatedFetch<{ success: boolean }>(
+      `/api/v1/portal/suppliers/${supplierId}/products/${productId}`,
+      { method: "DELETE" },
+    ),
+
   // --- Daily Report ---
   getDailyReport: (date?: string) =>
     authenticatedFetch<any>(
@@ -1846,6 +1989,168 @@ export const portalApi = {
         canMake: number;
       }>;
     }>(`/api/v1/portal/catalog/${catalogItemId}/availability`),
+
+  // ─── AI: Generate product description ──────────────────────────────────
+  generateProductDescription: (productId: string) =>
+    authenticatedFetch<{ description: string }>(
+      `/api/v1/portal/inventory/${productId}/ai-description`,
+      { method: "POST" },
+    ),
+
+  // ─── AI: Suggest campaign audience ─────────────────────────────────────
+  suggestCampaignAudience: (goal: string) =>
+    authenticatedFetch<{
+      recommendedSegmentId: string | null;
+      segmentName: string;
+      reason: string;
+      estimatedSize: number;
+      segments: Array<{ id: string; name: string; size: number; match_score: number }>;
+    }>(`/api/v1/portal/campaigns/suggest-audience`, {
+      method: "POST",
+      body: { goal },
+    }),
+
+  // ─── Analytics: Subscription / token usage ──────────────────────────────
+  getSubscriptionUsage: () =>
+    authenticatedFetch<{
+      tokensUsed: number;
+      tokenLimit: number;
+      tokenPct: number;
+      conversationsUsed: number;
+      conversationLimit: number;
+      conversationPct: number;
+      planName: string;
+      periodEnd: string | null;
+    }>(`/api/v1/portal/analytics/subscription-usage`),
+
+  // ─── Analytics: WhatsApp delivery trend ────────────────────────────────
+  getWhatsappDeliveryTrend: (days = 14) =>
+    authenticatedFetch<{
+      trend: Array<{
+        date: string;
+        sent: number;
+        delivered: number;
+        failed: number;
+        rate: number;
+      }>;
+      overallRate: number;
+    }>(`/api/v1/portal/analytics/whatsapp-delivery-trend?days=${days}`),
+
+  // ─── Advanced Forecast Platform ────────────────────────────────────────
+  getDemandForecast: (params?: { productId?: string; urgency?: string; page?: number; limit?: number }) => {
+    const qs = new URLSearchParams();
+    if (params?.productId) qs.set("productId", params.productId);
+    if (params?.urgency)   qs.set("urgency", params.urgency);
+    if (params?.page)      qs.set("page", String(params.page));
+    if (params?.limit)     qs.set("limit", String(params.limit));
+    return authenticatedFetch<{
+      items: any[];
+      total: number;
+      page: number;
+      limit: number;
+      summary: { critical: number; high: number; medium: number; ok: number };
+    }>(`/api/v1/portal/forecast/demand?${qs.toString()}`);
+  },
+
+  getDemandForecastHistory: (productId: string) =>
+    authenticatedFetch<{
+      productId: string;
+      productName: string;
+      historicalData: Array<{ date: string; value: number }>;
+      forecast7d: number;
+      forecast14d: number;
+      forecast30d: number;
+      lower7d: number; upper7d: number;
+      lower30d: number; upper30d: number;
+      mape7d: number;
+      confidence: number;
+      trendPct: number;
+      reasonCodes: Array<{ code: string; label: string; weight: number }>;
+    }>(`/api/v1/portal/forecast/demand/${productId}/history`),
+
+  getCashFlowForecast: (days = 30) =>
+    authenticatedFetch<{
+      merchantId: string;
+      currentBalance: number;
+      projection: Array<{ date: string; inflow: number; outflow: number; balance: number }>;
+      runwayDays: number | null;
+      riskDays: Array<{ date: string; reason: string }>;
+      avgDailyInflow: number;
+      avgDailyOutflow: number;
+      forecastPeriodDays: number;
+      confidence: number;
+    }>(`/api/v1/portal/forecast/cashflow?days=${days}`),
+
+  getChurnForecast: (limit = 50) =>
+    authenticatedFetch<{
+      items: Array<{
+        customerId: string;
+        customerName: string;
+        customerPhone: string;
+        daysSinceLastOrder: number;
+        avgOrderCycleDays: number;
+        churnProbability: number;
+        lifetimeValue: number;
+        riskLevel: string;
+        recommendedAction: string;
+      }>;
+      summary: { critical: number; high: number; medium: number; total: number };
+    }>(`/api/v1/portal/forecast/churn?limit=${limit}`),
+
+  getWorkforceForecast: () =>
+    authenticatedFetch<{
+      dayPattern: Array<{ dayOfWeek: number; dayName: string; avgMessages: number }>;
+      hourPattern: Array<{ hour: number; avgMessages: number; peakDay: string }>;
+      nextSevenDays: Array<{ date: string; dayOfWeek: number; forecastMessages: number; forecastConversations: number }>;
+      peakHour: number;
+      peakDay: string;
+      confidence: number;
+    }>(`/api/v1/portal/forecast/workforce`),
+
+  getDeliveryRiskForecast: () =>
+    authenticatedFetch<{
+      items: Array<{
+        orderId: string;
+        orderNumber: string;
+        customerName: string;
+        zone: string;
+        courier: string;
+        delayProbability: number;
+        estimatedDeliveryDate: string | null;
+        riskFactors: string[];
+      }>;
+      highRiskCount: number;
+    }>(`/api/v1/portal/forecast/delivery-risk`),
+
+  getForecastModelMetrics: () =>
+    authenticatedFetch<{
+      latest: { mape: number; wmape: number; bias: number; mae: number; sampleSize: number };
+      history: any[];
+    }>(`/api/v1/portal/forecast/model-metrics`),
+
+  getReplenishmentList: (status = "pending") =>
+    authenticatedFetch<{ items: any[]; total: number }>(`/api/v1/portal/forecast/replenishment?status=${status}`),
+
+  runWhatIfScenario: (body: { type: "demand" | "cashflow" | "campaign" | "pricing"; params: Record<string, any> }) =>
+    authenticatedFetch<{
+      scenarioType: string;
+      baselineValue: number;
+      adjustedValue: number;
+      delta: number;
+      deltaPct: number;
+      breakdownByItem?: Array<{ id: string; name: string; baseline: number; adjusted: number }>;
+    }>(`/api/v1/portal/forecast/what-if`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+
+  approveReplenishment: (id: string, poReference?: string) =>
+    authenticatedFetch<{ ok: boolean; updated: any }>(`/api/v1/portal/forecast/replenishment/${id}/approve`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ poReference }),
+    }),
 };
 
 export default portalApi;

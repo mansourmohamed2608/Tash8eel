@@ -108,13 +108,13 @@ export function formatRelativeTime(date: string | Date): string {
 export function getStatusColor(status: string): string {
   const colors: Record<string, string> = {
     // Order statuses
-    DRAFT: "bg-gray-100 text-gray-800",
-    CONFIRMED: "bg-blue-100 text-blue-800",
-    BOOKED: "bg-yellow-100 text-yellow-800",
-    SHIPPED: "bg-purple-100 text-purple-800",
-    OUT_FOR_DELIVERY: "bg-purple-100 text-purple-800",
-    DELIVERED: "bg-green-100 text-green-800",
-    CANCELLED: "bg-red-100 text-red-800",
+    DRAFT: "bg-gray-100 text-gray-600 border-gray-300",
+    CONFIRMED: "bg-blue-100 text-blue-800 border-blue-300",
+    BOOKED: "bg-yellow-100 text-yellow-800 border-yellow-300",
+    SHIPPED: "bg-purple-100 text-purple-800 border-purple-300",
+    OUT_FOR_DELIVERY: "bg-orange-100 text-orange-800 border-orange-300",
+    DELIVERED: "bg-green-100 text-green-800 border-green-300",
+    CANCELLED: "bg-red-100 text-red-800 border-red-300",
     // Conversation states
     GREETING: "bg-gray-100 text-gray-800",
     COLLECTING_ITEMS: "bg-blue-100 text-blue-800",

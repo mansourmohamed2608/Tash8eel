@@ -19,15 +19,24 @@ export const REDIS_CLIENT = "REDIS_CLIENT";
     {
       provide: REDIS_CLIENT,
       useFactory: (configService: ConfigService) => {
+        const redisUrl = configService.get<string>("REDIS_URL");
         const host = configService.get<string>("REDIS_HOST");
         const redisEnabled = configService.get<string>(
           "REDIS_ENABLED",
           "false",
         );
 
-        if (!host || redisEnabled === "false") {
-          // Return a mock Redis client that does nothing
+        if ((!redisUrl && !host) || redisEnabled === "false") {
+          // Return null — RedisService falls back to in-memory locks
           return null;
+        }
+
+        if (redisUrl) {
+          // Full URL (supports rediss:// for TLS — Upstash, Redis Cloud, etc.)
+          return new Redis(redisUrl, {
+            maxRetriesPerRequest: 1,
+            lazyConnect: true,
+          });
         }
 
         return new Redis({

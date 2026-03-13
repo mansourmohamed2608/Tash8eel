@@ -139,7 +139,9 @@ export class CatalogRepository implements ICatalogRepository {
           input.isAvailable !== false,
         ],
       );
-      return this.mapToEntity(result.rows[0]);
+      const entity = this.mapToEntity(result.rows[0]);
+      void this.queueEmbeddingJob(entity);
+      return entity;
     } catch (error: any) {
       if (error?.code === "42703") {
         const fallback = await this.pool.query(
@@ -162,7 +164,9 @@ export class CatalogRepository implements ICatalogRepository {
             input.tags || [],
           ],
         );
-        return this.mapToEntity(fallback.rows[0]);
+        const entity = this.mapToEntity(fallback.rows[0]);
+        void this.queueEmbeddingJob(entity);
+        return entity;
       }
       throw error;
     }
@@ -243,10 +247,14 @@ export class CatalogRepository implements ICatalogRepository {
     };
 
     try {
-      return await runUpdate(true);
+      const entity = await runUpdate(true);
+      if (entity) void this.queueEmbeddingJob(entity);
+      return entity;
     } catch (error: any) {
       if (error?.code === "42703") {
-        return await runUpdate(false);
+        const entity = await runUpdate(false);
+        if (entity) void this.queueEmbeddingJob(entity);
+        return entity;
       }
       throw error;
     }
@@ -290,6 +298,27 @@ export class CatalogRepository implements ICatalogRepository {
   ): Promise<CatalogItem | null> {
     const results = await this.searchByName(merchantId, name);
     return results[0] || null;
+  }
+
+  /**
+   * Fire-and-forget: insert a PENDING job into catalog_embedding_jobs.
+   * The background embedding worker picks this up and calls OpenAI to
+   * generate + store the vector in catalog_items.embedding.
+   * Non-blocking — any error here is logged and suppressed.
+   */
+  private queueEmbeddingJob(item: CatalogItem): Promise<void> {
+    return this.pool
+      .query(
+        `INSERT INTO catalog_embedding_jobs (catalog_item_id, merchant_id, status)
+         VALUES ($1, $2, 'PENDING')
+         ON CONFLICT DO NOTHING`,
+        [item.id, item.merchantId],
+      )
+      .then(() => {})
+      .catch((err) => {
+        // Silently swallow — table may not exist yet during initial migration
+        void err;
+      });
   }
 
   private mapToEntity(row: Record<string, unknown>): CatalogItem {

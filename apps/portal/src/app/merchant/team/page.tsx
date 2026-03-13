@@ -308,7 +308,7 @@ const permissions = [
   { key: "settings", label: "الإعدادات", actions: ["read", "update"] },
   {
     key: "webhooks",
-    label: "Webhooks",
+    label: "POS Integrations",
     actions: ["create", "read", "update", "delete", "test"],
   },
   { key: "audit", label: "سجل التدقيق", actions: ["read"] },

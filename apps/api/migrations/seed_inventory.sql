@@ -1,13 +1,19 @@
 -- Seed inventory data for demo-merchant
 -- First ensure the demo-merchant exists (for test environments)
-INSERT INTO merchants (id, name, category, daily_token_budget, is_active, config, branding, negotiation_rules, delivery_rules, created_at, updated_at)
+INSERT INTO merchants (id, name, category, daily_token_budget, is_active, api_key, config, branding, negotiation_rules, delivery_rules, enabled_features, enabled_agents, created_at, updated_at)
 VALUES ('demo-merchant', 'متجر العرض التجريبي', 'CLOTHES', 500000, true,
+  'mkey_demo_1234567890abcdef1234567890abcdef12345678',
   '{"brandName": "متجر العرض التجريبي", "tone": "friendly", "currency": "EGP", "language": "ar-EG", "enableNegotiation": true}'::jsonb,
   '{}'::jsonb,
   '{"maxDiscountPercent": 10, "minMarginPercent": 20, "allowNegotiation": true, "freeDeliveryThreshold": 500}'::jsonb,
   '{"defaultFee": 50, "freeDeliveryThreshold": 500}'::jsonb,
+  ARRAY['CONVERSATIONS','ORDERS','CATALOG','VOICE_NOTES','REPORTS','NOTIFICATIONS','INVENTORY','API_ACCESS','PAYMENTS','VISION_OCR','KPI_DASHBOARD','WEBHOOKS','TEAM','AUDIT_LOGS'],
+  ARRAY['OPS_AGENT','INVENTORY_AGENT','FINANCE_AGENT'],
   NOW(), NOW())
-ON CONFLICT (id) DO NOTHING;
+ON CONFLICT (id) DO UPDATE SET
+  api_key = EXCLUDED.api_key,
+  enabled_features = EXCLUDED.enabled_features,
+  enabled_agents = EXCLUDED.enabled_agents;
 
 -- Ensure default warehouse location exists
 INSERT INTO warehouse_locations (merchant_id, name, name_ar, is_default)

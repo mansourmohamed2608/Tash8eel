@@ -7,6 +7,9 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  Inject,
+  ForbiddenException,
+  Headers,
 } from "@nestjs/common";
 import {
   ApiTags,
@@ -37,6 +40,9 @@ import {
 import { LlmService } from "../../application/llm/llm.service";
 import { InternalApiGuard } from "../../shared/guards/internal-api.guard";
 import { createLogger } from "../../shared/logging/logger";
+import { Pool } from "pg";
+import { DATABASE_POOL } from "../../infrastructure/database/database.module";
+import { IdempotencyService } from "../../shared/services/idempotency.service";
 
 const logger = createLogger("InternalAiController");
 
@@ -54,6 +60,8 @@ export class InternalAiController {
     private readonly opsAiService: OpsAiService,
     private readonly financeAiService: FinanceAiService,
     private readonly llmService: LlmService,
+    @Inject(DATABASE_POOL) private readonly pool: Pool,
+    private readonly idempotencyService: IdempotencyService,
   ) {}
 
   @Post("inventory/substitution-ranking")
@@ -72,6 +80,7 @@ export class InternalAiController {
     logger.info("Substitution ranking requested", {
       merchantId: request.merchantId,
     });
+    await this.validateMerchantActive(request.merchantId); // BL-001
 
     const result =
       await this.inventoryAiService.generateSubstitutionRanking(request);
@@ -104,6 +113,7 @@ export class InternalAiController {
     logger.info("Restock insight requested", {
       merchantId: request.merchantId,
     });
+    await this.validateMerchantActive(request.merchantId); // BL-001
 
     const result =
       await this.inventoryAiService.generateRestockInsight(request);
@@ -134,6 +144,7 @@ export class InternalAiController {
     logger.info("Supplier message requested", {
       merchantId: request.merchantId,
     });
+    await this.validateMerchantActive(request.merchantId); // BL-001
 
     const result =
       await this.inventoryAiService.generateSupplierMessage(request);
@@ -262,19 +273,21 @@ export class InternalAiController {
         deliveryFee?: number;
       };
     },
+    @Headers("x-idempotency-key") idempotencyKey?: string,
   ) {
     logger.info("AI objection response requested", {
       merchantId: body.merchantId,
       objectionType: body.objectionType,
     });
+    await this.validateMerchantActive(body.merchantId); // BL-001
 
-    const result = await this.opsAiService.generateObjectionResponse(
-      body.merchantId,
-      body.objectionType,
-      body.context,
+    return this.withIdempotency(idempotencyKey, body.merchantId, () =>
+      this.opsAiService.generateObjectionResponse(
+        body.merchantId,
+        body.objectionType,
+        body.context,
+      ),
     );
-
-    return result;
   }
 
   // ============= FINANCE AGENT ENDPOINTS =============
@@ -378,15 +391,18 @@ export class InternalAiController {
     status: 400,
     description: "Budget exceeded or AI unavailable",
   })
-  async generateAnomalyNarrative(@Body() request: AnomalyDetectionRequest) {
+  async generateAnomalyNarrative(
+    @Body() request: AnomalyDetectionRequest,
+    @Headers("x-idempotency-key") idempotencyKey?: string,
+  ) {
     logger.info("Anomaly narrative requested", {
       merchantId: request.merchantId,
     });
+    await this.validateMerchantActive(request.merchantId); // BL-001
 
-    const result =
-      await this.financeAiService.generateAnomalyNarrative(request);
-
-    return result;
+    return this.withIdempotency(idempotencyKey, request.merchantId, () =>
+      this.financeAiService.generateAnomalyNarrative(request),
+    );
   }
 
   @Post("finance/cfo-brief")
@@ -397,12 +413,16 @@ export class InternalAiController {
     status: 400,
     description: "Budget exceeded or AI unavailable",
   })
-  async generateCfoBrief(@Body() request: CfoBriefRequest) {
+  async generateCfoBrief(
+    @Body() request: CfoBriefRequest,
+    @Headers("x-idempotency-key") idempotencyKey?: string,
+  ) {
     logger.info("CFO brief requested", { merchantId: request.merchantId });
+    await this.validateMerchantActive(request.merchantId); // BL-001
 
-    const result = await this.financeAiService.generateCfoBrief(request);
-
-    return result;
+    return this.withIdempotency(idempotencyKey, request.merchantId, () =>
+      this.financeAiService.generateCfoBrief(request),
+    );
   }
 
   // ============= AUTONOMOUS AGENT REASONING =============
@@ -422,20 +442,68 @@ export class InternalAiController {
       checkType: string;
       contextData: Record<string, any>;
     },
+    @Headers("x-idempotency-key") idempotencyKey?: string,
   ) {
     logger.info("Agent reasoning requested", {
       merchantId: body.merchantId,
       agentType: body.agentType,
       checkType: body.checkType,
     });
+    await this.validateMerchantActive(body.merchantId); // BL-001
 
-    const result = await this.llmService.agentReason(body);
+    return this.withIdempotency(idempotencyKey, body.merchantId, async () => {
+      const result = await this.llmService.agentReason(body);
+      return {
+        success: result.success,
+        data: result.decision,
+        tokensUsed: result.tokensUsed,
+        error: result.error,
+      };
+    });
+  }
 
-    return {
-      success: result.success,
-      data: result.decision,
-      tokensUsed: result.tokensUsed,
-      error: result.error,
-    };
+  // ── Private helpers ────────────────────────────────────────────────────────
+
+  /**
+   * BL-001: Verify the target merchant exists and is active before calling AI.
+   * Internal routes receive merchantId from the request body (not a session key),
+   * so this guard fills the entitlement gap left by InternalApiGuard alone.
+   */
+  private async validateMerchantActive(merchantId: string): Promise<void> {
+    const result = await this.pool.query<{ is_active: boolean }>(
+      `SELECT is_active FROM merchants WHERE id = $1`,
+      [merchantId],
+    );
+    if (result.rows.length === 0) {
+      throw new ForbiddenException(`Merchant ${merchantId} not found`);
+    }
+    if (!result.rows[0].is_active) {
+      throw new ForbiddenException(
+        `Merchant ${merchantId} is not active — AI call rejected`,
+      );
+    }
+  }
+
+  /**
+   * BL-007: Wrap an AI mutation in idempotency semantics.
+   * If idempotencyKey is provided and already stored, the cached response is
+   * returned without re-executing the operation.
+   */
+  private async withIdempotency<T>(
+    idempotencyKey: string | undefined,
+    merchantId: string,
+    fn: () => Promise<T>,
+  ): Promise<T | Record<string, unknown>> {
+    if (!idempotencyKey) return fn();
+    const fullKey = `internal-ai:${merchantId}:${idempotencyKey}`;
+    const cached = await this.idempotencyService.checkKey(fullKey);
+    if (cached) return cached;
+    const result = await fn();
+    await this.idempotencyService.storeKey(
+      fullKey,
+      merchantId,
+      result as unknown as Record<string, unknown>,
+    );
+    return result as T;
   }
 }

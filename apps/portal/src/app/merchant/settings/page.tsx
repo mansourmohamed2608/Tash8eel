@@ -58,9 +58,6 @@ interface MerchantSettings {
     whatsappNumber: string | null;
     paymentRemindersEnabled: boolean;
     lowStockAlertsEnabled: boolean;
-    autoPaymentLinkOnConfirm: boolean;
-    requireCustomerContactForPaymentLink: boolean;
-    paymentLinkChannel: string;
   };
   preferences: {
     timezone: string;
@@ -95,9 +92,6 @@ const defaultSettings: MerchantSettings = {
     whatsappNumber: null,
     paymentRemindersEnabled: true,
     lowStockAlertsEnabled: true,
-    autoPaymentLinkOnConfirm: false,
-    requireCustomerContactForPaymentLink: true,
-    paymentLinkChannel: "WHATSAPP",
   },
   preferences: {
     timezone: "Africa/Cairo",

@@ -4,6 +4,7 @@ import {
   ExecutionContext,
   UnauthorizedException,
   ForbiddenException,
+  ServiceUnavailableException,
   Inject,
   Logger,
 } from "@nestjs/common";
@@ -115,11 +116,16 @@ export class MerchantApiKeyGuard implements CanActivate {
             throw new UnauthorizedException("Staff account is inactive.");
           }
 
-          // Reject tokens issued before last password change or security event
+          // Reject tokens issued before last password change or security event.
+          // JWT iat is in whole seconds; updated_at has millisecond precision.
+          // A 5-second grace window prevents false rejections when a token is
+          // issued in the same second that the staff row was written (e.g. on
+          // first login after the row was seeded/recreated).
           if (payload.iat && staff.updated_at) {
             const updatedAt = new Date(staff.updated_at).getTime();
             const issuedAt = payload.iat * 1000;
-            if (issuedAt < updatedAt) {
+            const GRACE_MS = 5000;
+            if (issuedAt < updatedAt - GRACE_MS) {
               throw new UnauthorizedException(
                 "Token invalidated by security event. Please log in again.",
               );
@@ -133,6 +139,33 @@ export class MerchantApiKeyGuard implements CanActivate {
           this.assertMerchantScope(request, staffMerchantId);
           return true;
         } catch (error) {
+          // Re-throw intentional HTTP exceptions (UnauthorizedException,
+          // ForbiddenException) so the correct status code is preserved.
+          // Only wrap unexpected errors (e.g. jwt.verify throws) as 401.
+          if (
+            error instanceof UnauthorizedException ||
+            error instanceof ForbiddenException
+          ) {
+            throw error;
+          }
+          // DB connection errors (Neon drop / ENOTFOUND / ECONNRESET) must NOT
+          // be reported as 401 — that would sign the user out.  Return 503 so
+          // the portal can show a "retry" message instead.
+          const errMsg: string = (error as any)?.message ?? "";
+          const isDbError =
+            errMsg.includes("ENOTFOUND") ||
+            errMsg.includes("ECONNRESET") ||
+            errMsg.includes("ECONNREFUSED") ||
+            errMsg.includes("Connection terminated") ||
+            errMsg.includes("connection error") ||
+            errMsg.includes("not queryable") ||
+            errMsg.includes("connection timeout") ||
+            errMsg.includes("getaddrinfo");
+          if (isDbError) {
+            throw new ServiceUnavailableException(
+              "الخادم غير متاح مؤقتاً، حاول مرة أخرى.",
+            );
+          }
           throw new UnauthorizedException("Invalid or expired token.");
         }
       }

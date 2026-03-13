@@ -58,6 +58,12 @@ interface PaymentProof {
   extractedSender?: string;
   extractedDate?: string;
   ocrConfidence: number | null;
+  riskScore?: number;
+  riskLevel?: "LOW" | "MEDIUM" | "HIGH";
+  riskFlags?: string[];
+  manualReviewRequired?: boolean;
+  duplicateOfProofId?: string;
+  duplicateDistance?: number | null;
   status: "PENDING" | "APPROVED" | "REJECTED";
   verifiedAt?: string;
   verifiedBy?: string;
@@ -226,6 +232,17 @@ export default function PaymentProofsPage() {
     }
   };
 
+  const getRiskBadge = (level?: string, score?: number) => {
+    const label = `${level || "LOW"} (${Number(score || 0)})`;
+    if (level === "HIGH") {
+      return <Badge className="bg-red-100 text-red-800">{label}</Badge>;
+    }
+    if (level === "MEDIUM") {
+      return <Badge className="bg-amber-100 text-amber-800">{label}</Badge>;
+    }
+    return <Badge className="bg-emerald-100 text-emerald-800">{label}</Badge>;
+  };
+
   const pendingCount = summary.pending;
   const approvedCount = summary.approved;
   const rejectedCount = summary.rejected;
@@ -335,7 +352,7 @@ export default function PaymentProofsPage() {
 
       {/* Proofs List */}
       {loading ? (
-        <TableSkeleton rows={5} columns={6} />
+        <TableSkeleton rows={5} columns={7} />
       ) : proofs.length === 0 ? (
         <EmptyState
           icon={<Receipt className="h-12 w-12" />}
@@ -382,6 +399,11 @@ export default function PaymentProofsPage() {
                 key: "ocrConfidence",
                 header: "ثقة OCR",
                 render: (proof) => getConfidenceBadge(proof.ocrConfidence),
+              },
+              {
+                key: "risk",
+                header: "Risk",
+                render: (proof) => getRiskBadge(proof.riskLevel, proof.riskScore),
               },
               {
                 key: "status",
@@ -489,7 +511,32 @@ export default function PaymentProofsPage() {
                       : "غير متاح"}
                   </p>
                 </div>
+                <div className="space-y-2">
+                  <Label>Risk score</Label>
+                  <div>{getRiskBadge(selectedProof.riskLevel, selectedProof.riskScore)}</div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Duplicate image</Label>
+                  <p>
+                    {selectedProof.duplicateOfProofId
+                      ? `Yes (distance ${selectedProof.duplicateDistance ?? "-"})`
+                      : "No"}
+                  </p>
+                </div>
               </div>
+
+              {selectedProof.riskFlags && selectedProof.riskFlags.length > 0 && (
+                <div className="rounded-lg border p-3">
+                  <Label className="mb-2 block">Risk flags</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedProof.riskFlags.map((flag) => (
+                      <Badge key={flag} variant="outline">
+                        {flag}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {selectedProof.verificationHints &&
                 selectedProof.verificationHints.length > 0 && (

@@ -4,6 +4,7 @@ import OpenAI from "openai";
 import { z } from "zod";
 import { createLogger } from "../../shared/logging/logger";
 import { MERCHANT_REPOSITORY, IMerchantRepository } from "../../domain/ports";
+import { AiMetricsService } from "../../shared/services/ai-metrics.service";
 import { getTodayDate } from "../../shared/utils/helpers";
 
 const logger = createLogger("OpsAiService");
@@ -158,6 +159,7 @@ export class OpsAiService {
     private configService: ConfigService,
     @Inject(MERCHANT_REPOSITORY)
     private merchantRepository: IMerchantRepository,
+    private readonly aiMetrics: AiMetricsService,
   ) {
     const apiKey = this.configService.get<string>("OPENAI_API_KEY");
     if (apiKey) {
@@ -515,6 +517,7 @@ ${context.deliveryFee ? `رسوم التوصيل: ${context.deliveryFee} ج.م` 
 - استخدم {price} أو {delivery_fee} كمتغيرات لو محتاج تذكر أرقام
 - خلّي الرد يحسس العميل إنك فاهمه مش بتبيعله وخلاص`;
 
+      const _t0 = Date.now();
       const completion = await this.client.chat.completions.create({
         model: this.model,
         messages: [
@@ -533,11 +536,25 @@ ${context.deliveryFee ? `رسوم التوصيل: ${context.deliveryFee} ج.م` 
       const tokensUsed = completion.usage?.total_tokens || 0;
 
       await this.recordUsage(merchantId, tokensUsed);
+      void this.aiMetrics.record({
+        serviceName: "OpsAiService",
+        methodName: "generateObjectionResponse",
+        merchantId,
+        outcome: "success",
+        tokensUsed,
+        latencyMs: Date.now() - _t0,
+      });
 
       return { success: true, response, tokensUsed };
     } catch (err) {
       logger.error("AI objection response failed", err as Error, {
         merchantId,
+      });
+      void this.aiMetrics.record({
+        serviceName: "OpsAiService",
+        methodName: "generateObjectionResponse",
+        merchantId,
+        outcome: "error",
       });
       return { success: false, error: "AI generation failed" };
     }

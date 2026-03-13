@@ -2,9 +2,9 @@ import { Injectable, Logger, Inject } from "@nestjs/common";
 import { Cron, CronExpression } from "@nestjs/schedule";
 import { Pool } from "pg";
 import { DATABASE_POOL } from "../../infrastructure/database/database.module";
-import { OutboxService } from "../events/outbox.service";
-import { EVENT_TYPES } from "../events/event-types";
+import { NotificationsService } from "../services/notifications.service";
 import { RedisService } from "../../infrastructure/redis/redis.service";
+import { FinanceAiService } from "../llm/finance-ai.service";
 
 interface DailyStats {
   merchantId: string;
@@ -31,8 +31,9 @@ export class DailyReportScheduler {
 
   constructor(
     @Inject(DATABASE_POOL) private readonly pool: Pool,
-    private readonly outboxService: OutboxService,
+    private readonly notificationsService: NotificationsService,
     private readonly redisService: RedisService,
+    private readonly financeAiService: FinanceAiService,
   ) {}
 
   /**
@@ -63,9 +64,11 @@ export class DailyReportScheduler {
         dateTo: today.toISOString(),
       });
 
-      // Get all active merchants
+      // Get all active merchants with WhatsApp contact info
       const merchantsResult = await this.pool.query(
-        `SELECT id, name FROM merchants WHERE is_active = true`,
+        `SELECT id, name, whatsapp_number,
+                COALESCE(whatsapp_reports_enabled, true) AS wa_enabled
+         FROM merchants WHERE is_active = true`,
       );
 
       for (const merchant of merchantsResult.rows) {
@@ -77,7 +80,33 @@ export class DailyReportScheduler {
             today,
           );
 
-          await this.sendDailyReport(stats);
+          const ownerPhone = merchant.wa_enabled ? (merchant.whatsapp_number ?? null) : null;
+          // Try AI insight (non-blocking, best-effort)
+          let aiInsight: string | null = null;
+          try {
+            const aiResult = await this.financeAiService.generateAnomalyNarrative({
+              merchantId: merchant.id,
+              metrics: {
+                totalRevenue: stats.totalRevenue,
+                totalCogs: 0,
+                grossProfit: stats.totalRevenue * 0.4,
+                grossMargin: 40,
+                totalExpenses: 0,
+                netProfit: stats.totalRevenue * 0.25,
+                netMargin: 25,
+                codCollected: 0,
+                codPending: 0,
+                averageOrderValue: stats.averageOrderValue,
+                orderCount: stats.ordersCreated,
+              },
+              historicalAvg: { totalRevenue: stats.totalRevenue, orderCount: stats.ordersCreated },
+              periodType: "daily",
+            });
+            if (aiResult.success && aiResult.data?.hasAnomaly) {
+              aiInsight = `\n\n🤖 ملاحظة الذكاء الاصطناعي:\n${aiResult.data.narrativeAr}`;
+            }
+          } catch { /* non-fatal */ }
+          await this.sendDailyReport(stats, ownerPhone, aiInsight);
         } catch (error: any) {
           this.logger.error({
             msg: "Failed to generate report for merchant",
@@ -96,6 +125,13 @@ export class DailyReportScheduler {
         msg: "Error in daily report scheduler",
         error: error.message,
       });
+      try {
+        await this.pool.query(
+          `INSERT INTO job_failure_events (job_name, error_message, error_stack)
+           VALUES ($1, $2, $3)`,
+          ["daily-report-scheduler", error.message, error.stack ?? null],
+        );
+      } catch { /* non-fatal */ }
     } finally {
       await this.redisService.releaseLock(lock);
     }
@@ -209,30 +245,22 @@ export class DailyReportScheduler {
     };
   }
 
-  private async sendDailyReport(stats: DailyStats): Promise<void> {
+  private async sendDailyReport(stats: DailyStats, ownerPhone?: string | null, aiInsight?: string | null): Promise<void> {
     // Format report message in Arabic
-    const message = this.formatReportMessage(stats);
+    const message = this.formatReportMessage(stats) + (aiInsight ?? "");
 
-    // Publish merchant alert with daily report
-    await this.outboxService.publishEvent({
-      eventType: EVENT_TYPES.MERCHANT_ALERTED,
-      aggregateType: "merchant",
-      aggregateId: stats.merchantId,
-      merchantId: stats.merchantId,
-      payload: {
-        merchantId: stats.merchantId,
-        alertType: "daily_report",
-        message,
-        metadata: {
-          date: stats.date,
-          totalConversations: stats.totalConversations,
-          ordersCreated: stats.ordersCreated,
-          totalRevenue: stats.totalRevenue,
-          conversionRate: stats.conversionRate,
-          tokenUsage: stats.tokenUsage,
-        },
-      },
-    });
+    // Send directly via WhatsApp if merchant has a number configured
+    if (ownerPhone) {
+      try {
+        await this.notificationsService.sendBroadcastWhatsApp(ownerPhone, message);
+      } catch (err: any) {
+        this.logger.warn({
+          msg: "Failed to send daily report via WhatsApp",
+          merchantId: stats.merchantId,
+          error: err.message,
+        });
+      }
+    }
 
     this.logger.log({
       msg: "Daily report sent",
@@ -240,6 +268,7 @@ export class DailyReportScheduler {
       date: stats.date,
       orders: stats.ordersCreated,
       revenue: stats.totalRevenue,
+      viaWhatsApp: !!ownerPhone,
     });
   }
 

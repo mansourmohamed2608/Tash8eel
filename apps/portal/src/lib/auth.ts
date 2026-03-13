@@ -121,6 +121,7 @@ async function refreshAccessToken(token: any) {
       accessToken: refreshedTokens.accessToken,
       refreshToken: refreshedTokens.refreshToken ?? token.refreshToken,
       accessTokenExpires: Date.now() + 14 * 60 * 1000, // 14 minutes
+      error: undefined, // clear any previous error on successful refresh
     };
   } catch (error) {
     console.error("Error refreshing access token:", error);
@@ -199,13 +200,19 @@ export const authOptions: NextAuthOptions = {
             merchantId: data.staff.merchantId,
             accessToken: data.tokens.accessToken,
             refreshToken: data.tokens.refreshToken,
-            requiresPasswordChange: !!data.requiresPasswordChange,
+            requiresPasswordChange: false,
           };
         } catch (error) {
           console.error("Auth error:", error);
-          // If it's a network error (API not running), show friendly message
-          if (error instanceof TypeError && error.message.includes("fetch")) {
-            throw new Error("البريد الإلكتروني أو كلمة المرور غير صحيحة");
+          // Network error (API not reachable / restarting)
+          if (
+            error instanceof TypeError &&
+            (error.message.includes("fetch") ||
+              (error as any)?.cause?.code === "ECONNREFUSED")
+          ) {
+            throw new Error(
+              "تعذر الاتصال بالخادم. تأكد من تشغيل الخادم وأعد المحاولة.",
+            );
           }
           // Re-throw if it's our custom error message
           if (error instanceof Error) {
@@ -232,8 +239,9 @@ export const authOptions: NextAuthOptions = {
           merchantId: user.merchantId,
           accessToken: user.accessToken,
           refreshToken: user.refreshToken,
-          requiresPasswordChange: user.requiresPasswordChange,
+          requiresPasswordChange: false,
           accessTokenExpires: Date.now() + 14 * 60 * 1000, // 14 minutes
+          error: undefined, // clear any stale error from a previous session
         };
       }
 
@@ -270,7 +278,7 @@ export const authOptions: NextAuthOptions = {
       };
       session.accessToken = String(token.accessToken ?? "");
       session.error = token.error;
-      session.requiresPasswordChange = token.requiresPasswordChange;
+      session.requiresPasswordChange = false;
       return session;
     },
   },

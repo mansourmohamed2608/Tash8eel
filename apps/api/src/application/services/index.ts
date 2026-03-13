@@ -7,4 +7,6 @@ export * from "./loyalty.service";
 export * from "./notifications.service";
 export * from "./analytics.service";
 export * from "./driver-status.service";
+export * from "./usage-guard.service";
+export * from "./billing-catalog.service";
 export * from "./services.module";

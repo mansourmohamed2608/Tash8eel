@@ -781,6 +781,26 @@ export class MetaWhatsAppAdapter implements IMetaWhatsAppAdapter {
 
     const normalizedTo = to.replace(/^whatsapp:/, "").replace(/^\+/, "");
 
+    // Paid template quota enforcement (monthly)
+    const merchantMapping = await this.getMerchantByPhoneNumberId(pnId);
+    if (merchantMapping?.merchantId) {
+      const limit = await this.getMerchantPaidTemplateLimit(
+        merchantMapping.merchantId,
+      );
+      if (limit !== -1) {
+        const used = await this.getPaidTemplatesUsedThisMonth(
+          merchantMapping.merchantId,
+        );
+        if (used >= limit) {
+          return {
+            success: false,
+            errorCode: "PAID_TEMPLATE_LIMIT_EXCEEDED",
+            errorMessage: `Paid template monthly limit exceeded (${used}/${limit})`,
+          };
+        }
+      }
+    }
+
     try {
       const url = `${this.graphBaseUrl}/${this.apiVersion}/${pnId}/messages`;
       const payload: any = {
@@ -815,9 +835,27 @@ export class MetaWhatsAppAdapter implements IMetaWhatsAppAdapter {
         };
       }
 
+      const messageId = result.messages?.[0]?.id;
+      if (messageId) {
+        await this.logOutboundMessage(messageId, normalizedTo, templateName, pnId, {
+          ...result,
+          message_type: "template",
+          template_name: templateName,
+          language_code: languageCode,
+        });
+      }
+
+      if (merchantMapping?.merchantId) {
+        await this.recordPaidTemplateUsage(
+          merchantMapping.merchantId,
+          templateName,
+          pnId,
+        );
+      }
+
       return {
         success: true,
-        messageId: result.messages?.[0]?.id,
+        messageId,
         status: "sent",
       };
     } catch (error) {
@@ -931,6 +969,150 @@ export class MetaWhatsAppAdapter implements IMetaWhatsAppAdapter {
       status,
       errorCode,
     });
+  }
+
+  private async getMerchantPaidTemplateLimit(
+    merchantId: string,
+  ): Promise<number> {
+    try {
+      const result = await this.pool.query(
+        `SELECT to_jsonb(m) as merchant_json
+         FROM merchants m
+         WHERE m.id = $1
+         LIMIT 1`,
+        [merchantId],
+      );
+      const merchantJson = result.rows[0]?.merchant_json || {};
+      const limits = merchantJson.plan_limits || merchantJson.limits || {};
+      const value =
+        limits.paidTemplatesPerMonth ?? limits.paid_templates_per_month;
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? parsed : 15;
+    } catch {
+      return 15;
+    }
+  }
+
+  private async getPaidTemplatesUsedThisMonth(
+    merchantId: string,
+  ): Promise<number> {
+    const startOfMonth = new Date(
+      Date.UTC(
+        new Date().getUTCFullYear(),
+        new Date().getUTCMonth(),
+        1,
+        0,
+        0,
+        0,
+        0,
+      ),
+    );
+    const endOfMonth = new Date(
+      Date.UTC(
+        new Date().getUTCFullYear(),
+        new Date().getUTCMonth() + 1,
+        0,
+        23,
+        59,
+        59,
+        999,
+      ),
+    );
+    const periodStart = startOfMonth.toISOString().slice(0, 10);
+
+    try {
+      const aggregate = await this.pool.query(
+        `SELECT used_quantity
+         FROM usage_period_aggregates
+         WHERE merchant_id = $1
+           AND metric_key = 'PAID_TEMPLATES'
+           AND period_type = 'MONTHLY'
+           AND period_start = $2::date
+         LIMIT 1`,
+        [merchantId, periodStart],
+      );
+      const used = Number(aggregate.rows[0]?.used_quantity || 0);
+      if (Number.isFinite(used) && used > 0) {
+        return used;
+      }
+    } catch {
+      // fallback below
+    }
+
+    try {
+      const fallback = await this.pool.query(
+        `SELECT COUNT(*)::int as used
+         FROM usage_ledger
+         WHERE merchant_id = $1
+           AND metric_key = 'PAID_TEMPLATES'
+           AND period_type = 'MONTHLY'
+           AND period_start = $2::date
+           AND COALESCE(metadata->>'entryType', '') = 'CONSUME'`,
+        [merchantId, periodStart],
+      );
+      return Number(fallback.rows[0]?.used || 0);
+    } catch {
+      return 0;
+    }
+  }
+
+  private async recordPaidTemplateUsage(
+    merchantId: string,
+    templateName: string,
+    phoneNumberId: string,
+  ): Promise<void> {
+    const now = new Date();
+    const startOfMonth = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0, 0),
+    );
+    const endOfMonth = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0, 23, 59, 59, 999),
+    );
+    const periodStart = startOfMonth.toISOString().slice(0, 10);
+
+    try {
+      await this.pool.query(
+        `INSERT INTO usage_ledger (
+           merchant_id, metric_key, quantity, unit, period_type, period_start, period_end, metadata
+         ) VALUES ($1, 'PAID_TEMPLATES', 1, 'count', 'MONTHLY', $2::date, $3::date, $4::jsonb)`,
+        [
+          merchantId,
+          periodStart,
+          endOfMonth.toISOString().slice(0, 10),
+          JSON.stringify({
+            entryType: "CONSUME",
+            source: "META_TEMPLATE_SEND",
+            templateName,
+            phoneNumberId,
+          }),
+        ],
+      );
+    } catch {
+      // optional in legacy environments
+    }
+
+    try {
+      await this.pool.query(
+        `INSERT INTO usage_period_aggregates (
+           merchant_id, metric_key, period_type, period_start, period_end, used_quantity, metadata
+         ) VALUES ($1, 'PAID_TEMPLATES', 'MONTHLY', $2::date, $3::date, 1, $4::jsonb)
+         ON CONFLICT (merchant_id, metric_key, period_type, period_start)
+         DO UPDATE SET
+           used_quantity = usage_period_aggregates.used_quantity + 1,
+           updated_at = NOW()`,
+        [
+          merchantId,
+          periodStart,
+          endOfMonth.toISOString().slice(0, 10),
+          JSON.stringify({
+            source: "META_TEMPLATE_SEND",
+            templateName,
+          }),
+        ],
+      );
+    } catch {
+      // optional in legacy environments
+    }
   }
 
   // ============================================================================

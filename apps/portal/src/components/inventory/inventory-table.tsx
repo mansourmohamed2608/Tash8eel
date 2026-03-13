@@ -13,6 +13,7 @@ import {
   Trash2,
   ChevronDown,
   ArrowUp,
+  Sparkles,
 } from "lucide-react";
 import {
   cn,
@@ -43,6 +44,7 @@ interface InventoryTableProps {
   ) => void;
   onDeleteVariant: (variant: InventoryVariant) => void;
   onPageChange: (page: number) => void;
+  onGenerateAiDesc?: (item: InventoryItem) => void;
 }
 
 export function InventoryTable({
@@ -63,6 +65,7 @@ export function InventoryTable({
   onVariantStockUpdate,
   onDeleteVariant,
   onPageChange,
+  onGenerateAiDesc,
 }: InventoryTableProps) {
   if (inventory.length === 0) {
     return (
@@ -207,6 +210,19 @@ export function InventoryTable({
                             }}
                           >
                             <Edit className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {onGenerateAiDesc && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            title="توليد وصف ذكي"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onGenerateAiDesc(item);
+                            }}
+                          >
+                            <Sparkles className="h-4 w-4 text-purple-500" />
                           </Button>
                         )}
                         {canDelete && (

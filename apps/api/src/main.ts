@@ -3,8 +3,11 @@ import { ValidationPipe, Logger } from "@nestjs/common";
 import { SwaggerModule, DocumentBuilder } from "@nestjs/swagger";
 import helmet from "helmet";
 import { json, urlencoded } from "express";
+import { Pool } from "pg";
 import { AppModule } from "./app.module";
 import { initTelemetry } from "./shared/telemetry/opentelemetry";
+import { runPendingSqlMigrations } from "./infrastructure/database/sql-migrations";
+import { DATABASE_POOL } from "./infrastructure/database/database.module";
 
 async function bootstrap(): Promise<void> {
   const logger = new Logger("Bootstrap");
@@ -18,6 +21,7 @@ async function bootstrap(): Promise<void> {
       "ADMIN_API_KEY",
       "OPENAI_API_KEY",
       "CORS_ORIGINS",
+      "INTERNAL_CALL_SECRET",
     ];
 
     const missingVars = requiredEnvVars.filter((v) => !process.env[v]);
@@ -36,6 +40,14 @@ async function bootstrap(): Promise<void> {
     }
   }
 
+  const shouldRunSqlMigrations =
+    process.env.RUN_SQL_MIGRATIONS_ON_BOOT !== "false";
+  if (shouldRunSqlMigrations) {
+    logger.log("Checking pending SQL migrations...");
+    const migrationsRun = await runPendingSqlMigrations(logger);
+    logger.log(`SQL migrations ready (${migrationsRun} executed on boot)`);
+  }
+
   await initTelemetry("tash8eel-api");
 
   // Create app with default logger
@@ -45,8 +57,16 @@ async function bootstrap(): Promise<void> {
   app.use(json({ limit: "20mb" }));
   app.use(urlencoded({ extended: true, limit: "20mb" }));
 
-  // Security headers
-  app.use(helmet());
+  // Security headers — explicit HSTS (1 year + includeSubDomains; override helmet default of 180 days)
+  app.use(
+    helmet({
+      hsts: {
+        maxAge: 31536000, // 1 year in seconds
+        includeSubDomains: true,
+        preload: true,
+      },
+    }),
+  );
 
   // CORS - Secure configuration
   const corsOrigins = process.env.CORS_ORIGINS?.split(",").map((o) => o.trim());
@@ -145,10 +165,29 @@ Multi-tenant conversational commerce agent for Egyptian SMBs.
     res.status(200).json({ status: "ok", timestamp: new Date().toISOString() });
   });
 
-  app.use("/ready", (req: any, res: any) => {
-    res
-      .status(200)
-      .json({ status: "ready", timestamp: new Date().toISOString() });
+  // Readiness probe: verify DB (and optionally Redis) are reachable before
+  // accepting traffic. Kubernetes / load balancers will mark the pod as
+  // NOT READY if this returns non-2xx.
+  app.use("/ready", async (req: any, res: any) => {
+    try {
+      const pool = app.get<Pool>(DATABASE_POOL, { strict: false });
+      if (!pool) {
+        return res.status(503).json({
+          status: "not ready",
+          error: "database pool not initialized",
+          timestamp: new Date().toISOString(),
+        });
+      }
+      await pool.query("SELECT 1");
+      res.status(200).json({ status: "ready", timestamp: new Date().toISOString() });
+    } catch (err: any) {
+      logger.error(`Readiness probe failed: ${err?.message}`);
+      res.status(503).json({
+        status: "not ready",
+        error: "database unavailable",
+        timestamp: new Date().toISOString(),
+      });
+    }
   });
 
   // Start server

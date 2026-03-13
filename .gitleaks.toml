@@ -1,0 +1,51 @@
+# Gitleaks configuration
+# Extends the default ruleset and adds project-specific rules.
+# See: https://github.com/gitleaks/gitleaks
+
+title = "Tash8eel Secret Scanner"
+
+[extend]
+# Use the upstream default rules
+useDefault = true
+
+# ============================================================================
+# Project-specific allowlists
+# ============================================================================
+
+[[rules]]
+description = "Neon PostgreSQL password pattern"
+id = "neon-pg-password"
+regex = '''npg_[A-Za-z0-9]{10,}'''
+tags = ["key", "database", "neon"]
+
+[[rules]]
+description = "Tash8eel ADMIN_API_KEY placeholder detection"
+id = "weak-admin-key"
+regex = '''admin-secret-key-change'''
+tags = ["key", "admin"]
+
+[allowlist]
+description = "Allowed patterns (tests, documentation)"
+regexes = [
+  # Dummy API keys explicitly used in tests/CI
+  '''sk-test-dummy''',
+  # Placeholder values in .env.example (not real secrets)
+  '''CHANGE_ME''',
+  '''your-super-secret-key-change''',
+]
+paths = [
+  # Node modules are never scanned
+  '''node_modules''',
+  # Build outputs
+  '''dist''',
+  '''.next''',
+  # Known-safe example files
+  '''.env.example''',
+  '''\.env\.example$''',
+]
+commits = []
+stopwords = [
+  "CHANGE_ME",
+  "your-super-secret",
+  "change-in-production",
+]

@@ -58,11 +58,6 @@ function LoginForm() {
         // Redirect based on role
         // ADMIN goes to admin dashboard (system admin only)
         // OWNER, MANAGER, STAFF go to merchant dashboard
-        if (session?.requiresPasswordChange) {
-          window.location.href = "/merchant/change-password";
-          return;
-        }
-
         const targetUrl =
           session?.user?.role === "ADMIN" &&
           session?.user?.merchantId === "system"

@@ -49,7 +49,6 @@ export function NotificationBell() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [loadFailed, setLoadFailed] = useState(false);
 
   const fetchNotifications = useCallback(async () => {
     if (!merchantId) return;
@@ -60,21 +59,25 @@ export function NotificationBell() {
         response = await portalApi.getPortalNotifications({
           unreadOnly: false,
         });
-      } catch {
+      } catch (err) {
+        console.warn("[bell] getPortalNotifications failed:", err);
         response = null;
       }
 
-      if (
-        (!response?.notifications || response.notifications.length === 0) &&
-        merchantId
-      ) {
-        response = await portalApi.getNotifications(merchantId, {
-          limit: 20,
-          unreadOnly: false,
-        });
+      if (!response?.notifications?.length && merchantId) {
+        try {
+          response = await portalApi.getNotifications(merchantId, {
+            unreadOnly: false,
+            limit: 50,
+            offset: 0,
+          });
+        } catch (err) {
+          console.error("[bell] getNotifications fallback failed:", err);
+          throw err;
+        }
       }
 
-      const rows = response?.notifications || [];
+      const rows = (response?.notifications || []) as any[];
       const mapped: Notification[] = rows.map((item: any) => ({
         id: String(item?.id || ""),
         type: String(item?.type || "SYSTEM_ALERT"),
@@ -112,28 +115,34 @@ export function NotificationBell() {
       const result = await loadNotifications();
       setNotifications(result.notifications);
       setUnreadCount(result.unreadCount);
-      setLoadFailed(false);
     } catch (err) {
+      console.error("[bell] first attempt failed, retrying:", err);
       try {
         const result = await loadNotifications();
         setNotifications(result.notifications);
         setUnreadCount(result.unreadCount);
-        setLoadFailed(false);
       } catch (retryErr) {
-        console.error("Failed to fetch notifications:", retryErr || err);
-        setLoadFailed(true);
+        console.error("[bell] retry also failed:", retryErr);
+        // silently ignore — bell keeps showing whatever was last loaded
       }
     } finally {
       setLoading(false);
     }
   }, [merchantId]);
 
+  // Re-run whenever merchantLoading flips to false (session becomes available)
   useEffect(() => {
     fetchNotifications();
-    // Poll for new notifications every 30 seconds
     const interval = setInterval(fetchNotifications, 30000);
     return () => clearInterval(interval);
   }, [fetchNotifications]);
+
+  // Refresh data every time the user opens the popover
+  useEffect(() => {
+    if (open) {
+      fetchNotifications();
+    }
+  }, [open, fetchNotifications]);
 
   const handleMarkAsRead = async (notificationId: string) => {
     if (!merchantId) return;
@@ -193,14 +202,6 @@ export function NotificationBell() {
           {loading && notifications.length === 0 ? (
             <div className="flex items-center justify-center py-8">
               <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
-            </div>
-          ) : loadFailed ? (
-            <div className="flex flex-col items-center justify-center py-10 text-muted-foreground gap-3">
-              <BellOff className="h-10 w-10 opacity-50" />
-              <p>تعذر تحميل الإشعارات</p>
-              <Button variant="outline" size="sm" onClick={fetchNotifications}>
-                إعادة المحاولة
-              </Button>
             </div>
           ) : notifications.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">

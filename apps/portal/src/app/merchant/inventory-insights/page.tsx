@@ -49,7 +49,21 @@ import {
   Target,
   Gauge,
   Factory,
+  Send,
+  Loader2,
+  CheckCircle2,
+  MessageSquare,
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import portalApi from "@/lib/authenticated-api";
 import { useMerchant } from "@/hooks/use-merchant";
 import {
@@ -282,6 +296,16 @@ export default function InventoryInsightsPage() {
     configured: false,
     active: false,
   });
+
+  // Supplier send dialog
+  const [showSupplierDialog, setShowSupplierDialog] = useState(false);
+  const [supplierPhone, setSupplierPhone] = useState("");
+  const [supplierName, setSupplierName] = useState("");
+  const [supplierMsg, setSupplierMsg] = useState("");
+  const [sendingSupplier, setSendingSupplier] = useState(false);
+  const [supplierSendResult, setSupplierSendResult] = useState<string | null>(null);
+  const [supplierSendError, setSupplierSendError] = useState<string | null>(null);
+  const [generatingSupplierMsg, setGeneratingSupplierMsg] = useState(false);
   const [periodDays, setPeriodDays] = useState<number>(() =>
     getStoredReportingDays(30),
   );
@@ -1724,13 +1748,40 @@ export default function InventoryInsightsPage() {
           ) : (
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <TrendingUp className="h-5 w-5" />
-                  توصيات إعادة التخزين
-                </CardTitle>
-                <CardDescription>
-                  مرتبة حسب الأولوية — المنتجات الحرجة أولاً
-                </CardDescription>
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <TrendingUp className="h-5 w-5" />
+                      توصيات إعادة التخزين
+                    </CardTitle>
+                    <CardDescription>
+                      مرتبة حسب الأولوية — المنتجات الحرجة أولاً
+                    </CardDescription>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      // Pre-populate message with critical restock items
+                      const criticalItems = restockItems
+                        .filter((i) => i.urgency === "critical" || i.urgency === "high")
+                        .slice(0, 10);
+                      if (criticalItems.length > 0) {
+                        const itemLines = criticalItems
+                          .map((i) => `• ${i.productName}: ${i.recommendedQty > 0 ? i.recommendedQty : "راجع الكمية"} وحدة`)
+                          .join("\n");
+                        setSupplierMsg(`مرحباً ${supplierName || ""},\n\nنحتاج إعادة توريد للمنتجات التالية:\n${itemLines}\n\nيرجى التأكيد في أقرب وقت.`);
+                      }
+                      setSupplierSendResult(null);
+                      setSupplierSendError(null);
+                      setShowSupplierDialog(true);
+                    }}
+                    className="shrink-0"
+                  >
+                    <MessageSquare className="h-4 w-4 ml-1" />
+                    إرسال للمورّد
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent>
                 <Table>
@@ -3186,6 +3237,156 @@ export default function InventoryInsightsPage() {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Supplier Message Dialog */}
+      <Dialog open={showSupplierDialog} onOpenChange={setShowSupplierDialog}>
+        <DialogContent className="max-w-md" dir="rtl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MessageSquare className="h-5 w-5 text-blue-500" />
+              إرسال طلب للمورّد عبر واتساب
+            </DialogTitle>
+            <DialogDescription>
+              أرسل رسالة واتساب مباشرة لمورّدك بطلب إعادة التخزين
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-3">
+            <div className="space-y-2">
+              <Label>اسم المورّد (اختياري)</Label>
+              <Input
+                placeholder="مثال: شركة التوريدات المتحدة"
+                value={supplierName}
+                onChange={(e) => setSupplierName(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>رقم واتساب المورّد</Label>
+              <Input
+                placeholder="مثال: 201234567890"
+                value={supplierPhone}
+                onChange={(e) => setSupplierPhone(e.target.value.replace(/\D/g, ""))}
+                dir="ltr"
+                type="tel"
+              />
+              <p className="text-xs text-muted-foreground">
+                أدخل الرقم بالكود الدولي (بدون +)
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <MessageSquare className="h-4 w-4" />
+                نص الرسالة
+              </Label>
+              <div className="flex gap-2 mb-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={generatingSupplierMsg}
+                  onClick={async () => {
+                    setGeneratingSupplierMsg(true);
+                    try {
+                      const criticalItems = restockItems
+                        .filter((i) => i.urgency === "critical" || i.urgency === "high")
+                        .slice(0, 10);
+                      const itemsText = criticalItems.length > 0
+                        ? criticalItems.map((i) => `${i.productName} (${i.recommendedQty} وحدة)`).join("، ")
+                        : "منتجات تحتاج إعادة تخزين";
+                      const r = await portalApi.chatWithAssistant(
+                        `اكتب رسالة واتساب مختصرة ومهنية لمورّد لطلب توريد المنتجات التالية:
+${itemsText}
+اسم المورّد: ${supplierName || "السيد/ة المورّد"}
+اكتب بالعربية الرسمية. اجعلها مهنية ومختصرة (4-5 أسطر).
+أرجع نص الرسالة فقط.`,
+                      );
+                      if (r.reply) setSupplierMsg(r.reply);
+                    } catch {}
+                    setGeneratingSupplierMsg(false);
+                  }}
+                  className="text-purple-700 border-purple-300 hover:bg-purple-50"
+                >
+                  {generatingSupplierMsg ? (
+                    <Loader2 className="h-3 w-3 animate-spin ml-1" />
+                  ) : (
+                    <Zap className="h-3 w-3 ml-1" />
+                  )}
+                  اقتراح بالذكاء الاصطناعي
+                </Button>
+              </div>
+              <Textarea
+                value={supplierMsg}
+                onChange={(e) => setSupplierMsg(e.target.value)}
+                rows={6}
+                className="text-sm"
+                placeholder="أدخل نص الرسالة أو استخدم الذكاء الاصطناعي..."
+              />
+            </div>
+
+            {supplierSendError && (
+              <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 dark:bg-red-950 p-3 rounded-lg">
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+                {supplierSendError}
+              </div>
+            )}
+            {supplierSendResult && (
+              <div className="flex items-center gap-2 text-sm text-green-600 bg-green-50 dark:bg-green-950 p-3 rounded-lg">
+                <CheckCircle2 className="h-4 w-4 shrink-0" />
+                {supplierSendResult}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowSupplierDialog(false)}
+              disabled={sendingSupplier}
+            >
+              إلغاء
+            </Button>
+            <Button
+              onClick={async () => {
+                if (!supplierPhone.trim() || !supplierMsg.trim()) {
+                  setSupplierSendError("يرجى إدخال رقم المورّد ونص الرسالة");
+                  return;
+                }
+                setSendingSupplier(true);
+                setSupplierSendError(null);
+                setSupplierSendResult(null);
+                try {
+                  await portalApi.sendSupplierMessage({
+                    supplierPhone: supplierPhone.trim(),
+                    message: supplierMsg.trim(),
+                    supplierName: supplierName.trim() || undefined,
+                  });
+                  setSupplierSendResult("تم إرسال الرسالة للمورّد بنجاح ✓");
+                  setShowSupplierDialog(false);
+                } catch (err: any) {
+                  setSupplierSendError(err?.message || "فشل إرسال الرسالة للمورّد");
+                } finally {
+                  setSendingSupplier(false);
+                }
+              }}
+              disabled={sendingSupplier || !supplierPhone.trim() || !supplierMsg.trim()}
+            >
+              {sendingSupplier ? (
+                <>
+                  <Loader2 className="h-4 w-4 ml-2 animate-spin" />
+                  جاري الإرسال...
+                </>
+              ) : (
+                <>
+                  <Send className="h-4 w-4 ml-2" />
+                  إرسال عبر واتساب
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

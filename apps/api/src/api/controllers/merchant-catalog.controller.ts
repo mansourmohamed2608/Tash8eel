@@ -41,6 +41,10 @@ import {
 } from "../../domain/ports/merchant.repository";
 import { CatalogItem } from "../../domain/entities/catalog.entity";
 import { MerchantApiKeyGuard } from "../../shared/guards/merchant-api-key.guard";
+import { Pool } from "pg";
+import {
+  DATABASE_POOL,
+} from "../../infrastructure/database/database.module";
 
 interface PaginatedResponse<T> {
   items: T[];
@@ -67,7 +71,24 @@ export class MerchantCatalogController {
     private readonly catalogRepo: ICatalogRepository,
     @Inject(MERCHANT_REPOSITORY)
     private readonly merchantRepo: IMerchantRepository,
+    @Inject(DATABASE_POOL)
+    private readonly pool: Pool,
   ) {}
+
+  /** Fire-and-forget: enqueue catalog item for embedding generation */
+  private enqueueEmbedding(catalogItemId: string): void {
+    this.pool
+      .query(
+        `INSERT INTO catalog_embedding_jobs (id, catalog_item_id, status, created_at, updated_at)
+         VALUES (gen_random_uuid(), $1, 'pending', NOW(), NOW())
+         ON CONFLICT (catalog_item_id) DO UPDATE
+           SET status = 'pending', updated_at = NOW()`,
+        [catalogItemId],
+      )
+      .catch((err) =>
+        this.logger.warn(`Failed to enqueue embedding for ${catalogItemId}: ${err.message}`),
+      );
+  }
 
   private getMerchantId(req: Request): string {
     return (req as any).merchantId as string;
@@ -212,6 +233,8 @@ export class MerchantCatalogController {
       itemId: item.id,
     });
 
+    this.enqueueEmbedding(item.id);
+
     return this.toResponseDto(item);
   }
 
@@ -263,6 +286,8 @@ export class MerchantCatalogController {
 
     await this.catalogRepo.update(itemId, updateData as any);
     const updated = await this.catalogRepo.findById(itemId);
+
+    this.enqueueEmbedding(itemId);
 
     return this.toResponseDto(updated!);
   }

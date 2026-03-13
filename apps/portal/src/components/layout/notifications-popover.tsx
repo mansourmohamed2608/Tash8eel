@@ -36,13 +36,18 @@ interface Notification {
 }
 
 export function NotificationsPopover() {
-  const { merchantId } = useMerchant();
+  const { merchantId, isDemo } = useMerchant();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
   const [open, setOpen] = useState(false);
 
   const fetchNotifications = useCallback(async () => {
+    // Skip Bearer-auth endpoint in demo mode — no session token available.
+    if (isDemo) {
+      setLoading(false);
+      return;
+    }
     const loadNotifications = async (): Promise<Notification[]> => {
       const response = await portalApi.getPortalNotifications({
         unreadOnly: false,
@@ -91,31 +96,45 @@ export function NotificationsPopover() {
       setNotifications(mapped);
       setLoadFailed(false);
     } catch (error) {
-      // Retry once for transient backend/proxy failures.
-      try {
-        const mapped = await loadNotifications();
-        mapped.sort((a, b) => {
-          const aTime = Date.parse(a.timestamp || "");
-          const bTime = Date.parse(b.timestamp || "");
-          return (
-            (Number.isNaN(bTime) ? 0 : bTime) -
-            (Number.isNaN(aTime) ? 0 : aTime)
-          );
-        });
-        setNotifications(mapped);
-        setLoadFailed(false);
-      } catch (retryError) {
-        console.error("Failed to fetch notifications:", retryError || error);
-        // Keep previous notifications to avoid badge flicker/disappear on intermittent failures.
+      const errorStatus = (error as any)?.status;
+      // 403/404 are permanent errors — no point retrying.
+      if (errorStatus === 403 || errorStatus === 404) {
+        // Silently swallow plan-limitation errors — expected in dev/demo.
         setLoadFailed(true);
+      } else {
+        // Retry once for transient backend/proxy failures (503, network error, etc.).
+        try {
+          const mapped = await loadNotifications();
+          mapped.sort((a, b) => {
+            const aTime = Date.parse(a.timestamp || "");
+            const bTime = Date.parse(b.timestamp || "");
+            return (
+              (Number.isNaN(bTime) ? 0 : bTime) -
+              (Number.isNaN(aTime) ? 0 : aTime)
+            );
+          });
+          setNotifications(mapped);
+          setLoadFailed(false);
+        } catch (retryError) {
+          const finalError = retryError || error;
+          const finalStatus = (finalError as any)?.status;
+          // 503 = API not yet started (ECONNREFUSED during startup race) — expected.
+          if (finalStatus !== 503) {
+            console.error("Failed to fetch notifications:", finalError);
+          }
+          // Keep previous notifications to avoid badge flicker/disappear on intermittent failures.
+          setLoadFailed(true);
+        }
       }
     } finally {
       setLoading(false);
     }
-  }, [merchantId]);
+  }, [merchantId, isDemo]);
 
   useEffect(() => {
     fetchNotifications();
+    // Fixed 30s interval. Do NOT include loadFailed in deps — changing loadFailed would
+    // re-run this effect and immediately fire another request, creating a rapid burst loop.
     const interval = setInterval(fetchNotifications, 30000);
     return () => clearInterval(interval);
   }, [fetchNotifications]);

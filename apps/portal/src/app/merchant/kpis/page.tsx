@@ -397,14 +397,14 @@ export default function KpisPage() {
               <StatCard
                 title="معدل استرداد السلات"
                 value={formatPercentValue(recoveredCarts?.recoveryRate || 0)}
-                subtitle={`${recoveredCarts?.totalRecovered || 0} من ${(recoveredCarts?.totalRecovered || 0) + (recoveredCarts?.totalAbandoned || 0)}`}
+                subtitle={`مسترد: ${recoveredCarts?.totalRecovered || 0} / ${(recoveredCarts?.totalRecovered || 0) + (recoveredCarts?.totalAbandoned || 0)} سلة`}
                 icon={ShoppingCart}
                 color="green"
               />
               <StatCard
                 title="معدل فشل التوصيل"
                 value={formatPercentValue(deliveryFailures?.failureRate || 0)}
-                subtitle={`${deliveryFailures?.totalFailures || 0} فشل من ${deliveryFailures?.totalDeliveries || 0}`}
+                subtitle={`فاشل: ${deliveryFailures?.totalFailures || 0} / ${deliveryFailures?.totalDeliveries || 0} توصيلة`}
                 icon={Truck}
                 trendGood="down"
                 color="red"
@@ -412,7 +412,7 @@ export default function KpisPage() {
               <StatCard
                 title="نجاح الوكيل الذكي"
                 value={formatPercentValue(agentPerformance?.successRate || 0)}
-                subtitle={`${agentPerformance?.successfulTasks || 0} مهمة ناجحة`}
+                subtitle={`ناجح: ${agentPerformance?.successfulTasks || 0} / ${agentPerformance?.totalTasks || agentPerformance?.totalInteractions || 0} مهمة`}
                 icon={Bot}
                 color="purple"
               />

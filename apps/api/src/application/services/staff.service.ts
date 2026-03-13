@@ -741,7 +741,7 @@ export class StaffService {
     );
 
     const refreshToken = jwt.sign(
-      { staffId: staff.id, type: "refresh" },
+      { staffId: staff.id, type: "refresh", jti: crypto.randomBytes(16).toString("hex") },
       this.jwtRefreshSecret,
       { expiresIn: this.refreshTokenExpiry },
     );

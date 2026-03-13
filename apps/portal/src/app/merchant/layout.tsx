@@ -71,8 +71,8 @@ const FEATURE_GATES: Array<{
   {
     prefix: "/merchant/vision",
     featureKey: "vision",
-    title: "الذكاء البصري غير مفعّل",
-    description: "ترقية لاستخدام الرؤية البصرية وتحليل الصور.",
+    title: "OCR العام غير متاح",
+    description: "OCR متاح فقط ضمن مسار التحقق من إثباتات الدفع.",
   },
   {
     prefix: "/merchant/loyalty",
@@ -93,10 +93,10 @@ const FEATURE_GATES: Array<{
     description: "ترقية لإضافة أعضاء الفريق والصلاحيات.",
   },
   {
-    prefix: "/merchant/webhooks",
+    prefix: "/merchant/pos-integrations",
     featureKey: "webhooks",
     title: "التكاملات غير مفعّلة",
-    description: "ترقية لتفعيل الـ Webhooks والتكاملات.",
+    description: "ترقية لتفعيل POS Integrations والتكاملات.",
   },
   {
     prefix: "/merchant/integrations",
@@ -118,7 +118,7 @@ const BLOCKED_ROUTES = [
   "/merchant/campaigns", // Marketing Agent — coming soon
   "/merchant/customer-segments", // Marketing Agent — coming soon
   "/merchant/webhooks", // Replaced by POS integrations
-  "/merchant/vision", // Vision AI — not launched yet
+  "/merchant/vision", // General OCR removed (payment-proof workflow only)
   "/merchant/quotes", // Quote requests — not launched yet
   "/merchant/pricing", // Old pricing page — replaced by /merchant/plan
   "/merchant/ocr-review", // OCR review — internal/not launched yet

@@ -6,6 +6,9 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL
 let lastConnectionStatus: "connected" | "disconnected" | "unknown" = "unknown";
 let lastConnectionError: string | null = null;
 
+// Prevent multiple concurrent 401s from each triggering their own redirect
+let isSigningOut = false;
+
 const sanitizeErrorMessage = (message: unknown, status?: number) => {
   if (message === undefined || message === null) return "";
   const safeMessage = typeof message === "string" ? message : String(message);
@@ -139,8 +142,23 @@ export async function apiFetch<T>(
 
       // 401 = invalid/expired token → redirect to login
       if (response.status === 401 && typeof window !== "undefined") {
-        window.location.href = "/login";
+        if (!isSigningOut) {
+          isSigningOut = true;
+          window.location.href = "/login";
+        }
         return new Promise(() => {}) as T; // never resolves, page is redirecting
+      }
+
+      // 503 = server/DB temporarily unavailable — do NOT sign the user out.
+      // Throw a retryable error so the UI can show a friendly message.
+      if (response.status === 503) {
+        lastConnectionStatus = "disconnected";
+        const msg = (error as any)?.message;
+        throw new Error(
+          typeof msg === "string" && msg
+            ? sanitizeErrorMessage(msg, 503)
+            : "الخادم غير متاح مؤقتاً. حاول مرة أخرى بعد لحظة.",
+        );
       }
 
       const rawMessage = error.message || `HTTP ${response.status}`;
@@ -326,9 +344,6 @@ export const merchantApi = {
         notificationPhone: string | null;
         paymentRemindersEnabled: boolean;
         lowStockAlertsEnabled: boolean;
-        autoPaymentLinkOnConfirm?: boolean;
-        requireCustomerContactForPaymentLink?: boolean;
-        paymentLinkChannel?: string;
       };
       preferences: {
         timezone: string;
@@ -357,9 +372,6 @@ export const merchantApi = {
         notificationPhone?: string | null;
         paymentRemindersEnabled?: boolean;
         lowStockAlertsEnabled?: boolean;
-        autoPaymentLinkOnConfirm?: boolean;
-        requireCustomerContactForPaymentLink?: boolean;
-        paymentLinkChannel?: string;
       };
       preferences?: {
         timezone?: string;
@@ -386,9 +398,12 @@ export const merchantApi = {
     );
   },
 
-  async getOrders(merchantId: string, apiKey: string, status?: string) {
-    let url = "/v1/portal/orders";
-    if (status) url += `?status=${status}`;
+  async getOrders(merchantId: string, apiKey: string, status?: string, branchId?: string) {
+    const params = new URLSearchParams();
+    if (status) params.set("status", status);
+    if (branchId && branchId !== "all") params.set("branchId", branchId);
+    const qs = params.toString();
+    const url = `/v1/portal/orders${qs ? `?${qs}` : ""}`;
     return apiFetch<{ orders: any[]; total: number }>(url, { apiKey });
   },
 
@@ -1428,6 +1443,233 @@ export const merchantApi = {
 
   async getBillingPlans(apiKey: string) {
     return apiFetch<{ plans: any[] }>(`/v1/portal/billing/plans`, { apiKey });
+  },
+
+  async getBillingCatalog(apiKey: string, regionCode?: "EG" | "SA" | "AE" | "OM" | "KW") {
+    const query =
+      regionCode && ["EG", "SA", "AE", "OM", "KW"].includes(regionCode)
+        ? `?region=${regionCode}`
+        : "";
+    return apiFetch<{
+      regionCode: "EG" | "SA" | "AE" | "OM" | "KW";
+      currency: string;
+      byoMarkup: number;
+      cycles: Array<{ cycleMonths: number; discountPercent: number }>;
+      bundles: Array<{
+        code: string;
+        name: string;
+        tierRank: number;
+        description: string;
+        features: Array<{ key: string; label: string; tier: string }>;
+        limits: {
+          messagesPerMonth: number;
+          whatsappNumbers: number;
+          teamMembers: number;
+          aiCallsPerDay: number;
+          tokenBudgetDaily: number;
+          paidTemplatesPerMonth: number;
+          paymentProofScansPerMonth: number;
+          voiceMinutesPerMonth: number;
+          mapsLookupsPerMonth: number;
+          posConnections: number;
+          branches: number;
+        };
+        prices: Array<{
+          cycleMonths: number;
+          basePriceCents: number;
+          discountPercent: number;
+          totalPriceCents: number;
+          effectiveMonthlyCents: number;
+          currency: string;
+        }>;
+      }>;
+      bundleAddOns: {
+        capacityAddOns: Array<{
+          code: string;
+          name: string;
+          category: string;
+          description: string;
+          scope: "BUNDLE" | "BYO" | "BOTH";
+          addonType: "CORE" | "FEATURE" | "CAPACITY";
+          isCore: boolean;
+          isSubscription: boolean;
+          featureEnables: string[];
+          limitFloorUpdates: Record<string, number>;
+          limitIncrements: Record<string, number>;
+          prices: Array<{
+            cycleMonths: number;
+            basePriceCents: number;
+            discountPercent: number;
+            totalPriceCents: number;
+            effectiveMonthlyCents: number;
+            currency: string;
+          }>;
+        }>;
+        usagePacks: Array<{
+          code: string;
+          name: string;
+          metricKey: string;
+          tierCode: string;
+          includedUnits: number | null;
+          includedAiCallsPerDay: number | null;
+          includedTokenBudgetDaily: number | null;
+          limitDeltas: Record<string, number>;
+          priceCents: number | null;
+          currency: string;
+        }>;
+      };
+      byo: {
+        coreAddOn: {
+          code: string;
+          name: string;
+          category: string;
+          description: string;
+          scope: "BUNDLE" | "BYO" | "BOTH";
+          addonType: "CORE" | "FEATURE" | "CAPACITY";
+          isCore: boolean;
+          isSubscription: boolean;
+          featureEnables: string[];
+          limitFloorUpdates: Record<string, number>;
+          limitIncrements: Record<string, number>;
+          prices: Array<{
+            cycleMonths: number;
+            basePriceCents: number;
+            discountPercent: number;
+            totalPriceCents: number;
+            effectiveMonthlyCents: number;
+            currency: string;
+          }>;
+        } | null;
+        featureAddOns: Array<{
+          code: string;
+          name: string;
+          category: string;
+          description: string;
+          scope: "BUNDLE" | "BYO" | "BOTH";
+          addonType: "CORE" | "FEATURE" | "CAPACITY";
+          isCore: boolean;
+          isSubscription: boolean;
+          featureEnables: string[];
+          limitFloorUpdates: Record<string, number>;
+          limitIncrements: Record<string, number>;
+          prices: Array<{
+            cycleMonths: number;
+            basePriceCents: number;
+            discountPercent: number;
+            totalPriceCents: number;
+            effectiveMonthlyCents: number;
+            currency: string;
+          }>;
+        }>;
+        usagePacks: Array<{
+          code: string;
+          name: string;
+          metricKey: string;
+          tierCode: string;
+          includedUnits: number | null;
+          includedAiCallsPerDay: number | null;
+          includedTokenBudgetDaily: number | null;
+          limitDeltas: Record<string, number>;
+          priceCents: number | null;
+          currency: string;
+        }>;
+      };
+      addOns: Array<{
+        code: string;
+        name: string;
+        category: string;
+        description: string;
+        isCore: boolean;
+        isSubscription: boolean;
+        prices: Array<{
+          cycleMonths: number;
+          basePriceCents: number;
+          discountPercent: number;
+          totalPriceCents: number;
+          effectiveMonthlyCents: number;
+          currency: string;
+        }>;
+      }>;
+      usagePacks: Array<{
+        code: string;
+        name: string;
+        metricKey: string;
+        tierCode: string;
+        includedUnits: number | null;
+        includedAiCallsPerDay: number | null;
+        includedTokenBudgetDaily: number | null;
+        limitDeltas: Record<string, number>;
+        priceCents: number | null;
+        currency: string;
+      }>;
+    }>(`/v1/portal/billing/catalog${query}`, { apiKey });
+  },
+
+  async calculateByoPricing(
+    apiKey: string,
+    payload: {
+      regionCode?: "EG" | "SA" | "AE" | "OM" | "KW";
+      cycleMonths?: 1 | 3 | 6 | 12;
+      addOns: Array<{ code: string; quantity?: number }>;
+      usagePacks: Array<{ code: string; quantity?: number }>;
+    },
+  ) {
+    return apiFetch<any>(`/v1/portal/billing/byo/calculate`, {
+      method: "POST",
+      apiKey,
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async subscribeBundlePlan(
+    apiKey: string,
+    payload: {
+      planCode: string;
+      regionCode?: "EG" | "SA" | "AE" | "OM" | "KW";
+      cycleMonths?: 1 | 3 | 6 | 12;
+    },
+  ) {
+    return apiFetch<any>(`/v1/portal/billing/subscribe`, {
+      method: "POST",
+      apiKey,
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async buyBillingTopup(
+    apiKey: string,
+    payload: {
+      type: "USAGE_PACK" | "CAPACITY_ADDON";
+      code: string;
+      quantity?: number;
+    },
+  ) {
+    return apiFetch<any>(`/v1/portal/billing/topups`, {
+      method: "POST",
+      apiKey,
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async getBillingUsageStatus(apiKey: string) {
+    return apiFetch<{
+      merchantId: string;
+      limits: Record<string, number>;
+      metrics: Record<
+        string,
+        {
+          metric: string;
+          periodType: "DAILY" | "MONTHLY";
+          periodStart: string;
+          periodEnd: string;
+          used: number;
+          limit: number;
+          remaining: number;
+          allowed: boolean;
+        }
+      >;
+      checkedAt: string;
+    }>(`/v1/portal/billing/usage-status`, { apiKey });
   },
 
   async getBillingOffers(apiKey: string) {
@@ -2814,5 +3056,334 @@ export const kpisApi = {
       revenue: any;
       customers: any;
     }>(`/v1/kpis/summary?days=${days}`, { apiKey });
+  },
+};
+
+// ============================================================================
+// BRANCHES API
+// ============================================================================
+
+export interface Branch {
+  id: string;
+  merchant_id: string;
+  name: string;
+  name_en?: string;
+  city?: string;
+  address?: string;
+  phone?: string;
+  manager_name?: string;
+  is_active: boolean;
+  is_default: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BranchSummary {
+  branchId: string;
+  periodDays: number;
+  revenue: number;
+  revenueChange: number;
+  totalOrders: number;
+  completedOrders: number;
+  cancelledOrders: number;
+  avgOrderValue: number;
+  deliveryFeesCollected: number;
+  discountsGiven: number;
+  totalExpenses: number;
+  netProfit: number;
+  margin: number;
+}
+
+export interface BranchComparison {
+  periodDays: number;
+  totalRevenue: number;
+  branches: Array<{
+    branchId: string | null;
+    branchName: string;
+    branchNameEn?: string;
+    isActive: boolean;
+    revenue: number;
+    totalOrders: number;
+    completedOrders: number;
+    avgOrderValue: number;
+    totalExpenses: number;
+    netProfit: number;
+    margin: number;
+    revenuePct: number;
+  }>;
+}
+
+export const branchesApi = {
+  async list(apiKey: string) {
+    return apiFetch<{ branches: Branch[] }>(`/v1/branches`, { apiKey });
+  },
+
+  async get(apiKey: string, branchId: string) {
+    return apiFetch<Branch>(`/v1/branches/${branchId}`, { apiKey });
+  },
+
+  async create(
+    apiKey: string,
+    dto: {
+      name: string;
+      name_en?: string;
+      city?: string;
+      address?: string;
+      phone?: string;
+      manager_name?: string;
+      is_default?: boolean;
+      sort_order?: number;
+    },
+  ) {
+    return apiFetch<Branch>(`/v1/branches`, {
+      apiKey,
+      method: "POST",
+      body: JSON.stringify(dto),
+    });
+  },
+
+  async update(
+    apiKey: string,
+    branchId: string,
+    dto: Partial<Omit<Branch, "id" | "merchant_id" | "created_at" | "updated_at">>,
+  ) {
+    return apiFetch<Branch>(`/v1/branches/${branchId}`, {
+      apiKey,
+      method: "PATCH",
+      body: JSON.stringify(dto),
+    });
+  },
+
+  async remove(apiKey: string, branchId: string) {
+    return apiFetch<void>(`/v1/branches/${branchId}`, {
+      apiKey,
+      method: "DELETE",
+    });
+  },
+
+  // Analytics
+
+  async getSummary(apiKey: string, branchId: string, days = 30) {
+    return apiFetch<BranchSummary>(
+      `/v1/branches/${branchId}/analytics/summary?days=${days}`,
+      { apiKey },
+    );
+  },
+
+  async getRevenueByDay(apiKey: string, branchId: string, days = 30) {
+    return apiFetch<{
+      branchId: string;
+      periodDays: number;
+      series: Array<{ date: string; revenue: number; orders: number }>;
+    }>(`/v1/branches/${branchId}/analytics/revenue-by-day?days=${days}`, {
+      apiKey,
+    });
+  },
+
+  async getComparison(apiKey: string, days = 30) {
+    return apiFetch<BranchComparison>(
+      `/v1/branches/_comparison?days=${days}`,
+      { apiKey },
+    );
+  },
+
+  async getTopProducts(
+    apiKey: string,
+    branchId: string,
+    days = 30,
+    limit = 10,
+  ) {
+    return apiFetch<{
+      branchId: string;
+      periodDays: number;
+      products: Array<{ name: string; revenue: number; quantity: number }>;
+    }>(
+      `/v1/branches/${branchId}/analytics/top-products?days=${days}&limit=${limit}`,
+      { apiKey },
+    );
+  },
+
+  async getExpensesBreakdown(apiKey: string, branchId: string, days = 30) {
+    return apiFetch<{
+      branchId: string;
+      periodDays: number;
+      total: number;
+      categories: Array<{
+        category: string;
+        total: number;
+        count: number;
+        pct: number;
+      }>;
+    }>(
+      `/v1/branches/${branchId}/analytics/expenses-breakdown?days=${days}`,
+      { apiKey },
+    );
+  },
+
+  // Goals
+  async listGoals(apiKey: string, branchId: string, withProgress = false) {
+    return apiFetch<{ data: any[] }>(
+      `/v1/branches/${branchId}/goals?withProgress=${withProgress}`,
+      { apiKey },
+    );
+  },
+
+  async createGoal(
+    apiKey: string,
+    branchId: string,
+    dto: {
+      periodType?: string;
+      targetRevenue?: number;
+      targetOrders?: number;
+      startDate: string;
+      endDate: string;
+      notes?: string;
+    },
+  ) {
+    return apiFetch<{ data: any }>(`/v1/branches/${branchId}/goals`, {
+      apiKey,
+      method: "POST",
+      body: JSON.stringify(dto),
+    });
+  },
+
+  async updateGoal(
+    apiKey: string,
+    branchId: string,
+    goalId: string,
+    dto: { targetRevenue?: number; targetOrders?: number; notes?: string },
+  ) {
+    return apiFetch<{ data: any }>(
+      `/v1/branches/${branchId}/goals/${goalId}`,
+      { apiKey, method: "PATCH", body: JSON.stringify(dto) },
+    );
+  },
+
+  async deleteGoal(apiKey: string, branchId: string, goalId: string) {
+    return apiFetch<void>(`/v1/branches/${branchId}/goals/${goalId}`, {
+      apiKey,
+      method: "DELETE",
+    });
+  },
+
+  // Staff assignments
+  async listStaff(apiKey: string, branchId: string) {
+    return apiFetch<{ data: any[] }>(`/v1/branches/${branchId}/staff`, { apiKey });
+  },
+
+  async availableStaff(apiKey: string, branchId: string) {
+    return apiFetch<{ data: any[] }>(
+      `/v1/branches/${branchId}/staff/available`,
+      { apiKey },
+    );
+  },
+
+  async assignStaff(
+    apiKey: string,
+    branchId: string,
+    dto: { staffId: string; role?: string; isPrimary?: boolean },
+  ) {
+    return apiFetch<{ data: any }>(`/v1/branches/${branchId}/staff`, {
+      apiKey,
+      method: "POST",
+      body: JSON.stringify(dto),
+    });
+  },
+
+  async removeStaff(
+    apiKey: string,
+    branchId: string,
+    assignmentId: string,
+  ) {
+    return apiFetch<void>(
+      `/v1/branches/${branchId}/staff/${assignmentId}`,
+      { apiKey, method: "DELETE" },
+    );
+  },
+
+  // Shifts
+  async listShifts(
+    apiKey: string,
+    branchId: string,
+    params?: { status?: string; limit?: number; offset?: number },
+  ) {
+    const qs = new URLSearchParams();
+    if (params?.status) qs.set("status", params.status);
+    if (params?.limit) qs.set("limit", String(params.limit));
+    if (params?.offset) qs.set("offset", String(params.offset));
+    return apiFetch<{ data: any[]; total: number }>(
+      `/v1/branches/${branchId}/shifts?${qs.toString()}`,
+      { apiKey },
+    );
+  },
+
+  async getCurrentShift(apiKey: string, branchId: string) {
+    return apiFetch<{ data: any | null }>(
+      `/v1/branches/${branchId}/shifts/current`,
+      { apiKey },
+    );
+  },
+
+  async openShift(
+    apiKey: string,
+    branchId: string,
+    dto: { openingCash?: number; notes?: string },
+  ) {
+    return apiFetch<{ data: any }>(
+      `/v1/branches/${branchId}/shifts/open`,
+      { apiKey, method: "POST", body: JSON.stringify(dto) },
+    );
+  },
+
+  async closeShift(
+    apiKey: string,
+    branchId: string,
+    shiftId: string,
+    dto: { closingCash?: number; closingNotes?: string },
+  ) {
+    return apiFetch<{ data: any }>(
+      `/v1/branches/${branchId}/shifts/${shiftId}/close`,
+      { apiKey, method: "PATCH", body: JSON.stringify(dto) },
+    );
+  },
+
+  // P&L Report
+  async getPLReport(apiKey: string, branchId: string, month?: string) {
+    const qs = month ? `?month=${month}` : "";
+    return apiFetch<any>(`/v1/branches/${branchId}/pl-report${qs}`, { apiKey });
+  },
+
+  // Branch Alerts
+  async getBranchAlerts(apiKey: string, branchId: string) {
+    return apiFetch<any>(`/v1/branches/${branchId}/alerts`, { apiKey });
+  },
+  async updateBranchAlerts(apiKey: string, branchId: string, data: {
+    expiryThresholdDays?: number;
+    cashFlowForecastDays?: number;
+    demandSpikeMultiplier?: number;
+    isActive?: boolean;
+    noOrdersThresholdMinutes?: number;
+    lowCashThreshold?: number | null;
+    alertEmail?: string | null;
+    alertWhatsapp?: string | null;
+  }) {
+    return apiFetch<any>(`/v1/branches/${branchId}/alerts`, {
+      apiKey,
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+  },
+  async getAlertsSummary(apiKey: string) {
+    return apiFetch<any[]>(`/v1/branches/_alerts/summary`, { apiKey });
+  },
+
+  // Branch Inventory
+  async getBranchInventory(apiKey: string, branchId: string, opts?: { search?: string; lowStock?: boolean }) {
+    const qs = new URLSearchParams();
+    if (opts?.search) qs.set("search", opts.search);
+    if (opts?.lowStock) qs.set("lowStock", "true");
+    const q = qs.toString();
+    return apiFetch<any>(`/v1/branches/${branchId}/inventory${q ? `?${q}` : ""}`, { apiKey });
   },
 };

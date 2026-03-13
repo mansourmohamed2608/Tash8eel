@@ -104,7 +104,18 @@ const redisFactory = {
       return new MockRedisClient();
     }
 
+    const redisUrl = configService.get<string>("REDIS_URL");
     logger.log("Redis is ENABLED - connecting to Redis server");
+
+    if (redisUrl) {
+      // Full URL — supports rediss:// (TLS) for Upstash / Redis Cloud
+      return new Redis(redisUrl, {
+        retryStrategy: (times: number) => Math.min(times * 100, 3000),
+        maxRetriesPerRequest: 3,
+        lazyConnect: true,
+      });
+    }
+
     return new Redis({
       host: configService.get<string>("REDIS_HOST", "localhost"),
       port: configService.get<number>("REDIS_PORT", 6379),

@@ -499,7 +499,7 @@ export class CopilotAiService {
 2. استعلام المصاريف: "مصاريف الشهر" -> ASK_EXPENSE_SUMMARY
 3. المخزون: "زوّد التيشيرت 10" -> UPDATE_STOCK
 4. المخزون الناقص: "ايه الناقص" -> ASK_LOW_STOCK
-5. لينك دفع: "اعمل لينك للطلب 123" -> CREATE_PAYMENT_LINK
+5. مراجعة إثبات الدفع: "راجع إثبات الدفع" -> APPROVE_PAYMENT_PROOF
 6. VIP: "خلّي أحمد VIP" -> TAG_VIP
 7. إعادة طلب: "كرر آخر طلب" -> REORDER_LAST
 8. KPI: "الأداء الأسبوع ده" -> ASK_KPI
@@ -518,7 +518,7 @@ export class CopilotAiService {
 - "دفعت 500 جنيه للكهربا" -> ADD_EXPENSE, amount: 500, category: "كهرباء"
 - "زوّد القميص الأزرق 20 قطعة" -> UPDATE_STOCK, productName: "قميص أزرق", quantityChange: 20
 - "مصاريف الأسبوع ده" -> ASK_EXPENSE_SUMMARY, period: "this_week"
-- "اعمل لينك دفع 350 جنيه" -> CREATE_PAYMENT_LINK, amount: 350`;
+- "راجع إثبات الدفع للطلب 123" -> APPROVE_PAYMENT_PROOF`;
   }
 
   private getMockCommand(text: string): CopilotCommand {
@@ -607,41 +607,25 @@ export class CopilotAiService {
       };
     }
 
-    // Payment link patterns
-    if (
-      lowerText.includes("لينك") ||
-      lowerText.includes("link") ||
-      lowerText.includes("دفع")
-    ) {
-      const amountMatch = text.match(/(\d+)/);
-      const amount = amountMatch ? parseInt(amountMatch[1]) : null;
-      const orderMatch = text.match(/طلب\s*(\d+|[A-Za-z0-9-]+)/);
-
+    // Payment links are removed from product scope.
+    if (lowerText.includes("لينك") || lowerText.includes("link")) {
       return {
-        intent: "CREATE_PAYMENT_LINK",
-        confidence: 0.88,
+        intent: "CLARIFY",
+        confidence: 0.8,
         entities: {
           expense: null,
           stockUpdate: null,
-          paymentLink: {
-            orderId: null,
-            orderNumber: orderMatch ? orderMatch[1] : null,
-            amount,
-            customerPhone: null,
-          },
+          paymentLink: null,
           vipTag: null,
           dateRange: null,
           order: null,
         },
-        requires_confirmation: true,
-        preview: {
-          type: "payment_link",
-          summary_ar: `إنشاء لينك دفع ${amount ? amount + " جنيه" : ""}`,
-          details: { amount, orderNumber: orderMatch?.[1] },
-        },
+        requires_confirmation: false,
+        preview: null,
         missing_fields: [],
-        reply_ar: `هل تريد إنشاء لينك دفع${amount ? " بـ " + amount + " جنيه" : ""}؟`,
-        reasoning: "Detected payment link command",
+        reply_ar:
+          "ميزة روابط الدفع اتشالت. تقدر تراجع إثباتات الدفع من صفحة Payment Proof Verification.",
+        reasoning: "Payment link intent blocked by product rules",
       };
     }
 

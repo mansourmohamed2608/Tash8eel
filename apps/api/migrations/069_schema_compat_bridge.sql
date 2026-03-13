@@ -128,6 +128,17 @@ END $$;
 
 -- ---------------------------------------------------------------------------
 -- order_status enum compatibility (legacy code compares with COMPLETED)
--- NOTE: keep as standalone ALTER TYPE (not DO block) to avoid enum DDL tx issues.
 -- ---------------------------------------------------------------------------
-ALTER TYPE IF EXISTS order_status ADD VALUE IF NOT EXISTS 'COMPLETED';
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_type WHERE typname = 'order_status') THEN
+    IF NOT EXISTS (
+      SELECT 1
+      FROM pg_enum e
+      JOIN pg_type t ON t.oid = e.enumtypid
+      WHERE t.typname = 'order_status' AND e.enumlabel = 'COMPLETED'
+    ) THEN
+      ALTER TYPE order_status ADD VALUE 'COMPLETED';
+    END IF;
+  END IF;
+END $$;

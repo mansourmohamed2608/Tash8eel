@@ -148,7 +148,8 @@ export function Header({ onMenuToggle, showMenuButton = true }: HeaderProps) {
       settings: "الإعدادات",
       team: "الفريق",
       reports: "التقارير",
-      webhooks: "الروابط",
+      webhooks: "POS Integrations",
+      "pos-integrations": "POS Integrations",
       audit: "سجل المراجعة",
     };
 
@@ -172,6 +173,7 @@ export function Header({ onMenuToggle, showMenuButton = true }: HeaderProps) {
         loyalty: "الولاء",
         notifications: "الإشعارات",
         settings: "الإعدادات",
+        "pos-integrations": "POS Integrations",
       };
       return {
         label: labels[segment] || segment,

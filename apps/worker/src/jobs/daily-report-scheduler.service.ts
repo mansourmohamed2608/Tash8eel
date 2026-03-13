@@ -41,6 +41,14 @@ export class DailyReportSchedulerService {
       this.nestLogger.log("Daily report generation completed");
     } catch (error) {
       logger.error("Daily report scheduler error", error as Error);
+      // BL-009: persist failure for alerting
+      this.pool
+        .query(
+          `INSERT INTO job_failure_events (job_name, error_message, error_stack)
+           VALUES ($1, $2, $3)`,
+          ["DailyReportScheduler", (error as Error).message ?? String(error), (error as Error).stack ?? null],
+        )
+        .catch(() => {/* non-fatal */});
     }
   }
 

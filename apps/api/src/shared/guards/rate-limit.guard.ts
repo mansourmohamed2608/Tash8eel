@@ -73,6 +73,10 @@ export class EnhancedRateLimitGuard implements CanActivate {
 
     try {
       // Use Redis for rate limiting (more performant than DB)
+      if (!this.redis) {
+        // Redis disabled — fail open (no rate limiting in dev/single-node)
+        return true;
+      }
       const current = await this.redis.incr(windowKey);
 
       if (current === 1) {

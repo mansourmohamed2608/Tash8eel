@@ -63,6 +63,7 @@ import {
 } from "@/components/inventory/types";
 import { cn, formatCurrency, getStatusLabel } from "@/lib/utils";
 import { merchantApi } from "@/lib/api";
+import portalApi from "@/lib/authenticated-api";
 import { useMerchant } from "@/hooks/use-merchant";
 import { useToast } from "@/hooks/use-toast";
 import { useRoleAccess } from "@/hooks/use-role-access";
@@ -165,6 +166,22 @@ export default function InventoryPage() {
 
   const showError = (description: string) => {
     toast({ title: "خطأ", description, variant: "destructive" });
+  };
+
+  const handleGenerateAiDesc = async (item: InventoryItem) => {
+    toast({ title: "جارٍ التوليد...", description: `يعمل الذكاء على وصف «${item.name}»` });
+    try {
+      const result = await portalApi.generateProductDescription(item.id);
+      if (result?.description) {
+        await navigator.clipboard.writeText(result.description).catch(() => null);
+        toast({
+          title: "✨ تم توليد الوصف",
+          description: result.description.slice(0, 120) + (result.description.length > 120 ? "..." : ""),
+        });
+      }
+    } catch {
+      showError("تعذر توليد وصف لهذا المنتج");
+    }
   };
 
   // Load data from API
@@ -1833,6 +1850,7 @@ export default function InventoryPage() {
             }}
             onDeleteVariant={setDeleteVariant}
             onPageChange={handlePageChange}
+            onGenerateAiDesc={handleGenerateAiDesc}
           />
         </>
       )}{" "}

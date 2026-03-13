@@ -42,6 +42,10 @@ import { CatalogItem } from "../../domain/entities/catalog.entity";
 import { AdminApiKeyGuard } from "../../shared/guards/admin-api-key.guard";
 import { v4 as uuidv4 } from "uuid";
 import { NotFoundException, BadRequestException } from "@nestjs/common";
+import { Pool } from "pg";
+import {
+  DATABASE_POOL,
+} from "../../infrastructure/database/database.module";
 
 interface PaginatedResponse<T> {
   items: T[];
@@ -68,7 +72,24 @@ export class CatalogController {
     private readonly catalogRepo: ICatalogRepository,
     @Inject(MERCHANT_REPOSITORY)
     private readonly merchantRepo: IMerchantRepository,
+    @Inject(DATABASE_POOL)
+    private readonly pool: Pool,
   ) {}
+
+  /** Fire-and-forget: enqueue catalog item for embedding generation */
+  private enqueueEmbedding(catalogItemId: string): void {
+    this.pool
+      .query(
+        `INSERT INTO catalog_embedding_jobs (id, catalog_item_id, status, created_at, updated_at)
+         VALUES (gen_random_uuid(), $1, 'pending', NOW(), NOW())
+         ON CONFLICT (catalog_item_id) DO UPDATE
+           SET status = 'pending', updated_at = NOW()`,
+        [catalogItemId],
+      )
+      .catch((err) =>
+        this.logger.warn(`Failed to enqueue embedding for ${catalogItemId}: ${err.message}`),
+      );
+  }
 
   @Post("upsert")
   @HttpCode(HttpStatus.OK)
@@ -146,6 +167,11 @@ export class CatalogController {
         if (createdItem) processedItems.push(createdItem);
         created++;
       }
+    }
+
+    // Enqueue embeddings for all processed items
+    for (const item of processedItems) {
+      this.enqueueEmbedding(item.id);
     }
 
     this.logger.log({
@@ -341,6 +367,8 @@ export class CatalogController {
       variants: dto.variants?.map((v) => ({ name: v, values: [] })) || [],
     });
 
+    this.enqueueEmbedding(item.id);
+
     this.logger.log({
       message: "Catalog item created",
       merchantId,
@@ -402,6 +430,8 @@ export class CatalogController {
 
     await this.catalogRepo.update(itemId, updateData as any);
     const updatedItem = await this.catalogRepo.findById(itemId);
+
+    this.enqueueEmbedding(itemId);
 
     this.logger.log({
       message: "Catalog item updated",

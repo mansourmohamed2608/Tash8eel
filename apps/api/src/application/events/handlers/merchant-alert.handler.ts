@@ -97,7 +97,7 @@ export class MerchantAlertHandler implements IEventHandler, OnModuleInit {
       case "new_order":
         return {
           priority: "MEDIUM",
-          channels: ["IN_APP", "WHATSAPP"],
+          channels: ["IN_APP", "WHATSAPP", "EMAIL"],
           titleAr: `🛒 طلب جديد #${payload.metadata?.orderNumber || ""}`,
           messageAr: `تم استلام طلب جديد بقيمة ${payload.metadata?.total || 0} ج.م`,
         };

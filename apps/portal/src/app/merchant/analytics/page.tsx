@@ -111,6 +111,8 @@ interface PeakHoursData {
 export default function AnalyticsPage() {
   const { apiKey } = useMerchant();
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const isInitialLoad = useRef(true);
   const [error, setError] = useState<string | null>(null);
   const [sectionErrors, setSectionErrors] = useState<{
     conversion?: string;
@@ -145,7 +147,11 @@ export default function AnalyticsPage() {
     if (!apiKey) return;
     const requestId = ++latestRequestRef.current;
 
-    setLoading(true);
+    if (isInitialLoad.current) {
+      setLoading(true);
+    } else {
+      setRefreshing(true);
+    }
     setError(null);
     setSectionErrors({});
     try {
@@ -222,7 +228,9 @@ export default function AnalyticsPage() {
       setError(err instanceof Error ? err.message : "فشل في تحميل التحليلات");
     } finally {
       if (requestId !== latestRequestRef.current) return;
+      isInitialLoad.current = false;
       setLoading(false);
+      setRefreshing(false);
     }
   }, [apiKey, effectivePeriodDays]);
 
@@ -338,8 +346,11 @@ export default function AnalyticsPage() {
       {/* GPT-Powered Smart Analysis */}
       <SmartAnalysisButton context="analytics" />
 
-      <p className="text-sm text-muted-foreground">
+      <p className="text-sm text-muted-foreground flex items-center gap-2">
         الفترة الحالية: {selectedPeriodSummary}
+        {refreshing && (
+          <RefreshCw className="h-3 w-3 animate-spin text-muted-foreground" />
+        )}
       </p>
       {failedSectionsCount > 0 && (
         <p className="text-xs text-amber-600">
@@ -411,7 +422,7 @@ export default function AnalyticsPage() {
                           أضافوا للسلة
                         </p>
                         <Badge variant="secondary" className="text-xs mt-1">
-                          {conversionData.rates.cartRate}%
+                          {conversionData.rates.cartRate}% من الكل
                         </Badge>
                       </div>
                     </div>
@@ -431,7 +442,7 @@ export default function AnalyticsPage() {
                           بدأوا الدفع
                         </p>
                         <Badge variant="secondary" className="text-xs mt-1">
-                          {conversionData.rates.checkoutRate}%
+                          {conversionData.rates.cartToCheckout}% من السلة
                         </Badge>
                       </div>
                     </div>
@@ -454,7 +465,7 @@ export default function AnalyticsPage() {
                           variant="default"
                           className="text-xs mt-1 bg-green-500"
                         >
-                          {conversionData.rates.conversionRate}%
+                          {conversionData.rates.checkoutToOrder}% من الدفع
                         </Badge>
                       </div>
                     </div>
@@ -505,7 +516,7 @@ export default function AnalyticsPage() {
                         <div className="flex-1 h-8 bg-muted rounded-full overflow-hidden">
                           <div
                             className={`h-full ${step.color} transition-all duration-500`}
-                            style={{ width: `${step.rate}%` }}
+                            style={{ width: `${Math.min(100, step.rate)}%` }}
                           />
                         </div>
                         <div className="w-16 text-end text-sm">

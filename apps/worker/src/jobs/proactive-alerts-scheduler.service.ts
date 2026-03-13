@@ -59,6 +59,14 @@ export class ProactiveAlertsSchedulerService {
       );
     } catch (error) {
       this.logger.error(`Proactive alerts scheduler error: ${error}`);
+      // BL-009: persist failure for alerting
+      this.pool
+        .query(
+          `INSERT INTO job_failure_events (job_name, error_message, error_stack)
+           VALUES ($1, $2, $3)`,
+          ["ProactiveAlertsScheduler", String(error), null],
+        )
+        .catch(() => {/* non-fatal */});
     }
   }
 

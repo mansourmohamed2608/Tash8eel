@@ -50,7 +50,7 @@ import {
   getStatusColor,
   getStatusLabel,
 } from "@/lib/utils";
-import { merchantApi } from "@/lib/api";
+import { merchantApi, branchesApi } from "@/lib/api";
 import portalApi from "@/lib/authenticated-api";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -102,10 +102,26 @@ const statusIcons: Record<string, React.ReactNode> = {
 
 const DRIVER_ASSIGNABLE_STATUSES = new Set([
   "CONFIRMED",
-  "BOOKED",
-  "SHIPPED",
-  "OUT_FOR_DELIVERY",
 ]);
+
+// Heuristic cancellation-risk score based on order age + status
+function getCancelRisk(order: Order): { label: string; className: string } | null {
+  const statusesDone = new Set(["DELIVERED", "CANCELLED"]);
+  if (statusesDone.has(order.status)) return null;
+
+  const ageHours = (Date.now() - new Date(order.createdAt).getTime()) / 36e5;
+
+  if (order.status === "DRAFT" && ageHours > 24) {
+    return { label: "خطر إلغاء ↑", className: "bg-red-100 text-red-700 border-red-200" };
+  }
+  if (order.status === "CONFIRMED" && ageHours > 48) {
+    return { label: "تأخر التسليم", className: "bg-amber-100 text-amber-700 border-amber-200" };
+  }
+  if ((order.status === "SHIPPED" || order.status === "BOOKED") && ageHours > 72) {
+    return { label: "لم يُسلَّم بعد", className: "bg-orange-100 text-orange-700 border-orange-200" };
+  }
+  return null;
+}
 
 export default function OrdersPage() {
   const { merchantId, apiKey } = useMerchant();
@@ -118,6 +134,8 @@ export default function OrdersPage() {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [branchFilter, setBranchFilter] = useState<string>("all");
+  const [branches, setBranches] = useState<{ id: string; name: string }[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [reordering, setReordering] = useState(false);
   const [statusUpdating, setStatusUpdating] = useState(false);
@@ -348,17 +366,19 @@ export default function OrdersPage() {
     setLoading(true);
     setError(null);
     try {
-      // Always fetch ALL orders for stats
+      // Always fetch ALL orders for stats (no branch filter for stats)
       const allResponse = await merchantApi.getOrders(merchantId, apiKey);
       const allTransformed = allResponse.orders.map(transformOrder);
       setAllOrders(allTransformed);
 
-      // If filter applied, also fetch filtered data for table
-      if (statusFilter !== "all") {
+      // If any filter applied, fetch filtered data for table
+      const hasFilter = statusFilter !== "all" || branchFilter !== "all";
+      if (hasFilter) {
         const filteredResponse = await merchantApi.getOrders(
           merchantId,
           apiKey,
-          statusFilter,
+          statusFilter !== "all" ? statusFilter : undefined,
+          branchFilter !== "all" ? branchFilter : undefined,
         );
         const filteredTransformed = filteredResponse.orders.map(transformOrder);
         setOrders(filteredTransformed);
@@ -371,7 +391,7 @@ export default function OrdersPage() {
     } finally {
       setLoading(false);
     }
-  }, [merchantId, apiKey, statusFilter, transformOrder]);
+  }, [merchantId, apiKey, statusFilter, branchFilter, transformOrder]);
 
   useEffect(() => {
     fetchOrders();
@@ -386,6 +406,18 @@ export default function OrdersPage() {
         /* drivers optional — non-blocking */
       });
   }, []);
+
+  // Load branches for filter
+  useEffect(() => {
+    if (apiKey) {
+      branchesApi
+        .list(apiKey)
+        .then((res: any) => setBranches(res.branches ?? res.data ?? []))
+        .catch(() => {
+          /* branches filter is optional */
+        });
+    }
+  }, [apiKey]);
 
   // Client-side search filtering (API already filtered by status)
   const filteredOrders = orders.filter((order) => {
@@ -668,6 +700,27 @@ export default function OrdersPage() {
                 <SelectItem value="CANCELLED">ملغي</SelectItem>
               </SelectContent>
             </Select>
+            {branches.length > 1 && (
+              <Select
+                value={branchFilter}
+                onValueChange={(value) => {
+                  setBranchFilter(value);
+                  setCurrentPage(1);
+                }}
+              >
+                <SelectTrigger className="w-full sm:w-44">
+                  <SelectValue placeholder="الفرع" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">كل الفروع</SelectItem>
+                  {branches.map((b) => (
+                    <SelectItem key={b.id} value={b.id}>
+                      {b.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -705,9 +758,6 @@ export default function OrdersPage() {
               محسوب ضمن الإيراد.
             </div>
           </div>
-          <div className="text-xs text-muted-foreground">
-            تعيين السائق متاح فقط في حالات: مؤكد، محجوز، تم الشحن، قيد التوصيل.
-          </div>
         </CardContent>
       </Card>
 
@@ -719,7 +769,7 @@ export default function OrdersPage() {
               icon={<ShoppingCart className="h-16 w-16" />}
               title="لا توجد طلبات"
               description={
-                searchQuery || statusFilter !== "all"
+                searchQuery || statusFilter !== "all" || branchFilter !== "all"
                   ? "لم يتم العثور على طلبات مطابقة للبحث"
                   : "لم يتم إنشاء أي طلبات بعد. ابدأ بالتحدث مع العملاء عبر WhatsApp!"
               }
@@ -781,12 +831,22 @@ export default function OrdersPage() {
               {
                 key: "status",
                 header: "الحالة",
-                render: (order) => (
-                  <Badge className={cn("gap-1", getStatusColor(order.status))}>
-                    {statusIcons[order.status]}
-                    {getStatusLabel(order.status)}
-                  </Badge>
-                ),
+                render: (order) => {
+                  const risk = getCancelRisk(order);
+                  return (
+                    <div className="flex flex-col gap-1 items-start">
+                      <span className={cn("inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold", getStatusColor(order.status))}>
+                        {statusIcons[order.status]}
+                        {getStatusLabel(order.status)}
+                      </span>
+                      {risk && (
+                        <span className={cn("text-[10px] px-1.5 py-0.5 rounded border font-medium", risk.className)}>
+                          {risk.label}
+                        </span>
+                      )}
+                    </div>
+                  );
+                },
               },
               {
                 key: "createdAt",
@@ -848,15 +908,10 @@ export default function OrdersPage() {
               {/* Status + Change */}
               <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg flex-wrap gap-3">
                 <div className="flex items-center gap-2">
-                  <Badge
-                    className={cn(
-                      "text-sm px-3 py-1 gap-1",
-                      getStatusColor(selectedOrder.status),
-                    )}
-                  >
+                  <span className={cn("inline-flex items-center gap-1 rounded-full border text-sm px-3 py-1 font-semibold", getStatusColor(selectedOrder.status))}>
                     {statusIcons[selectedOrder.status]}
                     {getStatusLabel(selectedOrder.status)}
-                  </Badge>
+                  </span>
                 </div>
                 {!isReadOnly &&
                   !["DELIVERED", "CANCELLED", "RETURNED"].includes(

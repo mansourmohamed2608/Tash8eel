@@ -50,6 +50,7 @@ import {
 import { formatCurrency, cn } from "@/lib/utils";
 import { useMerchant } from "@/hooks/use-merchant";
 import portalApi from "@/lib/authenticated-api";
+import { branchesApi } from "@/lib/api";
 import { REPORTING_PERIOD_OPTIONS } from "@/lib/reporting-period";
 import {
   AiInsightsCard,
@@ -171,6 +172,8 @@ export default function CODReconciliationPage() {
   const [summary, setSummary] = useState<ReconciliationSummary | null>(null);
   const [activeTab, setActiveTab] = useState("pending");
   const [selectedPartner, setSelectedPartner] = useState<string>("all");
+  const [branchFilter, setBranchFilter] = useState<string>("all");
+  const [branches, setBranches] = useState<Array<{ id: string; name: string }>>([]);
   const [periodDays, setPeriodDays] = useState<string>("7");
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
@@ -200,13 +203,40 @@ export default function CODReconciliationPage() {
   const [schedulingReminders, setSchedulingReminders] = useState(false);
   const [daysPastDueInput, setDaysPastDueInput] = useState("3");
 
-  const deliveryPartners = [
+  const [deliveryPartners, setDeliveryPartners] = useState<
+    Array<{ id: string; name: string }>
+  >([
     { id: "aramex", name: "أرامكس" },
-    { id: "fetchr", name: "فيتشر" },
     { id: "bosta", name: "بوسطة" },
+    { id: "fetchr", name: "فيتشر" },
     { id: "sprint", name: "سبرينت" },
     { id: "other", name: "أخرى" },
-  ];
+  ]);
+
+  // Load delivery partners from API (centralised — no frontend deploy needed to add a courier)
+  useEffect(() => {
+    portalApi
+      .getDeliveryPartners()
+      .then((data) => {
+        if (data?.partners?.length) {
+          setDeliveryPartners(
+            data.partners.map((p) => ({ id: p.id, name: p.nameAr })),
+          );
+        }
+      })
+      .catch(() => {
+        /* keep defaults on error */
+      });
+  }, []);
+
+  // Load branches list once
+  useEffect(() => {
+    if (!apiKey || !merchantId) return;
+    branchesApi.list(apiKey).then((data: any) => {
+      const list = Array.isArray(data) ? data : (data?.branches ?? data?.data ?? []);
+      if (list.length > 1) setBranches(list.map((b: any) => ({ id: b.id, name: b.name })));
+    }).catch(() => {/* silently ignore */});
+  }, [apiKey, merchantId]);
 
   const fetchOrders = useCallback(async () => {
     if (!merchantId || !apiKey) return;
@@ -222,6 +252,7 @@ export default function CODReconciliationPage() {
         startDate?: string;
         endDate?: string;
         courier?: string;
+        branchId?: string;
       } = {};
       if (hasCustomRange) {
         query.startDate = startDate;
@@ -233,6 +264,9 @@ export default function CODReconciliationPage() {
       }
       if (selectedPartner !== "all") {
         query.courier = selectedPartner;
+      }
+      if (branchFilter !== "all") {
+        query.branchId = branchFilter;
       }
 
       const data = await portalApi.getCodSummary(query);
@@ -340,7 +374,7 @@ export default function CODReconciliationPage() {
     } finally {
       setLoading(false);
     }
-  }, [merchantId, apiKey, selectedPartner, periodDays, startDate, endDate]);
+  }, [merchantId, apiKey, selectedPartner, branchFilter, periodDays, startDate, endDate]);
 
   useEffect(() => {
     fetchOrders();
@@ -784,6 +818,22 @@ export default function CODReconciliationPage() {
                   ))}
                 </SelectContent>
               </Select>
+
+              {branches.length > 0 && (
+                <Select value={branchFilter} onValueChange={setBranchFilter}>
+                  <SelectTrigger className="w-[170px]">
+                    <SelectValue placeholder="الفرع" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">جميع الفروع</SelectItem>
+                    {branches.map((b) => (
+                      <SelectItem key={b.id} value={b.id}>
+                        {b.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
 
               <Select value={periodDays} onValueChange={setPeriodDays}>
                 <SelectTrigger className="w-[170px]">

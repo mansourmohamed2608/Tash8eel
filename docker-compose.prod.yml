@@ -1,0 +1,165 @@
+# docker-compose.prod.yml
+# Production / Staging deployment manifest.
+# Uses pre-built images from a container registry (set REGISTRY and IMAGE_TAG).
+#
+# Required environment variables (loaded from server .env or secrets manager):
+#   REGISTRY         - Container registry prefix, e.g. ghcr.io/org
+#   IMAGE_TAG        - Git SHA of the image to deploy
+#   DATABASE_URL     - Neon or production PostgreSQL URL
+#   REDIS_URL        - Production Redis URL
+#   OPENAI_API_KEY   - OpenAI API key
+#   ADMIN_API_KEY    - >32-char random admin key
+#   JWT_SECRET       - >32-char random JWT signing secret
+#   JWT_REFRESH_SECRET
+#   CORS_ORIGINS     - Comma-separated list of allowed origins
+#   NEXTAUTH_SECRET  - >32-char random NextAuth secret
+#   NEXT_PUBLIC_API_URL
+#   NEXTAUTH_URL
+
+services:
+  api:
+    image: ${REGISTRY}/api:${IMAGE_TAG}
+    restart: always
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: ${DATABASE_URL}
+      DATABASE_SSL: "true"
+      DATABASE_SSL_REJECT_UNAUTHORIZED: "true"
+      REDIS_URL: ${REDIS_URL:-""}
+      REDIS_ENABLED: ${REDIS_ENABLED:-true}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      ADMIN_API_KEY: ${ADMIN_API_KEY}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      CORS_ORIGINS: ${CORS_ORIGINS}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      LOG_PRETTY: "false"
+      PORT: 3000
+      NODE_OPTIONS: "--max-old-space-size=512"
+      # Internal call secret for worker→api trust
+      INTERNAL_CALL_SECRET: ${INTERNAL_CALL_SECRET}
+      # Telemetry
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-""}
+      OTEL_SERVICE_NAME: tash8eel-api
+    ports:
+      - "3000:3000"
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:3000/health', r => process.exit(r.statusCode === 200 ? 0 : 1))\""]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          cpus: "0.25"
+          memory: 256M
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+    networks:
+      - tash8eel-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "5"
+    read_only: false        # Set true once writable paths are identified
+    security_opt:
+      - no-new-privileges:true
+
+  worker:
+    image: ${REGISTRY}/worker:${IMAGE_TAG}
+    restart: always
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: ${DATABASE_URL}
+      DATABASE_SSL: "true"
+      DATABASE_SSL_REJECT_UNAUTHORIZED: "true"
+      REDIS_URL: ${REDIS_URL:-""}
+      REDIS_ENABLED: ${REDIS_ENABLED:-true}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      LOG_PRETTY: "false"
+      OUTBOX_POLL_INTERVAL_MS: ${OUTBOX_POLL_INTERVAL_MS:-1000}
+      OUTBOX_BATCH_SIZE: ${OUTBOX_BATCH_SIZE:-10}
+      ORCHESTRATOR_CONCURRENCY: ${ORCHESTRATOR_CONCURRENCY:-5}
+      WORKER_HEALTH_PORT: 3002
+      INTERNAL_CALL_SECRET: ${INTERNAL_CALL_SECRET}
+      API_BASE_URL: "http://api:3000"
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-""}
+      OTEL_SERVICE_NAME: tash8eel-worker
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:3002/health', r => process.exit(r.statusCode === 200 ? 0 : 1))\""]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    depends_on:
+      api:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+        reservations:
+          cpus: "0.1"
+          memory: 128M
+    networks:
+      - tash8eel-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
+    security_opt:
+      - no-new-privileges:true
+
+  portal:
+    image: ${REGISTRY}/portal:${IMAGE_TAG}
+    restart: always
+    environment:
+      NODE_ENV: production
+      NEXTAUTH_URL: ${NEXTAUTH_URL}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+      API_BASE_URL: "http://api:3000"
+      PORT: 3001
+      NODE_OPTIONS: "--max-old-space-size=256"
+    ports:
+      - "3001:3001"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:3001/', r => process.exit(r.statusCode < 500 ? 0 : 1))\""]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+    networks:
+      - tash8eel-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "3"
+    security_opt:
+      - no-new-privileges:true
+
+networks:
+  tash8eel-network:
+    driver: bridge
+    internal: false   # Portal must reach out for OAuth; API must reach Neon/OpenAI

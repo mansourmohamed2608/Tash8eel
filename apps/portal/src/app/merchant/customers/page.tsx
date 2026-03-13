@@ -56,7 +56,8 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { cn, formatCurrency, formatRelativeTime } from "@/lib/utils";
-import { portalApi } from "@/lib/authenticated-api";
+import { useMerchant } from "@/hooks/use-merchant";
+import { apiFetch } from "@/lib/api";
 import {
   AiInsightsCard,
   generateCustomerInsights,
@@ -203,6 +204,7 @@ const orderStatusLabel = (status?: string): string => {
 };
 
 export default function CustomersPage() {
+  const { apiKey } = useMerchant();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -222,10 +224,12 @@ export default function CustomersPage() {
     setLoading(true);
     setError(null);
     try {
-      const data = await portalApi.getCustomers({
-        search: searchQuery || undefined,
-        limit: 100,
-      });
+      const params = new URLSearchParams({ limit: "100" });
+      if (searchQuery) params.set("search", searchQuery);
+      const data = await apiFetch<any>(
+        `/v1/portal/customers?${params}`,
+        { apiKey },
+      );
 
       // Map API response to Customer interface
       const mappedCustomers: Customer[] = (data.customers || []).map(
@@ -278,12 +282,15 @@ export default function CustomersPage() {
     } finally {
       setLoading(false);
     }
-  }, [searchQuery]);
+  }, [searchQuery, apiKey]);
 
   const fetchCustomerInsights = useCallback(async (customer: Customer) => {
     setLoadingInsights(true);
     try {
-      const data = await portalApi.getCustomer(customer.customerId);
+      const data = await apiFetch<any>(
+        `/v1/portal/customers/${customer.customerId}`,
+        { apiKey },
+      );
       setCustomerInsights(data as CustomerInsights);
     } catch (err) {
       console.error("Failed to fetch customer insights:", err);
@@ -293,7 +300,7 @@ export default function CustomersPage() {
     } finally {
       setLoadingInsights(false);
     }
-  }, []);
+  }, [apiKey]);
 
   useEffect(() => {
     fetchCustomers();

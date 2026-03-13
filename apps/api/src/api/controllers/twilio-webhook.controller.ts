@@ -134,6 +134,26 @@ export class TwilioWebhookController {
       // Parse the webhook payload
       const parsed = this.twilioAdapter.parseWebhook(payload);
 
+      // BL-008: Deduplicate inbound webhook — Twilio may retry the same message
+      try {
+        const dedup = await this.pool.query(
+          `INSERT INTO inbound_webhook_events (provider, message_id)
+           VALUES ('TWILIO', $1)
+           ON CONFLICT (provider, message_id) DO NOTHING
+           RETURNING id`,
+          [parsed.messageSid],
+        );
+        if ((dedup.rowCount ?? 0) === 0) {
+          this.logger.warn({
+            msg: "Duplicate Twilio webhook; skipping",
+            messageSid: parsed.messageSid,
+            correlationId,
+          });
+          res.status(200).send("OK");
+          return;
+        }
+      } catch { /* proceed if table not yet migrated */ }
+
       this.logger.log({
         msg: "Parsed Twilio message",
         correlationId,

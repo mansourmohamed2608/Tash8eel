@@ -7,11 +7,13 @@ import {
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { Pool } from "pg";
+import sharp from "sharp";
 import { DATABASE_POOL } from "../../infrastructure/database/database.module";
 import { VisionService } from "../llm/vision.service";
 import { AuditService } from "./audit.service";
 import { OutboxService } from "../events/outbox.service";
 import { EVENT_TYPES } from "../events/event-types";
+import { UsageGuardService } from "./usage-guard.service";
 
 export interface PaymentLink {
   id: string;
@@ -54,8 +56,19 @@ export interface PaymentProof {
   verifiedAt?: Date;
   verifiedBy?: string;
   rejectionReason?: string;
-  autoVerified: boolean;
+  autoVerified: boolean; // retained for backward compatibility
   autoVerificationScore?: number;
+  imagePhash?: string;
+  duplicateOfProofId?: string;
+  duplicateDistance?: number;
+  riskScore?: number;
+  riskLevel?: "LOW" | "MEDIUM" | "HIGH";
+  riskFlags?: string[];
+  manualReviewRequired?: boolean;
+  reviewNotes?: string;
+  reviewOutcome?: "APPROVED" | "REJECTED" | null;
+  ocrProvider?: string;
+  ocrGuaranteed?: boolean;
   metadata: Record<string, unknown>;
   createdAt: Date;
   updatedAt: Date;
@@ -127,6 +140,7 @@ export class PaymentService {
   private readonly baseUrl: string;
   private readonly autoVerifyThreshold: number;
   private readonly amountTolerancePct: number;
+  private readonly perceptualHashDistanceThreshold = 8;
 
   constructor(
     @Inject(DATABASE_POOL) private readonly pool: Pool,
@@ -134,6 +148,7 @@ export class PaymentService {
     private readonly configService: ConfigService,
     private readonly auditService: AuditService,
     private readonly outboxService: OutboxService,
+    private readonly usageGuard: UsageGuardService,
   ) {
     this.baseUrl = this.configService.get<string>(
       "APP_URL",
@@ -320,6 +335,7 @@ export class PaymentService {
     const link = this.mapPaymentLink(result.rows[0]);
     this.logger.log({
       msg: "Payment link created",
+      correlationId: `link-${link.linkCode}`, // BL-006: trace full payment lifecycle with this ID
       linkCode: link.linkCode,
       merchantId,
       amount,
@@ -534,6 +550,24 @@ export class PaymentService {
       metadata = {},
     } = input;
 
+    if (imageBase64 || imageUrl) {
+      const usage = await this.usageGuard.consume(
+        merchantId,
+        "PAYMENT_PROOF_SCANS",
+        1,
+        {
+          metadata: {
+            source: "PAYMENT_PROOF_SUBMISSION",
+          },
+        },
+      );
+      if (!usage.allowed) {
+        throw new BadRequestException(
+          `Payment proof checks limit exceeded (${usage.used}/${usage.limit})`,
+        );
+      }
+    }
+
     // Process image with OCR if provided
     let ocrResult: Record<string, unknown> | undefined;
     let extractedAmount: number | undefined;
@@ -582,35 +616,51 @@ export class PaymentService {
           : `data:image/jpeg;base64,${imageBase64}`
         : null);
 
-    // Auto-verify if confidence is high and amount matches
-    let autoVerified = false;
-    let autoVerificationScore = ocrConfidence;
-    let status: "PENDING" | "APPROVED" = "PENDING";
+    const imageBuffer = await this.readProofImageBuffer(imageBase64, imageUrl);
+    const imagePhash = imageBuffer
+      ? await this.computePerceptualHash(imageBuffer).catch(() => null)
+      : null;
+    const duplicateHashMatch = imagePhash
+      ? await this.findDuplicateByPerceptualHash(merchantId, imagePhash)
+      : null;
+    const duplicateReferenceMatch = extractedReference
+      ? await this.findDuplicateByReference(merchantId, extractedReference)
+      : null;
 
-    if (
-      paymentLinkId &&
-      ocrConfidence &&
-      ocrConfidence >= this.autoVerifyThreshold
-    ) {
-      const link = await this.getPaymentLinkByIdInternal(paymentLinkId);
-      if (
-        link &&
-        extractedAmount &&
-        Math.abs(link.amount - extractedAmount) < 1
-      ) {
-        autoVerified = true;
-        autoVerificationScore = ocrConfidence;
-        status = "APPROVED";
-      }
-    }
+    const expectedAmount = await this.getExpectedAmount(paymentLinkId, orderId);
+    const riskAssessment = this.evaluateProofRisk({
+      ocrConfidence,
+      extractedAmount,
+      expectedAmount,
+      extractedReference,
+      hasImage: Boolean(imageBase64 || imageUrl),
+      duplicateHashMatch,
+      duplicateReferenceMatch,
+      proofType,
+    });
+
+    // Hard product rule: OCR is advisory only and never guarantees verification.
+    // Every proof starts as pending manual review.
+    const status: "PENDING" = "PENDING";
+    const autoVerified = false;
+    const autoVerificationScore: number | null = null;
 
     const result = await this.pool.query(
       `INSERT INTO payment_proofs (
         merchant_id, payment_link_id, order_id, conversation_id,
         proof_type, image_url, reference_number,
         ocr_result, extracted_amount, extracted_reference, extracted_sender, extracted_date,
-        ocr_confidence, status, auto_verified, auto_verification_score, metadata
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+        ocr_confidence, status, auto_verified, auto_verification_score,
+        image_phash, duplicate_of_proof_id, duplicate_distance,
+        risk_score, risk_level, risk_flags, manual_review_required,
+        ocr_provider, ocr_guaranteed, metadata
+      ) VALUES (
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
+        $13, $14, $15, $16,
+        $17, $18, $19,
+        $20, $21, $22, $23,
+        $24, $25, $26
+      )
       RETURNING *`,
       [
         merchantId,
@@ -629,74 +679,89 @@ export class PaymentService {
         status,
         autoVerified,
         autoVerificationScore,
+        imagePhash,
+        riskAssessment.duplicateOfProofId,
+        riskAssessment.duplicateDistance,
+        riskAssessment.riskScore,
+        riskAssessment.riskLevel,
+        JSON.stringify(riskAssessment.flags),
+        true,
+        ocrResult ? "OPENAI_VISION" : null,
+        false,
         JSON.stringify(metadata),
       ],
     );
 
     const proof = this.mapPaymentProof(result.rows[0]);
 
-    // If auto-verified, update payment link status
-    if (autoVerified && paymentLinkId) {
-      await this.markPaymentLinkAsPaid(paymentLinkId, proof.id);
-    }
-
     this.logger.log({
       msg: "Payment proof submitted",
       proofId: proof.id,
       merchantId,
-      autoVerified,
+      riskScore: riskAssessment.riskScore,
+      riskLevel: riskAssessment.riskLevel,
       ocrConfidence,
     });
 
-    // Audit log for proof submission (and auto-verification if applicable)
+    // Audit log for proof submission
     await this.auditService
       .log({
         merchantId,
-        action: autoVerified ? "AUTO_VERIFY" : "CREATE",
+        action: "CREATE",
         resource: "PAYMENT_PROOF",
         resourceId: proof.id,
         newValues: {
           status,
-          autoVerified,
+          autoVerified: false,
           ocrConfidence,
           extractedAmount,
           extractedReference,
+          riskScore: riskAssessment.riskScore,
+          riskLevel: riskAssessment.riskLevel,
+          riskFlags: riskAssessment.flags,
         },
         metadata: {
           paymentLinkId,
           orderId,
           conversationId,
           proofType,
+          expectedAmount,
+          duplicateByHash: riskAssessment.duplicateOfProofId || null,
+          duplicateByReference: duplicateReferenceMatch || null,
         },
       })
       .catch((err) =>
         this.logger.warn({ msg: "Audit log failed", error: err.message }),
       );
 
-    // If not auto-verified, queue for Finance Agent review
-    if (!autoVerified) {
-      await this.outboxService
-        .publishEvent({
-          eventType: EVENT_TYPES.PAYMENT_PROOF_SUBMITTED,
-          aggregateType: "payment_proof",
-          aggregateId: proof.id,
+    // Queue every proof for manual review.
+    await this.outboxService
+      .publishEvent({
+        eventType: EVENT_TYPES.PAYMENT_PROOF_SUBMITTED,
+        aggregateType: "payment_proof",
+        aggregateId: proof.id,
+        merchantId,
+        correlationId: `proof-${proof.id}`,
+        payload: {
+          proofId: proof.id,
           merchantId,
-          correlationId: `proof-${proof.id}`,
-          payload: {
-            proofId: proof.id,
-            merchantId,
-            paymentLinkId,
-            orderId,
-            conversationId,
-            extractedAmount,
-            extractedReference,
-            ocrConfidence,
-          },
-        })
-        .catch((err) =>
-          this.logger.warn({ msg: "Outbox event failed", error: err.message }),
-        );
-    }
+          paymentLinkId,
+          orderId,
+          conversationId,
+          extractedAmount,
+          extractedReference,
+          ocrConfidence,
+          riskScore: riskAssessment.riskScore,
+          riskLevel: riskAssessment.riskLevel,
+          riskFlags: riskAssessment.flags,
+          duplicateOfProofId: riskAssessment.duplicateOfProofId,
+          duplicateDistance: riskAssessment.duplicateDistance,
+          manualReviewRequired: true,
+        },
+      })
+      .catch((err) =>
+        this.logger.warn({ msg: "Outbox event failed", error: err.message }),
+      );
 
     return proof;
   }
@@ -715,7 +780,15 @@ export class PaymentService {
 
     const result = await this.pool.query(
       `UPDATE payment_proofs 
-       SET status = $1, verified_at = NOW(), verified_by = $2, rejection_reason = $3, updated_at = NOW()
+       SET status = $1,
+           verified_at = NOW(),
+           verified_by = $2,
+           rejection_reason = $3,
+           review_outcome = $1,
+           reviewed_by_staff_id = $2,
+           review_notes = $3,
+           manual_review_required = false,
+           updated_at = NOW()
        WHERE id = $4 AND merchant_id = $5 AND status = 'PENDING'
        RETURNING *`,
       [status, staffId, rejectionReason, proofId, merchantId],
@@ -771,7 +844,7 @@ export class PaymentService {
       const result = await this.pool.query(
         `SELECT * FROM payment_proofs 
          WHERE merchant_id = $1 AND status = 'PENDING' 
-         ORDER BY created_at ASC`,
+         ORDER BY risk_score DESC NULLS LAST, created_at ASC`,
         [merchantId],
       );
 
@@ -837,6 +910,246 @@ export class PaymentService {
     );
   }
 
+  private async readProofImageBuffer(
+    imageBase64?: string,
+    imageUrl?: string,
+  ): Promise<Buffer | null> {
+    if (imageBase64) {
+      const normalized = imageBase64.includes(",")
+        ? imageBase64.split(",").pop() || ""
+        : imageBase64;
+      if (!normalized) return null;
+      try {
+        return Buffer.from(normalized, "base64");
+      } catch {
+        return null;
+      }
+    }
+
+    if (imageUrl && /^https?:\/\//i.test(imageUrl)) {
+      try {
+        const response = await fetch(imageUrl, {
+          signal: AbortSignal.timeout(7000),
+        });
+        if (!response.ok) return null;
+        const arrayBuffer = await response.arrayBuffer();
+        return Buffer.from(arrayBuffer);
+      } catch {
+        return null;
+      }
+    }
+
+    return null;
+  }
+
+  private async computePerceptualHash(imageBuffer: Buffer): Promise<string> {
+    const pixels = await sharp(imageBuffer)
+      .rotate()
+      .resize(9, 8, { fit: "fill" })
+      .greyscale()
+      .raw()
+      .toBuffer();
+
+    let bits = "";
+    for (let y = 0; y < 8; y += 1) {
+      for (let x = 0; x < 8; x += 1) {
+        const left = pixels[y * 9 + x];
+        const right = pixels[y * 9 + x + 1];
+        bits += left > right ? "1" : "0";
+      }
+    }
+
+    const chunked = bits.match(/.{1,4}/g) || [];
+    return chunked
+      .map((chunk) => Number.parseInt(chunk, 2).toString(16))
+      .join("");
+  }
+
+  private hammingDistance(hashA: string, hashB: string): number {
+    if (!hashA || !hashB || hashA.length !== hashB.length) {
+      return Number.MAX_SAFE_INTEGER;
+    }
+    let distance = 0;
+    for (let i = 0; i < hashA.length; i += 1) {
+      const nibbleA = Number.parseInt(hashA[i], 16);
+      const nibbleB = Number.parseInt(hashB[i], 16);
+      const xor = nibbleA ^ nibbleB;
+      distance += (xor & 1) + ((xor >> 1) & 1) + ((xor >> 2) & 1) + ((xor >> 3) & 1);
+    }
+    return distance;
+  }
+
+  private async findDuplicateByPerceptualHash(
+    merchantId: string,
+    hash: string,
+  ): Promise<{ proofId: string; distance: number } | null> {
+    try {
+      const result = await this.pool.query(
+        `SELECT id, image_phash
+         FROM payment_proofs
+         WHERE merchant_id = $1
+           AND image_phash IS NOT NULL
+         ORDER BY created_at DESC
+         LIMIT 300`,
+        [merchantId],
+      );
+
+      let best: { proofId: string; distance: number } | null = null;
+      for (const row of result.rows) {
+        const candidate = String(row.image_phash || "");
+        if (!candidate) continue;
+        const distance = this.hammingDistance(hash, candidate);
+        if (distance > this.perceptualHashDistanceThreshold) continue;
+        if (!best || distance < best.distance) {
+          best = { proofId: String(row.id), distance };
+        }
+      }
+      return best;
+    } catch {
+      return null;
+    }
+  }
+
+  private async findDuplicateByReference(
+    merchantId: string,
+    reference: string,
+  ): Promise<string | null> {
+    if (!reference) return null;
+    try {
+      const result = await this.pool.query(
+        `SELECT id
+         FROM payment_proofs
+         WHERE merchant_id = $1
+           AND extracted_reference = $2
+         ORDER BY created_at DESC
+         LIMIT 1`,
+        [merchantId, reference],
+      );
+      return result.rows[0]?.id ? String(result.rows[0].id) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private async getExpectedAmount(
+    paymentLinkId?: string,
+    orderId?: string,
+  ): Promise<number | null> {
+    if (paymentLinkId) {
+      try {
+        const link = await this.getPaymentLinkByIdInternal(paymentLinkId);
+        if (link?.amount !== undefined && link?.amount !== null) {
+          return Number(link.amount);
+        }
+      } catch {
+        // continue fallback
+      }
+    }
+    if (orderId) {
+      try {
+        const result = await this.pool.query(
+          `SELECT total FROM orders WHERE id = $1 LIMIT 1`,
+          [orderId],
+        );
+        if (result.rows[0]?.total !== undefined) {
+          const value = Number(result.rows[0].total);
+          return Number.isFinite(value) ? value : null;
+        }
+      } catch {
+        // ignore
+      }
+    }
+    return null;
+  }
+
+  private evaluateProofRisk(input: {
+    ocrConfidence?: number;
+    extractedAmount?: number;
+    expectedAmount?: number | null;
+    extractedReference?: string;
+    hasImage: boolean;
+    duplicateHashMatch: { proofId: string; distance: number } | null;
+    duplicateReferenceMatch: string | null;
+    proofType?: string;
+  }): {
+    riskScore: number;
+    riskLevel: "LOW" | "MEDIUM" | "HIGH";
+    flags: string[];
+    duplicateOfProofId: string | null;
+    duplicateDistance: number | null;
+  } {
+    const flags: string[] = [];
+    let score = 0;
+
+    if (!input.hasImage) {
+      score += 35;
+      flags.push("MISSING_IMAGE");
+    }
+
+    const confidence = Number(input.ocrConfidence || 0);
+    if (confidence <= 0) {
+      score += 25;
+      flags.push("NO_OCR_CONFIDENCE");
+    } else if (confidence < 0.5) {
+      score += 35;
+      flags.push("LOW_OCR_CONFIDENCE");
+    } else if (confidence < 0.75) {
+      score += 15;
+      flags.push("MEDIUM_OCR_CONFIDENCE");
+    }
+
+    if (input.expectedAmount != null) {
+      if (input.extractedAmount == null) {
+        score += 25;
+        flags.push("AMOUNT_NOT_EXTRACTED");
+      } else {
+        const expected = Number(input.expectedAmount);
+        const extracted = Number(input.extractedAmount);
+        const diff = Math.abs(expected - extracted);
+        const ratio = expected > 0 ? (diff / expected) * 100 : 0;
+        if (ratio > 10) {
+          score += 40;
+          flags.push("AMOUNT_MISMATCH_HIGH");
+        } else if (ratio > 5) {
+          score += 20;
+          flags.push("AMOUNT_MISMATCH_MEDIUM");
+        }
+      }
+    }
+
+    if (input.duplicateHashMatch) {
+      if (input.duplicateHashMatch.distance <= 3) {
+        score += 65;
+        flags.push("DUPLICATE_IMAGE_EXACT_OR_NEAR");
+      } else {
+        score += 45;
+        flags.push("DUPLICATE_IMAGE_POSSIBLE");
+      }
+    }
+
+    if (input.duplicateReferenceMatch) {
+      score += 40;
+      flags.push("DUPLICATE_REFERENCE");
+    }
+
+    if (!input.proofType || input.proofType === "UNKNOWN") {
+      score += 10;
+      flags.push("PROOF_TYPE_UNKNOWN");
+    }
+
+    let riskLevel: "LOW" | "MEDIUM" | "HIGH" = "LOW";
+    if (score >= 70) riskLevel = "HIGH";
+    else if (score >= 35) riskLevel = "MEDIUM";
+
+    return {
+      riskScore: Math.min(100, Math.max(0, Math.round(score))),
+      riskLevel,
+      flags: Array.from(new Set(flags)),
+      duplicateOfProofId: input.duplicateHashMatch?.proofId || null,
+      duplicateDistance: input.duplicateHashMatch?.distance ?? null,
+    };
+  }
+
   private mapPaymentLink(row: Record<string, unknown>): PaymentLink {
     return {
       id: row.id as string,
@@ -894,6 +1207,36 @@ export class PaymentService {
       rejectionReason: row.rejection_reason as string | undefined,
       autoVerified: row.auto_verified as boolean,
       autoVerificationScore: toOptionalNumber(row.auto_verification_score),
+      imagePhash: row.image_phash as string | undefined,
+      duplicateOfProofId: row.duplicate_of_proof_id as string | undefined,
+      duplicateDistance: toOptionalNumber(row.duplicate_distance),
+      riskScore: toOptionalNumber(row.risk_score),
+      riskLevel: (row.risk_level as PaymentProof["riskLevel"]) || undefined,
+      riskFlags: Array.isArray(row.risk_flags)
+        ? (row.risk_flags as string[])
+        : typeof row.risk_flags === "string"
+          ? (() => {
+              try {
+                const parsed = JSON.parse(row.risk_flags as string);
+                return Array.isArray(parsed) ? parsed : [];
+              } catch {
+                return [];
+              }
+            })()
+          : [],
+      manualReviewRequired:
+        row.manual_review_required === null ||
+        row.manual_review_required === undefined
+          ? undefined
+          : Boolean(row.manual_review_required),
+      reviewNotes: row.review_notes as string | undefined,
+      reviewOutcome:
+        (row.review_outcome as PaymentProof["reviewOutcome"]) || undefined,
+      ocrProvider: row.ocr_provider as string | undefined,
+      ocrGuaranteed:
+        row.ocr_guaranteed === null || row.ocr_guaranteed === undefined
+          ? undefined
+          : Boolean(row.ocr_guaranteed),
       metadata: (row.metadata as Record<string, unknown>) || {},
       createdAt: new Date(row.created_at as string),
       updatedAt: new Date(row.updated_at as string),

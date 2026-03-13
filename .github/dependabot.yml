@@ -1,0 +1,120 @@
+version: 2
+updates:
+  # Root workspace
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "automerge"
+    groups:
+      dev-tools:
+        patterns:
+          - "prettier"
+          - "husky"
+          - "lint-staged"
+          - "concurrently"
+          - "typescript"
+    ignore:
+      # Major version bumps require manual review
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+
+  # API service
+  - package-ecosystem: "npm"
+    directory: "/apps/api"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:15"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "api"
+    groups:
+      nestjs:
+        patterns:
+          - "@nestjs/*"
+      opentelemetry:
+        patterns:
+          - "@opentelemetry/*"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+
+  # Portal (Next.js)
+  - package-ecosystem: "npm"
+    directory: "/apps/portal"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:30"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "portal"
+    groups:
+      radix-ui:
+        patterns:
+          - "@radix-ui/*"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+
+  # Worker service
+  - package-ecosystem: "npm"
+    directory: "/apps/worker"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:45"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "worker"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+
+  # Shared packages
+  - package-ecosystem: "npm"
+    directory: "/packages/shared"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "07:00"
+    open-pull-requests-limit: 3
+    labels:
+      - "dependencies"
+      - "shared"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: "npm"
+    directory: "/packages/agent-sdk"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "07:15"
+    open-pull-requests-limit: 3
+    labels:
+      - "dependencies"
+      - "agent-sdk"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+
+  # GitHub Actions themselves
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "github-actions"

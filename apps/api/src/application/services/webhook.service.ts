@@ -318,6 +318,15 @@ export class WebhookService {
           responseTime,
         );
         await this.resetWebhookFailures(delivery.webhook_id);
+        this.logger.log({ // BL-005
+          msg: "webhook_delivery_metric",
+          metric: "webhook_delivery",
+          webhookId: delivery.webhook_id,
+          deliveryId: delivery.id,
+          outcome: "success",
+          statusCode: response.status,
+          responseTimeMs: responseTime,
+        });
       } else {
         // HTTP error
         await this.handleDeliveryFailure(
@@ -337,6 +346,14 @@ export class WebhookService {
         null,
         responseTime,
       );
+      this.logger.log({ // BL-005
+        msg: "webhook_delivery_metric",
+        metric: "webhook_delivery",
+        webhookId: delivery.webhook_id,
+        deliveryId: delivery.id,
+        outcome: error.name === "AbortError" ? "timeout" : "error",
+        responseTimeMs: responseTime,
+      });
     }
   }
 

@@ -48,7 +48,7 @@ export class MessageDeliveryService {
     conversationId: string,
     recipientId: string,
     text: string,
-    provider: string = "twilio",
+    provider: string = "meta",
   ): Promise<void> {
     await this.pool.query(
       `UPDATE messages 

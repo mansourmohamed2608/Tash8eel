@@ -4,6 +4,7 @@ import OpenAI from "openai";
 import { z } from "zod";
 import { createLogger } from "../../shared/logging/logger";
 import { MERCHANT_REPOSITORY, IMerchantRepository } from "../../domain/ports";
+import { AiMetricsService } from "../../shared/services/ai-metrics.service";
 import { getTodayDate } from "../../shared/utils/helpers";
 
 const logger = createLogger("FinanceAiService");
@@ -135,6 +136,7 @@ export class FinanceAiService {
     private configService: ConfigService,
     @Inject(MERCHANT_REPOSITORY)
     private merchantRepository: IMerchantRepository,
+    private readonly aiMetrics: AiMetricsService,
   ) {
     const apiKey = this.configService.get<string>("OPENAI_API_KEY");
     if (apiKey) {
@@ -405,6 +407,13 @@ ${JSON.stringify(deviations, null, 2)}
       const tokensUsed = completion.usage?.total_tokens || 0;
 
       await this.recordUsage(request.merchantId, tokensUsed);
+      void this.aiMetrics.record({
+        serviceName: "FinanceAiService",
+        methodName: "generateAnomalyNarrative",
+        merchantId: request.merchantId,
+        outcome: "success",
+        tokensUsed,
+      });
 
       const parsed = JSON.parse(responseText);
       const validated = AnomalyNarrativeSchema.parse(parsed);
@@ -413,6 +422,12 @@ ${JSON.stringify(deviations, null, 2)}
     } catch (err) {
       logger.error("Anomaly narrative generation failed", err as Error, {
         merchantId: request.merchantId,
+      });
+      void this.aiMetrics.record({
+        serviceName: "FinanceAiService",
+        methodName: "generateAnomalyNarrative",
+        merchantId: request.merchantId,
+        outcome: "error",
       });
       return { success: false, error: "AI generation failed" };
     }

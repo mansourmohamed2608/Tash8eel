@@ -81,6 +81,14 @@ export class AutonomousAgentBrainService {
       );
     } catch (err) {
       this.logger.error(`Agent brain scheduler error: ${err}`);
+      // BL-009: persist failure for alerting
+      this.pool
+        .query(
+          `INSERT INTO job_failure_events (job_name, error_message, error_stack)
+           VALUES ($1, $2, $3)`,
+          ["AutonomousAgentBrain.think", String(err), null],
+        )
+        .catch(() => {/* non-fatal */});
     }
   }
 

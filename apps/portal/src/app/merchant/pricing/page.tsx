@@ -40,6 +40,12 @@ import {
   ArrowRight,
   Check,
   Crown,
+  Phone,
+  TrendingUp,
+  Brain,
+  Repeat,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { merchantApi } from "@/lib/api";
@@ -117,17 +123,348 @@ interface PricingData {
 
 const PLAN_NAMES: Record<string, string> = {
   TRIAL: "تجريبي (14 يوم)",
-  STARTER: "المبتدئ",
-  GROWTH: "النمو",
-  PRO: "الاحترافي",
-  ENTERPRISE: "المؤسسات",
+  STARTER: "المبتدئ — 999 ج.م",
+  BASIC: "الأساسي — 2,200 ج.م",
+  GROWTH: "النمو — 4,800 ج.م",
+  PRO: "الاحترافي — 10,000 ج.م",
+  ENTERPRISE: "المؤسسات — 21,500 ج.م",
+};
+
+const PLAN_TAGLINES: Record<string, string> = {
+  STARTER: "واتساب ذكي + استقبال طلبات — 250 محادثة/شهر",
+  BASIC: "كل مميزات المبتدئ + لينكات دفع + مخزون + API — 500 محادثة/شهر",
+  GROWTH: "للنمو السريع مع أتمتة الأعمال وحملات التسويق — 1,500 محادثة/شهر",
+  PRO: "للعمليات الاحترافية مع التنبؤات والخط الصوتي — 4,000 محادثة/شهر",
+  ENTERPRISE: "للشركات الكبيرة مع محرك مكالمات ذكية وSLA مضمون — 10,000 محادثة/شهر",
+};
+
+const PLAN_COLORS: Record<string, string> = {
+  STARTER: "border-slate-200",
+  BASIC: "border-slate-300",
+  GROWTH: "border-primary",
+  PRO: "border-violet-400",
+  ENTERPRISE: "border-amber-400",
+};
+
+const PLAN_BADGE: Record<string, string | null> = {
+  STARTER: null,
+  BASIC: null,
+  GROWTH: "الأكثر شعبية",
+  PRO: "الأفضل قيمة",
+  ENTERPRISE: null,
+};
+
+const COUNTRY_CONFIG: Record<
+  string,
+  { nameAr: string; currency: string; flag: string }
+> = {
+  EG: { nameAr: "مصر",      currency: "ج.م",  flag: "🇪🇬" },
+  SA: { nameAr: "السعودية", currency: "ر.س",  flag: "🇸🇦" },
+  AE: { nameAr: "الإمارات", currency: "د.إ",  flag: "🇦🇪" },
+  OM: { nameAr: "عُمان",    currency: "ر.ع",  flag: "🇴🇲" },
+  KW: { nameAr: "الكويت",   currency: "د.ك",  flag: "🇰🇼" },
+};
+
+
+
+const ADDON_LIST: Array<{
+  id: string;
+  nameAr: string;
+  descAr: string;
+  icon: React.ElementType;
+  appliesTo: string;
+  prices: Record<string, number>;
+  priceUsd?: number;
+}> = [
+  {
+    id: "ADDON_AUTONOMOUS_AGENT",
+    nameAr: "وكيل ذاتي التحكم",
+    descAr: "إجراءات مستقلة — إضافة على خطط المبتدئ / الأساسي / النمو",
+    icon: Bot,
+    appliesTo: "STARTER / BASIC / GROWTH",
+    prices: { EG: 1650, SA: 175, AE: 185, OM: 17.5, KW: 14.9 },
+  },
+  {
+    id: "ADDON_MULTI_BRANCH",
+    nameAr: "إدارة فروع متعددة",
+    descAr: "لوحة تحكم موحدة لكل الفروع — إضافة على خطط المبتدئ / الأساسي / النمو",
+    icon: Users,
+    appliesTo: "STARTER / BASIC / GROWTH",
+    prices: { EG: 1100, SA: 120, AE: 125, OM: 11.5, KW: 9.9 },
+  },
+  {
+    id: "ADDON_PROACTIVE_ALERTS",
+    nameAr: "تنبيهات استباقية",
+    descAr: "رصد مخزون / دفع / عملاء تلقائياً — إضافة على خطط المبتدئ / الأساسي / النمو",
+    icon: Bell,
+    appliesTo: "STARTER / BASIC / GROWTH",
+    prices: { EG: 650, SA: 70, AE: 75, OM: 7, KW: 6 },
+  },
+  {
+    id: "ADDON_TEAM_SEAT_BUNDLE",
+    nameAr: "حزمة مقاعد الفريق",
+    descAr: "3 مقاعد وكلاء إضافية — متاح لجميع الخطط",
+    icon: Users,
+    appliesTo: "جميع الخطط",
+    prices: { EG: 900, SA: 95, AE: 100, OM: 9, KW: 8 },
+  },
+  {
+    id: "AI_TOPUP_SMALL",
+    nameAr: "باقة ذكاء اصطناعي صغيرة",
+    descAr: "5,000 إجراء ذكاء اصطناعي إضافية — متاح لجميع الخطط",
+    icon: Zap,
+    appliesTo: "جميع الخطط",
+    prices: {},
+    priceUsd: 25,
+  },
+  {
+    id: "AI_TOPUP_MEDIUM",
+    nameAr: "باقة ذكاء اصطناعي متوسطة",
+    descAr: "20,000 إجراء ذكاء اصطناعي إضافية — متاح لجميع الخطط",
+    icon: Zap,
+    appliesTo: "جميع الخطط",
+    prices: {},
+    priceUsd: 95,
+  },
+  {
+    id: "WA_TOPUP_SMALL",
+    nameAr: "باقة واتساب صغيرة",
+    descAr: "1,000 محادثة واتساب إضافية — متاح لجميع الخطط",
+    icon: MessageSquare,
+    appliesTo: "جميع الخطط",
+    prices: {},
+    priceUsd: 40,
+  },
+  {
+    id: "WA_TOPUP_MEDIUM",
+    nameAr: "باقة واتساب متوسطة",
+    descAr: "4,000 محادثة واتساب إضافية — متاح لجميع الخطط",
+    icon: MessageSquare,
+    appliesTo: "جميع الخطط",
+    prices: {},
+    priceUsd: 140,
+  },
+];
+
+interface PlanSection {
+  heading: string;
+  icon: React.ElementType;
+  items: string[];
+}
+
+const PLAN_CONFIGS: Record<string, PlanSection[]> = {
+  STARTER: [
+    {
+      heading: "التجارة الأساسية",
+      icon: ShoppingCart,
+      items: [
+        "إدارة الطلبات عبر واتساب",
+        "كتالوج المنتجات والمتغيرات",
+        "ملفات العملاء والتاريخ الكامل",
+        "إدارة التوصيل والمناطق",
+        "بوابة سائقي التوصيل",
+      ],
+    },
+    {
+      heading: "المخزون",
+      icon: Package,
+      items: [
+        "إدارة المخزون ومتابعة المنتجات",
+        "تنبيهات المخزون المنخفض",
+        "متغيرات المنتج (مقاس / لون / وزن)",
+      ],
+    },
+    {
+      heading: "الذكاء الاصطناعي",
+      icon: Bot,
+      items: [
+        "وكيل مبيعات عربي 24/7",
+        "التحقق من إثباتات الدفع بالصور",
+        "ملاحظات صوتية (نسخ تلقائي)",
+        "500 رد ذكي / يوم",
+      ],
+    },
+    {
+      heading: "التقارير والبنية التحتية",
+      icon: BarChart3,
+      items: [
+        "تقارير مالية أساسية",
+        "لوحة العمليات اليومية",
+        "استيراد وتصدير CSV",
+      ],
+    },
+  ],
+  BASIC: [
+    {
+      heading: "كل ميزات المبتدئ +",
+      icon: Check,
+      items: [],
+    },
+    {
+      heading: "الدفع والتكاملات",
+      icon: ShoppingCart,
+      items: [
+        "لينكات دفع — العميل يدفع أونلاين مباشرة",
+        "ربط بأنظمة خارجية عبر API",
+        "إدارة المخزون ومتابعة المنتجات",
+        "تنبيهات المخزون المنخفض",
+        "وكيل المالية والتقارير",
+      ],
+    },
+    {
+      heading: "الذكاء الاصطناعي",
+      icon: Bot,
+      items: [
+        "وكيل مبيعات عربي 24/7",
+        "التحقق من إثباتات الدفع بالصور",
+        "200 رد ذكي / يوم",
+      ],
+    },
+  ],
+  GROWTH: [
+    {
+      heading: "كل ميزات الأساسي +",
+      icon: Check,
+      items: [],
+    },
+    {
+      heading: "التسويق والمبيعات",
+      icon: Sparkles,
+      items: [
+        "حملات البث على واتساب",
+        "تقسيم العملاء الديناميكي",
+        "برنامج الولاء والنقاط",
+        "اختيار الجمهور بالذكاء الاصطناعي",
+        "الإشعارات الفورية",
+      ],
+    },
+    {
+      heading: "الأتمتة",
+      icon: Zap,
+      items: [
+        "10 أتمتات نشطة في وقت واحد",
+        "تنبيهات المخزون المنخفض",
+        "متابعة الدفع التلقائية",
+        "إشعارات مراحل الطلب للعميل",
+        "تذكير تجديد الاشتراك",
+        "إنقاذ السلة المتروكة",
+      ],
+    },
+    {
+      heading: "التحليلات",
+      icon: BarChart3,
+      items: [
+        "لوحة KPI المتقدمة",
+        "تحليلات المبيعات التفصيلية",
+        "أداء الفريق والوكلاء",
+        "تقرير المدير المالي الشهري",
+      ],
+    },
+  ],
+  PRO: [
+    {
+      heading: "كل ميزات النمو +",
+      icon: Check,
+      items: [],
+    },
+    {
+      heading: "الأتمتة المتقدمة",
+      icon: Repeat,
+      items: [
+        "50 أتمتة نشطة في وقت واحد",
+        "جميع 17 نوع أتمتة",
+        "رصد مشاعر العملاء (سخط / رضا)",
+        "تقييم العملاء المحتملين بالذكاء الاصطناعي",
+        "تصنيف VIP والعملاء في خطر تلقائياً",
+        "تنبيه تجاوز مواعيد التوصيل (SLA)",
+        "استعادة العملاء الخاملين تلقائياً",
+      ],
+    },
+    {
+      heading: "منصة التنبؤات الذكية",
+      icon: TrendingUp,
+      items: [
+        "توقعات الطلب بنطاقات الثقة 95%",
+        "التنبؤ بتاريخ نفاد المخزون",
+        "حساب المخزون الأمني الأمثل",
+        "توصيات التزويد بنقرة واحدة",
+        "توقع التدفق النقدي 30 يوماً",
+        "توقع مغادرة العملاء وإعادة استهدافهم",
+        "توقع تأخير التوصيل",
+        "توقع حِمل الفريق الأسبوعي",
+        "توقع عائد الحملات قبل إطلاقها",
+        "محاكي السيناريوهات (ماذا لو)",
+      ],
+    },
+    {
+      heading: "المخزون والموردين",
+      icon: Package,
+      items: [
+        "مخزون متعدد المواقع",
+        "رؤى ذكاء اصطناعي للمخزون",
+        "تقييم FIFO للتكلفة الحقيقية",
+        "تتبع تواريخ الانتهاء",
+        "اكتشاف الموردين بالذكاء الاصطناعي",
+        "أوامر الشراء الكاملة",
+      ],
+    },
+    {
+      heading: "فريق ومالية",
+      icon: Users,
+      items: [
+        "فروع متعددة",
+        "أدوار وصلاحيات متقدمة",
+        "حزمة المحاسب لإدارة الضرائب",
+        "وكيل ذاتي التحكم",
+      ],
+    },
+  ],
+  ENTERPRISE: [
+    {
+      heading: "كل ميزات الاحترافي +",
+      icon: Check,
+      items: [],
+    },
+    {
+      heading: "محرك المكالمات بالذكاء الاصطناعي",
+      icon: Phone,
+      items: [
+        "وكيل مبيعات هاتفي صادر بالعربية",
+        "استقبال مكالمات تلقائي 24/7",
+        "مكالمات تأكيد الطلبات",
+        "مكالمات إشعار التوصيل",
+        "حملات استعادة العملاء بالهاتف",
+        "مكالمات رضا ما بعد التوصيل",
+        "تسجيل ونسخ المكالمات بالعربية",
+        "لوحة تحليلات المكالمات",
+        "تدفقات هجينة (مكالمة + واتساب)",
+        "تحويل للوكيل البشري مع السياق",
+      ],
+    },
+    {
+      heading: "العمليات المؤسسية",
+      icon: Brain,
+      items: [
+        "فروع غير محدودة",
+        "مدير حساب مخصص",
+        "SLA دعم 4 ساعات",
+        "مفاتيح API مؤسسية",
+        "دعم التكامل مع الأنظمة الخارجية",
+      ],
+    },
+  ],
 };
 
 export default function PricingCalculatorPage() {
   const { apiKey } = useMerchant();
   const { toast } = useToast();
   const [pricing, setPricing] = useState<PricingData | null>(null);
+  const [catalog, setCatalog] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+
+  // Country / currency
+  const [country, setCountry] = useState("EG");
+  const currencyLabel = COUNTRY_CONFIG[country]?.currency ?? "ج.م";
 
   // User selections
   const [selectedAgents, setSelectedAgents] = useState<Set<string>>(
@@ -158,6 +495,14 @@ export default function PricingCalculatorPage() {
       })
       .catch(() => setLoading(false));
   }, [apiKey]);
+
+  useEffect(() => {
+    if (!apiKey) return;
+    merchantApi
+      .getBillingCatalog(apiKey, country as "EG" | "SA" | "AE" | "OM" | "KW")
+      .then(setCatalog)
+      .catch(() => {/* non-blocking */});
+  }, [apiKey, country]);
 
   // Auto-calculate when selections change
   useEffect(() => {
@@ -313,70 +658,192 @@ export default function PricingCalculatorPage() {
         title="حاسبة الأسعار"
         description="اختر الميزات والوكلاء اللي تحتاجهم وشوف السعر مباشرة — بدون انتظار أحد"
         actions={
-          <Badge className="bg-gradient-to-r from-amber-500 to-amber-600 text-white">
-            <Calculator className="h-4 w-4 ml-1" />
-            أسعار بالجنيه المصري
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Select value={country} onValueChange={setCountry}>
+              <SelectTrigger className="w-36 h-8 text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(COUNTRY_CONFIG).map(([code, cfg]) => (
+                  <SelectItem key={code} value={code}>
+                    {cfg.flag} {cfg.nameAr}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Badge className="bg-gradient-to-r from-amber-500 to-amber-600 text-white">
+              <Calculator className="h-4 w-4 ml-1" />
+              أسعار بـ{currencyLabel}
+            </Badge>
+          </div>
         }
       />
 
-      {/* Quick Plan Selection */}
+      {/* Plan Comparison Cards */}
       <div>
-        <h2 className="text-lg font-semibold mb-3">الباقات الجاهزة</h2>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <h2 className="text-lg font-semibold mb-1">الباقات الجاهزة</h2>
+        <p className="text-sm text-muted-foreground mb-4">
+          اختر الباقة المناسبة — أو استخدم حاسبة الأسعار أدناه لتخصيص باقتك
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
           {pricing.plans
             .filter((p) => p.id !== "TRIAL")
-            .map((plan) => (
-              <Card
-                key={plan.id}
-                className={cn(
-                  "cursor-pointer transition-all hover:shadow-md border-2",
-                  calcResult?.recommendedPlan === plan.id
-                    ? "border-primary"
-                    : "border-transparent",
-                )}
-                onClick={() => selectPresetPlan(plan.id)}
-              >
-                <CardHeader className="pb-2">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-sm">
-                      {PLAN_NAMES[plan.id] || plan.id}
-                    </CardTitle>
-                    {plan.id === "GROWTH" && (
-                      <Badge className="text-[10px]">الأكثر شعبية</Badge>
-                    )}
-                  </div>
-                  <CardDescription className="text-2xl font-bold text-foreground">
-                    {plan.price != null ? `${plan.price} جنيه` : "مخصص"}
-                    {plan.price != null && (
-                      <span className="text-xs text-muted-foreground font-normal">
-                        /شهر
+            .map((plan) => {
+              const badge = PLAN_BADGE[plan.id];
+              const sections = PLAN_CONFIGS[plan.id] || [];
+              const isRecommended = calcResult?.recommendedPlan === plan.id;
+              const catalogBundle = catalog?.bundles?.find(
+                (b: any) => b.code === plan.id,
+              );
+              const catalogMonthlyPrice: number | null =
+                catalogBundle?.prices?.find((p: any) => p.cycleMonths === 1)
+                  ?.effectiveMonthlyCents != null
+                  ? catalogBundle.prices.find((p: any) => p.cycleMonths === 1)
+                      .effectiveMonthlyCents / 100
+                  : null;
+              const displayPrice: number | null =
+                catalogMonthlyPrice ?? plan.price;
+              return (
+                <Card
+                  key={plan.id}
+                  className={cn(
+                    "cursor-pointer transition-all hover:shadow-lg border-2 flex flex-col",
+                    isRecommended
+                      ? "border-primary shadow-md"
+                      : PLAN_COLORS[plan.id] || "border-transparent",
+                  )}
+                  onClick={() => selectPresetPlan(plan.id)}
+                >
+                  <CardHeader className="pb-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <CardTitle className="text-base">
+                          {PLAN_NAMES[plan.id] || plan.id}
+                        </CardTitle>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {PLAN_TAGLINES[plan.id]}
+                        </p>
+                      </div>
+                      {badge && (
+                        <Badge className="text-[10px] shrink-0 bg-primary">
+                          {badge}
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="mt-2">
+                      <span className="text-2xl font-bold">
+                        {displayPrice != null ? `${displayPrice}` : "مخصص"}
                       </span>
-                    )}
-                  </CardDescription>
+                      {displayPrice != null && (
+                        <span className="text-sm text-muted-foreground mr-1">
+                          {currencyLabel}/شهر
+                        </span>
+                      )}
+                    </div>
+                  </CardHeader>
+
+                  <CardContent className="pt-0 flex-1 space-y-3">
+                    {sections.map((section) => {
+                      const SectionIcon = section.icon;
+                      return (
+                        <div key={section.heading}>
+                          <div className="flex items-center gap-1.5 mb-1.5">
+                            <SectionIcon className="h-3.5 w-3.5 text-primary shrink-0" />
+                            <span className="text-xs font-semibold text-primary">
+                              {section.heading}
+                            </span>
+                          </div>
+                          {section.items.length > 0 && (
+                            <ul className="space-y-1">
+                              {section.items.map((item) => (
+                                <li
+                                  key={item}
+                                  className="flex items-start gap-1.5 text-xs text-muted-foreground"
+                                >
+                                  <Check className="h-3 w-3 text-green-500 mt-0.5 shrink-0" />
+                                  {item}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </CardContent>
+
+                  <div className="p-4 pt-0 mt-auto">
+                    <Button
+                      size="sm"
+                      variant={isRecommended ? "default" : "outline"}
+                      className={cn(
+                        "w-full text-xs",
+                        plan.id === "BASIC" &&
+                          !isRecommended &&
+                          "border-blue-300 text-blue-700 hover:bg-blue-50",
+                        plan.id === "PRO" &&
+                          !isRecommended &&
+                          "border-violet-400 text-violet-700 hover:bg-violet-50",
+                        plan.id === "ENTERPRISE" &&
+                          !isRecommended &&
+                          "border-amber-400 text-amber-700 hover:bg-amber-50",
+                      )}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleCheckout(plan.id);
+                      }}
+                    >
+                      {plan.id === "ENTERPRISE" ? "تواصل معنا" : "اشترك الآن"}
+                    </Button>
+                  </div>
+                </Card>
+              );
+            })}
+        </div>
+      </div>
+
+      {/* Add-Ons Section */}
+      <div>
+        <h2 className="text-lg font-semibold mb-1">الإضافات المتاحة</h2>
+        <p className="text-sm text-muted-foreground mb-4">
+          أضفها على أي خطة — تُفعَّل وتُلغى في أي وقت بدون عقود
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {ADDON_LIST.map((addon) => {
+            const Icon = addon.icon;
+            const localPrice = addon.prices[country] ?? null;
+            const priceDisplay =
+              localPrice != null ? String(localPrice) : `~$${addon.priceUsd}`;
+            const unitLabel =
+              localPrice != null ? `${currencyLabel}/شهر` : "USD/شهر";
+            return (
+              <Card key={addon.id} className="flex flex-col border border-border">
+                <CardHeader className="pb-2">
+                  <div className="flex items-start gap-2">
+                    <Icon className="h-5 w-5 text-primary mt-0.5 shrink-0" />
+                    <div>
+                      <CardTitle className="text-sm">{addon.nameAr}</CardTitle>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {addon.descAr}
+                      </p>
+                    </div>
+                  </div>
                 </CardHeader>
-                <CardContent className="pt-0">
-                  <p className="text-xs text-muted-foreground">
-                    {plan.agents.length} وكيل · {plan.features.length} ميزة
+                <CardContent className="pt-0 mt-auto">
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-xl font-bold text-primary">
+                      {priceDisplay}
+                    </span>
+                    <span className="text-sm text-muted-foreground">
+                      {unitLabel}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    صالح لـ: {addon.appliesTo}
                   </p>
-                  <Button
-                    size="sm"
-                    variant={
-                      calcResult?.recommendedPlan === plan.id
-                        ? "default"
-                        : "outline"
-                    }
-                    className="w-full mt-2 text-xs"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleCheckout(plan.id);
-                    }}
-                  >
-                    {plan.id === "ENTERPRISE" ? "تواصل معنا" : "اشترك الآن"}
-                  </Button>
                 </CardContent>
               </Card>
-            ))}
+            );
+          })}
         </div>
       </div>
 

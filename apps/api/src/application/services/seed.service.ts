@@ -28,6 +28,7 @@ const ID = {
   cust6: "00000000-0000-4000-b000-000000000006",
   cust7: "00000000-0000-4000-b000-000000000007",
   cust8: "00000000-0000-4000-b000-000000000008",
+  cust9: "00000000-0000-4000-b000-000000000009",
   // Catalog items
   cat1: "00000000-0000-4000-c000-000000000001",
   cat2: "00000000-0000-4000-c000-000000000002",
@@ -41,6 +42,12 @@ const ID = {
   cat10: "00000000-0000-4000-c000-000000000010",
   cat11: "00000000-0000-4000-c000-000000000011",
   cat12: "00000000-0000-4000-c000-000000000012",
+  // Food / pizza catalog items
+  cat13: "00000000-0000-4000-c000-000000000013",
+  cat14: "00000000-0000-4000-c000-000000000014",
+  cat15: "00000000-0000-4000-c000-000000000015",
+  cat16: "00000000-0000-4000-c000-000000000016",
+  cat17: "00000000-0000-4000-c000-000000000017",
   // Orders
   ord1: "00000000-0000-4000-d000-000000000001",
   ord2: "00000000-0000-4000-d000-000000000002",
@@ -52,6 +59,7 @@ const ID = {
   ord8: "00000000-0000-4000-d000-000000000008",
   ord9: "00000000-0000-4000-d000-000000000009",
   ord10: "00000000-0000-4000-d000-000000000010",
+  ord11: "00000000-0000-4000-d000-000000000011",
   // Inventory items
   inv1: "00000000-0000-4000-e000-000000000001",
   inv2: "00000000-0000-4000-e000-000000000002",
@@ -76,6 +84,7 @@ const ID = {
   drv3: "00000000-0000-4000-f000-000000000003",
   // Billing
   planStarter: "00000000-0000-4000-f100-000000000001",
+  planBasic: "00000000-0000-4000-f100-000000000005",
   planGrowth: "00000000-0000-4000-f100-000000000002",
   planPro: "00000000-0000-4000-f100-000000000003",
   planEnterprise: "00000000-0000-4000-f100-000000000004",
@@ -109,6 +118,7 @@ const CONV = {
   c6: "conv-demo-006",
   c7: "conv-demo-007",
   c8: "conv-demo-008",
+  c9: "conv-demo-009",
 };
 
 @Injectable()
@@ -308,6 +318,7 @@ export class SeedService {
       "vip_rules",
       "customers",
       // Catalog
+      "catalog_embedding_jobs",
       "catalog_items",
       "known_areas",
       // Webhooks
@@ -374,7 +385,7 @@ export class SeedService {
     try {
       await client.query(`SAVEPOINT sp_plans`);
       await client.query(
-        `DELETE FROM billing_plans WHERE code IN ('STARTER','GROWTH','PRO','ENTERPRISE')`,
+        `DELETE FROM billing_plans WHERE code IN ('STARTER','BASIC','GROWTH','PRO','ENTERPRISE')`,
       );
       await client.query(`RELEASE SAVEPOINT sp_plans`);
     } catch {
@@ -650,6 +661,57 @@ export class SeedService {
         minPrice: 180,
         desc: "حزام جلد طبيعي - بني/أسود",
       },
+      // ── Food items: demonstrate RAG substitution (seafood pizza → alternatives) ──
+      {
+        id: ID.cat13,
+        sku: "PIZ-TON-L",
+        nameAr: "بيتزا تونة كبيرة",
+        nameEn: "Large Tuna Pizza",
+        cat: "بيتزا",
+        price: 185,
+        minPrice: 160,
+        desc: "بيتزا تونة بالصوص الأبيض مقاس كبير",
+      },
+      {
+        id: ID.cat14,
+        sku: "PAS-SEA-M",
+        nameAr: "باستا سي فود",
+        nameEn: "Seafood Pasta",
+        cat: "باستا",
+        price: 210,
+        minPrice: 185,
+        desc: "باستا بماكولات بحرية بالكريمة",
+      },
+      {
+        id: ID.cat15,
+        sku: "PIZ-MIX-L",
+        nameAr: "بيتزا ميكس تشيز كبيرة",
+        nameEn: "Large Mix Cheese Pizza",
+        cat: "بيتزا",
+        price: 170,
+        minPrice: 145,
+        desc: "بيتزا بتشكيلة جبن مشكلة مقاس كبير",
+      },
+      {
+        id: ID.cat16,
+        sku: "SID-POT",
+        nameAr: "بطاطس ويدجز",
+        nameEn: "Potato Wedges",
+        cat: "مقبلات",
+        price: 55,
+        minPrice: 45,
+        desc: "بطاطس ويدجز مقرمشة",
+      },
+      {
+        id: ID.cat17,
+        sku: "DRK-PEP",
+        nameAr: "بيبسي 330 مل",
+        nameEn: "Pepsi 330ml",
+        cat: "مشروبات",
+        price: 20,
+        minPrice: 20,
+        desc: "بيبسي برد 330 مل",
+      },
     ];
 
     for (const p of products) {
@@ -799,6 +861,14 @@ export class SeedService {
         name: "كريم مصطفى",
         orders: 20,
         vip: "GOLD",
+      },
+      {
+        id: ID.cust9,
+        sender: "201999999999@c.us",
+        phone: "+201999999999",
+        name: "أحمد رشدي",
+        orders: 2,
+        vip: null,
       },
     ];
 
@@ -963,6 +1033,13 @@ export class SeedService {
         state: "TRACKING",
         cart: '{"items":[],"subtotal":0,"total":0}',
       },
+      {
+        id: CONV.c9,
+        custId: ID.cust9,
+        sender: "201999999999@c.us",
+        state: "ORDER_PLACED",
+        cart: '{"items":[{"id":"00000000-0000-4000-c000-000000000013","name":"بيتزا تونة كبيرة","qty":1,"price":185}],"subtotal":185,"deliveryFee":30,"total":215}',
+      },
     ];
 
     // Fix: conversation_state might not have 'BROWSING' — use COLLECTING_ITEMS
@@ -989,7 +1066,7 @@ export class SeedService {
           collected_info, human_takeover, last_message_at)
         VALUES ($1, $2, $3, $4, $5,
           '{"intent":"shopping","itemsDiscussed":["تيشيرت","جينز"]}'::jsonb,
-          $6::jsonb, '{"name":true,"phone":true}'::jsonb, false,
+          $6::jsonb, '{}'::jsonb, false,
           NOW() - interval '1 hour')
       `,
         [c.id, m, c.custId, c.sender, state, c.cart],
@@ -1050,6 +1127,113 @@ export class SeedService {
     }
     t++;
 
+    // ── RAG substitution demo conversation (c9) ─────────────────────────────
+    // Shows the AI detecting a missing item (seafood pizza) and surfacing
+    // semantically similar alternatives.  5 turns; last state = COLLECTING_ITEMS.
+    const c9Messages: Array<{ dir: string; sender: string; text: string; llm: boolean; tokens: number; ago: string }> = [
+      {
+        dir: "inbound",
+        sender: "201999999999@c.us",
+        text: "مساء الخير عندكم بيتزا سي فود كبيرة؟",
+        llm: false,
+        tokens: 0,
+        ago: "25 minutes",
+      },
+      {
+        dir: "outbound",
+        sender: "system",
+        text:
+          "مساء النور 🌷\n" +
+          "حالياً بيتزا السي فود مش موجودة ضمن المنيو المتاحة.\n" +
+          "لكن عندنا بدائل قريبة ممكن تناسبك:\n\n" +
+          "• بيتزا تونة كبيرة — 185 جنيه\n" +
+          "• باستا سي فود — 210 جنيه\n" +
+          "• بيتزا ميكس تشيز كبيرة — 170 جنيه\n\n" +
+          "تحب أرشح لك أنسب اختيار حسب ذوقك؟",
+        llm: true,
+        tokens: 312,
+        ago: "24 minutes",
+      },
+      {
+        dir: "inbound",
+        sender: "201999999999@c.us",
+        text: "عايز حاجة سبايسي لي شخين",
+        llm: false,
+        tokens: 0,
+        ago: "20 minutes",
+      },
+      {
+        dir: "outbound",
+        sender: "system",
+        text:
+          "تمام 👍\n" +
+          "لو لشخصين وعايزها سبايسي، أرشح لك:\n\n" +
+          "• بيتزا تونة كبيرة مع إضافة هالبينو\n" +
+          "• أو باستا سي فود سبايسي\n\n" +
+          "ولو تحب وجبة كاملة، ممكن أضيف:\n" +
+          "• بطاطس ويدجز — 55 جنيه\n" +
+          "• 2 بيبسي — 40 جنيه\n\n" +
+          "تحب أكمل على أي اختيار؟",
+        llm: true,
+        tokens: 284,
+        ago: "15 minutes",
+      },
+      {
+        dir: "inbound",
+        sender: "201999999999@c.us",
+        text: "بيتزا تونة كبيرة",
+        llm: false,
+        tokens: 0,
+        ago: "10 minutes",
+      },
+      {
+        dir: "outbound",
+        sender: "system",
+        text:
+          "اختيار ممتاز! 🍕\n" +
+          "بيتزا تونة كبيرة — 185 جنيه\n" +
+          "توصيل — 30 جنيه\n\n" +
+          "محتاج اسمك وعنوانك لنكمل الأوردر 😊",
+        llm: true,
+        tokens: 195,
+        ago: "9 minutes",
+      },
+      {
+        dir: "inbound",
+        sender: "201999999999@c.us",
+        text: "أحمد رشدي — المعادي شارع 9 عمارة 15 دور 3",
+        llm: false,
+        tokens: 0,
+        ago: "7 minutes",
+      },
+      {
+        dir: "outbound",
+        sender: "system",
+        text:
+          "تمام يا أحمد! ✅\n" +
+          "الأوردر رقم ORD-2026-0011 اتأكد 🎉\n\n" +
+          "🍕 بيتزا تونة كبيرة — 185 ج\n" +
+          "🚚 توصيل المعادي — 30 ج\n" +
+          "💰 الإجمالي: 215 ج (كاش عند الاستلام)\n\n" +
+          "هيوصلك خلال 45-60 دقيقة 🕐",
+        llm: true,
+        tokens: 267,
+        ago: "6 minutes",
+      },
+    ];
+    for (const msg of c9Messages) {
+      await client.query(
+        `
+        INSERT INTO messages (id, conversation_id, merchant_id, direction, sender_id, text,
+          delivery_status, llm_used, tokens_used, created_at)
+        VALUES (gen_random_uuid(), $1, $2, $3, $4, $5,
+          'DELIVERED', $6, $7, NOW() - $8::interval)
+      `,
+        [CONV.c9, m, msg.dir, msg.sender, msg.text, msg.llm, msg.tokens, msg.ago],
+      );
+    }
+    t++;
+
     // followups
     await client.query(
       `
@@ -1057,9 +1241,10 @@ export class SeedService {
         (gen_random_uuid(), $1, $5, $2, 'order_confirmation', 'SENT', NOW() - interval '2 hours', 'أوردرك اتأكد ✅'),
         (gen_random_uuid(), $1, $5, $2, 'delivery_reminder', 'PENDING', NOW() + interval '20 hours', 'أوردرك في الطريق 🚚'),
         (gen_random_uuid(), $1, $6, $3, 'feedback_request', 'PENDING', NOW() + interval '2 days', 'إيه رأيك في المنتجات؟ ⭐'),
-        (gen_random_uuid(), $1, $7, $4, 'abandoned_cart', 'PENDING', NOW() + interval '3 hours', 'لسه مكملتش الأوردر! عندنا عرض خاص 🎁')
+        (gen_random_uuid(), $1, $7, $4, 'abandoned_cart', 'PENDING', NOW() + interval '3 hours', 'لسه مكملتش الأوردر! عندنا عرض خاص 🎁'),
+        (gen_random_uuid(), $1, $8, $9, 'delivery_reminder', 'PENDING', NOW() + interval '40 minutes', 'الأوردر بتاعك في الطريق — بيتزا التونة هتوصل خلال 45 دقيقة 🍕🚚')
     `,
-      [m, ID.cust1, ID.cust3, ID.cust5, CONV.c1, CONV.c3, CONV.c5],
+      [m, ID.cust1, ID.cust3, ID.cust5, CONV.c1, CONV.c3, CONV.c5, CONV.c9, ID.cust9],
     );
     t++;
 
@@ -1172,6 +1357,15 @@ export class SeedService {
         qty: 1,
         unit: 950,
         total: 950,
+      },
+      {
+        orderId: ID.ord11,
+        catId: ID.cat13,
+        name: "بيتزا تونة كبيرة",
+        sku: "PIZ-TON-L",
+        qty: 1,
+        unit: 185,
+        total: 185,
       },
     ];
 
@@ -1323,6 +1517,20 @@ export class SeedService {
         name: "كريم مصطفى",
         phone: "+201888888888",
       },
+      {
+        id: ID.ord11,
+        num: "ORD-2026-0011",
+        custId: ID.cust9,
+        convId: CONV.c9,
+        status: "CONFIRMED",
+        sub: 185,
+        del: 30,
+        total: 215,
+        paid: "PENDING",
+        method: "COD",
+        name: "أحمد رشدي",
+        phone: "+201999999999",
+      },
     ];
 
     for (const o of orderData) {
@@ -1415,6 +1623,7 @@ export class SeedService {
         tracking: "BOS-334455",
         courier: "بوسطة",
       },
+      { orderId: ID.ord11, status: "pending", tracking: null, courier: "بوسطة" },
     ];
 
     for (const s of shippedOrders) {
@@ -2333,25 +2542,53 @@ export class SeedService {
     await client.query(
       `
       INSERT INTO billing_plans (id, code, name, price_cents, currency, billing_period, description, features, agents, limits, is_active) VALUES
-        ($1, 'STARTER', 'Starter', 44900, 'EGP', 'monthly', 'للتجار الجدد — وكيل عمليات ذكي + ~33 محادثة يومياً',
-          '["CONVERSATIONS","ORDERS","CATALOG","VOICE_NOTES","REPORTS","NOTIFICATIONS"]'::jsonb,
+        ($1, 'STARTER', 'Starter', 99900, 'EGP', 'monthly', 'للتجار الجدد — وكيل عمليات ذكي + ~25 محادثة يومياً',
+          '["CONVERSATIONS","ORDERS","CATALOG","PAYMENTS","REPORTS","NOTIFICATIONS","WEBHOOKS","VOICE_NOTES","COPILOT_CHAT"]'::jsonb,
           '["OPS_AGENT"]'::jsonb,
-          '{"messagesPerMonth":10000,"whatsappNumbers":1,"teamMembers":1,"tokenBudgetDaily":150000,"aiCallsPerDay":300}'::jsonb, true),
-        ($2, 'GROWTH', 'Growth', 79900, 'EGP', 'monthly', 'للتجار المتوسعين — +وكيل مخزون + ~50 محادثة يومياً',
-          '["CONVERSATIONS","ORDERS","CATALOG","VOICE_NOTES","REPORTS","NOTIFICATIONS","INVENTORY","API_ACCESS"]'::jsonb,
-          '["OPS_AGENT","INVENTORY_AGENT"]'::jsonb,
-          '{"messagesPerMonth":15000,"whatsappNumbers":2,"teamMembers":2,"tokenBudgetDaily":300000,"aiCallsPerDay":500}'::jsonb, true),
-        ($3, 'PRO', 'Pro', 149900, 'EGP', 'monthly', 'للتجار المحترفين — +وكيل مالي + ~167 محادثة يومياً',
-          '["CONVERSATIONS","ORDERS","CATALOG","VOICE_NOTES","REPORTS","NOTIFICATIONS","INVENTORY","API_ACCESS","PAYMENTS","VISION_OCR","KPI_DASHBOARD","WEBHOOKS","TEAM","AUDIT_LOGS"]'::jsonb,
+          '{"messagesPerMonth":5000,"whatsappNumbers":1,"teamMembers":1,"tokenBudgetDaily":50000,"aiCallsPerDay":100,"paidTemplatesPerMonth":5,"paymentProofScansPerMonth":25,"voiceMinutesPerMonth":20}'::jsonb, true),
+        ($2, 'BASIC', 'Basic', 220000, 'EGP', 'monthly', 'للتجار الصاعدين — كل الوكلاء + مخزون + دفع + ~37 محادثة يومياً',
+          '["CONVERSATIONS","ORDERS","CATALOG","INVENTORY","REPORTS","NOTIFICATIONS","PAYMENTS","WEBHOOKS","API_ACCESS","VOICE_NOTES","COPILOT_CHAT"]'::jsonb,
           '["OPS_AGENT","INVENTORY_AGENT","FINANCE_AGENT"]'::jsonb,
-          '{"messagesPerMonth":50000,"whatsappNumbers":3,"teamMembers":3,"tokenBudgetDaily":800000,"aiCallsPerDay":1500}'::jsonb, true),
-        ($4, 'ENTERPRISE', 'Enterprise', 299900, 'EGP', 'monthly', 'للمؤسسات الكبيرة — كل الميزات + بلا حدود',
-          '["CONVERSATIONS","ORDERS","CATALOG","INVENTORY","PAYMENTS","VISION_OCR","VOICE_NOTES","REPORTS","WEBHOOKS","TEAM","NOTIFICATIONS","AUDIT_LOGS","KPI_DASHBOARD","API_ACCESS"]'::jsonb,
+          '{"messagesPerMonth":15000,"whatsappNumbers":1,"teamMembers":1,"tokenBudgetDaily":200000,"aiCallsPerDay":200,"paidTemplatesPerMonth":15,"paymentProofScansPerMonth":50,"voiceMinutesPerMonth":30}'::jsonb, true),
+        ($3, 'GROWTH', 'Growth', 480000, 'EGP', 'monthly', 'للتجار المتوسعين — كل الوكلاء + فريق + ولاء + ~125 محادثة يومياً',
+          '["CONVERSATIONS","ORDERS","CATALOG","INVENTORY","REPORTS","NOTIFICATIONS","PAYMENTS","WEBHOOKS","API_ACCESS","COPILOT_CHAT","TEAM","LOYALTY","AUTOMATIONS","VOICE_NOTES"]'::jsonb,
           '["OPS_AGENT","INVENTORY_AGENT","FINANCE_AGENT"]'::jsonb,
-          '{"messagesPerMonth":-1,"whatsappNumbers":-1,"teamMembers":10,"tokenBudgetDaily":-1,"aiCallsPerDay":-1}'::jsonb, true)
+          '{"messagesPerMonth":30000,"whatsappNumbers":2,"teamMembers":2,"tokenBudgetDaily":400000,"aiCallsPerDay":500,"paidTemplatesPerMonth":30,"paymentProofScansPerMonth":150,"voiceMinutesPerMonth":60}'::jsonb, true),
+        ($4, 'PRO', 'Pro', 1000000, 'EGP', 'monthly', 'للتجار المحترفين — +لوحة KPI + سجل تدقيق + توقعات + ~625 محادثة يومياً',
+          '["CONVERSATIONS","ORDERS","CATALOG","INVENTORY","REPORTS","NOTIFICATIONS","VOICE_NOTES","PAYMENTS","COPILOT_CHAT","TEAM","API_ACCESS","WEBHOOKS","KPI_DASHBOARD","AUDIT_LOGS","LOYALTY","AUTOMATIONS","FORECASTING"]'::jsonb,
+          '["OPS_AGENT","INVENTORY_AGENT","FINANCE_AGENT"]'::jsonb,
+          '{"messagesPerMonth":100000,"whatsappNumbers":3,"teamMembers":5,"tokenBudgetDaily":1000000,"aiCallsPerDay":2500,"paidTemplatesPerMonth":50,"paymentProofScansPerMonth":400,"voiceMinutesPerMonth":120}'::jsonb, true),
+        ($5, 'ENTERPRISE', 'Enterprise', 2150000, 'EGP', 'monthly', 'للمؤسسات الكبيرة — كل الميزات + مكالمات صوتية + SLA + ~1250 محادثة يومياً',
+          '["CONVERSATIONS","ORDERS","CATALOG","INVENTORY","PAYMENTS","VOICE_NOTES","REPORTS","WEBHOOKS","TEAM","NOTIFICATIONS","AUDIT_LOGS","KPI_DASHBOARD","API_ACCESS","COPILOT_CHAT","CUSTOM_INTEGRATIONS","SLA","LOYALTY","AUTOMATIONS","FORECASTING","VOICE_CALLING"]'::jsonb,
+          '["OPS_AGENT","INVENTORY_AGENT","FINANCE_AGENT"]'::jsonb,
+          '{"messagesPerMonth":250000,"whatsappNumbers":5,"teamMembers":10,"tokenBudgetDaily":1750000,"aiCallsPerDay":5000,"paidTemplatesPerMonth":100,"paymentProofScansPerMonth":1200,"voiceMinutesPerMonth":240}'::jsonb, true)
     `,
-      [ID.planStarter, ID.planGrowth, ID.planPro, ID.planEnterprise],
+      [ID.planStarter, ID.planBasic, ID.planGrowth, ID.planPro, ID.planEnterprise],
     );
+    t++;
+
+    // usage_packs — OCR scan top-up catalog (global catalog rows, idempotent)
+    for (const pack of [
+      { code: "PROOF_S",  name: "باقة فحص 100 إيصال",  tier: "S",  units: 100,  price: 7900  },
+      { code: "PROOF_M",  name: "باقة فحص 300 إيصال",  tier: "M",  units: 300,  price: 18900 },
+      { code: "PROOF_L",  name: "باقة فحص 700 إيصال",  tier: "L",  units: 700,  price: 34900 },
+      { code: "PROOF_XL", name: "باقة فحص 1500 إيصال", tier: "XL", units: 1500, price: 59900 },
+    ]) {
+      await client.query(
+        `INSERT INTO usage_packs (id, code, name, metric_key, tier_code, included_units, is_active)
+         SELECT gen_random_uuid(), $1, $2, 'PAYMENT_PROOF_SCANS', $3, $4, true
+         WHERE NOT EXISTS (SELECT 1 FROM usage_packs WHERE code = $1)`,
+        [pack.code, pack.name, pack.tier, pack.units],
+      );
+      await client.query(
+        `INSERT INTO usage_pack_prices (usage_pack_id, region_code, price_cents, currency)
+         SELECT up.id, 'EG', $2, 'EGP'
+         FROM usage_packs up
+         WHERE up.code = $1
+           AND NOT EXISTS (SELECT 1 FROM usage_pack_prices upp WHERE upp.usage_pack_id = up.id AND upp.region_code = 'EG')`,
+        [pack.code, pack.price],
+      );
+    }
     t++;
 
     // merchant_subscriptions
@@ -2369,8 +2606,8 @@ export class SeedService {
     await client.query(
       `
       INSERT INTO billing_invoices (id, merchant_id, subscription_id, amount_cents, currency, status, due_date, paid_at) VALUES
-        (gen_random_uuid(), $1, $2, 149900, 'EGP', 'PAID', CURRENT_DATE - 15, CURRENT_DATE - 14),
-        (gen_random_uuid(), $1, $2, 149900, 'EGP', 'OPEN', CURRENT_DATE + 15, NULL)
+        (gen_random_uuid(), $1, $2, 1000000, 'EGP', 'PAID', CURRENT_DATE - 15, CURRENT_DATE - 14),
+        (gen_random_uuid(), $1, $2, 1000000, 'EGP', 'OPEN', CURRENT_DATE + 15, NULL)
     `,
       [m, ID.subscription],
     );

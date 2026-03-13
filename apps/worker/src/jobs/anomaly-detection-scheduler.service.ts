@@ -59,6 +59,14 @@ export class AnomalyDetectionSchedulerService {
       );
     } catch (error) {
       this.logger.error(`Anomaly detection scheduler error: ${error}`);
+      // BL-009: persist failure for alerting
+      this.pool
+        .query(
+          `INSERT INTO job_failure_events (job_name, error_message, error_stack)
+           VALUES ($1, $2, $3)`,
+          ["AnomalyDetectionScheduler", String(error), null],
+        )
+        .catch(() => {/* non-fatal */});
     }
   }
 

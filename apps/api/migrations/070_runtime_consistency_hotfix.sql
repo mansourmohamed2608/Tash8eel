@@ -74,5 +74,16 @@ BEGIN
 END $$;
 
 -- order_status enum compatibility for code paths that still compare with COMPLETED.
--- Keep outside DO block for enum DDL safety across Postgres versions.
-ALTER TYPE IF EXISTS order_status ADD VALUE IF NOT EXISTS 'COMPLETED';
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_type WHERE typname = 'order_status') THEN
+    IF NOT EXISTS (
+      SELECT 1
+      FROM pg_enum e
+      JOIN pg_type t ON t.oid = e.enumtypid
+      WHERE t.typname = 'order_status' AND e.enumlabel = 'COMPLETED'
+    ) THEN
+      ALTER TYPE order_status ADD VALUE 'COMPLETED';
+    END IF;
+  END IF;
+END $$;
