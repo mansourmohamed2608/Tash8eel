@@ -735,11 +735,11 @@ Usage packs (AI tiers, message volume tiers) are NOT discounted — they apply m
 
 | Plan | Best for Margin? | Risky? | Acquisition Plan? | Upsell Target? |
 |---|---|---|---|---|
-| **Starter** | ❌ Lowest margin (72%) | ⚠️ At high volume, infrastructure costs dominate | ✅ Entry point | → Basic, Growth |
-| **Basic** | ⚠️ Moderate (73%) | LOW risk | ✅ Volume driver | → Growth |
-| **Growth** | ✅ **Strong profit engine** (75%) | LOW risk | ❌ Not for acquisition | → Pro |
-| **Pro** | ✅ **Highest margin** (77%) | ⚠️ Churn risk if features not delivered | ❌ Premium only | → Enterprise |
-| **Enterprise** | ⚠️ High revenue but support-heavy (74%) | ⚠️ Support cost can spike | ❌ Strategic accounts | Custom upsells |
+| **Starter** | ❌ Lowest margin (~45% gross) | ⚠️ Low revenue vs infrastructure cost | ✅ Entry point | → Basic, Growth |
+| **Basic** | ✅ Strong margin (~63% gross) | LOW risk | ✅ Volume driver | → Growth |
+| **Growth** | ✅ Strong margin (~61% gross) | LOW risk | ❌ Not for acquisition | → Pro |
+| **Pro** | ⚠️ Moderate margin (~44% gross) | ⚠️ High AI token budget (1M/day) | ❌ Premium only | → Enterprise |
+| **Enterprise** | ⚠️ Margin depends on usage (~41% gross) | ⚠️ Support + unlimited automations risk | ❌ Strategic accounts | Custom upsells |
 
 ---
 
