@@ -20,7 +20,7 @@ The platform has a genuinely strong cost structure. At any plan above Starter wi
 
 **Critical commercial blocker identified:** No self-serve payment gateway is integrated. Plans cannot be purchased without manual activation. This is the single highest-priority revenue bottleneck in the repo.
 
-**Pricing model used in this document:** The canonical prices are those seeded by DB migrations 071, 088, 089, 090, 091, 092, 093 (the deployed truth). Prior analysis documents with different price points are superseded by this audit.
+**Pricing model used in this document:** The canonical prices are those defined in the pricebook files (`analysis/pricing/pricebook_by_country.csv` and `analysis/pricing/features_pricebook_by_country.csv`). Migration 094 enforces these prices as the authoritative truth in the database, correcting any divergences introduced by earlier migrations.
 
 ---
 
@@ -465,13 +465,13 @@ Maximum billable before Enterprise cap: ~30,000 EGP/month (beyond = ENTERPRISE o
 
 | Plan | Monthly | 3-mo Total | 3-mo/mo | 6-mo Total | 6-mo/mo | 12-mo Total | 12-mo/mo | 3-mo Disc | 6-mo Disc | 12-mo Disc |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| STARTER | 110 | 310.20 | 103.40 | 587.40 | 97.90 | 1,082.40 | 90.20 | 6% | 11% | 18% |
-| BASIC | 245 | 690.90 | 230.30 | 1,308.30 | 218.05 | 2,410.80 | 200.90 | 6% | 11% | 18% |
-| GROWTH | 530 | 1,494.60 | 498.20 | 2,830.20 | 471.70 | 5,215.20 | 434.60 | 6% | 11% | 18% |
-| PRO | 1,105 | 3,116.10 | 1,038.70 | 5,900.70 | 983.45 | 10,861.20 | 905.10 | 6% | 11% | 18% |
-| ENTERPRISE | 2,380 | 6,711.60 | 2,237.20 | 12,706.80 | 2,117.80 | 23,419.20 | 1,951.60 | 6% | 11% | 18% |
+| STARTER | 110 | 313 | 104.3 | 594 | 99 | 1,122 | 93.5 | 5% | 10% | 15% |
+| BASIC | 245 | 699 | 233 | 1,323 | 220.5 | 2,499 | 208.3 | 5% | 10% | 15% |
+| GROWTH | 530 | 1,511 | 503.7 | 2,862 | 477 | 5,406 | 450.5 | 5% | 10% | 15% |
+| PRO | 1,105 | 3,149 | 1,049.7 | 5,967 | 994.5 | 11,271 | 939.3 | 5% | 10% | 15% |
+| ENTERPRISE | 2,380 | 6,783 | 2,261 | 12,852 | 2,142 | 24,276 | 2,023 | 5% | 10% | 15% |
 
-> **AE market notes:** AED 110 Starter = ~$30/month. Reasonable for UAE SMB entry. Enterprise at AED 2,380 = ~$648. Consider a premium AE-only Enterprise+ at AED 3,500–4,500 for larger franchise clients. AE cycle discounts are 6/11/18% (more aggressive than EG/SA's 5/10/15%) to incentivise annual contracts in the higher-ACV UAE market.
+> **AE market notes:** AED 110 Starter = ~$30/month. Reasonable for UAE SMB entry. Enterprise at AED 2,380 = ~$648. Consider a premium AE-only Enterprise+ at AED 3,500–4,500 for larger franchise clients.
 
 ---
 
@@ -487,7 +487,7 @@ Maximum billable before Enterprise cap: ~30,000 EGP/month (beyond = ENTERPRISE o
 | PRO | 103.50 | 298.08 | 99.36 | 571.32 | 95.22 | 1,070.64 | 89.22 | 4% | 8% | 14% |
 | ENTERPRISE | 223.00 | 642.24 | 214.08 | 1,230.96 | 205.16 | 2,307.36 | 192.28 | 4% | 8% | 14% |
 
-> **OM market notes:** OMR is the strongest-valued GCC currency. OMR 10.50 Starter = ~$27.3. Prices are locally appropriate for the Oman SMB tier. OM uses moderate cycle discounts (4/8/14%) compared to EG/SA's 5/10/15% and AE's 6/11/18%.
+> **OM market notes:** OMR is the strongest-valued GCC currency. OMR 10.50 Starter = ~$27.3. Prices are locally appropriate for the Oman SMB tier. OM lacks KW's premium skew, so moderate discounts (4/8/14%) rather than the SA/AE 5/10/15%.
 
 ---
 
