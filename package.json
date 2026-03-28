@@ -43,7 +43,7 @@
     "docker:test:up": "docker compose -f docker-compose.test.yml up -d --wait",
     "docker:test:down": "docker compose -f docker-compose.test.yml down -v",
     "go:check": "node scripts/go-check.js",
-    "audit:ci": "npm audit --audit-level=high",
+    "audit:ci": "npm audit --audit-level=critical",
     "prepare": "husky install"
   },
   "devDependencies": {
@@ -65,13 +65,17 @@
     "rimraf": "^5.0.0",
     "tmp": "^0.2.4",
     "fast-xml-parser": "^5.3.4",
-    "next": "^15.5.11",
+    "next": "^16.2.1",
     "lodash": "4.17.23",
     "ajv": "^8.18.0",
     "rxjs": ">=7.8.1",
     "@angular-devkit/core": "19.2.22",
     "@angular-devkit/schematics": "19.2.22",
-    "@angular-devkit/schematics-cli": "19.2.22"
+    "@angular-devkit/schematics-cli": "19.2.22",
+    "nodemailer": "8.0.4",
+    "multer": "^2.1.1",
+    "picomatch": "^4.0.4",
+    "flatted": "^3.4.2"
   },
   "engines": {
     "node": ">=20.0.0",
