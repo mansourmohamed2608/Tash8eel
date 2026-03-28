@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useCallback } from "react";
 import { PageHeader } from "@/components/layout";
@@ -58,7 +58,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { portalApi } from "@/lib/authenticated-api";
+import { portalApi } from "@/lib/client";
 import {
   AiInsightsCard,
   generateWebhooksInsights,
@@ -257,7 +257,9 @@ export default function WebhooksPage() {
       );
       toast({
         title: webhook.isActive ? "تم الإيقاف" : "تم التفعيل",
-        description: webhook.isActive ? "تم إيقاف تكامل POS" : "تم تفعيل تكامل POS",
+        description: webhook.isActive
+          ? "تم إيقاف تكامل POS"
+          : "تم تفعيل تكامل POS",
       });
     } catch (error) {
       toast({
@@ -535,7 +537,7 @@ export default function WebhooksPage() {
                         {testStatus === "success"
                           ? "✅ تم الاختبار بنجاح"
                           : "❌ فشل اختبار الرابط"}
-                        {testMessage ? ` — ${testMessage}` : ""}
+                        {testMessage ? ` - ${testMessage}` : ""}
                       </div>
                     )}
                   </DialogContent>

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Wifi, WifiOff, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { checkApiHealth, getConnectionStatus } from "@/lib/api";
+import { checkApiHealth, getConnectionStatus } from "@/lib/client";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,

@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo } from "react";
 import { usePathname } from "next/navigation";
-import { merchantApi } from "@/lib/api";
+import { merchantApi } from "@/lib/client";
 import { useMerchant } from "@/hooks/use-merchant";
 
 const isAnalyticsEnabled = () =>

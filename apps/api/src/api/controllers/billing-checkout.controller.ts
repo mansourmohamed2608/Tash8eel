@@ -12,6 +12,7 @@ import { ApiHeader, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { Pool } from "pg";
 import { DATABASE_POOL } from "../../infrastructure/database/database.module";
 import { MerchantApiKeyGuard } from "../../shared/guards/merchant-api-key.guard";
+import { RequireRole, RolesGuard } from "../../shared/guards/roles.guard";
 import { BillingCatalogService } from "../../application/services/billing-catalog.service";
 import {
   PLAN_ENTITLEMENTS,
@@ -26,7 +27,7 @@ import { applyCanonicalPlanData } from "./billing.helpers";
 
 @ApiTags("Billing")
 @Controller("v1/portal/billing")
-@UseGuards(MerchantApiKeyGuard)
+@UseGuards(MerchantApiKeyGuard, RolesGuard)
 @ApiHeader({
   name: "x-api-key",
   required: true,
@@ -39,6 +40,7 @@ export class BillingCheckoutController {
   ) {}
 
   @Post("byo/quote")
+  @RequireRole("OWNER")
   @ApiOperation({ summary: "BYO quote endpoint (alias of /byo/calculate)" })
   async calculateByoQuote(
     @Body()
@@ -53,6 +55,7 @@ export class BillingCheckoutController {
   }
 
   @Post("byo/calculate")
+  @RequireRole("OWNER")
   @ApiOperation({
     summary:
       "Calculate Build-Your-Own pricing (core + add-ons + usage packs) with cycle discounts and bundle floor",
@@ -114,9 +117,9 @@ export class BillingCheckoutController {
   }
 
   @Post("calculate")
+  @RequireRole("OWNER")
   @ApiOperation({
-    summary:
-      "Calculate custom plan price based on selected features/agents",
+    summary: "Calculate custom plan price based on selected features/agents",
   })
   async calculatePrice(
     @Body()
@@ -139,8 +142,7 @@ export class BillingCheckoutController {
       [];
 
     for (const agentId of agents) {
-      const price =
-        AGENT_PRICES_EGP[agentId as keyof typeof AGENT_PRICES_EGP];
+      const price = AGENT_PRICES_EGP[agentId as keyof typeof AGENT_PRICES_EGP];
       if (price !== undefined) {
         totalMonthly += price;
         const catalog = AGENT_CATALOG.find((a) => a.id === agentId);
@@ -236,14 +238,11 @@ export class BillingCheckoutController {
   }
 
   @Post("checkout")
+  @RequireRole("OWNER")
   @ApiOperation({
-    summary:
-      "Create checkout / subscription intent (manual placeholder)",
+    summary: "Create checkout / subscription intent (manual placeholder)",
   })
-  async createCheckout(
-    @Req() req: any,
-    @Body() body: { planCode: string },
-  ) {
+  async createCheckout(@Req() req: any, @Body() body: { planCode: string }) {
     const merchantId = req?.merchantId;
     if (!body?.planCode) {
       throw new BadRequestException("planCode is required");
@@ -317,11 +316,7 @@ export class BillingCheckoutController {
           merchant_id, plan_id, status, provider, current_period_start, current_period_end
         ) VALUES ($1, $2, $3, 'manual', NOW(), NOW() + INTERVAL '${periodInterval}')
         RETURNING *`,
-        [
-          merchantId,
-          plan.id,
-          body.planCode === "TRIAL" ? "ACTIVE" : "PENDING",
-        ],
+        [merchantId, plan.id, body.planCode === "TRIAL" ? "ACTIVE" : "PENDING"],
       );
       subscription = subscriptionResult.rows[0];
     } catch (error: any) {

@@ -1,4 +1,4 @@
-import { Module, forwardRef } from "@nestjs/common";
+import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { LlmService } from "./llm.service";
 import { InventoryAiService } from "./inventory-ai.service";
@@ -12,16 +12,11 @@ import { MerchantContextService } from "./merchant-context.service";
 import { EmbeddingService } from "./embedding.service";
 import { VectorSearchService } from "./vector-search.service";
 import { RepositoriesModule } from "../../infrastructure/repositories";
-import { ServicesModule } from "../services/services.module";
 import { DatabaseModule } from "../../infrastructure/database/database.module";
+import { SharedAiModule } from "../shared/shared-ai.module";
 
 @Module({
-  imports: [
-    ConfigModule,
-    DatabaseModule,
-    RepositoriesModule,
-    forwardRef(() => ServicesModule),
-  ],
+  imports: [ConfigModule, DatabaseModule, RepositoriesModule, SharedAiModule],
   providers: [
     LlmService,
     InventoryAiService,

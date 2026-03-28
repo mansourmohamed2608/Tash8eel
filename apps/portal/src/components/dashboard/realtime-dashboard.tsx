@@ -22,7 +22,7 @@ import {
   WifiOff,
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
-import { portalApi } from "@/lib/authenticated-api";
+import { portalApi } from "@/lib/client";
 import { useWebSocket, RealTimeEvent } from "@/hooks/use-websocket";
 
 interface RealTimeStats {

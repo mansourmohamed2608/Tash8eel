@@ -22,19 +22,6 @@ export interface CheckBudgetInput {
   category?: string;
 }
 
-// ============================================================================
-// PAYMENT LINK TASKS
-// ============================================================================
-
-export interface AutoCreatePaymentLinkInput {
-  orderId: string;
-  merchantId: string;
-  amount: number;
-  customerName?: string;
-  customerPhone?: string;
-  orderNumber?: string;
-}
-
 export interface PaymentProofReviewInput {
   proofId: string;
   merchantId: string;

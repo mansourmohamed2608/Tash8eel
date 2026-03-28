@@ -1,4 +1,4 @@
-import { NextAuthOptions, User } from "next-auth";
+﻿import { NextAuthOptions, User } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 
 // Extend the User type to include our custom fields
@@ -11,6 +11,7 @@ declare module "next-auth" {
     merchantId: string;
     accessToken: string;
     refreshToken: string;
+    adminKey?: string;
     requiresPasswordChange?: boolean;
   }
 
@@ -22,7 +23,6 @@ declare module "next-auth" {
       role: string;
       merchantId: string;
     };
-    accessToken: string;
     error?: string;
     requiresPasswordChange?: boolean;
   }
@@ -37,54 +37,23 @@ declare module "next-auth/jwt" {
     merchantId: string;
     accessToken: string;
     refreshToken: string;
+    adminKey?: string;
     accessTokenExpires: number;
     error?: string;
     requiresPasswordChange?: boolean;
   }
 }
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
-
-// Demo users — ONLY available in development mode
-// In production (NODE_ENV=production), demo login is completely disabled
-const IS_DEV = process.env.NODE_ENV !== "production";
-const DEMO_USERS = IS_DEV
-  ? [
-      {
-        id: "demo-owner-001",
-        email: "demo@tash8eel.com",
-        password: "demo123",
-        name: "صاحب المتجر",
-        role: "OWNER",
-        merchantId: "demo-merchant",
-      },
-      {
-        id: "demo-admin-001",
-        email: "admin@tash8eel.com",
-        password: "Admin123!",
-        name: "مدير النظام",
-        role: "ADMIN",
-        merchantId: "system",
-      },
-      {
-        id: "demo-staff-001",
-        email: "staff@demo-merchant.com",
-        password: "Staff123!",
-        name: "موظف المبيعات",
-        role: "AGENT",
-        merchantId: "demo-merchant",
-      },
-    ]
-  : []; // Empty in production — no backdoor
+const API_URL = process.env.NEXT_PUBLIC_API_URL;
+const useSecureCookies = process.env.NODE_ENV === "production";
+const cookiePrefix = useSecureCookies ? "__Secure-" : "";
 
 async function refreshAccessToken(token: any) {
-  if (
-    token?.accessToken?.startsWith("demo-token-") ||
-    token?.refreshToken?.startsWith("demo-refresh-")
-  ) {
+  if (!API_URL) {
     return {
       ...token,
-      accessTokenExpires: Date.now() + 14 * 60 * 1000,
+      error: "RefreshAccessTokenError",
+      accessTokenExpires: Date.now() + 5 * 60 * 1000,
     };
   }
 
@@ -147,32 +116,10 @@ export const authOptions: NextAuthOptions = {
           throw new Error("البريد الإلكتروني وكلمة المرور مطلوبان");
         }
 
-        // Demo authentication — only in development (DEMO_USERS is [] in production)
-        const demoUser = DEMO_USERS.find(
-          (u) =>
-            u.email === credentials.email &&
-            u.password === credentials.password &&
-            (!credentials.merchantId ||
-              u.merchantId === credentials.merchantId),
-        );
-
-        if (demoUser) {
-          console.warn(
-            "[AUTH] ⚠️ Demo login used — this is disabled in production",
-          );
-          return {
-            id: demoUser.id,
-            email: demoUser.email,
-            name: demoUser.name,
-            role: demoUser.role,
-            merchantId: demoUser.merchantId,
-            accessToken: `demo-token-${Date.now()}`,
-            refreshToken: `demo-refresh-${Date.now()}`,
-            requiresPasswordChange: false,
-          };
+        if (!API_URL) {
+          throw new Error("NEXT_PUBLIC_API_URL is not configured");
         }
 
-        // If not a demo user, try the real API
         try {
           const response = await fetch(`${API_URL}/api/v1/staff/login`, {
             method: "POST",
@@ -187,6 +134,11 @@ export const authOptions: NextAuthOptions = {
           const data = await response.json();
 
           if (!response.ok) {
+            // Always use a consistent, user-friendly Arabic message for auth failures
+            // to avoid leaking sanitized/English API error text like "غير مصرح."
+            if (response.status === 401 || response.status === 403) {
+              throw new Error("البريد الإلكتروني أو كلمة المرور غير صحيحة");
+            }
             throw new Error(
               data.message || "البريد الإلكتروني أو كلمة المرور غير صحيحة",
             );
@@ -200,6 +152,8 @@ export const authOptions: NextAuthOptions = {
             merchantId: data.staff.merchantId,
             accessToken: data.tokens.accessToken,
             refreshToken: data.tokens.refreshToken,
+            adminKey:
+              typeof data.adminKey === "string" ? data.adminKey : undefined,
             requiresPasswordChange: false,
           };
         } catch (error) {
@@ -239,6 +193,7 @@ export const authOptions: NextAuthOptions = {
           merchantId: user.merchantId,
           accessToken: user.accessToken,
           refreshToken: user.refreshToken,
+          adminKey: user.adminKey,
           requiresPasswordChange: false,
           accessTokenExpires: Date.now() + 14 * 60 * 1000, // 14 minutes
           error: undefined, // clear any stale error from a previous session
@@ -276,7 +231,6 @@ export const authOptions: NextAuthOptions = {
         role: String(token.role ?? ""),
         merchantId: String(token.merchantId ?? ""),
       };
-      session.accessToken = String(token.accessToken ?? "");
       session.error = token.error;
       session.requiresPasswordChange = false;
       return session;
@@ -291,6 +245,36 @@ export const authOptions: NextAuthOptions = {
   session: {
     strategy: "jwt",
     maxAge: 7 * 24 * 60 * 60, // 7 days
+  },
+
+  cookies: {
+    sessionToken: {
+      name: `${cookiePrefix}next-auth.session-token`,
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: useSecureCookies,
+      },
+    },
+    callbackUrl: {
+      name: `${cookiePrefix}next-auth.callback-url`,
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: useSecureCookies,
+      },
+    },
+    csrfToken: {
+      name: `${cookiePrefix}next-auth.csrf-token`,
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: useSecureCookies,
+      },
+    },
   },
 
   secret: process.env.NEXTAUTH_SECRET,

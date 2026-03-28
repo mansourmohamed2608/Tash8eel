@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useCallback } from "react";
 import { PageHeader } from "@/components/layout/sidebar";
@@ -47,7 +47,7 @@ import {
   Globe,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import portalApi from "@/lib/authenticated-api";
+import portalApi from "@/lib/client";
 
 // POS provider definitions
 interface PosProvider {
@@ -72,7 +72,7 @@ const POS_PROVIDERS: PosProvider[] = [
     name: "Odoo",
     nameAr: "أودو",
     logo: "🟣",
-    description: "ربط مع نظام Odoo ERP — مزامنة الطلبات والمخزون تلقائياً",
+    description: "ربط مع نظام Odoo ERP - مزامنة الطلبات والمخزون تلقائياً",
     color: "border-purple-200 bg-purple-50",
     fields: [
       {
@@ -107,7 +107,7 @@ const POS_PROVIDERS: PosProvider[] = [
     name: "Foodics",
     nameAr: "فودكس",
     logo: "🔵",
-    description: "ربط مع Foodics — أشهر نظام POS للمطاعم في الخليج ومصر",
+    description: "ربط مع Foodics - أشهر نظام POS للمطاعم في الخليج ومصر",
     color: "border-blue-200 bg-blue-50",
     fields: [
       {
@@ -144,7 +144,7 @@ const POS_PROVIDERS: PosProvider[] = [
     nameAr: "أوراكل ميكروس",
     logo: "🔴",
     description:
-      "ربط مع Oracle MICROS Simphony — نظام POS للفنادق والمطاعم الكبيرة",
+      "ربط مع Oracle MICROS Simphony - نظام POS للفنادق والمطاعم الكبيرة",
     color: "border-red-200 bg-red-50",
     fields: [
       {
@@ -180,7 +180,7 @@ const POS_PROVIDERS: PosProvider[] = [
     name: "Shopify",
     nameAr: "شوبيفاي",
     logo: "🟢",
-    description: "ربط مع متجر Shopify — مزامنة المنتجات والطلبات",
+    description: "ربط مع متجر Shopify - مزامنة المنتجات والطلبات",
     color: "border-green-200 bg-green-50",
     fields: [
       {
@@ -216,7 +216,7 @@ const POS_PROVIDERS: PosProvider[] = [
     name: "Square",
     nameAr: "سكوير",
     logo: "⬛",
-    description: "ربط مع Square POS — نظام الدفع ونقاط البيع لتجارة التجزئة",
+    description: "ربط مع Square POS - نظام الدفع ونقاط البيع لتجارة التجزئة",
     color: "border-gray-200 bg-gray-50",
     fields: [
       {
@@ -281,6 +281,41 @@ const POS_PROVIDERS: PosProvider[] = [
       },
     ],
   },
+  {
+    id: "google_slides",
+    name: "Google Slides",
+    nameAr: "جوجل سلايدز",
+    logo: "🟨",
+    description:
+      "ربط مع Google Slides لتوليد عروض تلقائية (تقارير يومية/أسبوعية أو عروض منتجات).",
+    color: "border-amber-200 bg-amber-50",
+    fields: [
+      {
+        key: "presentationId",
+        label: "Presentation ID",
+        placeholder: "1AbCDefGhIJkLmNoPqRsTuVwXyZ",
+        required: true,
+      },
+      {
+        key: "serviceAccountEmail",
+        label: "Service Account Email",
+        placeholder: "slides-bot@project.iam.gserviceaccount.com",
+        required: true,
+      },
+      {
+        key: "privateKey",
+        label: "Private Key",
+        placeholder: "-----BEGIN PRIVATE KEY-----...",
+        type: "password",
+        required: true,
+      },
+      {
+        key: "templateSlideId",
+        label: "Template Slide ID (اختياري)",
+        placeholder: "g1234567890",
+      },
+    ],
+  },
 ];
 
 interface PosIntegration {
@@ -313,14 +348,8 @@ export default function PosIntegrationsPage() {
   const fetchIntegrations = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await fetch("/api/v1/portal/pos-integrations", {
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-      }).catch(() => null);
-      if (res?.ok) {
-        const data = await res.json();
-        setIntegrations(Array.isArray(data) ? data : []);
-      }
+      const data = await portalApi.getPosIntegrations();
+      setIntegrations(Array.isArray(data) ? data : []);
     } catch {
       // POS endpoints may not exist yet - graceful fallback
     } finally {
@@ -356,30 +385,19 @@ export default function PosIntegrationsPage() {
 
     try {
       setSaving(true);
-      // Call API to create POS integration
-      const res = await fetch("/api/v1/portal/pos-integrations", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          provider: selectedProvider.id,
-          name: integrationName || selectedProvider.name,
-          credentials,
-          config: {},
-        }),
+      const data = await portalApi.createPosIntegration({
+        provider: selectedProvider.id,
+        name: integrationName || selectedProvider.name,
+        credentials,
+        config: {},
       });
 
-      if (res.ok) {
-        const data = await res.json();
-        setIntegrations([...integrations, data]);
-        setIsSetupOpen(false);
-        toast({
-          title: "تم الربط",
-          description: `تم ربط ${selectedProvider.nameAr} بنجاح`,
-        });
-      } else {
-        throw new Error("تعذر حفظ التكامل حالياً. حاول مرة أخرى.");
-      }
+      setIntegrations((prev) => [...prev, data]);
+      setIsSetupOpen(false);
+      toast({
+        title: "تم الربط",
+        description: `تم ربط ${selectedProvider.nameAr} بنجاح`,
+      });
     } catch (error: any) {
       toast({
         title: "خطأ",
@@ -393,11 +411,8 @@ export default function PosIntegrationsPage() {
 
   const handleDelete = async (integration: PosIntegration) => {
     try {
-      await fetch(`/api/v1/portal/pos-integrations/${integration.id}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
-      setIntegrations(integrations.filter((i) => i.id !== integration.id));
+      await portalApi.deletePosIntegration(integration.id);
+      setIntegrations((prev) => prev.filter((i) => i.id !== integration.id));
       toast({ title: "تم الحذف", description: `تم إزالة ${integration.name}` });
     } catch {
       toast({
@@ -411,22 +426,15 @@ export default function PosIntegrationsPage() {
   const handleTestConnection = async (integrationId: string) => {
     setTesting(integrationId);
     try {
-      const res = await fetch(
-        `/api/v1/portal/pos-integrations/${integrationId}/test`,
-        {
-          method: "POST",
-          credentials: "include",
-        },
-      );
-      const data = await res.json();
+      const data = await portalApi.testPosIntegration(integrationId);
       if (data.success) {
         toast({
           title: "الاتصال ناجح",
           description: data.message || "تم التحقق من الاتصال بنجاح",
         });
         // Update status locally
-        setIntegrations(
-          integrations.map((i) =>
+        setIntegrations((prev) =>
+          prev.map((i) =>
             i.id === integrationId ? { ...i, status: "ACTIVE" } : i,
           ),
         );
@@ -436,8 +444,8 @@ export default function PosIntegrationsPage() {
           description: data.message || "تعذر الاتصال بالنظام",
           variant: "destructive",
         });
-        setIntegrations(
-          integrations.map((i) =>
+        setIntegrations((prev) =>
+          prev.map((i) =>
             i.id === integrationId ? { ...i, status: "ERROR" } : i,
           ),
         );
@@ -569,7 +577,7 @@ export default function PosIntegrationsPage() {
             أنظمة نقاط البيع المتاحة
           </CardTitle>
           <CardDescription>
-            اختر نظام POS لربطه بمتجرك — الطلبات والمنتجات ستتزامن تلقائياً
+            اختر نظام POS لربطه بمتجرك - الطلبات والمنتجات ستتزامن تلقائياً
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -624,10 +632,10 @@ export default function PosIntegrationsPage() {
         </CardContent>
       </Card>
 
-      {/* How it works — Data Flow */}
+      {/* How it works - Data Flow */}
       <Card className="border-green-200 bg-green-50/40">
         <CardHeader>
-          <CardTitle>كيف تعمل تكاملات POS؟ — تدفق البيانات</CardTitle>
+          <CardTitle>كيف تعمل تكاملات POS؟ - تدفق البيانات</CardTitle>
           <CardDescription>
             بعد ربط نظام POS الخاص بك، البيانات تتحرك في الاتجاهين تلقائياً
           </CardDescription>
@@ -770,7 +778,7 @@ export default function PosIntegrationsPage() {
 
             <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800">
               <AlertCircle className="h-4 w-4 inline mr-1" />
-              البيانات مشفرة ولا يمكن لأحد كشفها — نحتفظ بها بشكل آمن فقط
+              البيانات مشفرة ولا يمكن لأحد كشفها - نحتفظ بها بشكل آمن فقط
               للاتصال بنظامك
             </div>
           </div>

@@ -42,7 +42,7 @@ import {
   getStatusColor,
   getStatusLabel,
 } from "@/lib/utils";
-import { merchantApi } from "@/lib/api";
+import { merchantApi } from "@/lib/client";
 import { useMerchant } from "@/hooks/use-merchant";
 import {
   AiInsightsCard,
@@ -170,18 +170,21 @@ export default function ConversationsPage() {
   const [takingOver, setTakingOver] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const normalizeSenderDisplay = useCallback((value?: string | number | null) => {
-    if (value == null) return "عميل";
-    const str = String(value);
-    if (!str) return "عميل";
-    const cleaned = str
-      .replace(/^whatsapp:/i, "")
-      .replace(/@c\.us$/i, "")
-      .trim();
-    if (!cleaned) return "عميل";
-    if (/^\d+$/.test(cleaned)) return `+${cleaned}`;
-    return cleaned;
-  }, []);
+  const normalizeSenderDisplay = useCallback(
+    (value?: string | number | null) => {
+      if (value == null) return "عميل";
+      const str = String(value);
+      if (!str) return "عميل";
+      const cleaned = str
+        .replace(/^whatsapp:/i, "")
+        .replace(/@c\.us$/i, "")
+        .trim();
+      if (!cleaned) return "عميل";
+      if (/^\d+$/.test(cleaned)) return `+${cleaned}`;
+      return cleaned;
+    },
+    [],
+  );
 
   const getEffectiveState = useCallback((conversation: Conversation) => {
     if (conversation.isHumanTakeover) return "HUMAN_TAKEOVER";
@@ -190,11 +193,17 @@ export default function ConversationsPage() {
 
   const getDisplayName = useCallback(
     (conversation: Conversation) => {
-      const name = conversation.customerName != null ? String(conversation.customerName) : "";
+      const name =
+        conversation.customerName != null
+          ? String(conversation.customerName)
+          : "";
       if (name.trim().length > 0) {
         return name.trim();
       }
-      const phone = conversation.customerPhone != null ? String(conversation.customerPhone) : "";
+      const phone =
+        conversation.customerPhone != null
+          ? String(conversation.customerPhone)
+          : "";
       if (phone.trim().length > 0) {
         return normalizeSenderDisplay(phone);
       }
@@ -351,9 +360,8 @@ export default function ConversationsPage() {
   // "active" = everything that is not ORDER_PLACED (includes CLOSED, HUMAN_TAKEOVER, etc.)
   const stats = {
     total: conversations.length,
-    active: conversations.filter(
-      (c) => getEffectiveState(c) !== "ORDER_PLACED",
-    ).length,
+    active: conversations.filter((c) => getEffectiveState(c) !== "ORDER_PLACED")
+      .length,
     humanTakeover: conversations.filter(
       (c) => getEffectiveState(c) === "HUMAN_TAKEOVER",
     ).length,
@@ -573,7 +581,7 @@ export default function ConversationsPage() {
                             <p className="text-xs text-muted-foreground">
                               {typeof conv.messageCount === "number"
                                 ? conv.messageCount
-                                : "—"}{" "}
+                                : "-"}{" "}
                               رسالة
                             </p>
                             <p
@@ -748,7 +756,7 @@ export default function ConversationsPage() {
                               )}
                             >
                               <p className="text-sm whitespace-pre-wrap">
-                                {safeText || "—"}
+                                {safeText || "-"}
                               </p>
                               <p
                                 className={cn(

@@ -1,6 +1,6 @@
-"use client";
+﻿"use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { PageHeader } from "@/components/layout";
 import {
   Card,
@@ -64,8 +64,9 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import portalApi from "@/lib/authenticated-api";
+import portalApi from "@/lib/client";
 import { useMerchant } from "@/hooks/use-merchant";
+import { useWebSocket, RealTimeEvent } from "@/hooks/use-websocket";
 import {
   REPORTING_PERIOD_OPTIONS,
   getReportingDateRange,
@@ -271,6 +272,9 @@ const DEFAULT_COST_CONTROL_SETTINGS: CostControlSettings = {
 
 export default function InventoryInsightsPage() {
   const { merchantId } = useMerchant();
+  const liveRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
   const [tab, setTab] = useState("restock");
   const [substitutions, setSubstitutions] = useState<SubstituteSuggestion[]>(
     [],
@@ -303,8 +307,12 @@ export default function InventoryInsightsPage() {
   const [supplierName, setSupplierName] = useState("");
   const [supplierMsg, setSupplierMsg] = useState("");
   const [sendingSupplier, setSendingSupplier] = useState(false);
-  const [supplierSendResult, setSupplierSendResult] = useState<string | null>(null);
-  const [supplierSendError, setSupplierSendError] = useState<string | null>(null);
+  const [supplierSendResult, setSupplierSendResult] = useState<string | null>(
+    null,
+  );
+  const [supplierSendError, setSupplierSendError] = useState<string | null>(
+    null,
+  );
   const [generatingSupplierMsg, setGeneratingSupplierMsg] = useState(false);
   const [periodDays, setPeriodDays] = useState<number>(() =>
     getStoredReportingDays(30),
@@ -315,6 +323,20 @@ export default function InventoryInsightsPage() {
   const [appliedEndDate, setAppliedEndDate] = useState<string>("");
   const [movementSourceFilter, setMovementSourceFilter] =
     useState<string>("ALL");
+
+  const { isConnected, on } = useWebSocket({
+    autoConnect: true,
+    subscribeToEvents: [
+      RealTimeEvent.ORDER_CREATED,
+      RealTimeEvent.ORDER_UPDATED,
+      RealTimeEvent.ORDER_STATUS_CHANGED,
+      RealTimeEvent.STOCK_UPDATED,
+      RealTimeEvent.STOCK_LOW,
+      RealTimeEvent.STOCK_OUT,
+      RealTimeEvent.STATS_UPDATED,
+      RealTimeEvent.NOTIFICATION,
+    ],
+  });
 
   const hasCustomRange = Boolean(appliedStartDate && appliedEndDate);
   const effectivePeriodDays = useMemo(
@@ -535,6 +557,54 @@ export default function InventoryInsightsPage() {
     fetchData();
   }, [fetchData]);
 
+  const scheduleLiveRefresh = useCallback(() => {
+    if (liveRefreshTimerRef.current) return;
+    // Debounce bursts of websocket events into a single refresh.
+    liveRefreshTimerRef.current = setTimeout(() => {
+      liveRefreshTimerRef.current = null;
+      fetchData();
+    }, 1200);
+  }, [fetchData]);
+
+  useEffect(() => {
+    if (!isConnected) return;
+
+    const unsubs = [
+      on(RealTimeEvent.ORDER_CREATED, () => scheduleLiveRefresh()),
+      on(RealTimeEvent.ORDER_UPDATED, () => scheduleLiveRefresh()),
+      on(RealTimeEvent.ORDER_STATUS_CHANGED, () => scheduleLiveRefresh()),
+      on(RealTimeEvent.STOCK_UPDATED, () => scheduleLiveRefresh()),
+      on(RealTimeEvent.STOCK_LOW, () => scheduleLiveRefresh()),
+      on(RealTimeEvent.STOCK_OUT, () => scheduleLiveRefresh()),
+      on(RealTimeEvent.STATS_UPDATED, () => scheduleLiveRefresh()),
+      on(RealTimeEvent.NOTIFICATION, () => scheduleLiveRefresh()),
+    ];
+
+    return () => {
+      unsubs.forEach((unsubscribe) => unsubscribe());
+    };
+  }, [isConnected, on, scheduleLiveRefresh]);
+
+  useEffect(() => {
+    if (isConnected) return;
+
+    // Fallback for environments where websocket is temporarily unavailable.
+    const interval = setInterval(() => {
+      fetchData();
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [isConnected, fetchData]);
+
+  useEffect(() => {
+    return () => {
+      if (liveRefreshTimerRef.current) {
+        clearTimeout(liveRefreshTimerRef.current);
+        liveRefreshTimerRef.current = null;
+      }
+    };
+  }, []);
+
   const applyCustomDateRange = () => {
     if (!draftStartDate || !draftEndDate) {
       setError("يرجى تحديد تاريخ البداية والنهاية");
@@ -633,7 +703,7 @@ export default function InventoryInsightsPage() {
     const normalized = String(value || "")
       .trim()
       .toUpperCase();
-    return map[normalized] || value || "—";
+    return map[normalized] || value || "-";
   };
 
   const renderTransferPath = (
@@ -643,7 +713,7 @@ export default function InventoryInsightsPage() {
       movement.fromLocationName || movement.fromLocationId || "غير محدد";
     const toLabel =
       movement.toLocationName || movement.toLocationId || "غير محدد";
-    if (!movement.fromLocationId && !movement.toLocationId) return "—";
+    if (!movement.fromLocationId && !movement.toLocationId) return "-";
     return `${fromLabel} → ${toLabel}`;
   };
 
@@ -990,7 +1060,7 @@ export default function InventoryInsightsPage() {
         wastePct: 0,
         yieldPct: 0,
         status: "neutral",
-        recommendation: "—",
+        recommendation: "-",
       };
       bySkuMap.set(key, aggregate);
       return aggregate;
@@ -1042,7 +1112,7 @@ export default function InventoryInsightsPage() {
         variancePct: 0,
         varianceAmount: 0,
         status: "neutral" as const,
-        recommendation: "—",
+        recommendation: "-",
       };
       byLocationMap.set(key, aggregate);
       return aggregate;
@@ -1272,7 +1342,7 @@ export default function InventoryInsightsPage() {
           wastePct: 0,
           yieldPct: 0,
           status: "neutral",
-          recommendation: "—",
+          recommendation: "-",
         });
         return;
       }
@@ -1755,7 +1825,7 @@ export default function InventoryInsightsPage() {
                       توصيات إعادة التخزين
                     </CardTitle>
                     <CardDescription>
-                      مرتبة حسب الأولوية — المنتجات الحرجة أولاً
+                      مرتبة حسب الأولوية - المنتجات الحرجة أولاً
                     </CardDescription>
                   </div>
                   <Button
@@ -1764,13 +1834,21 @@ export default function InventoryInsightsPage() {
                     onClick={() => {
                       // Pre-populate message with critical restock items
                       const criticalItems = restockItems
-                        .filter((i) => i.urgency === "critical" || i.urgency === "high")
+                        .filter(
+                          (i) =>
+                            i.urgency === "critical" || i.urgency === "high",
+                        )
                         .slice(0, 10);
                       if (criticalItems.length > 0) {
                         const itemLines = criticalItems
-                          .map((i) => `• ${i.productName}: ${i.recommendedQty > 0 ? i.recommendedQty : "راجع الكمية"} وحدة`)
+                          .map(
+                            (i) =>
+                              `• ${i.productName}: ${i.recommendedQty > 0 ? i.recommendedQty : "راجع الكمية"} وحدة`,
+                          )
                           .join("\n");
-                        setSupplierMsg(`مرحباً ${supplierName || ""},\n\nنحتاج إعادة توريد للمنتجات التالية:\n${itemLines}\n\nيرجى التأكيد في أقرب وقت.`);
+                        setSupplierMsg(
+                          `مرحباً ${supplierName || ""},\n\nنحتاج إعادة توريد للمنتجات التالية:\n${itemLines}\n\nيرجى التأكيد في أقرب وقت.`,
+                        );
                       }
                       setSupplierSendResult(null);
                       setSupplierSendError(null);
@@ -1838,7 +1916,7 @@ export default function InventoryInsightsPage() {
                           <TableCell className="text-center font-bold">
                             {item.recommendedQty > 0
                               ? item.recommendedQty
-                              : "—"}
+                              : "-"}
                           </TableCell>
                           <TableCell className="text-center">
                             {urgencyBadge(item.urgency)}
@@ -1911,7 +1989,7 @@ export default function InventoryInsightsPage() {
                             {sub.priceRange}
                           </TableCell>
                           <TableCell className="text-center text-muted-foreground">
-                            {sub.supplier || "—"}
+                            {sub.supplier || "-"}
                           </TableCell>
                         </TableRow>
                       ))}
@@ -2228,7 +2306,7 @@ export default function InventoryInsightsPage() {
                           </TableCell>
                           <TableCell className="text-center">
                             {location.coverageDays === null
-                              ? "—"
+                              ? "-"
                               : `${formatQty(location.coverageDays)} يوم`}
                           </TableCell>
                           <TableCell className="text-center">
@@ -2424,7 +2502,7 @@ export default function InventoryInsightsPage() {
                             <TableCell className="font-medium">
                               {order.orderNumber}
                             </TableCell>
-                            <TableCell>{order.customerName || "—"}</TableCell>
+                            <TableCell>{order.customerName || "-"}</TableCell>
                             <TableCell className="text-center">
                               {toArabicLabel(order.status, orderStatusLabelMap)}
                             </TableCell>
@@ -2441,7 +2519,7 @@ export default function InventoryInsightsPage() {
                                   (item) =>
                                     `${item.productName} (${formatQty(item.consumedQty)})`,
                                 )
-                                .join(" • ") || "—"}
+                                .join(" • ") || "-"}
                               {order.items.length > 3
                                 ? ` +${order.items.length - 3}`
                                 : ""}
@@ -3108,7 +3186,7 @@ export default function InventoryInsightsPage() {
                               )}
                             </TableCell>
                             <TableCell className="text-xs text-muted-foreground">
-                              {movement.reason || "—"}
+                              {movement.reason || "-"}
                             </TableCell>
                           </TableRow>
                         ))}
@@ -3266,7 +3344,9 @@ export default function InventoryInsightsPage() {
               <Input
                 placeholder="مثال: 201234567890"
                 value={supplierPhone}
-                onChange={(e) => setSupplierPhone(e.target.value.replace(/\D/g, ""))}
+                onChange={(e) =>
+                  setSupplierPhone(e.target.value.replace(/\D/g, ""))
+                }
                 dir="ltr"
                 type="tel"
               />
@@ -3290,11 +3370,20 @@ export default function InventoryInsightsPage() {
                     setGeneratingSupplierMsg(true);
                     try {
                       const criticalItems = restockItems
-                        .filter((i) => i.urgency === "critical" || i.urgency === "high")
+                        .filter(
+                          (i) =>
+                            i.urgency === "critical" || i.urgency === "high",
+                        )
                         .slice(0, 10);
-                      const itemsText = criticalItems.length > 0
-                        ? criticalItems.map((i) => `${i.productName} (${i.recommendedQty} وحدة)`).join("، ")
-                        : "منتجات تحتاج إعادة تخزين";
+                      const itemsText =
+                        criticalItems.length > 0
+                          ? criticalItems
+                              .map(
+                                (i) =>
+                                  `${i.productName} (${i.recommendedQty} وحدة)`,
+                              )
+                              .join("، ")
+                          : "منتجات تحتاج إعادة تخزين";
                       const r = await portalApi.chatWithAssistant(
                         `اكتب رسالة واتساب مختصرة ومهنية لمورّد لطلب توريد المنتجات التالية:
 ${itemsText}
@@ -3365,12 +3454,16 @@ ${itemsText}
                   setSupplierSendResult("تم إرسال الرسالة للمورّد بنجاح ✓");
                   setShowSupplierDialog(false);
                 } catch (err: any) {
-                  setSupplierSendError(err?.message || "فشل إرسال الرسالة للمورّد");
+                  setSupplierSendError(
+                    err?.message || "فشل إرسال الرسالة للمورّد",
+                  );
                 } finally {
                   setSendingSupplier(false);
                 }
               }}
-              disabled={sendingSupplier || !supplierPhone.trim() || !supplierMsg.trim()}
+              disabled={
+                sendingSupplier || !supplierPhone.trim() || !supplierMsg.trim()
+              }
             >
               {sendingSupplier ? (
                 <>

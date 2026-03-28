@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useCallback } from "react";
 import {
@@ -59,7 +59,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { portalApi } from "@/lib/authenticated-api";
+import { portalApi } from "@/lib/client";
 import { PageHeader } from "@/components/layout/sidebar";
 import {
   AiInsightsCard,
@@ -1098,7 +1098,7 @@ export default function TeamPage() {
                   تعديل صلاحيات {selectedStaff?.name}
                 </DialogTitle>
                 <DialogDescription>
-                  خصّص صلاحيات هذا العضو — أو اضغط &quot;إعادة للافتراضي&quot;
+                  خصّص صلاحيات هذا العضو - أو اضغط &quot;إعادة للافتراضي&quot;
                   للعودة لصلاحيات الدور
                 </DialogDescription>
               </DialogHeader>
@@ -1154,7 +1154,7 @@ export default function TeamPage() {
                                   : "border-gray-300"
                             }`}
                           >
-                            {allEnabled ? "✓" : someEnabled ? "—" : ""}
+                            {allEnabled ? "✓" : someEnabled ? "-" : ""}
                           </div>
                           {perm.label}
                         </button>

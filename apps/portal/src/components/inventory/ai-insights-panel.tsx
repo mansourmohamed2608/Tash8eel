@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,7 +24,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
-import { portalApi } from "@/lib/authenticated-api";
+import { portalApi } from "@/lib/client";
 
 interface SubstituteSuggestion {
   id: string;
@@ -107,12 +107,10 @@ export function AIInsightsPanel({
     try {
       const [substituteData, restockData] = await Promise.all([
         portalApi.getSubstituteSuggestions(merchantId).catch(() => []),
-        portalApi
-          .getRestockRecommendations(merchantId)
-          .catch(() => ({
-            items: [],
-            aiStatus: { configured: false, active: false },
-          })),
+        portalApi.getRestockRecommendations(merchantId).catch(() => ({
+          items: [],
+          aiStatus: { configured: false, active: false },
+        })),
       ]);
       setSubstituteGroups(substituteData || []);
       // Handle both old array format and new { items, aiStatus } format
@@ -183,7 +181,7 @@ export function AIInsightsPanel({
 
   return (
     <div className="space-y-6">
-      {/* AI Status Banner — only shown when AI is NOT working */}
+      {/* AI Status Banner - only shown when AI is NOT working */}
       {!aiStatus.active && (
         <div
           className={cn(

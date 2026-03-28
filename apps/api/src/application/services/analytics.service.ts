@@ -357,7 +357,7 @@ export class AnalyticsService {
       `SELECT COUNT(*) as count, COALESCE(SUM(total), 0) as revenue
        FROM orders 
        WHERE merchant_id = $1 AND created_at >= $2 AND created_at <= $3
-       AND status NOT IN ('CANCELLED', 'REFUNDED')`,
+       AND status::text NOT IN ('CANCELLED', 'REFUNDED')`,
       [merchantId, range.startDate, range.endDate],
     );
     return {

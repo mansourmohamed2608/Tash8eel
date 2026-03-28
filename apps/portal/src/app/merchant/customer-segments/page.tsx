@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useCallback } from "react";
 import { PageHeader } from "@/components/layout";
@@ -60,7 +60,7 @@ import {
   Target,
   RefreshCw,
 } from "lucide-react";
-import { authenticatedFetch } from "@/lib/authenticated-api";
+import { authenticatedFetch } from "@/lib/client";
 import {
   AiInsightsCard,
   generateSegmentInsights,
@@ -548,7 +548,7 @@ export default function CustomerSegmentsPage() {
                     <TableRow key={seg.id || `seg-${idx}`}>
                       <TableCell>
                         <div>
-                          <p className="font-medium">{seg.name || "—"}</p>
+                          <p className="font-medium">{seg.name || "-"}</p>
                           {seg.description && (
                             <p className="text-xs text-muted-foreground mt-0.5">
                               {seg.description}
@@ -690,10 +690,10 @@ export default function CustomerSegmentsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">
-                    كل القواعد (AND) — العميل يطابق جميع الشروط
+                    كل القواعد (AND) - العميل يطابق جميع الشروط
                   </SelectItem>
                   <SelectItem value="any">
-                    أي قاعدة (OR) — العميل يطابق شرط واحد على الأقل
+                    أي قاعدة (OR) - العميل يطابق شرط واحد على الأقل
                   </SelectItem>
                 </SelectContent>
               </Select>
@@ -871,7 +871,7 @@ export default function CustomerSegmentsPage() {
                     {previewCustomers.map((c, i) => (
                       <TableRow key={i}>
                         <TableCell>
-                          <p className="font-medium">{c.name || "—"}</p>
+                          <p className="font-medium">{c.name || "-"}</p>
                           <p
                             className="text-xs text-muted-foreground"
                             dir="ltr"
@@ -888,7 +888,7 @@ export default function CustomerSegmentsPage() {
                         <TableCell className="text-center text-sm">
                           {c.last_order
                             ? new Date(c.last_order).toLocaleDateString("ar-EG")
-                            : "—"}
+                            : "-"}
                         </TableCell>
                       </TableRow>
                     ))}

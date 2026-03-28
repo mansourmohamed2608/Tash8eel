@@ -39,12 +39,6 @@ export class FinanceAgent implements IAgent {
 
     try {
       switch (task.taskType) {
-        case FINANCE_AGENT_TASK_TYPES.AUTO_CREATE_PAYMENT_LINK:
-          output = (await this.handlers.autoCreatePaymentLink(
-            task,
-          )) as unknown as Record<string, unknown>;
-          break;
-
         case FINANCE_AGENT_TASK_TYPES.PAYMENT_PROOF_REVIEW:
           output = (await this.handlers.reviewPaymentProof(
             task,

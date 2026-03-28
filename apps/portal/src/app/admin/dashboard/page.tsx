@@ -23,7 +23,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { formatNumber, formatRelativeTime, cn } from "@/lib/utils";
-import { portalApi } from "@/lib/authenticated-api";
+import { portalApi } from "@/lib/client";
 
 interface DashboardMetrics {
   totalMerchants: number;

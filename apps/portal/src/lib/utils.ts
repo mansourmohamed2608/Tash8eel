@@ -1,4 +1,4 @@
-import { type ClassValue, clsx } from "clsx";
+﻿import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 
 export function cn(...inputs: ClassValue[]) {
@@ -78,7 +78,7 @@ export function formatDate(
 
 export function formatRelativeTime(date: string | Date): string {
   const d = new Date(date);
-  if (Number.isNaN(d.getTime())) return "—";
+  if (Number.isNaN(d.getTime())) return "-";
   const now = new Date();
   const diffMs = d.getTime() - now.getTime();
 

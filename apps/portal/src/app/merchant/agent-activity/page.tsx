@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useCallback } from "react";
 import { PageHeader } from "@/components/layout";
@@ -23,7 +23,7 @@ import {
   RefreshCw,
   ChevronLeft,
 } from "lucide-react";
-import { portalApi } from "@/lib/authenticated-api";
+import { portalApi } from "@/lib/client";
 import Link from "next/link";
 
 /* ─── Types ──────────────────────────────────────────────── */
@@ -119,7 +119,7 @@ function timeAgo(dateStr: string): string {
 
 function formatMetadataValue(value: unknown): string {
   if (Array.isArray(value)) {
-    if (value.length === 0) return "—";
+    if (value.length === 0) return "-";
     if (
       value.every((item) =>
         ["string", "number", "boolean"].includes(typeof item),
@@ -135,7 +135,7 @@ function formatMetadataValue(value: unknown): string {
     if (label) return String(label);
     return `${Object.keys(obj).length} حقول`;
   }
-  if (value === null || value === undefined) return "—";
+  if (value === null || value === undefined) return "-";
   return String(value);
 }
 
@@ -175,7 +175,10 @@ export default function AgentActivityPage() {
       hours[h].count += 1;
     });
     const max = Math.max(...hours.map((h) => h.count), 1);
-    return hours.map((h) => ({ ...h, intensity: Math.round((h.count / max) * 4) }));
+    return hours.map((h) => ({
+      ...h,
+      intensity: Math.round((h.count / max) * 4),
+    }));
   })();
 
   const fetchData = useCallback(async () => {
@@ -186,7 +189,7 @@ export default function AgentActivityPage() {
       setActions(res.actions || []);
       setSummary(res.summary || null);
     } catch {
-      // silently fail — page still renders with empty state
+      // silently fail - page still renders with empty state
     } finally {
       setLoading(false);
     }
@@ -245,7 +248,7 @@ export default function AgentActivityPage() {
 
       <PageHeader
         title="نشاط الوكلاء الذكية"
-        description="كل ما قامت به الوكلاء تلقائياً — اكتشاف المشاكل، اتخاذ الإجراءات، وتنبيهك"
+        description="كل ما قامت به الوكلاء تلقائياً - اكتشاف المشاكل، اتخاذ الإجراءات، وتنبيهك"
       />
 
       {/* ─── Summary Cards ──────────────────────────── */}
@@ -285,7 +288,7 @@ export default function AgentActivityPage() {
                 {summary.unack_critical || 0}
               </div>
               <div className="text-xs text-muted-foreground">
-                حرج — يحتاج انتباهك
+                حرج - يحتاج انتباهك
               </div>
             </CardContent>
           </Card>
@@ -306,7 +309,9 @@ export default function AgentActivityPage() {
       {actions.length > 0 && (
         <Card>
           <CardContent className="pt-4 pb-3">
-            <p className="text-xs font-medium text-muted-foreground mb-2">نشاط الوكلاء حسب الساعة</p>
+            <p className="text-xs font-medium text-muted-foreground mb-2">
+              نشاط الوكلاء حسب الساعة
+            </p>
             <div className="flex items-end gap-1 flex-wrap" dir="ltr">
               {heatmap.map(({ hour, count, intensity }) => {
                 const colors = [
@@ -317,14 +322,19 @@ export default function AgentActivityPage() {
                   "bg-blue-800",
                 ];
                 return (
-                  <div key={hour} className="flex flex-col items-center gap-0.5 group relative">
+                  <div
+                    key={hour}
+                    className="flex flex-col items-center gap-0.5 group relative"
+                  >
                     <div
                       className={`w-6 rounded-sm transition-all ${colors[intensity]} cursor-default`}
                       style={{ height: `${8 + intensity * 8}px` }}
-                      title={`${hour}:00 — ${count} نشاط`}
+                      title={`${hour}:00 - ${count} نشاط`}
                     />
-                    {(hour % 6 === 0) && (
-                      <span className="text-[9px] text-muted-foreground">{hour}:00</span>
+                    {hour % 6 === 0 && (
+                      <span className="text-[9px] text-muted-foreground">
+                        {hour}:00
+                      </span>
                     )}
                   </div>
                 );
@@ -365,7 +375,7 @@ export default function AgentActivityPage() {
             <Bot className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
             <p className="text-lg font-medium">لا يوجد نشاط بعد</p>
             <p className="text-sm text-muted-foreground mt-1">
-              الوكلاء تعمل كل ساعة — سيظهر النشاط هنا تلقائياً
+              الوكلاء تعمل كل ساعة - سيظهر النشاط هنا تلقائياً
             </p>
           </CardContent>
         </Card>
@@ -446,7 +456,7 @@ export default function AgentActivityPage() {
                         )}
                     </div>
 
-                    {/* Right side — time + ack */}
+                    {/* Right side - time + ack */}
                     <div className="flex flex-col items-end gap-2 flex-shrink-0">
                       <span className="text-[11px] text-muted-foreground flex items-center gap-1">
                         <Clock className="h-3 w-3" />

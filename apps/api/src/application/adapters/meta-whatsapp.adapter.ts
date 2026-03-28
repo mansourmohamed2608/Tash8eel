@@ -265,7 +265,7 @@ export class MetaWhatsAppAdapter implements IMetaWhatsAppAdapter {
       this.configService.get<string>("META_PHONE_NUMBER_ID") || "";
     this.wabaId = this.configService.get<string>("META_WABA_ID") || "";
     this.webhookVerifyToken =
-      this.configService.get<string>("META_WEBHOOK_VERIFY_TOKEN") || "";
+      this.configService.get<string>("WEBHOOK_VERIFY_TOKEN") || "";
     this.appSecret = this.configService.get<string>("META_APP_SECRET") || "";
 
     if (!this.accessToken || !this.phoneNumberId) {
@@ -281,6 +281,13 @@ export class MetaWhatsAppAdapter implements IMetaWhatsAppAdapter {
   // ============================================================================
 
   verifyWebhook(mode: string, token: string, challenge: string): string | null {
+    if (!this.webhookVerifyToken) {
+      this.logger.error(
+        "WEBHOOK_VERIFY_TOKEN is not configured. Rejecting Meta webhook verification.",
+      );
+      return null;
+    }
+
     if (mode === "subscribe" && token === this.webhookVerifyToken) {
       this.logger.log("Webhook verification successful");
       return challenge;
@@ -293,6 +300,11 @@ export class MetaWhatsAppAdapter implements IMetaWhatsAppAdapter {
     return null;
   }
 
+  private sanitizeInboundText(value?: string): string {
+    if (!value) return "";
+    return value.replace(/<[^>]*>/g, "");
+  }
+
   // ============================================================================
   // SIGNATURE VALIDATION (X-Hub-Signature-256 header)
   // HMAC-SHA256 of raw body using App Secret
@@ -300,10 +312,10 @@ export class MetaWhatsAppAdapter implements IMetaWhatsAppAdapter {
 
   validateSignature(signature: string, rawBody: Buffer): boolean {
     if (!this.appSecret) {
-      this.logger.warn(
-        "App secret not configured — skipping signature validation",
+      this.logger.error(
+        "META_APP_SECRET is not configured. Rejecting all webhook requests.",
       );
-      return true; // Allow in dev/test
+      return false;
     }
 
     if (!signature) {
@@ -314,6 +326,11 @@ export class MetaWhatsAppAdapter implements IMetaWhatsAppAdapter {
     const expectedSig =
       "sha256=" +
       crypto.createHmac("sha256", this.appSecret).update(rawBody).digest("hex");
+
+    if (signature.length !== expectedSig.length) {
+      this.logger.warn({ msg: "Invalid Meta webhook signature length" });
+      return false;
+    }
 
     const isValid = crypto.timingSafeEqual(
       Buffer.from(signature),
@@ -378,7 +395,7 @@ export class MetaWhatsAppAdapter implements IMetaWhatsAppAdapter {
     // Extract text
     let body = "";
     if (msg.type === "text" && msg.text) {
-      body = msg.text.body;
+      body = this.sanitizeInboundText(msg.text.body);
     } else if (msg.image?.caption) {
       body = msg.image.caption;
     } else if (msg.video?.caption) {
@@ -412,15 +429,17 @@ export class MetaWhatsAppAdapter implements IMetaWhatsAppAdapter {
     if (msg.type === "interactive" && msg.interactive) {
       isButtonResponse = true;
       if (msg.interactive.button_reply) {
-        buttonText = msg.interactive.button_reply.title;
+        buttonText = this.sanitizeInboundText(
+          msg.interactive.button_reply.title,
+        );
         buttonPayload = msg.interactive.button_reply.id;
       } else if (msg.interactive.list_reply) {
-        buttonText = msg.interactive.list_reply.title;
+        buttonText = this.sanitizeInboundText(msg.interactive.list_reply.title);
         buttonPayload = msg.interactive.list_reply.id;
       }
     } else if (msg.type === "button" && msg.button) {
       isButtonResponse = true;
-      buttonText = msg.button.text;
+      buttonText = this.sanitizeInboundText(msg.button.text);
       buttonPayload = msg.button.payload;
     }
 
@@ -837,12 +856,18 @@ export class MetaWhatsAppAdapter implements IMetaWhatsAppAdapter {
 
       const messageId = result.messages?.[0]?.id;
       if (messageId) {
-        await this.logOutboundMessage(messageId, normalizedTo, templateName, pnId, {
-          ...result,
-          message_type: "template",
-          template_name: templateName,
-          language_code: languageCode,
-        });
+        await this.logOutboundMessage(
+          messageId,
+          normalizedTo,
+          templateName,
+          pnId,
+          {
+            ...result,
+            message_type: "template",
+            template_name: templateName,
+            language_code: languageCode,
+          },
+        );
       }
 
       if (merchantMapping?.merchantId) {
@@ -876,6 +901,7 @@ export class MetaWhatsAppAdapter implements IMetaWhatsAppAdapter {
     messageId?: string,
   ): Promise<string> {
     const id = uuidv4();
+    const sanitizedBody = this.sanitizeInboundText(parsed.body);
 
     await this.pool.query(
       `INSERT INTO whatsapp_message_log (
@@ -892,7 +918,7 @@ export class MetaWhatsAppAdapter implements IMetaWhatsAppAdapter {
         "inbound",
         parsed.fromNumber,
         parsed.toNumber,
-        parsed.body,
+        sanitizedBody,
         parsed.mediaCount,
         JSON.stringify(parsed.mediaIds),
         JSON.stringify(parsed.mediaContentTypes),

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useCallback } from "react";
 import { PageHeader } from "@/components/layout";
@@ -53,7 +53,7 @@ import {
 import { formatCurrency, cn } from "@/lib/utils";
 import { useMerchant } from "@/hooks/use-merchant";
 import { useRoleAccess } from "@/hooks/use-role-access";
-import { authenticatedFetch } from "@/lib/authenticated-api";
+import { authenticatedFetch } from "@/lib/client";
 import {
   AiInsightsCard,
   generateExpenseInsights,
@@ -756,7 +756,7 @@ export default function ExpensesPage() {
               هل أنت متأكد من حذف هذا المصروف؟
               {deleteTarget && (
                 <span className="block mt-2 font-semibold text-foreground">
-                  {getCategoryDisplayName(deleteTarget.category)} —{" "}
+                  {getCategoryDisplayName(deleteTarget.category)} -{" "}
                   {formatCurrency(deleteTarget.amount)}
                 </span>
               )}

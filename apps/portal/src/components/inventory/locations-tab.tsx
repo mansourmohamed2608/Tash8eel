@@ -72,7 +72,7 @@ export function LocationsTab({
       </Card>
 
       {/* Locations Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-start">
         {warehouseLocations.length === 0 ? (
           <Card className="col-span-full">
             <CardContent className="p-8 text-center">
@@ -148,7 +148,10 @@ export function LocationsTab({
             return (
               <Card
                 key={location.id}
-                className={cn(location.is_default && "border-primary")}
+                className={cn(
+                  "self-start min-h-[240px] flex flex-col",
+                  location.is_default && "border-primary",
+                )}
               >
                 <CardHeader className="pb-2">
                   <div className="flex items-start justify-between">
@@ -187,7 +190,7 @@ export function LocationsTab({
                     </Button>
                   </div>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="flex-1 flex flex-col">
                   <div className="grid grid-cols-2 gap-4 text-center">
                     <div>
                       <p className="text-2xl font-bold text-primary">
@@ -213,7 +216,7 @@ export function LocationsTab({
                   </div>
 
                   {/* Stock details for this location */}
-                  {locationStock.length > 0 && (
+                  {locationStock.length > 0 ? (
                     <Collapsible className="mt-4">
                       <CollapsibleTrigger asChild>
                         <Button variant="outline" size="sm" className="w-full">
@@ -221,7 +224,13 @@ export function LocationsTab({
                           عرض المنتجات
                         </Button>
                       </CollapsibleTrigger>
-                      <CollapsibleContent className="mt-3">
+                      <CollapsibleContent
+                        className={cn(
+                          "mt-3 overflow-hidden transition-all duration-300 ease-out",
+                          "data-[state=closed]:max-h-0 data-[state=closed]:opacity-0",
+                          "data-[state=open]:max-h-64 data-[state=open]:opacity-100",
+                        )}
+                      >
                         <div className="max-h-48 overflow-y-auto space-y-2">
                           {groupedStock.map((item) => (
                             <div
@@ -254,6 +263,15 @@ export function LocationsTab({
                         </div>
                       </CollapsibleContent>
                     </Collapsible>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full mt-4"
+                      disabled
+                    >
+                      لا توجد منتجات
+                    </Button>
                   )}
                 </CardContent>
               </Card>

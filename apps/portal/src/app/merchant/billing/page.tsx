@@ -19,7 +19,7 @@ import {
   AlertTriangle,
   AlertCircle,
 } from "lucide-react";
-import { merchantApi } from "@/lib/api";
+import { merchantApi } from "@/lib/client";
 import { useMerchant } from "@/hooks/use-merchant";
 import { cn } from "@/lib/utils";
 import Link from "next/link";

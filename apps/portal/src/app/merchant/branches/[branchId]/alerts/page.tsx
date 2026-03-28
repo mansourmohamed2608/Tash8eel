@@ -37,7 +37,7 @@ import {
 import Link from "next/link";
 import { useMerchant } from "@/hooks/use-merchant";
 import { useToast } from "@/hooks/use-toast";
-import { branchesApi } from "@/lib/api";
+import { branchesApi } from "@/lib/client";
 
 export default function BranchAlertsPage() {
   const params = useParams<{ branchId: string }>();
@@ -69,7 +69,11 @@ export default function BranchAlertsPage() {
         setConfig(data);
         setIsActive(data.is_active ?? true);
         setNoOrdersMinutes(String(data.no_orders_threshold_minutes ?? 120));
-        setLowCash(data.low_cash_threshold != null ? String(data.low_cash_threshold) : "");
+        setLowCash(
+          data.low_cash_threshold != null
+            ? String(data.low_cash_threshold)
+            : "",
+        );
         setExpiryDays(String(data.expiry_threshold_days ?? 7));
         setCashFlowDays(String(data.cash_flow_forecast_days ?? 30));
         setSpikeMultiplier(String(data.demand_spike_multiplier ?? 1.5));
@@ -163,12 +167,23 @@ export default function BranchAlertsPage() {
         description="تكوين عتبات التنبيه لهذا الفرع"
         actions={
           <div className="flex gap-2">
-            <Button variant="ghost" size="sm" onClick={() => router.push("/merchant/branches")}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => router.push("/merchant/branches")}
+            >
               <ArrowLeft className="h-4 w-4 ml-1" />
               الفروع
             </Button>
-            <Button variant="outline" size="sm" onClick={fetchConfig} disabled={loading}>
-              <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={fetchConfig}
+              disabled={loading}
+            >
+              <RefreshCw
+                className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
+              />
             </Button>
             <Button onClick={handleSave} disabled={saving || loading}>
               <Save className="h-4 w-4 ml-1" />
@@ -179,7 +194,9 @@ export default function BranchAlertsPage() {
       />
 
       {loading ? (
-        <p className="text-center py-20 text-muted-foreground">جارٍ التحميل...</p>
+        <p className="text-center py-20 text-muted-foreground">
+          جارٍ التحميل...
+        </p>
       ) : (
         <div className="space-y-4 max-w-2xl">
           {/* Master toggle */}
@@ -195,7 +212,9 @@ export default function BranchAlertsPage() {
                   <div>
                     <p className="font-medium">تفعيل التنبيهات</p>
                     <p className="text-sm text-muted-foreground">
-                      {isActive ? "التنبيهات مفعّلة لهذا الفرع" : "التنبيهات معطّلة لهذا الفرع"}
+                      {isActive
+                        ? "التنبيهات مفعّلة لهذا الفرع"
+                        : "التنبيهات معطّلة لهذا الفرع"}
                     </p>
                   </div>
                 </div>
@@ -211,7 +230,9 @@ export default function BranchAlertsPage() {
                 <AlertTriangle className="h-4 w-4 text-amber-500" />
                 عتبات التنبيه
               </CardTitle>
-              <CardDescription>حدد الحدود التي تستوجب إرسال تنبيه</CardDescription>
+              <CardDescription>
+                حدد الحدود التي تستوجب إرسال تنبيه
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
@@ -297,7 +318,8 @@ export default function BranchAlertsPage() {
                   className="max-w-[200px]"
                 />
                 <p className="text-xs text-muted-foreground">
-                  تنبيه عند تجاوز الطلبات للمعدل الطبيعي بهذا المعامل (مثال: 1.5 = 150%)
+                  تنبيه عند تجاوز الطلبات للمعدل الطبيعي بهذا المعامل (مثال: 1.5
+                  = 150%)
                 </p>
               </div>
             </CardContent>

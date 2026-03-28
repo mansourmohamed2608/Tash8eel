@@ -1,4 +1,10 @@
-import { Injectable, Inject, Logger, OnModuleInit } from "@nestjs/common";
+import {
+  Injectable,
+  Inject,
+  Logger,
+  OnModuleDestroy,
+  OnModuleInit,
+} from "@nestjs/common";
 import { Interval } from "@nestjs/schedule";
 import { Pool } from "pg";
 import { DATABASE_POOL } from "../infrastructure/database.module";
@@ -33,7 +39,7 @@ import { OrchestratorService } from "./orchestrator.service";
  * our WhatsApp commerce platform.
  */
 @Injectable()
-export class TeamOrchestratorService implements OnModuleInit {
+export class TeamOrchestratorService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(TeamOrchestratorService.name);
 
   // Active team tasks being coordinated
@@ -43,6 +49,7 @@ export class TeamOrchestratorService implements OnModuleInit {
   private completionCallbacks: Map<string, (result: TeamTask) => void> =
     new Map();
   private queuedTaskIds: Set<string> = new Set();
+  private activeTimers: Set<NodeJS.Timeout> = new Set();
 
   constructor(
     @Inject(DATABASE_POOL) private readonly pool: Pool,
@@ -52,6 +59,14 @@ export class TeamOrchestratorService implements OnModuleInit {
   async onModuleInit() {
     this.logger.log("Team Orchestrator initialized — فرق الوكلاء جاهزة");
     await this.ensureTeamTasksTable();
+  }
+
+  onModuleDestroy(): void {
+    for (const timer of this.activeTimers) {
+      clearTimeout(timer);
+    }
+    this.activeTimers.clear();
+    this.completionCallbacks.clear();
   }
 
   // ============================================================================
@@ -191,6 +206,7 @@ export class TeamOrchestratorService implements OnModuleInit {
       }
 
       const timer = setTimeout(() => {
+        this.activeTimers.delete(timer);
         this.completionCallbacks.delete(teamTaskId);
         const task = this.activeTeamTasks.get(teamTaskId);
         if (task) {
@@ -200,9 +216,11 @@ export class TeamOrchestratorService implements OnModuleInit {
           reject(new Error(`Team task ${teamTaskId} not found`));
         }
       }, timeoutMs);
+      this.activeTimers.add(timer);
 
       this.completionCallbacks.set(teamTaskId, (result) => {
         clearTimeout(timer);
+        this.activeTimers.delete(timer);
         resolve(result);
       });
     });
@@ -700,9 +718,11 @@ export class TeamOrchestratorService implements OnModuleInit {
     this.notifyCompletion(teamTask.id, teamTask);
 
     // Remove from active after a delay (keep for status queries)
-    setTimeout(() => {
+    const cleanupTimer = setTimeout(() => {
       this.activeTeamTasks.delete(teamTask.id);
+      this.activeTimers.delete(cleanupTimer);
     }, 300000); // 5 min
+    this.activeTimers.add(cleanupTimer);
   }
 
   // ============================================================================

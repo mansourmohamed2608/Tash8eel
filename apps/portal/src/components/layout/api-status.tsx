@@ -9,7 +9,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { checkApiHealth } from "@/lib/api";
+import { checkApiHealth } from "@/lib/client";
 
 interface ApiStatusIndicatorProps {
   collapsed?: boolean;

@@ -1,12 +1,9 @@
 import {
   Controller,
-  Get,
   Post,
   Put,
-  Delete,
   Body,
   Param,
-  Query,
   UseGuards,
   Logger,
   HttpCode,
@@ -19,7 +16,6 @@ import {
   ApiOperation,
   ApiResponse,
   ApiSecurity,
-  ApiQuery,
   ApiParam,
   ApiBody,
 } from "@nestjs/swagger";
@@ -33,61 +29,7 @@ import {
   RequiresFeature,
 } from "../../shared/guards/entitlement.guard";
 import { MerchantId } from "../../shared/decorators/merchant-id.decorator";
-import {
-  IsArray,
-  IsBoolean,
-  IsNumber,
-  IsObject,
-  IsOptional,
-  IsString,
-  Min,
-} from "class-validator";
-
-class CreatePaymentLinkDto {
-  @IsOptional()
-  @IsString()
-  orderId?: string;
-
-  @IsOptional()
-  @IsString()
-  conversationId?: string;
-
-  @IsOptional()
-  @IsString()
-  customerId?: string;
-
-  @IsNumber()
-  amount: number;
-
-  @IsOptional()
-  @IsString()
-  currency?: string;
-
-  @IsOptional()
-  @IsString()
-  description?: string;
-
-  @IsOptional()
-  @IsString()
-  customerPhone?: string;
-
-  @IsOptional()
-  @IsString()
-  customerName?: string;
-
-  @IsOptional()
-  @IsArray()
-  allowedMethods?: string[];
-
-  @IsOptional()
-  @IsNumber()
-  @Min(1)
-  expiresInHours?: number;
-
-  @IsOptional()
-  @IsObject()
-  metadata?: Record<string, unknown>;
-}
+import { IsBoolean, IsObject, IsOptional, IsString } from "class-validator";
 
 class SubmitProofDto {
   @IsOptional()
@@ -142,69 +84,6 @@ export class PaymentsController {
 
   constructor(private readonly paymentService: PaymentService) {}
 
-  // ==================== Payment Links ====================
-
-  @Post("links")
-  @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: "Create a payment link" })
-  @ApiBody({ type: CreatePaymentLinkDto })
-  @ApiResponse({ status: 201, description: "Payment link created" })
-  async createPaymentLink(
-    @MerchantId() merchantId: string,
-    @Body() dto: CreatePaymentLinkDto,
-  ) {
-    throw new BadRequestException(
-      "Payment links are no longer available. Use Payment Proof Verification workflow.",
-    );
-  }
-
-  @Get("links")
-  @ApiOperation({ summary: "List payment links for merchant" })
-  @ApiQuery({
-    name: "status",
-    required: false,
-    enum: ["PENDING", "VIEWED", "PAID", "EXPIRED", "CANCELLED"],
-  })
-  @ApiQuery({ name: "limit", required: false, type: Number })
-  @ApiQuery({ name: "offset", required: false, type: Number })
-  async listPaymentLinks(
-    @MerchantId() merchantId: string,
-    @Query("status") status?: string,
-    @Query("limit") limit?: number,
-    @Query("offset") offset?: number,
-  ) {
-    throw new BadRequestException(
-      "Payment links are no longer available. Use Payment Proof Verification workflow.",
-    );
-  }
-
-  @Get("links/:id")
-  @ApiOperation({ summary: "Get payment link by ID" })
-  @ApiParam({ name: "id", description: "Payment link ID" })
-  async getPaymentLink(
-    @MerchantId() merchantId: string,
-    @Param("id") id: string,
-  ) {
-    throw new BadRequestException(
-      "Payment links are no longer available. Use Payment Proof Verification workflow.",
-    );
-  }
-
-  @Delete("links/:id")
-  @ApiOperation({ summary: "Cancel a payment link" })
-  @ApiParam({ name: "id", description: "Payment link ID" })
-  async cancelPaymentLink(
-    @MerchantId() merchantId: string,
-    @Param("id") id: string,
-  ) {
-    throw new BadRequestException(
-      "Payment links are no longer available. Use Payment Proof Verification workflow.",
-    );
-  }
-
-  // NOTE: Public payment link view endpoint moved to PublicPaymentsController
-  // (no auth required for customer-facing payment pages)
-
   // ==================== Payment Proofs ====================
 
   @Post("proofs")
@@ -222,9 +101,6 @@ export class PaymentsController {
     const input: SubmitPaymentProofInput = { ...dto, merchantId };
     return this.paymentService.submitPaymentProof(input);
   }
-
-  // NOTE: Public proof submission endpoint moved to PublicPaymentsController
-  // (no auth required for customer-facing proof uploads)
 
   @Get("proofs/pending")
   @ApiOperation({

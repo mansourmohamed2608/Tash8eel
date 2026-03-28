@@ -44,6 +44,10 @@ src/
 # API Configuration
 NEXT_PUBLIC_API_URL=http://localhost:3000
 
+# Realtime (Socket.IO)
+NEXT_PUBLIC_WS_URL=http://localhost:3000
+NEXT_PUBLIC_WS_ENABLED=true
+
 # Authentication
 NEXT_PUBLIC_AUTH_DOMAIN=tash8eel.com
 

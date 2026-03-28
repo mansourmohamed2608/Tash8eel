@@ -153,13 +153,6 @@ export class EventsGateway
   }
 
   /**
-   * Broadcast to all connected clients
-   */
-  broadcast(event: string, data: any): void {
-    this.server.emit(event, data);
-  }
-
-  /**
    * Get connected client count for a merchant
    */
   getConnectedCount(merchantId: string): number {

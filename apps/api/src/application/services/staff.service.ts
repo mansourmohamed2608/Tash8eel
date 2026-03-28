@@ -6,13 +6,17 @@ import {
   NotFoundException,
   ConflictException,
   Logger,
+  InternalServerErrorException,
 } from "@nestjs/common";
-import { Pool } from "pg";
+import { Pool, PoolClient } from "pg";
 import { ConfigService } from "@nestjs/config";
+import { Cron, CronExpression } from "@nestjs/schedule";
 import * as crypto from "crypto";
 import * as bcrypt from "bcrypt";
 import * as jwt from "jsonwebtoken";
 import { DATABASE_POOL } from "../../infrastructure/database/database.module";
+import { updateMerchantProvisioning } from "../../api/controllers/billing.helpers";
+import { PLAN_ENTITLEMENTS } from "../../shared/entitlements";
 
 export type StaffRole = "OWNER" | "ADMIN" | "MANAGER" | "AGENT" | "VIEWER";
 export type StaffStatus =
@@ -53,8 +57,16 @@ export interface StaffTokens {
 export interface StaffLoginResult {
   staff: Staff;
   tokens: StaffTokens;
+  adminKey?: string;
   requiresMfa?: boolean;
   requiresPasswordChange?: boolean;
+}
+
+export interface MerchantSignupDto {
+  businessName: string;
+  email: string;
+  password: string;
+  phone: string;
 }
 
 @Injectable()
@@ -147,10 +159,18 @@ export class StaffService {
         ],
       );
 
-      await this.sendInviteEmail(dto.email, dto.name, tempPassword);
+      const staffRow = result.rows[0];
+
+      try {
+        await this.sendInviteEmail(dto.email, dto.name, tempPassword);
+      } catch (error: any) {
+        this.logger.error(
+          `Staff invite email failed for staffId: ${staffRow.id}, error: ${error?.message || error}`,
+        );
+      }
 
       return {
-        staff: this.mapStaff(result.rows[0]),
+        staff: this.mapStaff(staffRow),
         tempPassword:
           process.env.NODE_ENV !== "production" ? tempPassword : undefined,
       };
@@ -162,6 +182,15 @@ export class StaffService {
       }
       throw error;
     }
+  }
+
+  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
+  async purgeExpiredSessions(): Promise<void> {
+    const result = await this.pool.query(
+      `DELETE FROM staff_sessions WHERE expires_at < NOW()`,
+    );
+
+    this.logger.log(`Purged ${result.rowCount || 0} expired staff sessions`);
   }
 
   private async getTeamLimit(merchantId: string): Promise<number | null> {
@@ -181,6 +210,214 @@ export class StaffService {
       return Number.isFinite(parsed) ? parsed : null;
     } catch {
       return null;
+    }
+  }
+
+  async signupMerchant(
+    dto: MerchantSignupDto,
+  ): Promise<{ merchantId: string; email: string; message: string }> {
+    const client = await this.pool.connect();
+    const normalizedEmail = dto.email.trim().toLowerCase();
+    const normalizedBusinessName = dto.businessName.trim();
+    const normalizedPhone = dto.phone.trim();
+    const trialDays = PLAN_ENTITLEMENTS.TRIAL.trialDays || 14;
+
+    this.validatePassword(dto.password);
+
+    try {
+      await client.query("BEGIN");
+
+      const existingMerchant = await client.query(
+        `SELECT id
+         FROM merchants
+         WHERE LOWER(COALESCE(notification_email, '')) = $1
+         LIMIT 1`,
+        [normalizedEmail],
+      );
+
+      if (existingMerchant.rows.length > 0) {
+        throw new ConflictException(
+          "A merchant with this email already exists",
+        );
+      }
+
+      const existingStaff = await client.query(
+        `SELECT id
+         FROM merchant_staff
+         WHERE LOWER(email) = $1
+         LIMIT 1`,
+        [normalizedEmail],
+      );
+
+      if (existingStaff.rows.length > 0) {
+        throw new ConflictException(
+          "A merchant with this email already exists",
+        );
+      }
+
+      const trialPlanResult = await client.query(
+        `SELECT p.id
+         FROM plans p
+         WHERE UPPER(p.code) = 'TRIAL'
+           AND p.is_active = true
+         LIMIT 1`,
+      );
+
+      if (!trialPlanResult.rows[0]) {
+        throw new InternalServerErrorException("Trial plan is not configured");
+      }
+
+      const billingPlanResult = await client.query(
+        `SELECT id
+         FROM billing_plans
+         WHERE UPPER(code) = 'TRIAL'
+           AND is_active = true
+         LIMIT 1`,
+      );
+
+      if (!billingPlanResult.rows[0]) {
+        throw new InternalServerErrorException(
+          "Trial billing plan is not configured",
+        );
+      }
+
+      const merchantId = await this.generateUniqueMerchantId(client);
+      const merchantApiKey = this.generateMerchantApiKey();
+      const passwordHash = await bcrypt.hash(dto.password, this.saltRounds);
+      const defaultPermissions = await this.getDefaultPermissions("OWNER");
+
+      await client.query(
+        `INSERT INTO merchants (
+          id,
+          name,
+          category,
+          api_key,
+          notification_email,
+          notification_phone,
+          status,
+          is_active,
+          config,
+          branding,
+          negotiation_rules,
+          delivery_rules,
+          daily_token_budget,
+          created_at,
+          updated_at
+        ) VALUES (
+          $1, $2, 'GENERIC', $3, $4, $5, 'TRIAL', true,
+          '{}'::jsonb,
+          '{}'::jsonb,
+          '{"maxDiscountPercent":10,"allowNegotiation":true}'::jsonb,
+          '{"defaultFee":30}'::jsonb,
+          $6,
+          NOW(),
+          NOW()
+        )`,
+        [
+          merchantId,
+          normalizedBusinessName,
+          merchantApiKey,
+          normalizedEmail,
+          normalizedPhone,
+          PLAN_ENTITLEMENTS.TRIAL.limits.tokenBudgetDaily,
+        ],
+      );
+
+      await client.query(
+        `INSERT INTO merchant_staff (
+          merchant_id,
+          email,
+          name,
+          role,
+          permissions,
+          status,
+          password_hash,
+          must_change_password,
+          created_at,
+          updated_at
+        ) VALUES (
+          $1, $2, $3, 'OWNER', $4::jsonb, 'ACTIVE', $5, false, NOW(), NOW()
+        )`,
+        [
+          merchantId,
+          normalizedEmail,
+          normalizedBusinessName,
+          JSON.stringify(defaultPermissions),
+          passwordHash,
+        ],
+      );
+
+      await client.query(
+        `INSERT INTO subscriptions (
+          merchant_id,
+          plan_id,
+          region_code,
+          cycle_months,
+          status,
+          provider,
+          starts_at,
+          ends_at,
+          auto_renew,
+          metadata
+        ) VALUES (
+          $1, $2, 'EG', 1, 'ACTIVE', 'manual', NOW(),
+          NOW() + ($3::text || ' day')::interval,
+          false,
+          '{"trial":true,"source":"self_service_signup"}'::jsonb
+        )`,
+        [merchantId, trialPlanResult.rows[0].id, trialDays],
+      );
+
+      await client.query(
+        `INSERT INTO merchant_subscriptions (
+          merchant_id,
+          plan_id,
+          status,
+          provider,
+          current_period_start,
+          current_period_end
+        ) VALUES (
+          $1, $2, 'ACTIVE', 'manual', NOW(),
+          NOW() + ($3::text || ' day')::interval
+        )`,
+        [merchantId, billingPlanResult.rows[0].id, trialDays],
+      );
+
+      await updateMerchantProvisioning(client as any, {
+        merchantId,
+        planCode: "TRIAL",
+        enabledAgents: PLAN_ENTITLEMENTS.TRIAL.enabledAgents,
+        enabledFeatures: PLAN_ENTITLEMENTS.TRIAL.enabledFeatures,
+        limits: PLAN_ENTITLEMENTS.TRIAL.limits,
+        dailyTokenBudget: PLAN_ENTITLEMENTS.TRIAL.limits.tokenBudgetDaily,
+        isActive: true,
+      });
+
+      await client.query("COMMIT");
+
+      try {
+        await this.sendWelcomeEmail(
+          normalizedEmail,
+          normalizedBusinessName,
+          merchantId,
+          trialDays,
+        );
+      } catch (error: any) {
+        this.logger.error(
+          `Merchant welcome email failed for merchantId: ${merchantId}, error: ${error?.message || error}`,
+        );
+      }
+
+      return {
+        merchantId,
+        email: normalizedEmail,
+        message: "Merchant account created successfully",
+      };
+    } catch (error) {
+      await client.query("ROLLBACK").catch(() => undefined);
+      throw error;
+    } finally {
+      client.release();
     }
   }
 
@@ -313,6 +550,10 @@ export class StaffService {
     return {
       staff: mappedStaff,
       tokens,
+      adminKey:
+        mappedStaff.role === "ADMIN" && mappedStaff.merchantId === "system"
+          ? this.configService.get<string>("ADMIN_API_KEY")
+          : undefined,
       requiresPasswordChange: !!staff.must_change_password,
     };
   }
@@ -337,17 +578,20 @@ export class StaffService {
    * Refresh access token
    */
   async refreshTokens(refreshToken: string): Promise<StaffTokens> {
+    const client = await this.pool.connect();
     try {
       const payload = jwt.verify(refreshToken, this.jwtRefreshSecret) as any;
-
-      // Verify refresh token exists in database
       const tokenHash = crypto
         .createHash("sha256")
         .update(refreshToken)
         .digest("hex");
-      const sessionResult = await this.pool.query(
+
+      await client.query("BEGIN");
+
+      const sessionResult = await client.query(
         `SELECT * FROM staff_sessions 
-         WHERE refresh_token_hash = $1 AND staff_id = $2 AND expires_at > NOW()`,
+         WHERE refresh_token_hash = $1 AND staff_id = $2 AND expires_at > NOW()
+         FOR UPDATE`,
         [tokenHash, payload.staffId],
       );
 
@@ -360,21 +604,27 @@ export class StaffService {
         throw new UnauthorizedException("Account is not active");
       }
 
-      // Generate new tokens
-      const tokens = await this.generateTokens(staff);
-
-      // Delete old session
-      await this.pool.query(
+      await client.query(
         `DELETE FROM staff_sessions WHERE refresh_token_hash = $1`,
         [tokenHash],
       );
 
+      const tokens = await this.generateTokens(staff, undefined, client);
+
+      await client.query("COMMIT");
       return tokens;
     } catch (error) {
+      await client.query("ROLLBACK").catch(() => undefined);
+
       if (error instanceof jwt.TokenExpiredError) {
         throw new UnauthorizedException("Refresh token expired");
       }
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
       throw new UnauthorizedException("Invalid refresh token");
+    } finally {
+      client.release();
     }
   }
 
@@ -473,6 +723,22 @@ export class StaffService {
     );
 
     return result.rows.length > 0 ? this.mapStaff(result.rows[0]) : null;
+  }
+
+  async revokeAllMerchantSessions(merchantId: string): Promise<number> {
+    const result = await this.pool.query(
+      `DELETE FROM staff_sessions ss
+       USING merchant_staff ms
+       WHERE ss.staff_id = ms.id
+         AND ms.merchant_id = $1`,
+      [merchantId],
+    );
+
+    this.logger.warn(
+      `Revoked ${result.rowCount || 0} staff sessions for merchant ${merchantId}`,
+    );
+
+    return result.rowCount || 0;
   }
 
   /**
@@ -728,6 +994,7 @@ export class StaffService {
   private async generateTokens(
     staff: Staff,
     deviceInfo?: any,
+    queryRunner: Pick<PoolClient, "query"> | Pool = this.pool,
   ): Promise<StaffTokens> {
     const accessToken = jwt.sign(
       {
@@ -741,7 +1008,11 @@ export class StaffService {
     );
 
     const refreshToken = jwt.sign(
-      { staffId: staff.id, type: "refresh", jti: crypto.randomBytes(16).toString("hex") },
+      {
+        staffId: staff.id,
+        type: "refresh",
+        jti: crypto.randomBytes(16).toString("hex"),
+      },
       this.jwtRefreshSecret,
       { expiresIn: this.refreshTokenExpiry },
     );
@@ -753,7 +1024,7 @@ export class StaffService {
       .digest("hex");
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
-    await this.pool.query(
+    await queryRunner.query(
       `INSERT INTO staff_sessions (staff_id, refresh_token_hash, device_info, expires_at)
        VALUES ($1, $2, $3, $4)`,
       [staff.id, tokenHash, JSON.stringify(deviceInfo || {}), expiresAt],
@@ -1025,5 +1296,90 @@ export class StaffService {
       text: `مرحباً ${name || ""}\n\nتمت إضافتك إلى فريق المتجر.\nالبريد: ${email}\nكلمة المرور المؤقتة: ${tempPassword}\nرابط الدخول: ${loginUrl}\n\nيرجى تغيير كلمة المرور بعد تسجيل الدخول.`,
       html: htmlContent,
     });
+  }
+
+  private async sendWelcomeEmail(
+    email: string,
+    businessName: string,
+    merchantId: string,
+    trialDays: number,
+  ): Promise<void> {
+    const host = this.configService.get<string>("SMTP_HOST");
+    const port = parseInt(
+      this.configService.get<string>("SMTP_PORT", "587"),
+      10,
+    );
+    const user = this.configService.get<string>("SMTP_USER");
+    const pass = this.configService.get<string>("SMTP_PASS");
+    const from = this.configService.get<string>("SMTP_FROM");
+    const secure =
+      this.configService.get<string>("SMTP_SECURE", "false") === "true";
+
+    if (!host || !from) {
+      this.logger.warn(
+        "[EMAIL] SMTP not configured - skipping merchant welcome email",
+      );
+      return;
+    }
+
+    let nodemailer: any;
+    try {
+      nodemailer = await import("nodemailer");
+    } catch {
+      this.logger.warn(
+        "[EMAIL] nodemailer not installed - skipping merchant welcome email",
+      );
+      return;
+    }
+
+    const loginUrl = `${this.portalBaseUrl}/login?signup=success&merchantId=${encodeURIComponent(
+      merchantId,
+    )}&email=${encodeURIComponent(email)}`;
+
+    const transporter = nodemailer.createTransport({
+      host,
+      port,
+      secure,
+      auth: user && pass ? { user, pass } : undefined,
+    });
+
+    await transporter.sendMail({
+      from,
+      to: email,
+      subject: "مرحباً بك في تشغيل",
+      html: `
+        <div dir="rtl" style="font-family: Arial, sans-serif; line-height: 1.8; color: #111827;">
+          <h2>تم إنشاء حسابك بنجاح</h2>
+          <p>مرحباً ${businessName}</p>
+          <p>تم إنشاء حسابك التجريبي لمدة ${trialDays} يوم.</p>
+          <p><strong>رقم المتجر:</strong> ${merchantId}</p>
+          <p>يمكنك تسجيل الدخول من هنا:</p>
+          <p><a href="${loginUrl}">${loginUrl}</a></p>
+        </div>
+      `,
+    });
+  }
+
+  private generateMerchantApiKey(): string {
+    return `tash8eel_${crypto.randomBytes(24).toString("hex")}`;
+  }
+
+  private async generateUniqueMerchantId(
+    queryRunner: Pick<PoolClient, "query"> | Pool,
+  ): Promise<string> {
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      const merchantId = `merchant-${crypto.randomBytes(4).toString("hex")}`;
+      const existing = await queryRunner.query(
+        `SELECT id FROM merchants WHERE id = $1 LIMIT 1`,
+        [merchantId],
+      );
+      if (existing.rows.length === 0) {
+        return merchantId;
+      }
+    }
+
+    throw new InternalServerErrorException(
+      "Unable to generate unique merchant id",
+    );
   }
 }

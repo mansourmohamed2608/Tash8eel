@@ -16,7 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StatCard, KPIGrid } from "@/components/ui/stat-card";
 import { PieChart } from "@/components/charts";
 import { DashboardSkeleton } from "@/components/ui/skeleton";
-import { merchantApi } from "@/lib/api";
+import { merchantApi } from "@/lib/client";
 import { useMerchant } from "@/hooks/use-merchant";
 import { formatCurrency } from "@/lib/utils";
 import {

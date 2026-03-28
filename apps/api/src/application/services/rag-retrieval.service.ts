@@ -69,7 +69,12 @@ export class RagRetrievalService {
       const ordered = [...inStock, ...outOfStock];
 
       // MMR balances relevance (λ=0.65) vs. diversity
-      const ranked = this.vectorSearch.mmrRerank(queryVec, ordered, 0.65, limit);
+      const ranked = this.vectorSearch.mmrRerank(
+        queryVec,
+        ordered,
+        0.65,
+        limit,
+      );
 
       return ranked.map((m) => ({
         id: m.id,
@@ -88,9 +93,26 @@ export class RagRetrievalService {
       }));
     } catch (error: any) {
       this.logger.error(
-        `retrieveForQuery failed, falling back to full catalog: ${error.message}`,
+        `retrieveForQuery failed, trying text fallback first: ${error.message}`,
         error.stack,
       );
+      // First fallback: try text search to keep query relevance even when
+      // embeddings are unavailable (quota/network/provider errors).
+      try {
+        const textMatches = await this.vectorSearch.textFallback(
+          merchantId,
+          query,
+          limit,
+        );
+        if (textMatches.length > 0) {
+          return textMatches;
+        }
+      } catch (textError: any) {
+        this.logger.warn(
+          `textFallback failed after semantic error: ${textError.message}`,
+        );
+      }
+
       // Last-resort fallback: behave like the old findByMerchant
       return this.fallbackFindAll(merchantId, limit * 2);
     }

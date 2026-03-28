@@ -52,7 +52,6 @@ const TASK_TYPE_TO_FEATURE: Record<string, string> = {
   process_payment: "PAYMENTS",
   generate_invoice: "PAYMENTS",
   calculate_fees: "PAYMENTS",
-  auto_create_payment_link: "PAYMENTS",
   payment_proof_review: "PAYMENTS",
   weekly_cfo_brief: "KPI_DASHBOARD",
   daily_revenue_summary: "KPI_DASHBOARD",

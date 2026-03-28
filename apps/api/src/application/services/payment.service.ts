@@ -6,6 +6,8 @@ import {
   BadRequestException,
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import { lookup } from "dns/promises";
+import { isIP } from "net";
 import { Pool } from "pg";
 import sharp from "sharp";
 import { DATABASE_POOL } from "../../infrastructure/database/database.module";
@@ -616,7 +618,11 @@ export class PaymentService {
           : `data:image/jpeg;base64,${imageBase64}`
         : null);
 
-    const imageBuffer = await this.readProofImageBuffer(imageBase64, imageUrl);
+    const imageBuffer = await this.readProofImageBuffer(
+      merchantId,
+      imageBase64,
+      imageUrl,
+    );
     const imagePhash = imageBuffer
       ? await this.computePerceptualHash(imageBuffer).catch(() => null)
       : null;
@@ -910,7 +916,139 @@ export class PaymentService {
     );
   }
 
+  private rejectProofImageUrl(
+    merchantId: string,
+    imageUrl: string,
+    reason: string,
+  ): never {
+    this.logger.warn({
+      msg: "Rejected payment proof image URL",
+      merchantId,
+      imageUrl,
+      reason,
+    });
+    throw new BadRequestException(reason);
+  }
+
+  private isPrivateOrLocalIp(address: string): boolean {
+    const normalized = address.toLowerCase();
+    if (normalized === "::1" || normalized === "0:0:0:0:0:0:0:1") {
+      return true;
+    }
+
+    const mappedIpv4 = normalized.startsWith("::ffff:")
+      ? normalized.slice(7)
+      : normalized;
+    if (mappedIpv4 === "0.0.0.0") {
+      return true;
+    }
+
+    if (isIP(mappedIpv4) !== 4) {
+      return false;
+    }
+
+    const [first, second] = mappedIpv4
+      .split(".")
+      .map((part) => parseInt(part, 10));
+    return (
+      first === 127 ||
+      first === 10 ||
+      (first === 172 && second >= 16 && second <= 31) ||
+      (first === 192 && second === 168) ||
+      (first === 169 && second === 254)
+    );
+  }
+
+  private async validateProofImageUrl(
+    merchantId: string,
+    imageUrl: string,
+  ): Promise<URL> {
+    let parsedUrl: URL;
+    try {
+      parsedUrl = new URL(imageUrl);
+    } catch {
+      this.rejectProofImageUrl(
+        merchantId,
+        imageUrl,
+        "Invalid payment proof image URL.",
+      );
+    }
+
+    if (parsedUrl.protocol !== "https:") {
+      this.rejectProofImageUrl(
+        merchantId,
+        imageUrl,
+        "Only HTTPS payment proof image URLs are allowed.",
+      );
+    }
+
+    if (parsedUrl.username || parsedUrl.password) {
+      this.rejectProofImageUrl(
+        merchantId,
+        imageUrl,
+        "Payment proof image URLs with embedded credentials are not allowed.",
+      );
+    }
+
+    const hostname = parsedUrl.hostname.toLowerCase();
+    if (hostname === "localhost") {
+      this.rejectProofImageUrl(
+        merchantId,
+        imageUrl,
+        "Localhost payment proof image URLs are not allowed.",
+      );
+    }
+
+    const hostnameIsIp = isIP(hostname) !== 0;
+    if (!hostnameIsIp && !hostname.includes(".")) {
+      this.rejectProofImageUrl(
+        merchantId,
+        imageUrl,
+        "Internal payment proof image hostnames are not allowed.",
+      );
+    }
+
+    let resolvedAddresses: Array<{ address: string }>;
+    if (hostnameIsIp) {
+      resolvedAddresses = [{ address: hostname }];
+    } else {
+      try {
+        resolvedAddresses = await lookup(hostname, {
+          all: true,
+          verbatim: true,
+        });
+      } catch {
+        this.rejectProofImageUrl(
+          merchantId,
+          imageUrl,
+          "Payment proof image URL could not be resolved.",
+        );
+      }
+    }
+
+    if (resolvedAddresses.length === 0) {
+      this.rejectProofImageUrl(
+        merchantId,
+        imageUrl,
+        "Payment proof image URL could not be resolved.",
+      );
+    }
+
+    for (const resolved of resolvedAddresses) {
+      if (this.isPrivateOrLocalIp(resolved.address)) {
+        this.rejectProofImageUrl(
+          merchantId,
+          imageUrl,
+          "Payment proof image URL resolves to a blocked address.",
+        );
+      }
+    }
+
+    return parsedUrl;
+  }
+
   private async readProofImageBuffer(
+    merchantId: string,
     imageBase64?: string,
     imageUrl?: string,
   ): Promise<Buffer | null> {
@@ -926,9 +1064,13 @@ export class PaymentService {
       }
     }
 
-    if (imageUrl && /^https?:\/\//i.test(imageUrl)) {
+    if (imageUrl) {
+      const validatedUrl = await this.validateProofImageUrl(
+        merchantId,
+        imageUrl,
+      );
       try {
-        const response = await fetch(imageUrl, {
+        const response = await fetch(validatedUrl.toString(), {
           signal: AbortSignal.timeout(7000),
         });
         if (!response.ok) return null;
@@ -974,7 +1116,8 @@ export class PaymentService {
       const nibbleA = Number.parseInt(hashA[i], 16);
       const nibbleB = Number.parseInt(hashB[i], 16);
       const xor = nibbleA ^ nibbleB;
-      distance += (xor & 1) + ((xor >> 1) & 1) + ((xor >> 2) & 1) + ((xor >> 3) & 1);
+      distance +=
+        (xor & 1) + ((xor >> 1) & 1) + ((xor >> 2) & 1) + ((xor >> 3) & 1);
     }
     return distance;
   }

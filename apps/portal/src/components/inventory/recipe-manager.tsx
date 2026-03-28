@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,7 +17,7 @@ import {
   Search,
   Check,
 } from "lucide-react";
-import { portalApi } from "@/lib/authenticated-api";
+import { portalApi } from "@/lib/client";
 import { useToast } from "@/hooks/use-toast";
 
 interface InventoryOption {
@@ -127,7 +127,7 @@ export function RecipeManager({
           })),
         );
       } catch {
-        // silent — items won't be loaded
+        // silent - items won't be loaded
       }
     };
     loadInventory();

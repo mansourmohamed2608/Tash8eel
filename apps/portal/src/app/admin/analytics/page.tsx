@@ -29,7 +29,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { formatCurrency, formatNumber, cn } from "@/lib/utils";
-import { portalApi } from "@/lib/authenticated-api";
+import { portalApi } from "@/lib/client";
 
 interface PlatformStats {
   totalRevenue: number;

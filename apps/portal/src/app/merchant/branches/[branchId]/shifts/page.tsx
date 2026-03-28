@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -46,7 +46,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { cn, formatCurrency, formatDate } from "@/lib/utils";
-import { branchesApi } from "@/lib/api";
+import { branchesApi } from "@/lib/client";
 import { useMerchant } from "@/hooks/use-merchant";
 import { useToast } from "@/hooks/use-toast";
 
@@ -121,7 +121,10 @@ export default function BranchShiftsPage() {
       await fetchAll();
     } catch (err: any) {
       const msg = err?.message ?? "فشل في فتح الجلسة";
-      toast({ title: msg.includes("already") ? "يوجد جلسة مفتوحة بالفعل" : msg, variant: "destructive" });
+      toast({
+        title: msg.includes("already") ? "يوجد جلسة مفتوحة بالفعل" : msg,
+        variant: "destructive",
+      });
     } finally {
       setOpeningShift(false);
     }
@@ -148,9 +151,11 @@ export default function BranchShiftsPage() {
   }
 
   function cashDiffLabel(diff: number | null) {
-    if (diff == null) return "—";
-    if (diff > 0) return <span className="text-green-600">+{formatCurrency(diff)}</span>;
-    if (diff < 0) return <span className="text-red-500">{formatCurrency(diff)}</span>;
+    if (diff == null) return "-";
+    if (diff > 0)
+      return <span className="text-green-600">+{formatCurrency(diff)}</span>;
+    if (diff < 0)
+      return <span className="text-red-500">{formatCurrency(diff)}</span>;
     return <span className="text-muted-foreground">0</span>;
   }
 
@@ -185,16 +190,27 @@ export default function BranchShiftsPage() {
       </div>
 
       <PageHeader
-        title={`جلسات الكاشير — ${branch?.name ?? "..."}`}
+        title={`جلسات الكاشير - ${branch?.name ?? "..."}`}
         description="فتح وإغلاق جلسات الكاشير وتتبع النقد"
         actions={
           <div className="flex gap-2">
-            <Button variant="ghost" size="sm" onClick={() => router.push("/merchant/branches")}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => router.push("/merchant/branches")}
+            >
               <ArrowLeft className="h-4 w-4 ml-1" />
               الفروع
             </Button>
-            <Button variant="outline" size="sm" onClick={fetchAll} disabled={loading}>
-              <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={fetchAll}
+              disabled={loading}
+            >
+              <RefreshCw
+                className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
+              />
             </Button>
             {currentShift ? (
               <Button
@@ -235,11 +251,15 @@ export default function BranchShiftsPage() {
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
               <div>
                 <p className="text-muted-foreground">النقد الافتتاحي</p>
-                <p className="font-semibold">{formatCurrency(currentShift.opening_cash ?? 0)}</p>
+                <p className="font-semibold">
+                  {formatCurrency(currentShift.opening_cash ?? 0)}
+                </p>
               </div>
               <div>
                 <p className="text-muted-foreground">الطلبات الجارية</p>
-                <p className="font-semibold">{currentShift.running_orders ?? 0}</p>
+                <p className="font-semibold">
+                  {currentShift.running_orders ?? 0}
+                </p>
               </div>
               <div>
                 <p className="text-muted-foreground">الإيراد الجاري</p>
@@ -249,7 +269,9 @@ export default function BranchShiftsPage() {
               </div>
               <div>
                 <p className="text-muted-foreground">فُتحت بواسطة</p>
-                <p className="font-semibold">{currentShift.opened_by_name ?? "—"}</p>
+                <p className="font-semibold">
+                  {currentShift.opened_by_name ?? "-"}
+                </p>
               </div>
             </div>
           </CardContent>
@@ -289,18 +311,22 @@ export default function BranchShiftsPage() {
               <TableBody>
                 {shifts.map((s) => (
                   <TableRow key={s.id}>
-                    <TableCell className="text-sm">{formatDate(s.opened_at)}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {s.closed_at ? formatDate(s.closed_at) : "—"}
+                    <TableCell className="text-sm">
+                      {formatDate(s.opened_at)}
                     </TableCell>
-                    <TableCell>{s.opened_by_name ?? "—"}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {s.closed_at ? formatDate(s.closed_at) : "-"}
+                    </TableCell>
+                    <TableCell>{s.opened_by_name ?? "-"}</TableCell>
                     <TableCell>{s.total_orders ?? 0}</TableCell>
                     <TableCell className="font-medium">
                       {formatCurrency(s.total_revenue ?? 0)}
                     </TableCell>
                     <TableCell>{formatCurrency(s.opening_cash ?? 0)}</TableCell>
                     <TableCell>
-                      {s.closing_cash != null ? formatCurrency(s.closing_cash) : "—"}
+                      {s.closing_cash != null
+                        ? formatCurrency(s.closing_cash)
+                        : "-"}
                     </TableCell>
                     <TableCell>{cashDiffLabel(s.cash_difference)}</TableCell>
                     <TableCell>
@@ -317,7 +343,11 @@ export default function BranchShiftsPage() {
                           s.status === "OPEN" && "bg-green-500 text-white",
                         )}
                       >
-                        {s.status === "OPEN" ? "مفتوحة" : s.status === "CLOSED" ? "مغلقة" : "ملغاة"}
+                        {s.status === "OPEN"
+                          ? "مفتوحة"
+                          : s.status === "CLOSED"
+                            ? "مغلقة"
+                            : "ملغاة"}
                       </Badge>
                     </TableCell>
                   </TableRow>
@@ -358,7 +388,9 @@ export default function BranchShiftsPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>فتح جلسة كاشير جديدة</DialogTitle>
-            <DialogDescription>أدخل مبلغ النقد الافتتاحي في الصندوق</DialogDescription>
+            <DialogDescription>
+              أدخل مبلغ النقد الافتتاحي في الصندوق
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
@@ -386,7 +418,11 @@ export default function BranchShiftsPage() {
               إلغاء
             </Button>
             <Button onClick={handleOpenShift} disabled={openingShift}>
-              {openingShift ? <Loader2 className="h-4 w-4 animate-spin ml-1" /> : <Play className="h-4 w-4 ml-1" />}
+              {openingShift ? (
+                <Loader2 className="h-4 w-4 animate-spin ml-1" />
+              ) : (
+                <Play className="h-4 w-4 ml-1" />
+              )}
               فتح الجلسة
             </Button>
           </DialogFooter>
@@ -407,11 +443,15 @@ export default function BranchShiftsPage() {
               <div className="rounded-lg bg-muted p-3 text-sm space-y-1">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">الطلبات</span>
-                  <span className="font-medium">{currentShift.running_orders ?? 0}</span>
+                  <span className="font-medium">
+                    {currentShift.running_orders ?? 0}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">الإيراد الكلي</span>
-                  <span className="font-medium">{formatCurrency(currentShift.running_revenue ?? 0)}</span>
+                  <span className="font-medium">
+                    {formatCurrency(currentShift.running_revenue ?? 0)}
+                  </span>
                 </div>
               </div>
             )}
@@ -439,8 +479,16 @@ export default function BranchShiftsPage() {
             <Button variant="outline" onClick={() => setShowCloseDialog(false)}>
               إلغاء
             </Button>
-            <Button variant="destructive" onClick={handleCloseShift} disabled={closingShift}>
-              {closingShift ? <Loader2 className="h-4 w-4 animate-spin ml-1" /> : <Square className="h-4 w-4 ml-1" />}
+            <Button
+              variant="destructive"
+              onClick={handleCloseShift}
+              disabled={closingShift}
+            >
+              {closingShift ? (
+                <Loader2 className="h-4 w-4 animate-spin ml-1" />
+              ) : (
+                <Square className="h-4 w-4 ml-1" />
+              )}
               إغلاق الجلسة
             </Button>
           </DialogFooter>

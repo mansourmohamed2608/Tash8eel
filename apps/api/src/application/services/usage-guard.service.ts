@@ -76,9 +76,8 @@ export class UsageGuardService {
       return fromMerchant;
     }
 
-    const fromSubscription = await this.getLimitsFromActiveSubscription(
-      merchantId,
-    );
+    const fromSubscription =
+      await this.getLimitsFromActiveSubscription(merchantId);
     if (fromSubscription) {
       return fromSubscription;
     }
@@ -138,22 +137,30 @@ export class UsageGuardService {
       return this.checkLimit(merchantId, metric);
     }
 
-    const check = await this.checkLimit(merchantId, metric);
+    const limits = await this.getEffectiveLimits(merchantId);
+    const periodType = PERIOD_BY_METRIC[metric];
+    const { startDate, endDate } = this.getPeriodWindow(periodType);
+    const periodStart = this.toDateOnly(startDate);
+    const periodEnd = this.toDateOnly(endDate);
+    const baseLimit = Number(limits[LIMIT_KEY_BY_METRIC[metric]] ?? -1);
+    const credits = await this.getUsagePackCredits(
+      merchantId,
+      metric,
+      periodType,
+      periodStart,
+    );
+    const limit =
+      baseLimit === -1 ? -1 : Math.max(0, Math.round(baseLimit + credits));
+    const baselineUsed = await this.getUsedQuantity(
+      merchantId,
+      metric,
+      periodType,
+      startDate,
+      endDate,
+    );
     const skipEnforcement = options?.skipEnforcement === true;
-    if (
-      !skipEnforcement &&
-      check.limit !== -1 &&
-      check.used + safeQuantity > check.limit
-    ) {
-      return {
-        ...check,
-        allowed: false,
-        remaining: Math.max(0, check.limit - check.used),
-      };
-    }
-
-    const periodStartDate = new Date(`${check.periodStart}T00:00:00.000Z`);
-    const periodEndDate = new Date(`${check.periodEnd}T23:59:59.999Z`);
+    const periodStartDate = new Date(`${periodStart}T00:00:00.000Z`);
+    const periodEndDate = new Date(`${periodEnd}T23:59:59.999Z`);
     const metadata = options?.metadata || {};
     const metadataSource = metadata["source"];
     const usageSource =
@@ -166,10 +173,72 @@ export class UsageGuardService {
       metric,
       source: usageSource,
     };
+    const client = await this.pool.connect();
+    let usedBefore = baselineUsed;
 
-    // Persist usage in canonical ledger tables (best effort for compatibility).
     try {
-      await this.pool.query(
+      await client.query("BEGIN");
+      await client.query(
+        `INSERT INTO usage_period_aggregates (
+           merchant_id, metric_key, period_type, period_start, period_end,
+           used_quantity, limit_quantity, metadata
+         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb)
+         ON CONFLICT (merchant_id, metric_key, period_type, period_start)
+         DO UPDATE SET
+           period_end = EXCLUDED.period_end,
+           limit_quantity = EXCLUDED.limit_quantity,
+           metadata = COALESCE(usage_period_aggregates.metadata, '{}'::jsonb) || EXCLUDED.metadata,
+           updated_at = NOW()`,
+        [
+          merchantId,
+          metric,
+          periodType,
+          periodStartDate,
+          periodEndDate,
+          baselineUsed,
+          limit === -1 ? null : limit,
+          JSON.stringify({
+            source: usageSource,
+            metric,
+          }),
+        ],
+      );
+
+      const aggregateResult = await client.query<{
+        used_quantity: string | number | null;
+      }>(
+        `SELECT used_quantity
+         FROM usage_period_aggregates
+         WHERE merchant_id = $1
+           AND metric_key = $2
+           AND period_type = $3
+           AND period_start = $4::date
+         FOR UPDATE`,
+        [merchantId, metric, periodType, periodStart],
+      );
+      usedBefore =
+        this.toFiniteNumber(aggregateResult.rows[0]?.used_quantity) ??
+        baselineUsed;
+
+      if (
+        !skipEnforcement &&
+        limit !== -1 &&
+        usedBefore + safeQuantity > limit
+      ) {
+        await client.query("ROLLBACK");
+        return {
+          metric,
+          periodType,
+          periodStart,
+          periodEnd,
+          used: usedBefore,
+          limit,
+          remaining: Math.max(0, limit - usedBefore),
+          allowed: false,
+        };
+      }
+
+      await client.query(
         `INSERT INTO usage_ledger (
            merchant_id, metric_key, quantity, unit, period_type, period_start, period_end, metadata
          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb)`,
@@ -178,67 +247,78 @@ export class UsageGuardService {
           metric,
           safeQuantity,
           this.resolveUnit(metric),
-          check.periodType,
+          periodType,
           periodStartDate,
           periodEndDate,
           JSON.stringify(entryMetadata),
         ],
       );
-    } catch (error) {
-      this.logger.debug(
-        `usage_ledger insert skipped for ${metric}: ${(error as Error).message}`,
-      );
-    }
 
-    try {
-      await this.pool.query(
-        `INSERT INTO usage_period_aggregates (
-           merchant_id, metric_key, period_type, period_start, period_end,
-           used_quantity, limit_quantity, metadata
-         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb)
-         ON CONFLICT (merchant_id, metric_key, period_type, period_start)
-         DO UPDATE SET
-           used_quantity = usage_period_aggregates.used_quantity + EXCLUDED.used_quantity,
-           period_end = EXCLUDED.period_end,
-           limit_quantity = EXCLUDED.limit_quantity,
-           metadata = COALESCE(usage_period_aggregates.metadata, '{}'::jsonb) || EXCLUDED.metadata,
-           updated_at = NOW()`,
+      await client.query(
+        `UPDATE usage_period_aggregates
+         SET used_quantity = used_quantity + $1,
+             period_end = $2,
+             limit_quantity = $3,
+             metadata = COALESCE(metadata, '{}'::jsonb) || $4::jsonb,
+             updated_at = NOW()
+         WHERE merchant_id = $5
+           AND metric_key = $6
+           AND period_type = $7
+           AND period_start = $8::date`,
         [
-          merchantId,
-          metric,
-          check.periodType,
-          periodStartDate,
-          periodEndDate,
           safeQuantity,
-          check.limit === -1 ? null : check.limit,
+          periodEndDate,
+          limit === -1 ? null : limit,
           JSON.stringify({
             source: usageSource,
             metric,
           }),
+          merchantId,
+          metric,
+          periodType,
+          periodStart,
         ],
       );
+
+      await client.query("COMMIT");
     } catch (error) {
+      await client.query("ROLLBACK").catch(() => undefined);
       this.logger.debug(
-        `usage_period_aggregates upsert skipped for ${metric}: ${(error as Error).message}`,
+        `Atomic usage consume failed for ${metric}: ${(error as Error).message}`,
       );
+      return {
+        metric,
+        periodType,
+        periodStart,
+        periodEnd,
+        used: usedBefore,
+        limit,
+        remaining: limit === -1 ? -1 : Math.max(0, limit - usedBefore),
+        allowed: false,
+      };
+    } finally {
+      client.release();
     }
 
     // Keep legacy token usage table aligned for existing KPI/report endpoints.
     if (metric === "TOKENS") {
-      await this.bumpLegacyTokenUsage(merchantId, check.periodStart, safeQuantity, 0);
+      await this.bumpLegacyTokenUsage(merchantId, periodStart, safeQuantity, 0);
     } else if (metric === "AI_CALLS") {
-      await this.bumpLegacyTokenUsage(merchantId, check.periodStart, 0, safeQuantity);
+      await this.bumpLegacyTokenUsage(merchantId, periodStart, 0, safeQuantity);
     }
 
-    const usedAfter = check.used + safeQuantity;
-    const remainingAfter =
-      check.limit === -1 ? -1 : Math.max(0, check.limit - usedAfter);
+    const usedAfter = usedBefore + safeQuantity;
+    const remainingAfter = limit === -1 ? -1 : Math.max(0, limit - usedAfter);
 
     return {
-      ...check,
+      metric,
+      periodType,
+      periodStart,
+      periodEnd,
       used: usedAfter,
       remaining: remainingAfter,
-      allowed: check.limit === -1 || usedAfter <= check.limit,
+      limit,
+      allowed: limit === -1 || usedAfter <= limit,
     };
   }
 
@@ -253,7 +333,9 @@ export class UsageGuardService {
 
     const periodType = PERIOD_BY_METRIC[metric];
     const { startDate, endDate } = this.getPeriodWindow(periodType);
-    const periodStartDate = new Date(this.toDateOnly(startDate) + "T00:00:00.000Z");
+    const periodStartDate = new Date(
+      this.toDateOnly(startDate) + "T00:00:00.000Z",
+    );
     const periodEndDate = new Date(this.toDateOnly(endDate) + "T23:59:59.999Z");
 
     try {
@@ -301,7 +383,9 @@ export class UsageGuardService {
 
       const merchantJson = result.rows[0].merchant_json || {};
       const limitsRaw =
-        merchantJson.plan_limits || merchantJson.limits || merchantJson.planLimits;
+        merchantJson.plan_limits ||
+        merchantJson.limits ||
+        merchantJson.planLimits;
       const parsedLimits = this.parseLimitsObject(limitsRaw);
       return this.mergeLimits(parsedLimits);
     } catch (error) {
@@ -369,7 +453,13 @@ export class UsageGuardService {
     const nextBoundary =
       periodType === "DAILY"
         ? new Date(periodStart.getTime() + 24 * 60 * 60 * 1000)
-        : new Date(Date.UTC(periodStart.getUTCFullYear(), periodStart.getUTCMonth() + 1, 1));
+        : new Date(
+            Date.UTC(
+              periodStart.getUTCFullYear(),
+              periodStart.getUTCMonth() + 1,
+              1,
+            ),
+          );
 
     if (metric !== "MESSAGES") {
       try {
@@ -450,7 +540,8 @@ export class UsageGuardService {
                AND created_at < $3`,
             [merchantId, periodStart, nextBoundary],
           );
-          const seconds = this.toFiniteNumber(result.rows[0]?.seconds_used) || 0;
+          const seconds =
+            this.toFiniteNumber(result.rows[0]?.seconds_used) || 0;
           return seconds / 60;
         }
 
@@ -521,7 +612,10 @@ export class UsageGuardService {
     tokensDelta: number,
     callsDelta: number,
   ): Promise<void> {
-    if ((!tokensDelta || tokensDelta <= 0) && (!callsDelta || callsDelta <= 0)) {
+    if (
+      (!tokensDelta || tokensDelta <= 0) &&
+      (!callsDelta || callsDelta <= 0)
+    ) {
       return;
     }
     try {
@@ -533,7 +627,12 @@ export class UsageGuardService {
            tokens_used = merchant_token_usage.tokens_used + EXCLUDED.tokens_used,
            llm_calls = merchant_token_usage.llm_calls + EXCLUDED.llm_calls,
            updated_at = NOW()`,
-        [merchantId, usageDate, Math.max(0, Math.round(tokensDelta)), Math.max(0, Math.round(callsDelta))],
+        [
+          merchantId,
+          usageDate,
+          Math.max(0, Math.round(tokensDelta)),
+          Math.max(0, Math.round(callsDelta)),
+        ],
       );
     } catch (error) {
       this.logger.debug(
@@ -620,8 +719,7 @@ export class UsageGuardService {
         value.paidTemplatesPerMonth ?? value.paid_templates_per_month,
       ),
       paymentProofScansPerMonth: this.toFiniteNumber(
-        value.paymentProofScansPerMonth ??
-          value.payment_proof_scans_per_month,
+        value.paymentProofScansPerMonth ?? value.payment_proof_scans_per_month,
       ),
       voiceMinutesPerMonth: this.toFiniteNumber(
         value.voiceMinutesPerMonth ?? value.voice_minutes_per_month,

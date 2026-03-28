@@ -55,7 +55,7 @@ import {
   Ticket,
   Target,
 } from "lucide-react";
-import { portalApi } from "@/lib/authenticated-api";
+import { portalApi } from "@/lib/client";
 import {
   AiInsightsCard,
   generateLoyaltyInsights,

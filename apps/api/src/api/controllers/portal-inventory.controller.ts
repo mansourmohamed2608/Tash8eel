@@ -23,6 +23,10 @@ import {
 import { Request } from "express";
 import { Pool } from "pg";
 import { DATABASE_POOL } from "../../infrastructure/database/database.module";
+import {
+  WebSocketService,
+  RealTimeEvent,
+} from "../../infrastructure/websocket/websocket.service";
 import { MerchantApiKeyGuard } from "../../shared/guards/merchant-api-key.guard";
 import { EntitlementGuard } from "../../shared/guards/entitlement.guard";
 import { RolesGuard } from "../../shared/guards/roles.guard";
@@ -47,7 +51,10 @@ import {
 export class PortalInventoryController {
   private readonly logger = new Logger(PortalInventoryController.name);
 
-  constructor(@Inject(DATABASE_POOL) private readonly pool: Pool) {}
+  constructor(
+    @Inject(DATABASE_POOL) private readonly pool: Pool,
+    private readonly webSocketService: WebSocketService,
+  ) {}
 
   @Get("inventory")
   @ApiOperation({
@@ -206,6 +213,17 @@ export class PortalInventoryController {
         this.pool,
       );
 
+      this.webSocketService.emit(merchantId, RealTimeEvent.STOCK_UPDATED, {
+        inventoryItemId: item.id,
+        variantId: variant.id,
+        sku: variant.sku,
+        quantityBefore: before,
+        quantityAfter: quantity,
+        change,
+        reason,
+        updatedAt: new Date().toISOString(),
+      });
+
       return {
         variantId: variant.id,
         quantityBefore: before,
@@ -256,6 +274,17 @@ export class PortalInventoryController {
       },
       this.pool,
     );
+
+    this.webSocketService.emit(merchantId, RealTimeEvent.STOCK_UPDATED, {
+      inventoryItemId: item.id,
+      variantId: null,
+      sku: item.sku,
+      quantityBefore: before,
+      quantityAfter: quantity,
+      change,
+      reason,
+      updatedAt: new Date().toISOString(),
+    });
 
     return {
       variantId: null,

@@ -7,7 +7,7 @@ import { Progress } from "@/components/ui/progress";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { portalApi } from "@/lib/authenticated-api";
+import { portalApi } from "@/lib/client";
 import { useEffect, useState } from "react";
 import {
   CheckCircle2,

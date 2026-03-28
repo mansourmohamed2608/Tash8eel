@@ -19,7 +19,7 @@ import {
   Store,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { portalApi } from "@/lib/authenticated-api";
+import { portalApi } from "@/lib/client";
 import { useEffect, useState } from "react";
 
 const ICON_MAP: Record<string, any> = {

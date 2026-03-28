@@ -50,8 +50,8 @@ import {
   getStatusColor,
   getStatusLabel,
 } from "@/lib/utils";
-import { merchantApi, branchesApi } from "@/lib/api";
-import portalApi from "@/lib/authenticated-api";
+import { merchantApi, branchesApi } from "@/lib/client";
+import portalApi from "@/lib/client";
 import { useToast } from "@/hooks/use-toast";
 import {
   OrderQuickStats,
@@ -100,25 +100,37 @@ const statusIcons: Record<string, React.ReactNode> = {
   CANCELLED: <XCircle className="h-4 w-4" />,
 };
 
-const DRIVER_ASSIGNABLE_STATUSES = new Set([
-  "CONFIRMED",
-]);
+const DRIVER_ASSIGNABLE_STATUSES = new Set(["CONFIRMED"]);
 
 // Heuristic cancellation-risk score based on order age + status
-function getCancelRisk(order: Order): { label: string; className: string } | null {
+function getCancelRisk(
+  order: Order,
+): { label: string; className: string } | null {
   const statusesDone = new Set(["DELIVERED", "CANCELLED"]);
   if (statusesDone.has(order.status)) return null;
 
   const ageHours = (Date.now() - new Date(order.createdAt).getTime()) / 36e5;
 
   if (order.status === "DRAFT" && ageHours > 24) {
-    return { label: "خطر إلغاء ↑", className: "bg-red-100 text-red-700 border-red-200" };
+    return {
+      label: "خطر إلغاء ↑",
+      className: "bg-red-100 text-red-700 border-red-200",
+    };
   }
   if (order.status === "CONFIRMED" && ageHours > 48) {
-    return { label: "تأخر التسليم", className: "bg-amber-100 text-amber-700 border-amber-200" };
+    return {
+      label: "تأخر التسليم",
+      className: "bg-amber-100 text-amber-700 border-amber-200",
+    };
   }
-  if ((order.status === "SHIPPED" || order.status === "BOOKED") && ageHours > 72) {
-    return { label: "لم يُسلَّم بعد", className: "bg-orange-100 text-orange-700 border-orange-200" };
+  if (
+    (order.status === "SHIPPED" || order.status === "BOOKED") &&
+    ageHours > 72
+  ) {
+    return {
+      label: "لم يُسلَّم بعد",
+      className: "bg-orange-100 text-orange-700 border-orange-200",
+    };
   }
   return null;
 }
@@ -403,7 +415,7 @@ export default function OrdersPage() {
       .getDeliveryDrivers()
       .then((data: any) => setDrivers(Array.isArray(data) ? data : []))
       .catch(() => {
-        /* drivers optional — non-blocking */
+        /* drivers optional - non-blocking */
       });
   }, []);
 
@@ -453,7 +465,7 @@ export default function OrdersPage() {
       order.items && order.items.length > 0
         ? order.items
             .map((i) => `${i.name || "منتج"} x${i.quantity || 1}`)
-            .join(" | ")
+            .join(", ")
         : "لا توجد منتجات",
       order.total?.toString() || "0",
       getStatusLabel(order.status) || order.status || "",
@@ -835,12 +847,22 @@ export default function OrdersPage() {
                   const risk = getCancelRisk(order);
                   return (
                     <div className="flex flex-col gap-1 items-start">
-                      <span className={cn("inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold", getStatusColor(order.status))}>
+                      <span
+                        className={cn(
+                          "inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold",
+                          getStatusColor(order.status),
+                        )}
+                      >
                         {statusIcons[order.status]}
                         {getStatusLabel(order.status)}
                       </span>
                       {risk && (
-                        <span className={cn("text-[10px] px-1.5 py-0.5 rounded border font-medium", risk.className)}>
+                        <span
+                          className={cn(
+                            "text-[10px] px-1.5 py-0.5 rounded border font-medium",
+                            risk.className,
+                          )}
+                        >
                           {risk.label}
                         </span>
                       )}
@@ -908,7 +930,12 @@ export default function OrdersPage() {
               {/* Status + Change */}
               <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg flex-wrap gap-3">
                 <div className="flex items-center gap-2">
-                  <span className={cn("inline-flex items-center gap-1 rounded-full border text-sm px-3 py-1 font-semibold", getStatusColor(selectedOrder.status))}>
+                  <span
+                    className={cn(
+                      "inline-flex items-center gap-1 rounded-full border text-sm px-3 py-1 font-semibold",
+                      getStatusColor(selectedOrder.status),
+                    )}
+                  >
                     {statusIcons[selectedOrder.status]}
                     {getStatusLabel(selectedOrder.status)}
                   </span>
@@ -1035,7 +1062,7 @@ export default function OrdersPage() {
                         placeholder={
                           assigningDriver
                             ? "جاري التعيين..."
-                            : "اختر سائق — سيتلقى إشعار واتساب فوري"
+                            : "اختر سائق - سيتلقى إشعار واتساب فوري"
                         }
                       />
                     </SelectTrigger>
@@ -1056,7 +1083,7 @@ export default function OrdersPage() {
                       {drivers.filter((d) => d.status === "ACTIVE").length ===
                         0 && (
                         <SelectItem value="_none" disabled>
-                          لا يوجد سائقين — أضف من صفحة سائقي التوصيل
+                          لا يوجد سائقين - أضف من صفحة سائقي التوصيل
                         </SelectItem>
                       )}
                     </SelectContent>

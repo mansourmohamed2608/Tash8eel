@@ -1,5 +1,6 @@
 import {
   Controller,
+  Body,
   Get,
   Post,
   Param,
@@ -7,6 +8,8 @@ import {
   Logger,
   UseGuards,
   Inject,
+  BadRequestException,
+  ServiceUnavailableException,
 } from "@nestjs/common";
 import {
   ApiTags,
@@ -21,6 +24,16 @@ import { DlqService } from "../../application/dlq/dlq.service";
 import { OutboxService } from "../../application/events/outbox.service";
 import { Pool } from "pg";
 import { DATABASE_POOL } from "../../infrastructure/database/database.module";
+import { RedisService } from "../../infrastructure/redis/redis.service";
+
+type AdminServiceState = "healthy" | "degraded" | "critical";
+
+interface AdminServiceHealth {
+  name: string;
+  status: AdminServiceState;
+  uptime: string;
+  latency: string;
+}
 
 @ApiTags("Admin")
 @Controller("v1/admin")
@@ -32,14 +45,88 @@ import { DATABASE_POOL } from "../../infrastructure/database/database.module";
 @UseGuards(AdminApiKeyGuard)
 export class AdminOpsController {
   private readonly logger = new Logger(AdminOpsController.name);
+  private readonly startedAt = Date.now();
 
   constructor(
     @Inject(DATABASE_POOL) private readonly pool: Pool,
     private readonly dlqService: DlqService,
     private readonly outboxService: OutboxService,
+    private readonly redisService: RedisService,
   ) {}
 
   // ===== METRICS =====
+
+  @Get("dashboard/stats")
+  @ApiOperation({
+    summary: "Get admin dashboard stats",
+    description:
+      "Returns dashboard summary metrics, chart data, and recent DLQ activity for the admin portal",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "Admin dashboard stats retrieved successfully",
+  })
+  async getDashboardStats(): Promise<any> {
+    const [
+      merchantStats,
+      orderStats,
+      conversationStats,
+      dlqStats,
+      billingStats,
+      dailyOrders,
+      merchantDistribution,
+      recentDlq,
+      systemHealth,
+    ] = await Promise.all([
+      this.getMerchantStats(),
+      this.getOrderStats(),
+      this.getConversationStats(),
+      this.dlqService.getStats(),
+      this.getBillingStats(),
+      this.getDailyOrders(),
+      this.getMerchantDistribution(),
+      this.getRecentDlq(),
+      this.getSystemHealthSummary(),
+    ]);
+
+    return {
+      totalMerchants: merchantStats.total,
+      activeMerchants: merchantStats.active,
+      totalOrders: orderStats.total,
+      ordersToday: orderStats.today,
+      totalConversations: conversationStats.total,
+      activeConversations: conversationStats.active,
+      dlqPending: dlqStats.totalPending,
+      activeSubscriptions: billingStats.activeSubscriptions,
+      totalRevenue: orderStats.totalRevenue,
+      systemHealth: systemHealth.status,
+      dailyOrders,
+      merchantDistribution,
+      recentDlq,
+    };
+  }
+
+  @Get("system/health")
+  @ApiOperation({
+    summary: "Get admin system health",
+    description:
+      "Returns API, database, Redis, and worker health information for the admin dashboard",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "Admin system health retrieved successfully",
+  })
+  async getSystemHealth(): Promise<{
+    status: AdminServiceState;
+    services: AdminServiceHealth[];
+    checkedAt: string;
+  }> {
+    const summary = await this.getSystemHealthSummary();
+    return {
+      ...summary,
+      checkedAt: new Date().toISOString(),
+    };
+  }
 
   @Get("metrics")
   @ApiOperation({
@@ -74,6 +161,40 @@ export class AdminOpsController {
       events: eventStats,
       dlq: dlqStats,
     };
+  }
+
+  @Post("agent/toggle")
+  @ApiOperation({
+    summary: "Toggle autonomous agent kill switch",
+    description:
+      "Enables or disables autonomous agent actions by writing the Redis kill switch flag",
+  })
+  @ApiResponse({ status: 200, description: "Autonomous agent flag updated" })
+  async toggleAutonomousAgent(
+    @Body() body: { enabled: boolean },
+  ): Promise<{ enabled: boolean }> {
+    if (typeof body?.enabled !== "boolean") {
+      throw new BadRequestException("enabled must be a boolean");
+    }
+
+    if (!this.redisService.enabled) {
+      throw new ServiceUnavailableException(
+        "Redis is unavailable; autonomous agent kill switch cannot be updated",
+      );
+    }
+
+    const stored = await this.redisService.set(
+      "autonomous_agent_enabled",
+      body.enabled ? "true" : "false",
+    );
+
+    if (!stored) {
+      throw new ServiceUnavailableException(
+        "Failed to persist autonomous agent kill switch",
+      );
+    }
+
+    return { enabled: body.enabled };
   }
 
   // ===== DLQ =====
@@ -328,6 +449,21 @@ export class AdminOpsController {
     };
   }
 
+  private async getBillingStats(): Promise<{
+    activeSubscriptions: number;
+  }> {
+    const result = await this.pool.query(`
+      SELECT COUNT(*) FILTER (WHERE status = 'ACTIVE') as active_subscriptions
+      FROM merchant_subscriptions
+    `);
+    return {
+      activeSubscriptions: parseInt(
+        result.rows[0]?.active_subscriptions ?? "0",
+        10,
+      ),
+    };
+  }
+
   private async getOrderStats(): Promise<any> {
     const result = await this.pool.query(`
       SELECT 
@@ -374,6 +510,7 @@ export class AdminOpsController {
       negotiating: parseInt(row.negotiating, 10),
       confirmed: parseInt(row.confirmed, 10),
       closed: parseInt(row.closed, 10),
+      active: parseInt(row.total, 10) - parseInt(row.closed, 10),
       today: parseInt(row.today, 10),
     };
   }
@@ -398,6 +535,245 @@ export class AdminOpsController {
     };
   }
 
+  private async getDailyOrders(): Promise<
+    Array<{ name: string; orders: number }>
+  > {
+    const result = await this.pool.query(`
+      SELECT
+        TO_CHAR(day_bucket, 'Dy') as day_name,
+        COUNT(o.id) as orders
+      FROM generate_series(
+        CURRENT_DATE - INTERVAL '6 days',
+        CURRENT_DATE,
+        INTERVAL '1 day'
+      ) AS day_bucket
+      LEFT JOIN orders o
+        ON DATE(o.created_at) = DATE(day_bucket)
+      GROUP BY day_bucket
+      ORDER BY day_bucket ASC
+    `);
+
+    return result.rows.map((row) => ({
+      name: String(row.day_name || "").trim(),
+      orders: parseInt(row.orders, 10),
+    }));
+  }
+
+  private async getMerchantDistribution(): Promise<
+    Array<{ name: string; value: number; color: string }>
+  > {
+    const colors = [
+      "#3b82f6",
+      "#10b981",
+      "#f59e0b",
+      "#ef4444",
+      "#8b5cf6",
+      "#14b8a6",
+      "#f97316",
+      "#6366f1",
+    ];
+
+    const result = await this.pool.query(`
+      SELECT
+        COALESCE(NULLIF(TRIM(category), ''), 'UNCATEGORIZED') as category,
+        COUNT(*) as total
+      FROM merchants
+      GROUP BY COALESCE(NULLIF(TRIM(category), ''), 'UNCATEGORIZED')
+      ORDER BY total DESC, category ASC
+    `);
+
+    return result.rows.map((row, index) => ({
+      name: row.category,
+      value: parseInt(row.total, 10),
+      color: colors[index % colors.length],
+    }));
+  }
+
+  private async getRecentDlq(): Promise<
+    Array<{ id: string; type: string; merchant: string; time: string }>
+  > {
+    const result = await this.pool.query(`
+      SELECT
+        d.id,
+        d.event_type,
+        d.created_at,
+        COALESCE(m.name, d.merchant_id, 'Unknown merchant') as merchant_name
+      FROM dlq_events d
+      LEFT JOIN merchants m ON m.id = d.merchant_id
+      WHERE d.replayed_at IS NULL
+      ORDER BY d.created_at DESC
+      LIMIT 5
+    `);
+
+    return result.rows.map((row) => ({
+      id: row.id,
+      type: row.event_type,
+      merchant: row.merchant_name,
+      time: row.created_at,
+    }));
+  }
+
+  private async getSystemHealthSummary(): Promise<{
+    status: AdminServiceState;
+    services: AdminServiceHealth[];
+  }> {
+    const [database, redis, worker] = await Promise.all([
+      this.checkDatabaseHealth(),
+      this.checkRedisHealth(),
+      this.checkWorkerHealth(),
+    ]);
+
+    const services: AdminServiceHealth[] = [
+      {
+        name: "API",
+        status: "healthy",
+        uptime: this.formatDuration(
+          Math.floor((Date.now() - this.startedAt) / 1000),
+        ),
+        latency: `${Math.max(1, Math.round(process.uptime() * 1000))}ms`,
+      },
+      database,
+      redis,
+      worker,
+    ];
+
+    const status = services.some((service) => service.status === "critical")
+      ? "critical"
+      : services.some((service) => service.status === "degraded")
+        ? "degraded"
+        : "healthy";
+
+    return { status, services };
+  }
+
+  private async checkDatabaseHealth(): Promise<AdminServiceHealth> {
+    const start = Date.now();
+    try {
+      await this.pool.query("SELECT 1");
+      return {
+        name: "Database",
+        status: "healthy",
+        uptime: "connected",
+        latency: `${Date.now() - start}ms`,
+      };
+    } catch (error) {
+      return {
+        name: "Database",
+        status: "critical",
+        uptime: "unavailable",
+        latency: `${Date.now() - start}ms`,
+      };
+    }
+  }
+
+  private async checkRedisHealth(): Promise<AdminServiceHealth> {
+    const start = Date.now();
+
+    if (!this.redisService.enabled) {
+      return {
+        name: "Redis",
+        status: "degraded",
+        uptime: "disabled",
+        latency: "n/a",
+      };
+    }
+
+    try {
+      await this.redisService.set("admin:health:ping", "pong", 10);
+      const value = await this.redisService.get("admin:health:ping");
+      if (value !== "pong") {
+        throw new Error("Redis ping mismatch");
+      }
+
+      return {
+        name: "Redis",
+        status: "healthy",
+        uptime: "connected",
+        latency: `${Date.now() - start}ms`,
+      };
+    } catch (error) {
+      return {
+        name: "Redis",
+        status: "critical",
+        uptime: "unavailable",
+        latency: `${Date.now() - start}ms`,
+      };
+    }
+  }
+
+  private async checkWorkerHealth(): Promise<AdminServiceHealth> {
+    try {
+      const result = await this.pool.query<{
+        pending_events: string;
+        last_activity: Date | null;
+      }>(`
+        SELECT
+          COALESCE((
+            SELECT COUNT(*)
+            FROM outbox_events
+            WHERE status = 'PENDING'
+          ), 0) as pending_events,
+          (
+            SELECT MAX(activity_at)
+            FROM (
+              SELECT MAX(updated_at) as activity_at FROM outbox_events
+              UNION ALL
+              SELECT MAX(updated_at) as activity_at FROM agent_tasks
+              UNION ALL
+              SELECT MAX(created_at) as activity_at FROM job_failure_events
+            ) activity
+          ) as last_activity
+      `);
+
+      const row = result.rows[0];
+      const pendingEvents = parseInt(row?.pending_events ?? "0", 10);
+      const lastActivity = row?.last_activity
+        ? new Date(row.last_activity)
+        : null;
+
+      if (!lastActivity) {
+        return {
+          name: "Worker",
+          status: pendingEvents > 0 ? "degraded" : "healthy",
+          uptime: "unknown",
+          latency: pendingEvents > 0 ? `${pendingEvents} queued` : "idle",
+        };
+      }
+
+      const ageMs = Date.now() - lastActivity.getTime();
+      const ageMinutes = Math.max(0, Math.round(ageMs / 60000));
+      const status: AdminServiceState =
+        pendingEvents === 0 || ageMinutes <= 10
+          ? "healthy"
+          : ageMinutes <= 30
+            ? "degraded"
+            : "critical";
+
+      return {
+        name: "Worker",
+        status,
+        uptime: `last activity ${ageMinutes}m ago`,
+        latency: pendingEvents > 0 ? `${pendingEvents} queued` : "idle",
+      };
+    } catch (error) {
+      return {
+        name: "Worker",
+        status: "degraded",
+        uptime: "undetectable",
+        latency: "unknown",
+      };
+    }
+  }
+
+  private formatDuration(totalSeconds: number): string {
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    if (hours > 0) {
+      return `${hours}h ${minutes}m`;
+    }
+    return `${minutes}m`;
+  }
+
   /**
    * BL-009: Query recent scheduled-job failures so operators (or external alerting
    * pipelines) can surface repeated failures without tailing logs.
@@ -412,11 +788,13 @@ export class AdminOpsController {
       "Returns failures from the job_failure_events table grouped by job name, " +
       "including occurrence count and latest error within the requested window.",
   })
-  @ApiQuery({ name: "hours", required: false, description: "Look-back window in hours (default 24)" })
+  @ApiQuery({
+    name: "hours",
+    required: false,
+    description: "Look-back window in hours (default 24)",
+  })
   @ApiResponse({ status: 200, description: "Job failure summary returned" })
-  async getJobFailures(
-    @Query("hours") hoursStr?: string,
-  ): Promise<{
+  async getJobFailures(@Query("hours") hoursStr?: string): Promise<{
     windowHours: number;
     jobs: Array<{
       jobName: string;
@@ -425,7 +803,10 @@ export class AdminOpsController {
       lastError: string;
     }>;
   }> {
-    const hours = Math.min(Math.max(parseInt(hoursStr ?? "24", 10) || 24, 1), 168);
+    const hours = Math.min(
+      Math.max(parseInt(hoursStr ?? "24", 10) || 24, 1),
+      168,
+    );
     const result = await this.pool.query<{
       job_name: string;
       occurrences: string;

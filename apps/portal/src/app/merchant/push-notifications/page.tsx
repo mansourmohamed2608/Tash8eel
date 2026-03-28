@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useCallback } from "react";
 import { PageHeader } from "@/components/layout";
@@ -51,7 +51,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { useMerchant } from "@/hooks/use-merchant";
-import { authenticatedFetch } from "@/lib/authenticated-api";
+import { authenticatedFetch } from "@/lib/client";
 
 // ── Types ──
 interface BroadcastNotification {
@@ -297,9 +297,9 @@ export default function BroadcastNotificationsPage() {
             </p>
             <p className="text-xs text-muted-foreground">
               {whatsappReady
-                ? "جاهز للإرسال — الرسائل تُرسل من رقمك المسجّل"
+                ? "جاهز للإرسال - الرسائل تُرسل من رقمك المسجّل"
                 : !whatsappStatus.metaReady
-                  ? "خدمة واتساب غير مفعّلة — تواصل مع الدعم الفني"
+                  ? "خدمة واتساب غير مفعّلة - تواصل مع الدعم الفني"
                   : "أضف رقم واتساب الخاص بك من الإعدادات ← الإشعارات"}
             </p>
           </div>
@@ -484,7 +484,7 @@ export default function BroadcastNotificationsPage() {
           <DialogHeader>
             <DialogTitle>رسالة واتساب جماعية</DialogTitle>
             <DialogDescription>
-              أرسل رسالة لعملائك عبر واتساب — ستظهر باسم نشاطك التجاري
+              أرسل رسالة لعملائك عبر واتساب - ستظهر باسم نشاطك التجاري
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -551,7 +551,7 @@ export default function BroadcastNotificationsPage() {
                       <span className="flex items-center gap-2">
                         <span>{cfg.label}</span>
                         <span className="text-xs text-muted-foreground">
-                          — {cfg.desc}
+                          - {cfg.desc}
                         </span>
                       </span>
                     </SelectItem>

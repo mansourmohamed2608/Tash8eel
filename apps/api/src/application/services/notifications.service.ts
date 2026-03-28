@@ -2,6 +2,7 @@ import { Injectable, Inject, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { Pool } from "pg";
 import { readFileSync } from "fs";
+import { Cron, CronExpression } from "@nestjs/schedule";
 import { DATABASE_POOL } from "../../infrastructure/database/database.module";
 import {
   IMetaWhatsAppAdapter,
@@ -445,12 +446,6 @@ export class NotificationsService {
       }
     }
 
-    // Backward compatibility: some environments still write to legacy merchant_notifications.
-    // If the main notifications table is empty, fall back to legacy rows so the bell/tab are not blank.
-    if (primaryTotal === 0) {
-      return this.getLegacyForMerchant(merchantId, options);
-    }
-
     return {
       notifications: result.rows.map(this.mapNotification),
       total: primaryTotal,
@@ -563,6 +558,12 @@ export class NotificationsService {
     );
 
     return result.rowCount || 0;
+  }
+
+  @Cron(CronExpression.EVERY_DAY_AT_3AM)
+  async purgeOldNotificationsDaily(): Promise<void> {
+    const deleted = await this.deleteOld(30);
+    this.logger.log(`Deleted ${deleted} notifications older than 30 days`);
   }
 
   // ==================== NOTIFICATION TEMPLATES ====================

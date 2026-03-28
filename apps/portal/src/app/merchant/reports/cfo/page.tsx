@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useCallback } from "react";
 import { PageHeader } from "@/components/layout";
@@ -39,7 +39,7 @@ import {
 } from "lucide-react";
 import { formatCurrency, formatNumber, cn } from "@/lib/utils";
 import { useMerchant } from "@/hooks/use-merchant";
-import portalApi from "@/lib/authenticated-api";
+import portalApi from "@/lib/client";
 import {
   AiInsightsCard,
   generateCfoInsights,
@@ -362,7 +362,7 @@ export default function CFOBriefPage() {
         ),
         netCashFlow: toSafeNumber(cashFlow.netCashFlow ?? cashFlow.profit, 0),
 
-        // Inventory — use API data or 0 (not fabricated heuristics)
+        // Inventory - use API data or 0 (not fabricated heuristics)
         inventoryValue: Math.max(
           0,
           toSafeNumber(
@@ -387,7 +387,7 @@ export default function CFOBriefPage() {
         hasInventoryData:
           (data as Record<string, any>).inventory?.available === true,
 
-        // Customers — use API data or 0 (not fabricated heuristics)
+        // Customers - use API data or 0 (not fabricated heuristics)
         totalCustomers: toSafeInt(
           customers.totalCount ?? summary.uniqueCustomers ?? 0,
           0,
@@ -645,7 +645,7 @@ export default function CFOBriefPage() {
             </div>
             <CardDescription>
               الفترة:{" "}
-              {new Date(aiBrief.periodStart).toLocaleDateString("ar-EG")} —{" "}
+              {new Date(aiBrief.periodStart).toLocaleDateString("ar-EG")} -{" "}
               {new Date(aiBrief.periodEnd).toLocaleDateString("ar-EG")}
             </CardDescription>
           </CardHeader>

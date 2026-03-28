@@ -16,8 +16,9 @@ import { ChartSkeleton } from "@/components/ui/skeleton";
 
 interface BarChartProps {
   data: Array<{ name: string; [key: string]: string | number }>;
-  title: string;
-  bars: Array<{ dataKey: string; color: string; name?: string }>;
+  title?: string;
+  bars?: Array<{ dataKey: string; color: string; name?: string }>;
+  series?: Array<{ key: string; color: string; name?: string }>;
   loading?: boolean;
   className?: string;
   height?: number;
@@ -28,6 +29,7 @@ export function BarChart({
   data,
   title,
   bars,
+  series,
   loading,
   className,
   height = 300,
@@ -39,6 +41,28 @@ export function BarChart({
 
   const xInterval =
     data.length > 14 ? Math.max(1, Math.ceil(data.length / 12)) : 0;
+
+  const fallbackColors = [
+    "#3b82f6",
+    "#10b981",
+    "#f59e0b",
+    "#8b5cf6",
+    "#ef4444",
+  ];
+  const normalizedBars =
+    bars ??
+    series?.map((s) => ({
+      dataKey: s.key,
+      color: s.color,
+      name: s.name ?? s.key,
+    })) ??
+    Object.keys(data?.[0] ?? {})
+      .filter((k) => k !== "name" && k !== "label")
+      .map((k, index) => ({
+        dataKey: k,
+        color: fallbackColors[index % fallbackColors.length],
+        name: k,
+      }));
 
   return (
     <Card className={cn(className)}>
@@ -96,7 +120,7 @@ export function BarChart({
               }}
             />
             <Legend />
-            {bars.map((bar, index) => (
+            {normalizedBars.map((bar) => (
               <Bar
                 key={bar.dataKey}
                 dataKey={bar.dataKey}

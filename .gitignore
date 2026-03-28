@@ -13,6 +13,10 @@ coverage/
 .next/
 out/
 build/
+/apps/portal/.next/
+/apps/api/dist/
+/apps/worker/dist/
+/apps/portal/middleware.js
 
 # Legacy folder (was migrated to apps/)
 Ai Agents/

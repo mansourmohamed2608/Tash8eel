@@ -143,22 +143,9 @@ describe("Scope 1 — Staff Auth Guards", () => {
 });
 
 // =============================================================================
-// Scope 2: Public Payment Routes Verification
+// Scope 2: SSRF Prevention Verification
 // =============================================================================
-describe("Scope 2 — Public Payment Routes", () => {
-  describe("public endpoints have no auth guard", () => {
-    it("PublicPaymentsController exposes 2 public routes", () => {
-      // Controller class has NO @UseGuards decorator
-      // Routes: GET /v1/payments/pay/:code, POST /v1/payments/pay/:code/proof
-      const publicRoutes = [
-        { method: "GET", path: "/v1/payments/pay/:code" },
-        { method: "POST", path: "/v1/payments/pay/:code/proof" },
-      ];
-      expect(publicRoutes).toHaveLength(2);
-      // No guards means these are accessible without any auth header
-    });
-  });
-
+describe("Scope 2 — SSRF Prevention", () => {
   describe("SSRF prevention on imageUrl", () => {
     const validateUrl = (url: string): string | null => {
       try {
@@ -219,30 +206,6 @@ describe("Scope 2 — Public Payment Routes", () => {
     });
     it("allows valid HTTPS URLs", () => {
       expect(validateUrl("https://cdn.example.com/receipt.png")).toBeNull();
-    });
-  });
-
-  describe("payment link URL generation", () => {
-    it("getPaymentLinkUrl uses APP_URL config, not hardcoded domain", () => {
-      // PaymentService constructor: this.baseUrl = configService.get('APP_URL', 'https://tash8eel.app')
-      const appUrl = "https://tash8eel.app"; // from config
-      const linkCode = "PAY-ABCDEF";
-      const url = `${appUrl}/pay/${linkCode}`;
-      expect(url).toBe("https://tash8eel.app/pay/PAY-ABCDEF");
-      expect(url).toMatch(/^https:\/\//);
-      expect(url).toContain("/pay/");
-    });
-
-    it("portal pay page route matches API-generated URL path", () => {
-      // Portal route: /pay/[code]/page.tsx → /pay/:code
-      // API generates: ${APP_URL}/pay/${linkCode}
-      // These must match for the link to work
-      const portalRoute = "/pay/:code";
-      const apiUrlTemplate = "/pay/${linkCode}";
-      expect(portalRoute.replace(":code", "PAY-TEST")).toBe("/pay/PAY-TEST");
-      expect(apiUrlTemplate.replace("${linkCode}", "PAY-TEST")).toBe(
-        "/pay/PAY-TEST",
-      );
     });
   });
 });

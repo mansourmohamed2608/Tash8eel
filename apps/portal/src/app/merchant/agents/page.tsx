@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useCallback } from "react";
 import { PageHeader } from "@/components/layout";
@@ -37,7 +37,7 @@ import {
   Shield,
   Lightbulb,
 } from "lucide-react";
-import { merchantApi } from "@/lib/api";
+import { merchantApi } from "@/lib/client";
 import { useMerchant } from "@/hooks/use-merchant";
 import Link from "next/link";
 
@@ -118,7 +118,7 @@ const AI_CAPABILITIES = [
   {
     icon: Cpu,
     title: "مساعد الأوامر الصوتية",
-    description: '"دفعت 500 للكهربا" — يفهم أوامرك ويحولها لإجراءات',
+    description: '"دفعت 500 للكهربا" - يفهم أوامرك ويحولها لإجراءات',
     category: "عام",
   },
   {
@@ -212,7 +212,7 @@ export default function AgentsPage() {
     <div className="space-y-6">
       <PageHeader
         title="مركز الذكاء الاصطناعي"
-        description="كل أدوات الذكاء الاصطناعي التي تعمل لصالح متجرك — من بوت الواتساب إلى تحليلات المخزون"
+        description="كل أدوات الذكاء الاصطناعي التي تعمل لصالح متجرك - من بوت الواتساب إلى تحليلات المخزون"
       />
 
       {/* Hero Stats */}
@@ -325,7 +325,7 @@ export default function AgentsPage() {
                         مساعد الأوامر
                       </h4>
                       <p className="text-sm text-blue-700/80 dark:text-blue-400/80">
-                        قوله "دفعت 500 للكهربا" أو "زوّد التيشيرت 10" — يفهم
+                        قوله "دفعت 500 للكهربا" أو "زوّد التيشيرت 10" - يفهم
                         ويحول لإجراءات فوراً
                       </p>
                     </div>
@@ -341,7 +341,7 @@ export default function AgentsPage() {
                         قراءة الصور والإيصالات
                       </h4>
                       <p className="text-sm text-purple-700/80 dark:text-purple-400/80">
-                        يقرأ إيصالات الدفع ويستخرج البيانات تلقائياً — يحلل صور
+                        يقرأ إيصالات الدفع ويستخرج البيانات تلقائياً - يحلل صور
                         المنتجات للكتالوج
                       </p>
                       <Link href="/merchant/payments/proofs">
@@ -366,7 +366,7 @@ export default function AgentsPage() {
                         تحليلات وتقارير ذكية
                       </h4>
                       <p className="text-sm text-amber-700/80 dark:text-amber-400/80">
-                        ملخص CFO أسبوعي — كشف الأنماط الشاذة — رؤى ذكية في كل
+                        ملخص CFO أسبوعي - كشف الأنماط الشاذة - رؤى ذكية في كل
                         صفحة
                       </p>
                       <Link href="/merchant/reports/cfo">
@@ -518,7 +518,7 @@ export default function AgentsPage() {
                           </Badge>
                         ) : isComingSoon ? (
                           <Badge variant="secondary" className="text-xs">
-                            قريباً {agent.eta ? `— ${agent.eta}` : ""}
+                            قريباً {agent.eta ? `- ${agent.eta}` : ""}
                           </Badge>
                         ) : (
                           <Badge variant="secondary" className="text-xs">
@@ -636,7 +636,7 @@ export default function AgentsPage() {
                     <h4 className="font-medium">المحادثات والتحليل</h4>
                   </div>
                   <p className="text-sm text-muted-foreground mb-2">
-                    النموذج الأساسي — سريع واقتصادي
+                    النموذج الأساسي - سريع واقتصادي
                   </p>
                   <ul className="text-xs text-muted-foreground space-y-1">
                     <li>• بوت خدمة العملاء (واتساب)</li>
@@ -651,7 +651,7 @@ export default function AgentsPage() {
                     <h4 className="font-medium">تحليل الصور والمستندات</h4>
                   </div>
                   <p className="text-sm text-muted-foreground mb-2">
-                    نموذج الرؤية — يقرأ الصور
+                    نموذج الرؤية - يقرأ الصور
                   </p>
                   <ul className="text-xs text-muted-foreground space-y-1">
                     <li>• تصنيف إيصالات الدفع</li>

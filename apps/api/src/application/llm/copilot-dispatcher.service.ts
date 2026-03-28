@@ -903,7 +903,7 @@ export class CopilotDispatcherService {
          COUNT(*) as order_count,
          COALESCE(SUM(total), 0) as revenue,
          COUNT(*) FILTER (WHERE status = 'DELIVERED') as delivered,
-         COUNT(*) FILTER (WHERE status IN ('CANCELLED', 'REFUNDED')) as cancelled,
+         COUNT(*) FILTER (WHERE status::text IN ('CANCELLED', 'REFUNDED')) as cancelled,
          COALESCE(SUM(total) FILTER (WHERE payment_status = 'PAID'), 0) as collected
        FROM orders
        WHERE merchant_id = $1 
@@ -982,7 +982,7 @@ export class CopilotDispatcherService {
          COALESCE(SUM(total), 0) as revenue,
          COALESCE(AVG(total), 0) as aov,
          COUNT(*) FILTER (WHERE status = 'DELIVERED') as delivered,
-         COUNT(*) FILTER (WHERE status IN ('CANCELLED', 'REFUNDED')) as cancelled
+         COUNT(*) FILTER (WHERE status::text IN ('CANCELLED', 'REFUNDED')) as cancelled
        FROM orders
        WHERE merchant_id = $1 
          AND created_at >= $2 
@@ -1027,7 +1027,7 @@ export class CopilotDispatcherService {
        WHERE merchant_id = $1 
          AND created_at >= $2 
          AND created_at <= $3
-         AND status NOT IN ('CANCELLED', 'REFUNDED')`,
+         AND status::text NOT IN ('CANCELLED', 'REFUNDED')`,
       [merchantId, startDate, endDate],
     );
 

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -40,11 +40,15 @@ import {
 import Link from "next/link";
 import { useMerchant } from "@/hooks/use-merchant";
 import { useToast } from "@/hooks/use-toast";
-import { branchesApi } from "@/lib/api";
+import { branchesApi } from "@/lib/client";
 
 function formatCurrency(v: number | undefined | null, currency = "SAR") {
   const n = typeof v === "number" ? v : 0;
-  return new Intl.NumberFormat("ar-SA", { style: "currency", currency, maximumFractionDigits: 2 }).format(n);
+  return new Intl.NumberFormat("ar-SA", {
+    style: "currency",
+    currency,
+    maximumFractionDigits: 2,
+  }).format(n);
 }
 
 function formatMonth(m: string) {
@@ -54,10 +58,13 @@ function formatMonth(m: string) {
 }
 
 function ChangeChip({ value }: { value: number | null }) {
-  if (value == null) return <span className="text-muted-foreground text-xs">—</span>;
+  if (value == null)
+    return <span className="text-muted-foreground text-xs">-</span>;
   const positive = value >= 0;
   return (
-    <span className={`text-xs font-semibold ${positive ? "text-green-600" : "text-red-500"}`}>
+    <span
+      className={`text-xs font-semibold ${positive ? "text-green-600" : "text-red-500"}`}
+    >
       {positive ? "▲" : "▼"} {Math.abs(value).toFixed(1)}%
     </span>
   );
@@ -107,7 +114,7 @@ export default function BranchPLPage() {
 
   return (
     <div className="space-y-6 print:space-y-4">
-      {/* Tab nav — hidden when printing */}
+      {/* Tab nav - hidden when printing */}
       <div className="flex gap-1 border-b pb-0 print:hidden">
         <Link
           href={`/merchant/branches/${branchId}`}
@@ -154,16 +161,22 @@ export default function BranchPLPage() {
       </div>
 
       <PageHeader
-        title={`تقرير الأرباح والخسائر — ${branch?.name ?? "..."}`}
+        title={`تقرير الأرباح والخسائر - ${branch?.name ?? "..."}`}
         description={`شهر: ${formatMonth(month)}`}
         actions={
           <div className="flex gap-2 print:hidden">
-            <Button variant="ghost" size="sm" onClick={() => router.push("/merchant/branches")}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => router.push("/merchant/branches")}
+            >
               <ArrowLeft className="h-4 w-4 ml-1" />
               الفروع
             </Button>
             <div className="flex items-center gap-2">
-              <Label htmlFor="month" className="text-sm whitespace-nowrap">الشهر:</Label>
+              <Label htmlFor="month" className="text-sm whitespace-nowrap">
+                الشهر:
+              </Label>
               <Input
                 id="month"
                 type="month"
@@ -172,8 +185,15 @@ export default function BranchPLPage() {
                 className="w-36"
               />
             </div>
-            <Button variant="outline" size="sm" onClick={fetchReport} disabled={loading}>
-              <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={fetchReport}
+              disabled={loading}
+            >
+              <RefreshCw
+                className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
+              />
             </Button>
             <Button onClick={handlePrint} disabled={!report}>
               <Printer className="h-4 w-4 ml-1" />
@@ -189,46 +209,71 @@ export default function BranchPLPage() {
         <h2 className="text-xl mt-1">تقرير الأرباح والخسائر</h2>
         <p className="text-muted-foreground mt-1">{formatMonth(month)}</p>
         <p className="text-xs text-muted-foreground">
-          {report?.meta?.startDate} — {report?.meta?.endDate}
+          {report?.meta?.startDate} - {report?.meta?.endDate}
         </p>
       </div>
 
       {loading ? (
-        <div className="text-center py-20 text-muted-foreground">جارٍ تحميل التقرير...</div>
+        <div className="text-center py-20 text-muted-foreground">
+          جارٍ تحميل التقرير...
+        </div>
       ) : !report ? (
-        <div className="text-center py-20 text-muted-foreground">لا توجد بيانات للشهر المحدد</div>
+        <div className="text-center py-20 text-muted-foreground">
+          لا توجد بيانات للشهر المحدد
+        </div>
       ) : (
         <div ref={printRef} className="space-y-6 print:space-y-4">
           {/* KPI cards */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <Card>
               <CardContent className="pt-4">
-                <p className="text-xs text-muted-foreground">إجمالي الإيرادات</p>
-                <p className="text-2xl font-bold mt-1">{formatCurrency(rev?.grossRevenue)}</p>
-                <p className="text-xs text-muted-foreground mt-1">{rev?.totalOrders} طلب</p>
+                <p className="text-xs text-muted-foreground">
+                  إجمالي الإيرادات
+                </p>
+                <p className="text-2xl font-bold mt-1">
+                  {formatCurrency(rev?.grossRevenue)}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {rev?.totalOrders} طلب
+                </p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="pt-4">
                 <p className="text-xs text-muted-foreground">صافي الإيرادات</p>
-                <p className="text-2xl font-bold mt-1">{formatCurrency(rev?.netRevenue)}</p>
-                <p className="text-xs text-muted-foreground mt-1">بعد الخصومات</p>
+                <p className="text-2xl font-bold mt-1">
+                  {formatCurrency(rev?.netRevenue)}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  بعد الخصومات
+                </p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="pt-4">
                 <p className="text-xs text-muted-foreground">إجمالي المصاريف</p>
-                <p className="text-2xl font-bold mt-1 text-red-600">{formatCurrency(exp?.totalExpenses)}</p>
+                <p className="text-2xl font-bold mt-1 text-red-600">
+                  {formatCurrency(exp?.totalExpenses)}
+                </p>
               </CardContent>
             </Card>
-            <Card className={prof?.netProfit >= 0 ? "border-green-200" : "border-red-200"}>
+            <Card
+              className={
+                prof?.netProfit >= 0 ? "border-green-200" : "border-red-200"
+              }
+            >
               <CardContent className="pt-4">
                 <p className="text-xs text-muted-foreground">صافي الربح</p>
-                <p className={`text-2xl font-bold mt-1 ${prof?.netProfit >= 0 ? "text-green-600" : "text-red-600"}`}>
+                <p
+                  className={`text-2xl font-bold mt-1 ${prof?.netProfit >= 0 ? "text-green-600" : "text-red-600"}`}
+                >
                   {formatCurrency(prof?.netProfit)}
                 </p>
                 <div className="flex items-center gap-1 mt-1">
-                  <Badge variant={prof?.margin >= 0 ? "default" : "destructive"} className="text-xs">
+                  <Badge
+                    variant={prof?.margin >= 0 ? "default" : "destructive"}
+                    className="text-xs"
+                  >
                     {prof?.margin?.toFixed(1)}% هامش
                   </Badge>
                   <ChangeChip value={prof?.change} />
@@ -249,30 +294,50 @@ export default function BranchPLPage() {
               <Table>
                 <TableBody>
                   <TableRow>
-                    <TableCell className="font-medium">إجمالي الإيرادات</TableCell>
-                    <TableCell className="text-right">{rev?.totalOrders} طلب</TableCell>
-                    <TableCell className="text-right font-semibold">{formatCurrency(rev?.grossRevenue)}</TableCell>
+                    <TableCell className="font-medium">
+                      إجمالي الإيرادات
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {rev?.totalOrders} طلب
+                    </TableCell>
+                    <TableCell className="text-right font-semibold">
+                      {formatCurrency(rev?.grossRevenue)}
+                    </TableCell>
                   </TableRow>
                   <TableRow>
-                    <TableCell className="text-muted-foreground pr-8">الخصومات</TableCell>
+                    <TableCell className="text-muted-foreground pr-8">
+                      الخصومات
+                    </TableCell>
                     <TableCell />
-                    <TableCell className="text-right text-red-500">({formatCurrency(rev?.discounts)})</TableCell>
+                    <TableCell className="text-right text-red-500">
+                      ({formatCurrency(rev?.discounts)})
+                    </TableCell>
                   </TableRow>
                   <TableRow>
-                    <TableCell className="text-muted-foreground pr-8">رسوم التوصيل</TableCell>
+                    <TableCell className="text-muted-foreground pr-8">
+                      رسوم التوصيل
+                    </TableCell>
                     <TableCell />
-                    <TableCell className="text-right">{formatCurrency(rev?.deliveryFees)}</TableCell>
+                    <TableCell className="text-right">
+                      {formatCurrency(rev?.deliveryFees)}
+                    </TableCell>
                   </TableRow>
                   <TableRow className="bg-muted/40 font-semibold">
                     <TableCell>صافي الإيرادات</TableCell>
                     <TableCell />
-                    <TableCell className="text-right">{formatCurrency(rev?.netRevenue)}</TableCell>
+                    <TableCell className="text-right">
+                      {formatCurrency(rev?.netRevenue)}
+                    </TableCell>
                   </TableRow>
                   {rev?.cancelledOrders > 0 && (
                     <TableRow className="text-muted-foreground text-sm">
-                      <TableCell className="pr-8">ملاحظة: {rev.cancelledOrders} طلب ملغى</TableCell>
+                      <TableCell className="pr-8">
+                        ملاحظة: {rev.cancelledOrders} طلب ملغى
+                      </TableCell>
                       <TableCell />
-                      <TableCell className="text-right">({formatCurrency(rev?.cancelledRevenue)})</TableCell>
+                      <TableCell className="text-right">
+                        ({formatCurrency(rev?.cancelledRevenue)})
+                      </TableCell>
                     </TableRow>
                   )}
                 </TableBody>
@@ -301,23 +366,33 @@ export default function BranchPLPage() {
                     {exp.byCategory.map((cat: any) => (
                       <TableRow key={cat.category}>
                         <TableCell>{cat.category || "أخرى"}</TableCell>
-                        <TableCell className="text-right">{formatCurrency(cat.total)}</TableCell>
+                        <TableCell className="text-right">
+                          {formatCurrency(cat.total)}
+                        </TableCell>
                       </TableRow>
                     ))}
                     <TableRow className="bg-muted/40 font-semibold">
                       <TableCell>الإجمالي</TableCell>
-                      <TableCell className="text-right">{formatCurrency(exp?.totalExpenses)}</TableCell>
+                      <TableCell className="text-right">
+                        {formatCurrency(exp?.totalExpenses)}
+                      </TableCell>
                     </TableRow>
                   </TableBody>
                 </Table>
               ) : (
-                <p className="text-center text-muted-foreground py-6">لا توجد مصاريف مسجّلة</p>
+                <p className="text-center text-muted-foreground py-6">
+                  لا توجد مصاريف مسجّلة
+                </p>
               )}
             </CardContent>
           </Card>
 
           {/* Profitability Summary */}
-          <Card className={prof?.netProfit >= 0 ? "border-green-200" : "border-red-200"}>
+          <Card
+            className={
+              prof?.netProfit >= 0 ? "border-green-200" : "border-red-200"
+            }
+          >
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
                 <DollarSign className="h-4 w-4" />
@@ -328,34 +403,49 @@ export default function BranchPLPage() {
               <Table>
                 <TableBody>
                   <TableRow>
-                    <TableCell className="font-medium">صافي الإيرادات</TableCell>
-                    <TableCell className="text-right">{formatCurrency(rev?.netRevenue)}</TableCell>
+                    <TableCell className="font-medium">
+                      صافي الإيرادات
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {formatCurrency(rev?.netRevenue)}
+                    </TableCell>
                   </TableRow>
                   <TableRow>
-                    <TableCell className="font-medium">إجمالي المصاريف</TableCell>
-                    <TableCell className="text-right text-red-500">({formatCurrency(exp?.totalExpenses)})</TableCell>
+                    <TableCell className="font-medium">
+                      إجمالي المصاريف
+                    </TableCell>
+                    <TableCell className="text-right text-red-500">
+                      ({formatCurrency(exp?.totalExpenses)})
+                    </TableCell>
                   </TableRow>
                   <Separator />
                   <TableRow className="bg-muted/40 font-bold text-base">
                     <TableCell>صافي الربح</TableCell>
-                    <TableCell className={`text-right ${prof?.netProfit >= 0 ? "text-green-600" : "text-red-600"}`}>
+                    <TableCell
+                      className={`text-right ${prof?.netProfit >= 0 ? "text-green-600" : "text-red-600"}`}
+                    >
                       {formatCurrency(prof?.netProfit)}
                     </TableCell>
                   </TableRow>
                   <TableRow>
-                    <TableCell className="text-muted-foreground">هامش الربح</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      هامش الربح
+                    </TableCell>
                     <TableCell className="text-right">
-                      <Badge variant={prof?.margin >= 0 ? "default" : "destructive"}>
+                      <Badge
+                        variant={prof?.margin >= 0 ? "default" : "destructive"}
+                      >
                         {prof?.margin?.toFixed(2)}%
                       </Badge>
                     </TableCell>
                   </TableRow>
                   {prof?.prevNetProfit != null && (
                     <TableRow>
-                      <TableCell className="text-muted-foreground">الشهر السابق</TableCell>
+                      <TableCell className="text-muted-foreground">
+                        الشهر السابق
+                      </TableCell>
                       <TableCell className="text-right text-muted-foreground">
-                        {formatCurrency(prof.prevNetProfit)}
-                        {" "}
+                        {formatCurrency(prof.prevNetProfit)}{" "}
                         <ChangeChip value={prof?.change} />
                       </TableCell>
                     </TableRow>
@@ -375,9 +465,18 @@ export default function BranchPLPage() {
       {/* Print styles */}
       <style jsx global>{`
         @media print {
-          header, nav, aside, .print\\:hidden { display: none !important; }
-          body { background: white !important; }
-          .print\\:block { display: block !important; }
+          header,
+          nav,
+          aside,
+          .print\\:hidden {
+            display: none !important;
+          }
+          body {
+            background: white !important;
+          }
+          .print\\:block {
+            display: block !important;
+          }
         }
       `}</style>
     </div>

@@ -30,7 +30,17 @@ export class OutboxPollerService implements OnModuleInit {
 
   constructor(@Inject(DATABASE_POOL) private readonly pool: Pool) {}
 
-  onModuleInit(): void {
+  async onModuleInit(): Promise<void> {
+    const result = await this.pool.query(
+      `UPDATE outbox_events
+       SET status = 'PENDING', updated_at = NOW()
+       WHERE status = 'PROCESSING'
+         AND updated_at < NOW() - INTERVAL '5 minutes'`,
+    );
+
+    this.nestLogger.log(
+      `Recovered ${result.rowCount || 0} stuck outbox events on startup`,
+    );
     this.nestLogger.log("Outbox poller initialized");
   }
 
@@ -207,23 +217,6 @@ export class OutboxPollerService implements OnModuleInit {
       event.merchantId,
       event.correlationId,
     );
-
-    // Auto-create payment link task (Finance Agent MVP)
-    const paymentLinkInput = {
-      orderId: event.payload.orderId,
-      merchantId: event.merchantId,
-      amount: event.payload.total,
-      customerName: event.payload.customerName,
-      customerPhone: event.payload.customerPhone,
-      orderNumber: event.payload.orderNumber,
-    };
-    await this.createAgentTask(
-      "FINANCE_AGENT",
-      "auto_create_payment_link",
-      paymentLinkInput,
-      event.merchantId,
-      event.correlationId,
-    );
   }
 
   private async handlePaymentProofSubmitted(event: any): Promise<void> {
@@ -262,12 +255,20 @@ export class OutboxPollerService implements OnModuleInit {
     try {
       await this.pool.query(
         `INSERT INTO notifications (merchant_id, type, title, title_ar, message, message_ar, priority, channels, action_url, data)
-         VALUES ($1, 'DAILY_SUMMARY', 'Daily summary ready', 'ملخص اليوم جاهز', $2, $3, 'LOW', ARRAY['IN_APP'], '/merchant/reports', $4)`,
+         SELECT $1, 'DAILY_SUMMARY', 'Daily summary ready', 'ملخص اليوم جاهز', $2, $3, 'LOW', ARRAY['IN_APP'], '/merchant/reports', $4
+         WHERE NOT EXISTS (
+           SELECT 1
+           FROM notifications
+           WHERE merchant_id = $1
+             AND type = 'DAILY_SUMMARY'
+             AND data->>'reportDate' = $5
+         )`,
         [
           event.merchantId,
           "Daily sales summary is ready for review.",
           "تقرير المبيعات اليومي جاهز للمراجعة.",
           JSON.stringify(event.payload),
+          event.payload?.reportDate || null,
         ],
       );
     } catch (error: any) {

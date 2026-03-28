@@ -490,9 +490,29 @@ ${catalogSummary}
     return items
       .slice(0, 80)
       .map((item) => {
+        const safeVariants = Array.isArray((item as any).variants)
+          ? ((item as any).variants as Array<{
+              name?: string;
+              values?: string[];
+            }>)
+          : [];
+
         const variants =
-          item.variants.length > 0
-            ? ` (${item.variants.map((v) => `${v.name === "size" ? "مقاسات" : v.name === "color" ? "ألوان" : v.name}: ${v.values.join(", ")}`).join(" | ")})`
+          safeVariants.length > 0
+            ? ` (${safeVariants
+                .map((v) => {
+                  const label =
+                    v?.name === "size"
+                      ? "مقاسات"
+                      : v?.name === "color"
+                        ? "ألوان"
+                        : v?.name || "خيارات";
+                  const values = Array.isArray(v?.values)
+                    ? v.values.filter((x) => typeof x === "string")
+                    : [];
+                  return `${label}: ${values.length > 0 ? values.join(", ") : "غير محدد"}`;
+                })
+                .join(" | ")})`
             : "";
         return `- ${item.nameAr}: ${item.basePrice} جنيه${variants}`;
       })
@@ -517,7 +537,10 @@ ${catalogSummary}
       lines.push(`- سياسة الاسترجاع: ${info.policies.returnPolicy}`);
     if (info.policies?.deliveryInfo)
       lines.push(`- معلومات التوصيل: ${info.policies.deliveryInfo}`);
-    if (info.policies?.paymentMethods?.length) {
+    if (
+      Array.isArray(info.policies?.paymentMethods) &&
+      info.policies.paymentMethods.length > 0
+    ) {
       lines.push(`- طرق الدفع: ${info.policies.paymentMethods.join(", ")}`);
     }
     const deliveryPricing = info.deliveryPricing || {};

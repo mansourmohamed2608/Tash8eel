@@ -8,6 +8,7 @@ import { AiMetricsService } from "../../shared/services/ai-metrics.service";
 import { NotificationsService } from "../services/notifications.service";
 import { MerchantContextService } from "./merchant-context.service";
 import { getTodayDate } from "../../shared/utils/helpers";
+import { UsageGuardService } from "../services/usage-guard.service";
 
 const logger = createLogger("InventoryAiService");
 
@@ -99,6 +100,15 @@ export interface SupplierMessageRequest {
   supplierName?: string;
 }
 
+export interface SupplierDiscoveryRequest {
+  merchantId: string;
+  merchantName: string;
+  query: string;
+  merchantCity: string;
+  branchName?: string;
+  locationAddress?: string;
+}
+
 // ============= Service =============
 
 @Injectable()
@@ -120,6 +130,7 @@ export class InventoryAiService {
     private readonly aiMetrics: AiMetricsService,
     @Inject(forwardRef(() => NotificationsService))
     private readonly notificationsService: NotificationsService,
+    private readonly usageGuard: UsageGuardService,
   ) {
     const apiKey = this.configService.get<string>("OPENAI_API_KEY");
     if (apiKey) {
@@ -156,7 +167,10 @@ export class InventoryAiService {
         expiresInHours: 24,
       })
       .catch((err) =>
-        logger.warn("Failed to create OpenAI quota notification", { err, merchantId }),
+        logger.warn("Failed to create OpenAI quota notification", {
+          err,
+          merchantId,
+        }),
       );
   }
 
@@ -183,7 +197,10 @@ export class InventoryAiService {
         expiresInHours: 24,
       })
       .catch((err) =>
-        logger.warn("Failed to create budget notification", { err, merchantId }),
+        logger.warn("Failed to create budget notification", {
+          err,
+          merchantId,
+        }),
       );
   }
 
@@ -570,11 +587,12 @@ ${liveContext ? `=== بيانات النظام الحية ===\n${liveContext}\n`
     }
 
     try {
-      const criticalItems  = products.filter((p) => p.urgency === "critical");
-      const warningItems   = products.filter((p) => p.urgency !== "critical");
-      const urgencyNote    = criticalItems.length > 0
-        ? `⚠️ ${criticalItems.length} منتج نفد تماماً (كمية = 0) ويحتاج توريد عاجل.`
-        : "";
+      const criticalItems = products.filter((p) => p.urgency === "critical");
+      const warningItems = products.filter((p) => p.urgency !== "critical");
+      const urgencyNote =
+        criticalItems.length > 0
+          ? `⚠️ ${criticalItems.length} منتج نفد تماماً (كمية = 0) ويحتاج توريد عاجل.`
+          : "";
 
       const productsList = products
         .map(
@@ -615,7 +633,8 @@ ${knowledgeBaseSummary || "لا توجد معلومات إضافية."}
         messages: [
           {
             role: "system",
-            content: "أنت كاتب رسائل تجارية محترف متخصص في قطاع التجزئة والتوريد. ترد بـ JSON فقط دون أي نص خارجه.",
+            content:
+              "أنت كاتب رسائل تجارية محترف متخصص في قطاع التجزئة والتوريد. ترد بـ JSON فقط دون أي نص خارجه.",
           },
           { role: "user", content: prompt },
         ],
@@ -655,6 +674,119 @@ ${knowledgeBaseSummary || "لا توجد معلومات إضافية."}
       void this.aiMetrics.record({
         serviceName: "InventoryAiService",
         methodName: "generateSupplierMessage",
+        merchantId,
+        outcome: "error",
+      });
+      if (err?.status === 429 || err?.message?.includes("429")) {
+        this.quotaBlockedUntil = Date.now() + 5 * 60 * 1000;
+        this.fireOpenAiQuotaNotification(merchantId);
+        return { success: false, error: "AI_QUOTA_EXHAUSTED" };
+      }
+      return { success: false, error: "AI_TEMPORARILY_UNAVAILABLE" };
+    }
+  }
+
+  async discoverSuppliers(
+    request: SupplierDiscoveryRequest,
+  ): Promise<
+    | { success: true; data: any[]; tokensUsed: number }
+    | { success: false; error: string }
+  > {
+    if (!this.client) {
+      return { success: false, error: "AI_NOT_ENABLED" };
+    }
+    if (this.isQuotaBlocked()) {
+      return { success: false, error: "AI_QUOTA_EXHAUSTED" };
+    }
+
+    const {
+      merchantId,
+      merchantName,
+      query,
+      merchantCity,
+      branchName,
+      locationAddress,
+    } = request;
+
+    const tokenCheck = await this.usageGuard.checkLimit(merchantId, "TOKENS");
+    if (!tokenCheck.allowed) {
+      this.fireBudgetExhaustedNotification(merchantId);
+      return { success: false, error: "Token budget exceeded" };
+    }
+
+    const aiCallCheck = await this.usageGuard.consume(
+      merchantId,
+      "AI_CALLS",
+      1,
+      {
+        metadata: {
+          source: "SUPPLIER_DISCOVERY",
+        },
+      },
+    );
+    if (!aiCallCheck.allowed) {
+      return { success: false, error: "AI_QUOTA_EXHAUSTED" };
+    }
+
+    try {
+      const response = await this.client.chat.completions.create({
+        model: this.model,
+        response_format: { type: "json_object" },
+        messages: [
+          {
+            role: "system",
+            content:
+              "أنت مساعد تجاري متخصص في اكتشاف الموردين في المملكة العربية السعودية والمنطقة العربية. أجب دائماً بـ JSON.",
+          },
+          {
+            role: "user",
+            content: `بحث عن موردين لـ: "${query}"
+تاجر: ${merchantName} في ${merchantCity}
+الفرع المرجعي: ${branchName ?? "غير محدد"}
+عنوان الاستلام أو الفرع الرسمي: ${locationAddress ?? "غير محدد"}
+
+أعطني 5 اقتراحات لموردين محتملين (شركات حقيقية أو أنواع من الموردين) مع:
+- name: الاسم
+- type: النوع (مصنّع / موزّع / تاجر جملة)
+- region: المنطقة الجغرافية
+- qualityTier: (premium/standard/budget)
+- searchTip: كيف يبحث عنهم (مثلاً اسم الشركة على Google)
+- notes: ملاحظة مفيدة
+
+أجب بـ: { "suppliers": [ ... ] }`,
+          },
+        ],
+        max_tokens: 800,
+      });
+
+      const tokensUsed = response.usage?.total_tokens || 0;
+      if (tokensUsed > 0) {
+        await this.usageGuard.consume(merchantId, "TOKENS", tokensUsed, {
+          metadata: {
+            source: "SUPPLIER_DISCOVERY",
+          },
+        });
+      }
+
+      const content = response.choices[0]?.message?.content ?? "{}";
+      const parsed = JSON.parse(content);
+      const suppliers = Array.isArray(parsed.suppliers) ? parsed.suppliers : [];
+
+      void this.aiMetrics.record({
+        serviceName: "InventoryAiService",
+        methodName: "discoverSuppliers",
+        merchantId,
+        outcome: "success",
+        tokensUsed,
+      });
+
+      return { success: true, data: suppliers, tokensUsed };
+    } catch (error) {
+      const err = error as any;
+      logger.error("Failed to discover suppliers", err, { merchantId, query });
+      void this.aiMetrics.record({
+        serviceName: "InventoryAiService",
+        methodName: "discoverSuppliers",
         merchantId,
         outcome: "error",
       });

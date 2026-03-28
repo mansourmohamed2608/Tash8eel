@@ -13,6 +13,11 @@ import { generateId } from "../../shared/utils/helpers";
 export class MessageRepository implements IMessageRepository {
   constructor(@Inject(DATABASE_POOL) private pool: Pool) {}
 
+  private sanitizeInboundText(value?: string): string | null {
+    if (!value) return null;
+    return value.replace(/<[^>]*>/g, "");
+  }
+
   async findById(id: string): Promise<Message | null> {
     const result = await this.pool.query(
       `SELECT * FROM messages WHERE id = $1`,
@@ -44,6 +49,11 @@ export class MessageRepository implements IMessageRepository {
 
   async create(input: CreateMessageInput): Promise<Message> {
     const id = generateId();
+    const storedText =
+      input.direction === MessageDirection.INBOUND
+        ? this.sanitizeInboundText(input.text)
+        : input.text || null;
+
     const result = await this.pool.query(
       `INSERT INTO messages (id, conversation_id, merchant_id, provider_message_id, direction, sender_id, text, attachments, metadata, llm_used, tokens_used)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
@@ -55,7 +65,7 @@ export class MessageRepository implements IMessageRepository {
         input.providerMessageId || null,
         input.direction,
         input.senderId,
-        input.text || null,
+        storedText,
         JSON.stringify(input.attachments || []),
         JSON.stringify(input.metadata || {}),
         input.llmUsed || false,
@@ -84,7 +94,8 @@ export class MessageRepository implements IMessageRepository {
       providerMessageId: row.provider_message_id as string | undefined,
       direction: row.direction as MessageDirection,
       senderId: row.sender_id as string,
-      text: (row.text as string | undefined) || (row.content as string | undefined),
+      text:
+        (row.text as string | undefined) || (row.content as string | undefined),
       attachments: row.attachments as Message["attachments"],
       metadata: row.metadata as Message["metadata"],
       llmUsed: row.llm_used as boolean,

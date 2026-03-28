@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -38,10 +38,10 @@ import {
 import Link from "next/link";
 import { useMerchant } from "@/hooks/use-merchant";
 import { useToast } from "@/hooks/use-toast";
-import { branchesApi } from "@/lib/api";
+import { branchesApi } from "@/lib/client";
 
 function formatQty(n: number | null | undefined) {
-  return typeof n === "number" ? n.toLocaleString("ar-SA") : "—";
+  return typeof n === "number" ? n.toLocaleString("ar-SA") : "-";
 }
 
 export default function BranchInventoryPage() {
@@ -132,12 +132,23 @@ export default function BranchInventoryPage() {
         description="مستويات المخزون في مواقع تخزين هذا الفرع"
         actions={
           <div className="flex gap-2">
-            <Button variant="ghost" size="sm" onClick={() => router.push("/merchant/branches")}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => router.push("/merchant/branches")}
+            >
               <ArrowLeft className="h-4 w-4 ml-1" />
               الفروع
             </Button>
-            <Button variant="outline" size="sm" onClick={fetchData} disabled={loading}>
-              <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={fetchData}
+              disabled={loading}
+            >
+              <RefreshCw
+                className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
+              />
             </Button>
           </div>
         }
@@ -155,22 +166,30 @@ export default function BranchInventoryPage() {
           <Card>
             <CardContent className="pt-4">
               <p className="text-xs text-muted-foreground">الكمية الفعلية</p>
-              <p className="text-2xl font-bold mt-1">{formatQty(summary.totalOnHand)}</p>
+              <p className="text-2xl font-bold mt-1">
+                {formatQty(summary.totalOnHand)}
+              </p>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="pt-4">
               <p className="text-xs text-muted-foreground">الكمية المتاحة</p>
-              <p className="text-2xl font-bold mt-1">{formatQty(summary.totalAvailable)}</p>
+              <p className="text-2xl font-bold mt-1">
+                {formatQty(summary.totalAvailable)}
+              </p>
             </CardContent>
           </Card>
           <Card className={summary.lowStockItems > 0 ? "border-amber-300" : ""}>
             <CardContent className="pt-4">
               <p className="text-xs text-muted-foreground flex items-center gap-1">
-                {summary.lowStockItems > 0 && <AlertTriangle className="h-3 w-3 text-amber-500" />}
+                {summary.lowStockItems > 0 && (
+                  <AlertTriangle className="h-3 w-3 text-amber-500" />
+                )}
                 مخزون منخفض
               </p>
-              <p className={`text-2xl font-bold mt-1 ${summary.lowStockItems > 0 ? "text-amber-600" : ""}`}>
+              <p
+                className={`text-2xl font-bold mt-1 ${summary.lowStockItems > 0 ? "text-amber-600" : ""}`}
+              >
                 {summary.lowStockItems}
               </p>
             </CardContent>
@@ -211,16 +230,22 @@ export default function BranchInventoryPage() {
           <CardTitle className="text-base">
             قائمة المخزون
             {items.length > 0 && (
-              <Badge variant="secondary" className="mr-2">{items.length} صنف</Badge>
+              <Badge variant="secondary" className="mr-2">
+                {items.length} صنف
+              </Badge>
             )}
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           {loading ? (
-            <p className="text-center py-12 text-muted-foreground">جارٍ التحميل...</p>
+            <p className="text-center py-12 text-muted-foreground">
+              جارٍ التحميل...
+            </p>
           ) : items.length === 0 ? (
             <p className="text-center py-12 text-muted-foreground">
-              {lowStockOnly ? "لا توجد أصناف بمخزون منخفض" : "لا توجد بيانات مخزون للفرع"}
+              {lowStockOnly
+                ? "لا توجد أصناف بمخزون منخفض"
+                : "لا توجد بيانات مخزون للفرع"}
             </p>
           ) : (
             <Table>
@@ -241,19 +266,32 @@ export default function BranchInventoryPage() {
                     <TableCell>
                       <div>
                         <p className="font-medium">{item.itemName}</p>
-                        {item.variantName && item.variantName !== item.itemName && (
-                          <p className="text-xs text-muted-foreground">{item.variantName}</p>
-                        )}
+                        {item.variantName &&
+                          item.variantName !== item.itemName && (
+                            <p className="text-xs text-muted-foreground">
+                              {item.variantName}
+                            </p>
+                          )}
                         {item.category && (
-                          <p className="text-xs text-muted-foreground">{item.category}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {item.category}
+                          </p>
                         )}
                       </div>
                     </TableCell>
-                    <TableCell className="font-mono text-sm">{item.sku || "—"}</TableCell>
-                    <TableCell>{item.locationName || "—"}</TableCell>
-                    <TableCell className="text-right">{formatQty(item.quantityOnHand)}</TableCell>
-                    <TableCell className="text-right text-muted-foreground">{formatQty(item.quantityReserved)}</TableCell>
-                    <TableCell className="text-right font-semibold">{formatQty(item.quantityAvailable)}</TableCell>
+                    <TableCell className="font-mono text-sm">
+                      {item.sku || "-"}
+                    </TableCell>
+                    <TableCell>{item.locationName || "-"}</TableCell>
+                    <TableCell className="text-right">
+                      {formatQty(item.quantityOnHand)}
+                    </TableCell>
+                    <TableCell className="text-right text-muted-foreground">
+                      {formatQty(item.quantityReserved)}
+                    </TableCell>
+                    <TableCell className="text-right font-semibold">
+                      {formatQty(item.quantityAvailable)}
+                    </TableCell>
                     <TableCell className="text-right">
                       {item.isLowStock ? (
                         <Badge variant="destructive" className="text-xs gap-1">
@@ -261,7 +299,9 @@ export default function BranchInventoryPage() {
                           منخفض
                         </Badge>
                       ) : (
-                        <Badge variant="secondary" className="text-xs">طبيعي</Badge>
+                        <Badge variant="secondary" className="text-xs">
+                          طبيعي
+                        </Badge>
                       )}
                     </TableCell>
                   </TableRow>

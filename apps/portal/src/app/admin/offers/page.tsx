@@ -28,7 +28,7 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { portalApi } from "@/lib/authenticated-api";
+import { portalApi } from "@/lib/client";
 import { Calendar, Plus, Tag, Percent, Edit, Trash2 } from "lucide-react";
 
 const PLAN_OPTIONS = [

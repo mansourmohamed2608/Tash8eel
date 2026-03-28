@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
@@ -40,8 +40,8 @@ import {
   getStatusLabel,
   cn,
 } from "@/lib/utils";
-import { merchantApi } from "@/lib/api";
-import portalApi from "@/lib/authenticated-api";
+import { merchantApi } from "@/lib/client";
+import portalApi from "@/lib/client";
 import { useMerchant } from "@/hooks/use-merchant";
 import {
   AiInsightsCard,
@@ -108,9 +108,14 @@ export default function MerchantDashboard() {
     getStoredReportingDays(30),
   );
   const [subUsage, setSubUsage] = useState<{
-    tokensUsed: number; tokenLimit: number; tokenPct: number;
-    conversationsUsed: number; conversationLimit: number; conversationPct: number;
-    planName: string; periodEnd: string | null;
+    tokensUsed: number;
+    tokenLimit: number;
+    tokenPct: number;
+    conversationsUsed: number;
+    conversationLimit: number;
+    conversationPct: number;
+    planName: string;
+    periodEnd: string | null;
   } | null>(null);
   const [aiBrief, setAiBrief] = useState<string | null>(null);
   const effectivePeriodDays = useMemo(
@@ -156,13 +161,20 @@ export default function MerchantDashboard() {
       );
       setData(result);
       // Fetch subscription usage and AI brief in background.
-      // Skip in demo mode — no session → 401 → signOut redirect loop.
+      // Skip in demo mode - no session → 401 → signOut redirect loop.
       if (!isDemo) {
-        portalApi.getSubscriptionUsage().then((r) => setSubUsage(r)).catch(() => null);
-        portalApi.getCfoAiBrief().then((r) => {
-          const brief = (r as any)?.data?.summaryAr || (r as any)?.summaryAr || null;
-          if (brief) setAiBrief(brief);
-        }).catch(() => null);
+        portalApi
+          .getSubscriptionUsage()
+          .then((r) => setSubUsage(r))
+          .catch(() => null);
+        portalApi
+          .getCfoAiBrief()
+          .then((r) => {
+            const brief =
+              (r as any)?.data?.summaryAr || (r as any)?.summaryAr || null;
+            if (brief) setAiBrief(brief);
+          })
+          .catch(() => null);
       }
     } catch (err) {
       console.error("Failed to fetch dashboard data");
@@ -504,7 +516,9 @@ export default function MerchantDashboard() {
               <TrendingUp className="h-4 w-4 text-blue-500" />
               استخدام الخطة الحالية
               {subUsage && (
-                <Badge variant="outline" className="text-xs mr-auto">{subUsage.planName}</Badge>
+                <Badge variant="outline" className="text-xs mr-auto">
+                  {subUsage.planName}
+                </Badge>
               )}
             </CardTitle>
           </CardHeader>
@@ -514,13 +528,19 @@ export default function MerchantDashboard() {
                 <div>
                   <div className="flex justify-between text-xs text-muted-foreground mb-1">
                     <span>الرسائل (توكن AI)</span>
-                    <span>{subUsage.tokensUsed.toLocaleString()} / {subUsage.tokenLimit.toLocaleString()}</span>
+                    <span>
+                      {subUsage.tokensUsed.toLocaleString()} /{" "}
+                      {subUsage.tokenLimit.toLocaleString()}
+                    </span>
                   </div>
                   <div className="h-2 rounded-full bg-muted overflow-hidden">
                     <div
                       className={`h-full rounded-full transition-all ${
-                        subUsage.tokenPct >= 90 ? "bg-red-500" :
-                        subUsage.tokenPct >= 70 ? "bg-amber-400" : "bg-blue-500"
+                        subUsage.tokenPct >= 90
+                          ? "bg-red-500"
+                          : subUsage.tokenPct >= 70
+                            ? "bg-amber-400"
+                            : "bg-blue-500"
                       }`}
                       style={{ width: `${Math.min(subUsage.tokenPct, 100)}%` }}
                     />
@@ -529,21 +549,30 @@ export default function MerchantDashboard() {
                 <div>
                   <div className="flex justify-between text-xs text-muted-foreground mb-1">
                     <span>المحادثات هذا الشهر</span>
-                    <span>{subUsage.conversationsUsed} / {subUsage.conversationLimit}</span>
+                    <span>
+                      {subUsage.conversationsUsed} /{" "}
+                      {subUsage.conversationLimit}
+                    </span>
                   </div>
                   <div className="h-2 rounded-full bg-muted overflow-hidden">
                     <div
                       className={`h-full rounded-full transition-all ${
-                        subUsage.conversationPct >= 90 ? "bg-red-500" :
-                        subUsage.conversationPct >= 70 ? "bg-amber-400" : "bg-green-500"
+                        subUsage.conversationPct >= 90
+                          ? "bg-red-500"
+                          : subUsage.conversationPct >= 70
+                            ? "bg-amber-400"
+                            : "bg-green-500"
                       }`}
-                      style={{ width: `${Math.min(subUsage.conversationPct, 100)}%` }}
+                      style={{
+                        width: `${Math.min(subUsage.conversationPct, 100)}%`,
+                      }}
                     />
                   </div>
                 </div>
                 {subUsage.periodEnd && (
                   <p className="text-xs text-muted-foreground">
-                    تجديد الخطة: {new Date(subUsage.periodEnd).toLocaleDateString("ar-EG")}
+                    تجديد الخطة:{" "}
+                    {new Date(subUsage.periodEnd).toLocaleDateString("ar-EG")}
                   </p>
                 )}
               </>
@@ -565,13 +594,23 @@ export default function MerchantDashboard() {
           </CardHeader>
           <CardContent>
             {aiBrief ? (
-              <p className="text-sm text-muted-foreground leading-relaxed" dir="rtl">{aiBrief}</p>
+              <p
+                className="text-sm text-muted-foreground leading-relaxed"
+                dir="rtl"
+              >
+                {aiBrief}
+              </p>
             ) : (
               <div className="h-16 flex items-center justify-center text-xs text-muted-foreground">
                 {hasPro ? (
-                  <span className="animate-pulse">يجهز الذكاء الاصطناعي تقريره اليومي...</span>
+                  <span className="animate-pulse">
+                    يجهز الذكاء الاصطناعي تقريره اليومي...
+                  </span>
                 ) : (
-                  <Link href="/merchant/plan" className="text-primary hover:underline flex items-center gap-1">
+                  <Link
+                    href="/merchant/plan"
+                    className="text-primary hover:underline flex items-center gap-1"
+                  >
                     ترقية للخطة الاحترافية <ArrowUpRight className="h-3 w-3" />
                   </Link>
                 )}

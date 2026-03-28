@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { Component, type ReactNode } from "react";
 import { AlertTriangle, RefreshCw, Home } from "lucide-react";
@@ -9,7 +9,7 @@ interface ErrorBoundaryProps {
   fallback?: ReactNode;
   /** Called when an error is caught */
   onError?: (error: Error, errorInfo: React.ErrorInfo) => void;
-  /** Reset key — when this changes, the error boundary resets */
+  /** Reset key - when this changes, the error boundary resets */
   resetKey?: string;
 }
 
@@ -82,7 +82,7 @@ export class ErrorBoundary extends Component<
   }
 }
 
-/** Default error fallback UI — dark theme, matches portal design */
+/** Default error fallback UI - dark theme, matches portal design */
 function DefaultErrorFallback({
   error,
   onReset,

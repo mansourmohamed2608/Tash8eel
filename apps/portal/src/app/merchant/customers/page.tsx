@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useCallback } from "react";
 import { PageHeader } from "@/components/layout";
@@ -57,7 +57,7 @@ import {
 } from "lucide-react";
 import { cn, formatCurrency, formatRelativeTime } from "@/lib/utils";
 import { useMerchant } from "@/hooks/use-merchant";
-import { apiFetch } from "@/lib/api";
+import { apiFetch } from "@/lib/client";
 import {
   AiInsightsCard,
   generateCustomerInsights,
@@ -226,10 +226,9 @@ export default function CustomersPage() {
     try {
       const params = new URLSearchParams({ limit: "100" });
       if (searchQuery) params.set("search", searchQuery);
-      const data = await apiFetch<any>(
-        `/v1/portal/customers?${params}`,
-        { apiKey },
-      );
+      const data = await apiFetch<any>(`/v1/portal/customers?${params}`, {
+        apiKey,
+      });
 
       // Map API response to Customer interface
       const mappedCustomers: Customer[] = (data.customers || []).map(
@@ -284,23 +283,26 @@ export default function CustomersPage() {
     }
   }, [searchQuery, apiKey]);
 
-  const fetchCustomerInsights = useCallback(async (customer: Customer) => {
-    setLoadingInsights(true);
-    try {
-      const data = await apiFetch<any>(
-        `/v1/portal/customers/${customer.customerId}`,
-        { apiKey },
-      );
-      setCustomerInsights(data as CustomerInsights);
-    } catch (err) {
-      console.error("Failed to fetch customer insights:", err);
-      setError(
-        err instanceof Error ? err.message : "فشل في تحميل تفاصيل العميل",
-      );
-    } finally {
-      setLoadingInsights(false);
-    }
-  }, [apiKey]);
+  const fetchCustomerInsights = useCallback(
+    async (customer: Customer) => {
+      setLoadingInsights(true);
+      try {
+        const data = await apiFetch<any>(
+          `/v1/portal/customers/${customer.customerId}`,
+          { apiKey },
+        );
+        setCustomerInsights(data as CustomerInsights);
+      } catch (err) {
+        console.error("Failed to fetch customer insights:", err);
+        setError(
+          err instanceof Error ? err.message : "فشل في تحميل تفاصيل العميل",
+        );
+      } finally {
+        setLoadingInsights(false);
+      }
+    },
+    [apiKey],
+  );
 
   useEffect(() => {
     fetchCustomers();
@@ -557,7 +559,7 @@ export default function CustomersPage() {
                           <span>
                             {customer.lastOrder
                               ? formatRelativeTime(customer.lastOrder)
-                              : "—"}
+                              : "-"}
                           </span>
                         </div>
                         {(customer.daysSinceLastOrder ?? 0) > 60 && (
@@ -725,7 +727,7 @@ export default function CustomersPage() {
                                 </div>
                                 <div>
                                   <p className="font-medium">
-                                    {activity.id || "—"}
+                                    {activity.id || "-"}
                                   </p>
                                   <p className="text-sm text-muted-foreground">
                                     {formatRelativeTime(activity.created_at)}

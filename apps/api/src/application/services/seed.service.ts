@@ -10,6 +10,7 @@ import { Pool } from "pg";
 import { DATABASE_POOL } from "../../infrastructure/database/database.module";
 import { randomUUID } from "crypto";
 import * as crypto from "crypto";
+import * as bcrypt from "bcrypt";
 
 // ── Fixed UUIDs for deterministic FKs ──────────────────────────────
 const ID = {
@@ -472,10 +473,7 @@ export class SeedService {
     t++;
 
     // merchant_staff (3 staff members)
-    const pwHash = crypto
-      .createHash("sha256")
-      .update("Demo@1234")
-      .digest("hex");
+    const pwHash = await bcrypt.hash("Demo@1234", 12);
     await client.query(
       `
       INSERT INTO merchant_staff (id, merchant_id, email, name, password_hash, role, status, permissions)
@@ -1130,7 +1128,14 @@ export class SeedService {
     // ── RAG substitution demo conversation (c9) ─────────────────────────────
     // Shows the AI detecting a missing item (seafood pizza) and surfacing
     // semantically similar alternatives.  5 turns; last state = COLLECTING_ITEMS.
-    const c9Messages: Array<{ dir: string; sender: string; text: string; llm: boolean; tokens: number; ago: string }> = [
+    const c9Messages: Array<{
+      dir: string;
+      sender: string;
+      text: string;
+      llm: boolean;
+      tokens: number;
+      ago: string;
+    }> = [
       {
         dir: "inbound",
         sender: "201999999999@c.us",
@@ -1229,7 +1234,16 @@ export class SeedService {
         VALUES (gen_random_uuid(), $1, $2, $3, $4, $5,
           'DELIVERED', $6, $7, NOW() - $8::interval)
       `,
-        [CONV.c9, m, msg.dir, msg.sender, msg.text, msg.llm, msg.tokens, msg.ago],
+        [
+          CONV.c9,
+          m,
+          msg.dir,
+          msg.sender,
+          msg.text,
+          msg.llm,
+          msg.tokens,
+          msg.ago,
+        ],
       );
     }
     t++;
@@ -1244,7 +1258,17 @@ export class SeedService {
         (gen_random_uuid(), $1, $7, $4, 'abandoned_cart', 'PENDING', NOW() + interval '3 hours', 'لسه مكملتش الأوردر! عندنا عرض خاص 🎁'),
         (gen_random_uuid(), $1, $8, $9, 'delivery_reminder', 'PENDING', NOW() + interval '40 minutes', 'الأوردر بتاعك في الطريق — بيتزا التونة هتوصل خلال 45 دقيقة 🍕🚚')
     `,
-      [m, ID.cust1, ID.cust3, ID.cust5, CONV.c1, CONV.c3, CONV.c5, CONV.c9, ID.cust9],
+      [
+        m,
+        ID.cust1,
+        ID.cust3,
+        ID.cust5,
+        CONV.c1,
+        CONV.c3,
+        CONV.c5,
+        CONV.c9,
+        ID.cust9,
+      ],
     );
     t++;
 
@@ -1623,7 +1647,12 @@ export class SeedService {
         tracking: "BOS-334455",
         courier: "بوسطة",
       },
-      { orderId: ID.ord11, status: "pending", tracking: null, courier: "بوسطة" },
+      {
+        orderId: ID.ord11,
+        status: "pending",
+        tracking: null,
+        courier: "بوسطة",
+      },
     ];
 
     for (const s of shippedOrders) {
@@ -2563,16 +2592,46 @@ export class SeedService {
           '["OPS_AGENT","INVENTORY_AGENT","FINANCE_AGENT"]'::jsonb,
           '{"messagesPerMonth":250000,"whatsappNumbers":5,"teamMembers":10,"tokenBudgetDaily":1750000,"aiCallsPerDay":5000,"paidTemplatesPerMonth":100,"paymentProofScansPerMonth":1200,"voiceMinutesPerMonth":240}'::jsonb, true)
     `,
-      [ID.planStarter, ID.planBasic, ID.planGrowth, ID.planPro, ID.planEnterprise],
+      [
+        ID.planStarter,
+        ID.planBasic,
+        ID.planGrowth,
+        ID.planPro,
+        ID.planEnterprise,
+      ],
     );
     t++;
 
     // usage_packs — OCR scan top-up catalog (global catalog rows, idempotent)
     for (const pack of [
-      { code: "PROOF_S",  name: "باقة فحص 100 إيصال",  tier: "S",  units: 100,  price: 7900  },
-      { code: "PROOF_M",  name: "باقة فحص 300 إيصال",  tier: "M",  units: 300,  price: 18900 },
-      { code: "PROOF_L",  name: "باقة فحص 700 إيصال",  tier: "L",  units: 700,  price: 34900 },
-      { code: "PROOF_XL", name: "باقة فحص 1500 إيصال", tier: "XL", units: 1500, price: 59900 },
+      {
+        code: "PROOF_S",
+        name: "باقة فحص 100 إيصال",
+        tier: "S",
+        units: 100,
+        price: 7900,
+      },
+      {
+        code: "PROOF_M",
+        name: "باقة فحص 300 إيصال",
+        tier: "M",
+        units: 300,
+        price: 18900,
+      },
+      {
+        code: "PROOF_L",
+        name: "باقة فحص 700 إيصال",
+        tier: "L",
+        units: 700,
+        price: 34900,
+      },
+      {
+        code: "PROOF_XL",
+        name: "باقة فحص 1500 إيصال",
+        tier: "XL",
+        units: 1500,
+        price: 59900,
+      },
     ]) {
       await client.query(
         `INSERT INTO usage_packs (id, code, name, metric_key, tier_code, included_units, is_active)

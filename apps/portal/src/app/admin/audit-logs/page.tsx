@@ -36,7 +36,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { cn, formatDate, formatRelativeTime } from "@/lib/utils";
-import { portalApi } from "@/lib/authenticated-api";
+import { portalApi } from "@/lib/client";
 
 interface AuditLog {
   id: string;

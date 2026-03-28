@@ -42,16 +42,13 @@ import {
 import { CatalogItem } from "../../domain/entities/catalog.entity";
 import { MerchantApiKeyGuard } from "../../shared/guards/merchant-api-key.guard";
 import { Pool } from "pg";
-import {
-  DATABASE_POOL,
-} from "../../infrastructure/database/database.module";
+import { DATABASE_POOL } from "../../infrastructure/database/database.module";
 
 interface PaginatedResponse<T> {
-  items: T[];
-  total: number;
+  data: T[];
+  totalCount: number;
   page: number;
   pageSize: number;
-  totalPages: number;
 }
 
 @ApiTags("Catalog (Portal)")
@@ -86,7 +83,9 @@ export class MerchantCatalogController {
         [catalogItemId],
       )
       .catch((err) =>
-        this.logger.warn(`Failed to enqueue embedding for ${catalogItemId}: ${err.message}`),
+        this.logger.warn(
+          `Failed to enqueue embedding for ${catalogItemId}: ${err.message}`,
+        ),
       );
   }
 
@@ -126,55 +125,67 @@ export class MerchantCatalogController {
   async listItems(
     @Req() req: Request,
     @Query("page") page = 1,
-    @Query("pageSize") pageSize = 100,
+    @Query("pageSize") pageSize = 20,
     @Query("category") category?: string,
     @Query("search") search?: string,
     @Query("isActive") isActive?: string,
   ): Promise<PaginatedResponse<CatalogItemResponseDto>> {
     const merchantId = this.getMerchantId(req);
-    let items = await this.catalogRepo.findByMerchant(merchantId);
+    const pageNum = Math.max(1, Number(page) || 1);
+    const pageSizeNum = Math.min(50, Math.max(1, Number(pageSize) || 20));
+    const pageOffset = (pageNum - 1) * pageSizeNum;
+    const filters = [`merchant_id = $1`];
+    const values: any[] = [merchantId];
 
     if (category) {
-      items = items.filter((item) => item.category === category);
+      values.push(category);
+      filters.push(`category = $${values.length}`);
     }
 
     if (typeof isActive === "string") {
-      const activeFlag = isActive === "true";
-      items = items.filter(
-        (item) => (item.isActive ?? item.isAvailable) === activeFlag,
-      );
+      values.push(isActive === "true");
+      filters.push(`is_available = $${values.length}`);
     }
 
     if (search) {
-      const searchLower = search.toLowerCase();
-      items = items.filter((item) => {
-        const name = (item.name || item.nameAr || "").toLowerCase();
-        const nameEn = (item.nameEn || "").toLowerCase();
-        const sku = (item.sku || "").toLowerCase();
-        const categoryValue = (item.category || "").toLowerCase();
-        const tags = (item.tags || []).join(" ").toLowerCase();
-        return (
-          name.includes(searchLower) ||
-          nameEn.includes(searchLower) ||
-          sku.includes(searchLower) ||
-          categoryValue.includes(searchLower) ||
-          tags.includes(searchLower)
-        );
-      });
+      values.push(`%${search}%`);
+      const searchParam = `$${values.length}`;
+      filters.push(
+        `(COALESCE(name_ar, '') ILIKE ${searchParam}
+          OR COALESCE(name_en, '') ILIKE ${searchParam}
+          OR COALESCE(sku, '') ILIKE ${searchParam}
+          OR COALESCE(category, '') ILIKE ${searchParam}
+          OR COALESCE(array_to_string(tags, ' '), '') ILIKE ${searchParam})`,
+      );
     }
 
-    const total = items.length;
-    const pageNum = Number(page) || 1;
-    const pageSizeNum = Number(pageSize) || 100;
-    const start = (pageNum - 1) * pageSizeNum;
-    const paginatedItems = items.slice(start, start + pageSizeNum);
+    const whereClause = filters.join(" AND ");
+    const countResult = await this.pool.query(
+      `SELECT COUNT(*) AS total FROM catalog_items WHERE ${whereClause}`,
+      values,
+    );
+
+    values.push(pageSizeNum, pageOffset);
+    const itemsResult = await this.pool.query(
+      `SELECT *
+       FROM catalog_items
+       WHERE ${whereClause}
+       ORDER BY name_ar
+       LIMIT $${values.length - 1}
+       OFFSET $${values.length}`,
+      values,
+    );
+    const paginatedItems = itemsResult.rows.map((row: any) =>
+      (this.catalogRepo as any).mapToEntity
+        ? (this.catalogRepo as any).mapToEntity(row)
+        : row,
+    );
 
     return {
-      items: paginatedItems.map((item) => this.toResponseDto(item)),
-      total,
+      data: paginatedItems.map((item) => this.toResponseDto(item)),
+      totalCount: parseInt(countResult.rows[0]?.total || "0", 10),
       page: pageNum,
       pageSize: pageSizeNum,
-      totalPages: Math.ceil(total / pageSizeNum),
     };
   }
 

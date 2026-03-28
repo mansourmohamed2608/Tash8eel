@@ -21,7 +21,7 @@ async function bootstrap(): Promise<void> {
       "ADMIN_API_KEY",
       "OPENAI_API_KEY",
       "CORS_ORIGINS",
-      "INTERNAL_CALL_SECRET",
+      "INTERNAL_API_KEY",
     ];
 
     const missingVars = requiredEnvVars.filter((v) => !process.env[v]);
@@ -179,7 +179,9 @@ Multi-tenant conversational commerce agent for Egyptian SMBs.
         });
       }
       await pool.query("SELECT 1");
-      res.status(200).json({ status: "ready", timestamp: new Date().toISOString() });
+      res
+        .status(200)
+        .json({ status: "ready", timestamp: new Date().toISOString() });
     } catch (err: any) {
       logger.error(`Readiness probe failed: ${err?.message}`);
       res.status(503).json({

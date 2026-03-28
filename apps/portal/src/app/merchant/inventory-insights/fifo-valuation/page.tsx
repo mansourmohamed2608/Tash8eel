@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { StatCard, KPIGrid } from "@/components/ui/stat-card";
 import { DashboardSkeleton } from "@/components/ui/skeleton";
-import { merchantApi } from "@/lib/api";
+import { merchantApi } from "@/lib/client";
 import { useMerchant } from "@/hooks/use-merchant";
 import { formatCurrency } from "@/lib/utils";
 import {

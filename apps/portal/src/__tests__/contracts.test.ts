@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Contract tests: Portal ↔ API response shape validation
  *
  * These tests act as a "schema contract" between the portal (consumer) and
@@ -10,9 +10,9 @@
  *   3. Catch breaking API changes at test time, before they reach production.
  *
  * When the API changes a response shape:
- *   - If the change is additive (new optional field), tests pass — update
+ *   - If the change is additive (new optional field), tests pass - update
  *     the schema at your convenience.
- *   - If the change removes or renames a required field, tests FAIL here —
+ *   - If the change removes or renames a required field, tests FAIL here -
  *     you must update both the schema and the portal consumer before merging.
  *
  * How to add a new contract:
@@ -138,8 +138,8 @@ const DashboardStatsSchema = z.object({
   totalRevenue: z.number().nonnegative(),
   totalCustomers: z.number().int().nonnegative(),
   conversionRate: z.number().nonnegative(),
-  revenueGrowth: z.number(),   // can be negative (decline)
-  ordersGrowth: z.number(),    // can be negative (decline)
+  revenueGrowth: z.number(), // can be negative (decline)
+  ordersGrowth: z.number(), // can be negative (decline)
 });
 
 // ============================================================================
@@ -160,7 +160,7 @@ const MerchantApiSchema = z.object({
   businessName: z.string(),
   plan: PlanSchema,
   status: z.enum(["ACTIVE", "INACTIVE", "SUSPENDED", "TRIAL"]),
-  currency: z.string().length(3),   // ISO 4217: EGP, USD, etc.
+  currency: z.string().length(3), // ISO 4217: EGP, USD, etc.
 });
 
 // ============================================================================
@@ -180,7 +180,10 @@ describe("API contract: orders", () => {
     const result = OrderListResponseSchema.safeParse(payload);
     if (!result.success) {
       // Pretty-print Zod validation errors for easier debugging
-      console.error("Contract violation:", JSON.stringify(result.error.format(), null, 2));
+      console.error(
+        "Contract violation:",
+        JSON.stringify(result.error.format(), null, 2),
+      );
     }
     expect(result.success).toBe(true);
   });
@@ -205,7 +208,10 @@ describe("API contract: dashboard stats", () => {
   test("dashboard stats fixture satisfies DashboardStatsSchema", () => {
     const result = DashboardStatsSchema.safeParse(fixtures.dashboardStats);
     if (!result.success) {
-      console.error("Contract violation:", JSON.stringify(result.error.format(), null, 2));
+      console.error(
+        "Contract violation:",
+        JSON.stringify(result.error.format(), null, 2),
+      );
     }
     expect(result.success).toBe(true);
   });
@@ -227,7 +233,10 @@ describe("API contract: customers", () => {
 
     const result = CustomerListResponseSchema.safeParse(payload);
     if (!result.success) {
-      console.error("Contract violation:", JSON.stringify(result.error.format(), null, 2));
+      console.error(
+        "Contract violation:",
+        JSON.stringify(result.error.format(), null, 2),
+      );
     }
     expect(result.success).toBe(true);
   });
@@ -237,13 +246,23 @@ describe("API contract: merchant", () => {
   test("merchant fixture satisfies MerchantApiSchema", () => {
     const result = MerchantApiSchema.safeParse(fixtures.merchant);
     if (!result.success) {
-      console.error("Contract violation:", JSON.stringify(result.error.format(), null, 2));
+      console.error(
+        "Contract violation:",
+        JSON.stringify(result.error.format(), null, 2),
+      );
     }
     expect(result.success).toBe(true);
   });
 
   test("merchant plan code is canonical (no legacy aliases)", () => {
-    const CANONICAL_PLANS = ["TRIAL", "STARTER", "GROWTH", "PRO", "ENTERPRISE", "CUSTOM"];
+    const CANONICAL_PLANS = [
+      "TRIAL",
+      "STARTER",
+      "GROWTH",
+      "PRO",
+      "ENTERPRISE",
+      "CUSTOM",
+    ];
     const LEGACY_PLANS = ["BASIC", "GROW", "PROFESSIONAL", "ENTERPRISES"];
 
     expect(LEGACY_PLANS).not.toContain(fixtures.merchant.plan);
@@ -255,7 +274,7 @@ describe("API contract: schema shape regression", () => {
   test("order has all fields consumed by portal orders page", () => {
     // Verify the fields that portal/src/app/merchant/orders/page.tsx reads
     // are present in the fixture (catches field renames/removals).
-    const portalRequiredFields: (keyof typeof fixtures.orders[0])[] = [
+    const portalRequiredFields: (keyof (typeof fixtures.orders)[0])[] = [
       "id",
       "orderNumber",
       "status",

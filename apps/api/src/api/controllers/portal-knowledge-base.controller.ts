@@ -11,6 +11,7 @@ import {
   ApiHeader,
   ApiOperation,
   ApiParam,
+  ApiResponse,
   ApiSecurity,
   ApiTags,
 } from "@nestjs/swagger";
@@ -132,6 +133,10 @@ export class PortalKnowledgeBaseController {
   @Post("pos-integrations/:id/test")
   @ApiOperation({ summary: "Test POS integration configuration" })
   @ApiParam({ name: "id", description: "POS integration ID" })
+  @ApiResponse({
+    status: 200,
+    description: "Integration contract validation result",
+  })
   async testPosIntegration(
     @Req() req: Request,
     @Param("id") integrationId: string,
@@ -157,7 +162,14 @@ export class PortalKnowledgeBaseController {
     }
 
     const integration = integrationResult.rows[0];
-    const provider = String(integration.provider || "").toUpperCase();
+    const rawProvider = String(integration.provider || "");
+    const provider = rawProvider.toUpperCase();
+    const providerAliases: Record<string, string> = {
+      ORACLE: "ORACLE_MICROS",
+      GOOGLESLIDES: "GOOGLE_SLIDES",
+      "GOOGLE-SLIDES": "GOOGLE_SLIDES",
+    };
+    const normalizedProvider = providerAliases[provider] || provider;
     const credentials = parseJsonObject(integration.credentials);
     const config = parseJsonObject(integration.config);
 
@@ -173,9 +185,41 @@ export class PortalKnowledgeBaseController {
         "locationId",
       ],
       CUSTOM: ["baseUrl", "apiKey"],
+      GOOGLE_SLIDES: ["presentationId", "serviceAccountEmail", "privateKey"],
     };
 
-    const required = requiredFields[provider] || [];
+    const contractByProvider: Record<string, Record<string, any>> = {
+      ODOO: {
+        action: "sync_orders_inventory",
+        mode: "bidirectional",
+      },
+      FOODICS: {
+        action: "sync_orders_inventory",
+        mode: "bidirectional",
+      },
+      ORACLE_MICROS: {
+        action: "sync_orders_inventory",
+        mode: "bidirectional",
+      },
+      SHOPIFY: {
+        action: "sync_catalog_orders",
+        mode: "bidirectional",
+      },
+      SQUARE: {
+        action: "sync_orders_inventory",
+        mode: "bidirectional",
+      },
+      CUSTOM: {
+        action: "custom_webhook_or_rest",
+        mode: "configurable",
+      },
+      GOOGLE_SLIDES: {
+        action: "publish_reports_or_catalog_to_slides",
+        mode: "outbound",
+      },
+    };
+
+    const required = requiredFields[normalizedProvider] || [];
     const missingFields = required.filter((field) => {
       const value = credentials[field] ?? config[field];
       return (
@@ -193,6 +237,12 @@ export class PortalKnowledgeBaseController {
       return {
         success: false,
         message: `بيانات ناقصة: ${missingFields.join("، ")}`,
+        provider: normalizedProvider,
+        contract: {
+          provider: normalizedProvider,
+          requiredFields: required,
+          ...contractByProvider[normalizedProvider],
+        },
         missingFields,
       };
     }
@@ -206,7 +256,13 @@ export class PortalKnowledgeBaseController {
 
     return {
       success: true,
-      message: `تم اختبار اتصال ${integration.name || provider} بنجاح`,
+      message: `تم اختبار اتصال ${integration.name || normalizedProvider} بنجاح`,
+      provider: normalizedProvider,
+      contract: {
+        provider: normalizedProvider,
+        requiredFields: required,
+        ...contractByProvider[normalizedProvider],
+      },
       checkedAt: new Date().toISOString(),
     };
   }

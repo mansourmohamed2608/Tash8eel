@@ -62,7 +62,7 @@ import {
   UtensilsCrossed,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { portalApi } from "@/lib/authenticated-api";
+import { portalApi } from "@/lib/client";
 import {
   AiInsightsCard,
   generateImportExportInsights,
@@ -346,7 +346,7 @@ export default function BulkOperationsPage() {
         if (op.errorCount > 0 && op.errors?.length > 0) {
           toast({
             title: `تم الاستيراد مع ${op.errorCount} خطأ`,
-            description: `نجح: ${op.successCount} | فشل: ${op.errorCount} — راجع سجل العمليات للتفاصيل`,
+            description: `نجح: ${op.successCount}، فشل: ${op.errorCount} - راجع سجل العمليات للتفاصيل`,
             variant: "destructive",
           });
         } else if (importOptions.dryRun) {
@@ -379,7 +379,7 @@ export default function BulkOperationsPage() {
         const errorLines = firstErrors
           .map(
             (e: any) =>
-              `صف ${e.row}: ${e.field ? e.field + " — " : ""}${e.message || e.error}`,
+              `صف ${e.row}: ${e.field ? e.field + " - " : ""}${e.message || e.error}`,
           )
           .join("\n");
         errorDetail += `\n${errorLines}`;
@@ -982,10 +982,10 @@ export default function BulkOperationsPage() {
                               <p
                                 key={i}
                                 className="text-[11px] text-red-500 truncate max-w-[200px]"
-                                title={`صف ${err.row}: ${err.field ? err.field + " — " : ""}${err.message || err.error || ""}`}
+                                title={`صف ${err.row}: ${err.field ? err.field + " - " : ""}${err.message || err.error || ""}`}
                               >
                                 صف {err.row}:{" "}
-                                {err.field ? `${err.field} — ` : ""}
+                                {err.field ? `${err.field} - ` : ""}
                                 {err.message || err.error || ""}
                               </p>
                             ))}

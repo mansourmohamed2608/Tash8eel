@@ -60,7 +60,7 @@ import {
   Webhook,
 } from "lucide-react";
 import { cn, formatDate } from "@/lib/utils";
-import { portalApi } from "@/lib/authenticated-api";
+import { portalApi } from "@/lib/client";
 
 // Plan definitions
 const PLANS = [

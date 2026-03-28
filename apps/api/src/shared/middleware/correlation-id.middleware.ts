@@ -26,8 +26,8 @@ export class CorrelationIdMiddleware implements NestMiddleware {
     // IDs that propagate into logs and audit records.
     const incomingId = req.headers[CORRELATION_ID_HEADER] as string | undefined;
     const isInternalCaller =
-      process.env.INTERNAL_CALL_SECRET &&
-      req.headers["x-internal-call"] === process.env.INTERNAL_CALL_SECRET;
+      process.env.INTERNAL_API_KEY &&
+      req.headers["x-internal-call"] === process.env.INTERNAL_API_KEY;
     const correlationId =
       isInternalCaller && incomingId && UUID_REGEX.test(incomingId)
         ? incomingId

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
@@ -32,7 +32,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AlertBanner, EmptyState } from "@/components/ui/alerts";
 import { Lightbulb, Plus, RefreshCw, MessageSquare } from "lucide-react";
-import { merchantApi } from "@/lib/api";
+import { merchantApi } from "@/lib/client";
 import { useMerchant } from "@/hooks/use-merchant";
 import { useRoleAccess } from "@/hooks/use-role-access";
 
@@ -415,7 +415,7 @@ export default function FeatureRequestsPage() {
                           {quote.status === "QUOTED" && (
                             <div className="flex flex-wrap items-center gap-2 rounded-md border border-dashed border-green-200 bg-green-50 p-3 text-sm">
                               <div className="text-green-700 font-semibold">
-                                تم التسعير — هل تريد قبول العرض؟
+                                تم التسعير - هل تريد قبول العرض؟
                               </div>
                               <Button
                                 size="sm"

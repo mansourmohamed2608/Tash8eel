@@ -12,6 +12,7 @@ import {
   Inject,
   NotFoundException,
   ForbiddenException,
+  ConflictException,
   UseGuards,
   Req,
   BadRequestException,
@@ -908,44 +909,59 @@ export class MerchantPortalController {
   @RequiresFeature("CONVERSATIONS")
   @ApiOperation({ summary: "List conversations for authenticated merchant" })
   @ApiQuery({ name: "state", description: "Filter by state", required: false })
-  @ApiQuery({ name: "limit", description: "Max results", required: false })
+  @ApiQuery({ name: "page", description: "Page number", required: false })
   @ApiQuery({
-    name: "offset",
-    description: "Pagination offset",
+    name: "pageSize",
+    description: "Items per page",
     required: false,
   })
   async listConversations(
     @Req() req: Request,
     @Query("state") state?: string,
-    @Query("limit") limit?: number,
-    @Query("offset") offset?: number,
-  ): Promise<{ conversations: any[]; total: number }> {
+    @Query("page") page = 1,
+    @Query("pageSize") pageSize = 20,
+  ): Promise<{
+    data: any[];
+    totalCount: number;
+    page: number;
+    pageSize: number;
+  }> {
     const merchantId = this.getMerchantId(req);
+    const pageNum = Math.max(1, Number(page) || 1);
+    const pageSizeNum = Math.min(50, Math.max(1, Number(pageSize) || 20));
+    const pageOffset = (pageNum - 1) * pageSizeNum;
+    const filters = [`c.merchant_id = $1`];
+    const values: any[] = [merchantId];
 
-    // JOIN with customers so we get real names even without collectedInfo
+    if (state) {
+      values.push(state);
+      filters.push(`c.state = $${values.length}`);
+    }
+
+    const whereClause = filters.join(" AND ");
+    const countResult = await this.pool.query(
+      `SELECT COUNT(*) AS total
+       FROM conversations c
+       WHERE ${whereClause}`,
+      values,
+    );
+
+    values.push(pageSizeNum, pageOffset);
     const result = await this.pool.query(
       `SELECT c.*,
           cu.name  AS cust_name,
           cu.phone AS cust_phone
        FROM conversations c
        LEFT JOIN customers cu ON cu.id = c.customer_id AND cu.merchant_id = c.merchant_id
-       WHERE c.merchant_id = $1
-       ORDER BY COALESCE(c.last_message_at, c.updated_at) DESC`,
-      [merchantId],
+       WHERE ${whereClause}
+       ORDER BY COALESCE(c.last_message_at, c.updated_at) DESC
+       LIMIT $${values.length - 1}
+       OFFSET $${values.length}`,
+      values,
     );
 
-    let rows: any[] = result.rows;
-    if (state) {
-      rows = rows.filter((r: any) => r.state === state);
-    }
-
-    const total = rows.length;
-    const start = offset || 0;
-    const end = start + (limit || 20);
-    const paginated = rows.slice(start, end);
-
     return {
-      conversations: paginated.map((row: any) => {
+      data: result.rows.map((row: any) => {
         const conv = (this.conversationRepo as any).mapToEntity
           ? (this.conversationRepo as any).mapToEntity(row)
           : row;
@@ -954,7 +970,9 @@ export class MerchantPortalController {
           phone: row.cust_phone || undefined,
         });
       }),
-      total,
+      totalCount: parseInt(countResult.rows[0]?.total || "0", 10),
+      page: pageNum,
+      pageSize: pageSizeNum,
     };
   }
 
@@ -1197,8 +1215,23 @@ export class MerchantPortalController {
     const paginated = orders.slice(start, end);
 
     const normalizedOrders = paginated.map((order: any) => ({
-      ...order,
+      id: order.id,
+      merchantId: order.merchantId,
+      conversationId: order.conversationId,
+      orderNumber: order.orderNumber,
+      status: order.status,
       items: this.normalizeOrderItems(order?.items),
+      subtotal: order.subtotal,
+      discount: order.discount,
+      deliveryFee: order.deliveryFee,
+      total: order.total,
+      customerName: order.customerName,
+      customerPhone: order.customerPhone,
+      deliveryAddress: order.deliveryAddress,
+      deliveryNotes: order.deliveryNotes,
+      deliveryPreference: order.deliveryPreference,
+      createdAt: order.createdAt,
+      updatedAt: order.updatedAt,
     }));
 
     const orderIds = normalizedOrders
@@ -3820,8 +3853,12 @@ export class MerchantPortalController {
     // Guard: old seed stored booleans in collected_info — only use string values
     const rawName = info?.customer_name;
     const rawPhone = info?.phone;
-    const infoName = typeof rawName === 'string' && rawName.length > 0 ? rawName : undefined;
-    const infoPhone = typeof rawPhone === 'string' && rawPhone.length > 0 ? rawPhone : undefined;
+    const infoName =
+      typeof rawName === "string" && rawName.length > 0 ? rawName : undefined;
+    const infoPhone =
+      typeof rawPhone === "string" && rawPhone.length > 0
+        ? rawPhone
+        : undefined;
     return {
       id: conversation.id,
       merchantId: conversation.merchantId,
@@ -4681,14 +4718,18 @@ export class MerchantPortalController {
   @RequiresFeature("LOYALTY")
   @RequireRole("MANAGER")
   @ApiOperation({
-    summary: "Send a seasonal/promotional campaign to all customers via WhatsApp",
+    summary:
+      "Send a seasonal/promotional campaign to all customers via WhatsApp",
   })
   @ApiBody({
     schema: {
       type: "object",
       properties: {
         title: { type: "string", description: "Campaign title / subject" },
-        message: { type: "string", description: "Message body (use {name} for personalisation)" },
+        message: {
+          type: "string",
+          description: "Message body (use {name} for personalisation)",
+        },
         recipientFilter: {
           type: "string",
           enum: ["all", "vip", "loyal", "regular", "at_risk", "new"],
@@ -4714,12 +4755,18 @@ export class MerchantPortalController {
       `SELECT name, config, whatsapp_number FROM merchants WHERE id = $1`,
       [merchantId],
     );
-    const merchantWhatsApp: string | null = mcResult.rows?.[0]?.whatsapp_number || null;
-    const brandName = mcResult.rows?.[0]?.config?.brandName || mcResult.rows?.[0]?.name || "المتجر";
+    const merchantWhatsApp: string | null =
+      mcResult.rows?.[0]?.whatsapp_number || null;
+    const brandName =
+      mcResult.rows?.[0]?.config?.brandName ||
+      mcResult.rows?.[0]?.name ||
+      "المتجر";
 
     const status = this.notificationsService.getDeliveryConfigStatus();
     if (!status.whatsapp.configured || !merchantWhatsApp) {
-      throw new BadRequestException("واتساب غير مهيأ — أضف رقم واتساب في الإعدادات");
+      throw new BadRequestException(
+        "واتساب غير مهيأ — أضف رقم واتساب في الإعدادات",
+      );
     }
 
     // Build recipient query based on segment
@@ -4745,28 +4792,54 @@ export class MerchantPortalController {
     };
     recipientQuery += segmentMap[recipientFilter] || "1=1";
 
-    const recipientsResult = await this.pool.query(recipientQuery, [merchantId]);
+    const recipientsResult = await this.pool.query(recipientQuery, [
+      merchantId,
+    ]);
     const recipients = recipientsResult.rows;
 
     if (recipients.length === 0) {
-      return { sent: 0, totalTargeted: 0, message: "لا يوجد عملاء مطابقون للفئة المختارة" };
+      return {
+        sent: 0,
+        totalTargeted: 0,
+        message: "لا يوجد عملاء مطابقون للفئة المختارة",
+      };
     }
 
     let sentCount = 0;
     let failCount = 0;
     for (const customer of recipients) {
       try {
-        const personalMsg = (message + `\n\n— ${brandName}`).replace("{name}", customer.name || "عميلنا العزيز");
-        await this.notificationsService.sendBroadcastWhatsApp(customer.phone, personalMsg, merchantWhatsApp);
+        const personalMsg = (message + `\n\n— ${brandName}`).replace(
+          "{name}",
+          customer.name || "عميلنا العزيز",
+        );
+        await this.notificationsService.sendBroadcastWhatsApp(
+          customer.phone,
+          personalMsg,
+          merchantWhatsApp,
+        );
         sentCount++;
       } catch {
         failCount++;
       }
     }
 
-    await this.auditService.logFromRequest(req, "CREATE", "CAMPAIGN", merchantId, {
-      metadata: { type: "SEASONAL", title, recipientFilter, targeted: recipients.length, sent: sentCount, failed: failCount },
-    });
+    await this.auditService.logFromRequest(
+      req,
+      "CREATE",
+      "CAMPAIGN",
+      merchantId,
+      {
+        metadata: {
+          type: "SEASONAL",
+          title,
+          recipientFilter,
+          targeted: recipients.length,
+          sent: sentCount,
+          failed: failCount,
+        },
+      },
+    );
 
     return {
       sent: sentCount,
@@ -4788,9 +4861,19 @@ export class MerchantPortalController {
     schema: {
       type: "object",
       properties: {
-        inactiveDays: { type: "number", default: 60, description: "Target customers inactive for this many days" },
-        message: { type: "string", description: "Message body (use {name} and {days} as placeholders)" },
-        discountCode: { type: "string", description: "Optional promo code to include in message" },
+        inactiveDays: {
+          type: "number",
+          default: 60,
+          description: "Target customers inactive for this many days",
+        },
+        message: {
+          type: "string",
+          description: "Message body (use {name} and {days} as placeholders)",
+        },
+        discountCode: {
+          type: "string",
+          description: "Optional promo code to include in message",
+        },
       },
     },
   })
@@ -4806,12 +4889,18 @@ export class MerchantPortalController {
       `SELECT name, config, whatsapp_number FROM merchants WHERE id = $1`,
       [merchantId],
     );
-    const merchantWhatsApp: string | null = mcResult.rows?.[0]?.whatsapp_number || null;
-    const brandName = mcResult.rows?.[0]?.config?.brandName || mcResult.rows?.[0]?.name || "المتجر";
+    const merchantWhatsApp: string | null =
+      mcResult.rows?.[0]?.whatsapp_number || null;
+    const brandName =
+      mcResult.rows?.[0]?.config?.brandName ||
+      mcResult.rows?.[0]?.name ||
+      "المتجر";
 
     const status = this.notificationsService.getDeliveryConfigStatus();
     if (!status.whatsapp.configured || !merchantWhatsApp) {
-      throw new BadRequestException("واتساب غير مهيأ — أضف رقم واتساب في الإعدادات");
+      throw new BadRequestException(
+        "واتساب غير مهيأ — أضف رقم واتساب في الإعدادات",
+      );
     }
 
     const inactiveCustomers = await this.pool.query(
@@ -4852,17 +4941,41 @@ export class MerchantPortalController {
       try {
         const personalMsg = campaignMessage
           .replace("{name}", customer.name || "عميلنا")
-          .replace("{days}", String(Math.round(Number(customer.days_since_last_order || inactiveDays))));
-        await this.notificationsService.sendBroadcastWhatsApp(customer.phone, personalMsg, merchantWhatsApp);
+          .replace(
+            "{days}",
+            String(
+              Math.round(
+                Number(customer.days_since_last_order || inactiveDays),
+              ),
+            ),
+          );
+        await this.notificationsService.sendBroadcastWhatsApp(
+          customer.phone,
+          personalMsg,
+          merchantWhatsApp,
+        );
         sentCount++;
       } catch {
         failCount++;
       }
     }
 
-    await this.auditService.logFromRequest(req, "CREATE", "CAMPAIGN", merchantId, {
-      metadata: { type: "REENGAGEMENT", inactiveDays, discountCode: body.discountCode, targeted: inactiveCustomers.rows.length, sent: sentCount, failed: failCount },
-    });
+    await this.auditService.logFromRequest(
+      req,
+      "CREATE",
+      "CAMPAIGN",
+      merchantId,
+      {
+        metadata: {
+          type: "REENGAGEMENT",
+          inactiveDays,
+          discountCode: body.discountCode,
+          targeted: inactiveCustomers.rows.length,
+          sent: sentCount,
+          failed: failCount,
+        },
+      },
+    );
 
     return {
       sent: sentCount,
@@ -4898,7 +5011,8 @@ export class MerchantPortalController {
   @ApiOperation({ summary: "Create a new supplier" })
   async createSupplier(
     @Req() req: Request,
-    @Body() body: {
+    @Body()
+    body: {
       name: string;
       contactName?: string;
       phone?: string;
@@ -4953,7 +5067,8 @@ export class MerchantPortalController {
       `SELECT id FROM suppliers WHERE id = $1 AND merchant_id = $2`,
       [supplierId, merchantId],
     );
-    if (!existing.rows.length) throw new NotFoundException("Supplier not found");
+    if (!existing.rows.length)
+      throw new NotFoundException("Supplier not found");
 
     const allowed: Record<string, string> = {
       name: "name",
@@ -5029,18 +5144,32 @@ export class MerchantPortalController {
     );
 
     // Default configurations shown even if not yet saved
-    const DEFAULTS: Record<string, { label: string; labelEn: string; description: string; defaultConfig: Record<string, any> }> = {
+    const DEFAULTS: Record<
+      string,
+      {
+        label: string;
+        labelEn: string;
+        description: string;
+        defaultConfig: Record<string, any>;
+      }
+    > = {
       SUPPLIER_LOW_STOCK: {
         label: "تنبيه المورّد عند انخفاض المخزون",
         labelEn: "Supplier Low-Stock Alert",
-        description: "يُرسل رسالة واتساب تلقائية للموردين يومياً عندما تنخفض منتجاتهم عن الحد الأدنى",
+        description:
+          "يُرسل رسالة واتساب تلقائية للموردين يومياً عندما تنخفض منتجاتهم عن الحد الأدنى",
         defaultConfig: { threshold: "critical", messageTemplate: "" },
       },
       REENGAGEMENT_AUTO: {
         label: "حملة إعادة التفاعل التلقائية",
         labelEn: "Auto Re-engagement Campaign",
-        description: "يُرسل تلقائياً رسالة أسبوعية للعملاء الذين توقفوا عن الطلب",
-        defaultConfig: { inactiveDays: 30, discountCode: "", messageTemplate: "" },
+        description:
+          "يُرسل تلقائياً رسالة أسبوعية للعملاء الذين توقفوا عن الطلب",
+        defaultConfig: {
+          inactiveDays: 30,
+          discountCode: "",
+          messageTemplate: "",
+        },
       },
       REVIEW_REQUEST: {
         label: "طلب تقييم بعد التوصيل",
@@ -5057,13 +5186,19 @@ export class MerchantPortalController {
       CHURN_PREVENTION: {
         label: "الوقاية من فقدان العملاء",
         labelEn: "Churn Prevention",
-        description: "يرصد تلقائياً العملاء المعرضين للتوقف عن الطلب ويرسل لهم عروضاً استثنائية",
-        defaultConfig: { silentDays: 60, discountCode: "", messageTemplate: "" },
+        description:
+          "يرصد تلقائياً العملاء المعرضين للتوقف عن الطلب ويرسل لهم عروضاً استثنائية",
+        defaultConfig: {
+          silentDays: 60,
+          discountCode: "",
+          messageTemplate: "",
+        },
       },
       QUOTE_FOLLOWUP: {
         label: "متابعة عروض الأسعار تلقائياً",
         labelEn: "Quote Follow-Up",
-        description: "يُرسل تذكيراً تلقائياً للعملاء الذين لم يردوا على عروض الأسعار",
+        description:
+          "يُرسل تذكيراً تلقائياً للعملاء الذين لم يردوا على عروض الأسعار",
         defaultConfig: { ageHours: 48, messageTemplate: "" },
       },
       LOYALTY_MILESTONE: {
@@ -5075,7 +5210,8 @@ export class MerchantPortalController {
       EXPENSE_SPIKE_ALERT: {
         label: "تنبيه الارتفاع المفاجئ في المصاريف",
         labelEn: "Expense Spike Alert",
-        description: "يُنبّه عند ارتفاع مصاريف التشغيل بشكل غير طبيعي مقارنةً بالمتوسط الشهري",
+        description:
+          "يُنبّه عند ارتفاع مصاريف التشغيل بشكل غير طبيعي مقارنةً بالمتوسط الشهري",
         defaultConfig: { spikeThreshold: 150 },
       },
       DELIVERY_SLA_BREACH: {
@@ -5087,49 +5223,57 @@ export class MerchantPortalController {
       TOKEN_USAGE_WARNING: {
         label: "تحذير استهلاك حصة الذكاء الاصطناعي",
         labelEn: "AI Token Usage Warning",
-        description: "يُنبّه عند اقتراب الاستهلاك الشهري لحصة الذكاء الاصطناعي من حدودها",
+        description:
+          "يُنبّه عند اقتراب الاستهلاك الشهري لحصة الذكاء الاصطناعي من حدودها",
         defaultConfig: { warnPct: 80 },
       },
       AI_ANOMALY_DETECTION: {
         label: "كشف الشذوذ الذكي في البيانات",
         labelEn: "AI Anomaly Detection",
-        description: "يكتشف ويُبلّغ عن أنماط غير طبيعية في المبيعات أو الطلبات أو المدفوعات",
+        description:
+          "يكتشف ويُبلّغ عن أنماط غير طبيعية في المبيعات أو الطلبات أو المدفوعات",
         defaultConfig: {},
       },
       SEASONAL_STOCK_PREP: {
         label: "التحضير التلقائي للمخزون الموسمي",
         labelEn: "Seasonal Stock Prep",
-        description: "يُحلّل الأنماط التاريخية ويُوصي بتجديد المخزون قبل المواسم والإجازات",
+        description:
+          "يُحلّل الأنماط التاريخية ويُوصي بتجديد المخزون قبل المواسم والإجازات",
         defaultConfig: { warningDays: 14 },
       },
       SENTIMENT_MONITOR: {
         label: "رصد مشاعر العملاء",
         labelEn: "Sentiment Monitor",
-        description: "يُحلّل رسائل العملاء ويُنبّه عند رصد سخط أو مشاعر سلبية متكررة",
+        description:
+          "يُحلّل رسائل العملاء ويُنبّه عند رصد سخط أو مشاعر سلبية متكررة",
         defaultConfig: { frustratedThresholdPct: 5 },
       },
       LEAD_SCORE: {
         label: "تقييم العملاء المحتملين تلقائياً",
         labelEn: "Lead Scoring",
-        description: "يُرتّب الفرص والعملاء المحتملين حسب احتمالية التحويل بالذكاء الاصطناعي",
+        description:
+          "يُرتّب الفرص والعملاء المحتملين حسب احتمالية التحويل بالذكاء الاصطناعي",
         defaultConfig: {},
       },
       AUTO_VIP_TAG: {
         label: "تصنيف العملاء المميزين تلقائياً",
         labelEn: "Auto VIP Tag",
-        description: "يُضيف وسم VIP تلقائياً للعملاء الذين يستوفون معايير الإنفاق والولاء",
+        description:
+          "يُضيف وسم VIP تلقائياً للعملاء الذين يستوفون معايير الإنفاق والولاء",
         defaultConfig: { minOrders: 5, minSpend: 1000 },
       },
       AT_RISK_TAG: {
         label: "تصنيف العملاء في خطر",
         labelEn: "At-Risk Tag",
-        description: "يُضيف وسم 'في خطر' للعملاء ذوي انخفاض التفاعل المعرضين للمغادرة",
+        description:
+          "يُضيف وسم 'في خطر' للعملاء ذوي انخفاض التفاعل المعرضين للمغادرة",
         defaultConfig: { silentDays: 21, minPriorOrders: 2 },
       },
       HIGH_RETURN_FLAG: {
         label: "تحديد العملاء كثيري الإرجاع",
         labelEn: "High Return Flag",
-        description: "يُحدّد ويُعلّم العملاء ذوي معدل الإلغاء أو الإرجاع المرتفع لمراجعتهم",
+        description:
+          "يُحدّد ويُعلّم العملاء ذوي معدل الإلغاء أو الإرجاع المرتفع لمراجعتهم",
         defaultConfig: { cancellationRatePct: 30, minOrders: 3 },
       },
     };
@@ -5165,7 +5309,9 @@ export class MerchantPortalController {
 
   @Patch("automations/:type")
   @RequireRole("MANAGER")
-  @ApiOperation({ summary: "Update automation setting (enable/disable/configure)" })
+  @ApiOperation({
+    summary: "Update automation setting (enable/disable/configure)",
+  })
   async updateAutomation(
     @Req() req: Request,
     @Param("type") type: string,
@@ -5173,19 +5319,45 @@ export class MerchantPortalController {
   ): Promise<any> {
     const merchantId = this.getMerchantId(req);
     const VALID_TYPES = [
-      "SUPPLIER_LOW_STOCK", "REENGAGEMENT_AUTO", "REVIEW_REQUEST", "NEW_CUSTOMER_WELCOME",
-      "CHURN_PREVENTION", "QUOTE_FOLLOWUP", "LOYALTY_MILESTONE", "EXPENSE_SPIKE_ALERT",
-      "DELIVERY_SLA_BREACH", "TOKEN_USAGE_WARNING", "AI_ANOMALY_DETECTION", "SEASONAL_STOCK_PREP",
-      "SENTIMENT_MONITOR", "LEAD_SCORE", "AUTO_VIP_TAG", "AT_RISK_TAG", "HIGH_RETURN_FLAG",
+      "SUPPLIER_LOW_STOCK",
+      "REENGAGEMENT_AUTO",
+      "REVIEW_REQUEST",
+      "NEW_CUSTOMER_WELCOME",
+      "CHURN_PREVENTION",
+      "QUOTE_FOLLOWUP",
+      "LOYALTY_MILESTONE",
+      "EXPENSE_SPIKE_ALERT",
+      "DELIVERY_SLA_BREACH",
+      "TOKEN_USAGE_WARNING",
+      "AI_ANOMALY_DETECTION",
+      "SEASONAL_STOCK_PREP",
+      "SENTIMENT_MONITOR",
+      "LEAD_SCORE",
+      "AUTO_VIP_TAG",
+      "AT_RISK_TAG",
+      "HIGH_RETURN_FLAG",
     ];
-    if (!VALID_TYPES.includes(type)) throw new BadRequestException("نوع الأتمتة غير صحيح");
+    if (!VALID_TYPES.includes(type))
+      throw new BadRequestException("نوع الأتمتة غير صحيح");
+
+    const hasIsEnabledUpdate = typeof body?.isEnabled === "boolean";
+    const hasConfigUpdate =
+      !!body?.config && Object.keys(body.config).length > 0;
+    if (!hasIsEnabledUpdate && !hasConfigUpdate) {
+      throw new BadRequestException(
+        "يجب إرسال isEnabled أو config لتحديث الأتمتة",
+      );
+    }
 
     const result = await this.pool.query(
       `INSERT INTO merchant_automations (merchant_id, automation_type, is_enabled, config)
-       VALUES ($1, $2, $3, COALESCE($4::jsonb, '{}'))
+       VALUES ($1, $2, COALESCE($3, false), COALESCE($4::jsonb, '{}'))
        ON CONFLICT (merchant_id, automation_type)
        DO UPDATE SET
-         is_enabled = COALESCE($3, merchant_automations.is_enabled),
+         is_enabled = CASE
+                        WHEN $3 IS NULL THEN merchant_automations.is_enabled
+                        ELSE $3
+                      END,
          config     = CASE
                         WHEN $4::jsonb IS NOT NULL
                         THEN merchant_automations.config || $4::jsonb
@@ -5205,14 +5377,19 @@ export class MerchantPortalController {
 
   @Patch("automations/:type/schedule")
   @RequireRole("MANAGER")
-  @ApiOperation({ summary: "Set how often an automation runs (hours between checks)" })
+  @ApiOperation({
+    summary: "Set how often an automation runs (hours between checks)",
+  })
   async setAutomationSchedule(
     @Req() req: Request,
     @Param("type") type: string,
     @Body() body: { checkIntervalHours: number },
   ): Promise<any> {
     const merchantId = this.getMerchantId(req);
-    const hours = Math.max(1, Math.min(720, Number(body?.checkIntervalHours ?? 24)));
+    const hours = Math.max(
+      1,
+      Math.min(720, Number(body?.checkIntervalHours ?? 24)),
+    );
     const result = await this.pool.query(
       `INSERT INTO merchant_automations (merchant_id, automation_type, is_enabled, check_interval_hours)
        VALUES ($1, $2, false, $3)
@@ -5229,7 +5406,9 @@ export class MerchantPortalController {
   // ═══════════════════════════════════════════════════════════════════════
 
   @Get("analytics/forecast")
-  @ApiOperation({ summary: "AI demand forecast – stock predictions per product" })
+  @ApiOperation({
+    summary: "AI demand forecast – stock predictions per product",
+  })
   async getDemandForecast(
     @Req() req: Request,
     @Query("refresh") refresh?: string,
@@ -5247,7 +5426,11 @@ export class MerchantPortalController {
         [merchantId],
       );
       if (cached.rows.length > 0) {
-        return { forecasts: cached.rows, fresh: false, computedAt: cached.rows[0].computed_at };
+        return {
+          forecasts: cached.rows,
+          fresh: false,
+          computedAt: cached.rows[0].computed_at,
+        };
       }
     }
 
@@ -5272,7 +5455,7 @@ export class MerchantPortalController {
               ) AS item
          WHERE o.merchant_id = $1
            AND o.created_at >= NOW() - INTERVAL '30 days'
-           AND o.status NOT IN ('CANCELLED','REFUNDED')
+                 AND o.status::text NOT IN ('CANCELLED','REFUNDED')
            AND (item->>'variantId') IS NOT NULL
        ),
        variant_sales AS (
@@ -5311,10 +5494,12 @@ export class MerchantPortalController {
       const avg30 = Number(row.total_sold_30d) / 30;
       const avg7 = Number(row.total_sold_7d) / 7;
       const avgPrev7 = Number(row.total_sold_prev7d) / 7;
-      const trendPct = avgPrev7 > 0 ? Math.round(((avg7 - avgPrev7) / avgPrev7) * 100) : 0;
+      const trendPct =
+        avgPrev7 > 0 ? Math.round(((avg7 - avgPrev7) / avgPrev7) * 100) : 0;
       const avgEffective = avg7 > 0 ? avg7 : avg30; // prefer recent
       const stock = Number(row.current_stock);
-      const daysUntilStockout = avgEffective > 0 ? Math.round(stock / avgEffective) : null;
+      const daysUntilStockout =
+        avgEffective > 0 ? Math.round(stock / avgEffective) : null;
       const forecast7d = Math.round(avgEffective * 7);
       const forecast30d = Math.round(avgEffective * 30);
       const reorderQty = Math.max(0, forecast30d - stock);
@@ -5322,9 +5507,12 @@ export class MerchantPortalController {
       // Urgency
       let urgency: string;
       if (stock === 0) urgency = "critical";
-      else if (daysUntilStockout !== null && daysUntilStockout <= 3) urgency = "critical";
-      else if (daysUntilStockout !== null && daysUntilStockout <= 7) urgency = "high";
-      else if (daysUntilStockout !== null && daysUntilStockout <= 14) urgency = "medium";
+      else if (daysUntilStockout !== null && daysUntilStockout <= 3)
+        urgency = "critical";
+      else if (daysUntilStockout !== null && daysUntilStockout <= 7)
+        urgency = "high";
+      else if (daysUntilStockout !== null && daysUntilStockout <= 14)
+        urgency = "medium";
       else if (stock <= (Number(row.reorder_level) || 5)) urgency = "medium";
       else urgency = "ok";
 
@@ -5345,25 +5533,37 @@ export class MerchantPortalController {
     // ── Persist forecasts ─────────────────────────────────────────────────
     if (forecasts.length > 0) {
       const values = forecasts
-        .map(
-          (f, i) => {
-            const base = i * 9;
-            return `($${base+1},$${base+2},$${base+3},$${base+4},$${base+5},$${base+6},$${base+7},$${base+8},$${base+9})`;
-          },
-        )
+        .map((f, i) => {
+          const base = i * 9;
+          return `($${base + 1},$${base + 2},$${base + 3},$${base + 4},$${base + 5},$${base + 6},$${base + 7},$${base + 8},$${base + 9})`;
+        })
         .join(",");
       const params: any[] = [];
       for (const f of forecasts) {
-        params.push(merchantId, f.productId, f.productName, f.currentStock, f.avgDailyOrders, f.daysUntilStockout, f.forecast7d, f.forecast30d, f.urgency);
+        params.push(
+          merchantId,
+          f.productId,
+          f.productName,
+          f.currentStock,
+          f.avgDailyOrders,
+          f.daysUntilStockout,
+          f.forecast7d,
+          f.forecast30d,
+          f.urgency,
+        );
       }
-      await this.pool.query(
-        `INSERT INTO demand_forecasts
+      await this.pool
+        .query(
+          `INSERT INTO demand_forecasts
            (merchant_id, product_id, product_name, current_stock, avg_daily_orders,
             days_until_stockout, forecast_7d, forecast_30d, urgency)
          VALUES ${values}
          ON CONFLICT DO NOTHING`,
-        params,
-      ).catch(() => { /* non-fatal if insert fails */ });
+          params,
+        )
+        .catch(() => {
+          /* non-fatal if insert fails */
+        });
     }
 
     // ── Summary stats ─────────────────────────────────────────────────────
@@ -5391,36 +5591,256 @@ export class MerchantPortalController {
   // AI SUPPLIER DISCOVERY
   // ═══════════════════════════════════════════════════════════════════════
 
+  @Get("suppliers/search")
+  @RequireRole("MANAGER")
+  @ApiOperation({
+    summary: "Search existing suppliers inside the merchant network",
+  })
+  async searchSuppliers(
+    @Req() req: Request,
+    @Query("q") query: string,
+    @Query("branchId") branchId?: string,
+    @Query("paymentTerms") paymentTerms?: string,
+    @Query("maxLeadTimeDays") maxLeadTimeDays?: string,
+  ): Promise<any> {
+    const merchantId = this.getMerchantId(req);
+    if (!query?.trim())
+      throw new BadRequestException("q (search query) is required");
+
+    const normalizedQuery = query.trim();
+    const likeQuery = `%${normalizedQuery}%`;
+    const normalizedPaymentTerms = paymentTerms?.trim() || null;
+    const normalizedMaxLeadTimeDays = maxLeadTimeDays?.trim()
+      ? Math.max(1, Number.parseInt(maxLeadTimeDays, 10) || 0)
+      : null;
+
+    const branchResult = await this.pool
+      .query(
+        `SELECT id, name, city, address
+       FROM merchant_branches
+       WHERE merchant_id = $1
+         AND is_active = true
+         AND ($2::uuid IS NULL OR id = $2::uuid)
+       ORDER BY is_default DESC, sort_order ASC, created_at ASC
+       LIMIT 1`,
+        [merchantId, branchId || null],
+      )
+      .catch(() => ({ rows: [] as any[] }));
+
+    const branch = branchResult.rows[0] as
+      | { id: string; name?: string; city?: string; address?: string }
+      | undefined;
+
+    const result = await this.pool.query(
+      `WITH candidate_suppliers AS (
+         SELECT s.id,
+                s.name,
+                s.contact_name,
+                s.phone,
+                s.email,
+                s.address,
+                s.payment_terms,
+                s.lead_time_days,
+                s.notes,
+                COALESCE(
+                  ARRAY_REMOVE(
+                    ARRAY_AGG(DISTINCT COALESCE(NULLIF(ii.name, ''), ci.name_ar, ci.name_en, ii.sku))
+                    FILTER (WHERE sp.id IS NOT NULL),
+                    NULL
+                  ),
+                  ARRAY[]::text[]
+                ) AS linked_products,
+                BOOL_OR(COALESCE(sp.is_preferred, false)) AS is_preferred,
+                MAX(CASE
+                      WHEN s.name ILIKE $2
+                        OR COALESCE(s.contact_name, '') ILIKE $2
+                        OR COALESCE(s.address, '') ILIKE $2
+                        OR COALESCE(s.notes, '') ILIKE $2
+                      THEN 1 ELSE 0 END) AS supplier_field_match,
+                COUNT(*) FILTER (
+                  WHERE COALESCE(NULLIF(ii.name, ''), ci.name_ar, ci.name_en, ii.sku, '') ILIKE $2
+                     OR COALESCE(ci.category, '') ILIKE $2
+                     OR COALESCE(ii.sku, ci.sku, '') ILIKE $2
+                ) AS product_match_count,
+                MAX(CASE
+                      WHEN $3 <> ''
+                       AND (
+                         COALESCE(s.address, '') ILIKE '%' || $3 || '%'
+                         OR COALESCE(s.notes, '') ILIKE '%' || $3 || '%'
+                       )
+                      THEN 1 ELSE 0 END) AS branch_location_match
+         FROM suppliers s
+         LEFT JOIN supplier_products sp
+           ON sp.supplier_id = s.id AND sp.merchant_id = s.merchant_id
+         LEFT JOIN inventory_items ii
+           ON ii.id = sp.product_id AND ii.merchant_id = s.merchant_id
+         LEFT JOIN catalog_items ci
+           ON ci.id = ii.catalog_item_id AND ci.merchant_id = ii.merchant_id
+         WHERE s.merchant_id = $1
+           AND s.is_active = true
+           AND ($4::text IS NULL OR COALESCE(s.payment_terms, '') ILIKE $4)
+           AND ($5::int IS NULL OR COALESCE(s.lead_time_days, 7) <= $5)
+         GROUP BY s.id, s.name, s.contact_name, s.phone, s.email, s.address,
+                  s.payment_terms, s.lead_time_days, s.notes
+       )
+       SELECT *
+       FROM candidate_suppliers
+       WHERE supplier_field_match = 1
+          OR product_match_count > 0
+          OR linked_products::text ILIKE $2
+       ORDER BY
+         (supplier_field_match * 120 + product_match_count * 80 + branch_location_match * 35 + CASE WHEN is_preferred THEN 20 ELSE 0 END - LEAST(COALESCE(lead_time_days, 7), 30)) DESC,
+         name ASC
+       LIMIT 12`,
+      [
+        merchantId,
+        likeQuery,
+        branch?.city ?? "",
+        normalizedPaymentTerms ? `%${normalizedPaymentTerms}%` : null,
+        normalizedMaxLeadTimeDays,
+      ],
+    );
+
+    const results = result.rows.map((row: any) => {
+      const reasons: string[] = [];
+      if (Number(row.product_match_count) > 0) {
+        reasons.push(`مرتبط بـ ${row.product_match_count} منتج/منتجات مطابقة`);
+      }
+      if (Number(row.supplier_field_match) > 0) {
+        reasons.push("الاسم أو العنوان أو الملاحظات تطابق البحث");
+      }
+      if (Number(row.branch_location_match) > 0 && branch?.city) {
+        reasons.push(
+          `قريب من فرع ${branch.name ?? "الافتراضي"} في ${branch.city}`,
+        );
+      }
+      if (row.is_preferred) {
+        reasons.push("مورّد مفضّل لبعض منتجاتك");
+      }
+      if (!reasons.length) {
+        reasons.push("مطابقة عامة داخل شبكة مورديك");
+      }
+
+      return {
+        supplierId: row.id,
+        name: row.name,
+        contactName: row.contact_name,
+        phone: row.phone,
+        email: row.email,
+        address: row.address,
+        paymentTerms: row.payment_terms,
+        leadTimeDays: row.lead_time_days,
+        notes: row.notes,
+        linkedProducts: row.linked_products ?? [],
+        isPreferred: !!row.is_preferred,
+        matchReasons: reasons,
+        source: "internal_existing",
+      };
+    });
+
+    return {
+      results,
+      context: {
+        branchName: branch?.name ?? null,
+        city: branch?.city ?? null,
+        address: branch?.address ?? null,
+      },
+      message: results.length
+        ? undefined
+        : `لم يتم العثور على موردين داخل النظام لعبارة "${normalizedQuery}". يمكنك تجربة الاكتشاف الخارجي إذا أردت موردين جدد.`,
+    };
+  }
+
   @Get("suppliers/discover")
   @RequireRole("MANAGER")
-  @ApiOperation({ summary: "AI-powered supplier discovery for a product/category" })
+  @ApiOperation({
+    summary: "AI-powered supplier discovery for a product/category",
+  })
   async discoverSuppliers(
     @Req() req: Request,
     @Query("q") query: string,
     @Query("city") city?: string,
+    @Query("branchId") branchId?: string,
   ): Promise<any> {
     const merchantId = this.getMerchantId(req);
-    if (!query?.trim()) throw new BadRequestException("q (search query) is required");
+    if (!query?.trim())
+      throw new BadRequestException("q (search query) is required");
 
-    // Check recent cache (within 24 h for same query)
-    const cached = await this.pool.query(
-      `SELECT results FROM supplier_discovery_results
-       WHERE merchant_id = $1 AND query = $2
-         AND created_at > NOW() - INTERVAL '24 hours'
-       ORDER BY created_at DESC LIMIT 1`,
-      [merchantId, query.trim()],
-    );
-    if (cached.rows.length) {
-      return { results: cached.rows[0].results, fromCache: true };
+    const normalizedQuery = query.trim();
+
+    const [branchResult, merchantResult] = await Promise.all([
+      this.pool
+        .query(
+          `SELECT id, name, city, address
+         FROM merchant_branches
+         WHERE merchant_id = $1
+           AND is_active = true
+           AND ($2::uuid IS NULL OR id = $2::uuid)
+         ORDER BY is_default DESC, sort_order ASC, created_at ASC
+         LIMIT 1`,
+          [merchantId, branchId || null],
+        )
+        .catch(() => ({ rows: [] as any[] })),
+      this.pool
+        .query(`SELECT name, city FROM merchants WHERE id = $1 LIMIT 1`, [
+          merchantId,
+        ])
+        .catch(() => ({ rows: [] as any[] })),
+    ]);
+
+    const branch = branchResult.rows[0] as
+      | { id: string; name?: string; city?: string; address?: string }
+      | undefined;
+    const merchant = merchantResult.rows[0] as
+      | { name?: string; city?: string }
+      | undefined;
+
+    const locationCity = city?.trim() || branch?.city || merchant?.city || null;
+    const locationAddress = branch?.address || null;
+    const branchName = branch?.name || null;
+    const locationSummary = [branchName, locationCity]
+      .filter(Boolean)
+      .join(" - ");
+
+    // Check recent cache only when the caller did not explicitly choose a city/branch.
+    if (!city?.trim() && !branchId) {
+      const cached = await this.pool.query(
+        `SELECT results FROM supplier_discovery_results
+         WHERE merchant_id = $1 AND query = $2
+           AND created_at > NOW() - INTERVAL '24 hours'
+         ORDER BY created_at DESC LIMIT 1`,
+        [merchantId, normalizedQuery],
+      );
+      if (cached.rows.length) {
+        return {
+          results: cached.rows[0].results,
+          fromCache: true,
+          context: {
+            branchName,
+            city: locationCity,
+            address: locationAddress,
+          },
+        };
+      }
     }
 
     let results: any[] = [];
+    let discoveryMode:
+      | "cache"
+      | "google_maps"
+      | "ai_suggestion"
+      | "unavailable" = "unavailable";
+    let message: string | undefined;
 
     // ── Try Google Places API first ───────────────────────────────────────
     const placesKey = process.env.GOOGLE_PLACES_API_KEY;
     if (placesKey) {
       try {
-        const searchTerm = encodeURIComponent(`موردين ${query} ${city ?? ""}`);
+        const searchTerm = encodeURIComponent(
+          ["موردين", normalizedQuery, locationCity, locationAddress]
+            .filter(Boolean)
+            .join(" "),
+        );
         const url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${searchTerm}&language=ar&type=establishment&key=${placesKey}`;
         const resp = await fetch(url);
         const json = (await resp.json()) as any;
@@ -5435,71 +5855,81 @@ export class MerchantPortalController {
             placeId: p.place_id,
             source: "google_maps",
           }));
+          discoveryMode = "google_maps";
         }
-      } catch { /* fall through to AI */ }
+      } catch {
+        /* fall through to AI */
+      }
     }
 
     // ── Fallback: AI-generated suggestions ───────────────────────────────
     if (!results.length && this.inventoryAiService.isConfigured()) {
       try {
-        const merchant = await this.pool.query(
-          `SELECT name, city FROM merchants WHERE id = $1`,
-          [merchantId],
+        const merchantCity = locationCity ?? "السعودية";
+        const merchantName = merchant?.name ?? "";
+
+        const discoveryResult = await this.inventoryAiService.discoverSuppliers(
+          {
+            merchantId,
+            merchantName,
+            query: normalizedQuery,
+            merchantCity,
+            branchName: branchName ?? undefined,
+            locationAddress: locationAddress ?? undefined,
+          },
         );
-        const merchantCity = merchant.rows[0]?.city ?? city ?? "السعودية";
-        const merchantName = merchant.rows[0]?.name ?? "";
 
-        // We call OpenAI directly via inventoryAiService's underlying client
-        // since there's no existing method for this. Use the public API through
-        // the existing generateSupplierMessage interface as a ping, then do
-        // a direct completion for discovery.
-        const aiResult = await (this.inventoryAiService as any).client?.chat?.completions?.create({
-          model: "gpt-4o-mini",
-          response_format: { type: "json_object" },
-          messages: [
-            {
-              role: "system",
-              content: "أنت مساعد تجاري متخصص في اكتشاف الموردين في المملكة العربية السعودية والمنطقة العربية. أجب دائماً بـ JSON.",
-            },
-            {
-              role: "user",
-              content: `بحث عن موردين لـ: "${query}"
-تاجر: ${merchantName} في ${merchantCity}
+        if (discoveryResult.success) {
+          results = discoveryResult.data.map((s: any) => ({
+            ...s,
+            source: "ai_suggestion",
+          }));
+        }
 
-أعطني 5 اقتراحات لموردين محتملين (شركات حقيقية أو أنواع من الموردين) مع:
-- name: الاسم
-- type: النوع (مصنّع / موزّع / تاجر جملة)
-- region: المنطقة الجغرافية
-- qualityTier: (premium/standard/budget)
-- searchTip: كيف يبحث عنهم (مثلاً اسم الشركة على Google)
-- notes: ملاحظة مفيدة
+        if (results.length) {
+          discoveryMode = "ai_suggestion";
+        }
+      } catch {
+        /* non-fatal */
+      }
+    }
 
-أجب بـ: { "suppliers": [ ... ] }`,
-            },
-          ],
-          max_tokens: 800,
-        });
-
-        const content = aiResult?.choices?.[0]?.message?.content ?? "{}";
-        const parsed = JSON.parse(content);
-        results = (parsed.suppliers ?? []).map((s: any) => ({ ...s, source: "ai_suggestion" }));
-      } catch { /* non-fatal */ }
+    if (!results.length) {
+      message =
+        !placesKey && !this.inventoryAiService.isConfigured()
+          ? `الاكتشاف الخارجي غير متاح حالياً لأن Google Places وواجهة الذكاء الاصطناعي غير مفعّلين أو غير متاحين. عند تفعيلهما سيستخدم النظام موقع ${locationSummary || "التاجر"} كنقطة مرجعية للبحث.`
+          : `لم يتم العثور على نتائج لعبارة "${normalizedQuery}"${locationSummary ? ` حول ${locationSummary}` : ""}. جرّب اسم منتج أو فئة أو مدينة أدق.`;
     }
 
     // ── Persist result ────────────────────────────────────────────────────
     if (results.length > 0) {
-      await this.pool.query(
-        `INSERT INTO supplier_discovery_results (merchant_id, query, results) VALUES ($1,$2,$3)`,
-        [merchantId, query.trim(), JSON.stringify(results)],
-      ).catch(() => {});
+      await this.pool
+        .query(
+          `INSERT INTO supplier_discovery_results (merchant_id, query, results) VALUES ($1,$2,$3)`,
+          [merchantId, normalizedQuery, JSON.stringify(results)],
+        )
+        .catch(() => {});
     }
 
-    return { results, fromCache: false };
+    return {
+      results,
+      fromCache: false,
+      discoveryMode,
+      message,
+      context: {
+        branchName,
+        city: locationCity,
+        address: locationAddress,
+      },
+    };
   }
 
   @Get("suppliers/suggestions")
   @RequireRole("MANAGER")
-  @ApiOperation({ summary: "Fetch AI-auto-discovered supplier suggestions saved by the background scheduler" })
+  @ApiOperation({
+    summary:
+      "Fetch AI-auto-discovered supplier suggestions saved by the background scheduler",
+  })
   async getSupplierSuggestions(@Req() req: Request): Promise<any> {
     const merchantId = this.getMerchantId(req);
     const rows = await this.pool.query(
@@ -5511,7 +5941,11 @@ export class MerchantPortalController {
       [merchantId],
     );
     const all = rows.rows.flatMap((r) =>
-      (r.results as any[]).map((item) => ({ ...item, query: r.query, savedAt: r.created_at })),
+      (r.results as any[]).map((item) => ({
+        ...item,
+        query: r.query,
+        savedAt: r.created_at,
+      })),
     );
     return { suggestions: all, count: all.length };
   }
@@ -5551,7 +5985,13 @@ export class MerchantPortalController {
   async linkSupplierProduct(
     @Req() req: Request,
     @Param("supplierId") supplierId: string,
-    @Body() body: { productId: string; unitCost?: number; isPreferred?: boolean; notes?: string },
+    @Body()
+    body: {
+      productId: string;
+      unitCost?: number;
+      isPreferred?: boolean;
+      notes?: string;
+    },
   ): Promise<any> {
     const merchantId = this.getMerchantId(req);
     // Verify supplier belongs to merchant
@@ -5573,7 +6013,13 @@ export class MerchantPortalController {
        ON CONFLICT (supplier_id, product_id)
        DO UPDATE SET unit_cost=$3, is_preferred=$4, notes=$5, updated_at=NOW()
        RETURNING *`,
-      [supplierId, body.productId, body.unitCost ?? null, body.isPreferred ?? false, body.notes ?? null],
+      [
+        supplierId,
+        body.productId,
+        body.unitCost ?? null,
+        body.isPreferred ?? false,
+        body.notes ?? null,
+      ],
     );
     return { link: result.rows[0] };
   }
@@ -5603,12 +6049,17 @@ export class MerchantPortalController {
 
   @Post("campaigns/supplier-message")
   @RequireRole("MANAGER")
-  @ApiOperation({ summary: "Send a WhatsApp message directly to a supplier phone number" })
+  @ApiOperation({
+    summary: "Send a WhatsApp message directly to a supplier phone number",
+  })
   @ApiBody({
     schema: {
       type: "object",
       properties: {
-        phone: { type: "string", description: "Supplier phone number with country code" },
+        phone: {
+          type: "string",
+          description: "Supplier phone number with country code",
+        },
         message: { type: "string", description: "Message text to send" },
       },
       required: ["phone", "message"],
@@ -5631,12 +6082,24 @@ export class MerchantPortalController {
       throw new BadRequestException("واتساب غير مهيأ");
     }
 
-    const mcResult = await this.pool.query(`SELECT whatsapp_number FROM merchants WHERE id = $1`, [merchantId]);
-    const merchantWhatsApp: string | undefined = mcResult.rows?.[0]?.whatsapp_number || undefined;
+    const mcResult = await this.pool.query(
+      `SELECT whatsapp_number FROM merchants WHERE id = $1`,
+      [merchantId],
+    );
+    const merchantWhatsApp: string | undefined =
+      mcResult.rows?.[0]?.whatsapp_number || undefined;
 
-    await this.notificationsService.sendBroadcastWhatsApp(phone, message, merchantWhatsApp);
+    await this.notificationsService.sendBroadcastWhatsApp(
+      phone,
+      message,
+      merchantWhatsApp,
+    );
 
-    this.logger.log({ msg: "Supplier WhatsApp message sent", merchantId, to: phone });
+    this.logger.log({
+      msg: "Supplier WhatsApp message sent",
+      merchantId,
+      to: phone,
+    });
 
     return { success: true, message: "تم إرسال الرسالة للمورد" };
   }
@@ -7038,11 +7501,13 @@ export class MerchantPortalController {
       Number(summaryRows.find((row) => row.status === "PENDING")?.count || 0) ||
       0;
     const approved =
-      Number(summaryRows.find((row) => row.status === "APPROVED")?.count || 0) ||
-      0;
+      Number(
+        summaryRows.find((row) => row.status === "APPROVED")?.count || 0,
+      ) || 0;
     const rejected =
-      Number(summaryRows.find((row) => row.status === "REJECTED")?.count || 0) ||
-      0;
+      Number(
+        summaryRows.find((row) => row.status === "REJECTED")?.count || 0,
+      ) || 0;
 
     return {
       proofs: result.rows.map((row) => ({
@@ -7241,98 +7706,6 @@ export class MerchantPortalController {
     }
 
     return { proof };
-  }
-
-  // ============== PAYMENT LINKS ==============
-
-  @Get("payments/links")
-  @RequiresFeature("PAYMENTS")
-  @ApiOperation({ summary: "List payment links for merchant" })
-  @ApiQuery({
-    name: "status",
-    required: false,
-    enum: ["PENDING", "VIEWED", "PAID", "EXPIRED", "CANCELLED"],
-  })
-  @ApiQuery({ name: "limit", required: false, type: Number })
-  @ApiQuery({ name: "offset", required: false, type: Number })
-  @ApiResponse({ status: 200, description: "Payment links listed" })
-  async listPaymentLinks(
-    @Req() req: Request,
-    @Query("status") status?: string,
-    @Query("limit") limit?: string,
-    @Query("offset") offset?: string,
-  ): Promise<any> {
-    throw new BadRequestException(
-      "Payment links have been removed. Use Payment Proof Verification workflow.",
-    );
-  }
-
-  @Post("payments/links")
-  @RequiresFeature("PAYMENTS")
-  @RequireRole("MANAGER")
-  @ApiOperation({ summary: "Create a new payment link" })
-  @ApiBody({
-    schema: {
-      type: "object",
-      properties: {
-        orderId: { type: "string" },
-        amount: { type: "number" },
-        currency: { type: "string", default: "EGP" },
-        description: { type: "string" },
-        customerPhone: { type: "string" },
-        customerName: { type: "string" },
-        expiresInHours: { type: "number", default: 24 },
-      },
-      required: ["amount"],
-    },
-  })
-  @ApiResponse({ status: 201, description: "Payment link created" })
-  async createPaymentLink(
-    @Req() req: Request,
-    @Body()
-    body: {
-      orderId?: string;
-      amount: number;
-      currency?: string;
-      description?: string;
-      customerPhone?: string;
-      customerName?: string;
-      expiresInHours?: number;
-    },
-  ): Promise<any> {
-    throw new BadRequestException(
-      "Payment links have been removed. Use Payment Proof Verification workflow.",
-    );
-  }
-
-  @Post("payments/links/:linkId/cancel")
-  @RequiresFeature("PAYMENTS")
-  @RequireRole("MANAGER")
-  @ApiOperation({ summary: "Cancel a payment link" })
-  @ApiParam({ name: "linkId", description: "Payment link ID" })
-  @ApiResponse({ status: 200, description: "Link cancelled" })
-  async cancelPaymentLink(
-    @Req() req: Request,
-    @Param("linkId") linkId: string,
-  ): Promise<any> {
-    throw new BadRequestException(
-      "Payment links have been removed. Use Payment Proof Verification workflow.",
-    );
-  }
-
-  @Post("payments/links/:linkId/remind")
-  @RequiresFeature("PAYMENTS")
-  @RequireRole("AGENT")
-  @ApiOperation({ summary: "Send payment reminder for a link" })
-  @ApiParam({ name: "linkId", description: "Payment link ID" })
-  @ApiResponse({ status: 200, description: "Reminder sent" })
-  async sendPaymentReminder(
-    @Req() req: Request,
-    @Param("linkId") linkId: string,
-  ): Promise<any> {
-    throw new BadRequestException(
-      "Payment links have been removed. Use Payment Proof Verification workflow.",
-    );
   }
 
   // ============== COD STATEMENT IMPORT ==============
@@ -8305,6 +8678,28 @@ export class MerchantPortalController {
       resource: "STAFF",
       resourceId: staffId,
       metadata: { revoked, kept: currentSessionId },
+    });
+
+    return { success: true, revoked };
+  }
+
+  @RequireRole("OWNER")
+  @Delete("sessions/all")
+  @ApiOperation({ summary: "Revoke all sessions for this merchant" })
+  @ApiResponse({ status: 200, description: "Merchant sessions revoked" })
+  async revokeAllMerchantSessions(@Req() req: Request): Promise<any> {
+    const merchantId = this.getMerchantId(req);
+    const staffId = (req as any).staffId;
+    const revoked =
+      await this.staffService.revokeAllMerchantSessions(merchantId);
+
+    await this.auditService.log({
+      merchantId,
+      staffId,
+      action: "ALL_SESSIONS_REVOKED",
+      resource: "MERCHANT",
+      resourceId: merchantId,
+      metadata: { scope: "merchant", revoked },
     });
 
     return { success: true, revoked };
@@ -9427,9 +9822,7 @@ export class MerchantPortalController {
     @Body() body: { driverId: string },
   ): Promise<any> {
     const merchantId = this.getMerchantId(req);
-    const assignableStatuses = new Set([
-      "CONFIRMED",
-    ]);
+    const assignableStatuses = new Set(["CONFIRMED"]);
 
     // Get driver info
     const driverResult = await this.pool.query(
@@ -9678,18 +10071,31 @@ export class MerchantPortalController {
   ): Promise<any> {
     const merchantId = this.getMerchantId(req);
     const { provider, name, credentials, config } = body;
-    const result = await this.pool.query(
-      `INSERT INTO pos_integrations (merchant_id, provider, name, status, credentials, config, sync_interval_minutes, field_mapping)
-       VALUES ($1, $2, $3, 'ACTIVE', $4, $5, 15, '{}')
-       RETURNING id, merchant_id, provider, name, status, config, last_sync_at, sync_interval_minutes, field_mapping, created_at`,
-      [
-        merchantId,
-        provider,
-        name,
-        JSON.stringify(credentials),
-        JSON.stringify(config || {}),
-      ],
-    );
+    let result: any;
+    try {
+      result = await this.pool.query(
+        `INSERT INTO pos_integrations (merchant_id, provider, name, status, credentials, config, sync_interval_minutes, field_mapping)
+         VALUES ($1, $2, $3, 'ACTIVE', $4, $5, 15, '{}')
+         RETURNING id, merchant_id, provider, name, status, config, last_sync_at, sync_interval_minutes, field_mapping, created_at`,
+        [
+          merchantId,
+          provider,
+          name,
+          JSON.stringify(credentials),
+          JSON.stringify(config || {}),
+        ],
+      );
+    } catch (err: any) {
+      if (
+        err?.code === "23505" &&
+        err?.constraint === "pos_integrations_merchant_id_provider_key"
+      ) {
+        throw new ConflictException(
+          `يوجد بالفعل تكامل نشط لمزود "${provider}" لهذا الحساب. يرجى حذف الربط الحالي أولاً أو تعديله.`,
+        );
+      }
+      throw err;
+    }
     await this.auditService.logFromRequest(
       req,
       "CREATE",
@@ -9847,7 +10253,12 @@ export class MerchantPortalController {
     segmentName: string;
     reason: string;
     estimatedSize: number;
-    segments: Array<{ id: string; name: string; size: number; match_score: number }>;
+    segments: Array<{
+      id: string;
+      name: string;
+      size: number;
+      match_score: number;
+    }>;
   }> {
     const merchantId = this.getMerchantId(req);
     const goal = (body.goal ?? "").toLowerCase();
@@ -9866,18 +10277,46 @@ export class MerchantPortalController {
     const scored = segsResult.rows.map((seg) => {
       const segName = (seg.name ?? "").toLowerCase();
       let score = 0;
-      if (goal.includes("استرجاع") || goal.includes("عودة") || goal.includes("خامل")) {
-        if (segName.includes("خامل") || segName.includes("قديم") || segName.includes("غير نشط")) score += 50;
+      if (
+        goal.includes("استرجاع") ||
+        goal.includes("عودة") ||
+        goal.includes("خامل")
+      ) {
+        if (
+          segName.includes("خامل") ||
+          segName.includes("قديم") ||
+          segName.includes("غير نشط")
+        )
+          score += 50;
         if (segName.includes("at_risk") || segName.includes("خطر")) score += 40;
       }
-      if (goal.includes("vip") || goal.includes("مميز") || goal.includes("كبار")) {
-        if (segName.includes("vip") || segName.includes("مميز") || segName.includes("كبار")) score += 50;
+      if (
+        goal.includes("vip") ||
+        goal.includes("مميز") ||
+        goal.includes("كبار")
+      ) {
+        if (
+          segName.includes("vip") ||
+          segName.includes("مميز") ||
+          segName.includes("كبار")
+        )
+          score += 50;
       }
       if (goal.includes("جديد") || goal.includes("ترحيب")) {
         if (segName.includes("جديد") || segName.includes("new")) score += 50;
       }
-      if (goal.includes("خصم") || goal.includes("عرض") || goal.includes("تخفيض")) score += 20;
-      return { id: seg.id, name: seg.name, size: seg.estimated_size, match_score: score };
+      if (
+        goal.includes("خصم") ||
+        goal.includes("عرض") ||
+        goal.includes("تخفيض")
+      )
+        score += 20;
+      return {
+        id: seg.id,
+        name: seg.name,
+        size: seg.estimated_size,
+        match_score: score,
+      };
     });
     scored.sort((a, b) => b.match_score - a.match_score);
     const best = scored[0];
@@ -9954,7 +10393,10 @@ export class MerchantPortalController {
     return {
       tokensUsed: Number(row.tokens_used),
       tokenLimit: Number(row.token_limit),
-      tokenPct: row.token_limit > 0 ? Math.round((row.tokens_used / row.token_limit) * 100) : 0,
+      tokenPct:
+        row.token_limit > 0
+          ? Math.round((row.tokens_used / row.token_limit) * 100)
+          : 0,
       conversationsUsed: Number(row.conversations_used),
       conversationLimit: Number(row.conversation_limit),
       conversationPct:
@@ -9976,7 +10418,13 @@ export class MerchantPortalController {
     @Req() req: Request,
     @Query("days") days = "14",
   ): Promise<{
-    trend: Array<{ date: string; sent: number; delivered: number; failed: number; rate: number }>;
+    trend: Array<{
+      date: string;
+      sent: number;
+      delivered: number;
+      failed: number;
+      rate: number;
+    }>;
     overallRate: number;
   }> {
     const merchantId = this.getMerchantId(req);
@@ -10007,7 +10455,11 @@ export class MerchantPortalController {
 
     const totalSent = trend.reduce((s, r) => s + r.sent, 0);
     const totalDelivered = trend.reduce((s, r) => s + r.delivered, 0);
-    return { trend, overallRate: totalSent > 0 ? Math.round((totalDelivered / totalSent) * 100) : 0 };
+    return {
+      trend,
+      overallRate:
+        totalSent > 0 ? Math.round((totalDelivered / totalSent) * 100) : 0,
+    };
   }
 
   // ─── Helper: build WHERE clause from segment rules ────────────
@@ -10055,7 +10507,9 @@ export class MerchantPortalController {
   // ═══════════════════════════════════════════════════════════════════════
 
   @Get("forecast/demand")
-  @ApiOperation({ summary: "Advanced demand forecast with Holt-Winters + confidence bands" })
+  @ApiOperation({
+    summary: "Advanced demand forecast with Holt-Winters + confidence bands",
+  })
   async getAdvancedDemandForecast(
     @Req() req: Request,
     @Query("productId") productId?: string,
@@ -10086,14 +10540,21 @@ export class MerchantPortalController {
   }
 
   @Get("forecast/demand/:productId/history")
-  @ApiOperation({ summary: "Daily demand history + predictions for a single product" })
+  @ApiOperation({
+    summary: "Daily demand history + predictions for a single product",
+  })
   async getDemandForecastHistory(
     @Req() req: Request,
     @Param("productId") productId: string,
   ): Promise<any> {
     const merchantId = this.getMerchantId(req);
-    const results = await this.forecastEngine.computeDemandForecast(merchantId, productId, 90);
-    if (!results.length) throw new NotFoundException("Product not found or no data");
+    const results = await this.forecastEngine.computeDemandForecast(
+      merchantId,
+      productId,
+      90,
+    );
+    if (!results.length)
+      throw new NotFoundException("Product not found or no data");
     const item = results[0];
     return {
       productId: item.productId,
@@ -10143,7 +10604,9 @@ export class MerchantPortalController {
   }
 
   @Get("forecast/workforce")
-  @ApiOperation({ summary: "Hourly/daily workforce load forecast (next 7 days)" })
+  @ApiOperation({
+    summary: "Hourly/daily workforce load forecast (next 7 days)",
+  })
   async getWorkforceForecast(@Req() req: Request): Promise<any> {
     const merchantId = this.getMerchantId(req);
     return this.forecastEngine.computeWorkforceLoadForecast(merchantId);
@@ -10153,7 +10616,8 @@ export class MerchantPortalController {
   @ApiOperation({ summary: "Delivery delay probability for active orders" })
   async getDeliveryRiskForecast(@Req() req: Request): Promise<any> {
     const merchantId = this.getMerchantId(req);
-    const items = await this.forecastEngine.computeDeliveryEtaForecast(merchantId);
+    const items =
+      await this.forecastEngine.computeDeliveryEtaForecast(merchantId);
     const high = items.filter((i) => i.delayProbability >= 0.5);
     return { items, highRiskCount: high.length };
   }
@@ -10164,10 +10628,10 @@ export class MerchantPortalController {
     const merchantId = this.getMerchantId(req);
     const metrics = await this.forecastEngine.backtestDemand(merchantId);
     const history = await this.pool.query(
-      `SELECT forecast_type, mape, wmape, bias, mae, sample_size, evaluated_at
+      `SELECT forecast_type, mape, wmape, bias, mae, sample_size, computed_at
        FROM forecast_model_metrics
        WHERE merchant_id = $1
-       ORDER BY evaluated_at DESC LIMIT 30`,
+      ORDER BY computed_at DESC LIMIT 30`,
       [merchantId],
     );
     return { latest: metrics, history: history.rows };
@@ -10196,26 +10660,43 @@ export class MerchantPortalController {
   }
 
   @Post("forecast/what-if")
-  @ApiOperation({ summary: "What-if scenario simulator (demand, cashflow, campaign, pricing)" })
+  @ApiOperation({
+    summary: "What-if scenario simulator (demand, cashflow, campaign, pricing)",
+  })
   async runWhatIfScenario(
     @Req() req: Request,
-    @Body() body: { type: "demand" | "cashflow" | "campaign" | "pricing"; params: Record<string, any> },
+    @Body()
+    body: {
+      type: "demand" | "cashflow" | "campaign" | "pricing";
+      params: Record<string, any>;
+    },
   ): Promise<any> {
     const merchantId = this.getMerchantId(req);
     if (!body?.type) throw new BadRequestException("type is required");
     const result = await this.forecastEngine.runWhatIf(merchantId, body);
     // Persist scenario for history
-    await this.pool.query(
-      `INSERT INTO what_if_scenarios (merchant_id, scenario_type, input_params, result_summary)
+    await this.pool
+      .query(
+        `INSERT INTO what_if_scenarios (merchant_id, scenario_type, input_params, result_summary)
        VALUES ($1, $2, $3::jsonb, $4::jsonb)`,
-      [merchantId, body.type, JSON.stringify(body.params), JSON.stringify(result)],
-    ).catch(() => {/* non-critical */});
+        [
+          merchantId,
+          body.type,
+          JSON.stringify(body.params),
+          JSON.stringify(result),
+        ],
+      )
+      .catch(() => {
+        /* non-critical */
+      });
     return result;
   }
 
   @Post("forecast/replenishment/:id/approve")
   @RequireRole("MANAGER")
-  @ApiOperation({ summary: "Approve a replenishment recommendation (creates PO marker)" })
+  @ApiOperation({
+    summary: "Approve a replenishment recommendation (creates PO marker)",
+  })
   async approveReplenishment(
     @Req() req: Request,
     @Param("id") id: string,
@@ -10225,12 +10706,13 @@ export class MerchantPortalController {
     const staffId = this.getSafeStaffId(req);
     const result = await this.pool.query(
       `UPDATE replenishment_recommendations
-       SET status = 'approved', approved_by = $3, po_reference = $4, updated_at = NOW()
+       SET status = 'approved', approved_by = $3, approved_at = NOW(), po_reference = $4
        WHERE id = $1 AND merchant_id = $2
        RETURNING *`,
       [id, merchantId, staffId ?? null, body.poReference ?? null],
     );
-    if (!result.rowCount) throw new NotFoundException("Recommendation not found");
+    if (!result.rowCount)
+      throw new NotFoundException("Recommendation not found");
     return { ok: true, updated: result.rows[0] };
   }
 }

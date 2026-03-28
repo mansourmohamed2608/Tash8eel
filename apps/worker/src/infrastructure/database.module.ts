@@ -41,6 +41,9 @@ const databasePoolFactory = {
       sslMode === "require" ||
       sslMode === "verify-full" ||
       sslMode === "verify-ca";
+    const rejectUnauthorized =
+      configService.get<string>("DB_SSL_REJECT_UNAUTHORIZED", "true") !==
+      "false";
 
     const pool = new Pool({
       host: connectionConfig.host,
@@ -48,7 +51,7 @@ const databasePoolFactory = {
       database: connectionConfig.database,
       user: connectionConfig.user,
       password: connectionConfig.password,
-      ssl: sslEnabled ? { rejectUnauthorized: false } : false,
+      ssl: sslEnabled ? { rejectUnauthorized } : false,
       max: configService.get<number>("DATABASE_MAX_CONNECTIONS", 10),
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 15000,

@@ -46,9 +46,15 @@ export class DailyReportSchedulerService {
         .query(
           `INSERT INTO job_failure_events (job_name, error_message, error_stack)
            VALUES ($1, $2, $3)`,
-          ["DailyReportScheduler", (error as Error).message ?? String(error), (error as Error).stack ?? null],
+          [
+            "DailyReportScheduler",
+            (error as Error).message ?? String(error),
+            (error as Error).stack ?? null,
+          ],
         )
-        .catch(() => {/* non-fatal */});
+        .catch(() => {
+          /* non-fatal */
+        });
     }
   }
 
@@ -183,12 +189,15 @@ export class DailyReportSchedulerService {
         [merchantId, reportDate, JSON.stringify(summary)],
       );
 
-      // Create notification
+      // Create notification in the live notifications table
       await client.query(
-        `INSERT INTO merchant_notifications (merchant_id, type, title, message, data)
-         VALUES ($1, 'DAILY_REPORT', 'تقرير يومي جديد', $2, $3)`,
+        `INSERT INTO notifications (
+           merchant_id, type, title, title_ar, message, message_ar, priority, channels, action_url, data
+         )
+         VALUES ($1, 'DAILY_SUMMARY', 'Daily summary ready', 'ملخص اليوم جاهز', $2, $3, 'LOW', ARRAY['IN_APP'], '/merchant/reports', $4)`,
         [
           merchantId,
+          `Daily report ${reportDate}: ${totalOrders} orders, ${totalRevenue.toFixed(2)} EGP`,
           `تقرير ${reportDate}: ${totalOrders} طلب، ${totalRevenue.toFixed(2)} ج.م`,
           JSON.stringify({ reportDate, summary }),
         ],

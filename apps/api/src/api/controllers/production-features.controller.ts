@@ -59,6 +59,7 @@ import {
   RateLimit,
   EnhancedRateLimitGuard,
 } from "../../shared/guards/rate-limit.guard";
+import { MerchantSignupDto } from "../dto/auth.dto";
 
 @ApiTags("Production Features")
 @Controller("v1/portal")
@@ -857,6 +858,8 @@ export class ProductionFeaturesController {
 
   @RequireRole("MANAGER")
   @Post("bulk-operations/:id/cancel")
+  @UseGuards(EnhancedRateLimitGuard)
+  @RateLimit({ limit: 5, window: 60, keyType: "merchant" })
   @ApiOperation({ summary: "Cancel a pending bulk operation" })
   async cancelBulkOperation(
     @Req() req: Request,
@@ -875,6 +878,8 @@ export class ProductionFeaturesController {
   @RequireRole("MANAGER")
   @RequiresFeature("CATALOG")
   @Post("products/import")
+  @UseGuards(EnhancedRateLimitGuard)
+  @RateLimit({ limit: 5, window: 60, keyType: "merchant" })
   @ApiOperation({ summary: "Import products from CSV" })
   @UseInterceptors(
     FileInterceptor("file", ProductionFeaturesController.CSV_UPLOAD_OPTIONS),
@@ -949,6 +954,8 @@ export class ProductionFeaturesController {
 
   @RequireRole("MANAGER")
   @Post("customers/import")
+  @UseGuards(EnhancedRateLimitGuard)
+  @RateLimit({ limit: 5, window: 60, keyType: "merchant" })
   @ApiOperation({ summary: "Import customers from CSV" })
   @UseInterceptors(
     FileInterceptor("file", ProductionFeaturesController.CSV_UPLOAD_OPTIONS),
@@ -1037,6 +1044,8 @@ export class ProductionFeaturesController {
   @RequireRole("MANAGER")
   @RequiresFeature("INVENTORY")
   @Post("inventory/import")
+  @UseGuards(EnhancedRateLimitGuard)
+  @RateLimit({ limit: 5, window: 60, keyType: "merchant" })
   @ApiOperation({ summary: "Import inventory updates from CSV" })
   @UseInterceptors(
     FileInterceptor("file", ProductionFeaturesController.CSV_UPLOAD_OPTIONS),
@@ -1106,6 +1115,8 @@ export class ProductionFeaturesController {
 
   @RequireRole("MANAGER")
   @Post("inventory/bulk-update")
+  @UseGuards(EnhancedRateLimitGuard)
+  @RateLimit({ limit: 5, window: 60, keyType: "merchant" })
   @ApiOperation({ summary: "Bulk update inventory levels" })
   @ApiBody({
     schema: {
@@ -1161,6 +1172,8 @@ export class ProductionFeaturesController {
   @RequireRole("MANAGER")
   @RequiresFeature("CATALOG")
   @Post("ingredients/import")
+  @UseGuards(EnhancedRateLimitGuard)
+  @RateLimit({ limit: 5, window: 60, keyType: "merchant" })
   @ApiOperation({ summary: "Import recipe ingredients from CSV" })
   @UseInterceptors(
     FileInterceptor("file", ProductionFeaturesController.CSV_UPLOAD_OPTIONS),
@@ -1535,5 +1548,19 @@ export class StaffAuthController {
       message:
         "تم تغيير كلمة المرور بنجاح. يرجى إعادة تسجيل الدخول بكلمة المرور الجديدة.",
     };
+  }
+}
+
+@ApiTags("Public Authentication")
+@Controller("v1/auth")
+export class PublicAuthController {
+  constructor(private readonly staffService: StaffService) {}
+
+  @Post("signup")
+  @UseGuards(EnhancedRateLimitGuard)
+  @RateLimit({ limit: 5, window: 900, keyType: "ip" })
+  @ApiOperation({ summary: "Merchant self-service signup" })
+  async signup(@Body() body: MerchantSignupDto): Promise<any> {
+    return this.staffService.signupMerchant(body);
   }
 }

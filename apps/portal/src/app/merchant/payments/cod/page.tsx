@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useCallback } from "react";
 import { PageHeader } from "@/components/layout";
@@ -49,8 +49,8 @@ import {
 } from "lucide-react";
 import { formatCurrency, cn } from "@/lib/utils";
 import { useMerchant } from "@/hooks/use-merchant";
-import portalApi from "@/lib/authenticated-api";
-import { branchesApi } from "@/lib/api";
+import portalApi from "@/lib/client";
+import { branchesApi } from "@/lib/client";
 import { REPORTING_PERIOD_OPTIONS } from "@/lib/reporting-period";
 import {
   AiInsightsCard,
@@ -173,7 +173,9 @@ export default function CODReconciliationPage() {
   const [activeTab, setActiveTab] = useState("pending");
   const [selectedPartner, setSelectedPartner] = useState<string>("all");
   const [branchFilter, setBranchFilter] = useState<string>("all");
-  const [branches, setBranches] = useState<Array<{ id: string; name: string }>>([]);
+  const [branches, setBranches] = useState<Array<{ id: string; name: string }>>(
+    [],
+  );
   const [periodDays, setPeriodDays] = useState<string>("7");
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
@@ -213,7 +215,7 @@ export default function CODReconciliationPage() {
     { id: "other", name: "أخرى" },
   ]);
 
-  // Load delivery partners from API (centralised — no frontend deploy needed to add a courier)
+  // Load delivery partners from API (centralised - no frontend deploy needed to add a courier)
   useEffect(() => {
     portalApi
       .getDeliveryPartners()
@@ -232,10 +234,18 @@ export default function CODReconciliationPage() {
   // Load branches list once
   useEffect(() => {
     if (!apiKey || !merchantId) return;
-    branchesApi.list(apiKey).then((data: any) => {
-      const list = Array.isArray(data) ? data : (data?.branches ?? data?.data ?? []);
-      if (list.length > 1) setBranches(list.map((b: any) => ({ id: b.id, name: b.name })));
-    }).catch(() => {/* silently ignore */});
+    branchesApi
+      .list(apiKey)
+      .then((data: any) => {
+        const list = Array.isArray(data)
+          ? data
+          : (data?.branches ?? data?.data ?? []);
+        if (list.length > 1)
+          setBranches(list.map((b: any) => ({ id: b.id, name: b.name })));
+      })
+      .catch(() => {
+        /* silently ignore */
+      });
   }, [apiKey, merchantId]);
 
   const fetchOrders = useCallback(async () => {
@@ -374,7 +384,15 @@ export default function CODReconciliationPage() {
     } finally {
       setLoading(false);
     }
-  }, [merchantId, apiKey, selectedPartner, branchFilter, periodDays, startDate, endDate]);
+  }, [
+    merchantId,
+    apiKey,
+    selectedPartner,
+    branchFilter,
+    periodDays,
+    startDate,
+    endDate,
+  ]);
 
   useEffect(() => {
     fetchOrders();

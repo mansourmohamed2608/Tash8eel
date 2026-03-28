@@ -34,7 +34,7 @@ import {
   Warehouse,
 } from "lucide-react";
 import { formatCurrency, cn } from "@/lib/utils";
-import portalApi from "@/lib/authenticated-api";
+import portalApi from "@/lib/client";
 import {
   getReportingDateRange,
   REPORTING_PERIOD_OPTIONS,

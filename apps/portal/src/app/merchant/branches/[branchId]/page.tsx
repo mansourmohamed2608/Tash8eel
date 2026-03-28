@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -52,7 +52,7 @@ import { AreaChart, BarChart, PieChart } from "@/components/charts";
 import { StatCard, KPIGrid } from "@/components/ui/stat-card";
 import { useMerchant } from "@/hooks/use-merchant";
 import { useToast } from "@/hooks/use-toast";
-import { type Branch, type BranchSummary, branchesApi } from "@/lib/api";
+import { type Branch, type BranchSummary, branchesApi } from "@/lib/client";
 
 const PERIOD_OPTIONS = [
   { label: "7 أيام", value: "7" },
@@ -111,19 +111,25 @@ export default function BranchAnalyticsPage() {
     try {
       setLoading(true);
 
-      const [branchData, summaryData, revData, productsData, expData, goalsData] =
-        await Promise.allSettled([
-          branchId !== "all"
-            ? branchesApi.get(apiKey, branchId)
-            : Promise.resolve(null),
-          branchesApi.getSummary(apiKey, branchId, parseInt(days)),
-          branchesApi.getRevenueByDay(apiKey, branchId, parseInt(days)),
-          branchesApi.getTopProducts(apiKey, branchId, parseInt(days)),
-          branchesApi.getExpensesBreakdown(apiKey, branchId, parseInt(days)),
-          branchId !== "all"
-            ? branchesApi.listGoals(apiKey, branchId, true)
-            : Promise.resolve({ data: [] }),
-        ]);
+      const [
+        branchData,
+        summaryData,
+        revData,
+        productsData,
+        expData,
+        goalsData,
+      ] = await Promise.allSettled([
+        branchId !== "all"
+          ? branchesApi.get(apiKey, branchId)
+          : Promise.resolve(null),
+        branchesApi.getSummary(apiKey, branchId, parseInt(days)),
+        branchesApi.getRevenueByDay(apiKey, branchId, parseInt(days)),
+        branchesApi.getTopProducts(apiKey, branchId, parseInt(days)),
+        branchesApi.getExpensesBreakdown(apiKey, branchId, parseInt(days)),
+        branchId !== "all"
+          ? branchesApi.listGoals(apiKey, branchId, true)
+          : Promise.resolve({ data: [] }),
+      ]);
 
       if (branchData.status === "fulfilled" && branchData.value) {
         setBranch(branchData.value as Branch);
@@ -155,9 +161,7 @@ export default function BranchAnalyticsPage() {
   }, [fetchAll]);
 
   const branchName =
-    branchId === "all"
-      ? "جميع الفروع"
-      : branch?.name ?? "تحميل...";
+    branchId === "all" ? "جميع الفروع" : (branch?.name ?? "تحميل...");
 
   // Chart data
   const revenueChartData = revenueByDay.map((r) => ({
@@ -226,7 +230,7 @@ export default function BranchAnalyticsPage() {
 
       <PageHeader
         title={branchName}
-        description={`تحليلات الأداء — آخر ${days} يوم`}
+        description={`تحليلات الأداء - آخر ${days} يوم`}
         actions={
           <div className="flex items-center gap-2">
             <Button
@@ -320,7 +324,7 @@ export default function BranchAnalyticsPage() {
                 لا توجد بيانات
               </div>
             ) : (
-          <AreaChart
+              <AreaChart
                 data={revenueChartData}
                 height={200}
                 color="#22c55e"
@@ -414,9 +418,7 @@ export default function BranchAnalyticsPage() {
               <ReceiptText className="h-4 w-4 text-primary" />
               توزيع المصاريف
             </CardTitle>
-            <CardDescription>
-              تفصيل المصاريف حسب الفئة
-            </CardDescription>
+            <CardDescription>تفصيل المصاريف حسب الفئة</CardDescription>
           </CardHeader>
           <CardContent>
             {loading ? (
@@ -438,8 +440,7 @@ export default function BranchAnalyticsPage() {
                         <div
                           className="h-2.5 w-2.5 rounded-full shrink-0"
                           style={{
-                            backgroundColor:
-                              PIE_COLORS[i % PIE_COLORS.length],
+                            backgroundColor: PIE_COLORS[i % PIE_COLORS.length],
                           }}
                         />
                         <span className="truncate text-muted-foreground">
@@ -526,7 +527,7 @@ export default function BranchAnalyticsPage() {
                           : goal.period_type === "QUARTERLY"
                             ? "هدف ربعي"
                             : "هدف سنوي"}
-                      {" — "}
+                      {" - "}
                       <span className="text-muted-foreground text-xs">
                         {goal.start_date} → {goal.end_date}
                       </span>
@@ -541,7 +542,9 @@ export default function BranchAnalyticsPage() {
                           {formatCurrency(goal.target_revenue)}
                           {goal.revenue_pct != null && (
                             <Badge
-                              variant={goal.revenue_pct >= 100 ? "default" : "outline"}
+                              variant={
+                                goal.revenue_pct >= 100 ? "default" : "outline"
+                              }
                               className="mr-1 text-[10px] px-1 py-0"
                             >
                               {goal.revenue_pct}%
@@ -559,7 +562,9 @@ export default function BranchAnalyticsPage() {
                                 ? "bg-amber-500"
                                 : "bg-primary",
                           )}
-                          style={{ width: `${Math.min(100, goal.revenue_pct ?? 0)}%` }}
+                          style={{
+                            width: `${Math.min(100, goal.revenue_pct ?? 0)}%`,
+                          }}
                         />
                       </div>
                     </div>
@@ -572,7 +577,9 @@ export default function BranchAnalyticsPage() {
                           {goal.actual_orders ?? 0} / {goal.target_orders} طلب
                           {goal.orders_pct != null && (
                             <Badge
-                              variant={goal.orders_pct >= 100 ? "default" : "outline"}
+                              variant={
+                                goal.orders_pct >= 100 ? "default" : "outline"
+                              }
                               className="mr-1 text-[10px] px-1 py-0"
                             >
                               {goal.orders_pct}%
@@ -590,7 +597,9 @@ export default function BranchAnalyticsPage() {
                                 ? "bg-amber-500"
                                 : "bg-primary",
                           )}
-                          style={{ width: `${Math.min(100, goal.orders_pct ?? 0)}%` }}
+                          style={{
+                            width: `${Math.min(100, goal.orders_pct ?? 0)}%`,
+                          }}
                         />
                       </div>
                     </div>

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useCallback } from "react";
 import { cn } from "@/lib/utils";
@@ -23,7 +23,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { formatRelativeTime } from "@/lib/utils";
-import { portalApi } from "@/lib/authenticated-api";
+import { portalApi } from "@/lib/client";
+import { merchantApi } from "@/lib/client";
 import { useMerchant } from "@/hooks/use-merchant";
 
 interface Notification {
@@ -36,34 +37,16 @@ interface Notification {
 }
 
 export function NotificationsPopover() {
-  const { merchantId, isDemo } = useMerchant();
+  const { merchantId, apiKey, isDemo } = useMerchant();
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
   const [open, setOpen] = useState(false);
 
   const fetchNotifications = useCallback(async () => {
-    // Skip Bearer-auth endpoint in demo mode — no session token available.
-    if (isDemo) {
-      setLoading(false);
-      return;
-    }
-    const loadNotifications = async (): Promise<Notification[]> => {
-      const response = await portalApi.getPortalNotifications({
-        unreadOnly: false,
-      });
-      let rows = response?.notifications || [];
-
-      // Compatibility fallback for environments still wired to the merchant-scoped notification call.
-      if ((!rows || rows.length === 0) && merchantId) {
-        const fallback = await portalApi.getNotifications(merchantId, {
-          unreadOnly: false,
-          limit: 50,
-        });
-        rows = fallback?.notifications || [];
-      }
-
-      return rows.map((n: any) => {
+    const mapRows = (rows: any[]): Notification[] =>
+      rows.map((n: any) => {
         const rawType = String(n?.type || "").toUpperCase();
         const mappedType: Notification["type"] = rawType.includes("ORDER")
           ? "order"
@@ -82,10 +65,57 @@ export function NotificationsPopover() {
           read: Boolean(n?.isRead ?? n?.read ?? false),
         };
       });
+
+    const loadNotifications = async (): Promise<{
+      notifications: Notification[];
+      unreadCount: number;
+    }> => {
+      // Keep the same load strategy used by notifications page for consistency.
+      let response: any = null;
+      try {
+        response = await portalApi.getPortalNotifications({
+          unreadOnly: false,
+        });
+      } catch {
+        response = null;
+      }
+
+      if (
+        (!response?.notifications || response.notifications.length === 0) &&
+        merchantId
+      ) {
+        response = await portalApi.getNotifications(merchantId, {
+          unreadOnly: false,
+          limit: 100,
+          offset: 0,
+        });
+      }
+
+      // Final fallback for demo/API-key-only contexts.
+      if (
+        (!response?.notifications || response.notifications.length === 0) &&
+        isDemo &&
+        merchantId &&
+        apiKey
+      ) {
+        response = await merchantApi.getNotifications(merchantId, apiKey);
+      }
+
+      const rows = response?.notifications || [];
+      const mapped = mapRows(rows);
+      const unreadFromApi = Number(response?.unreadCount);
+      const computedUnread = mapped.filter((n) => !n.read).length;
+      return {
+        notifications: mapped,
+        unreadCount: Number.isFinite(unreadFromApi)
+          ? unreadFromApi
+          : computedUnread,
+      };
     };
 
     try {
-      const mapped = await loadNotifications();
+      const result = await loadNotifications();
+      const mapped = result.notifications;
       mapped.sort((a, b) => {
         const aTime = Date.parse(a.timestamp || "");
         const bTime = Date.parse(b.timestamp || "");
@@ -94,17 +124,19 @@ export function NotificationsPopover() {
         );
       });
       setNotifications(mapped);
+      setUnreadCount(result.unreadCount);
       setLoadFailed(false);
     } catch (error) {
       const errorStatus = (error as any)?.status;
-      // 403/404 are permanent errors — no point retrying.
+      // 403/404 are permanent errors - no point retrying.
       if (errorStatus === 403 || errorStatus === 404) {
-        // Silently swallow plan-limitation errors — expected in dev/demo.
+        // Silently swallow plan-limitation errors - expected in dev/demo.
         setLoadFailed(true);
       } else {
         // Retry once for transient backend/proxy failures (503, network error, etc.).
         try {
-          const mapped = await loadNotifications();
+          const result = await loadNotifications();
+          const mapped = result.notifications;
           mapped.sort((a, b) => {
             const aTime = Date.parse(a.timestamp || "");
             const bTime = Date.parse(b.timestamp || "");
@@ -114,11 +146,12 @@ export function NotificationsPopover() {
             );
           });
           setNotifications(mapped);
+          setUnreadCount(result.unreadCount);
           setLoadFailed(false);
         } catch (retryError) {
           const finalError = retryError || error;
           const finalStatus = (finalError as any)?.status;
-          // 503 = API not yet started (ECONNREFUSED during startup race) — expected.
+          // 503 = API not yet started (ECONNREFUSED during startup race) - expected.
           if (finalStatus !== 503) {
             console.error("Failed to fetch notifications:", finalError);
           }
@@ -129,11 +162,11 @@ export function NotificationsPopover() {
     } finally {
       setLoading(false);
     }
-  }, [merchantId, isDemo]);
+  }, [merchantId, apiKey, isDemo]);
 
   useEffect(() => {
     fetchNotifications();
-    // Fixed 30s interval. Do NOT include loadFailed in deps — changing loadFailed would
+    // Fixed 30s interval. Do NOT include loadFailed in deps - changing loadFailed would
     // re-run this effect and immediately fire another request, creating a rapid burst loop.
     const interval = setInterval(fetchNotifications, 30000);
     return () => clearInterval(interval);
@@ -145,14 +178,20 @@ export function NotificationsPopover() {
     }
   }, [open, fetchNotifications]);
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
-
   const markAsRead = async (id: string) => {
     try {
       await portalApi.markPortalNotificationRead(id);
+      let changed = false;
       setNotifications((prev) =>
-        prev.map((n) => (n.id === id ? { ...n, read: true } : n)),
+        prev.map((n) => {
+          if (n.id !== id) return n;
+          if (!n.read) changed = true;
+          return { ...n, read: true };
+        }),
       );
+      if (changed) {
+        setUnreadCount((prev) => Math.max(0, prev - 1));
+      }
     } catch (error) {
       console.error("Failed to mark notification as read:", error);
     }
@@ -162,6 +201,7 @@ export function NotificationsPopover() {
     try {
       await portalApi.markAllPortalNotificationsRead();
       setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+      setUnreadCount(0);
     } catch (error) {
       console.error("Failed to mark all notifications as read:", error);
     }

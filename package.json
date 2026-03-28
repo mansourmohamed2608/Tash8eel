@@ -27,6 +27,7 @@
     "test:unit": "npm run test -w apps/worker && npm run test -w apps/api -- --testPathIgnorePatterns=e2e",
     "test:e2e": "npm run test:e2e -w apps/api",
     "test:e2e:ci": "node scripts/run-e2e-tests.js",
+    "test:smoke:api": "node scripts/test-live-api-flow.js",
     "lint": "npm run lint --workspaces --if-present",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
     "db:migrate": "npm run db:migrate -w apps/api",

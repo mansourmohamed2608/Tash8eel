@@ -46,10 +46,10 @@ import { InternalAiController } from "./controllers/internal-ai.controller";
 import {
   ProductionFeaturesController,
   StaffAuthController,
+  PublicAuthController,
 } from "./controllers/production-features.controller";
 import { VisionController } from "./controllers/vision.controller";
 import { PaymentsController } from "./controllers/payments.controller";
-import { PublicPaymentsController } from "./controllers/public-payments.controller";
 import { PublicOrdersController } from "./controllers/public-orders.controller";
 import { KpiController } from "./controllers/kpi.controller";
 import { AgentTeamsController } from "./controllers/agent-teams.controller";
@@ -127,11 +127,11 @@ import { RateLimitService } from "../shared/guards/rate-limit.guard";
     InternalAiController,
     ProductionFeaturesController,
     StaffAuthController,
+    PublicAuthController,
     NotificationsController,
     AnalyticsController,
     VisionController,
     PaymentsController,
-    PublicPaymentsController,
     PublicOrdersController,
     KpiController,
     EarlyAccessController,

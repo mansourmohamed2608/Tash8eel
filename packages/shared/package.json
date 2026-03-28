@@ -2,6 +2,7 @@
   "name": "@tash8eel/shared",
   "version": "1.0.0",
   "description": "Shared utilities, logging, config, and error handling for Tash8eel",
+  "private": true,
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {

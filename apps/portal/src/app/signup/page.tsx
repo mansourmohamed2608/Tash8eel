@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,36 +13,35 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   AlertCircle,
   Loader2,
   Store,
-  CheckCircle,
   Phone,
   Mail,
   MessageSquare,
 } from "lucide-react";
 
 export default function SignupPage() {
+  const router = useRouter();
   const [formData, setFormData] = useState({
     businessName: "",
-    ownerName: "",
     email: "",
+    password: "",
     phone: "",
-    businessType: "",
-    message: "",
   });
   const [isLoading, setIsLoading] = useState(false);
-  const [isSubmitted, setIsSubmitted] = useState(false);
   const [error, setError] = useState("");
+
+  const getErrorMessage = (payload: any) => {
+    if (Array.isArray(payload?.message)) {
+      return payload.message.join("، ");
+    }
+    if (typeof payload?.message === "string" && payload.message.trim()) {
+      return payload.message;
+    }
+    return "حدث خطأ أثناء إنشاء الحساب. يرجى المحاولة مرة أخرى.";
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,38 +49,32 @@ export default function SignupPage() {
     setIsLoading(true);
 
     try {
-      // Simulate form submission
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-      setIsSubmitted(true);
-    } catch (err) {
-      setError("حدث خطأ أثناء إرسال الطلب. يرجى المحاولة مرة أخرى.");
+      const response = await fetch("/api/v1/auth/signup", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
+      });
+
+      const payload = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        setError(getErrorMessage(payload));
+        return;
+      }
+
+      router.push(
+        `/login?signup=success&merchantId=${encodeURIComponent(
+          payload?.merchantId || "",
+        )}&email=${encodeURIComponent(payload?.email || formData.email)}`,
+      );
+    } catch {
+      setError("حدث خطأ أثناء إنشاء الحساب. يرجى المحاولة مرة أخرى.");
     } finally {
       setIsLoading(false);
     }
   };
-
-  if (isSubmitted) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 to-primary-100 p-4">
-        <Card className="w-full max-w-md text-center">
-          <CardContent className="pt-8 pb-8">
-            <div className="mx-auto mb-6 h-16 w-16 rounded-full bg-green-100 flex items-center justify-center">
-              <CheckCircle className="h-10 w-10 text-green-600" />
-            </div>
-            <h2 className="text-2xl font-bold mb-2">تم استلام طلبك!</h2>
-            <p className="text-muted-foreground mb-6">
-              شكراً لتواصلك معنا. سيقوم فريقنا بالرد عليك خلال 24 ساعة.
-            </p>
-            <div className="space-y-3">
-              <Link href="/login">
-                <Button className="w-full">العودة لتسجيل الدخول</Button>
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 to-primary-100 p-4">
@@ -89,9 +83,9 @@ export default function SignupPage() {
           <div className="mx-auto mb-4 h-14 w-14 rounded-full bg-primary-600 flex items-center justify-center">
             <Store className="h-8 w-8 text-white" />
           </div>
-          <CardTitle className="text-2xl">تواصل معنا</CardTitle>
+          <CardTitle className="text-2xl">إنشاء حساب جديد</CardTitle>
           <CardDescription>
-            أدخل بياناتك وسنتواصل معك في أقرب وقت
+            أدخل بيانات نشاطك لبدء التجربة المجانية
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -122,14 +116,14 @@ export default function SignupPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="ownerName">اسم المسؤول</Label>
+                <Label htmlFor="phone">رقم الهاتف</Label>
                 <Input
-                  id="ownerName"
-                  type="text"
-                  placeholder="الاسم الكامل"
-                  value={formData.ownerName}
+                  id="phone"
+                  type="tel"
+                  placeholder="05xxxxxxxx"
+                  value={formData.phone}
                   onChange={(e) =>
-                    setFormData({ ...formData, ownerName: e.target.value })
+                    setFormData({ ...formData, phone: e.target.value })
                   }
                   required
                   disabled={isLoading}
@@ -158,14 +152,14 @@ export default function SignupPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="phone">رقم الهاتف</Label>
+                <Label htmlFor="password">كلمة المرور</Label>
                 <Input
-                  id="phone"
-                  type="tel"
-                  placeholder="05xxxxxxxx"
-                  value={formData.phone}
+                  id="password"
+                  type="password"
+                  placeholder="8 أحرف على الأقل"
+                  value={formData.password}
                   onChange={(e) =>
-                    setFormData({ ...formData, phone: e.target.value })
+                    setFormData({ ...formData, password: e.target.value })
                   }
                   required
                   disabled={isLoading}
@@ -175,52 +169,14 @@ export default function SignupPage() {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="businessType">نوع النشاط</Label>
-              <Select
-                value={formData.businessType}
-                onValueChange={(value) =>
-                  setFormData({ ...formData, businessType: value })
-                }
-                disabled={isLoading}
-              >
-                <SelectTrigger className="text-right" dir="rtl">
-                  <SelectValue placeholder="اختر نوع نشاطك التجاري" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="clothes">ملابس وأزياء</SelectItem>
-                  <SelectItem value="food">مطاعم وأغذية</SelectItem>
-                  <SelectItem value="electronics">إلكترونيات</SelectItem>
-                  <SelectItem value="supermarket">سوبرماركت</SelectItem>
-                  <SelectItem value="services">خدمات</SelectItem>
-                  <SelectItem value="other">أخرى</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="message">رسالتك (اختياري)</Label>
-              <Textarea
-                id="message"
-                placeholder="أخبرنا المزيد عن احتياجاتك..."
-                value={formData.message}
-                onChange={(e) =>
-                  setFormData({ ...formData, message: e.target.value })
-                }
-                disabled={isLoading}
-                className="text-right min-h-[100px]"
-                dir="rtl"
-              />
-            </div>
-
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? (
                 <>
                   <Loader2 className="ml-2 h-4 w-4 animate-spin" />
-                  جاري الإرسال...
+                  جاري إنشاء الحساب...
                 </>
               ) : (
-                "إرسال الطلب"
+                "إنشاء الحساب"
               )}
             </Button>
 
@@ -232,7 +188,6 @@ export default function SignupPage() {
             </div>
           </form>
 
-          {/* Contact Info */}
           <div className="mt-6 pt-6 border-t">
             <p className="text-sm text-muted-foreground text-center mb-4">
               أو تواصل معنا مباشرة

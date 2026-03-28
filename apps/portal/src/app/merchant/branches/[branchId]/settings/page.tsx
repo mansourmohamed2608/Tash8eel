@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -67,7 +67,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { formatCurrency } from "@/lib/utils";
-import { branchesApi } from "@/lib/api";
+import { branchesApi } from "@/lib/client";
 import { useMerchant } from "@/hooks/use-merchant";
 import { useToast } from "@/hooks/use-toast";
 
@@ -117,20 +117,24 @@ export default function BranchSettingsPage() {
     if (!apiKey) return;
     setLoading(true);
     try {
-      const [branchRes, staffRes, availRes, goalsRes] = await Promise.allSettled([
-        branchesApi.get(apiKey, branchId),
-        branchesApi.listStaff(apiKey, branchId),
-        branchesApi.availableStaff(apiKey, branchId),
-        branchesApi.listGoals(apiKey, branchId, false),
-      ]);
+      const [branchRes, staffRes, availRes, goalsRes] =
+        await Promise.allSettled([
+          branchesApi.get(apiKey, branchId),
+          branchesApi.listStaff(apiKey, branchId),
+          branchesApi.availableStaff(apiKey, branchId),
+          branchesApi.listGoals(apiKey, branchId, false),
+        ]);
       if (branchRes.status === "fulfilled") {
         const b = branchRes.value as any;
         setBranch(b);
         setWaNumber(b.whatsapp_number ?? "");
       }
-      if (staffRes.status === "fulfilled") setStaff((staffRes.value as any).data ?? []);
-      if (availRes.status === "fulfilled") setAvailable((availRes.value as any).data ?? []);
-      if (goalsRes.status === "fulfilled") setGoals((goalsRes.value as any).data ?? []);
+      if (staffRes.status === "fulfilled")
+        setStaff((staffRes.value as any).data ?? []);
+      if (availRes.status === "fulfilled")
+        setAvailable((availRes.value as any).data ?? []);
+      if (goalsRes.status === "fulfilled")
+        setGoals((goalsRes.value as any).data ?? []);
     } finally {
       setLoading(false);
     }
@@ -145,7 +149,9 @@ export default function BranchSettingsPage() {
     if (!apiKey) return;
     setSavingWA(true);
     try {
-      await branchesApi.update(apiKey, branchId, { whatsapp_number: waNumber } as any);
+      await branchesApi.update(apiKey, branchId, {
+        whatsapp_number: waNumber,
+      } as any);
       setEditingWA(false);
       toast({ title: "تم حفظ رقم واتساب الفرع" });
       setBranch((prev: any) => ({ ...prev, whatsapp_number: waNumber }));
@@ -161,7 +167,9 @@ export default function BranchSettingsPage() {
     if (!apiKey || !selectedStaffId) return;
     setAssigningStaff(true);
     try {
-      await branchesApi.assignStaff(apiKey, branchId, { staffId: selectedStaffId });
+      await branchesApi.assignStaff(apiKey, branchId, {
+        staffId: selectedStaffId,
+      });
       toast({ title: "تم إضافة الموظف للفرع" });
       setShowAssignDialog(false);
       setSelectedStaffId("");
@@ -190,23 +198,34 @@ export default function BranchSettingsPage() {
   async function handleSaveGoal() {
     if (!apiKey) return;
     if (!goalForm.startDate || !goalForm.endDate) {
-      toast({ title: "يجب تحديد تاريخ البداية والنهاية", variant: "destructive" });
+      toast({
+        title: "يجب تحديد تاريخ البداية والنهاية",
+        variant: "destructive",
+      });
       return;
     }
     setSavingGoal(true);
     try {
       if (editGoal) {
         await branchesApi.updateGoal(apiKey, branchId, editGoal.id, {
-          targetRevenue: goalForm.targetRevenue ? Number(goalForm.targetRevenue) : undefined,
-          targetOrders: goalForm.targetOrders ? Number(goalForm.targetOrders) : undefined,
+          targetRevenue: goalForm.targetRevenue
+            ? Number(goalForm.targetRevenue)
+            : undefined,
+          targetOrders: goalForm.targetOrders
+            ? Number(goalForm.targetOrders)
+            : undefined,
           notes: goalForm.notes || undefined,
         });
         toast({ title: "تم تحديث الهدف" });
       } else {
         await branchesApi.createGoal(apiKey, branchId, {
           periodType: goalForm.periodType,
-          targetRevenue: goalForm.targetRevenue ? Number(goalForm.targetRevenue) : undefined,
-          targetOrders: goalForm.targetOrders ? Number(goalForm.targetOrders) : undefined,
+          targetRevenue: goalForm.targetRevenue
+            ? Number(goalForm.targetRevenue)
+            : undefined,
+          targetOrders: goalForm.targetOrders
+            ? Number(goalForm.targetOrders)
+            : undefined,
           startDate: goalForm.startDate,
           endDate: goalForm.endDate,
           notes: goalForm.notes || undefined,
@@ -324,16 +343,27 @@ export default function BranchSettingsPage() {
       </div>
 
       <PageHeader
-        title={`إعدادات الفرع — ${branch?.name ?? "..."}`}
+        title={`إعدادات الفرع - ${branch?.name ?? "..."}`}
         description="إدارة الموظفين والتواصل والأهداف"
         actions={
           <div className="flex gap-2">
-            <Button variant="ghost" size="sm" onClick={() => router.push("/merchant/branches")}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => router.push("/merchant/branches")}
+            >
               <ArrowLeft className="h-4 w-4 ml-1" />
               الفروع
             </Button>
-            <Button variant="outline" size="sm" onClick={fetchAll} disabled={loading}>
-              <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={fetchAll}
+              disabled={loading}
+            >
+              <RefreshCw
+                className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
+              />
             </Button>
           </div>
         }
@@ -358,9 +388,17 @@ export default function BranchSettingsPage() {
                 dir="ltr"
               />
               <Button size="sm" onClick={saveWANumber} disabled={savingWA}>
-                {savingWA ? <Loader2 className="h-4 w-4 animate-spin" /> : "حفظ"}
+                {savingWA ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  "حفظ"
+                )}
               </Button>
-              <Button size="sm" variant="ghost" onClick={() => setEditingWA(false)}>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setEditingWA(false)}
+              >
                 إلغاء
               </Button>
             </div>
@@ -371,7 +409,11 @@ export default function BranchSettingsPage() {
                   <span className="text-muted-foreground">لم يُحدد بعد</span>
                 )}
               </span>
-              <Button size="sm" variant="outline" onClick={() => setEditingWA(true)}>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setEditingWA(true)}
+              >
                 <Pencil className="h-3 w-3 ml-1" />
                 تعديل
               </Button>
@@ -393,7 +435,11 @@ export default function BranchSettingsPage() {
                 الموظفون المعيّنون للعمل في هذا الفرع
               </CardDescription>
             </div>
-            <Button size="sm" onClick={() => setShowAssignDialog(true)} disabled={available.length === 0}>
+            <Button
+              size="sm"
+              onClick={() => setShowAssignDialog(true)}
+              disabled={available.length === 0}
+            >
               <UserPlus className="h-4 w-4 ml-1" />
               إضافة موظف
             </Button>
@@ -434,7 +480,9 @@ export default function BranchSettingsPage() {
                     </TableCell>
                     <TableCell>
                       <Badge
-                        variant={s.status === "ACTIVE" ? "default" : "secondary"}
+                        variant={
+                          s.status === "ACTIVE" ? "default" : "secondary"
+                        }
                         className="text-xs"
                       >
                         {s.status === "ACTIVE" ? "نشط" : s.status}
@@ -467,7 +515,9 @@ export default function BranchSettingsPage() {
                 <Target className="h-4 w-4 text-primary" />
                 أهداف الفرع
               </CardTitle>
-              <CardDescription>المستهدفات الشهرية أو الدورية للفرع</CardDescription>
+              <CardDescription>
+                المستهدفات الشهرية أو الدورية للفرع
+              </CardDescription>
             </div>
             <Button size="sm" onClick={openNewGoal}>
               <Plus className="h-4 w-4 ml-1" />
@@ -503,18 +553,26 @@ export default function BranchSettingsPage() {
                       {g.start_date} → {g.end_date}
                     </TableCell>
                     <TableCell>
-                      {g.target_revenue != null
-                        ? formatCurrency(g.target_revenue)
-                        : <span className="text-muted-foreground">—</span>}
+                      {g.target_revenue != null ? (
+                        formatCurrency(g.target_revenue)
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
                     </TableCell>
                     <TableCell>
-                      {g.target_orders != null
-                        ? `${g.target_orders} طلب`
-                        : <span className="text-muted-foreground">—</span>}
+                      {g.target_orders != null ? (
+                        `${g.target_orders} طلب`
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-1">
-                        <Button size="sm" variant="ghost" onClick={() => openEditGoal(g)}>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => openEditGoal(g)}
+                        >
                           <Pencil className="h-3.5 w-3.5" />
                         </Button>
                         <Button
@@ -540,7 +598,9 @@ export default function BranchSettingsPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>إضافة موظف للفرع</DialogTitle>
-            <DialogDescription>اختر موظفاً من قائمة الموظفين المتاحين</DialogDescription>
+            <DialogDescription>
+              اختر موظفاً من قائمة الموظفين المتاحين
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-2">
             <Label>اختر موظفاً</Label>
@@ -551,18 +611,26 @@ export default function BranchSettingsPage() {
               <SelectContent>
                 {available.map((s) => (
                   <SelectItem key={s.id} value={s.id}>
-                    {s.name} — {s.email}
+                    {s.name} - {s.email}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAssignDialog(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setShowAssignDialog(false)}
+            >
               إلغاء
             </Button>
-            <Button onClick={handleAssignStaff} disabled={!selectedStaffId || assigningStaff}>
-              {assigningStaff ? <Loader2 className="h-4 w-4 animate-spin ml-1" /> : null}
+            <Button
+              onClick={handleAssignStaff}
+              disabled={!selectedStaffId || assigningStaff}
+            >
+              {assigningStaff ? (
+                <Loader2 className="h-4 w-4 animate-spin ml-1" />
+              ) : null}
               إضافة
             </Button>
           </DialogFooter>
@@ -570,7 +638,10 @@ export default function BranchSettingsPage() {
       </Dialog>
 
       {/* ── Remove Staff Confirm ── */}
-      <AlertDialog open={!!removeConfirm} onOpenChange={() => setRemoveConfirm(null)}>
+      <AlertDialog
+        open={!!removeConfirm}
+        onOpenChange={() => setRemoveConfirm(null)}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>إزالة الموظف من الفرع؟</AlertDialogTitle>
@@ -602,7 +673,9 @@ export default function BranchSettingsPage() {
                 <Label>نوع الفترة</Label>
                 <Select
                   value={goalForm.periodType}
-                  onValueChange={(v) => setGoalForm((f) => ({ ...f, periodType: v }))}
+                  onValueChange={(v) =>
+                    setGoalForm((f) => ({ ...f, periodType: v }))
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -622,7 +695,12 @@ export default function BranchSettingsPage() {
                   min="0"
                   placeholder="مثال: 50000"
                   value={goalForm.targetRevenue}
-                  onChange={(e) => setGoalForm((f) => ({ ...f, targetRevenue: e.target.value }))}
+                  onChange={(e) =>
+                    setGoalForm((f) => ({
+                      ...f,
+                      targetRevenue: e.target.value,
+                    }))
+                  }
                 />
               </div>
             </div>
@@ -634,7 +712,9 @@ export default function BranchSettingsPage() {
                   min="0"
                   placeholder="مثال: 200"
                   value={goalForm.targetOrders}
-                  onChange={(e) => setGoalForm((f) => ({ ...f, targetOrders: e.target.value }))}
+                  onChange={(e) =>
+                    setGoalForm((f) => ({ ...f, targetOrders: e.target.value }))
+                  }
                 />
               </div>
             </div>
@@ -644,7 +724,9 @@ export default function BranchSettingsPage() {
                 <Input
                   type="date"
                   value={goalForm.startDate}
-                  onChange={(e) => setGoalForm((f) => ({ ...f, startDate: e.target.value }))}
+                  onChange={(e) =>
+                    setGoalForm((f) => ({ ...f, startDate: e.target.value }))
+                  }
                 />
               </div>
               <div className="space-y-1.5">
@@ -652,7 +734,9 @@ export default function BranchSettingsPage() {
                 <Input
                   type="date"
                   value={goalForm.endDate}
-                  onChange={(e) => setGoalForm((f) => ({ ...f, endDate: e.target.value }))}
+                  onChange={(e) =>
+                    setGoalForm((f) => ({ ...f, endDate: e.target.value }))
+                  }
                 />
               </div>
             </div>
@@ -660,7 +744,9 @@ export default function BranchSettingsPage() {
               <Label>ملاحظات (اختياري)</Label>
               <Input
                 value={goalForm.notes}
-                onChange={(e) => setGoalForm((f) => ({ ...f, notes: e.target.value }))}
+                onChange={(e) =>
+                  setGoalForm((f) => ({ ...f, notes: e.target.value }))
+                }
                 placeholder="ملاحظات إضافية..."
               />
             </div>
@@ -670,7 +756,9 @@ export default function BranchSettingsPage() {
               إلغاء
             </Button>
             <Button onClick={handleSaveGoal} disabled={savingGoal}>
-              {savingGoal ? <Loader2 className="h-4 w-4 animate-spin ml-1" /> : null}
+              {savingGoal ? (
+                <Loader2 className="h-4 w-4 animate-spin ml-1" />
+              ) : null}
               حفظ الهدف
             </Button>
           </DialogFooter>
@@ -678,11 +766,16 @@ export default function BranchSettingsPage() {
       </Dialog>
 
       {/* ── Delete Goal Confirm ── */}
-      <AlertDialog open={!!deleteGoalId} onOpenChange={() => setDeleteGoalId(null)}>
+      <AlertDialog
+        open={!!deleteGoalId}
+        onOpenChange={() => setDeleteGoalId(null)}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>حذف الهدف؟</AlertDialogTitle>
-            <AlertDialogDescription>لا يمكن التراجع عن هذا الإجراء.</AlertDialogDescription>
+            <AlertDialogDescription>
+              لا يمكن التراجع عن هذا الإجراء.
+            </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>إلغاء</AlertDialogCancel>

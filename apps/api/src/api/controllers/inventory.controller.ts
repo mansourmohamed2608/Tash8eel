@@ -42,6 +42,10 @@ import {
   RequiresFeature,
 } from "../../shared/guards/entitlement.guard";
 import { DATABASE_POOL } from "../../infrastructure/database/database.module";
+import {
+  RealTimeEvent,
+  WebSocketService,
+} from "../../infrastructure/websocket/websocket.service";
 import { MerchantId } from "../../shared/decorators/merchant-id.decorator";
 
 // DTOs
@@ -297,7 +301,10 @@ export class BulkImportDto {
 export class InventoryController {
   private readonly logger = new Logger(InventoryController.name);
 
-  constructor(@Inject(DATABASE_POOL) private readonly pool: Pool) {}
+  constructor(
+    @Inject(DATABASE_POOL) private readonly pool: Pool,
+    private readonly webSocketService: WebSocketService,
+  ) {}
 
   private async ensureDefaultWarehouseLocation(merchantId: string) {
     try {
@@ -1209,6 +1216,17 @@ export class InventoryController {
 
       await client.query("COMMIT");
 
+      this.webSocketService.emit(merchantId, RealTimeEvent.STOCK_UPDATED, {
+        variantId,
+        quantityBefore,
+        quantityAfter,
+        change: dto.quantity,
+        movementType: dto.movementType,
+        reason: dto.reason || null,
+        referenceId: dto.referenceId || null,
+        updatedAt: new Date().toISOString(),
+      });
+
       return {
         variantId,
         quantityBefore,
@@ -1354,6 +1372,22 @@ export class InventoryController {
       );
 
       await client.query("COMMIT");
+
+      this.webSocketService.emit(merchantId, RealTimeEvent.STOCK_UPDATED, {
+        variantId: dto.variantId,
+        quantityBefore,
+        quantityAfter: quantityBefore,
+        change: 0,
+        movementType: "transfer",
+        reason:
+          dto.reason || `نقل من ${dto.fromLocation} إلى ${dto.toLocation}`,
+        transfer: {
+          fromLocation: dto.fromLocation,
+          toLocation: dto.toLocation,
+          quantity: dto.quantity,
+        },
+        updatedAt: new Date().toISOString(),
+      });
 
       return {
         success: true,

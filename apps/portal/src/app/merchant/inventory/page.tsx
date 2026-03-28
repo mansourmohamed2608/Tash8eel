@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { PageHeader } from "@/components/layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -62,9 +62,10 @@ import {
   initialVariantFormData,
 } from "@/components/inventory/types";
 import { cn, formatCurrency, getStatusLabel } from "@/lib/utils";
-import { merchantApi } from "@/lib/api";
-import portalApi from "@/lib/authenticated-api";
+import { merchantApi } from "@/lib/client";
+import portalApi from "@/lib/client";
 import { useMerchant } from "@/hooks/use-merchant";
+import { useWebSocket, RealTimeEvent } from "@/hooks/use-websocket";
 import { useToast } from "@/hooks/use-toast";
 import { useRoleAccess } from "@/hooks/use-role-access";
 import {
@@ -75,6 +76,9 @@ import { SmartAnalysisButton } from "@/components/ai/smart-analysis-button";
 
 export default function InventoryPage() {
   const { merchantId, apiKey, isDemo } = useMerchant();
+  const liveRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
   const { canCreate, canEdit, canDelete, canImport, canExport, isReadOnly } =
     useRoleAccess("inventory");
   const [loading, setLoading] = useState(true);
@@ -158,6 +162,18 @@ export default function InventoryPage() {
   );
   const itemsPerPage = 10;
   const { toast } = useToast();
+  const { isConnected, on } = useWebSocket({
+    autoConnect: true,
+    subscribeToEvents: [
+      RealTimeEvent.ORDER_CREATED,
+      RealTimeEvent.ORDER_UPDATED,
+      RealTimeEvent.ORDER_STATUS_CHANGED,
+      RealTimeEvent.STOCK_UPDATED,
+      RealTimeEvent.STOCK_LOW,
+      RealTimeEvent.STOCK_OUT,
+      RealTimeEvent.STATS_UPDATED,
+    ],
+  });
 
   const coerceNumber = (value: any): number | null => {
     const parsed = Number(value);
@@ -169,14 +185,21 @@ export default function InventoryPage() {
   };
 
   const handleGenerateAiDesc = async (item: InventoryItem) => {
-    toast({ title: "جارٍ التوليد...", description: `يعمل الذكاء على وصف «${item.name}»` });
+    toast({
+      title: "جارٍ التوليد...",
+      description: `يعمل الذكاء على وصف «${item.name}»`,
+    });
     try {
       const result = await portalApi.generateProductDescription(item.id);
       if (result?.description) {
-        await navigator.clipboard.writeText(result.description).catch(() => null);
+        await navigator.clipboard
+          .writeText(result.description)
+          .catch(() => null);
         toast({
           title: "✨ تم توليد الوصف",
-          description: result.description.slice(0, 120) + (result.description.length > 120 ? "..." : ""),
+          description:
+            result.description.slice(0, 120) +
+            (result.description.length > 120 ? "..." : ""),
         });
       }
     } catch {
@@ -601,6 +624,69 @@ export default function InventoryPage() {
       activeTab === "shrinkage" ? loadShrinkageData() : Promise.resolve(),
     ]);
   };
+
+  const triggerLiveRefresh = useCallback(() => {
+    Promise.all([
+      loadData(currentPage, searchQuery),
+      loadStockByLocation(),
+      activeTab === "shrinkage" ? loadShrinkageData() : Promise.resolve(),
+    ]).catch((refreshError) => {
+      console.error("Realtime inventory refresh failed:", refreshError);
+    });
+  }, [
+    activeTab,
+    currentPage,
+    loadData,
+    loadShrinkageData,
+    loadStockByLocation,
+    searchQuery,
+  ]);
+
+  const scheduleLiveRefresh = useCallback(() => {
+    if (liveRefreshTimerRef.current) return;
+    // Debounce websocket bursts to avoid UI thrashing.
+    liveRefreshTimerRef.current = setTimeout(() => {
+      liveRefreshTimerRef.current = null;
+      triggerLiveRefresh();
+    }, 1000);
+  }, [triggerLiveRefresh]);
+
+  useEffect(() => {
+    if (!isConnected) return;
+
+    const unsubs = [
+      on(RealTimeEvent.ORDER_CREATED, () => scheduleLiveRefresh()),
+      on(RealTimeEvent.ORDER_UPDATED, () => scheduleLiveRefresh()),
+      on(RealTimeEvent.ORDER_STATUS_CHANGED, () => scheduleLiveRefresh()),
+      on(RealTimeEvent.STOCK_UPDATED, () => scheduleLiveRefresh()),
+      on(RealTimeEvent.STOCK_LOW, () => scheduleLiveRefresh()),
+      on(RealTimeEvent.STOCK_OUT, () => scheduleLiveRefresh()),
+      on(RealTimeEvent.STATS_UPDATED, () => scheduleLiveRefresh()),
+    ];
+
+    return () => {
+      unsubs.forEach((unsubscribe) => unsubscribe());
+    };
+  }, [isConnected, on, scheduleLiveRefresh]);
+
+  useEffect(() => {
+    if (isConnected) return;
+
+    const interval = setInterval(() => {
+      triggerLiveRefresh();
+    }, 45000);
+
+    return () => clearInterval(interval);
+  }, [isConnected, triggerLiveRefresh]);
+
+  useEffect(() => {
+    return () => {
+      if (liveRefreshTimerRef.current) {
+        clearTimeout(liveRefreshTimerRef.current);
+        liveRefreshTimerRef.current = null;
+      }
+    };
+  }, []);
 
   // Barcode search function
   const handleBarcodeSearch = async () => {
@@ -1526,7 +1612,7 @@ export default function InventoryPage() {
                     const attrs = variant.attributes
                       ? Object.entries(variant.attributes)
                           .map(([k, v]) => `${k}: ${v}`)
-                          .join(" | ")
+                          .join(", ")
                       : "";
                     rows.push([
                       variant.sku,

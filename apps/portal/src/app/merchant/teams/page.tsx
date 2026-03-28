@@ -41,7 +41,7 @@ import {
   Printer,
   Copy,
 } from "lucide-react";
-import { merchantApi } from "@/lib/api";
+import { merchantApi } from "@/lib/client";
 import { useMerchant } from "@/hooks/use-merchant";
 
 interface TeamTemplate {
@@ -162,13 +162,11 @@ export default function AgentTeamsPage() {
     setError(null);
     try {
       const [templatesData, tasksData] = await Promise.all([
-        merchantApi
-          .getTeamTemplates(apiKey)
-          .catch(() => ({
-            templates: [],
-            totalAvailable: 0,
-            totalTemplates: 0,
-          })),
+        merchantApi.getTeamTemplates(apiKey).catch(() => ({
+          templates: [],
+          totalAvailable: 0,
+          totalTemplates: 0,
+        })),
         merchantApi
           .listTeamTasks(apiKey)
           .catch(() => ({ tasks: [], total: 0 })),

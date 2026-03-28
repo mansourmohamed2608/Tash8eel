@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Integration test: Login page
  *
  * Tests the login form's:
@@ -26,14 +26,14 @@ vi.mock("next-auth/react", () => ({
   SessionProvider: ({ children }: { children: React.ReactNode }) => children,
 }));
 
-// next/navigation is not available in jsdom — provide stubs.
+// next/navigation is not available in jsdom - provide stubs.
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), prefetch: vi.fn() }),
   useSearchParams: () => new URLSearchParams(),
   usePathname: () => "/login",
 }));
 
-// Static imports — hoisted mocks above are already in place
+// Static imports - hoisted mocks above are already in place
 import { signIn, getSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import LoginPage from "@/app/login/page";
@@ -46,10 +46,7 @@ function renderLogin() {
   return render(<LoginPage />);
 }
 
-async function fillAndSubmit(
-  email: string,
-  password: string,
-) {
+async function fillAndSubmit(email: string, password: string) {
   const user = userEvent.setup();
   await user.type(screen.getByLabelText(/البريد الإلكتروني/i), email);
   await user.type(screen.getByLabelText(/كلمة المرور/i), password);
@@ -153,9 +150,7 @@ describe("Login page", () => {
     await fillAndSubmit("admin@test.com", "correct-pass");
 
     await waitFor(() => {
-      expect(mockPush).toHaveBeenCalledWith(
-        expect.stringMatching(/\/admin/),
-      );
+      expect(mockPush).toHaveBeenCalledWith(expect.stringMatching(/\/admin/));
     });
   });
 

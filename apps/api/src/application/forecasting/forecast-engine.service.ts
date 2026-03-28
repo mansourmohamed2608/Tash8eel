@@ -10,14 +10,14 @@ export interface DailyDataPoint {
 }
 
 export interface SmoothedForecast {
-  forecast: number[];          // predicted values for horizonDays
-  lowerBound: number[];        // 95% CI lower
-  upperBound: number[];        // 95% CI upper
-  level: number;               // last smoothed level
-  trend: number;               // last smoothed trend
-  mape: number;                // in-sample MAPE (%)
-  residualStd: number;         // σ of residuals
-  confidence: number;          // 0-1 model confidence score
+  forecast: number[]; // predicted values for horizonDays
+  lowerBound: number[]; // 95% CI lower
+  upperBound: number[]; // 95% CI upper
+  level: number; // last smoothed level
+  trend: number; // last smoothed trend
+  mape: number; // in-sample MAPE (%)
+  residualStd: number; // σ of residuals
+  confidence: number; // 0-1 model confidence score
 }
 
 export interface DemandForecastResult {
@@ -29,7 +29,7 @@ export interface DemandForecastResult {
   safetyStock: number;
   reorderPoint: number;
   recommendedOrderQty: number;
-  estStockoutDate: string | null;    // ISO date string
+  estStockoutDate: string | null; // ISO date string
   daysUntilStockout: number | null;
   forecast7d: number;
   forecast14d: number;
@@ -49,7 +49,12 @@ export interface DemandForecastResult {
 export interface CashFlowForecastResult {
   merchantId: string;
   currentBalance: number;
-  projection: Array<{ date: string; inflow: number; outflow: number; balance: number }>;
+  projection: Array<{
+    date: string;
+    inflow: number;
+    outflow: number;
+    balance: number;
+  }>;
   runwayDays: number | null;
   riskDays: Array<{ date: string; reason: string }>;
   avgDailyInflow: number;
@@ -64,7 +69,7 @@ export interface ChurnRiskItem {
   customerPhone: string;
   daysSinceLastOrder: number;
   avgOrderCycleDays: number;
-  churnProbability: number;     // 0-1
+  churnProbability: number; // 0-1
   lifetimeValue: number;
   riskLevel: "critical" | "high" | "medium" | "low";
   recommendedAction: string;
@@ -81,9 +86,18 @@ export interface SlaBreachForecastItem {
 }
 
 export interface WorkforceLoadForecast {
-  dayPattern: Array<{ dayOfWeek: number; dayName: string; avgMessages: number }>;
+  dayPattern: Array<{
+    dayOfWeek: number;
+    dayName: string;
+    avgMessages: number;
+  }>;
   hourPattern: Array<{ hour: number; avgMessages: number; peakDay: string }>;
-  nextSevenDays: Array<{ date: string; dayOfWeek: number; forecastMessages: number; forecastConversations: number }>;
+  nextSevenDays: Array<{
+    date: string;
+    dayOfWeek: number;
+    forecastMessages: number;
+    forecastConversations: number;
+  }>;
   peakHour: number;
   peakDay: string;
   confidence: number;
@@ -104,12 +118,12 @@ export interface CampaignUpliftResult {
   segmentId: string | null;
   segmentName: string;
   estimatedAudienceSize: number;
-  baselineOrderRate: number;      // orders/customer in last 30d without promo
-  forecastOrderRate: number;      // predicted orders/customer with promo
+  baselineOrderRate: number; // orders/customer in last 30d without promo
+  forecastOrderRate: number; // predicted orders/customer with promo
   forecastRevenue: number;
   forecastOrders: number;
   upliftPct: number;
-  roi: number | null;             // null if campaign cost unknown
+  roi: number | null; // null if campaign cost unknown
   confidence: number;
 }
 
@@ -119,7 +133,12 @@ export interface WhatIfResult {
   adjustedValue: number;
   delta: number;
   deltaPct: number;
-  breakdownByItem?: Array<{ id: string; name: string; baseline: number; adjusted: number }>;
+  breakdownByItem?: Array<{
+    id: string;
+    name: string;
+    baseline: number;
+    adjusted: number;
+  }>;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -127,19 +146,30 @@ export interface WhatIfResult {
 // ─────────────────────────────────────────────────────────────────────────────
 function holtWinters(
   data: number[],
-  alpha = 0.3,   // level smoothing
-  beta  = 0.1,   // trend smoothing
+  alpha = 0.3, // level smoothing
+  beta = 0.1, // trend smoothing
   horizonDays = 30,
 ): SmoothedForecast {
   if (data.length < 3) {
-    const mean = data.length ? data.reduce((a, b) => a + b, 0) / data.length : 0;
+    const mean = data.length
+      ? data.reduce((a, b) => a + b, 0) / data.length
+      : 0;
     const arr = Array(horizonDays).fill(Math.round(mean));
-    return { forecast: arr, lowerBound: arr.map(v => Math.max(0, v - mean)), upperBound: arr.map(v => v + mean), level: mean, trend: 0, mape: 0, residualStd: mean * 0.3, confidence: 0.3 };
+    return {
+      forecast: arr,
+      lowerBound: arr.map((v) => Math.max(0, v - mean)),
+      upperBound: arr.map((v) => v + mean),
+      level: mean,
+      trend: 0,
+      mape: 0,
+      residualStd: mean * 0.3,
+      confidence: 0.3,
+    };
   }
 
   // Initialize
   let level = data[0];
-  let trend = (data[1] - data[0]) || 0;
+  let trend = data[1] - data[0] || 0;
 
   const fitted: number[] = [];
   const residuals: number[] = [];
@@ -168,9 +198,10 @@ function holtWinters(
   const mape = mapeCount > 0 ? (mapeSum / mapeCount) * 100 : 0;
 
   // Residual std for confidence bands
-  const residualStd = residuals.length > 1
-    ? Math.sqrt(residuals.reduce((s, r) => s + r * r, 0) / residuals.length)
-    : Math.abs(level * 0.2);
+  const residualStd =
+    residuals.length > 1
+      ? Math.sqrt(residuals.reduce((s, r) => s + r * r, 0) / residuals.length)
+      : Math.abs(level * 0.2);
 
   const z95 = 1.96;
 
@@ -190,7 +221,16 @@ function holtWinters(
   // Confidence: high when MAPE < 20%, low when > 50%
   const confidence = Math.max(0.2, Math.min(0.98, 1 - mape / 100));
 
-  return { forecast, lowerBound, upperBound, level, trend, mape, residualStd, confidence };
+  return {
+    forecast,
+    lowerBound,
+    upperBound,
+    level,
+    trend,
+    mape,
+    residualStd,
+    confidence,
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -200,7 +240,7 @@ function computeReplenishmentParams(
   avgDailySales: number,
   stdDailySales: number,
   leadTimeDays: number,
-  serviceLevel = 0.95,  // 95% service level → Z=1.65
+  serviceLevel = 0.95, // 95% service level → Z=1.65
 ) {
   const Z = serviceLevel >= 0.99 ? 2.33 : serviceLevel >= 0.97 ? 1.88 : 1.65;
   const safetyStock = Math.ceil(Z * stdDailySales * Math.sqrt(leadTimeDays));
@@ -226,7 +266,6 @@ export class ForecastEngineService {
     productId?: string,
     lookbackDays = 90,
   ): Promise<DemandForecastResult[]> {
-
     // Get product list (all or specific)
     const productFilter = productId ? "AND ip.id = $2" : "";
     const params: any[] = [merchantId];
@@ -303,7 +342,13 @@ export class ForecastEngineService {
             urgency: "ok",
             mape7d: 0,
             confidence: 0.1,
-            reasonCodes: [{ code: "no_sales_data", label: "لا توجد مبيعات سابقة", weight: 1 }],
+            reasonCodes: [
+              {
+                code: "no_sales_data",
+                label: "لا توجد مبيعات سابقة",
+                weight: 1,
+              },
+            ],
             historicalData: histData,
           });
           continue;
@@ -311,20 +356,28 @@ export class ForecastEngineService {
 
         // Holt-Winters forecast
         const smoothed = holtWinters(dailyNet, 0.3, 0.1, 30);
-        const forecast7 = smoothed.forecast.slice(0, 7).reduce((a, b) => a + b, 0);
-        const forecast14 = smoothed.forecast.slice(0, 14).reduce((a, b) => a + b, 0);
+        const forecast7 = smoothed.forecast
+          .slice(0, 7)
+          .reduce((a, b) => a + b, 0);
+        const forecast14 = smoothed.forecast
+          .slice(0, 14)
+          .reduce((a, b) => a + b, 0);
         const forecast30 = smoothed.forecast.reduce((a, b) => a + b, 0);
 
         // Previous vs current velocity for trend%
         const prevHalf = dailyNet.slice(0, Math.floor(dailyNet.length / 2));
         const currHalf = dailyNet.slice(Math.floor(dailyNet.length / 2));
-        const prevAvg = prevHalf.reduce((a, b) => a + b, 0) / (prevHalf.length || 1);
-        const currAvg = currHalf.reduce((a, b) => a + b, 0) / (currHalf.length || 1);
-        const trendPct = prevAvg > 0.1 ? ((currAvg - prevAvg) / prevAvg) * 100 : 0;
+        const prevAvg =
+          prevHalf.reduce((a, b) => a + b, 0) / (prevHalf.length || 1);
+        const currAvg =
+          currHalf.reduce((a, b) => a + b, 0) / (currHalf.length || 1);
+        const trendPct =
+          prevAvg > 0.1 ? ((currAvg - prevAvg) / prevAvg) * 100 : 0;
 
         // Standard deviation for safety stock
         const mean7 = dailyNet.slice(-7).reduce((a, b) => a + b, 0) / 7;
-        const variance7 = dailyNet.slice(-7).reduce((a, b) => a + (b - mean7) ** 2, 0) / 7;
+        const variance7 =
+          dailyNet.slice(-7).reduce((a, b) => a + (b - mean7) ** 2, 0) / 7;
         const std7 = Math.sqrt(variance7);
 
         const { safetyStock, reorderPoint } = computeReplenishmentParams(
@@ -339,7 +392,8 @@ export class ForecastEngineService {
         let estStockoutDate: string | null = null;
         if (forecast7 > 0 && stock >= 0) {
           const dailyRate = forecast7 / 7;
-          daysUntilStockout = dailyRate > 0 ? Math.floor(stock / dailyRate) : null;
+          daysUntilStockout =
+            dailyRate > 0 ? Math.floor(stock / dailyRate) : null;
           if (daysUntilStockout !== null) {
             const d = new Date(today);
             d.setDate(d.getDate() + daysUntilStockout);
@@ -349,16 +403,19 @@ export class ForecastEngineService {
 
         // Recommended order qty
         const coveredByStock = daysUntilStockout ?? 999;
-        const recommendedOrderQty = coveredByStock < product.lead_time_days + 7
-          ? Math.max(0, reorderPoint + forecast30 - stock)
-          : 0;
+        const recommendedOrderQty =
+          coveredByStock < product.lead_time_days + 7
+            ? Math.max(0, reorderPoint + forecast30 - stock)
+            : 0;
 
         // Urgency
         let urgency: DemandForecastResult["urgency"] = "ok";
         if (daysUntilStockout !== null) {
           if (daysUntilStockout <= product.lead_time_days) urgency = "critical";
-          else if (daysUntilStockout <= product.lead_time_days * 2) urgency = "high";
-          else if (daysUntilStockout <= product.lead_time_days * 3) urgency = "medium";
+          else if (daysUntilStockout <= product.lead_time_days * 2)
+            urgency = "high";
+          else if (daysUntilStockout <= product.lead_time_days * 3)
+            urgency = "medium";
           else if (daysUntilStockout <= 30) urgency = "low";
         }
 
@@ -372,10 +429,18 @@ export class ForecastEngineService {
           });
         }
         if (daysUntilStockout !== null && daysUntilStockout <= 7) {
-          reasonCodes.push({ code: "imminent_stockout", label: "نفاد وشيك للمخزون", weight: 1 });
+          reasonCodes.push({
+            code: "imminent_stockout",
+            label: "نفاد وشيك للمخزون",
+            weight: 1,
+          });
         }
         if (smoothed.mape > 30) {
-          reasonCodes.push({ code: "high_variance", label: "طلب متذبذب جداً", weight: 0.6 });
+          reasonCodes.push({
+            code: "high_variance",
+            label: "طلب متذبذب جداً",
+            weight: 0.6,
+          });
         }
 
         results.push({
@@ -404,7 +469,9 @@ export class ForecastEngineService {
           historicalData: histData,
         });
       } catch (err) {
-        this.logger.warn(`Demand forecast failed for product ${product.id}: ${err}`);
+        this.logger.warn(
+          `Demand forecast failed for product ${product.id}: ${err}`,
+        );
       }
     }
 
@@ -416,7 +483,11 @@ export class ForecastEngineService {
   // ───────────────────────────────────────────────────────────────────────────
 
   async backtestDemand(merchantId: string): Promise<{
-    mape: number; wmape: number; bias: number; mae: number; sampleSize: number;
+    mape: number;
+    wmape: number;
+    bias: number;
+    mae: number;
+    sampleSize: number;
   }> {
     // Compare demand_forecasts computed 7d ago vs actuals
     const result = await this.pool.query(
@@ -473,42 +544,64 @@ export class ForecastEngineService {
     merchantId: string,
     forecastDays = 30,
   ): Promise<CashFlowForecastResult> {
-
     // 30-day rolling average of inflows (order revenue) and outflows (expenses)
     const statsResult = await this.pool.query(
-      `SELECT
-         COALESCE(AVG(daily_inflow), 0)::numeric  AS avg_daily_inflow,
-         COALESCE(STDDEV(daily_inflow), 0)::numeric AS std_inflow,
-         COALESCE(AVG(daily_outflow), 0)::numeric AS avg_daily_outflow,
-         COALESCE(STDDEV(daily_outflow), 0)::numeric AS std_outflow
-       FROM (
-         SELECT
-           DATE_TRUNC('day', d)::date AS day,
-           COALESCE(SUM(o.total) FILTER (WHERE o.status NOT IN ('DRAFT','CANCELLED')), 0) AS daily_inflow,
-           COALESCE(SUM(e.amount) FILTER (WHERE e.merchant_id = $1), 0) AS daily_outflow
-         FROM generate_series(NOW()::date - INTERVAL '30 days', NOW()::date - INTERVAL '1 day', INTERVAL '1 day') d
-         LEFT JOIN orders o ON o.merchant_id = $1 AND DATE_TRUNC('day', o.created_at) = d
-         LEFT JOIN expenses e ON e.merchant_id = $1 AND DATE_TRUNC('day', e.created_at) = d
-         GROUP BY d
-       ) daily`,
+      `WITH days AS (
+         SELECT generate_series(
+           NOW()::date - INTERVAL '30 days',
+           NOW()::date - INTERVAL '1 day',
+           INTERVAL '1 day'
+         )::date AS day
+       ),
+       inflow_by_day AS (
+         SELECT DATE_TRUNC('day', o.created_at)::date AS day,
+                SUM(o.total)::numeric AS daily_inflow
+         FROM orders o
+         WHERE o.merchant_id = $1
+           AND o.status NOT IN ('DRAFT','CANCELLED')
+           AND o.created_at >= NOW() - INTERVAL '30 days'
+         GROUP BY 1
+       ),
+       outflow_by_day AS (
+         SELECT DATE_TRUNC('day', e.created_at)::date AS day,
+                SUM(e.amount)::numeric AS daily_outflow
+         FROM expenses e
+         WHERE e.merchant_id = $1
+           AND e.created_at >= NOW() - INTERVAL '30 days'
+         GROUP BY 1
+       )
+       SELECT
+         COALESCE(AVG(COALESCE(i.daily_inflow, 0)), 0)::numeric AS avg_daily_inflow,
+         COALESCE(STDDEV(COALESCE(i.daily_inflow, 0)), 0)::numeric AS std_inflow,
+         COALESCE(AVG(COALESCE(o.daily_outflow, 0)), 0)::numeric AS avg_daily_outflow,
+         COALESCE(STDDEV(COALESCE(o.daily_outflow, 0)), 0)::numeric AS std_outflow
+       FROM days d
+       LEFT JOIN inflow_by_day i ON i.day = d.day
+       LEFT JOIN outflow_by_day o ON o.day = d.day`,
       [merchantId],
     );
 
     const stats = statsResult.rows[0];
-    const avgInflow  = Number(stats?.avg_daily_inflow  ?? 0);
+    const avgInflow = Number(stats?.avg_daily_inflow ?? 0);
     const avgOutflow = Number(stats?.avg_daily_outflow ?? 0);
-    const stdInflow  = Number(stats?.std_inflow  ?? avgInflow * 0.2);
+    const stdInflow = Number(stats?.std_inflow ?? avgInflow * 0.2);
     const stdOutflow = Number(stats?.std_outflow ?? avgOutflow * 0.15);
 
     // Current cash approximation: last 7 days net
     const balanceResult = await this.pool.query(
       `SELECT
-         COALESCE(SUM(o.total) FILTER (WHERE o.status NOT IN ('DRAFT','CANCELLED')), 0)
-         - COALESCE(SUM(e.amount), 0) AS approx_balance
-       FROM merchants m
-       LEFT JOIN orders o ON o.merchant_id = m.id AND o.created_at >= NOW() - INTERVAL '30 days'
-       LEFT JOIN expenses e ON e.merchant_id = m.id AND e.created_at >= NOW() - INTERVAL '30 days'
-       WHERE m.id = $1`,
+         (
+           SELECT COALESCE(SUM(o.total), 0)
+           FROM orders o
+           WHERE o.merchant_id = $1
+             AND o.status NOT IN ('DRAFT','CANCELLED')
+             AND o.created_at >= NOW() - INTERVAL '30 days'
+         ) - (
+           SELECT COALESCE(SUM(e.amount), 0)
+           FROM expenses e
+           WHERE e.merchant_id = $1
+             AND e.created_at >= NOW() - INTERVAL '30 days'
+         ) AS approx_balance`,
       [merchantId],
     );
     const currentBalance = Number(balanceResult.rows[0]?.approx_balance ?? 0);
@@ -523,22 +616,30 @@ export class ForecastEngineService {
       dt.setDate(today.getDate() + d);
       const dateStr = dt.toISOString().slice(0, 10);
 
-      // Add slight noise for realism (±5%)
-      const inflow  = Math.max(0, avgInflow  * (1 + (Math.random() - 0.5) * 0.1));
-      const outflow = Math.max(0, avgOutflow * (1 + (Math.random() - 0.5) * 0.08));
+      const inflow = Math.max(0, avgInflow);
+      const outflow = Math.max(0, avgOutflow);
 
       rollingBalance += inflow - outflow;
-      projection.push({ date: dateStr, inflow: Math.round(inflow), outflow: Math.round(outflow), balance: Math.round(rollingBalance) });
+      projection.push({
+        date: dateStr,
+        inflow: Math.round(inflow),
+        outflow: Math.round(outflow),
+        balance: Math.round(rollingBalance),
+      });
 
-      if (rollingBalance < 0) riskDays.push({ date: dateStr, reason: "رصيد سلبي متوقع" });
-      else if (rollingBalance < avgOutflow * 7) riskDays.push({ date: dateStr, reason: "احتياطي أقل من أسبوع" });
+      if (rollingBalance < 0)
+        riskDays.push({ date: dateStr, reason: "رصيد سلبي متوقع" });
+      else if (rollingBalance < avgOutflow * 7)
+        riskDays.push({ date: dateStr, reason: "احتياطي أقل من أسبوع" });
     }
 
-    const runwayDays = avgOutflow > avgInflow && (avgOutflow - avgInflow) > 0
-      ? Math.max(0, Math.floor(currentBalance / (avgOutflow - avgInflow)))
-      : null;
+    const runwayDays =
+      avgOutflow > avgInflow && avgOutflow - avgInflow > 0
+        ? Math.max(0, Math.floor(currentBalance / (avgOutflow - avgInflow)))
+        : null;
 
-    const confidence = 0.5 + Math.max(0, 0.4 - (stdInflow / (avgInflow + 1)) * 0.5);
+    const confidence =
+      0.5 + Math.max(0, 0.4 - (stdInflow / (avgInflow + 1)) * 0.5);
 
     return {
       merchantId,
@@ -557,7 +658,10 @@ export class ForecastEngineService {
   // 4. CHURN RISK FORECAST
   // ───────────────────────────────────────────────────────────────────────────
 
-  async computeChurnForecast(merchantId: string, limit = 50): Promise<ChurnRiskItem[]> {
+  async computeChurnForecast(
+    merchantId: string,
+    limit = 50,
+  ): Promise<ChurnRiskItem[]> {
     const result = await this.pool.query(
       `WITH customer_activity AS (
          SELECT
@@ -590,22 +694,26 @@ export class ForecastEngineService {
 
     return result.rows.map((r: any) => {
       const daysSince = Number(r.days_since_last_order);
-      const cycle     = Math.max(7, Number(r.avg_order_cycle_days));
+      const cycle = Math.max(7, Number(r.avg_order_cycle_days));
       // Survival-based churn probability: 1 - exp(-t/mu)
       const churnProb = Math.min(0.99, 1 - Math.exp(-daysSince / cycle));
 
       let riskLevel: ChurnRiskItem["riskLevel"] = "low";
-      if      (churnProb >= 0.8) riskLevel = "critical";
+      if (churnProb >= 0.8) riskLevel = "critical";
       else if (churnProb >= 0.6) riskLevel = "high";
       else if (churnProb >= 0.4) riskLevel = "medium";
 
       const ltv = Number(r.lifetime_value);
       let recommendedAction = "متابعة عادية";
-      if (riskLevel === "critical" && ltv > 500)  recommendedAction = "اتصال مباشر + خصم VIP";
-      else if (riskLevel === "critical")           recommendedAction = "رسالة واتساب شخصية + خصم";
-      else if (riskLevel === "high" && ltv > 200)  recommendedAction = "حملة استرجاع مع كود خصم";
-      else if (riskLevel === "high")               recommendedAction = "رسالة واتساب تذكير";
-      else if (riskLevel === "medium")             recommendedAction = "إضافة لقائمة إعادة الاستهداف";
+      if (riskLevel === "critical" && ltv > 500)
+        recommendedAction = "اتصال مباشر + خصم VIP";
+      else if (riskLevel === "critical")
+        recommendedAction = "رسالة واتساب شخصية + خصم";
+      else if (riskLevel === "high" && ltv > 200)
+        recommendedAction = "حملة استرجاع مع كود خصم";
+      else if (riskLevel === "high") recommendedAction = "رسالة واتساب تذكير";
+      else if (riskLevel === "medium")
+        recommendedAction = "إضافة لقائمة إعادة الاستهداف";
 
       return {
         customerId: r.id,
@@ -625,7 +733,9 @@ export class ForecastEngineService {
   // 5. SLA BREACH FORECAST
   // ───────────────────────────────────────────────────────────────────────────
 
-  async computeSlaBreachForecast(merchantId: string): Promise<SlaBreachForecastItem[]> {
+  async computeSlaBreachForecast(
+    merchantId: string,
+  ): Promise<SlaBreachForecastItem[]> {
     // Average resolution time from closed conversations this month
     const avgResult = await this.pool.query(
       `SELECT COALESCE(
@@ -658,7 +768,7 @@ export class ForecastEngineService {
       const breachProb = Math.min(0.99, openHours / (avgResolutionHours * 2));
 
       let urgency: SlaBreachForecastItem["urgency"] = "low";
-      if      (openHours > avgResolutionHours * 2.0) urgency = "critical";
+      if (openHours > avgResolutionHours * 2.0) urgency = "critical";
       else if (openHours > avgResolutionHours * 1.5) urgency = "high";
       else if (openHours > avgResolutionHours * 1.0) urgency = "medium";
 
@@ -678,8 +788,18 @@ export class ForecastEngineService {
   // 6. WORKFORCE LOAD FORECAST
   // ───────────────────────────────────────────────────────────────────────────
 
-  async computeWorkforceLoadForecast(merchantId: string): Promise<WorkforceLoadForecast> {
-    const dayNames = ["أحد", "اثنين", "ثلاثاء", "أربعاء", "خميس", "جمعة", "سبت"];
+  async computeWorkforceLoadForecast(
+    merchantId: string,
+  ): Promise<WorkforceLoadForecast> {
+    const dayNames = [
+      "أحد",
+      "اثنين",
+      "ثلاثاء",
+      "أربعاء",
+      "خميس",
+      "جمعة",
+      "سبت",
+    ];
 
     const dayPattern = await this.pool.query(
       `SELECT
@@ -715,13 +835,16 @@ export class ForecastEngineService {
     );
 
     const dayMap: Record<number, number> = {};
-    for (const r of dayPattern.rows) dayMap[r.day_of_week] = Number(r.avg_messages);
+    for (const r of dayPattern.rows)
+      dayMap[r.day_of_week] = Number(r.avg_messages);
 
     const hourMap: Record<number, number> = {};
     for (const r of hourPattern.rows) hourMap[r.hour] = Number(r.avg_messages);
 
-    const peakDOW = Object.entries(dayMap).sort(([,a],[,b]) => b-a)[0];
-    const peakHourEntry = Object.entries(hourMap).sort(([,a],[,b]) => b-a)[0];
+    const peakDOW = Object.entries(dayMap).sort(([, a], [, b]) => b - a)[0];
+    const peakHourEntry = Object.entries(hourMap).sort(
+      ([, a], [, b]) => b - a,
+    )[0];
 
     // 7-day ahead forecast combining day-of-week pattern
     const today = new Date();
@@ -764,7 +887,9 @@ export class ForecastEngineService {
   // 7. DELIVERY ETA / DELAY PROBABILITY
   // ───────────────────────────────────────────────────────────────────────────
 
-  async computeDeliveryEtaForecast(merchantId: string): Promise<DeliveryEtaResult[]> {
+  async computeDeliveryEtaForecast(
+    merchantId: string,
+  ): Promise<DeliveryEtaResult[]> {
     // Historical delay rate by zone/courier (past 30d completed orders)
     const histResult = await this.pool.query(
       `SELECT
@@ -817,7 +942,7 @@ export class ForecastEngineService {
       eta.setDate(today.getDate() + Math.max(1, 3 - ageDays));
 
       const riskFactors: string[] = [];
-      if (ageDays > 2)  riskFactors.push("تأخر في العبور");
+      if (ageDays > 2) riskFactors.push("تأخر في العبور");
       if (baseDelay > 0.3) riskFactors.push("منطقة بمعدل تأخير مرتفع");
       if (o.courier === "غير محدد") riskFactors.push("لا يوجد ساعي محدد");
 
@@ -844,70 +969,131 @@ export class ForecastEngineService {
     discountPct = 15,
     campaignCost = 0,
   ): Promise<CampaignUpliftResult> {
+    // Estimate audience size and baseline order rate.
+    // If a segment is provided, use its actual memberships; otherwise use all customers.
+    let audienceResult: {
+      rows: Array<{
+        segment_name: string;
+        audience_size: number | string;
+        monthly_order_rate: number | string;
+      }>;
+    };
+    try {
+      audienceResult = segmentId
+        ? await this.pool.query(
+            `SELECT
+               cs.name AS segment_name,
+               COUNT(DISTINCT sm.customer_id)::int AS audience_size,
+               COALESCE(
+                 AVG(c.total_orders::numeric / NULLIF(
+                   EXTRACT(DAY FROM NOW() - c.created_at) / 30.0, 0
+                 )), 0
+               )::numeric AS monthly_order_rate
+             FROM customer_segments cs
+             LEFT JOIN segment_memberships sm ON sm.segment_id = cs.id
+             LEFT JOIN customers c ON c.id = sm.customer_id AND c.merchant_id = cs.merchant_id
+             WHERE cs.merchant_id = $1
+               AND cs.id = $2::uuid
+             GROUP BY cs.id, cs.name
+             LIMIT 1`,
+            [merchantId, segmentId],
+          )
+        : await this.pool.query(
+            `SELECT
+               'الكل' AS segment_name,
+               COUNT(DISTINCT c.id)::int AS audience_size,
+               COALESCE(
+                 AVG(c.total_orders::numeric / NULLIF(
+                   EXTRACT(DAY FROM NOW() - c.created_at) / 30.0, 0
+                 )), 0
+               )::numeric AS monthly_order_rate
+             FROM customers c
+             WHERE c.merchant_id = $1`,
+            [merchantId],
+          );
+    } catch (error: any) {
+      if (error?.code !== "42P01") {
+        throw error;
+      }
+      audienceResult = await this.pool.query(
+        `SELECT
+           'الكل' AS segment_name,
+           COUNT(DISTINCT c.id)::int AS audience_size,
+           COALESCE(
+             AVG(c.total_orders::numeric / NULLIF(
+               EXTRACT(DAY FROM NOW() - c.created_at) / 30.0, 0
+             )), 0
+           )::numeric AS monthly_order_rate
+         FROM customers c
+         WHERE c.merchant_id = $1`,
+        [merchantId],
+      );
+    }
 
-    // Estimate audience size and baseline order rate
-    const audienceResult = await this.pool.query(
-      `SELECT
-         cs.name AS segment_name,
-         COUNT(DISTINCT c.id)::int AS audience_size,
-         COALESCE(
-           AVG(c.total_orders::numeric / NULLIF(
-             EXTRACT(DAY FROM NOW() - c.created_at) / 30.0, 0
-           )), 0
-         )::numeric AS monthly_order_rate
-       FROM customer_segments cs
-       JOIN customers c ON c.merchant_id = cs.merchant_id
-       WHERE cs.merchant_id = $1
-         AND ($2::uuid IS NULL OR cs.id = $2::uuid)
-       GROUP BY cs.name
-       LIMIT 1`,
-      [merchantId, segmentId ?? null],
-    );
-
-    // Historical campaign uplift: compare 30d before vs 30d after past campaigns
-    const upliftResult = await this.pool.query(
-      `SELECT
-         COALESCE(AVG(lift_pct), 15.0)::numeric AS avg_lift_pct,
-         COUNT(*) AS campaign_count
-       FROM (
-         SELECT
-           bc.id,
-           (COALESCE(aft.orders, 0) - COALESCE(bef.orders, 0)) /
-             NULLIF(COALESCE(bef.orders, 0), 0) * 100 AS lift_pct
-         FROM broadcast_campaigns bc
-         LEFT JOIN LATERAL (
-           SELECT COUNT(*) AS orders FROM orders
-           WHERE merchant_id = $1 AND created_at BETWEEN bc.created_at - INTERVAL '30 days' AND bc.created_at
-         ) bef ON true
-         LEFT JOIN LATERAL (
-           SELECT COUNT(*) AS orders FROM orders
-           WHERE merchant_id = $1 AND created_at BETWEEN bc.created_at AND bc.created_at + INTERVAL '30 days'
-         ) aft ON true
-         WHERE bc.merchant_id = $1 AND bc.status = 'SENT'
-           AND bc.created_at >= NOW() - INTERVAL '180 days'
-       ) sub`,
-      [merchantId],
-    );
+    // Historical campaign uplift: compare 30d before vs 30d after past campaigns.
+    // Some environments do not have campaign history tables yet, so degrade to defaults.
+    let upliftResult: {
+      rows: Array<{
+        avg_lift_pct: number | string;
+        campaign_count: number | string;
+      }>;
+    } = {
+      rows: [{ avg_lift_pct: 15, campaign_count: 0 }],
+    };
+    try {
+      upliftResult = await this.pool.query(
+        `SELECT
+           COALESCE(AVG(lift_pct), 15.0)::numeric AS avg_lift_pct,
+           COUNT(*) AS campaign_count
+         FROM (
+           SELECT
+             bc.id,
+             (COALESCE(aft.orders, 0) - COALESCE(bef.orders, 0)) /
+               NULLIF(COALESCE(bef.orders, 0), 0) * 100 AS lift_pct
+           FROM broadcast_campaigns bc
+           LEFT JOIN LATERAL (
+             SELECT COUNT(*) AS orders FROM orders
+             WHERE merchant_id = $1 AND created_at BETWEEN bc.created_at - INTERVAL '30 days' AND bc.created_at
+           ) bef ON true
+           LEFT JOIN LATERAL (
+             SELECT COUNT(*) AS orders FROM orders
+             WHERE merchant_id = $1 AND created_at BETWEEN bc.created_at AND bc.created_at + INTERVAL '30 days'
+           ) aft ON true
+           WHERE bc.merchant_id = $1 AND bc.status = 'SENT'
+             AND bc.created_at >= NOW() - INTERVAL '180 days'
+         ) sub`,
+        [merchantId],
+      );
+    } catch (error: any) {
+      if (error?.code !== "42P01") {
+        throw error;
+      }
+    }
 
     const row = audienceResult.rows[0];
-    const segmentName      = row?.segment_name ?? "الكل";
-    const audienceSize     = Number(row?.audience_size ?? 0);
-    const baselineRate     = Number(row?.monthly_order_rate ?? 0.1);
-    const historicalLift   = Number(upliftResult.rows[0]?.avg_lift_pct ?? 15);
-    const discountLift     = discountPct * 0.5;  // empirical: 1% discount → 0.5% uplift
-    const totalLiftPct     = Math.min(80, historicalLift + discountLift);
+    const segmentName = row?.segment_name ?? "الكل";
+    const audienceSize = Number(row?.audience_size ?? 0);
+    const baselineRate = Number(row?.monthly_order_rate ?? 0.1);
+    const historicalLift = Number(upliftResult.rows[0]?.avg_lift_pct ?? 15);
+    const discountLift = discountPct * 0.5; // empirical: 1% discount → 0.5% uplift
+    const totalLiftPct = Math.min(80, historicalLift + discountLift);
 
-    const baselineOrders   = Math.round(audienceSize * baselineRate);
-    const forecastRate     = baselineRate * (1 + totalLiftPct / 100);
-    const forecastOrders   = Math.round(audienceSize * forecastRate);
-    const avgOrderValue    = await this.getAvgOrderValue(merchantId);
-    const forecastRevenue  = Math.round(forecastOrders * avgOrderValue * (1 - discountPct / 100));
+    const baselineOrders = Math.round(audienceSize * baselineRate);
+    const forecastRate = baselineRate * (1 + totalLiftPct / 100);
+    const forecastOrders = Math.round(audienceSize * forecastRate);
+    const avgOrderValue = await this.getAvgOrderValue(merchantId);
+    const forecastRevenue = Math.round(
+      forecastOrders * avgOrderValue * (1 - discountPct / 100),
+    );
 
-    const roi = campaignCost > 0
-      ? Math.round(((forecastRevenue - campaignCost) / campaignCost) * 100) / 100
-      : null;
+    const roi =
+      campaignCost > 0
+        ? Math.round(((forecastRevenue - campaignCost) / campaignCost) * 100) /
+          100
+        : null;
 
-    const confidence = Number(upliftResult.rows[0]?.campaign_count ?? 0) >= 3 ? 0.75 : 0.45;
+    const confidence =
+      Number(upliftResult.rows[0]?.campaign_count ?? 0) >= 3 ? 0.75 : 0.45;
 
     return {
       segmentId: segmentId ?? null,
@@ -939,21 +1125,41 @@ export class ForecastEngineService {
         // What if lead time changes?
         const { productId, newLeadTimeDays = 5 } = scenario.params;
         const current = await this.computeDemandForecast(merchantId, productId);
-        const base    = current[0];
-        if (!base) return { scenarioType: "demand", baselineValue: 0, adjustedValue: 0, delta: 0, deltaPct: 0 };
+        const base = current[0];
+        if (!base)
+          return {
+            scenarioType: "demand",
+            baselineValue: 0,
+            adjustedValue: 0,
+            delta: 0,
+            deltaPct: 0,
+          };
 
-        const { safetyStock: newSS, reorderPoint: newROP } = computeReplenishmentParams(
-          base.forecast7d / 7,
-          base.forecast7d / 7 * 0.3,
-          newLeadTimeDays,
-        );
+        const { safetyStock: newSS, reorderPoint: newROP } =
+          computeReplenishmentParams(
+            base.forecast7d / 7,
+            (base.forecast7d / 7) * 0.3,
+            newLeadTimeDays,
+          );
         return {
           scenarioType: "demand_lead_time",
           baselineValue: base.reorderPoint,
           adjustedValue: newROP,
           delta: newROP - base.reorderPoint,
-          deltaPct: base.reorderPoint > 0 ? Math.round(((newROP - base.reorderPoint) / base.reorderPoint) * 1000) / 10 : 0,
-          breakdownByItem: [{ id: base.productId, name: base.productName, baseline: base.reorderPoint, adjusted: newROP }],
+          deltaPct:
+            base.reorderPoint > 0
+              ? Math.round(
+                  ((newROP - base.reorderPoint) / base.reorderPoint) * 1000,
+                ) / 10
+              : 0,
+          breakdownByItem: [
+            {
+              id: base.productId,
+              name: base.productName,
+              baseline: base.reorderPoint,
+              adjusted: newROP,
+            },
+          ],
         };
       }
 
@@ -961,11 +1167,16 @@ export class ForecastEngineService {
         const { extraRevenue = 0, extraExpense = 0 } = scenario.params;
         const cf = await this.computeCashFlowForecast(merchantId, 30);
         const baseRunway = cf.runwayDays ?? 999;
-        const netDelta   = extraRevenue - extraExpense;
+        const netDelta = extraRevenue - extraExpense;
         const newAvgOutflow = Math.max(0, cf.avgDailyOutflow - netDelta);
-        const newRunway = newAvgOutflow > 0 && cf.avgDailyInflow + extraRevenue < cf.avgDailyOutflow
-          ? Math.floor(cf.currentBalance / (newAvgOutflow - cf.avgDailyInflow - extraRevenue))
-          : null;
+        const newRunway =
+          newAvgOutflow > 0 &&
+          cf.avgDailyInflow + extraRevenue < cf.avgDailyOutflow
+            ? Math.floor(
+                cf.currentBalance /
+                  (newAvgOutflow - cf.avgDailyInflow - extraRevenue),
+              )
+            : null;
         return {
           scenarioType: "cashflow_runway",
           baselineValue: baseRunway === 999 ? -1 : baseRunway,
@@ -976,17 +1187,36 @@ export class ForecastEngineService {
       }
 
       case "campaign": {
-        const { segmentId, discountPct = 15, campaignCost = 0 } = scenario.params;
-        const base = await this.computeCampaignUpliftForecast(merchantId, undefined, 0, 0);
-        const adj  = await this.computeCampaignUpliftForecast(merchantId, segmentId, discountPct, campaignCost);
+        const {
+          segmentId,
+          discountPct = 15,
+          campaignCost = 0,
+        } = scenario.params;
+        const base = await this.computeCampaignUpliftForecast(
+          merchantId,
+          undefined,
+          0,
+          0,
+        );
+        const adj = await this.computeCampaignUpliftForecast(
+          merchantId,
+          segmentId,
+          discountPct,
+          campaignCost,
+        );
         return {
           scenarioType: "campaign_uplift",
           baselineValue: base.forecastRevenue,
           adjustedValue: adj.forecastRevenue,
           delta: adj.forecastRevenue - base.forecastRevenue,
-          deltaPct: base.forecastRevenue > 0
-            ? Math.round(((adj.forecastRevenue - base.forecastRevenue) / base.forecastRevenue) * 1000) / 10
-            : 0,
+          deltaPct:
+            base.forecastRevenue > 0
+              ? Math.round(
+                  ((adj.forecastRevenue - base.forecastRevenue) /
+                    base.forecastRevenue) *
+                    1000,
+                ) / 10
+              : 0,
         };
       }
 
@@ -996,9 +1226,23 @@ export class ForecastEngineService {
         // Elasticity assumption: -1.5 (1% price increase → 1.5% volume decrease)
         const ELASTICITY = -1.5;
         const volumeChangePct = ELASTICITY * priceDeltaPct;
-        const revenueChangePct = priceDeltaPct + volumeChangePct;
-        const baseForecast = await this.computeDemandForecast(merchantId, undefined, 30);
-        const baseRevenue = baseForecast.reduce((s, p) => s + p.forecast30d * 10, 0); // rough
+        const revenueChangePct = Math.max(
+          -95,
+          Math.min(200, priceDeltaPct + volumeChangePct),
+        );
+        const [baseForecast, avgUnitPrice, recentRevenue] = await Promise.all([
+          this.computeDemandForecast(merchantId, undefined, 30),
+          this.getAvgUnitPrice(merchantId),
+          this.getRecentRevenue(merchantId, 30),
+        ]);
+        const forecastDerivedRevenue = baseForecast.reduce(
+          (sum, product) => sum + product.forecast30d * avgUnitPrice,
+          0,
+        );
+        const baseRevenue = Math.max(
+          Math.round(forecastDerivedRevenue),
+          Math.round(recentRevenue),
+        );
         const adjusted = Math.round(baseRevenue * (1 + revenueChangePct / 100));
         return {
           scenarioType: "pricing_revenue",
@@ -1010,7 +1254,13 @@ export class ForecastEngineService {
       }
 
       default:
-        return { scenarioType: scenario.type, baselineValue: 0, adjustedValue: 0, delta: 0, deltaPct: 0 };
+        return {
+          scenarioType: scenario.type,
+          baselineValue: 0,
+          adjustedValue: 0,
+          delta: 0,
+          deltaPct: 0,
+        };
     }
   }
 
@@ -1018,7 +1268,10 @@ export class ForecastEngineService {
   // HELPER: persist forecast results to DB
   // ───────────────────────────────────────────────────────────────────────────
 
-  async persistDemandForecasts(merchantId: string, results: DemandForecastResult[]): Promise<void> {
+  async persistDemandForecasts(
+    merchantId: string,
+    results: DemandForecastResult[],
+  ): Promise<void> {
     const client = await this.pool.connect();
     try {
       await client.query("BEGIN");
@@ -1036,16 +1289,28 @@ export class ForecastEngineService {
            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,
                    $19::date,$20,$21,$22,$23::jsonb,NULL,NOW())`,
           [
-            merchantId, r.productId, r.productName, r.currentStock,
+            merchantId,
+            r.productId,
+            r.productName,
+            r.currentStock,
             r.forecast7d / 7,
             r.daysUntilStockout,
             r.trendPct,
-            r.forecast7d, r.forecast14d, r.forecast30d,
-            r.lower7d, r.upper7d, r.lower30d, r.upper30d,
+            r.forecast7d,
+            r.forecast14d,
+            r.forecast30d,
+            r.lower7d,
+            r.upper7d,
+            r.lower30d,
+            r.upper30d,
             r.recommendedOrderQty,
-            r.reorderPoint, r.safetyStock, r.leadTimeDays,
+            r.reorderPoint,
+            r.safetyStock,
+            r.leadTimeDays,
             r.estStockoutDate,
-            r.urgency, r.mape7d, "1.0",
+            r.urgency,
+            r.mape7d,
+            "1.0",
             JSON.stringify(r.reasonCodes),
           ],
         );
@@ -1059,8 +1324,15 @@ export class ForecastEngineService {
              VALUES ($1,$2,$3,$4,$5,$6,$7,$8::date,$9,NOW())
              ON CONFLICT DO NOTHING`,
             [
-              merchantId, r.productId, r.productName, r.recommendedOrderQty,
-              r.reorderPoint, r.safetyStock, r.leadTimeDays, r.estStockoutDate, r.urgency,
+              merchantId,
+              r.productId,
+              r.productName,
+              r.recommendedOrderQty,
+              r.reorderPoint,
+              r.safetyStock,
+              r.leadTimeDays,
+              r.estStockoutDate,
+              r.urgency,
             ],
           );
         }
@@ -1074,20 +1346,51 @@ export class ForecastEngineService {
     }
   }
 
-  async recordForecastRun(merchantId: string, type: string, itemCount: number, durationMs: number, error?: string): Promise<void> {
+  async recordForecastRun(
+    merchantId: string,
+    type: string,
+    itemCount: number,
+    durationMs: number,
+    error?: string,
+  ): Promise<void> {
     await this.pool.query(
       `INSERT INTO forecast_runs (merchant_id, forecast_type, status, items_computed, duration_ms, error_message)
        VALUES ($1, $2, $3, $4, $5, $6)`,
-      [merchantId, type, error ? "error" : "ok", itemCount, durationMs, error ?? null],
+      [
+        merchantId,
+        type,
+        error ? "error" : "ok",
+        itemCount,
+        durationMs,
+        error ?? null,
+      ],
     );
   }
 
-  async saveModelMetrics(merchantId: string, type: string, metrics: { mape: number; wmape: number; bias: number; mae: number; sampleSize: number }): Promise<void> {
+  async saveModelMetrics(
+    merchantId: string,
+    type: string,
+    metrics: {
+      mape: number;
+      wmape: number;
+      bias: number;
+      mae: number;
+      sampleSize: number;
+    },
+  ): Promise<void> {
     await this.pool.query(
       `INSERT INTO forecast_model_metrics
          (merchant_id, forecast_type, mape, wmape, bias, mae, sample_size, evaluation_window)
        VALUES ($1, $2, $3, $4, $5, $6, $7, '7d')`,
-      [merchantId, type, metrics.mape, metrics.wmape, metrics.bias, metrics.mae, metrics.sampleSize],
+      [
+        merchantId,
+        type,
+        metrics.mape,
+        metrics.wmape,
+        metrics.bias,
+        metrics.mae,
+        metrics.sampleSize,
+      ],
     );
   }
 
@@ -1103,5 +1406,42 @@ export class ForecastEngineService {
       [merchantId],
     );
     return Number(result.rows[0]?.aov ?? 100);
+  }
+
+  private async getAvgUnitPrice(merchantId: string): Promise<number> {
+    const result = await this.pool.query(
+      `SELECT COALESCE(
+         SUM(
+           COALESCE(
+             (to_jsonb(oi)->>'unit_price')::numeric,
+             (to_jsonb(oi)->>'price')::numeric,
+             0
+           ) * oi.quantity
+         ) / NULLIF(SUM(oi.quantity), 0),
+         10
+       )::numeric AS avg_unit_price
+       FROM orders o
+       JOIN order_items oi ON oi.order_id = o.id
+       WHERE o.merchant_id = $1
+         AND o.status NOT IN ('DRAFT','CANCELLED')
+         AND o.created_at >= NOW() - INTERVAL '30 days'`,
+      [merchantId],
+    );
+    return Number(result.rows[0]?.avg_unit_price ?? 10);
+  }
+
+  private async getRecentRevenue(
+    merchantId: string,
+    days = 30,
+  ): Promise<number> {
+    const result = await this.pool.query(
+      `SELECT COALESCE(SUM(o.total), 0)::numeric AS revenue
+       FROM orders o
+       WHERE o.merchant_id = $1
+         AND o.status NOT IN ('DRAFT','CANCELLED')
+         AND o.created_at >= NOW() - INTERVAL '1 day' * $2`,
+      [merchantId, days],
+    );
+    return Number(result.rows[0]?.revenue ?? 0);
   }
 }

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -23,7 +23,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import portalApi from "@/lib/authenticated-api";
+import portalApi from "@/lib/client";
 
 interface AskAiButtonProps {
   /** The merchant ID */
@@ -154,10 +154,10 @@ export function AskAiButton({
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Bot className="h-5 w-5 text-purple-500" />
-              المساعد الذكي — {context}
+              المساعد الذكي - {context}
             </DialogTitle>
             <DialogDescription>
-              اسأل عن أي شيء يخص {context} — الذكاء الاصطناعي يرى بياناتك
+              اسأل عن أي شيء يخص {context} - الذكاء الاصطناعي يرى بياناتك
               الحقيقية
             </DialogDescription>
           </DialogHeader>

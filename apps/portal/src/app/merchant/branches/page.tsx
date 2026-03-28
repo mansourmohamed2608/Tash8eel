@@ -50,7 +50,7 @@ import { cn } from "@/lib/utils";
 import { useMerchant } from "@/hooks/use-merchant";
 import { useRoleAccess } from "@/hooks/use-role-access";
 import { useToast } from "@/hooks/use-toast";
-import { type Branch, branchesApi } from "@/lib/api";
+import { type Branch, branchesApi } from "@/lib/client";
 
 const emptyForm = {
   name: "",

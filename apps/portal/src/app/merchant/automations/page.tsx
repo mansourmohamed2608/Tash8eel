@@ -1,8 +1,14 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useCallback } from "react";
 import { PageHeader } from "@/components/layout";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -19,7 +25,8 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";import {
+} from "@/components/ui/select";
+import {
   Loader2,
   RefreshCw,
   Bell,
@@ -49,7 +56,7 @@ import {
   Brain,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
-import portalApi from "@/lib/authenticated-api";
+import portalApi from "@/lib/client";
 const authenticatedApi = portalApi;
 import { useToast } from "@/hooks/use-toast";
 
@@ -77,44 +84,44 @@ interface RunLog {
 // ─── Icon map ─────────────────────────────────────────────────────────────────
 
 const ICONS: Record<string, React.ReactNode> = {
-  SUPPLIER_LOW_STOCK:   <Bell className="w-5 h-5 text-amber-500" />,
-  REENGAGEMENT_AUTO:    <MessageSquare className="w-5 h-5 text-blue-500" />,
-  REVIEW_REQUEST:       <Star className="w-5 h-5 text-yellow-500" />,
+  SUPPLIER_LOW_STOCK: <Bell className="w-5 h-5 text-amber-500" />,
+  REENGAGEMENT_AUTO: <MessageSquare className="w-5 h-5 text-blue-500" />,
+  REVIEW_REQUEST: <Star className="w-5 h-5 text-yellow-500" />,
   NEW_CUSTOMER_WELCOME: <UserPlus className="w-5 h-5 text-green-500" />,
   // New
-  CHURN_PREVENTION:     <TrendingDown className="w-5 h-5 text-purple-500" />,
-  QUOTE_FOLLOWUP:       <FileText className="w-5 h-5 text-cyan-500" />,
-  LOYALTY_MILESTONE:    <Gift className="w-5 h-5 text-pink-500" />,
-  EXPENSE_SPIKE_ALERT:  <TrendingUp className="w-5 h-5 text-red-500" />,
-  DELIVERY_SLA_BREACH:  <Truck className="w-5 h-5 text-orange-500" />,
-  TOKEN_USAGE_WARNING:  <Cpu className="w-5 h-5 text-slate-500" />,
+  CHURN_PREVENTION: <TrendingDown className="w-5 h-5 text-purple-500" />,
+  QUOTE_FOLLOWUP: <FileText className="w-5 h-5 text-cyan-500" />,
+  LOYALTY_MILESTONE: <Gift className="w-5 h-5 text-pink-500" />,
+  EXPENSE_SPIKE_ALERT: <TrendingUp className="w-5 h-5 text-red-500" />,
+  DELIVERY_SLA_BREACH: <Truck className="w-5 h-5 text-orange-500" />,
+  TOKEN_USAGE_WARNING: <Cpu className="w-5 h-5 text-slate-500" />,
   AI_ANOMALY_DETECTION: <Brain className="w-5 h-5 text-violet-500" />,
-  SEASONAL_STOCK_PREP:  <CalendarDays className="w-5 h-5 text-teal-500" />,
-  SENTIMENT_MONITOR:    <MessageCircle className="w-5 h-5 text-rose-500" />,
-  LEAD_SCORE:           <Target className="w-5 h-5 text-indigo-500" />,
-  AUTO_VIP_TAG:         <Crown className="w-5 h-5 text-yellow-600" />,
-  AT_RISK_TAG:          <ShieldAlert className="w-5 h-5 text-orange-600" />,
-  HIGH_RETURN_FLAG:     <RotateCcw className="w-5 h-5 text-red-600" />,
+  SEASONAL_STOCK_PREP: <CalendarDays className="w-5 h-5 text-teal-500" />,
+  SENTIMENT_MONITOR: <MessageCircle className="w-5 h-5 text-rose-500" />,
+  LEAD_SCORE: <Target className="w-5 h-5 text-indigo-500" />,
+  AUTO_VIP_TAG: <Crown className="w-5 h-5 text-yellow-600" />,
+  AT_RISK_TAG: <ShieldAlert className="w-5 h-5 text-orange-600" />,
+  HIGH_RETURN_FLAG: <RotateCcw className="w-5 h-5 text-red-600" />,
 };
 
 const COLORS: Record<string, string> = {
-  SUPPLIER_LOW_STOCK:   "border-amber-200 bg-amber-50",
-  REENGAGEMENT_AUTO:    "border-blue-200 bg-blue-50",
-  REVIEW_REQUEST:       "border-yellow-200 bg-yellow-50",
+  SUPPLIER_LOW_STOCK: "border-amber-200 bg-amber-50",
+  REENGAGEMENT_AUTO: "border-blue-200 bg-blue-50",
+  REVIEW_REQUEST: "border-yellow-200 bg-yellow-50",
   NEW_CUSTOMER_WELCOME: "border-green-200 bg-green-50",
-  CHURN_PREVENTION:     "border-purple-200 bg-purple-50",
-  QUOTE_FOLLOWUP:       "border-cyan-200 bg-cyan-50",
-  LOYALTY_MILESTONE:    "border-pink-200 bg-pink-50",
-  EXPENSE_SPIKE_ALERT:  "border-red-200 bg-red-50",
-  DELIVERY_SLA_BREACH:  "border-orange-200 bg-orange-50",
-  TOKEN_USAGE_WARNING:  "border-slate-200 bg-slate-50",
+  CHURN_PREVENTION: "border-purple-200 bg-purple-50",
+  QUOTE_FOLLOWUP: "border-cyan-200 bg-cyan-50",
+  LOYALTY_MILESTONE: "border-pink-200 bg-pink-50",
+  EXPENSE_SPIKE_ALERT: "border-red-200 bg-red-50",
+  DELIVERY_SLA_BREACH: "border-orange-200 bg-orange-50",
+  TOKEN_USAGE_WARNING: "border-slate-200 bg-slate-50",
   AI_ANOMALY_DETECTION: "border-violet-200 bg-violet-50",
-  SEASONAL_STOCK_PREP:  "border-teal-200 bg-teal-50",
-  SENTIMENT_MONITOR:    "border-rose-200 bg-rose-50",
-  LEAD_SCORE:           "border-indigo-200 bg-indigo-50",
-  AUTO_VIP_TAG:         "border-yellow-300 bg-yellow-50",
-  AT_RISK_TAG:          "border-orange-300 bg-orange-50",
-  HIGH_RETURN_FLAG:     "border-red-300 bg-red-50",
+  SEASONAL_STOCK_PREP: "border-teal-200 bg-teal-50",
+  SENTIMENT_MONITOR: "border-rose-200 bg-rose-50",
+  LEAD_SCORE: "border-indigo-200 bg-indigo-50",
+  AUTO_VIP_TAG: "border-yellow-300 bg-yellow-50",
+  AT_RISK_TAG: "border-orange-300 bg-orange-50",
+  HIGH_RETURN_FLAG: "border-red-300 bg-red-50",
 };
 
 // ─── Config fields per automation type ────────────────────────────────────────
@@ -238,20 +245,30 @@ function ConfigFields({
       <div className="space-y-3">
         <div>
           <Label>عدد أيام الصمت (قبل اعتبار العميل معرضاً للخسارة)</Label>
-          <Input type="number" min={14} value={config.silentDays ?? 60}
-            onChange={(e) => onChange("silentDays", Number(e.target.value))} />
+          <Input
+            type="number"
+            min={14}
+            value={config.silentDays ?? 60}
+            onChange={(e) => onChange("silentDays", Number(e.target.value))}
+          />
         </div>
         <div>
           <Label>كود خصم لإعادة الاستهداف (اختياري)</Label>
-          <Input value={config.discountCode ?? ""}
+          <Input
+            value={config.discountCode ?? ""}
             onChange={(e) => onChange("discountCode", e.target.value)}
-            placeholder="مثال: BACK20" dir="ltr" />
+            placeholder="مثال: BACK20"
+            dir="ltr"
+          />
         </div>
         <div>
           <Label>نص الرسالة المخصص (اختياري)</Label>
-          <Textarea rows={3} value={config.messageTemplate ?? ""}
+          <Textarea
+            rows={3}
+            value={config.messageTemplate ?? ""}
             onChange={(e) => onChange("messageTemplate", e.target.value)}
-            placeholder="المتغيرات: {{customer_name}} {{order_count}} {{discount_code}}" />
+            placeholder="المتغيرات: {{customer_name}} {{order_count}} {{discount_code}}"
+          />
         </div>
       </div>
     );
@@ -262,14 +279,21 @@ function ConfigFields({
       <div className="space-y-3">
         <div>
           <Label>عمر العرض قبل إرسال التذكير (ساعات)</Label>
-          <Input type="number" min={1} value={config.ageHours ?? 48}
-            onChange={(e) => onChange("ageHours", Number(e.target.value))} />
+          <Input
+            type="number"
+            min={1}
+            value={config.ageHours ?? 48}
+            onChange={(e) => onChange("ageHours", Number(e.target.value))}
+          />
         </div>
         <div>
           <Label>نص الرسالة المخصص (اختياري)</Label>
-          <Textarea rows={3} value={config.messageTemplate ?? ""}
+          <Textarea
+            rows={3}
+            value={config.messageTemplate ?? ""}
             onChange={(e) => onChange("messageTemplate", e.target.value)}
-            placeholder="المتغيرات: {{customer_name}} {{quote_number}} {{total}}" />
+            placeholder="المتغيرات: {{customer_name}} {{quote_number}} {{total}}"
+          />
         </div>
       </div>
     );
@@ -280,14 +304,23 @@ function ConfigFields({
       <div className="space-y-3">
         <div>
           <Label>الحد الأدنى من النقاط لإرسال التهنئة</Label>
-          <Input type="number" min={10} value={config.milestonePoints ?? 100}
-            onChange={(e) => onChange("milestonePoints", Number(e.target.value))} />
+          <Input
+            type="number"
+            min={10}
+            value={config.milestonePoints ?? 100}
+            onChange={(e) =>
+              onChange("milestonePoints", Number(e.target.value))
+            }
+          />
         </div>
         <div>
           <Label>نص الرسالة المخصص (اختياري)</Label>
-          <Textarea rows={3} value={config.messageTemplate ?? ""}
+          <Textarea
+            rows={3}
+            value={config.messageTemplate ?? ""}
             onChange={(e) => onChange("messageTemplate", e.target.value)}
-            placeholder="المتغيرات: {{customer_name}} {{points}} {{tier}}" />
+            placeholder="المتغيرات: {{customer_name}} {{points}} {{tier}}"
+          />
         </div>
       </div>
     );
@@ -297,9 +330,16 @@ function ConfigFields({
     return (
       <div>
         <Label>نسبة الارتفاع الحرج (% فوق المتوسط)</Label>
-        <Input type="number" min={110} max={500} value={config.spikeThreshold ?? 150}
-          onChange={(e) => onChange("spikeThreshold", Number(e.target.value))} />
-        <p className="text-xs text-muted-foreground mt-1">مثال: 150 يعني 50% فوق المتوسط الشهري</p>
+        <Input
+          type="number"
+          min={110}
+          max={500}
+          value={config.spikeThreshold ?? 150}
+          onChange={(e) => onChange("spikeThreshold", Number(e.target.value))}
+        />
+        <p className="text-xs text-muted-foreground mt-1">
+          مثال: 150 يعني 50% فوق المتوسط الشهري
+        </p>
       </div>
     );
   }
@@ -309,8 +349,12 @@ function ConfigFields({
       <div className="space-y-3">
         <div>
           <Label>مدة SLA (الساعات المسموح بها قبل التنبيه)</Label>
-          <Input type="number" min={12} value={config.slaHours ?? 48}
-            onChange={(e) => onChange("slaHours", Number(e.target.value))} />
+          <Input
+            type="number"
+            min={12}
+            value={config.slaHours ?? 48}
+            onChange={(e) => onChange("slaHours", Number(e.target.value))}
+          />
         </div>
         <div className="flex items-center gap-2">
           <input
@@ -330,9 +374,16 @@ function ConfigFields({
     return (
       <div>
         <Label>نسبة الاستخدام التي تُطلق التنبيه (%)</Label>
-        <Input type="number" min={50} max={99} value={config.warnPct ?? 80}
-          onChange={(e) => onChange("warnPct", Number(e.target.value))} />
-        <p className="text-xs text-muted-foreground mt-1">يرسل تنبيهاً عند الوصول إلى هذه النسبة من حصتك الشهرية</p>
+        <Input
+          type="number"
+          min={50}
+          max={99}
+          value={config.warnPct ?? 80}
+          onChange={(e) => onChange("warnPct", Number(e.target.value))}
+        />
+        <p className="text-xs text-muted-foreground mt-1">
+          يرسل تنبيهاً عند الوصول إلى هذه النسبة من حصتك الشهرية
+        </p>
       </div>
     );
   }
@@ -341,8 +392,9 @@ function ConfigFields({
     return (
       <div className="text-sm text-muted-foreground p-3 rounded-lg bg-violet-50 border border-violet-100">
         <Brain className="w-4 h-4 inline ml-2 text-violet-500" />
-        يحلل الذكاء الاصطناعي أرقام أمس مقارنةً بالمتوسط الشهري ويرسل تنبيهاً فورياً إذا رصد انحرافاً حرجاً في الإيرادات أو الطلبات.
-        لا يحتاج إعداداً إضافياً.
+        يحلل الذكاء الاصطناعي أرقام أمس مقارنةً بالمتوسط الشهري ويرسل تنبيهاً
+        فورياً إذا رصد انحرافاً حرجاً في الإيرادات أو الطلبات. لا يحتاج إعداداً
+        إضافياً.
       </div>
     );
   }
@@ -351,9 +403,16 @@ function ConfigFields({
     return (
       <div>
         <Label>عدد أيام الإنذار المبكر قبل المناسبة</Label>
-        <Input type="number" min={7} max={60} value={config.warningDays ?? 14}
-          onChange={(e) => onChange("warningDays", Number(e.target.value))} />
-        <p className="text-xs text-muted-foreground mt-1">يتحقق من الأعياد والمناسبات المصرية تلقائياً</p>
+        <Input
+          type="number"
+          min={7}
+          max={60}
+          value={config.warningDays ?? 14}
+          onChange={(e) => onChange("warningDays", Number(e.target.value))}
+        />
+        <p className="text-xs text-muted-foreground mt-1">
+          يتحقق من الأعياد والمناسبات المصرية تلقائياً
+        </p>
       </div>
     );
   }
@@ -362,8 +421,15 @@ function ConfigFields({
     return (
       <div>
         <Label>الحد الأدنى لنسبة الشعور السلبي لإطلاق التنبيه (%)</Label>
-        <Input type="number" min={1} max={50} value={config.frustratedThresholdPct ?? 5}
-          onChange={(e) => onChange("frustratedThresholdPct", Number(e.target.value))} />
+        <Input
+          type="number"
+          min={1}
+          max={50}
+          value={config.frustratedThresholdPct ?? 5}
+          onChange={(e) =>
+            onChange("frustratedThresholdPct", Number(e.target.value))
+          }
+        />
       </div>
     );
   }
@@ -373,7 +439,8 @@ function ConfigFields({
       <div className="text-sm text-muted-foreground p-3 rounded-lg bg-indigo-50 border border-indigo-100">
         <Target className="w-4 h-4 inline ml-2 text-indigo-500" />
         يصنّف المحادثات النشطة آلياً إلى: <strong>HOT</strong> (ساخن)،{" "}
-        <strong>WARM</strong> (دافئ)، <strong>COLD</strong> (بارد) — بناءً على قيمة السلة، عدد الرسائل، وتاريخ الشراء.
+        <strong>WARM</strong> (دافئ)، <strong>COLD</strong> (بارد) - بناءً على
+        قيمة السلة، عدد الرسائل، وتاريخ الشراء.
       </div>
     );
   }
@@ -383,13 +450,21 @@ function ConfigFields({
       <div className="space-y-3">
         <div>
           <Label>الحد الأدنى لعدد الطلبات المؤكدة</Label>
-          <Input type="number" min={2} value={config.minOrders ?? 5}
-            onChange={(e) => onChange("minOrders", Number(e.target.value))} />
+          <Input
+            type="number"
+            min={2}
+            value={config.minOrders ?? 5}
+            onChange={(e) => onChange("minOrders", Number(e.target.value))}
+          />
         </div>
         <div>
           <Label>الحد الأدنى لإجمالي الإنفاق (ج.م)</Label>
-          <Input type="number" min={0} value={config.minSpend ?? 1000}
-            onChange={(e) => onChange("minSpend", Number(e.target.value))} />
+          <Input
+            type="number"
+            min={0}
+            value={config.minSpend ?? 1000}
+            onChange={(e) => onChange("minSpend", Number(e.target.value))}
+          />
         </div>
       </div>
     );
@@ -400,13 +475,21 @@ function ConfigFields({
       <div className="space-y-3">
         <div>
           <Label>أيام التوقف التي تعتبر العميل في خطر</Label>
-          <Input type="number" min={7} value={config.silentDays ?? 21}
-            onChange={(e) => onChange("silentDays", Number(e.target.value))} />
+          <Input
+            type="number"
+            min={7}
+            value={config.silentDays ?? 21}
+            onChange={(e) => onChange("silentDays", Number(e.target.value))}
+          />
         </div>
         <div>
           <Label>أقل عدد طلبات سابقة (لاستهداف العملاء الفعليين فقط)</Label>
-          <Input type="number" min={1} value={config.minPriorOrders ?? 2}
-            onChange={(e) => onChange("minPriorOrders", Number(e.target.value))} />
+          <Input
+            type="number"
+            min={1}
+            value={config.minPriorOrders ?? 2}
+            onChange={(e) => onChange("minPriorOrders", Number(e.target.value))}
+          />
         </div>
       </div>
     );
@@ -417,13 +500,24 @@ function ConfigFields({
       <div className="space-y-3">
         <div>
           <Label>نسبة الإلغاء والإرجاع الحرجة (%)</Label>
-          <Input type="number" min={10} max={100} value={config.cancellationRatePct ?? 30}
-            onChange={(e) => onChange("cancellationRatePct", Number(e.target.value))} />
+          <Input
+            type="number"
+            min={10}
+            max={100}
+            value={config.cancellationRatePct ?? 30}
+            onChange={(e) =>
+              onChange("cancellationRatePct", Number(e.target.value))
+            }
+          />
         </div>
         <div>
           <Label>الحد الأدنى لعدد الطلبات (لتجنب الإيجابيات الكاذبة)</Label>
-          <Input type="number" min={2} value={config.minOrders ?? 3}
-            onChange={(e) => onChange("minOrders", Number(e.target.value))} />
+          <Input
+            type="number"
+            min={2}
+            value={config.minOrders ?? 3}
+            onChange={(e) => onChange("minOrders", Number(e.target.value))}
+          />
         </div>
       </div>
     );
@@ -436,23 +530,23 @@ function ConfigFields({
 
 function defaultInterval(type: string): number {
   const map: Record<string, number> = {
-    SUPPLIER_LOW_STOCK:   2,
-    REVIEW_REQUEST:       24,
+    SUPPLIER_LOW_STOCK: 2,
+    REVIEW_REQUEST: 24,
     NEW_CUSTOMER_WELCOME: 1,
-    REENGAGEMENT_AUTO:    168,
-    CHURN_PREVENTION:     168,
-    QUOTE_FOLLOWUP:       2,
-    LOYALTY_MILESTONE:    1,
-    EXPENSE_SPIKE_ALERT:  24,
-    DELIVERY_SLA_BREACH:  4,
-    TOKEN_USAGE_WARNING:  24,
+    REENGAGEMENT_AUTO: 168,
+    CHURN_PREVENTION: 168,
+    QUOTE_FOLLOWUP: 2,
+    LOYALTY_MILESTONE: 1,
+    EXPENSE_SPIKE_ALERT: 24,
+    DELIVERY_SLA_BREACH: 4,
+    TOKEN_USAGE_WARNING: 24,
     AI_ANOMALY_DETECTION: 24,
-    SEASONAL_STOCK_PREP:  24,
-    SENTIMENT_MONITOR:    24,
-    LEAD_SCORE:           24,
-    AUTO_VIP_TAG:         24,
-    AT_RISK_TAG:          24,
-    HIGH_RETURN_FLAG:     24,
+    SEASONAL_STOCK_PREP: 24,
+    SENTIMENT_MONITOR: 24,
+    LEAD_SCORE: 24,
+    AUTO_VIP_TAG: 24,
+    AT_RISK_TAG: 24,
+    HIGH_RETURN_FLAG: 24,
   };
   return map[type] ?? 24;
 }
@@ -475,8 +569,12 @@ export default function AutomationsPage() {
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
   const [expandedType, setExpandedType] = useState<string | null>(null);
-  const [localConfigs, setLocalConfigs] = useState<Record<string, Record<string, any>>>({});
-  const [localIntervals, setLocalIntervals] = useState<Record<string, number>>({});
+  const [localConfigs, setLocalConfigs] = useState<
+    Record<string, Record<string, any>>
+  >({});
+  const [localIntervals, setLocalIntervals] = useState<Record<string, number>>(
+    {},
+  );
   const [savingType, setSavingType] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
@@ -516,7 +614,11 @@ export default function AutomationsPage() {
         title: !current ? "تم تفعيل الأتمتة" : "تم إيقاف الأتمتة",
       });
     } catch (e: any) {
-      toast({ variant: "destructive", title: "فشل التحديث", description: e?.message });
+      toast({
+        variant: "destructive",
+        title: "فشل التحديث",
+        description: e?.message,
+      });
     }
   };
 
@@ -525,19 +627,30 @@ export default function AutomationsPage() {
     try {
       await Promise.all([
         authenticatedApi.updateAutomation(type, { config: localConfigs[type] }),
-        authenticatedApi.setAutomationSchedule(type, localIntervals[type] ?? defaultInterval(type)),
+        authenticatedApi.setAutomationSchedule(
+          type,
+          localIntervals[type] ?? defaultInterval(type),
+        ),
       ]);
       setAutomations((prev) =>
         prev.map((a) =>
           a.type === type
-            ? { ...a, config: { ...localConfigs[type] }, checkIntervalHours: localIntervals[type] }
+            ? {
+                ...a,
+                config: { ...localConfigs[type] },
+                checkIntervalHours: localIntervals[type],
+              }
             : a,
         ),
       );
       toast({ title: "تم حفظ الإعدادات" });
       setExpandedType(null);
     } catch (e: any) {
-      toast({ variant: "destructive", title: "فشل الحفظ", description: e?.message });
+      toast({
+        variant: "destructive",
+        title: "فشل الحفظ",
+        description: e?.message,
+      });
     } finally {
       setSavingType(null);
     }
@@ -551,12 +664,16 @@ export default function AutomationsPage() {
   };
 
   // Logs for a specific type
-  const logsForType = (type: string) => logs.filter((l) => l.automation_type === type);
+  const logsForType = (type: string) =>
+    logs.filter((l) => l.automation_type === type);
 
   if (loading) {
     return (
       <div dir="rtl" className="space-y-4">
-        <PageHeader title="مركز الأتمتة" description="أتمتة الرسائل والتنبيهات التلقائية" />
+        <PageHeader
+          title="مركز الأتمتة"
+          description="أتمتة الرسائل والتنبيهات التلقائية"
+        />
         <div className="flex items-center justify-center py-20 text-muted-foreground">
           <Loader2 className="w-6 h-6 animate-spin ml-2" />
           جارٍ التحميل...
@@ -574,7 +691,12 @@ export default function AutomationsPage() {
 
       {/* Toolbar */}
       <div className="flex justify-end">
-        <Button variant="outline" size="icon" onClick={loadData} disabled={loading}>
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={loadData}
+          disabled={loading}
+        >
           <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
         </Button>
       </div>
@@ -641,9 +763,13 @@ export default function AutomationsPage() {
                   <div className="mt-0.5">{ICONS[automation.type]}</div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2 flex-wrap">
-                      <CardTitle className="text-base">{automation.label}</CardTitle>
+                      <CardTitle className="text-base">
+                        {automation.label}
+                      </CardTitle>
                       <div className="flex items-center gap-3">
-                        <Badge variant={automation.isEnabled ? "default" : "outline"}>
+                        <Badge
+                          variant={automation.isEnabled ? "default" : "outline"}
+                        >
                           {automation.isEnabled ? "مفعّل" : "معطّل"}
                         </Badge>
                         <Switch
@@ -692,7 +818,11 @@ export default function AutomationsPage() {
                   }
                 >
                   <CollapsibleTrigger asChild>
-                    <Button variant="ghost" size="sm" className="text-xs gap-1 h-7 px-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-xs gap-1 h-7 px-2"
+                    >
                       <Zap className="w-3 h-3" />
                       تخصيص الإعدادات
                       {isOpen ? (
@@ -707,19 +837,29 @@ export default function AutomationsPage() {
                     <ConfigFields
                       type={automation.type}
                       config={localConfigs[automation.type] ?? {}}
-                      onChange={(k, v) => updateConfigKey(automation.type, k, v)}
+                      onChange={(k, v) =>
+                        updateConfigKey(automation.type, k, v)
+                      }
                     />
 
                     {/* Schedule interval */}
                     <div className="rounded-lg border border-muted bg-muted/30 p-3 space-y-2">
                       <div className="flex items-center gap-2">
                         <Clock className="w-4 h-4 text-muted-foreground" />
-                        <Label className="text-sm font-medium">تكرار التشغيل</Label>
+                        <Label className="text-sm font-medium">
+                          تكرار التشغيل
+                        </Label>
                       </div>
                       <Select
-                        value={String(localIntervals[automation.type] ?? defaultInterval(automation.type))}
+                        value={String(
+                          localIntervals[automation.type] ??
+                            defaultInterval(automation.type),
+                        )}
                         onValueChange={(v) =>
-                          setLocalIntervals((prev) => ({ ...prev, [automation.type]: Number(v) }))
+                          setLocalIntervals((prev) => ({
+                            ...prev,
+                            [automation.type]: Number(v),
+                          }))
                         }
                       >
                         <SelectTrigger className="h-8 text-sm">
@@ -727,7 +867,10 @@ export default function AutomationsPage() {
                         </SelectTrigger>
                         <SelectContent>
                           {INTERVAL_OPTIONS.map((opt) => (
-                            <SelectItem key={opt.value} value={String(opt.value)}>
+                            <SelectItem
+                              key={opt.value}
+                              value={String(opt.value)}
+                            >
                               {opt.label}
                             </SelectItem>
                           ))}
@@ -785,7 +928,9 @@ export default function AutomationsPage() {
                 </thead>
                 <tbody>
                   {logs.slice(0, 15).map((log, i) => {
-                    const aut = automations.find((a) => a.type === log.automation_type);
+                    const aut = automations.find(
+                      (a) => a.type === log.automation_type,
+                    );
                     return (
                       <tr key={i} className="border-b last:border-0">
                         <td className="py-2 pr-0 font-medium">
@@ -793,12 +938,18 @@ export default function AutomationsPage() {
                         </td>
                         <td className="py-2">
                           {log.status === "success" ? (
-                            <Badge variant="outline" className="text-green-700 border-green-300">
+                            <Badge
+                              variant="outline"
+                              className="text-green-700 border-green-300"
+                            >
                               <CheckCircle className="w-3 h-3 ml-1" />
                               نجح
                             </Badge>
                           ) : (
-                            <Badge variant="outline" className="text-red-700 border-red-300">
+                            <Badge
+                              variant="outline"
+                              className="text-red-700 border-red-300"
+                            >
                               <XCircle className="w-3 h-3 ml-1" />
                               خطأ
                             </Badge>

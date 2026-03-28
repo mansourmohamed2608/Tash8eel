@@ -17,7 +17,7 @@ import {
 import { AlertBanner, EmptyState } from "@/components/ui/alerts";
 import { CardSkeleton } from "@/components/ui/skeleton";
 import { useMerchant } from "@/hooks/use-merchant";
-import { merchantApi } from "@/lib/api";
+import { merchantApi } from "@/lib/client";
 import { formatCurrency } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useRoleAccess } from "@/hooks/use-role-access";
@@ -47,9 +47,9 @@ function getCycleOptions(
   const disc = (months: number) =>
     prices.find((p) => p.cycleMonths === months)?.discountPercent ?? 0;
   return [
-    { value: 1,  label: "1 شهر" },
-    { value: 3,  label: disc(3) > 0 ? `3 أشهر (خصم ${disc(3)}%)` : "3 أشهر" },
-    { value: 6,  label: disc(6) > 0 ? `6 أشهر (خصم ${disc(6)}%)` : "6 أشهر" },
+    { value: 1, label: "1 شهر" },
+    { value: 3, label: disc(3) > 0 ? `3 أشهر (خصم ${disc(3)}%)` : "3 أشهر" },
+    { value: 6, label: disc(6) > 0 ? `6 أشهر (خصم ${disc(6)}%)` : "6 أشهر" },
     { value: 12, label: disc(12) > 0 ? `12 شهر (خصم ${disc(12)}%)` : "12 شهر" },
   ];
 }
@@ -101,11 +101,14 @@ const PLAN_NAME_AR: Record<string, string> = {
 };
 
 const PLAN_DESC_AR: Record<string, string> = {
-  STARTER: "واتساب ذكي 24/7 + استقبال طلبات — 250 محادثة/شهر، بدون ملاحظات صوتية",
-  BASIC: "كل مميزات المبتدئ + لينكات دفع + مخزون + ربط API — 500 محادثة/شهر",
-  GROWTH: "كل مميزات الأساسي + الفريق + حملات البث + برنامج الولاء + 10 أتمتات — 1,500 محادثة/شهر",
-  PRO: "كل مميزات النمو + الخط الصوتي + قراءة صور الدفع + منصة التنبؤات + 50 أتمتة + فروع متعددة — 4,000 محادثة/شهر",
-  ENTERPRISE: "كل مميزات الاحترافي + محرك مكالمات ذكية بالعربية + SLA 4 ساعات + دعم مؤسسي مخصص — 10,000 محادثة/شهر",
+  STARTER:
+    "واتساب ذكي 24/7 + استقبال طلبات - 250 محادثة/شهر، بدون ملاحظات صوتية",
+  BASIC: "كل مميزات المبتدئ + لينكات دفع + مخزون + ربط API - 500 محادثة/شهر",
+  GROWTH:
+    "كل مميزات الأساسي + الفريق + حملات البث + برنامج الولاء + 10 أتمتات - 1,500 محادثة/شهر",
+  PRO: "كل مميزات النمو + الخط الصوتي + قراءة صور الدفع + منصة التنبؤات + 50 أتمتة + فروع متعددة - 4,000 محادثة/شهر",
+  ENTERPRISE:
+    "كل مميزات الاحترافي + محرك مكالمات ذكية بالعربية + SLA 4 ساعات + دعم مؤسسي مخصص - 10,000 محادثة/شهر",
 };
 
 const ADDON_NAME_AR: Record<string, string> = {
@@ -248,7 +251,10 @@ function localizePlanName(code?: string, fallbackName?: string): string {
   return PLAN_NAME_AR[key] || fallbackName || key;
 }
 
-function localizePlanDescription(code?: string, fallbackDescription?: string): string {
+function localizePlanDescription(
+  code?: string,
+  fallbackDescription?: string,
+): string {
   const key = String(code || "").toUpperCase();
   return PLAN_DESC_AR[key] || fallbackDescription || "";
 }
@@ -263,7 +269,10 @@ function localizeAddOnName(code?: string, fallbackName?: string): string {
   return ADDON_NAME_AR[key] || fallbackName || key;
 }
 
-function localizeAddOnDescription(code?: string, fallbackDescription?: string): string {
+function localizeAddOnDescription(
+  code?: string,
+  fallbackDescription?: string,
+): string {
   const key = String(code || "").toUpperCase();
   return ADDON_DESC_AR[key] || fallbackDescription || "";
 }
@@ -298,11 +307,17 @@ function getUsagePackDeltas(pack: any): Record<string, number> {
   const metricKey = String(pack?.metricKey || "").toUpperCase();
   const units = Number(pack?.includedUnits || 0);
   if (units > 0) {
-    if (metricKey === "PAYMENT_PROOF_SCANS" && !deltas.paymentProofScansPerMonth) {
+    if (
+      metricKey === "PAYMENT_PROOF_SCANS" &&
+      !deltas.paymentProofScansPerMonth
+    ) {
       deltas.paymentProofScansPerMonth = units;
     } else if (metricKey === "VOICE_MINUTES" && !deltas.voiceMinutesPerMonth) {
       deltas.voiceMinutesPerMonth = units;
-    } else if (metricKey === "PAID_TEMPLATES" && !deltas.paidTemplatesPerMonth) {
+    } else if (
+      metricKey === "PAID_TEMPLATES" &&
+      !deltas.paidTemplatesPerMonth
+    ) {
       deltas.paidTemplatesPerMonth = units;
     } else if (metricKey === "MAP_LOOKUPS" && !deltas.mapsLookupsPerMonth) {
       deltas.mapsLookupsPerMonth = units;
@@ -347,7 +362,9 @@ export default function PlanPage() {
   const [usageStatus, setUsageStatus] = useState<any | null>(null);
 
   const [capacityQty, setCapacityQty] = useState<Record<string, number>>({});
-  const [bundlePackQty, setBundlePackQty] = useState<Record<string, number>>({});
+  const [bundlePackQty, setBundlePackQty] = useState<Record<string, number>>(
+    {},
+  );
   const [bundleSelectedPackByMetric, setBundleSelectedPackByMetric] = useState<
     Record<string, string>
   >({});
@@ -422,7 +439,9 @@ export default function PlanPage() {
       setUsageStatus(usage);
 
       const planCode = String(
-        summary?.subscription?.plan_code || summary?.subscription?.planCode || "",
+        summary?.subscription?.plan_code ||
+          summary?.subscription?.planCode ||
+          "",
       ).toUpperCase();
       setCurrentPlan(planCode);
 
@@ -565,7 +584,14 @@ export default function PlanPage() {
         });
       }
     },
-    [apiKey, bundlePackQty, bundleSelectedPackByMetric, canEdit, loadCatalog, toast],
+    [
+      apiKey,
+      bundlePackQty,
+      bundleSelectedPackByMetric,
+      canEdit,
+      loadCatalog,
+      toast,
+    ],
   );
 
   useEffect(() => {
@@ -590,7 +616,10 @@ export default function PlanPage() {
   if (!catalog) {
     return (
       <div className="p-6">
-        <EmptyState title="لا توجد بيانات" description="حاول التحديث مرة أخرى." />
+        <EmptyState
+          title="لا توجد بيانات"
+          description="حاول التحديث مرة أخرى."
+        />
       </div>
     );
   }
@@ -633,17 +662,21 @@ export default function PlanPage() {
             <p className="text-sm font-medium">دورة الاشتراك</p>
             <Select
               value={String(cycleMonths)}
-              onValueChange={(value) => setCycleMonths(Number(value) as CycleMonths)}
+              onValueChange={(value) =>
+                setCycleMonths(Number(value) as CycleMonths)
+              }
             >
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {getCycleOptions(catalog?.bundles?.[0]?.prices ?? []).map((cycle) => (
-                  <SelectItem key={cycle.value} value={String(cycle.value)}>
-                    {cycle.label}
-                  </SelectItem>
-                ))}
+                {getCycleOptions(catalog?.bundles?.[0]?.prices ?? []).map(
+                  (cycle) => (
+                    <SelectItem key={cycle.value} value={String(cycle.value)}>
+                      {cycle.label}
+                    </SelectItem>
+                  ),
+                )}
               </SelectContent>
             </Select>
           </div>
@@ -663,22 +696,27 @@ export default function PlanPage() {
           <CardTitle className="text-base">استهلاكك الحالي</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          {Object.entries(usageStatus?.metrics || {}).slice(0, 8).map(([metric, data]: any) => (
-            <div key={metric} className="rounded-md border p-3">
-              <p className="text-xs text-muted-foreground">
-                {USAGE_STATUS_LABELS[String(metric)] || metric}
-              </p>
-              <p className="text-sm font-semibold">
-                {Number(data?.used || 0).toLocaleString("ar-EG")} /{" "}
-                {data?.limit === -1
-                  ? "غير محدود"
-                  : Number(data?.limit || 0).toLocaleString("ar-EG")}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                المتبقي: {data?.remaining === -1 ? "غير محدود" : Number(data?.remaining || 0).toLocaleString("ar-EG")}
-              </p>
-            </div>
-          ))}
+          {Object.entries(usageStatus?.metrics || {})
+            .slice(0, 8)
+            .map(([metric, data]: any) => (
+              <div key={metric} className="rounded-md border p-3">
+                <p className="text-xs text-muted-foreground">
+                  {USAGE_STATUS_LABELS[String(metric)] || metric}
+                </p>
+                <p className="text-sm font-semibold">
+                  {Number(data?.used || 0).toLocaleString("ar-EG")} /{" "}
+                  {data?.limit === -1
+                    ? "غير محدود"
+                    : Number(data?.limit || 0).toLocaleString("ar-EG")}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  المتبقي:{" "}
+                  {data?.remaining === -1
+                    ? "غير محدود"
+                    : Number(data?.remaining || 0).toLocaleString("ar-EG")}
+                </p>
+              </div>
+            ))}
         </CardContent>
       </Card>
 
@@ -692,12 +730,18 @@ export default function PlanPage() {
           {(catalog.bundles || []).map((bundle: any) => {
             const cyclePriceMap = mapPricesByCycle(bundle.prices);
             const selectedCyclePrice = cyclePriceMap.get(Number(cycleMonths));
-            const isCurrent = currentPlan === String(bundle.code || "").toUpperCase();
+            const isCurrent =
+              currentPlan === String(bundle.code || "").toUpperCase();
             return (
-              <Card key={bundle.code} className={isCurrent ? "border-primary" : ""}>
+              <Card
+                key={bundle.code}
+                className={isCurrent ? "border-primary" : ""}
+              >
                 <CardHeader className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <CardTitle>{localizePlanName(bundle.code, bundle.name)}</CardTitle>
+                    <CardTitle>
+                      {localizePlanName(bundle.code, bundle.name)}
+                    </CardTitle>
                     {isCurrent ? <Badge>الباقة الحالية</Badge> : null}
                   </div>
                   <p className="text-sm text-muted-foreground">
@@ -716,14 +760,21 @@ export default function PlanPage() {
                       </p>
                     </div>
                   ) : (
-                    <p className="text-sm text-muted-foreground">لا يوجد سعر لهذه الدولة</p>
+                    <p className="text-sm text-muted-foreground">
+                      لا يوجد سعر لهذه الدولة
+                    </p>
                   )}
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div className="space-y-1">
                     {Object.entries(bundle.limits || {}).map(([key, value]) => (
-                      <div key={key} className="flex justify-between gap-2 text-xs">
-                        <span className="text-muted-foreground">{LIMIT_LABELS[key] || key}</span>
+                      <div
+                        key={key}
+                        className="flex justify-between gap-2 text-xs"
+                      >
+                        <span className="text-muted-foreground">
+                          {LIMIT_LABELS[key] || key}
+                        </span>
                         <span className="font-medium">
                           {Number(value).toLocaleString("ar-EG")}
                         </span>
@@ -733,9 +784,14 @@ export default function PlanPage() {
 
                   <div className="space-y-1">
                     {(bundle.features || []).slice(0, 9).map((feature: any) => (
-                      <p key={feature.key} className="flex items-center gap-2 text-xs">
+                      <p
+                        key={feature.key}
+                        className="flex items-center gap-2 text-xs"
+                      >
                         <Check className="h-3 w-3 text-emerald-600" />
-                        <span>{localizeFeatureLabel(feature.key, feature.label)}</span>
+                        <span>
+                          {localizeFeatureLabel(feature.key, feature.label)}
+                        </span>
                       </p>
                     ))}
                   </div>
@@ -763,106 +819,136 @@ export default function PlanPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">إضافات السعة (Capacity Add-ons)</CardTitle>
+            <CardTitle className="text-base">
+              إضافات السعة (Capacity Add-ons)
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <p className="text-xs text-muted-foreground">
-              الرقم داخل الحقل = عدد الوحدات المراد شراؤها من نفس الإضافة. إذا ظهرت "مضمنة بالفعل" فهذا يعني أن باقتك الحالية تغطيها.
+              الرقم داخل الحقل = عدد الوحدات المراد شراؤها من نفس الإضافة. إذا
+              ظهرت "مضمنة بالفعل" فهذا يعني أن باقتك الحالية تغطيها.
             </p>
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-              {(catalog.bundleAddOns?.capacityAddOns || []).map((addOn: any) => {
-                const allowsQuantity =
-                  SCALABLE_CAPACITY_ADDONS.has(String(addOn.code || "").toUpperCase()) ||
-                  Object.keys(addOn.limitIncrements || {}).length > 0;
-                const quantity = Math.max(1, Number(capacityQty[addOn.code] || 1));
-                const cyclePriceMap = mapPricesByCycle(addOn.prices || []);
-                const selectedCyclePrice = cyclePriceMap.get(Number(cycleMonths));
+              {(catalog.bundleAddOns?.capacityAddOns || []).map(
+                (addOn: any) => {
+                  const allowsQuantity =
+                    SCALABLE_CAPACITY_ADDONS.has(
+                      String(addOn.code || "").toUpperCase(),
+                    ) || Object.keys(addOn.limitIncrements || {}).length > 0;
+                  const quantity = Math.max(
+                    1,
+                    Number(capacityQty[addOn.code] || 1),
+                  );
+                  const cyclePriceMap = mapPricesByCycle(addOn.prices || []);
+                  const selectedCyclePrice = cyclePriceMap.get(
+                    Number(cycleMonths),
+                  );
 
-                const floor = addOn.limitFloorUpdates || {};
-                const floorIncluded = Object.entries(floor).every(([key, value]) => {
-                  const current = Number(currentBundle?.limits?.[key] || 0);
-                  return current >= Number(value || 0);
-                });
-                const noIncrements = Object.keys(addOn.limitIncrements || {}).length === 0;
-                const alreadyIncluded = floorIncluded && noIncrements;
+                  const floor = addOn.limitFloorUpdates || {};
+                  const floorIncluded = Object.entries(floor).every(
+                    ([key, value]) => {
+                      const current = Number(currentBundle?.limits?.[key] || 0);
+                      return current >= Number(value || 0);
+                    },
+                  );
+                  const noIncrements =
+                    Object.keys(addOn.limitIncrements || {}).length === 0;
+                  const alreadyIncluded = floorIncluded && noIncrements;
 
-                return (
-                  <Card key={addOn.code}>
-                    <CardContent className="space-y-2 pt-4">
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <p className="font-medium text-sm">
-                            {localizeAddOnName(addOn.code, addOn.name)}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {localizeAddOnDescription(addOn.code, addOn.description)}
-                          </p>
+                  return (
+                    <Card key={addOn.code}>
+                      <CardContent className="space-y-2 pt-4">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <p className="font-medium text-sm">
+                              {localizeAddOnName(addOn.code, addOn.name)}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {localizeAddOnDescription(
+                                addOn.code,
+                                addOn.description,
+                              )}
+                            </p>
+                          </div>
+                          {alreadyIncluded ? (
+                            <Badge variant="secondary">مضمنة بالفعل</Badge>
+                          ) : null}
                         </div>
-                        {alreadyIncluded ? <Badge variant="secondary">مضمنة بالفعل</Badge> : null}
-                      </div>
 
-                      <div className="flex items-center justify-between text-xs">
-                        <span>شهري فعلي ({cycleMonths} شهر)</span>
-                        <span className="font-medium">
-                          {selectedCyclePrice
-                            ? toCurrency(
-                                selectedCyclePrice.effectiveMonthlyCents,
-                                selectedCyclePrice.currency,
-                              )
-                            : "-"}
-                        </span>
-                      </div>
+                        <div className="flex items-center justify-between text-xs">
+                          <span>شهري فعلي ({cycleMonths} شهر)</span>
+                          <span className="font-medium">
+                            {selectedCyclePrice
+                              ? toCurrency(
+                                  selectedCyclePrice.effectiveMonthlyCents,
+                                  selectedCyclePrice.currency,
+                                )
+                              : "-"}
+                          </span>
+                        </div>
 
-                      {allowsQuantity ? (
-                        <div className="space-y-1">
+                        {allowsQuantity ? (
+                          <div className="space-y-1">
+                            <p className="text-[11px] text-muted-foreground">
+                              الكمية = عدد وحدات هذه الإضافة.
+                            </p>
+                            <Input
+                              type="number"
+                              min={1}
+                              className="h-8 w-28"
+                              value={quantity}
+                              disabled={alreadyIncluded || !canEdit}
+                              onChange={(event) => {
+                                const next = Math.max(
+                                  1,
+                                  Number(event.target.value || 1),
+                                );
+                                setCapacityQty((prev) => ({
+                                  ...prev,
+                                  [addOn.code]: next,
+                                }));
+                              }}
+                            />
+                          </div>
+                        ) : (
                           <p className="text-[11px] text-muted-foreground">
-                            الكمية = عدد وحدات هذه الإضافة.
+                            هذه الإضافة تُشترى مرة واحدة فقط.
                           </p>
-                          <Input
-                            type="number"
-                            min={1}
-                            className="h-8 w-28"
-                            value={quantity}
-                            disabled={alreadyIncluded || !canEdit}
-                            onChange={(event) => {
-                              const next = Math.max(1, Number(event.target.value || 1));
-                              setCapacityQty((prev) => ({ ...prev, [addOn.code]: next }));
-                            }}
-                          />
-                        </div>
-                      ) : (
-                        <p className="text-[11px] text-muted-foreground">
-                          هذه الإضافة تُشترى مرة واحدة فقط.
-                        </p>
-                      )}
+                        )}
 
-                      <Button
-                        className="w-full"
-                        disabled={!canEdit || alreadyIncluded}
-                        onClick={() => handleBuyCapacity(addOn.code)}
-                      >
-                        شراء الإضافة
-                      </Button>
-                    </CardContent>
-                  </Card>
-                );
-              })}
+                        <Button
+                          className="w-full"
+                          disabled={!canEdit || alreadyIncluded}
+                          onClick={() => handleBuyCapacity(addOn.code)}
+                        >
+                          شراء الإضافة
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  );
+                },
+              )}
             </div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">باقات الاستخدام للباقة الحالية</CardTitle>
+            <CardTitle className="text-base">
+              باقات الاستخدام للباقة الحالية
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-xs text-muted-foreground">
-              داخل كل فئة اختر باقة واحدة فقط. الرقم = عدد مرات تكرار نفس الباقة شهريًا.
+              داخل كل فئة اختر باقة واحدة فقط. الرقم = عدد مرات تكرار نفس الباقة
+              شهريًا.
             </p>
             {Object.entries(bundleUsagePacksByMetric).map(([metric, packs]) => (
               <div key={metric} className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <p className="text-sm font-medium">{METRIC_LABELS[metric] || metric}</p>
+                  <p className="text-sm font-medium">
+                    {METRIC_LABELS[metric] || metric}
+                  </p>
                   <Button
                     size="sm"
                     variant="outline"
@@ -874,11 +960,18 @@ export default function PlanPage() {
                 </div>
                 <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                   {(packs || []).map((pack: any) => {
-                    const selected = bundleSelectedPackByMetric[metric] === pack.code;
-                    const quantity = Math.max(1, Number(bundlePackQty[pack.code] || 1));
+                    const selected =
+                      bundleSelectedPackByMetric[metric] === pack.code;
+                    const quantity = Math.max(
+                      1,
+                      Number(bundlePackQty[pack.code] || 1),
+                    );
                     const benefitLines = usagePackBenefitLines(pack, quantity);
                     return (
-                      <Card key={pack.code} className={selected ? "border-primary" : ""}>
+                      <Card
+                        key={pack.code}
+                        className={selected ? "border-primary" : ""}
+                      >
                         <CardContent className="space-y-2 pt-4">
                           <p className="font-medium text-sm">
                             {localizeUsagePackName(pack.code, pack.name)}
@@ -887,12 +980,17 @@ export default function PlanPage() {
                             <span>شهري</span>
                             <span className="font-medium">
                               {pack.priceCents
-                                ? toCurrency(pack.priceCents, pack.currency || currency)
+                                ? toCurrency(
+                                    pack.priceCents,
+                                    pack.currency || currency,
+                                  )
                                 : "-"}
                             </span>
                           </div>
                           <div className="rounded-md border bg-muted/20 p-2">
-                            <p className="text-[11px] text-muted-foreground">ماذا تضيف هذه الباقة:</p>
+                            <p className="text-[11px] text-muted-foreground">
+                              ماذا تضيف هذه الباقة:
+                            </p>
                             {quantity > 1 ? (
                               <p className="text-[11px] text-muted-foreground">
                                 القيم بعد تطبيق الكمية الحالية ({quantity}).
@@ -900,12 +998,17 @@ export default function PlanPage() {
                             ) : null}
                             {benefitLines.length > 0 ? (
                               benefitLines.map((line) => (
-                                <p key={line} className="text-[11px] font-medium">
+                                <p
+                                  key={line}
+                                  className="text-[11px] font-medium"
+                                >
                                   {line}
                                 </p>
                               ))
                             ) : (
-                              <p className="text-[11px] text-muted-foreground">لا توجد تفاصيل زيادة متاحة.</p>
+                              <p className="text-[11px] text-muted-foreground">
+                                لا توجد تفاصيل زيادة متاحة.
+                              </p>
                             )}
                           </div>
                           <div className="flex items-center gap-2 text-xs">
@@ -914,7 +1017,8 @@ export default function PlanPage() {
                               onCheckedChange={(nextChecked) => {
                                 setBundleSelectedPackByMetric((prev) => ({
                                   ...prev,
-                                  [metric]: nextChecked === true ? pack.code : "",
+                                  [metric]:
+                                    nextChecked === true ? pack.code : "",
                                 }));
                               }}
                             />
@@ -927,8 +1031,14 @@ export default function PlanPage() {
                             disabled={!selected}
                             value={quantity}
                             onChange={(event) => {
-                              const next = Math.max(1, Number(event.target.value || 1));
-                              setBundlePackQty((prev) => ({ ...prev, [pack.code]: next }));
+                              const next = Math.max(
+                                1,
+                                Number(event.target.value || 1),
+                              );
+                              setBundlePackQty((prev) => ({
+                                ...prev,
+                                [pack.code]: next,
+                              }));
                             }}
                           />
                         </CardContent>
@@ -950,7 +1060,9 @@ export default function PlanPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">اختر إضافات BYO + باقات الاستخدام</CardTitle>
+            <CardTitle className="text-base">
+              اختر إضافات BYO + باقات الاستخدام
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="space-y-3">
@@ -959,15 +1071,22 @@ export default function PlanPage() {
                 {(byoAddOns || []).map((addOn: any) => {
                   const checked = Number(byoAddOnQty[addOn.code] || 0) > 0;
                   const isCore = addOn.code === "PLATFORM_CORE";
-                  const normalizedAddOnCode = String(addOn.code || "").toUpperCase();
+                  const normalizedAddOnCode = String(
+                    addOn.code || "",
+                  ).toUpperCase();
                   const allowsQuantity =
                     SCALABLE_CAPACITY_ADDONS.has(normalizedAddOnCode) ||
                     Object.keys(addOn.limitIncrements || {}).length > 0;
                   const cyclePriceMap = mapPricesByCycle(addOn.prices || []);
-                  const selectedCyclePrice = cyclePriceMap.get(Number(cycleMonths));
+                  const selectedCyclePrice = cyclePriceMap.get(
+                    Number(cycleMonths),
+                  );
 
                   return (
-                    <Card key={addOn.code} className={checked ? "border-primary" : ""}>
+                    <Card
+                      key={addOn.code}
+                      className={checked ? "border-primary" : ""}
+                    >
                       <CardContent className="space-y-2 pt-4">
                         <div className="flex items-start justify-between gap-2">
                           <div>
@@ -975,7 +1094,10 @@ export default function PlanPage() {
                               {localizeAddOnName(addOn.code, addOn.name)}
                             </p>
                             <p className="text-xs text-muted-foreground">
-                              {localizeAddOnDescription(addOn.code, addOn.description)}
+                              {localizeAddOnDescription(
+                                addOn.code,
+                                addOn.description,
+                              )}
                             </p>
                           </div>
                           {isCore ? <Badge>إلزامي</Badge> : null}
@@ -1004,7 +1126,10 @@ export default function PlanPage() {
                                   ...prev,
                                   [addOn.code]: enabled
                                     ? allowsQuantity
-                                      ? Math.max(1, Number(prev[addOn.code] || 1))
+                                      ? Math.max(
+                                          1,
+                                          Number(prev[addOn.code] || 1),
+                                        )
                                       : 1
                                     : 0,
                                 }));
@@ -1017,12 +1142,21 @@ export default function PlanPage() {
                             <Input
                               type="number"
                               min={1}
-                              value={Math.max(1, Number(byoAddOnQty[addOn.code] || 1))}
+                              value={Math.max(
+                                1,
+                                Number(byoAddOnQty[addOn.code] || 1),
+                              )}
                               className="h-8 w-20"
                               disabled={!checked || !canEdit}
                               onChange={(event) => {
-                                const quantity = Math.max(1, Number(event.target.value || 1));
-                                setByoAddOnQty((prev) => ({ ...prev, [addOn.code]: quantity }));
+                                const quantity = Math.max(
+                                  1,
+                                  Number(event.target.value || 1),
+                                );
+                                setByoAddOnQty((prev) => ({
+                                  ...prev,
+                                  [addOn.code]: quantity,
+                                }));
                               }}
                             />
                           ) : null}
@@ -1045,91 +1179,127 @@ export default function PlanPage() {
                 لكل فئة اختر باقة واحدة فقط. الرقم = تكرار نفس الباقة شهريًا.
               </p>
               <div className="space-y-4">
-                {Object.entries(byoUsagePacksByMetric).map(([metric, packs]) => (
-                  <div key={metric} className="space-y-2">
-                    <p className="text-sm font-medium">{METRIC_LABELS[metric] || metric}</p>
-                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                      {(packs || []).map((pack: any) => {
-                        const checked = Number(byoPackQty[pack.code] || 0) > 0;
-                        const quantity = Math.max(1, Number(byoPackQty[pack.code] || 1));
-                        const benefitLines = usagePackBenefitLines(pack, quantity);
-                        return (
-                          <Card key={pack.code} className={checked ? "border-primary" : ""}>
-                            <CardContent className="space-y-2 pt-4">
-                              <p className="font-medium text-sm">
-                                {localizeUsagePackName(pack.code, pack.name)}
-                              </p>
-                              <div className="flex items-center justify-between text-xs">
-                                <span>شهري</span>
-                                <span className="font-medium">
-                                  {pack.priceCents
-                                    ? toCurrency(pack.priceCents, pack.currency || currency)
-                                    : "-"}
-                                </span>
-                              </div>
-                              <div className="rounded-md border bg-muted/20 p-2">
-                                <p className="text-[11px] text-muted-foreground">ماذا تضيف هذه الباقة:</p>
-                                {quantity > 1 ? (
+                {Object.entries(byoUsagePacksByMetric).map(
+                  ([metric, packs]) => (
+                    <div key={metric} className="space-y-2">
+                      <p className="text-sm font-medium">
+                        {METRIC_LABELS[metric] || metric}
+                      </p>
+                      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                        {(packs || []).map((pack: any) => {
+                          const checked =
+                            Number(byoPackQty[pack.code] || 0) > 0;
+                          const quantity = Math.max(
+                            1,
+                            Number(byoPackQty[pack.code] || 1),
+                          );
+                          const benefitLines = usagePackBenefitLines(
+                            pack,
+                            quantity,
+                          );
+                          return (
+                            <Card
+                              key={pack.code}
+                              className={checked ? "border-primary" : ""}
+                            >
+                              <CardContent className="space-y-2 pt-4">
+                                <p className="font-medium text-sm">
+                                  {localizeUsagePackName(pack.code, pack.name)}
+                                </p>
+                                <div className="flex items-center justify-between text-xs">
+                                  <span>شهري</span>
+                                  <span className="font-medium">
+                                    {pack.priceCents
+                                      ? toCurrency(
+                                          pack.priceCents,
+                                          pack.currency || currency,
+                                        )
+                                      : "-"}
+                                  </span>
+                                </div>
+                                <div className="rounded-md border bg-muted/20 p-2">
                                   <p className="text-[11px] text-muted-foreground">
-                                    القيم بعد تطبيق الكمية الحالية ({quantity}).
+                                    ماذا تضيف هذه الباقة:
                                   </p>
-                                ) : null}
-                                {benefitLines.length > 0 ? (
-                                  benefitLines.map((line) => (
-                                    <p key={line} className="text-[11px] font-medium">
-                                      {line}
+                                  {quantity > 1 ? (
+                                    <p className="text-[11px] text-muted-foreground">
+                                      القيم بعد تطبيق الكمية الحالية ({quantity}
+                                      ).
                                     </p>
-                                  ))
-                                ) : (
-                                  <p className="text-[11px] text-muted-foreground">لا توجد تفاصيل زيادة متاحة.</p>
-                                )}
-                              </div>
-                              <div className="flex items-center justify-between gap-2">
-                                <div className="flex items-center gap-2">
-                                  <Checkbox
-                                    checked={checked}
-                                    onCheckedChange={(nextChecked) => {
-                                      const enabled = nextChecked === true;
-                                      setByoPackQty((prev) => {
-                                        const next = { ...prev };
-                                        const codesInMetric = (packs || []).map((item: any) =>
-                                          String(item.code),
-                                        );
-                                        if (enabled) {
-                                          for (const c of codesInMetric) {
-                                            if (c !== pack.code) {
-                                              next[c] = 0;
+                                  ) : null}
+                                  {benefitLines.length > 0 ? (
+                                    benefitLines.map((line) => (
+                                      <p
+                                        key={line}
+                                        className="text-[11px] font-medium"
+                                      >
+                                        {line}
+                                      </p>
+                                    ))
+                                  ) : (
+                                    <p className="text-[11px] text-muted-foreground">
+                                      لا توجد تفاصيل زيادة متاحة.
+                                    </p>
+                                  )}
+                                </div>
+                                <div className="flex items-center justify-between gap-2">
+                                  <div className="flex items-center gap-2">
+                                    <Checkbox
+                                      checked={checked}
+                                      onCheckedChange={(nextChecked) => {
+                                        const enabled = nextChecked === true;
+                                        setByoPackQty((prev) => {
+                                          const next = { ...prev };
+                                          const codesInMetric = (
+                                            packs || []
+                                          ).map((item: any) =>
+                                            String(item.code),
+                                          );
+                                          if (enabled) {
+                                            for (const c of codesInMetric) {
+                                              if (c !== pack.code) {
+                                                next[c] = 0;
+                                              }
                                             }
+                                            next[pack.code] = Math.max(
+                                              1,
+                                              Number(prev[pack.code] || 1),
+                                            );
+                                          } else {
+                                            next[pack.code] = 0;
                                           }
-                                          next[pack.code] = Math.max(1, Number(prev[pack.code] || 1));
-                                        } else {
-                                          next[pack.code] = 0;
-                                        }
-                                        return next;
-                                      });
+                                          return next;
+                                        });
+                                      }}
+                                    />
+                                    <span className="text-xs">اختيار</span>
+                                  </div>
+                                  <Input
+                                    type="number"
+                                    min={1}
+                                    className="h-8 w-20"
+                                    disabled={!checked}
+                                    value={quantity}
+                                    onChange={(event) => {
+                                      const quantity = Math.max(
+                                        1,
+                                        Number(event.target.value || 1),
+                                      );
+                                      setByoPackQty((prev) => ({
+                                        ...prev,
+                                        [pack.code]: quantity,
+                                      }));
                                     }}
                                   />
-                                  <span className="text-xs">اختيار</span>
                                 </div>
-                                <Input
-                                  type="number"
-                                  min={1}
-                                  className="h-8 w-20"
-                                  disabled={!checked}
-                                  value={quantity}
-                                  onChange={(event) => {
-                                    const quantity = Math.max(1, Number(event.target.value || 1));
-                                    setByoPackQty((prev) => ({ ...prev, [pack.code]: quantity }));
-                                  }}
-                                />
-                              </div>
-                            </CardContent>
-                          </Card>
-                        );
-                      })}
+                              </CardContent>
+                            </Card>
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ),
+                )}
               </div>
             </div>
 
@@ -1139,7 +1309,8 @@ export default function PlanPage() {
                 {calculating ? "جاري الحساب..." : "إعادة حساب BYO"}
               </Button>
               <p className="text-xs text-muted-foreground">
-                معامل زيادة BYO = {catalog.byoMarkup}x، وباقات الاستخدام شهرية بدون خصم دورة.
+                معامل زيادة BYO = {catalog.byoMarkup}x، وباقات الاستخدام شهرية
+                بدون خصم دورة.
               </p>
             </div>
           </CardContent>
@@ -1153,27 +1324,44 @@ export default function PlanPage() {
             <CardContent className="space-y-4">
               <div className="grid gap-4 md:grid-cols-3">
                 <div className="rounded-md border p-3">
-                  <p className="text-xs text-muted-foreground">قبل معامل BYO (شهري)</p>
+                  <p className="text-xs text-muted-foreground">
+                    قبل معامل BYO (شهري)
+                  </p>
                   <p className="text-lg font-semibold">
-                    {toCurrency(byoResult.subtotals?.preMarkupEffectiveMonthlyCents || 0, currency)}
+                    {toCurrency(
+                      byoResult.subtotals?.preMarkupEffectiveMonthlyCents || 0,
+                      currency,
+                    )}
                   </p>
                 </div>
                 <div className="rounded-md border p-3">
-                  <p className="text-xs text-muted-foreground">إجمالي BYO (شهري فعلي)</p>
+                  <p className="text-xs text-muted-foreground">
+                    إجمالي BYO (شهري فعلي)
+                  </p>
                   <p className="text-lg font-semibold">
-                    {toCurrency(byoResult.totals?.effectiveMonthlyCents || 0, currency)}
+                    {toCurrency(
+                      byoResult.totals?.effectiveMonthlyCents || 0,
+                      currency,
+                    )}
                   </p>
                 </div>
                 <div className="rounded-md border p-3">
-                  <p className="text-xs text-muted-foreground">إجمالي الدورة ({cycleMonths} شهر)</p>
+                  <p className="text-xs text-muted-foreground">
+                    إجمالي الدورة ({cycleMonths} شهر)
+                  </p>
                   <p className="text-lg font-semibold">
-                    {toCurrency(byoResult.totals?.cycleTotalCents || 0, currency)}
+                    {toCurrency(
+                      byoResult.totals?.cycleTotalCents || 0,
+                      currency,
+                    )}
                   </p>
                 </div>
               </div>
 
               <div className="rounded-md border p-3">
-                <p className="text-sm font-medium">مقارنة الباقات الجاهزة مقابل BYO</p>
+                <p className="text-sm font-medium">
+                  مقارنة الباقات الجاهزة مقابل BYO
+                </p>
                 <div className="mt-2 space-y-1">
                   {(byoResult.bundleComparison || []).map((entry: any) => (
                     <div
@@ -1182,8 +1370,15 @@ export default function PlanPage() {
                     >
                       <span>{localizePlanName(entry.code, entry.name)}</span>
                       <span>
-                        {toCurrency(entry.effectiveMonthlyCents, entry.currency || currency)} •
-                        الوفر مقابل BYO: {Number(entry.savesPercent || 0).toLocaleString("ar-EG")}%
+                        {toCurrency(
+                          entry.effectiveMonthlyCents,
+                          entry.currency || currency,
+                        )}{" "}
+                        • الوفر مقابل BYO:{" "}
+                        {Number(entry.savesPercent || 0).toLocaleString(
+                          "ar-EG",
+                        )}
+                        %
                       </span>
                     </div>
                   ))}

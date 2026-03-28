@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useCallback } from "react";
 import { PageHeader } from "@/components/layout";
@@ -48,7 +48,7 @@ import {
   Loader2,
   RefreshCw,
 } from "lucide-react";
-import portalApi from "@/lib/authenticated-api";
+import portalApi from "@/lib/client";
 import {
   AiInsightsCard,
   generateOcrInsights,
@@ -258,7 +258,7 @@ export default function OcrReviewPage() {
 
       {error && (
         <div className="bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3 text-sm text-yellow-700 dark:text-yellow-300">
-          {error} — يتم عرض بيانات تجريبية
+          {error} - يتم عرض بيانات تجريبية
         </div>
       )}
 
@@ -318,15 +318,15 @@ export default function OcrReviewPage() {
                             {item.detectedName}
                           </TableCell>
                           <TableCell className="text-sm text-muted-foreground">
-                            {item.productName || "—"}
+                            {item.productName || "-"}
                           </TableCell>
                           <TableCell className="text-center">
                             {item.detectedPrice != null
                               ? `${item.detectedPrice} ج.م`
-                              : "—"}
+                              : "-"}
                           </TableCell>
                           <TableCell className="text-center">
-                            {item.detectedQuantity ?? "—"}
+                            {item.detectedQuantity ?? "-"}
                           </TableCell>
                           <TableCell className="text-center">
                             {confidenceBadge(item.confidence)}

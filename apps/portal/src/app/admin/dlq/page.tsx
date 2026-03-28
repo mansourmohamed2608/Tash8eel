@@ -44,7 +44,7 @@ import {
   formatRelativeTime,
   getStatusColor,
 } from "@/lib/utils";
-import { portalApi } from "@/lib/authenticated-api";
+import { portalApi } from "@/lib/client";
 
 interface DlqEvent {
   id: string;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { signIn, getSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -22,11 +22,30 @@ function LoginForm() {
   const [merchantId, setMerchantId] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
   const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") || "/merchant/dashboard";
+
+  useEffect(() => {
+    const signup = searchParams.get("signup");
+    const nextMerchantId = searchParams.get("merchantId");
+    const nextEmail = searchParams.get("email");
+
+    if (signup === "success") {
+      setSuccessMessage(
+        "تم إنشاء الحساب التجريبي بنجاح. استخدم رقم المتجر والبريد الإلكتروني لإتمام تسجيل الدخول.",
+      );
+    }
+    if (nextMerchantId) {
+      setMerchantId(nextMerchantId);
+    }
+    if (nextEmail) {
+      setEmail(nextEmail);
+    }
+  }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,13 +61,20 @@ function LoginForm() {
       });
 
       if (result?.error) {
-        // Map common error messages to Arabic
+        // Map known error codes; fall back to a friendly Arabic message
+        // Never show raw API messages like "غير مصرح." or English text
         const errorMessages: Record<string, string> = {
           CredentialsSignin: "البريد الإلكتروني أو كلمة المرور غير صحيحة",
-          "fetch failed": "البريد الإلكتروني أو كلمة المرور غير صحيحة",
+          "fetch failed":
+            "تعذر الاتصال بالخادم. تأكد من تشغيل الخادم وأعد المحاولة.",
           Configuration: "البريد الإلكتروني أو كلمة المرور غير صحيحة",
+          "تعذر الاتصال بالخادم. تأكد من تشغيل الخادم وأعد المحاولة.":
+            "تعذر الاتصال بالخادم. تأكد من تشغيل الخادم وأعد المحاولة.",
         };
-        setError(errorMessages[result.error] || result.error);
+        setError(
+          errorMessages[result.error] ??
+            "البريد الإلكتروني أو كلمة المرور غير صحيحة",
+        );
       } else {
         // Wait a moment for session to be established, then check role
         // This prevents the double-click issue
@@ -87,6 +113,12 @@ function LoginForm() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
+            {successMessage && (
+              <div className="flex items-center gap-2 p-3 rounded-md bg-green-50 text-green-700 text-sm">
+                <span>{successMessage}</span>
+              </div>
+            )}
+
             {error && (
               <div className="flex items-center gap-2 p-3 rounded-md bg-red-50 text-red-700 text-sm">
                 <AlertCircle className="h-4 w-4 flex-shrink-0" />
@@ -180,13 +212,30 @@ function LoginForm() {
             </div>
           </form>
 
-          {/* Demo credentials hint */}
+          {/* Demo credentials hint — click any value to auto-fill */}
           {process.env.NODE_ENV === "development" && (
             <div className="mt-6 p-3 bg-muted rounded-md text-xs text-muted-foreground">
-              <p className="font-semibold mb-1">بيانات تجريبية:</p>
-              <p>المتجر: demo-merchant</p>
-              <p>البريد: demo@tash8eel.com</p>
-              <p>كلمة المرور: demo123</p>
+              <p className="font-semibold mb-1">
+                بيانات تجريبية (اضغط للملء التلقائي):
+              </p>
+              <button
+                type="button"
+                className="block w-full text-right hover:text-foreground transition-colors py-0.5 cursor-pointer"
+                onClick={() => {
+                  setMerchantId("demo-merchant");
+                  setEmail("demo@tash8eel.com");
+                  setPassword("demo123");
+                }}
+              >
+                <span className="text-muted-foreground">المتجر: </span>
+                <span className="text-primary underline">demo-merchant</span>
+                <span className="text-muted-foreground"> · البريد: </span>
+                <span className="text-primary underline">
+                  demo@tash8eel.com
+                </span>
+                <span className="text-muted-foreground"> · كلمة المرور: </span>
+                <span className="text-primary underline">demo123</span>
+              </button>
             </div>
           )}
         </CardContent>

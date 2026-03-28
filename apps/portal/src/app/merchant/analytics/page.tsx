@@ -33,7 +33,7 @@ import {
   Zap,
   Calendar,
 } from "lucide-react";
-import { merchantApi } from "@/lib/api";
+import { merchantApi } from "@/lib/client";
 import { formatCurrency } from "@/lib/utils";
 import { useMerchant } from "@/hooks/use-merchant";
 import {
@@ -301,7 +301,7 @@ export default function AnalyticsPage() {
         title="التحليلات"
         description="تحليلات متقدمة لأداء متجرك"
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
             <Select
               value={periodDays.toString()}
               onValueChange={(v) => {
@@ -310,7 +310,7 @@ export default function AnalyticsPage() {
                 setStoredReportingDays(next);
               }}
             >
-              <SelectTrigger className="w-40">
+              <SelectTrigger className="w-full sm:w-44">
                 <Calendar className="h-4 w-4 ml-2" />
                 <SelectValue />
               </SelectTrigger>
@@ -346,12 +346,14 @@ export default function AnalyticsPage() {
       {/* GPT-Powered Smart Analysis */}
       <SmartAnalysisButton context="analytics" />
 
-      <p className="text-sm text-muted-foreground flex items-center gap-2">
-        الفترة الحالية: {selectedPeriodSummary}
-        {refreshing && (
-          <RefreshCw className="h-3 w-3 animate-spin text-muted-foreground" />
-        )}
-      </p>
+      <div className="rounded-lg border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-2">
+          <span>الفترة الحالية: {selectedPeriodSummary}</span>
+          {refreshing && (
+            <RefreshCw className="h-3 w-3 animate-spin text-muted-foreground" />
+          )}
+        </div>
+      </div>
       {failedSectionsCount > 0 && (
         <p className="text-xs text-amber-600">
           تعذر تحميل {failedSectionsCount} قسم من التحليلات في هذه المحاولة.
@@ -360,7 +362,7 @@ export default function AnalyticsPage() {
       )}
 
       <Tabs defaultValue="conversion" className="space-y-6">
-        <TabsList className="grid grid-cols-4 w-full max-w-2xl">
+        <TabsList className="grid grid-cols-2 md:grid-cols-4 w-full">
           <TabsTrigger value="conversion">
             <Target className="h-4 w-4 ml-2" />
             التحويلات

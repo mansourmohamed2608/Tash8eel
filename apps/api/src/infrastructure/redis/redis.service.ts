@@ -119,6 +119,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
 
   private acquireInMemoryLock(resource: string, ttlMs: number): Lock | null {
     const now = Date.now();
+    this.cleanupExpiredInMemoryLocks(now);
     const existing = this.inMemoryLocks.get(resource);
 
     // Check if existing lock is still valid
@@ -134,6 +135,14 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
         this.inMemoryLocks.delete(resource);
       },
     };
+  }
+
+  private cleanupExpiredInMemoryLocks(now: number = Date.now()): void {
+    for (const [resource, lock] of this.inMemoryLocks.entries()) {
+      if (lock.expiresAt <= now) {
+        this.inMemoryLocks.delete(resource);
+      }
+    }
   }
 
   async get(key: string): Promise<string | null> {

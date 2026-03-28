@@ -78,6 +78,16 @@ export class MetaWebhookController {
   ): void {
     this.logger.log({ msg: "Meta webhook verification request", mode });
 
+    const configuredVerifyToken =
+      this.configService.get<string>("WEBHOOK_VERIFY_TOKEN") || "";
+    if (!configuredVerifyToken) {
+      this.logger.error(
+        "WEBHOOK_VERIFY_TOKEN is not configured. Rejecting Meta webhook verification.",
+      );
+      res.status(403).send("Verification failed");
+      return;
+    }
+
     const result = this.metaAdapter.verifyWebhook(mode, verifyToken, challenge);
 
     if (result !== null) {
@@ -118,7 +128,18 @@ export class MetaWebhookController {
     try {
       // Validate signature using raw body
       const rawBody = req.rawBody;
-      if (rawBody && !this.metaAdapter.validateSignature(signature, rawBody)) {
+      if (!rawBody) {
+        this.logger.error({
+          msg: "Meta webhook request missing raw body",
+          correlationId,
+        });
+        res
+          .status(401)
+          .json({ error: "Missing raw body for signature validation" });
+        return;
+      }
+
+      if (!this.metaAdapter.validateSignature(signature, rawBody)) {
         this.logger.warn({
           msg: "Invalid Meta webhook signature",
           correlationId,
@@ -209,7 +230,9 @@ export class MetaWebhookController {
             });
             return;
           }
-        } catch { /* proceed if table not yet migrated */ }
+        } catch {
+          /* proceed if table not yet migrated */
+        }
       }
 
       const driverStatus = await this.driverStatusService.processDriverMessage({
@@ -575,5 +598,4 @@ export class MetaWebhookController {
       [status, waMessageId],
     );
   }
-
 }

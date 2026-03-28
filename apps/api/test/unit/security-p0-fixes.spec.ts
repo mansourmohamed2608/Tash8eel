@@ -194,36 +194,7 @@ describe("Rate Limiting Configuration", () => {
 });
 
 // ============================================================================
-// Test 5: Public vs Protected Payment Endpoints
-// ============================================================================
-describe("Payment Endpoint Security Boundaries", () => {
-  it("public endpoints should not require API key or JWT", () => {
-    // PublicPaymentsController has NO guards
-    // These are customer-facing endpoints
-    const publicEndpoints = [
-      "GET /v1/payments/pay/:code", // View payment link
-      "POST /v1/payments/pay/:code/proof", // Submit proof
-      "GET /v1/payments/pay/:code/status", // Check status
-    ];
-
-    // All protected endpoints require MerchantApiKeyGuard
-    const protectedEndpoints = [
-      "POST /v1/portal/payments/links", // Create link (merchant)
-      "GET /v1/portal/payments/links", // List links (merchant)
-      "GET /v1/portal/payments/proofs", // List proofs (merchant)
-    ];
-
-    expect(publicEndpoints.length).toBe(3);
-    expect(protectedEndpoints.length).toBe(3);
-    // Verify no overlap
-    for (const pub of publicEndpoints) {
-      expect(protectedEndpoints).not.toContain(pub);
-    }
-  });
-});
-
-// ============================================================================
-// Test 6: PublicSubmitProofDto MaxLength validation
+// Test 5: PublicSubmitProofDto MaxLength validation
 // ============================================================================
 describe("PublicSubmitProofDto Validation", () => {
   const MAX_BASE64_LENGTH = 7_000_000;

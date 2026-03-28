@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PageHeader } from "@/components/layout";
@@ -18,7 +18,7 @@ import {
   Mic,
   Square,
 } from "lucide-react";
-import { merchantApi } from "@/lib/api";
+import { merchantApi } from "@/lib/client";
 import { useMerchant } from "@/hooks/use-merchant";
 import { cn } from "@/lib/utils";
 
@@ -455,12 +455,12 @@ export default function MerchantAssistantPage() {
         />
       )}
 
-      {/* AI Status Banner — only shown when AI is NOT working */}
+      {/* AI Status Banner - only shown when AI is NOT working */}
       {aiStatus && !aiStatus.connected && (
         <div className="flex items-center gap-2 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-4 py-2">
           <div className="h-2 w-2 rounded-full bg-amber-500" />
           <span>
-            الذكاء الاصطناعي غير متاح — قم بتفعيل الخدمة أو ترقية باقتك
+            الذكاء الاصطناعي غير متاح - قم بتفعيل الخدمة أو ترقية باقتك
           </span>
           <a
             href="/merchant/plan"
@@ -471,7 +471,7 @@ export default function MerchantAssistantPage() {
         </div>
       )}
 
-      {/* Example commands — show only when conversation is fresh */}
+      {/* Example commands - show only when conversation is fresh */}
       {messages.length <= 1 && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
           {[

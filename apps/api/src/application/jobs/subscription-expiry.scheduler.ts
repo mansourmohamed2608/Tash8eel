@@ -1,19 +1,20 @@
 import { Injectable, Logger, Inject } from "@nestjs/common";
 import { Cron } from "@nestjs/schedule";
 import { Pool } from "pg";
+import { ConfigService } from "@nestjs/config";
 import { DATABASE_POOL } from "../../infrastructure/database/database.module";
 import { OutboxService } from "../events/outbox.service";
 import { EVENT_TYPES } from "../events/event-types";
 import { RedisService } from "../../infrastructure/redis/redis.service";
+import { StaffService } from "../services/staff.service";
 /**
  * Runs daily to expire overdue paid subscriptions and send renewal warnings.
  *
- * Expiry policy (ZERO tolerance):
- *   - Once current_period_end passes, the subscription is marked EXPIRED and
- *     the merchant's is_active is set to FALSE immediately — no grace period.
- *   - The WhatsApp AI stops responding entirely. No free quota. No trial fallback.
- *   - Re-activation happens only when the merchant pays (renewal flow calls
- *     updateMerchantProvisioning({ isActive: true }) which flips it back on).
+ * Expiry policy:
+ *   - Once current_period_end passes, the subscription enters a grace window.
+ *   - During grace, the merchant is warned and remains active.
+ *   - After grace elapses, the subscription is marked EXPIRED and the
+ *     merchant's is_active is set to FALSE until renewal.
  *
  * Renewal warnings sent before expiry:
  *   - 7 days in advance
@@ -24,21 +25,37 @@ export class SubscriptionExpiryScheduler {
   private readonly logger = new Logger(SubscriptionExpiryScheduler.name);
   private readonly lockKey = "subscription-expiry-scheduler-lock";
   private readonly lockTtl = 300_000; // 5 minutes
+  private readonly gracePeriodHours: number;
 
   constructor(
     @Inject(DATABASE_POOL) private readonly pool: Pool,
     private readonly outboxService: OutboxService,
     private readonly redisService: RedisService,
-  ) {}
+    private readonly staffService: StaffService,
+    private readonly configService: ConfigService,
+  ) {
+    const configuredGraceHours = Number(
+      this.configService.get<string>("SUBSCRIPTION_GRACE_PERIOD_HOURS") ?? "24",
+    );
+    this.gracePeriodHours =
+      Number.isFinite(configuredGraceHours) && configuredGraceHours >= 0
+        ? configuredGraceHours
+        : 24;
+  }
 
   /**
    * Daily at 2:00 AM UTC (4 AM Egypt time)
    */
   @Cron("0 2 * * *", { timeZone: "UTC" })
   async runDailyExpiryCheck(): Promise<void> {
-    const lock = await this.redisService.acquireLock(this.lockKey, this.lockTtl);
+    const lock = await this.redisService.acquireLock(
+      this.lockKey,
+      this.lockTtl,
+    );
     if (!lock) {
-      this.logger.debug("Could not acquire subscription expiry lock — skipping");
+      this.logger.debug(
+        "Could not acquire subscription expiry lock — skipping",
+      );
       return;
     }
 
@@ -57,7 +74,10 @@ export class SubscriptionExpiryScheduler {
       });
     } catch (err) {
       this.logger.error(
-        { msg: "Subscription expiry check failed", error: (err as Error).message },
+        {
+          msg: "Subscription expiry check failed",
+          error: (err as Error).message,
+        },
         (err as Error).stack,
       );
       try {
@@ -80,9 +100,9 @@ export class SubscriptionExpiryScheduler {
 
   /**
    * Find ACTIVE paid subscriptions whose current_period_end has passed.
-   * Sets subscription status = 'EXPIRED' and merchant is_active = false.
-   * Bot goes completely dark. No free quota. No grace period.
-   * Re-activation happens only when the merchant pays.
+   * During the grace window, warn the merchant and keep service active.
+   * After the grace window elapses, mark the subscription EXPIRED and
+   * deactivate the merchant until renewal.
    */
   private async expireOverdueSubscriptions(): Promise<number> {
     // Fetch ACTIVE non-TRIAL subscriptions past their period end
@@ -116,6 +136,55 @@ export class SubscriptionExpiryScheduler {
 
     for (const row of result.rows) {
       try {
+        const periodEnd = new Date(row.current_period_end);
+        const graceWindowEndsAt = new Date(
+          periodEnd.getTime() + this.gracePeriodHours * 60 * 60 * 1000,
+        );
+
+        if (Date.now() < graceWindowEndsAt.getTime()) {
+          this.logger.warn({
+            msg: "Subscription expired but still within grace period",
+            merchantId: row.merchant_id,
+            subscriptionId: row.id,
+            planCode: row.plan_code,
+            periodEnd: row.current_period_end,
+            gracePeriodHours: this.gracePeriodHours,
+            graceWindowEndsAt: graceWindowEndsAt.toISOString(),
+          });
+
+          if (row.notification_phone) {
+            const message =
+              `🟠 *انتهى اشتراكك — فترة سماح نشطة*\n\n` +
+              `مرحباً صاحب ${row.merchant_name}،\n` +
+              `انتهت مدة اشتراكك في خطة *${row.plan_code}* بتاريخ ${this.formatDate(row.current_period_end)}.\n\n` +
+              `⌛ لديك فترة سماح حتى ${this.formatDate(graceWindowEndsAt.toISOString())} لتجديد الاشتراك قبل إيقاف الخدمة.\n\n` +
+              `جدّد اشتراكك من بوابة التاجر لتجنب انقطاع الخدمة.`;
+
+            await this.outboxService.publishEvent({
+              eventType: EVENT_TYPES.MERCHANT_ALERTED,
+              aggregateType: "Merchant",
+              aggregateId: row.merchant_id,
+              merchantId: row.merchant_id,
+              payload: {
+                merchantId: row.merchant_id,
+                alertType: "subscription_grace_period_warning",
+                message,
+                metadata: {
+                  subscriptionId: row.id,
+                  planCode: row.plan_code,
+                  periodEnd: row.current_period_end,
+                  gracePeriodHours: this.gracePeriodHours,
+                  graceWindowEndsAt: graceWindowEndsAt.toISOString(),
+                  sendViaWhatsApp: true,
+                  recipientPhone: row.notification_phone,
+                },
+              },
+            });
+          }
+
+          continue;
+        }
+
         const client = await (this.pool as any).connect();
         try {
           await client.query("BEGIN");
@@ -151,6 +220,7 @@ export class SubscriptionExpiryScheduler {
           planCode: row.plan_code,
           periodEnd: row.current_period_end,
         });
+        await this.staffService.revokeAllMerchantSessions(row.merchant_id);
 
         // 3. Notify merchant via WhatsApp if they have a notification phone
         if (row.notification_phone) {

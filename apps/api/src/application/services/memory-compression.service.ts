@@ -10,6 +10,7 @@ import {
 } from "../../domain/ports/message.repository";
 import { Message } from "../../domain/entities/message.entity";
 import OpenAI from "openai";
+import { UsageGuardService } from "./usage-guard.service";
 
 export interface CompressionResult {
   originalTokens: number;
@@ -43,6 +44,7 @@ export class MemoryCompressionService {
     private readonly conversationRepo: IConversationRepository,
     @Inject(MESSAGE_REPOSITORY)
     private readonly messageRepo: IMessageRepository,
+    private readonly usageGuard: UsageGuardService,
   ) {
     this.MAX_CONTEXT_TOKENS = this.configService.get<number>(
       "MAX_CONTEXT_TOKENS",
@@ -159,7 +161,11 @@ export class MemoryCompressionService {
 
     // Generate summary of old messages
     const existingSummary = (conversation as any).conversationSummary;
-    const newSummary = await this.generateSummary(oldMessages, existingSummary);
+    const newSummary = await this.generateSummary(
+      conversation.merchantId,
+      oldMessages,
+      existingSummary,
+    );
 
     // Update conversation with new summary
     await this.conversationRepo.update(conversationId, {
@@ -192,6 +198,7 @@ export class MemoryCompressionService {
    * Generate a summary of messages using LLM
    */
   private async generateSummary(
+    merchantId: string,
     messages: Message[],
     existingSummary?: string,
   ): Promise<string> {
@@ -224,6 +231,37 @@ ${conversationText}
     }
 
     try {
+      const tokenCheck = await this.usageGuard.checkLimit(merchantId, "TOKENS");
+      if (!tokenCheck.allowed) {
+        this.logger.warn({
+          msg: "Memory compression skipped due to token budget",
+          merchantId,
+          used: tokenCheck.used,
+          limit: tokenCheck.limit,
+        });
+        return this.generateFallbackSummary(messages, existingSummary);
+      }
+
+      const aiCallCheck = await this.usageGuard.consume(
+        merchantId,
+        "AI_CALLS",
+        1,
+        {
+          metadata: {
+            source: "MEMORY_COMPRESSION",
+          },
+        },
+      );
+      if (!aiCallCheck.allowed) {
+        this.logger.warn({
+          msg: "Memory compression skipped due to AI call quota",
+          merchantId,
+          used: aiCallCheck.used,
+          limit: aiCallCheck.limit,
+        });
+        return this.generateFallbackSummary(messages, existingSummary);
+      }
+
       const response = await this.openaiClient.chat.completions.create({
         model: "gpt-4o-mini",
         messages: [
@@ -233,10 +271,20 @@ ${conversationText}
         max_tokens: 500,
       });
 
+      const tokensUsed = response.usage?.total_tokens || 0;
+      if (tokensUsed > 0) {
+        await this.usageGuard.consume(merchantId, "TOKENS", tokensUsed, {
+          metadata: {
+            source: "MEMORY_COMPRESSION",
+          },
+        });
+      }
+
       return response.choices[0]?.message?.content || "";
     } catch (error) {
       this.logger.error({
         msg: "Failed to generate summary",
+        merchantId,
         error: (error as Error).message,
       });
 

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useCallback } from "react";
 import { PageHeader } from "@/components/layout";
@@ -33,7 +33,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { cn, formatCurrency, formatRelativeTime } from "@/lib/utils";
-import { portalApi } from "@/lib/authenticated-api";
+import { portalApi } from "@/lib/client";
 import {
   AiInsightsCard,
   generateFollowupInsights,
@@ -291,7 +291,7 @@ export default function FollowupsPage() {
             {filteredFollowups.length} متابعة
             {activeTab !== "all" && FOLLOWUP_CONFIG[activeTab] && (
               <span className="ml-2">
-                — {FOLLOWUP_CONFIG[activeTab].description}
+                - {FOLLOWUP_CONFIG[activeTab].description}
               </span>
             )}
           </CardDescription>

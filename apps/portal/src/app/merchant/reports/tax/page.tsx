@@ -14,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { StatCard, KPIGrid } from "@/components/ui/stat-card";
-import { merchantApi } from "@/lib/api";
+import { merchantApi } from "@/lib/client";
 import { useMerchant } from "@/hooks/use-merchant";
 import { formatCurrency } from "@/lib/utils";
 import { FileText, Calculator, TrendingUp, RefreshCw } from "lucide-react";

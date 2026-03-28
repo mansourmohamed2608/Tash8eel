@@ -8,14 +8,7 @@ import {
   ReactNode,
 } from "react";
 import { useSession } from "next-auth/react";
-import { merchantApi } from "@/lib/api";
-
-// Demo credentials - these should match what's in the database
-// In production, get from session
-export const DEMO_MERCHANT_ID = "demo-merchant";
-export const DEMO_API_KEY =
-  "mkey_demo_1234567890abcdef1234567890abcdef12345678";
-export const DEMO_ADMIN_KEY = "admin_secret_key_12345";
+import { merchantApi } from "@/lib/client";
 
 interface MerchantContextType {
   merchantId: string;
@@ -51,11 +44,11 @@ interface MerchantContextType {
 }
 
 const MerchantContext = createContext<MerchantContextType>({
-  merchantId: DEMO_MERCHANT_ID,
-  apiKey: DEMO_API_KEY,
-  userId: "demo-user",
+  merchantId: "",
+  apiKey: "",
+  userId: "",
   isLoading: true,
-  isDemo: true,
+  isDemo: false,
   merchant: null,
   refetch: async () => {},
 });
@@ -66,90 +59,26 @@ export function MerchantProvider({ children }: { children: ReactNode }) {
   const [merchant, setMerchant] =
     useState<MerchantContextType["merchant"]>(null);
 
-  // Use session credentials or fall back to demo
-  const merchantId = (session?.user as any)?.merchantId || DEMO_MERCHANT_ID;
-  const userId = (session?.user as any)?.id || "demo-user";
-  // For auth, we use the accessToken from session if available, otherwise fall back to demo API key
-  // The accessToken is a JWT/demo token that the API guard will handle
+  // Use session credentials only.
+  const merchantId = (session?.user as any)?.merchantId || "";
+  const userId = (session?.user as any)?.id || "";
   const accessToken = (session as any)?.accessToken;
-  const apiKey = accessToken || DEMO_API_KEY;
-  const isDemo = !session || !accessToken || merchantId === DEMO_MERCHANT_ID;
+  const apiKey = accessToken || "";
+  const isDemo = false;
 
   const fetchMerchantContext = async () => {
     setIsLoading(true);
+    if (!apiKey) {
+      setMerchant(null);
+      setIsLoading(false);
+      return;
+    }
     try {
       const data = await merchantApi.getMe(apiKey);
       setMerchant(data);
     } catch (error) {
-      console.warn("Failed to fetch merchant context, using defaults:", error);
-      setMerchant((prev) => {
-        if (prev) return prev;
-
-        if (merchantId === DEMO_MERCHANT_ID) {
-          return {
-            id: merchantId,
-            name: "وضع تجريبي",
-            category: "GENERAL",
-            enabledAgents: ["OPS_AGENT", "INVENTORY_AGENT", "FINANCE_AGENT"],
-            enabledFeatures: [
-              "CONVERSATIONS",
-              "ORDERS",
-              "CATALOG",
-              "INVENTORY",
-              "REPORTS",
-              "KPI_DASHBOARD",
-              "PAYMENTS",
-              "WEBHOOKS",
-              "TEAM",
-              "AUDIT_LOGS",
-              "NOTIFICATIONS",
-              "API_ACCESS",
-            ],
-            plan: "pro",
-            features: {
-              inventory: true,
-              reports: true,
-              conversations: true,
-              analytics: true,
-              webhooks: true,
-              team: true,
-              audit: true,
-              payments: true,
-              vision: false,
-              kpis: true,
-              loyalty: false,
-              voiceNotes: true,
-              notifications: true,
-              apiAccess: true,
-            },
-          };
-        }
-
-        return {
-          id: merchantId,
-          name: "المتجر",
-          category: "GENERAL",
-          enabledAgents: ["OPS_AGENT", "INVENTORY_AGENT"],
-          enabledFeatures: ["CONVERSATIONS", "ORDERS", "CATALOG", "INVENTORY"],
-          plan: "starter",
-          features: {
-            inventory: true,
-            reports: false,
-            conversations: true,
-            analytics: false,
-            webhooks: false,
-            team: false,
-            audit: false,
-            payments: false,
-            vision: false,
-            kpis: false,
-            loyalty: false,
-            voiceNotes: false,
-            notifications: false,
-            apiAccess: false,
-          },
-        };
-      });
+      console.warn("Failed to fetch merchant context:", error);
+      setMerchant(null);
     } finally {
       setIsLoading(false);
     }
@@ -193,15 +122,14 @@ interface AdminContextType {
 }
 
 const AdminContext = createContext<AdminContextType>({
-  adminKey: DEMO_ADMIN_KEY,
+  adminKey: "",
   isLoading: false,
 });
 
 export function AdminProvider({ children }: { children: ReactNode }) {
   const { data: session, status } = useSession();
 
-  // Use session admin key or fall back to demo
-  const adminKey = (session as any)?.adminKey || DEMO_ADMIN_KEY;
+  const adminKey = (session as any)?.adminKey || "";
 
   return (
     <AdminContext.Provider

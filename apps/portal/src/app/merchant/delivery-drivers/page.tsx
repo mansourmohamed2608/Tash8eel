@@ -62,7 +62,7 @@ import {
   Bell,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { portalApi } from "@/lib/authenticated-api";
+import { portalApi } from "@/lib/client";
 import { Switch } from "@/components/ui/switch";
 
 interface Driver {

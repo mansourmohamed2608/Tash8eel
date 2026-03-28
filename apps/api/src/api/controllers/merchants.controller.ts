@@ -38,6 +38,7 @@ import { Merchant } from "../../domain/entities/merchant.entity";
 import { MerchantCategory } from "../../shared/constants/enums";
 import { AdminApiKeyGuard } from "../../shared/guards/admin-api-key.guard";
 import { DailyReportScheduler } from "../../application/jobs/daily-report.scheduler";
+import { StaffService } from "../../application/services/staff.service";
 import { v4 as uuidv4 } from "uuid";
 import { randomBytes } from "crypto";
 
@@ -57,6 +58,7 @@ export class MerchantsController {
     @Inject(MERCHANT_REPOSITORY)
     private readonly merchantRepo: IMerchantRepository,
     private readonly dailyReportScheduler: DailyReportScheduler,
+    private readonly staffService: StaffService,
   ) {}
 
   @Get(":id")
@@ -185,6 +187,10 @@ export class MerchantsController {
     await this.merchantRepo.update(id, {
       isActive: !merchant.isActive,
     });
+
+    if (merchant.isActive) {
+      await this.staffService.revokeAllMerchantSessions(id);
+    }
 
     const updated = await this.merchantRepo.findById(id);
     return this.toResponseDto(updated!);

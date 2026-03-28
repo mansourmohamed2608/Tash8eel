@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -293,7 +293,7 @@ export function generateOrderInsights(data: {
       severity: "critical",
       title: `معدل إلغاء مرتفع (${formatInsightPercent(cancelRate, 0)})`,
       description:
-        "معدل الإلغاء أعلى من 15%. تحقق من أسباب الإلغاء — قد تكون مشاكل في التسليم أو عدم وضوح المنتج.",
+        "معدل الإلغاء أعلى من 15%. تحقق من أسباب الإلغاء - قد تكون مشاكل في التسليم أو عدم وضوح المنتج.",
       actionLabel: "تحليل الطلبات",
       actionHref: "/merchant/analytics",
     });
@@ -478,7 +478,7 @@ export function generateExpenseInsights(data: {
         id: "spending-spike",
         severity: "warning",
         title: `ارتفاع المصاريف ${formatInsightPercent(increase, 0)} عن الشهر السابق`,
-        description: "تحقق من سبب الزيادة — هل هي موسمية أم مصاريف غير متوقعة؟",
+        description: "تحقق من سبب الزيادة - هل هي موسمية أم مصاريف غير متوقعة؟",
       });
     } else if (previous > 0 && latest < previous * 0.8) {
       insights.push({
@@ -665,7 +665,7 @@ export function generateAnalyticsInsights(data: {
       insights.push({
         id: "low-conversion",
         severity: "critical",
-        title: `معدل التحويل ${formatInsightPercent(data.conversionRate, 1)} — منخفض جداً`,
+        title: `معدل التحويل ${formatInsightPercent(data.conversionRate, 1)} - منخفض جداً`,
         description:
           "أقل من 5% من الزوار يشترون. حسّن صفحات المنتجات وسرعة الرد على الاستفسارات.",
         actionLabel: "تحسين المحادثات",
@@ -675,7 +675,7 @@ export function generateAnalyticsInsights(data: {
       insights.push({
         id: "high-conversion",
         severity: "success",
-        title: `معدل التحويل ${formatInsightPercent(data.conversionRate, 1)} — ممتاز!`,
+        title: `معدل التحويل ${formatInsightPercent(data.conversionRate, 1)} - ممتاز!`,
         description:
           "أداء ممتاز في تحويل الزوار لعملاء. استمر في هذه الاستراتيجية.",
       });
@@ -733,7 +733,7 @@ export function generateReportsInsights(data: {
     insights.push({
       id: "low-aov",
       severity: "warning",
-      title: `متوسط الطلب ${formatInsightNumber(data.avgOrderValue, 0)} ج.م — يمكن تحسينه`,
+      title: `متوسط الطلب ${formatInsightNumber(data.avgOrderValue, 0)} ج.م - يمكن تحسينه`,
       description:
         'جرّب عروض "اشترِ 2 واحصل على خصم" أو أضف منتجات مكمّلة لرفع قيمة السلة.',
     });
@@ -834,7 +834,7 @@ export function generateSegmentInsights(data: {
       severity: "info",
       title: `${data.totalSegments} شريحة تشمل ${data.totalCustomersInSegments} عميل`,
       description:
-        "استخدم الشرائح لإطلاق حملات مستهدفة — الرسائل المخصصة تحقق تفاعل أعلى بـ3 أضعاف.",
+        "استخدم الشرائح لإطلاق حملات مستهدفة - الرسائل المخصصة تحقق تفاعل أعلى بـ3 أضعاف.",
       actionLabel: "إنشاء حملة",
       actionHref: "/merchant/campaigns",
     });
@@ -1096,7 +1096,7 @@ export function generateAuditInsights(data: {
       severity: "info",
       title: `${data.recentActions} إجراء مسجّل مؤخراً`,
       description:
-        "نشاط كبير — تأكد من أن جميع الإجراءات مصرّح بها ومن فريقك فقط.",
+        "نشاط كبير - تأكد من أن جميع الإجراءات مصرّح بها ومن فريقك فقط.",
     });
   }
 
@@ -1136,7 +1136,7 @@ export function generateTeamInsights(data: {
       id: "solo",
       severity: "tip",
       title: "أنت تعمل وحدك",
-      description: "أضف أعضاء فريق لتوزيع المهام — محادثات، طلبات، ومتابعات.",
+      description: "أضف أعضاء فريق لتوزيع المهام - محادثات، طلبات، ومتابعات.",
     });
   }
 
@@ -1272,7 +1272,7 @@ export function generateGenericPageInsights(
     severity: "info",
     title: "المساعد الذكي متاح دائماً",
     description:
-      "يمكنك سؤال المساعد الذكي عن أي شيء يتعلق بنشاطك التجاري — مبيعات، مخزون، أو نصائح نمو.",
+      "يمكنك سؤال المساعد الذكي عن أي شيء يتعلق بنشاطك التجاري - مبيعات، مخزون، أو نصائح نمو.",
     actionLabel: "افتح المساعد",
     actionHref: "/merchant/assistant",
   });
@@ -1303,7 +1303,7 @@ export function generateConversationInsights(data: {
       severity: "info",
       title: `${data.activeConversations} محادثة نشطة`,
       description:
-        "البوت الذكي بيتولى الردود تلقائياً — ركز على المحادثات اللي محتاجة تدخل بشري.",
+        "البوت الذكي بيتولى الردود تلقائياً - ركز على المحادثات اللي محتاجة تدخل بشري.",
     });
   }
   if (data.avgResponseTime > 5) {
@@ -1349,7 +1349,7 @@ export function generateCustomerInsights(data: {
       severity: "tip",
       title: "صنّف عملاءك المميزين",
       description:
-        "علّم أفضل عملاءك كـ VIP — ده بيساعد في التسعير والعروض الشخصية.",
+        "علّم أفضل عملاءك كـ VIP - ده بيساعد في التسعير والعروض الشخصية.",
     });
   }
   if (data.newThisMonth > 0) {
@@ -1387,7 +1387,7 @@ export function generateInventoryInsights(data: {
       id: "low-stock",
       severity: "warning",
       title: `${data.lowStockCount} منتج بمخزون منخفض`,
-      description: "منتجات قربت تخلص — اطلبها قبل ما تنفذ وتفقد مبيعات.",
+      description: "منتجات قربت تخلص - اطلبها قبل ما تنفذ وتفقد مبيعات.",
     });
   }
   if (data.totalProducts === 0) {
@@ -1491,7 +1491,7 @@ export function generatePlanInsights(data: {
     severity: "info",
     title: "تعرف على مميزات خطتك",
     description:
-      "كل خطة بتديك وكلاء وقدرات ذكية مختلفة — اتأكد إنك مستفيد من كل المميزات.",
+      "كل خطة بتديك وكلاء وقدرات ذكية مختلفة - اتأكد إنك مستفيد من كل المميزات.",
   });
   return insights;
 }
@@ -1518,7 +1518,7 @@ export function generateOcrInsights(data: {
       severity: "success",
       title: `${data.approved} إيصال تم قبوله`,
       description:
-        "نظام قراءة الإيصالات شغال كويس — كل إيصال بيتقرأ تلقائياً ويستخرج البيانات.",
+        "نظام قراءة الإيصالات شغال كويس - كل إيصال بيتقرأ تلقائياً ويستخرج البيانات.",
     });
   }
   return insights;
@@ -1549,7 +1549,7 @@ export function generateKnowledgeBaseInsights(data: {
       severity: "tip",
       title: "أضف الأسئلة الشائعة",
       description:
-        "أضف أسئلة العملاء المتكررة — البوت هيرد عليها تلقائياً ويوفر عليك وقت.",
+        "أضف أسئلة العملاء المتكررة - البوت هيرد عليها تلقائياً ويوفر عليك وقت.",
     });
   }
   if (!data.hasOffers) {

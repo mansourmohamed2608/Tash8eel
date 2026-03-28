@@ -37,7 +37,7 @@ import {
   Clock,
   ExternalLink,
 } from "lucide-react";
-import { portalApi } from "@/lib/authenticated-api";
+import { portalApi } from "@/lib/client";
 import { formatDistanceToNow } from "date-fns";
 import { ar } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";

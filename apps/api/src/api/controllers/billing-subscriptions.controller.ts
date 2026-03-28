@@ -13,13 +13,9 @@ import { ApiHeader, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { Pool } from "pg";
 import { DATABASE_POOL } from "../../infrastructure/database/database.module";
 import { MerchantApiKeyGuard } from "../../shared/guards/merchant-api-key.guard";
-import {
-  UsageGuardService,
-} from "../../application/services/usage-guard.service";
-import {
-  PLAN_ENTITLEMENTS,
-  PlanType,
-} from "../../shared/entitlements";
+import { RequireRole, RolesGuard } from "../../shared/guards/roles.guard";
+import { UsageGuardService } from "../../application/services/usage-guard.service";
+import { PLAN_ENTITLEMENTS, PlanType } from "../../shared/entitlements";
 import {
   normalizeRegion,
   normalizeCycle,
@@ -33,7 +29,7 @@ import {
 
 @ApiTags("Billing")
 @Controller("v1/portal/billing")
-@UseGuards(MerchantApiKeyGuard)
+@UseGuards(MerchantApiKeyGuard, RolesGuard)
 @ApiHeader({
   name: "x-api-key",
   required: true,
@@ -48,6 +44,7 @@ export class BillingSubscriptionsController {
   ) {}
 
   @Post("subscribe")
+  @RequireRole("OWNER")
   @ApiOperation({ summary: "Subscribe merchant to a fixed bundle plan" })
   async subscribeBundle(
     @Req() req: any,
@@ -110,12 +107,8 @@ export class BillingSubscriptionsController {
     const enabledFeatures = entitlementsResult.rows.map((row) =>
       String(row.feature_key),
     );
-    const enabledAgents =
-      PLAN_ENTITLEMENTS[planCode as PlanType]?.enabledAgents || [
-        "OPS_AGENT",
-        "INVENTORY_AGENT",
-        "FINANCE_AGENT",
-      ];
+    const enabledAgents = PLAN_ENTITLEMENTS[planCode as PlanType]
+      ?.enabledAgents || ["OPS_AGENT", "INVENTORY_AGENT", "FINANCE_AGENT"];
 
     const planPrice = await this.pool.query(
       `SELECT total_price_cents, effective_monthly_cents, currency
@@ -199,9 +192,7 @@ export class BillingSubscriptionsController {
           ? {
               regionCode,
               cycleMonths,
-              totalPriceCents: Number(
-                planPrice.rows[0].total_price_cents || 0,
-              ),
+              totalPriceCents: Number(planPrice.rows[0].total_price_cents || 0),
               effectiveMonthlyCents: Number(
                 planPrice.rows[0].effective_monthly_cents || 0,
               ),
@@ -218,6 +209,7 @@ export class BillingSubscriptionsController {
   }
 
   @Post("topups")
+  @RequireRole("OWNER")
   @ApiOperation({
     summary:
       "Buy bundle top-ups (usage packs) or bundle capacity add-ons with strict entitlement/limit updates",
@@ -372,9 +364,7 @@ export class BillingSubscriptionsController {
       throw new BadRequestException("Merchant not found");
     }
     const merchantLimitsRaw =
-      merchantResult.rows[0].plan_limits ||
-      merchantResult.rows[0].limits ||
-      {};
+      merchantResult.rows[0].plan_limits || merchantResult.rows[0].limits || {};
     const merchantLimits =
       merchantLimitsRaw && typeof merchantLimitsRaw === "object"
         ? { ...merchantLimitsRaw }
@@ -472,9 +462,9 @@ export class BillingSubscriptionsController {
   }
 
   @Post("activate/:subscriptionId")
+  @RequireRole("OWNER")
   @ApiOperation({
-    summary:
-      "Activate a pending subscription and provision entitlements",
+    summary: "Activate a pending subscription and provision entitlements",
   })
   async activateSubscription(
     @Req() req: any,
@@ -589,11 +579,9 @@ export class BillingSubscriptionsController {
   }
 
   @Post("upgrade")
+  @RequireRole("OWNER")
   @ApiOperation({ summary: "Upgrade merchant plan" })
-  async upgradePlan(
-    @Req() req: any,
-    @Body() body: { planCode: string },
-  ) {
+  async upgradePlan(@Req() req: any, @Body() body: { planCode: string }) {
     const merchantId = req?.merchantId;
     if (!body?.planCode) {
       throw new BadRequestException("planCode is required");
@@ -706,6 +694,7 @@ export class BillingSubscriptionsController {
   }
 
   @Post("prorate")
+  @RequireRole("OWNER")
   @ApiOperation({
     summary: "Calculate proration for a mid-cycle plan change",
   })
@@ -820,9 +809,9 @@ export class BillingSubscriptionsController {
   }
 
   @Post("change-plan")
+  @RequireRole("OWNER")
   @ApiOperation({
-    summary:
-      "Execute a plan change (upgrade/downgrade) with proration",
+    summary: "Execute a plan change (upgrade/downgrade) with proration",
   })
   async changePlan(
     @Req() req: any,

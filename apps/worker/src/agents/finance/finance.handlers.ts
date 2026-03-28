@@ -17,15 +17,6 @@ import {
 
 const logger = new Logger("FinanceHandlers");
 
-export interface PaymentLinkResult {
-  action: "PAYMENT_LINK_CREATED" | "PAYMENT_LINK_EXISTS" | "SKIPPED" | "FAILED";
-  paymentLinkId?: string;
-  linkCode?: string;
-  paymentUrl?: string;
-  amount?: number;
-  message: string;
-}
-
 export interface PaymentProofReviewResult {
   action: "AUTO_APPROVED" | "PENDING_REVIEW" | "AUTO_REJECTED" | "FAILED";
   proofId: string;
@@ -63,119 +54,6 @@ export class FinanceHandlers {
   private readonly logger = new Logger(FinanceHandlers.name);
 
   constructor(private readonly pool: Pool) {}
-
-  /**
-   * AUTO_CREATE_PAYMENT_LINK handler
-   * Creates payment link when order is created with payment_mode=LINK
-   */
-  async autoCreatePaymentLink(task: AgentTask): Promise<PaymentLinkResult> {
-    const {
-      orderId,
-      merchantId,
-      amount,
-      customerName,
-      customerPhone,
-      orderNumber,
-    } = task.input as {
-      orderId: string;
-      merchantId: string;
-      amount: number;
-      customerName?: string;
-      customerPhone?: string;
-      orderNumber?: string;
-    };
-
-    try {
-      // Check if payment link already exists for this order
-      const existingLink = await this.pool.query(
-        `SELECT id, link_code FROM payment_links WHERE order_id = $1 AND merchant_id = $2 AND status != 'CANCELLED'`,
-        [orderId, merchantId],
-      );
-
-      if (existingLink.rows.length > 0) {
-        this.logger.log(`Payment link already exists for order ${orderId}`);
-        return {
-          action: "PAYMENT_LINK_EXISTS",
-          paymentLinkId: existingLink.rows[0].id,
-          linkCode: existingLink.rows[0].link_code,
-          message: "Payment link already exists for this order",
-        };
-      }
-
-      // Get merchant settings for payment configuration
-      const merchantResult = await this.pool.query(
-        `SELECT currency, payment_config FROM merchants WHERE id = $1`,
-        [merchantId],
-      );
-
-      if (merchantResult.rows.length === 0) {
-        return { action: "FAILED", message: "Merchant not found" };
-      }
-
-      const merchant = merchantResult.rows[0];
-      const currency = merchant.currency || "EGP";
-      const paymentConfig = merchant.payment_config || {};
-      const expiresInHours = paymentConfig.linkExpiryHours || 24;
-
-      // Generate unique link code
-      const linkCode = this.generateLinkCode();
-      const expiresAt = new Date();
-      expiresAt.setHours(expiresAt.getHours() + expiresInHours);
-
-      // Create the payment link
-      const result = await this.pool.query(
-        `INSERT INTO payment_links (
-          merchant_id, order_id, link_code, amount, currency,
-          description, customer_phone, customer_name,
-          allowed_methods, expires_at, metadata
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-        RETURNING id, link_code`,
-        [
-          merchantId,
-          orderId,
-          linkCode,
-          amount,
-          currency,
-          `طلب رقم ${orderNumber || orderId}`,
-          customerPhone || null,
-          customerName || null,
-          ["INSTAPAY", "BANK_TRANSFER", "VODAFONE_CASH"],
-          expiresAt,
-          JSON.stringify({ source: "finance_agent", taskId: task.id }),
-        ],
-      );
-
-      const paymentLink = result.rows[0];
-      const baseUrl = process.env.APP_URL || "https://tash8eel.app";
-      const paymentUrl = `${baseUrl}/pay/${linkCode}`;
-
-      this.logger.log(`Created payment link ${linkCode} for order ${orderId}`);
-
-      // Create notification for merchant
-      await this.createNotification(merchantId, {
-        type: "PAYMENT_LINK_CREATED",
-        title: "تم إنشاء رابط دفع",
-        message: `تم إنشاء رابط دفع تلقائي للطلب ${orderNumber || orderId} بقيمة ${amount} ${currency}`,
-        metadata: { orderId, paymentLinkId: paymentLink.id, amount },
-      });
-
-      return {
-        action: "PAYMENT_LINK_CREATED",
-        paymentLinkId: paymentLink.id,
-        linkCode: paymentLink.link_code,
-        paymentUrl,
-        amount,
-        message: `Payment link created successfully for order ${orderNumber || orderId}`,
-      };
-    } catch (error) {
-      const err = error as Error;
-      this.logger.error(
-        `Failed to create payment link: ${err.message}`,
-        err.stack,
-      );
-      return { action: "FAILED", message: err.message };
-    }
-  }
 
   /**
    * PAYMENT_PROOF_REVIEW handler
@@ -1255,7 +1133,6 @@ export class FinanceHandlers {
 
   /**
    * Process a payment — records a payment against an order.
-   * For payment-link flows use auto_create_payment_link instead.
    * This handles manual / cash / bank-transfer / VodafoneCash reconciliation.
    */
   async processPayment(input: unknown): Promise<Record<string, unknown>> {

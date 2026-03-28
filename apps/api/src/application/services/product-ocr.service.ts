@@ -1,4 +1,5 @@
 import { Injectable, Inject, Logger } from "@nestjs/common";
+import { Cron, CronExpression } from "@nestjs/schedule";
 import { Pool } from "pg";
 import { DATABASE_POOL } from "../../infrastructure/database/database.module";
 import { VisionService, ProductAnalysis } from "../llm/vision.service";
@@ -339,6 +340,8 @@ export class ProductOcrService {
     ocrResult: ProductAnalysis;
     catalogMatches: CatalogMatch[];
   }): Promise<string> {
+    this.cleanupExpired();
+
     const id = `pc_${Date.now()}_${Math.random().toString(36).substring(7)}`;
 
     const confirmation: PendingProductConfirmation = {
@@ -451,6 +454,8 @@ export class ProductOcrService {
     selectedItem?: CatalogItem;
     message?: string;
   }> {
+    this.cleanupExpired();
+
     // Find pending confirmation for this customer
     const confirmation = Array.from(this.pendingConfirmations.values()).find(
       (c) =>
@@ -505,5 +510,13 @@ export class ProductOcrService {
     }
 
     return cleaned;
+  }
+
+  @Cron(CronExpression.EVERY_10_MINUTES)
+  cleanupExpiredConfirmations(): void {
+    const cleaned = this.cleanupExpired();
+    if (cleaned > 0) {
+      this.logger.log(`Cleaned ${cleaned} expired product OCR confirmations`);
+    }
   }
 }

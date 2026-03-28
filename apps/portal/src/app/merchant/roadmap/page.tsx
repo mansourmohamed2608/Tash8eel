@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useSession } from "next-auth/react";
@@ -41,7 +41,7 @@ import {
   Package,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { portalApi } from "@/lib/authenticated-api";
+import { portalApi } from "@/lib/client";
 
 interface RoadmapFeature {
   id: string;
@@ -382,7 +382,7 @@ export default function RoadmapPage() {
               <h2 className="text-xl font-bold">نعمل على ميزات جديدة</h2>
               <p className="text-white/80 mt-1">
                 {roadmapFeatures.filter((f) => f.status === "available").length}{" "}
-                وكلاء متاحين حالياً — سجّل للوصول المبكر لـ{" "}
+                وكلاء متاحين حالياً - سجّل للوصول المبكر لـ{" "}
                 {roadmapFeatures.filter((f) => f.status !== "available").length}{" "}
                 ميزات قادمة
               </p>

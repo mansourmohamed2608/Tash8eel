@@ -29,7 +29,7 @@ process.env.NODE_ENV = "test";
 
 // Disable Meta webhook signature validation in tests
 process.env.META_APP_SECRET = "";
-process.env.META_WEBHOOK_VERIFY_TOKEN = "test_verify_token";
+process.env.WEBHOOK_VERIFY_TOKEN = "test_verify_token";
 
 // Increase timeout for integration tests (Neon cold starts can be slow)
 jest.setTimeout(90000);

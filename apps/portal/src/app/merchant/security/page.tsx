@@ -61,8 +61,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useMerchant } from "@/hooks/use-merchant";
-import portalApi from "@/lib/authenticated-api";
-import { merchantApi } from "@/lib/api";
+import portalApi from "@/lib/client";
+import { merchantApi } from "@/lib/client";
 import {
   AiInsightsCard,
   generateSecurityInsights,

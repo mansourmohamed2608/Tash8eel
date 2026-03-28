@@ -17,8 +17,11 @@ import {
   ShoppingCart,
   BarChart3,
   Clock,
+  Search,
+  X,
+  ArrowUpDown,
 } from "lucide-react";
-import portalApi from "@/lib/authenticated-api";
+import portalApi from "@/lib/client";
 import { useToast } from "@/hooks/use-toast";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -39,39 +42,106 @@ interface ForecastItem {
 }
 
 type UrgencyFilter = "all" | "critical" | "high" | "medium" | "ok";
+type SortBy = "urgency" | "stockout" | "trend" | "name";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
+function asNumber(value: unknown, fallback = 0): number {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const parsed = Number.parseFloat(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+  }
+  return fallback;
+}
+
+function asNullableNumber(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") return null;
+  return asNumber(value, 0);
+}
+
 function urgencyLabel(u: string) {
   switch (u) {
-    case "critical": return "حرج";
-    case "high":     return "عالي";
-    case "medium":   return "متوسط";
-    case "ok":       return "جيد";
-    default:         return u;
+    case "critical":
+      return "حرج";
+    case "high":
+      return "عالي";
+    case "medium":
+      return "متوسط";
+    case "ok":
+      return "جيد";
+    default:
+      return u;
   }
 }
 
-function urgencyVariant(u: string): "destructive" | "secondary" | "outline" | "default" {
+function urgencyVariant(
+  u: string,
+): "destructive" | "secondary" | "outline" | "default" {
   switch (u) {
-    case "critical": return "destructive";
-    case "high":     return "secondary";
-    case "medium":   return "outline";
-    default:         return "default";
+    case "critical":
+      return "destructive";
+    case "high":
+      return "secondary";
+    case "medium":
+      return "outline";
+    default:
+      return "default";
   }
 }
 
 function urgencyBg(u: string) {
   switch (u) {
-    case "critical": return "bg-red-50 border-red-200";
-    case "high":     return "bg-orange-50 border-orange-200";
-    case "medium":   return "bg-yellow-50 border-yellow-200";
-    default:         return "bg-green-50 border-green-200";
+    case "critical":
+      return "bg-red-50 border-red-200";
+    case "high":
+      return "bg-orange-50 border-orange-200";
+    case "medium":
+      return "bg-yellow-50 border-yellow-200";
+    default:
+      return "bg-green-50 border-green-200";
   }
 }
 
+function urgencyWeight(u: string): number {
+  switch (u) {
+    case "critical":
+      return 4;
+    case "high":
+      return 3;
+    case "medium":
+      return 2;
+    case "ok":
+      return 1;
+    default:
+      return 0;
+  }
+}
+
+function formatDays(daysUntilStockout: number | null): string {
+  if (daysUntilStockout == null) return "غير متاح";
+  if (daysUntilStockout > 999) return "+999";
+  if (daysUntilStockout <= 0) return "نفد";
+  return `${daysUntilStockout} يوم`;
+}
+
+function getDisplayCode(productId: string): string | null {
+  const id = (productId ?? "").trim();
+  if (!id) return null;
+
+  // Hide raw UUID identifiers from the UI because they are noisy for users.
+  const isUuid =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      id,
+    );
+  if (isUuid) return null;
+
+  if (id.length > 20) return null;
+  return id;
+}
+
 function TrendIcon({ pct }: { pct: number }) {
-  if (pct > 5)  return <TrendingUp className="w-3.5 h-3.5 text-green-600" />;
+  if (pct > 5) return <TrendingUp className="w-3.5 h-3.5 text-green-600" />;
   if (pct < -5) return <TrendingDown className="w-3.5 h-3.5 text-red-500" />;
   return <Minus className="w-3.5 h-3.5 text-muted-foreground" />;
 }
@@ -85,29 +155,48 @@ export default function ForecastPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<UrgencyFilter>("all");
+  const [sortBy, setSortBy] = useState<SortBy>("urgency");
   const [search, setSearch] = useState("");
   const [computedAt, setComputedAt] = useState<string | null>(null);
 
-  const loadForecast = useCallback(async (forceRefresh = false) => {
-    if (forceRefresh) setRefreshing(true);
-    else setLoading(true);
-    setError(null);
+  const loadForecast = useCallback(
+    async (forceRefresh = false) => {
+      if (forceRefresh) setRefreshing(true);
+      else setLoading(true);
+      setError(null);
 
-    try {
-      const data = await portalApi.getDemandForecast(forceRefresh);
-      const forecasts: ForecastItem[] = data.forecasts ?? [];
-      setItems(forecasts);
-      if (forecasts.length > 0) {
-        setComputedAt(forecasts[0].computed_at);
+      try {
+        const data = await portalApi.getDemandForecast(forceRefresh);
+        const forecasts: ForecastItem[] = (data.forecasts ?? []).map(
+          (item: any) => ({
+            ...item,
+            current_stock: asNumber(item.current_stock),
+            avg_daily_orders: asNumber(item.avg_daily_orders),
+            days_until_stockout: asNullableNumber(item.days_until_stockout),
+            trend_pct: asNumber(item.trend_pct),
+            forecast_7d: asNumber(item.forecast_7d),
+            forecast_30d: asNumber(item.forecast_30d),
+            reorder_suggestion: asNumber(item.reorder_suggestion),
+          }),
+        );
+        setItems(forecasts);
+        if (forecasts.length > 0) {
+          setComputedAt(forecasts[0].computed_at);
+        }
+      } catch (e: any) {
+        setError(e?.message ?? "فشل تحميل التوقعات");
+        toast({
+          title: "خطأ",
+          description: "فشل تحميل تقرير الطلب",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
       }
-    } catch (e: any) {
-      setError(e?.message ?? "فشل تحميل التوقعات");
-      toast({ title: "خطأ", description: "فشل تحميل تقرير الطلب", variant: "destructive" });
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [toast]);
+    },
+    [toast],
+  );
 
   useEffect(() => {
     loadForecast();
@@ -117,20 +206,51 @@ export default function ForecastPage() {
 
   const counts = {
     critical: items.filter((i) => i.urgency === "critical").length,
-    high:     items.filter((i) => i.urgency === "high").length,
-    medium:   items.filter((i) => i.urgency === "medium").length,
-    ok:       items.filter((i) => i.urgency === "ok").length,
+    high: items.filter((i) => i.urgency === "high").length,
+    medium: items.filter((i) => i.urgency === "medium").length,
+    ok: items.filter((i) => i.urgency === "ok").length,
   };
 
-  const trendingUp   = items.filter((i) => i.trend_pct >  5).length;
+  const trendingUp = items.filter((i) => i.trend_pct > 5).length;
   const trendingDown = items.filter((i) => i.trend_pct < -5).length;
+  const totalReorderSuggested = items.reduce(
+    (sum, i) => sum + i.reorder_suggestion,
+    0,
+  );
+  const nearStockout = items.filter(
+    (i) => i.days_until_stockout != null && i.days_until_stockout <= 7,
+  ).length;
 
-  const visibleItems = items.filter((item) => {
-    const matchFilter = filter === "all" || item.urgency === filter;
-    const matchSearch = search.trim() === "" ||
-      item.product_name.toLowerCase().includes(search.toLowerCase());
-    return matchFilter && matchSearch;
-  });
+  const visibleItems = items
+    .filter((item) => {
+      const matchFilter = filter === "all" || item.urgency === filter;
+      const matchSearch =
+        search.trim() === "" ||
+        item.product_name.toLowerCase().includes(search.toLowerCase()) ||
+        item.product_id.toLowerCase().includes(search.toLowerCase());
+      return matchFilter && matchSearch;
+    })
+    .sort((a, b) => {
+      if (sortBy === "name") {
+        return a.product_name.localeCompare(b.product_name, "ar");
+      }
+
+      if (sortBy === "trend") {
+        return Math.abs(b.trend_pct) - Math.abs(a.trend_pct);
+      }
+
+      if (sortBy === "stockout") {
+        const aDays = a.days_until_stockout ?? Number.POSITIVE_INFINITY;
+        const bDays = b.days_until_stockout ?? Number.POSITIVE_INFINITY;
+        return aDays - bDays;
+      }
+
+      const urgencyDiff = urgencyWeight(b.urgency) - urgencyWeight(a.urgency);
+      if (urgencyDiff !== 0) return urgencyDiff;
+      const aDays = a.days_until_stockout ?? Number.POSITIVE_INFINITY;
+      const bDays = b.days_until_stockout ?? Number.POSITIVE_INFINITY;
+      return aDays - bDays;
+    });
 
   // ── Render ───────────────────────────────────────────────────────────────
 
@@ -144,13 +264,20 @@ export default function ForecastPage() {
 
   if (error) {
     return (
-      <div dir="rtl" className="p-6 max-w-5xl mx-auto">
-        <PageHeader title="توقعات الطلب" description="تحليل ذكي للمخزون والطلب" />
+      <div dir="rtl" className="w-full space-y-6">
+        <PageHeader
+          title="توقعات الطلب"
+          description="تحليل ذكي للمخزون والطلب"
+        />
         <Card className="mt-6 border-destructive">
           <CardContent className="py-8 text-center">
             <AlertCircle className="w-8 h-8 text-destructive mx-auto mb-2" />
             <p className="text-destructive">{error}</p>
-            <Button variant="outline" className="mt-4" onClick={() => loadForecast()}>
+            <Button
+              variant="outline"
+              className="mt-4"
+              onClick={() => loadForecast()}
+            >
               إعادة المحاولة
             </Button>
           </CardContent>
@@ -160,19 +287,22 @@ export default function ForecastPage() {
   }
 
   return (
-    <div dir="rtl" className="p-6 max-w-5xl mx-auto space-y-6">
+    <div dir="rtl" className="w-full space-y-6">
       {/* ── Header ─────────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <PageHeader
           title="توقعات الطلب"
           description="تحليل المبيعات والمخزون بالذكاء الاصطناعي"
         />
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 self-start sm:self-auto">
           {computedAt && (
             <span className="text-xs text-muted-foreground flex items-center gap-1">
               <Clock className="w-3 h-3" />
               {new Date(computedAt).toLocaleString("ar-SA", {
-                month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
+                month: "short",
+                day: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
               })}
             </span>
           )}
@@ -194,31 +324,69 @@ export default function ForecastPage() {
 
       {/* ── Summary strip ──────────────────────────────────────────────── */}
       {items.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
-          <Card className="bg-red-50 border-red-200">
+        <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-3">
+          <Card className="bg-slate-50 border-slate-200 md:col-span-2">
             <CardContent className="py-3 px-4 text-center">
-              <p className="text-2xl font-bold text-red-700">{counts.critical}</p>
-              <p className="text-xs text-red-600 mt-0.5">حرج</p>
+              <p className="text-2xl font-bold text-slate-700">
+                {items.length}
+              </p>
+              <p className="text-xs text-slate-600 mt-0.5">إجمالي الأصناف</p>
             </CardContent>
           </Card>
-          <Card className="bg-orange-50 border-orange-200">
-            <CardContent className="py-3 px-4 text-center">
-              <p className="text-2xl font-bold text-orange-700">{counts.high}</p>
-              <p className="text-xs text-orange-600 mt-0.5">عالي</p>
-            </CardContent>
-          </Card>
-          <Card className="bg-yellow-50 border-yellow-200">
-            <CardContent className="py-3 px-4 text-center">
-              <p className="text-2xl font-bold text-yellow-700">{counts.medium}</p>
-              <p className="text-xs text-yellow-600 mt-0.5">متوسط</p>
-            </CardContent>
-          </Card>
-          <Card className="bg-green-50 border-green-200">
-            <CardContent className="py-3 px-4 text-center">
-              <p className="text-2xl font-bold text-green-700">{counts.ok}</p>
-              <p className="text-xs text-green-600 mt-0.5">جيد</p>
-            </CardContent>
-          </Card>
+          <button
+            className={`text-right rounded-lg border transition ${filter === "critical" ? "ring-2 ring-red-500" : ""}`}
+            onClick={() => setFilter("critical")}
+            type="button"
+          >
+            <Card className="bg-red-50 border-red-200 h-full">
+              <CardContent className="py-3 px-4 text-center">
+                <p className="text-2xl font-bold text-red-700">
+                  {counts.critical}
+                </p>
+                <p className="text-xs text-red-600 mt-0.5">حرج</p>
+              </CardContent>
+            </Card>
+          </button>
+          <button
+            className={`text-right rounded-lg border transition ${filter === "high" ? "ring-2 ring-orange-500" : ""}`}
+            onClick={() => setFilter("high")}
+            type="button"
+          >
+            <Card className="bg-orange-50 border-orange-200 h-full">
+              <CardContent className="py-3 px-4 text-center">
+                <p className="text-2xl font-bold text-orange-700">
+                  {counts.high}
+                </p>
+                <p className="text-xs text-orange-600 mt-0.5">عالي</p>
+              </CardContent>
+            </Card>
+          </button>
+          <button
+            className={`text-right rounded-lg border transition ${filter === "medium" ? "ring-2 ring-yellow-500" : ""}`}
+            onClick={() => setFilter("medium")}
+            type="button"
+          >
+            <Card className="bg-yellow-50 border-yellow-200 h-full">
+              <CardContent className="py-3 px-4 text-center">
+                <p className="text-2xl font-bold text-yellow-700">
+                  {counts.medium}
+                </p>
+                <p className="text-xs text-yellow-600 mt-0.5">متوسط</p>
+              </CardContent>
+            </Card>
+          </button>
+          <button
+            className={`text-right rounded-lg border transition ${filter === "ok" ? "ring-2 ring-green-500" : ""}`}
+            onClick={() => setFilter("ok")}
+            type="button"
+          >
+            <Card className="bg-green-50 border-green-200 h-full">
+              <CardContent className="py-3 px-4 text-center">
+                <p className="text-2xl font-bold text-green-700">{counts.ok}</p>
+                <p className="text-xs text-green-600 mt-0.5">جيد</p>
+              </CardContent>
+            </Card>
+          </button>
           <Card className="bg-blue-50 border-blue-200">
             <CardContent className="py-3 px-4 text-center flex flex-col items-center">
               <div className="flex items-center gap-1">
@@ -231,7 +399,9 @@ export default function ForecastPage() {
           <Card className="bg-gray-50 border-gray-200">
             <CardContent className="py-3 px-4 text-center flex flex-col items-center">
               <div className="flex items-center gap-1">
-                <p className="text-2xl font-bold text-gray-700">{trendingDown}</p>
+                <p className="text-2xl font-bold text-gray-700">
+                  {trendingDown}
+                </p>
                 <TrendingDown className="w-4 h-4 text-gray-500" />
               </div>
               <p className="text-xs text-gray-500 mt-0.5">طلب منخفض</p>
@@ -241,28 +411,106 @@ export default function ForecastPage() {
       )}
 
       {/* ── Filter & search bar ─────────────────────────────────────────── */}
-      <div className="flex flex-wrap gap-2 items-center">
-        <Input
-          placeholder="ابحث عن منتج..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="w-52"
-        />
-        {(["all", "critical", "high", "medium", "ok"] as UrgencyFilter[]).map((f) => (
-          <Button
-            key={f}
-            variant={filter === f ? "default" : "outline"}
-            size="sm"
-            onClick={() => setFilter(f)}
-          >
-            {f === "all" ? "الكل" : urgencyLabel(f)}
-            {f !== "all" && (
-              <span className="mr-1 text-xs opacity-70">
-                ({counts[f as keyof typeof counts] ?? 0})
-              </span>
-            )}
-          </Button>
-        ))}
+      <Card className="border-dashed">
+        <CardContent className="py-4 space-y-3">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+            <div className="relative lg:col-span-2">
+              <Search className="w-4 h-4 text-muted-foreground absolute top-1/2 -translate-y-1/2 right-3" />
+              <Input
+                placeholder="ابحث بالاسم أو الكود..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pr-9"
+              />
+              {search && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="absolute top-1/2 -translate-y-1/2 left-1 h-7 w-7"
+                  onClick={() => setSearch("")}
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              )}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 rounded-md border px-3 py-2 bg-muted/30">
+              <ArrowUpDown className="w-4 h-4 text-muted-foreground" />
+              <span className="text-xs text-muted-foreground">ترتيب:</span>
+              <div className="flex gap-1 flex-wrap">
+                {(
+                  [
+                    ["urgency", "الأولوية"],
+                    ["stockout", "النفاد"],
+                    ["trend", "الاتجاه"],
+                    ["name", "الاسم"],
+                  ] as Array<[SortBy, string]>
+                ).map(([value, label]) => (
+                  <Button
+                    key={value}
+                    type="button"
+                    size="sm"
+                    variant={sortBy === value ? "default" : "ghost"}
+                    className="h-7"
+                    onClick={() => setSortBy(value)}
+                  >
+                    {label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2 items-center">
+            {(
+              ["all", "critical", "high", "medium", "ok"] as UrgencyFilter[]
+            ).map((f) => (
+              <Button
+                key={f}
+                variant={filter === f ? "default" : "outline"}
+                size="sm"
+                onClick={() => setFilter(f)}
+              >
+                {f === "all" ? "الكل" : urgencyLabel(f)}
+                {f !== "all" && (
+                  <span className="mr-1 text-xs opacity-70">
+                    ({counts[f as keyof typeof counts] ?? 0})
+                  </span>
+                )}
+              </Button>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+            <div className="rounded-md border bg-slate-50 px-3 py-2">
+              <p className="text-muted-foreground">
+                إجمالي إعادة الطلب المقترح
+              </p>
+              <p className="text-lg font-semibold">
+                {Math.round(totalReorderSuggested)} وحدة
+              </p>
+            </div>
+            <div className="rounded-md border bg-amber-50 px-3 py-2">
+              <p className="text-muted-foreground">
+                أصناف مهددة بالنفاد خلال 7 أيام
+              </p>
+              <p className="text-lg font-semibold text-amber-700">
+                {nearStockout} صنف
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between text-xs text-muted-foreground px-1">
+        <span>
+          إظهار {visibleItems.length} من {items.length} صنف
+        </span>
+        <span>
+          الوضع الحالي:{" "}
+          {filter === "all" ? "كل الأولويات" : urgencyLabel(filter)}
+        </span>
       </div>
 
       {/* ── Empty state ─────────────────────────────────────────────────── */}
@@ -271,98 +519,144 @@ export default function ForecastPage() {
           <CardContent className="py-12 text-center">
             <BarChart3 className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
             <p className="text-muted-foreground">
-              لا توجد بيانات كافية للتوقع — تأكد من وجود طلبات وبيانات مخزون
+              لا توجد بيانات كافية للتوقع, تأكد من وجود طلبات وبيانات مخزون
             </p>
-            <Button variant="outline" className="mt-4" onClick={() => loadForecast(true)}>
+            <Button
+              variant="outline"
+              className="mt-4"
+              onClick={() => loadForecast(true)}
+            >
               <RefreshCw className="w-4 h-4 ml-1" />
               تحديث التوقعات
             </Button>
           </CardContent>
         </Card>
       ) : visibleItems.length === 0 ? (
-        <p className="text-center text-muted-foreground py-8">لا توجد نتائج مطابقة</p>
+        <Card>
+          <CardContent className="py-10 text-center">
+            <Search className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+            <p className="text-muted-foreground">
+              لا توجد نتائج مطابقة للفلاتر الحالية
+            </p>
+            <div className="mt-4 flex items-center justify-center gap-2">
+              <Button variant="outline" onClick={() => setSearch("")}>
+                مسح البحث
+              </Button>
+              <Button variant="outline" onClick={() => setFilter("all")}>
+                عرض الكل
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       ) : (
-
         /* ── Product table ────────────────────────────────────────────── */
         <div className="space-y-3">
-          {visibleItems.map((item) => (
-            <Card key={item.product_id} className={`border ${urgencyBg(item.urgency)}`}>
-              <CardContent className="py-4 px-5">
-                <div className="flex flex-wrap items-start justify-between gap-3">
+          {visibleItems.map((item) => {
+            const displayCode = getDisplayCode(item.product_id);
+            return (
+              <Card
+                key={item.product_id}
+                className={`border ${urgencyBg(item.urgency)}`}
+              >
+                <CardContent className="py-4 px-4 sm:px-5">
+                  <div className="space-y-3">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="flex items-center gap-2 flex-wrap min-w-0">
+                        <p className="font-semibold text-sm truncate max-w-[260px] sm:max-w-none">
+                          {item.product_name}
+                        </p>
+                        <Badge variant={urgencyVariant(item.urgency)}>
+                          {urgencyLabel(item.urgency)}
+                        </Badge>
+                        {displayCode && (
+                          <Badge
+                            variant="outline"
+                            className="font-mono text-[11px]"
+                          >
+                            {displayCode}
+                          </Badge>
+                        )}
+                      </div>
 
-                  {/* Left: product info */}
-                  <div className="flex-1 min-w-[160px]">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <p className="font-semibold text-sm">{item.product_name}</p>
-                      <Badge variant={urgencyVariant(item.urgency)}>
-                        {urgencyLabel(item.urgency)}
-                      </Badge>
+                      <div className="inline-flex items-center gap-1 rounded-md border bg-background px-2.5 py-1 text-xs self-start sm:self-auto">
+                        <AlertCircle className="w-3.5 h-3.5 text-amber-500" />
+                        <span>
+                          النفاد المتوقع: {formatDays(item.days_until_stockout)}
+                        </span>
+                      </div>
                     </div>
 
                     {item.ai_summary_ar && (
-                      <p className="text-xs text-muted-foreground mt-1">{item.ai_summary_ar}</p>
+                      <p className="text-xs text-muted-foreground leading-6">
+                        {item.ai_summary_ar}
+                      </p>
                     )}
+
+                    <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-2 text-xs">
+                      <div className="rounded-md border bg-background/75 px-2.5 py-2">
+                        <p className="text-muted-foreground">المخزون الحالي</p>
+                        <p className="font-medium mt-0.5 flex items-center gap-1">
+                          {item.current_stock}
+                          {item.current_stock === 0 && (
+                            <PackageX className="w-3.5 h-3.5 text-destructive" />
+                          )}
+                        </p>
+                      </div>
+
+                      <div className="rounded-md border bg-background/75 px-2.5 py-2">
+                        <p className="text-muted-foreground">معدل يومي</p>
+                        <p className="font-medium mt-0.5 flex items-center gap-1">
+                          <ShoppingCart className="w-3 h-3 text-muted-foreground" />
+                          {item.avg_daily_orders.toFixed(1)}
+                        </p>
+                      </div>
+
+                      <div className="rounded-md border bg-background/75 px-2.5 py-2">
+                        <p className="text-muted-foreground">أيام حتى النفاد</p>
+                        <p className="font-medium mt-0.5">
+                          {formatDays(item.days_until_stockout)}
+                        </p>
+                      </div>
+
+                      <div className="rounded-md border bg-background/75 px-2.5 py-2">
+                        <p className="text-muted-foreground">
+                          الاتجاه خلال 7 أيام
+                        </p>
+                        <p className="font-medium mt-0.5 flex items-center gap-1">
+                          <TrendIcon pct={item.trend_pct} />
+                          {item.trend_pct > 0 ? "+" : ""}
+                          {item.trend_pct.toFixed(1)}%
+                        </p>
+                      </div>
+
+                      <div className="rounded-md border bg-background/75 px-2.5 py-2">
+                        <p className="text-muted-foreground">توقع 7 أيام</p>
+                        <p className="font-medium mt-0.5">
+                          {Math.round(item.forecast_7d)}
+                        </p>
+                      </div>
+
+                      <div className="rounded-md border bg-background/75 px-2.5 py-2">
+                        <p className="text-muted-foreground">توقع 30 يوم</p>
+                        <p className="font-medium mt-0.5">
+                          {Math.round(item.forecast_30d)}
+                        </p>
+                      </div>
+
+                      <div className="rounded-md border bg-blue-50 px-2.5 py-2">
+                        <p className="text-muted-foreground">
+                          إعادة الطلب المقترحة
+                        </p>
+                        <p className="font-semibold text-base text-blue-700 mt-0.5">
+                          {item.reorder_suggestion}
+                        </p>
+                      </div>
+                    </div>
                   </div>
-
-                  {/* Right: metrics */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-5 gap-y-2 text-xs text-right">
-
-                    <div>
-                      <p className="text-muted-foreground">المخزون الحالي</p>
-                      <p className="font-medium flex items-center gap-1 justify-end">
-                        {item.current_stock}
-                        {item.current_stock === 0 && (
-                          <PackageX className="w-3.5 h-3.5 text-destructive" />
-                        )}
-                      </p>
-                    </div>
-
-                    <div>
-                      <p className="text-muted-foreground">معدل يومي</p>
-                      <p className="font-medium flex items-center gap-1 justify-end">
-                        <ShoppingCart className="w-3 h-3 text-muted-foreground" />
-                        {item.avg_daily_orders.toFixed(1)}
-                      </p>
-                    </div>
-
-                    <div>
-                      <p className="text-muted-foreground">أيام حتى النفاد</p>
-                      <p className="font-medium text-right">
-                        {item.days_until_stockout == null
-                          ? "—"
-                          : item.days_until_stockout > 999
-                          ? "+999"
-                          : `${item.days_until_stockout} يوم`}
-                      </p>
-                    </div>
-
-                    <div>
-                      <p className="text-muted-foreground">الاتجاه (7 أيام)</p>
-                      <p className="font-medium flex items-center gap-1 justify-end">
-                        <TrendIcon pct={item.trend_pct} />
-                        {item.trend_pct > 0 ? "+" : ""}{item.trend_pct.toFixed(1)}%
-                      </p>
-                    </div>
-
-                    <div>
-                      <p className="text-muted-foreground">توقع 7 أيام</p>
-                      <p className="font-medium">{Math.round(item.forecast_7d)}</p>
-                    </div>
-
-                    <div>
-                      <p className="text-muted-foreground">توقع 30 يوم</p>
-                      <p className="font-medium">{Math.round(item.forecast_30d)}</p>
-                    </div>
-
-                    <div className="sm:col-span-2">
-                      <p className="text-muted-foreground">كمية إعادة الطلب المقترحة</p>
-                      <p className="font-semibold text-base">{item.reorder_suggestion}</p>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
     </div>

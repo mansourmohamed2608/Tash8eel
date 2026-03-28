@@ -22,6 +22,10 @@ import {
 } from "../../shared/guards/entitlement.guard";
 import { RolesGuard, RequireRole } from "../../shared/guards/roles.guard";
 import { ProcessReceiptDto } from "../dto/vision.dto";
+import {
+  EnhancedRateLimitGuard,
+  RateLimit,
+} from "../../shared/guards/rate-limit.guard";
 
 @ApiTags("Vision/OCR")
 @ApiSecurity("x-api-key")
@@ -35,6 +39,8 @@ export class VisionController {
   constructor(private readonly visionService: VisionService) {}
 
   @Post("receipt")
+  @UseGuards(EnhancedRateLimitGuard)
+  @RateLimit({ limit: 10, window: 60, keyType: "merchant" })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: "Process payment receipt",
@@ -61,6 +67,8 @@ export class VisionController {
    * VODAFONE_CASH, etc.) without spending tokens on full receipt extraction.
    */
   @Post("classify")
+  @UseGuards(EnhancedRateLimitGuard)
+  @RateLimit({ limit: 10, window: 60, keyType: "merchant" })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: "Classify payment proof — detect payment method only",

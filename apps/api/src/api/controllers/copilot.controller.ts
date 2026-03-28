@@ -43,6 +43,10 @@ import { TranscriptionAdapterFactory } from "../../application/adapters/transcri
 import { AuditService } from "../../application/services/audit.service";
 import { UsageGuardService } from "../../application/services/usage-guard.service";
 import {
+  EnhancedRateLimitGuard,
+  RateLimit,
+} from "../../shared/guards/rate-limit.guard";
+import {
   DESTRUCTIVE_INTENTS,
   hasPermissionForIntent,
   getRoleRequirementMessage,
@@ -89,6 +93,8 @@ export class CopilotController {
    * Process text command from merchant
    */
   @Post("message")
+  @UseGuards(EnhancedRateLimitGuard)
+  @RateLimit({ limit: 10, window: 60, keyType: "merchant" })
   @ApiOperation({ summary: "Send text command to copilot" })
   @ApiBody({
     schema: {
@@ -138,9 +144,14 @@ export class CopilotController {
     }
 
     // AI daily call quota (copilot is available to all plans, but always metered)
-    const limitCheck = await this.usageGuard.consume(merchantId, "AI_CALLS", 1, {
-      metadata: { source: "COPILOT_TEXT" },
-    });
+    const limitCheck = await this.usageGuard.consume(
+      merchantId,
+      "AI_CALLS",
+      1,
+      {
+        metadata: { source: "COPILOT_TEXT" },
+      },
+    );
     if (!limitCheck.allowed) {
       return {
         success: false,
@@ -152,7 +163,10 @@ export class CopilotController {
       };
     }
 
-    const consumeTokenUsage = async (assistantReply: string, intent?: string) => {
+    const consumeTokenUsage = async (
+      assistantReply: string,
+      intent?: string,
+    ) => {
       const estimatedTokens = this.estimateTokenUsage(
         dto.message.trim(),
         dto.history || [],
@@ -299,6 +313,8 @@ export class CopilotController {
    * Process voice command from merchant
    */
   @Post("voice")
+  @UseGuards(EnhancedRateLimitGuard)
+  @RateLimit({ limit: 10, window: 60, keyType: "merchant" })
   @ApiOperation({
     summary: "Send voice command to copilot (transcribed first)",
   })
@@ -378,7 +394,10 @@ export class CopilotController {
       };
     }
 
-    const consumeTokenUsage = async (assistantReply: string, intent?: string) => {
+    const consumeTokenUsage = async (
+      assistantReply: string,
+      intent?: string,
+    ) => {
       const estimatedTokens = this.estimateTokenUsage(
         transcription?.text || "",
         [],
@@ -558,6 +577,8 @@ export class CopilotController {
    * Confirm or cancel a pending action
    */
   @Post("confirm")
+  @UseGuards(EnhancedRateLimitGuard)
+  @RateLimit({ limit: 10, window: 60, keyType: "merchant" })
   @ApiOperation({ summary: "Confirm or cancel a pending copilot action" })
   @ApiBody({
     schema: {
@@ -833,7 +854,9 @@ export class CopilotController {
       0,
     );
     const totalChars =
-      String(userText || "").length + historyChars + String(assistantReply || "").length;
+      String(userText || "").length +
+      historyChars +
+      String(assistantReply || "").length;
     // Approximation: ~1 token per 3 chars in mixed Arabic/English payloads.
     return Math.max(120, Math.ceil(totalChars / 3));
   }

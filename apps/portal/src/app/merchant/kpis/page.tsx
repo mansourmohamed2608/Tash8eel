@@ -38,8 +38,8 @@ import {
   Timer,
 } from "lucide-react";
 import { cn, formatCurrency, formatNumber } from "@/lib/utils";
-import { kpisApi } from "@/lib/api";
-import portalApi from "@/lib/authenticated-api";
+import { kpisApi } from "@/lib/client";
+import portalApi from "@/lib/client";
 import { useMerchant } from "@/hooks/use-merchant";
 import { useToast } from "@/hooks/use-toast";
 import {

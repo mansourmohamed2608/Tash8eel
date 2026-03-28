@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useCallback, useEffect } from "react";
 import { PageHeader } from "@/components/layout";
@@ -58,14 +58,14 @@ import {
   Share2,
   Sparkles,
 } from "lucide-react";
-import { authenticatedFetch } from "@/lib/authenticated-api";
+import { authenticatedFetch } from "@/lib/client";
 import { useMerchant } from "@/hooks/use-merchant";
 import {
   AiInsightsCard,
   generateCampaignInsights,
 } from "@/components/ai/ai-insights-card";
 import { SmartAnalysisButton } from "@/components/ai/smart-analysis-button";
-import portalApi from "@/lib/authenticated-api";
+import portalApi from "@/lib/client";
 
 interface CampaignResult {
   sent: number;
@@ -90,7 +90,7 @@ export default function WinbackCampaignsPage() {
   const [discountPercent, setDiscountPercent] = useState(15);
   const [validDays, setValidDays] = useState(7);
   const [message, setMessage] = useState(
-    "وحشتنا! 🎁 عرض خاص لك — خصم {discount}% على طلبك القادم. العرض ساري لمدة {days} أيام فقط!",
+    "وحشتنا! 🎁 عرض خاص لك - خصم {discount}% على طلبك القادم. العرض ساري لمدة {days} أيام فقط!",
   );
 
   // Seasonal campaign state
@@ -104,20 +104,25 @@ export default function WinbackCampaignsPage() {
   const [seasonalOccasion, setSeasonalOccasion] = useState("");
   const [seasonalCode, setSeasonalCode] = useState("");
   const [sendingSeasonal, setSendingSeasonal] = useState(false);
-  const [seasonalResult, setSeasonalResult] = useState<CampaignResult | null>(null);
+  const [seasonalResult, setSeasonalResult] = useState<CampaignResult | null>(
+    null,
+  );
   const [seasonalError, setSeasonalError] = useState<string | null>(null);
   const [generatingSeasonalMsg, setGeneratingSeasonalMsg] = useState(false);
 
   // Re-engagement campaign state
   const [showReengagement, setShowReengagement] = useState(false);
   const [reengageMsg, setReengageMsg] = useState(
-    "مرحبًا {name}! غبت عنا {days} يوم — يسعدنا رجوعك. خصم خاص ينتظرك باستخدام كود: {code}",
+    "مرحبًا {name}! غبت عنا {days} يوم - يسعدنا رجوعك. خصم خاص ينتظرك باستخدام كود: {code}",
   );
   const [reengageInactiveDays, setReengageInactiveDays] = useState(30);
   const [reengageCode, setReengageCode] = useState("");
   const [sendingReengagement, setSendingReengagement] = useState(false);
-  const [reengagementResult, setReengagementResult] = useState<CampaignResult | null>(null);
-  const [reengagementError, setReengagementError] = useState<string | null>(null);
+  const [reengagementResult, setReengagementResult] =
+    useState<CampaignResult | null>(null);
+  const [reengagementError, setReengagementError] = useState<string | null>(
+    null,
+  );
   const [generatingReengageMsg, setGeneratingReengageMsg] = useState(false);
 
   // AI audience suggestion state
@@ -128,7 +133,12 @@ export default function WinbackCampaignsPage() {
     segmentName: string;
     reason: string;
     estimatedSize: number;
-    segments: Array<{ id: string; name: string; size: number; match_score: number }>;
+    segments: Array<{
+      id: string;
+      name: string;
+      size: number;
+      match_score: number;
+    }>;
   } | null>(null);
 
   const handleAiAudienceSuggest = useCallback(async () => {
@@ -405,7 +415,7 @@ export default function WinbackCampaignsPage() {
               <Users className="h-8 w-8 text-blue-500" />
               <div>
                 <p className="text-sm text-muted-foreground">عملاء مستهدفون</p>
-                <p className="text-2xl font-bold">—</p>
+                <p className="text-2xl font-bold">-</p>
                 <p className="text-xs text-muted-foreground">
                   أنشئ حملة لمعرفة العدد
                 </p>
@@ -432,7 +442,7 @@ export default function WinbackCampaignsPage() {
               <TrendingUp className="h-8 w-8 text-purple-500" />
               <div>
                 <p className="text-sm text-muted-foreground">معدل الاستجابة</p>
-                <p className="text-2xl font-bold">—</p>
+                <p className="text-2xl font-bold">-</p>
                 <p className="text-xs text-muted-foreground">
                   ستظهر بعد الإرسال
                 </p>
@@ -461,7 +471,8 @@ export default function WinbackCampaignsPage() {
             اقتراح الجمهور بالذكاء الاصطناعي
           </CardTitle>
           <CardDescription>
-            اكتب هدف حملتك بالعربي وسيقترح الذكاء الاصطناعي أفضل شريحة عملاء لاستهدافها
+            اكتب هدف حملتك بالعربي وسيقترح الذكاء الاصطناعي أفضل شريحة عملاء
+            لاستهدافها
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -478,7 +489,11 @@ export default function WinbackCampaignsPage() {
               disabled={aiAudienceLoading || !aiAudienceGoal.trim()}
               className="shrink-0"
             >
-              {aiAudienceLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              {aiAudienceLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Sparkles className="h-4 w-4" />
+              )}
               اقتراح
             </Button>
           </div>
@@ -486,8 +501,15 @@ export default function WinbackCampaignsPage() {
             <div className="rounded-lg border bg-background p-4 space-y-3">
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <p className="font-medium text-sm">الشريحة المقترحة: <span className="text-purple-600">{aiAudienceResult.segmentName}</span></p>
-                  <p className="text-xs text-muted-foreground mt-0.5">{aiAudienceResult.reason}</p>
+                  <p className="font-medium text-sm">
+                    الشريحة المقترحة:{" "}
+                    <span className="text-purple-600">
+                      {aiAudienceResult.segmentName}
+                    </span>
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {aiAudienceResult.reason}
+                  </p>
                 </div>
                 <Badge variant="outline" className="shrink-0">
                   {aiAudienceResult.estimatedSize.toLocaleString("ar-EG")} عميل
@@ -495,7 +517,9 @@ export default function WinbackCampaignsPage() {
               </div>
               {aiAudienceResult.segments.length > 1 && (
                 <div>
-                  <p className="text-xs text-muted-foreground mb-1">شرائح أخرى مناسبة:</p>
+                  <p className="text-xs text-muted-foreground mb-1">
+                    شرائح أخرى مناسبة:
+                  </p>
                   <div className="flex flex-wrap gap-1.5">
                     {aiAudienceResult.segments.slice(1, 4).map((s) => (
                       <Badge key={s.id} variant="secondary" className="text-xs">
@@ -776,7 +800,9 @@ export default function WinbackCampaignsPage() {
                   <SelectItem value="loyal">العملاء المخلصون</SelectItem>
                   <SelectItem value="regular">العملاء العاديون</SelectItem>
                   <SelectItem value="new">العملاء الجدد</SelectItem>
-                  <SelectItem value="at_risk">العملاء المعرّضون للخسارة</SelectItem>
+                  <SelectItem value="at_risk">
+                    العملاء المعرّضون للخسارة
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -860,16 +886,24 @@ export default function WinbackCampaignsPage() {
             {seasonalResult && (
               <div className="flex items-center gap-2 text-sm text-green-600 bg-green-50 dark:bg-green-950 p-3 rounded-lg">
                 <CheckCircle2 className="h-4 w-4 shrink-0" />
-                تم إرسال {seasonalResult.sent} رسالة من {seasonalResult.totalTargeted} عميل
+                تم إرسال {seasonalResult.sent} رسالة من{" "}
+                {seasonalResult.totalTargeted} عميل
               </div>
             )}
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowSeasonal(false)} disabled={sendingSeasonal}>
+            <Button
+              variant="outline"
+              onClick={() => setShowSeasonal(false)}
+              disabled={sendingSeasonal}
+            >
               إلغاء
             </Button>
-            <Button onClick={handleSeasonalCampaign} disabled={sendingSeasonal || !seasonalMsg.trim()}>
+            <Button
+              onClick={handleSeasonalCampaign}
+              disabled={sendingSeasonal || !seasonalMsg.trim()}
+            >
               {sendingSeasonal ? (
                 <>
                   <Loader2 className="h-4 w-4 ml-2 animate-spin" />
@@ -973,7 +1007,8 @@ export default function WinbackCampaignsPage() {
                 className="text-sm"
               />
               <p className="text-xs text-muted-foreground">
-                استخدم {"{name}"} لاسم العميل، {"{days}"} لعدد أيام الغياب، {"{code}"} لكود الخصم
+                استخدم {"{name}"} لاسم العميل، {"{days}"} لعدد أيام الغياب،{" "}
+                {"{code}"} لكود الخصم
               </p>
             </div>
 
@@ -986,16 +1021,24 @@ export default function WinbackCampaignsPage() {
             {reengagementResult && (
               <div className="flex items-center gap-2 text-sm text-green-600 bg-green-50 dark:bg-green-950 p-3 rounded-lg">
                 <CheckCircle2 className="h-4 w-4 shrink-0" />
-                تم إرسال {reengagementResult.sent} رسالة من {reengagementResult.totalTargeted} عميل
+                تم إرسال {reengagementResult.sent} رسالة من{" "}
+                {reengagementResult.totalTargeted} عميل
               </div>
             )}
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowReengagement(false)} disabled={sendingReengagement}>
+            <Button
+              variant="outline"
+              onClick={() => setShowReengagement(false)}
+              disabled={sendingReengagement}
+            >
               إلغاء
             </Button>
-            <Button onClick={handleReengagementCampaign} disabled={sendingReengagement || !reengageMsg.trim()}>
+            <Button
+              onClick={handleReengagementCampaign}
+              disabled={sendingReengagement || !reengageMsg.trim()}
+            >
               {sendingReengagement ? (
                 <>
                   <Loader2 className="h-4 w-4 ml-2 animate-spin" />

@@ -43,16 +43,13 @@ import { AdminApiKeyGuard } from "../../shared/guards/admin-api-key.guard";
 import { v4 as uuidv4 } from "uuid";
 import { NotFoundException, BadRequestException } from "@nestjs/common";
 import { Pool } from "pg";
-import {
-  DATABASE_POOL,
-} from "../../infrastructure/database/database.module";
+import { DATABASE_POOL } from "../../infrastructure/database/database.module";
 
 interface PaginatedResponse<T> {
-  items: T[];
-  total: number;
+  data: T[];
+  totalCount: number;
   page: number;
   pageSize: number;
-  totalPages: number;
 }
 
 @ApiTags("Catalog")
@@ -87,7 +84,9 @@ export class CatalogController {
         [catalogItemId],
       )
       .catch((err) =>
-        this.logger.warn(`Failed to enqueue embedding for ${catalogItemId}: ${err.message}`),
+        this.logger.warn(
+          `Failed to enqueue embedding for ${catalogItemId}: ${err.message}`,
+        ),
       );
   }
 
@@ -253,47 +252,54 @@ export class CatalogController {
     }
 
     const pageNum = Math.max(1, parseInt(page, 10) || 1);
-    const pageSizeNum = Math.min(
-      100,
-      Math.max(1, parseInt(pageSize, 10) || 20),
-    );
+    const pageSizeNum = Math.min(50, Math.max(1, parseInt(pageSize, 10) || 20));
+    const pageOffset = (pageNum - 1) * pageSizeNum;
+    const filters = [`merchant_id = $1`];
+    const values: any[] = [merchantId];
 
-    // Use findByMerchant and filter in memory for now
-    // In production, this should be a proper paginated query
-    let items = await this.catalogRepo.findByMerchant(merchantId);
-
-    // Apply filters
     if (category) {
-      items = items.filter((item) => item.category === category);
+      values.push(category);
+      filters.push(`category = $${values.length}`);
     }
     if (search) {
-      const searchLower = search.toLowerCase();
-      items = items.filter(
-        (item) =>
-          (item.name || item.nameAr || "")
-            .toLowerCase()
-            .includes(searchLower) ||
-          (item.sku || "").toLowerCase().includes(searchLower),
+      values.push(`%${search}%`);
+      const searchParam = `$${values.length}`;
+      filters.push(
+        `(COALESCE(name_ar, '') ILIKE ${searchParam} OR COALESCE(name_en, '') ILIKE ${searchParam} OR COALESCE(sku, '') ILIKE ${searchParam})`,
       );
     }
     if (isActive !== undefined) {
-      const activeFilter = isActive === "true";
-      items = items.filter(
-        (item) => (item.isActive ?? item.isAvailable) === activeFilter,
-      );
+      values.push(isActive === "true");
+      filters.push(`is_available = $${values.length}`);
     }
 
-    const total = items.length;
-    const totalPages = Math.ceil(total / pageSizeNum);
-    const startIndex = (pageNum - 1) * pageSizeNum;
-    const paginatedItems = items.slice(startIndex, startIndex + pageSizeNum);
+    const whereClause = filters.join(" AND ");
+    const countResult = await this.pool.query(
+      `SELECT COUNT(*) AS total FROM catalog_items WHERE ${whereClause}`,
+      values,
+    );
+
+    values.push(pageSizeNum, pageOffset);
+    const itemsResult = await this.pool.query(
+      `SELECT *
+       FROM catalog_items
+       WHERE ${whereClause}
+       ORDER BY name_ar
+       LIMIT $${values.length - 1}
+       OFFSET $${values.length}`,
+      values,
+    );
+    const paginatedItems = itemsResult.rows.map((row: any) =>
+      (this.catalogRepo as any).mapToEntity
+        ? (this.catalogRepo as any).mapToEntity(row)
+        : row,
+    );
 
     return {
-      items: paginatedItems.map((item) => this.toResponseDto(item)),
-      total,
+      data: paginatedItems.map((item) => this.toResponseDto(item)),
+      totalCount: parseInt(countResult.rows[0]?.total || "0", 10),
       page: pageNum,
       pageSize: pageSizeNum,
-      totalPages,
     };
   }
 

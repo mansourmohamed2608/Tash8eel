@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
@@ -57,7 +57,7 @@ import {
   ChefHat,
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
-import { merchantApi } from "@/lib/api";
+import { merchantApi } from "@/lib/client";
 import { useMerchant } from "@/hooks/use-merchant";
 import { useRoleAccess } from "@/hooks/use-role-access";
 import { useToast } from "@/hooks/use-toast";
@@ -349,7 +349,7 @@ export default function KnowledgeBasePage() {
         }
       } catch {
         // KB might not exist yet, use defaults
-        // KB might not exist yet — use defaults
+        // KB might not exist yet - use defaults
       }
 
       // Set business name from merchant if available
@@ -926,7 +926,7 @@ export default function KnowledgeBasePage() {
                 استكمال قاعدة المعرفة
               </p>
               <p className="text-sm text-amber-800">
-                نسبة اكتمالك الحالية {checklistPercent}% — أكمل النقاط لتحسين
+                نسبة اكتمالك الحالية {checklistPercent}% - أكمل النقاط لتحسين
                 دقة ردود الذكاء الاصطناعي.
               </p>
             </div>
@@ -1314,7 +1314,7 @@ export default function KnowledgeBasePage() {
                   </Button>
                 </div>
                 <CardDescription>
-                  اربط مكونات المخزون بهذا الصنف — عند كل طلب يتم خصم المكونات
+                  اربط مكونات المخزون بهذا الصنف - عند كل طلب يتم خصم المكونات
                   تلقائيا
                 </CardDescription>
               </CardHeader>

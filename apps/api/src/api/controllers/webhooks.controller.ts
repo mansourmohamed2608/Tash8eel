@@ -3,19 +3,30 @@ import {
   Post,
   Body,
   Query,
+  Headers,
+  Req,
   Logger,
   HttpCode,
   HttpStatus,
   BadRequestException,
   UnauthorizedException,
+  NotFoundException,
+  UseGuards,
+  RawBodyRequest,
+  Inject,
 } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from "@nestjs/swagger";
-import { SkipThrottle } from "@nestjs/throttler";
+import { Throttle, ThrottlerGuard } from "@nestjs/throttler";
+import { Request } from "express";
 import {
   MessageDeliveryService,
   MessageDeliveryStatus,
 } from "../../application/services/message-delivery.service";
 import { ConfigService } from "@nestjs/config";
+import {
+  IMetaWhatsAppAdapter,
+  META_WHATSAPP_ADAPTER,
+} from "../../application/adapters/meta-whatsapp.adapter";
 
 interface DeliveryReceiptDto {
   messageId: string;
@@ -61,7 +72,8 @@ interface WhatsAppWebhookPayload {
 
 @ApiTags("Webhooks")
 @Controller("v1/webhooks")
-@SkipThrottle()
+@UseGuards(ThrottlerGuard)
+@Throttle({ default: { limit: 10, ttl: 60000 } })
 export class WebhooksController {
   private readonly logger = new Logger(WebhooksController.name);
   private readonly whatsappVerifyToken: string;
@@ -69,11 +81,41 @@ export class WebhooksController {
   constructor(
     private readonly messageDeliveryService: MessageDeliveryService,
     private readonly configService: ConfigService,
+    @Inject(META_WHATSAPP_ADAPTER)
+    private readonly metaAdapter: IMetaWhatsAppAdapter,
   ) {
     this.whatsappVerifyToken = this.configService.get<string>(
       "WHATSAPP_VERIFY_TOKEN",
       "tash8eel-verify-token",
     );
+  }
+
+  private assertDevelopmentWebhookAccess(devWebhookSecret?: string): void {
+    if (process.env.NODE_ENV !== "development") {
+      throw new NotFoundException();
+    }
+
+    const configuredSecret =
+      this.configService.get<string>("DEV_WEBHOOK_SECRET") || "";
+    if (!configuredSecret) {
+      this.logger.error(
+        "DEV_WEBHOOK_SECRET is not configured. Rejecting legacy webhook request.",
+      );
+      throw new UnauthorizedException("Invalid webhook secret");
+    }
+
+    if (!devWebhookSecret || devWebhookSecret !== configuredSecret) {
+      this.logger.warn(
+        "Legacy webhook request rejected due to invalid dev secret",
+      );
+      throw new UnauthorizedException("Invalid webhook secret");
+    }
+  }
+
+  private assertLegacyWebhookEnabled(): void {
+    if (this.configService.get<string>("LEGACY_WEBHOOK_ENABLED") !== "true") {
+      throw new NotFoundException();
+    }
   }
 
   /**
@@ -91,7 +133,10 @@ export class WebhooksController {
   @ApiResponse({ status: 400, description: "Invalid receipt data" })
   async receiveDeliveryReceipt(
     @Body() dto: DeliveryReceiptDto,
+    @Headers("x-dev-webhook-secret") devWebhookSecret?: string,
   ): Promise<{ success: boolean }> {
+    this.assertDevelopmentWebhookAccess(devWebhookSecret);
+
     if (!dto.messageId || !dto.status) {
       throw new BadRequestException("messageId and status are required");
     }
@@ -140,11 +185,17 @@ export class WebhooksController {
       "Receives delivery status updates and incoming messages from WhatsApp Business API",
   })
   async handleWhatsAppWebhook(
+    @Req() req: RawBodyRequest<Request>,
     @Body() payload: WhatsAppWebhookPayload,
     @Query("hub.mode") mode?: string,
     @Query("hub.verify_token") verifyToken?: string,
     @Query("hub.challenge") challenge?: string,
+    @Headers("x-hub-signature-256") signature?: string,
+    @Headers("x-dev-webhook-secret") devWebhookSecret?: string,
   ): Promise<string | { success: boolean }> {
+    this.assertLegacyWebhookEnabled();
+    this.assertDevelopmentWebhookAccess(devWebhookSecret);
+
     // Handle webhook verification (GET converted to POST with query params)
     if (mode === "subscribe" && verifyToken) {
       if (verifyToken !== this.whatsappVerifyToken) {
@@ -155,6 +206,15 @@ export class WebhooksController {
       }
       this.logger.log("WhatsApp webhook verified");
       return challenge || "verified";
+    }
+
+    const rawBody = req.rawBody;
+    if (
+      !rawBody ||
+      !signature ||
+      !this.metaAdapter.validateSignature(signature, rawBody)
+    ) {
+      throw new UnauthorizedException("Invalid webhook signature");
     }
 
     // Handle actual webhook payload

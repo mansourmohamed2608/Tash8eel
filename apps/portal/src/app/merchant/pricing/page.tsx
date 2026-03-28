@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { PageHeader } from "@/components/layout";
@@ -48,7 +48,7 @@ import {
   ChevronUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { merchantApi } from "@/lib/api";
+import { merchantApi } from "@/lib/client";
 import { useMerchant } from "@/hooks/use-merchant";
 import { useToast } from "@/hooks/use-toast";
 
@@ -123,19 +123,20 @@ interface PricingData {
 
 const PLAN_NAMES: Record<string, string> = {
   TRIAL: "تجريبي (14 يوم)",
-  STARTER: "المبتدئ — 999 ج.م",
-  BASIC: "الأساسي — 2,200 ج.م",
-  GROWTH: "النمو — 4,800 ج.م",
-  PRO: "الاحترافي — 10,000 ج.م",
-  ENTERPRISE: "المؤسسات — 21,500 ج.م",
+  STARTER: "المبتدئ - 999 ج.م",
+  BASIC: "الأساسي - 2,200 ج.م",
+  GROWTH: "النمو - 4,800 ج.م",
+  PRO: "الاحترافي - 10,000 ج.م",
+  ENTERPRISE: "المؤسسات - 21,500 ج.م",
 };
 
 const PLAN_TAGLINES: Record<string, string> = {
-  STARTER: "واتساب ذكي + استقبال طلبات — 250 محادثة/شهر",
-  BASIC: "كل مميزات المبتدئ + لينكات دفع + مخزون + API — 500 محادثة/شهر",
-  GROWTH: "للنمو السريع مع أتمتة الأعمال وحملات التسويق — 1,500 محادثة/شهر",
-  PRO: "للعمليات الاحترافية مع التنبؤات والخط الصوتي — 4,000 محادثة/شهر",
-  ENTERPRISE: "للشركات الكبيرة مع محرك مكالمات ذكية وSLA مضمون — 10,000 محادثة/شهر",
+  STARTER: "واتساب ذكي + استقبال طلبات - 250 محادثة/شهر",
+  BASIC: "كل مميزات المبتدئ + لينكات دفع + مخزون + API - 500 محادثة/شهر",
+  GROWTH: "للنمو السريع مع أتمتة الأعمال وحملات التسويق - 1,500 محادثة/شهر",
+  PRO: "للعمليات الاحترافية مع التنبؤات والخط الصوتي - 4,000 محادثة/شهر",
+  ENTERPRISE:
+    "للشركات الكبيرة مع محرك مكالمات ذكية وSLA مضمون - 10,000 محادثة/شهر",
 };
 
 const PLAN_COLORS: Record<string, string> = {
@@ -158,14 +159,12 @@ const COUNTRY_CONFIG: Record<
   string,
   { nameAr: string; currency: string; flag: string }
 > = {
-  EG: { nameAr: "مصر",      currency: "ج.م",  flag: "🇪🇬" },
-  SA: { nameAr: "السعودية", currency: "ر.س",  flag: "🇸🇦" },
-  AE: { nameAr: "الإمارات", currency: "د.إ",  flag: "🇦🇪" },
-  OM: { nameAr: "عُمان",    currency: "ر.ع",  flag: "🇴🇲" },
-  KW: { nameAr: "الكويت",   currency: "د.ك",  flag: "🇰🇼" },
+  EG: { nameAr: "مصر", currency: "ج.م", flag: "🇪🇬" },
+  SA: { nameAr: "السعودية", currency: "ر.س", flag: "🇸🇦" },
+  AE: { nameAr: "الإمارات", currency: "د.إ", flag: "🇦🇪" },
+  OM: { nameAr: "عُمان", currency: "ر.ع", flag: "🇴🇲" },
+  KW: { nameAr: "الكويت", currency: "د.ك", flag: "🇰🇼" },
 };
-
-
 
 const ADDON_LIST: Array<{
   id: string;
@@ -179,7 +178,7 @@ const ADDON_LIST: Array<{
   {
     id: "ADDON_AUTONOMOUS_AGENT",
     nameAr: "وكيل ذاتي التحكم",
-    descAr: "إجراءات مستقلة — إضافة على خطط المبتدئ / الأساسي / النمو",
+    descAr: "إجراءات مستقلة - إضافة على خطط المبتدئ / الأساسي / النمو",
     icon: Bot,
     appliesTo: "STARTER / BASIC / GROWTH",
     prices: { EG: 1650, SA: 175, AE: 185, OM: 17.5, KW: 14.9 },
@@ -187,7 +186,8 @@ const ADDON_LIST: Array<{
   {
     id: "ADDON_MULTI_BRANCH",
     nameAr: "إدارة فروع متعددة",
-    descAr: "لوحة تحكم موحدة لكل الفروع — إضافة على خطط المبتدئ / الأساسي / النمو",
+    descAr:
+      "لوحة تحكم موحدة لكل الفروع - إضافة على خطط المبتدئ / الأساسي / النمو",
     icon: Users,
     appliesTo: "STARTER / BASIC / GROWTH",
     prices: { EG: 1100, SA: 120, AE: 125, OM: 11.5, KW: 9.9 },
@@ -195,7 +195,8 @@ const ADDON_LIST: Array<{
   {
     id: "ADDON_PROACTIVE_ALERTS",
     nameAr: "تنبيهات استباقية",
-    descAr: "رصد مخزون / دفع / عملاء تلقائياً — إضافة على خطط المبتدئ / الأساسي / النمو",
+    descAr:
+      "رصد مخزون / دفع / عملاء تلقائياً - إضافة على خطط المبتدئ / الأساسي / النمو",
     icon: Bell,
     appliesTo: "STARTER / BASIC / GROWTH",
     prices: { EG: 650, SA: 70, AE: 75, OM: 7, KW: 6 },
@@ -203,7 +204,7 @@ const ADDON_LIST: Array<{
   {
     id: "ADDON_TEAM_SEAT_BUNDLE",
     nameAr: "حزمة مقاعد الفريق",
-    descAr: "3 مقاعد وكلاء إضافية — متاح لجميع الخطط",
+    descAr: "3 مقاعد وكلاء إضافية - متاح لجميع الخطط",
     icon: Users,
     appliesTo: "جميع الخطط",
     prices: { EG: 900, SA: 95, AE: 100, OM: 9, KW: 8 },
@@ -211,7 +212,7 @@ const ADDON_LIST: Array<{
   {
     id: "AI_TOPUP_SMALL",
     nameAr: "باقة ذكاء اصطناعي صغيرة",
-    descAr: "5,000 إجراء ذكاء اصطناعي إضافية — متاح لجميع الخطط",
+    descAr: "5,000 إجراء ذكاء اصطناعي إضافية - متاح لجميع الخطط",
     icon: Zap,
     appliesTo: "جميع الخطط",
     prices: {},
@@ -220,7 +221,7 @@ const ADDON_LIST: Array<{
   {
     id: "AI_TOPUP_MEDIUM",
     nameAr: "باقة ذكاء اصطناعي متوسطة",
-    descAr: "20,000 إجراء ذكاء اصطناعي إضافية — متاح لجميع الخطط",
+    descAr: "20,000 إجراء ذكاء اصطناعي إضافية - متاح لجميع الخطط",
     icon: Zap,
     appliesTo: "جميع الخطط",
     prices: {},
@@ -229,7 +230,7 @@ const ADDON_LIST: Array<{
   {
     id: "WA_TOPUP_SMALL",
     nameAr: "باقة واتساب صغيرة",
-    descAr: "1,000 محادثة واتساب إضافية — متاح لجميع الخطط",
+    descAr: "1,000 محادثة واتساب إضافية - متاح لجميع الخطط",
     icon: MessageSquare,
     appliesTo: "جميع الخطط",
     prices: {},
@@ -238,7 +239,7 @@ const ADDON_LIST: Array<{
   {
     id: "WA_TOPUP_MEDIUM",
     nameAr: "باقة واتساب متوسطة",
-    descAr: "4,000 محادثة واتساب إضافية — متاح لجميع الخطط",
+    descAr: "4,000 محادثة واتساب إضافية - متاح لجميع الخطط",
     icon: MessageSquare,
     appliesTo: "جميع الخطط",
     prices: {},
@@ -304,7 +305,7 @@ const PLAN_CONFIGS: Record<string, PlanSection[]> = {
       heading: "الدفع والتكاملات",
       icon: ShoppingCart,
       items: [
-        "لينكات دفع — العميل يدفع أونلاين مباشرة",
+        "لينكات دفع - العميل يدفع أونلاين مباشرة",
         "ربط بأنظمة خارجية عبر API",
         "إدارة المخزون ومتابعة المنتجات",
         "تنبيهات المخزون المنخفض",
@@ -501,7 +502,9 @@ export default function PricingCalculatorPage() {
     merchantApi
       .getBillingCatalog(apiKey, country as "EG" | "SA" | "AE" | "OM" | "KW")
       .then(setCatalog)
-      .catch(() => {/* non-blocking */});
+      .catch(() => {
+        /* non-blocking */
+      });
   }, [apiKey, country]);
 
   // Auto-calculate when selections change
@@ -656,7 +659,7 @@ export default function PricingCalculatorPage() {
     <div className="space-y-6 animate-fadeIn">
       <PageHeader
         title="حاسبة الأسعار"
-        description="اختر الميزات والوكلاء اللي تحتاجهم وشوف السعر مباشرة — بدون انتظار أحد"
+        description="اختر الميزات والوكلاء اللي تحتاجهم وشوف السعر مباشرة - بدون انتظار أحد"
         actions={
           <div className="flex items-center gap-2">
             <Select value={country} onValueChange={setCountry}>
@@ -683,7 +686,7 @@ export default function PricingCalculatorPage() {
       <div>
         <h2 className="text-lg font-semibold mb-1">الباقات الجاهزة</h2>
         <p className="text-sm text-muted-foreground mb-4">
-          اختر الباقة المناسبة — أو استخدم حاسبة الأسعار أدناه لتخصيص باقتك
+          اختر الباقة المناسبة - أو استخدم حاسبة الأسعار أدناه لتخصيص باقتك
         </p>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
           {pricing.plans
@@ -805,7 +808,7 @@ export default function PricingCalculatorPage() {
       <div>
         <h2 className="text-lg font-semibold mb-1">الإضافات المتاحة</h2>
         <p className="text-sm text-muted-foreground mb-4">
-          أضفها على أي خطة — تُفعَّل وتُلغى في أي وقت بدون عقود
+          أضفها على أي خطة - تُفعَّل وتُلغى في أي وقت بدون عقود
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {ADDON_LIST.map((addon) => {
@@ -816,7 +819,10 @@ export default function PricingCalculatorPage() {
             const unitLabel =
               localPrice != null ? `${currencyLabel}/شهر` : "USD/شهر";
             return (
-              <Card key={addon.id} className="flex flex-col border border-border">
+              <Card
+                key={addon.id}
+                className="flex flex-col border border-border"
+              >
                 <CardHeader className="pb-2">
                   <div className="flex items-start gap-2">
                     <Icon className="h-5 w-5 text-primary mt-0.5 shrink-0" />
@@ -858,7 +864,7 @@ export default function PricingCalculatorPage() {
                 الوكلاء الذكية
               </CardTitle>
               <CardDescription>
-                اختر الوكلاء اللي محتاجهم — كل وكيل بيجيب ميزات معينة
+                اختر الوكلاء اللي محتاجهم - كل وكيل بيجيب ميزات معينة
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -922,7 +928,7 @@ export default function PricingCalculatorPage() {
                 الميزات الإضافية
               </CardTitle>
               <CardDescription>
-                أضف ميزات فردية حسب احتياجك — بعض الميزات مشمولة مع الوكيل
+                أضف ميزات فردية حسب احتياجك - بعض الميزات مشمولة مع الوكيل
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -998,7 +1004,7 @@ export default function PricingCalculatorPage() {
                   <SelectContent>
                     {Object.entries(pricing.aiUsageTiers).map(([key, tier]) => (
                       <SelectItem key={key} value={key}>
-                        {tier.label} —{" "}
+                        {tier.label} -{" "}
                         {tier.aiCallsPerDay === -1
                           ? "بلا حدود"
                           : `${tier.aiCallsPerDay} أمر/يوم`}
@@ -1134,7 +1140,7 @@ export default function PricingCalculatorPage() {
                 <Sparkles className="h-6 w-6 text-amber-500 mx-auto mb-2" />
                 <p className="font-semibold text-sm">جرّب مجاناً 14 يوم</p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  ابدأ بالتجربة المجانية — بدون بطاقة ائتمان
+                  ابدأ بالتجربة المجانية - بدون بطاقة ائتمان
                 </p>
                 <Button
                   size="sm"

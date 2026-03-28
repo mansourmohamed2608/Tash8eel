@@ -58,7 +58,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ApiStatusIndicator } from "./api-status";
 import { NotificationsPopover } from "./notifications-popover";
-import { merchantApi } from "@/lib/api";
+import { merchantApi } from "@/lib/client";
 import {
   Tooltip,
   TooltipContent,
@@ -80,6 +80,7 @@ interface NavItem {
   icon: React.ElementType;
   badge?: number;
   featureKey?: string; // Maps to merchant.features
+  agentKey?: string; // Maps to merchant.enabledAgents
   upgradeText?: string; // Text to show in upgrade prompt
   minRole?: string; // Minimum role required (e.g., 'OWNER', 'ADMIN')
   hidden?: boolean; // Hide from sidebar (coming_soon features)
@@ -116,6 +117,7 @@ const merchantNavItems: NavItem[] = [
     label: "برنامج الولاء",
     icon: Star,
     featureKey: "loyalty",
+    agentKey: "MARKETING_AGENT",
     upgradeText: "ترقية لبرنامج الولاء",
   },
   {
@@ -369,6 +371,7 @@ interface SidebarProps {
   merchantId?: string;
   apiKey?: string;
   userRole?: string; // Staff role: OWNER, ADMIN, MANAGER, AGENT, VIEWER
+  enabledAgents?: string[];
   features?: {
     inventory?: boolean;
     reports?: boolean;
@@ -391,6 +394,7 @@ export function Sidebar({
   role,
   merchantName,
   features,
+  enabledAgents,
   merchantId,
   apiKey,
   userRole,
@@ -429,13 +433,18 @@ export function Sidebar({
             features[item.featureKey as keyof typeof features] === false;
         }
 
+        const agentDisabled =
+          !!item.agentKey &&
+          Array.isArray(enabledAgents) &&
+          !enabledAgents.includes(item.agentKey);
+
         return {
           ...item,
-          disabled: featureDisabled || roleBlocked,
+          disabled: featureDisabled || roleBlocked || agentDisabled,
           roleBlocked,
         };
       });
-  }, [role, features, userRole]);
+  }, [role, features, userRole, enabledAgents]);
 
   const navItems = processedNavItems;
   const title = role === "merchant" ? "تشغيل" : "تشغيل - لوحة الإدارة";

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
@@ -35,7 +35,7 @@ import {
   Building2,
   Wallet,
 } from "lucide-react";
-import { merchantApi } from "@/lib/api";
+import { merchantApi } from "@/lib/client";
 import { useMerchant } from "@/hooks/use-merchant";
 import {
   AiInsightsCard,
@@ -815,7 +815,7 @@ export default function SettingsPage() {
                   dir="ltr"
                 />
                 <p className="text-xs text-muted-foreground">
-                  الرقم الذي يراه العملاء ويتواصلون معه — يجب تسجيله في واتساب
+                  الرقم الذي يراه العملاء ويتواصلون معه - يجب تسجيله في واتساب
                   بزنس عبر الدعم الفني.
                 </p>
               </div>

@@ -2,6 +2,7 @@ import { Injectable, Inject, Optional, Logger } from "@nestjs/common";
 import { Cron } from "@nestjs/schedule";
 import { Pool } from "pg";
 import { DATABASE_POOL } from "../infrastructure/database.module";
+import { REDIS_CLIENT } from "../infrastructure/redis.module";
 import {
   LLM_CLIENT,
   ILlmClient,
@@ -42,6 +43,8 @@ export class AutonomousAgentBrainService {
 
   constructor(
     @Inject(DATABASE_POOL) private readonly pool: Pool,
+    @Inject(REDIS_CLIENT)
+    private readonly redis: { get(key: string): Promise<string | null> },
     @Optional() @Inject(LLM_CLIENT) private readonly llmClient?: ILlmClient,
   ) {
     if (this.llmClient) {
@@ -58,6 +61,12 @@ export class AutonomousAgentBrainService {
   // ─── Run every hour at minute 30 ──────────────────────────
   @Cron("30 * * * *")
   async think(): Promise<void> {
+    const enabled = await this.isEnabled();
+    if (!enabled) {
+      this.logger.log("Autonomous agent disabled via kill switch");
+      return;
+    }
+
     this.logger.log("🧠 Autonomous agent brain starting...");
     const start = Date.now();
 
@@ -88,7 +97,19 @@ export class AutonomousAgentBrainService {
            VALUES ($1, $2, $3)`,
           ["AutonomousAgentBrain.think", String(err), null],
         )
-        .catch(() => {/* non-fatal */});
+        .catch(() => {
+          /* non-fatal */
+        });
+    }
+  }
+
+  private async isEnabled(): Promise<boolean> {
+    try {
+      const value = await this.redis.get("autonomous_agent_enabled");
+      return value === "true";
+    } catch (err) {
+      this.logger.warn(`Failed reading autonomous agent kill switch: ${err}`);
+      return false;
     }
   }
 
@@ -711,13 +732,11 @@ export class AutonomousAgentBrainService {
         "INVENTORY_AGENT",
         "DEAD_STOCK",
         {
-          deadItems: dead.rows
-            .slice(0, 8)
-            .map((r) => ({
-              name: r.name,
-              qty: r.quantity_on_hand,
-              stuckValueEGP: Math.round(parseFloat(r.stuck_value || 0)),
-            })),
+          deadItems: dead.rows.slice(0, 8).map((r) => ({
+            name: r.name,
+            qty: r.quantity_on_hand,
+            stuckValueEGP: Math.round(parseFloat(r.stuck_value || 0)),
+          })),
           totalStuckValueEGP: Math.round(totalValue),
           totalProducts: dead.rows.length,
         },

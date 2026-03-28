@@ -24,7 +24,7 @@ import {
   Send,
   RefreshCw,
 } from "lucide-react";
-import { merchantApi } from "@/lib/api";
+import { merchantApi } from "@/lib/client";
 import { useMerchant } from "@/hooks/use-merchant";
 import {
   AiInsightsCard,
@@ -196,9 +196,9 @@ export default function QuotesPage() {
   };
 
   const formatDate = (date: string | null | undefined) => {
-    if (!date) return "—";
+    if (!date) return "-";
     const d = new Date(date);
-    if (isNaN(d.getTime())) return "—";
+    if (isNaN(d.getTime())) return "-";
     return d.toLocaleDateString("ar-EG", {
       year: "numeric",
       month: "short",
@@ -391,7 +391,7 @@ export default function QuotesPage() {
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
                   <Receipt className="h-5 w-5" />
-                  عرض سعر — {selectedQuote.customerName}
+                  عرض سعر - {selectedQuote.customerName}
                 </DialogTitle>
               </DialogHeader>
 

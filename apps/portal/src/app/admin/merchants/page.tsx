@@ -43,7 +43,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { cn, formatCurrency, formatDate, getStatusColor } from "@/lib/utils";
-import { portalApi } from "@/lib/authenticated-api";
+import { portalApi } from "@/lib/client";
 
 interface Merchant {
   id: string;

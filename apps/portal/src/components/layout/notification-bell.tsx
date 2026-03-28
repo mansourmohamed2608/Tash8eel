@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useCallback } from "react";
 import { Bell, BellOff, Check, ExternalLink } from "lucide-react";
@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-import { portalApi } from "@/lib/authenticated-api";
+import { portalApi } from "@/lib/client";
 import { formatDistanceToNow } from "date-fns";
 import { ar } from "date-fns/locale";
 import Link from "next/link";
@@ -123,7 +123,7 @@ export function NotificationBell() {
         setUnreadCount(result.unreadCount);
       } catch (retryErr) {
         console.error("[bell] retry also failed:", retryErr);
-        // silently ignore — bell keeps showing whatever was last loaded
+        // silently ignore - bell keeps showing whatever was last loaded
       }
     } finally {
       setLoading(false);

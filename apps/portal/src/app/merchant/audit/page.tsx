@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useCallback } from "react";
 import { PageHeader } from "@/components/layout";
@@ -64,7 +64,7 @@ import {
   Plug,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { portalApi } from "@/lib/authenticated-api";
+import { portalApi } from "@/lib/client";
 import {
   AiInsightsCard,
   generateAuditInsights,
@@ -470,7 +470,7 @@ export default function AuditPage() {
       resource:
         log.resourceType === "SETTINGS"
           ? `إعدادات المتجر${Array.isArray(log.metadata?.sections) ? ` (${log.metadata.sections.join("، ")})` : ""}`
-          : log.resourceName || log.resourceId || "—",
+          : log.resourceName || log.resourceId || "-",
       staff: log.staffName || "نظام (تلقائي)",
       ip: formatIp(log.ipAddress),
       time: formatDate(log.timestamp),
@@ -531,7 +531,7 @@ export default function AuditPage() {
     sortedLogs.find((log) => log.action === action);
 
   const formatIp = (ip?: string) => {
-    if (!ip) return "—";
+    if (!ip) return "-";
     if (ip === "::1" || ip === "127.0.0.1") return "محلي (localhost)";
     return ip;
   };
@@ -539,7 +539,7 @@ export default function AuditPage() {
   const isLocalIp = (ip?: string) => ip === "::1" || ip === "127.0.0.1";
 
   const getBrowserLabel = (ua?: string) => {
-    if (!ua) return "—";
+    if (!ua) return "-";
     const lower = ua.toLowerCase();
     const edge = ua.match(/edg\/([\d.]+)/i);
     if (edge) return `Microsoft Edge ${edge[1]}`;
@@ -553,17 +553,17 @@ export default function AuditPage() {
   };
 
   const getOsLabel = (ua?: string) => {
-    if (!ua) return "—";
+    if (!ua) return "-";
     if (/windows nt/i.test(ua)) return "Windows";
     if (/mac os x/i.test(ua)) return "macOS";
     if (/android/i.test(ua)) return "Android";
     if (/iphone|ipad|ipod/i.test(ua)) return "iOS";
     if (/linux/i.test(ua)) return "Linux";
-    return "—";
+    return "-";
   };
 
   const formatChangeValue = (value: unknown): string => {
-    if (value === undefined) return "—";
+    if (value === undefined) return "-";
     if (value === null) return "null";
     if (typeof value === "string") return value;
     if (typeof value === "number" || typeof value === "boolean")
@@ -718,7 +718,7 @@ export default function AuditPage() {
             <div className="text-sm">
               {latestByAction("UPDATE")?.resourceType === "SETTINGS"
                 ? formatTimeSince(latestByAction("UPDATE")!.timestamp)
-                : "—"}
+                : "-"}
             </div>
             <p className="text-xs text-muted-foreground">
               آخر تعديل في الإعدادات
@@ -733,7 +733,7 @@ export default function AuditPage() {
             <div className="text-sm">
               {latestByAction("LOGIN")
                 ? formatTimeSince(latestByAction("LOGIN")!.timestamp)
-                : "—"}
+                : "-"}
             </div>
             <p className="text-xs text-muted-foreground">آخر تسجيل دخول</p>
           </CardContent>
@@ -746,7 +746,7 @@ export default function AuditPage() {
             <div className="text-sm">
               {latestByAction("DELETE")
                 ? formatTimeSince(latestByAction("DELETE")!.timestamp)
-                : "—"}
+                : "-"}
             </div>
             <p className="text-xs text-muted-foreground">آخر عملية حذف</p>
           </CardContent>
@@ -959,7 +959,7 @@ export default function AuditPage() {
                     const resourceLabel =
                       resourceLabels[log.resourceType] ||
                       log.resourceType ||
-                      "—";
+                      "-";
                     const isSettings = log.resourceType === "SETTINGS";
                     const rawSections = Array.isArray(log.metadata?.sections)
                       ? log.metadata.sections
@@ -979,9 +979,9 @@ export default function AuditPage() {
                     const resourceTitle = isSettings
                       ? `إعدادات المتجر${sectionSuffix}`
                       : log.resourceName ||
-                        (log.resourceId ? log.resourceId.slice(0, 8) : "—");
+                        (log.resourceId ? log.resourceId.slice(0, 8) : "-");
                     const actionLabel =
-                      actionLabels[log.action] || log.action || "—";
+                      actionLabels[log.action] || log.action || "-";
                     const actionColor =
                       actionColors[log.action] || "bg-slate-500";
                     const isSystem =
@@ -993,7 +993,7 @@ export default function AuditPage() {
                       : log.staffName || "نظام";
                     const staffSecondary = isSystem
                       ? "API"
-                      : log.staffEmail || "—";
+                      : log.staffEmail || "-";
                     const safeMetadata = log.metadata
                       ? { ...log.metadata }
                       : undefined;
@@ -1138,7 +1138,7 @@ export default function AuditPage() {
                                       معرّف المورد
                                     </label>
                                     <p className="mt-1 font-mono text-sm">
-                                      {log.resourceId || "—"}
+                                      {log.resourceId || "-"}
                                     </p>
                                   </div>
                                   <div>
@@ -1154,7 +1154,7 @@ export default function AuditPage() {
                                       معرّف المستخدم
                                     </label>
                                     <p className="mt-1 font-mono text-sm">
-                                      {log.staffId || "—"}
+                                      {log.staffId || "-"}
                                     </p>
                                   </div>
                                   <div>
@@ -1197,7 +1197,7 @@ export default function AuditPage() {
                                       معرّف الطلب
                                     </label>
                                     <p className="mt-1 font-mono text-sm">
-                                      {log.correlationId || "—"}
+                                      {log.correlationId || "-"}
                                     </p>
                                   </div>
                                   {(log.metadata?.pagePath ||

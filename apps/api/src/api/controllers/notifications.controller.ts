@@ -12,6 +12,7 @@ import {
   BadRequestException,
   Inject,
   Req,
+  UseGuards,
 } from "@nestjs/common";
 import { Request } from "express";
 import { Pool } from "pg";
@@ -23,6 +24,10 @@ import {
 import { DATABASE_POOL } from "../../infrastructure/database/database.module";
 import { MerchantId } from "../../shared/decorators/merchant-id.decorator";
 import { MerchantAuth } from "../../shared/guards/merchant-auth.guard";
+import {
+  EnhancedRateLimitGuard,
+  RateLimit,
+} from "../../shared/guards/rate-limit.guard";
 
 type RecipientFilter = "all" | "vip" | "loyal" | "regular" | "new" | "at_risk";
 
@@ -360,6 +365,8 @@ export class NotificationsController {
 
   @Post("v1/portal/notifications/broadcast")
   @MerchantAuth()
+  @UseGuards(EnhancedRateLimitGuard)
+  @RateLimit({ limit: 3, window: 3600, keyType: "merchant" })
   async sendPortalBroadcast(
     @MerchantId() merchantId: string,
     @Body() body: BroadcastPayload,
@@ -402,6 +409,12 @@ export class NotificationsController {
         recipientCount: 0,
         message: "لا يوجد مستلمون مطابقون للفئة المحددة",
       };
+    }
+
+    if (filteredRecipients.length > 1000) {
+      throw new BadRequestException(
+        "recipientCount exceeds the maximum allowed broadcast size of 1000",
+      );
     }
 
     let sentCount = 0;

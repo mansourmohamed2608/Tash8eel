@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { ChefHat, Search, ChevronLeft, Package, Loader2 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
-import { merchantApi } from "@/lib/api";
+import { merchantApi } from "@/lib/client";
 import { useMerchant } from "@/hooks/use-merchant";
 import { RecipeManager } from "./recipe-manager";
 

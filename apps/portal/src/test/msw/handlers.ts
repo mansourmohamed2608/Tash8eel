@@ -1,4 +1,4 @@
-/**
+﻿/**
  * MSW request handlers for portal integration tests.
  *
  * These handlers intercept HTTP calls made by portal components and return
@@ -106,65 +106,53 @@ export const handlers = [
   }),
 
   // --- Dashboard ---
-  http.get(
-    `/api/v1/merchants/${MERCHANT_ID}/dashboard/stats`,
-    () => HttpResponse.json(fixtures.dashboardStats),
+  http.get(`/api/v1/merchants/${MERCHANT_ID}/dashboard/stats`, () =>
+    HttpResponse.json(fixtures.dashboardStats),
   ),
 
-  http.get(
-    `/api/v1/merchants/${MERCHANT_ID}/dashboard/kpis`,
-    () =>
-      HttpResponse.json({
-        revenue: fixtures.dashboardStats.totalRevenue,
-        orders: fixtures.dashboardStats.totalOrders,
-        customers: fixtures.dashboardStats.totalCustomers,
-      }),
+  http.get(`/api/v1/merchants/${MERCHANT_ID}/dashboard/kpis`, () =>
+    HttpResponse.json({
+      revenue: fixtures.dashboardStats.totalRevenue,
+      orders: fixtures.dashboardStats.totalOrders,
+      customers: fixtures.dashboardStats.totalCustomers,
+    }),
   ),
 
   // --- Orders ---
-  http.get(
-    `/api/v1/merchants/${MERCHANT_ID}/orders`,
-    ({ request }) => {
-      const url = new URL(request.url);
-      const page = parseInt(url.searchParams.get("page") ?? "1");
-      const limit = parseInt(url.searchParams.get("limit") ?? "20");
+  http.get(`/api/v1/merchants/${MERCHANT_ID}/orders`, ({ request }) => {
+    const url = new URL(request.url);
+    const page = parseInt(url.searchParams.get("page") ?? "1");
+    const limit = parseInt(url.searchParams.get("limit") ?? "20");
 
-      return HttpResponse.json({
-        orders: fixtures.orders,
-        total: fixtures.orders.length,
-        page,
-        limit,
-        totalPages: 1,
-      });
-    },
-  ),
+    return HttpResponse.json({
+      orders: fixtures.orders,
+      total: fixtures.orders.length,
+      page,
+      limit,
+      totalPages: 1,
+    });
+  }),
 
-  http.get(
-    `/api/v1/merchants/${MERCHANT_ID}/orders/:orderId`,
-    ({ params }) => {
-      const order = fixtures.orders.find((o) => o.id === params.orderId);
-      if (!order) {
-        return HttpResponse.json({ message: "Order not found" }, { status: 404 });
-      }
-      return HttpResponse.json(order);
-    },
-  ),
+  http.get(`/api/v1/merchants/${MERCHANT_ID}/orders/:orderId`, ({ params }) => {
+    const order = fixtures.orders.find((o) => o.id === params.orderId);
+    if (!order) {
+      return HttpResponse.json({ message: "Order not found" }, { status: 404 });
+    }
+    return HttpResponse.json(order);
+  }),
 
   // --- Customers ---
-  http.get(
-    `/api/v1/merchants/${MERCHANT_ID}/customers`,
-    () =>
-      HttpResponse.json({
-        customers: fixtures.customers,
-        total: fixtures.customers.length,
-        page: 1,
-        totalPages: 1,
-      }),
+  http.get(`/api/v1/merchants/${MERCHANT_ID}/customers`, () =>
+    HttpResponse.json({
+      customers: fixtures.customers,
+      total: fixtures.customers.length,
+      page: 1,
+      totalPages: 1,
+    }),
   ),
 
-  // --- Analytics (fire-and-forget telemetry — always succeed) ---
-  http.post(
-    `/api/v1/merchants/${MERCHANT_ID}/analytics/events`,
-    () => HttpResponse.json({ success: true }, { status: 202 }),
+  // --- Analytics (fire-and-forget telemetry - always succeed) ---
+  http.post(`/api/v1/merchants/${MERCHANT_ID}/analytics/events`, () =>
+    HttpResponse.json({ success: true }, { status: 202 }),
   ),
 ];

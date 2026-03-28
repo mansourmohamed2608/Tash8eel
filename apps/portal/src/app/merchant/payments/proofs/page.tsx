@@ -37,7 +37,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { formatDate, formatCurrency } from "@/lib/utils";
-import { merchantApi } from "@/lib/api";
+import { merchantApi } from "@/lib/client";
 import { useMerchant } from "@/hooks/use-merchant";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -403,7 +403,8 @@ export default function PaymentProofsPage() {
               {
                 key: "risk",
                 header: "Risk",
-                render: (proof) => getRiskBadge(proof.riskLevel, proof.riskScore),
+                render: (proof) =>
+                  getRiskBadge(proof.riskLevel, proof.riskScore),
               },
               {
                 key: "status",
@@ -513,7 +514,12 @@ export default function PaymentProofsPage() {
                 </div>
                 <div className="space-y-2">
                   <Label>Risk score</Label>
-                  <div>{getRiskBadge(selectedProof.riskLevel, selectedProof.riskScore)}</div>
+                  <div>
+                    {getRiskBadge(
+                      selectedProof.riskLevel,
+                      selectedProof.riskScore,
+                    )}
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label>Duplicate image</Label>
@@ -525,18 +531,19 @@ export default function PaymentProofsPage() {
                 </div>
               </div>
 
-              {selectedProof.riskFlags && selectedProof.riskFlags.length > 0 && (
-                <div className="rounded-lg border p-3">
-                  <Label className="mb-2 block">Risk flags</Label>
-                  <div className="flex flex-wrap gap-2">
-                    {selectedProof.riskFlags.map((flag) => (
-                      <Badge key={flag} variant="outline">
-                        {flag}
-                      </Badge>
-                    ))}
+              {selectedProof.riskFlags &&
+                selectedProof.riskFlags.length > 0 && (
+                  <div className="rounded-lg border p-3">
+                    <Label className="mb-2 block">Risk flags</Label>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedProof.riskFlags.map((flag) => (
+                        <Badge key={flag} variant="outline">
+                          {flag}
+                        </Badge>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
               {selectedProof.verificationHints &&
                 selectedProof.verificationHints.length > 0 && (

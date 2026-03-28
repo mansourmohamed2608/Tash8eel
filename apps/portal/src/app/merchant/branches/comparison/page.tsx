@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useCallback } from "react";
 import { PageHeader } from "@/components/layout";
@@ -28,7 +28,7 @@ import {
 } from "@/components/ui/table";
 import { BarChart3, RefreshCw, TrendingUp, TrendingDown } from "lucide-react";
 import { cn, formatCurrency, formatNumber } from "@/lib/utils";
-import { branchesApi } from "@/lib/api";
+import { branchesApi } from "@/lib/client";
 import { useMerchant } from "@/hooks/use-merchant";
 import { useToast } from "@/hooks/use-toast";
 
@@ -84,7 +84,12 @@ export default function BranchComparisonPage() {
                 ))}
               </SelectContent>
             </Select>
-            <Button variant="outline" size="sm" onClick={fetchComparison} disabled={loading}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={fetchComparison}
+              disabled={loading}
+            >
               <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
             </Button>
           </div>
@@ -107,7 +112,9 @@ export default function BranchComparisonPage() {
                 <div key={b.branchId} className="space-y-1">
                   <div className="flex items-center justify-between text-sm">
                     <span className="font-medium">{b.name}</span>
-                    <span className="font-semibold">{formatCurrency(b.revenue ?? 0)}</span>
+                    <span className="font-semibold">
+                      {formatCurrency(b.revenue ?? 0)}
+                    </span>
                   </div>
                   <div className="h-2 bg-muted rounded-full overflow-hidden">
                     <div
@@ -128,7 +135,7 @@ export default function BranchComparisonPage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base">تفاصيل المقارنة</CardTitle>
-          <CardDescription>آخر {days} يوم — كل الفروع</CardDescription>
+          <CardDescription>آخر {days} يوم - كل الفروع</CardDescription>
         </CardHeader>
         <CardContent className="p-0">
           {loading ? (
@@ -173,7 +180,9 @@ export default function BranchComparisonPage() {
                       <TableCell
                         className={cn(
                           "font-semibold",
-                          (b.netProfit ?? 0) >= 0 ? "text-green-600" : "text-red-500",
+                          (b.netProfit ?? 0) >= 0
+                            ? "text-green-600"
+                            : "text-red-500",
                         )}
                       >
                         {(b.netProfit ?? 0) >= 0 ? (
