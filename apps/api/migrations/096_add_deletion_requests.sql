@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS merchant_deletion_requests (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  merchant_id UUID NOT NULL REFERENCES merchants(id) ON DELETE CASCADE,
+  merchant_id VARCHAR(50) NOT NULL REFERENCES merchants(id) ON DELETE CASCADE,
   requested_by_staff_id UUID NOT NULL,
   requested_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   scheduled_for TIMESTAMPTZ NOT NULL DEFAULT NOW() + INTERVAL '30 days',

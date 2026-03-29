@@ -3,7 +3,7 @@
 
 CREATE TABLE IF NOT EXISTS billing_overages (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  merchant_id UUID NOT NULL REFERENCES merchants(id) ON DELETE CASCADE,
+  merchant_id VARCHAR(50) NOT NULL REFERENCES merchants(id) ON DELETE CASCADE,
   billing_period DATE NOT NULL,
   metric_type VARCHAR(50) NOT NULL DEFAULT 'conversations',
   included_amount INTEGER NOT NULL,
