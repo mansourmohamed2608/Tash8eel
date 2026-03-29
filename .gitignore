@@ -31,3 +31,11 @@ Ai Agents/
 
 # Legacy root-level files (use apps/api/migrations instead)
 /migrations/
+
+audit_*.json
+dev_log*.txt
+fix_*.sql
+seed-output.txt
+temp_*.sql
+seed_data.sql
+check_user*.mjs
