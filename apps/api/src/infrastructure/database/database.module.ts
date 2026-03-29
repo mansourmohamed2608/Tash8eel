@@ -76,7 +76,8 @@ function parseConnectionString(connectionString: string): {
         // TLS certificate and prevent man-in-the-middle attacks.
         // Set DATABASE_SSL_REJECT_UNAUTHORIZED=false ONLY for local dev with self-signed certs.
         const rejectUnauthorized =
-          configService.get<string>("DATABASE_SSL_REJECT_UNAUTHORIZED") !== "false";
+          configService.get<string>("DATABASE_SSL_REJECT_UNAUTHORIZED") !==
+          "false";
         const pool = new Pool({
           ...connectionConfig,
           ssl: resolvedSsl ? { rejectUnauthorized } : false,
@@ -114,10 +115,11 @@ function parseConnectionString(connectionString: string): {
             client.release();
             break;
           } catch (err) {
+            const error = err instanceof Error ? err : new Error(String(err));
             retries--;
-            if (retries === 0) throw err;
+            if (retries === 0) throw error;
             logger.warn(
-              `DB connection attempt failed (${retries} retries left): ${err.message}`,
+              `DB connection attempt failed (${retries} retries left): ${error.message}`,
             );
             await new Promise((r) => setTimeout(r, 2000));
           }
@@ -152,8 +154,9 @@ function parseConnectionString(connectionString: string): {
             "CREATE INDEX IF NOT EXISTS idx_expenses_category ON expenses(merchant_id, category)",
           );
         } catch (e) {
+          const error = e instanceof Error ? e : new Error(String(e));
           logger.warn(
-            `Non-critical: could not ensure expenses table: ${e.message}`,
+            `Non-critical: could not ensure expenses table: ${error.message}`,
           );
         }
 
@@ -176,8 +179,9 @@ function parseConnectionString(connectionString: string): {
             "CREATE INDEX IF NOT EXISTS idx_custom_segments_merchant ON custom_segments(merchant_id)",
           );
         } catch (e) {
+          const error = e instanceof Error ? e : new Error(String(e));
           logger.warn(
-            `Non-critical: could not ensure custom_segments table: ${e.message}`,
+            `Non-critical: could not ensure custom_segments table: ${error.message}`,
           );
         }
 

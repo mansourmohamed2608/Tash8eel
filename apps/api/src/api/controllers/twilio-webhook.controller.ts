@@ -152,7 +152,9 @@ export class TwilioWebhookController {
           res.status(200).send("OK");
           return;
         }
-      } catch { /* proceed if table not yet migrated */ }
+      } catch {
+        /* proceed if table not yet migrated */
+      }
 
       this.logger.log({
         msg: "Parsed Twilio message",
@@ -335,7 +337,7 @@ export class TwilioWebhookController {
               imageUrl,
               merchantId,
               parsed.fromNumber,
-              conversation?.id,
+              conversation?.id ?? "",
               merchantMapping.displayName, // Use as category hint
             );
 
@@ -906,7 +908,7 @@ export class TwilioWebhookController {
           merchantId,
           parseResult.command,
         );
-        return queryResult.message;
+        return queryResult.message ?? "";
       }
 
       return parseResult.message;

@@ -77,7 +77,7 @@ export class InboxMessageDto {
   })
   @IsString()
   @IsNotEmpty()
-  merchantId: string;
+  merchantId!: string;
 
   @ApiProperty({
     description: "Customer/sender ID (e.g., WhatsApp number)",
@@ -85,7 +85,7 @@ export class InboxMessageDto {
   })
   @IsString()
   @IsNotEmpty()
-  senderId: string;
+  senderId!: string;
 
   @ApiProperty({
     description:
@@ -97,7 +97,7 @@ export class InboxMessageDto {
   @IsNotEmptyIfNoVoiceNote({
     message: "Text cannot be empty when no voice note is provided",
   })
-  text: string;
+  text!: string;
 
   @ApiPropertyOptional({
     description:
@@ -120,24 +120,24 @@ export class InboxMessageDto {
 
 export class TranscriptionResultDto {
   @ApiProperty({ description: "Transcribed text" })
-  text: string;
+  text!: string;
 
   @ApiProperty({ description: "Confidence score (0-1)" })
-  confidence: number;
+  confidence!: number;
 
   @ApiProperty({ description: "Audio duration in seconds" })
-  duration: number;
+  duration!: number;
 
   @ApiProperty({ description: "Detected language code" })
-  language: string;
+  language!: string;
 }
 
 export class InboxResponseDto {
   @ApiProperty({ description: "Conversation ID" })
-  conversationId: string;
+  conversationId!: string;
 
   @ApiProperty({ description: "Bot reply text in Arabic" })
-  replyText: string;
+  replyText!: string;
 
   @ApiProperty({
     description: "Action taken by the bot",
@@ -154,7 +154,7 @@ export class InboxResponseDto {
       "fallback",
     ],
   })
-  action: string;
+  action!: string;
 
   @ApiProperty({
     description: "Current cart state",
@@ -163,7 +163,7 @@ export class InboxResponseDto {
       total: 300,
     },
   })
-  cart: any;
+  cart!: any;
 
   @ApiPropertyOptional({ description: "Order ID if order was created" })
   orderId?: string;

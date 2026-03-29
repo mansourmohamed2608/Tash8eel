@@ -1,6 +1,8 @@
 import { Inject, Injectable, Logger } from "@nestjs/common";
+import { Cron } from "@nestjs/schedule";
 import { Pool } from "pg";
 import { DATABASE_POOL } from "../../infrastructure/database/database.module";
+import { RedisService } from "../../infrastructure/redis/redis.service";
 
 export type UsageMetricKey =
   | "MESSAGES"
@@ -68,7 +70,10 @@ const LIMIT_KEY_BY_METRIC: Record<UsageMetricKey, keyof UsageLimitsSnapshot> = {
 export class UsageGuardService {
   private readonly logger = new Logger(UsageGuardService.name);
 
-  constructor(@Inject(DATABASE_POOL) private readonly pool: Pool) {}
+  constructor(
+    @Inject(DATABASE_POOL) private readonly pool: Pool,
+    private readonly redisService: RedisService,
+  ) {}
 
   async getEffectiveLimits(merchantId: string): Promise<UsageLimitsSnapshot> {
     const fromMerchant = await this.getLimitsFromMerchantsTable(merchantId);
@@ -322,6 +327,246 @@ export class UsageGuardService {
     };
   }
 
+  async checkAndTrackConversation(
+    merchantId: string,
+    customerPhone: string,
+    messageId: string,
+  ): Promise<{ isNewConversation: boolean; quotaExceeded: boolean }> {
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query(
+        `SELECT pg_advisory_xact_lock(hashtext($1 || ':' || $2))`,
+        [merchantId, customerPhone],
+      );
+
+      const activeWindow = await client.query<{ id: string }>(
+        `SELECT id
+         FROM whatsapp_conversation_windows
+         WHERE merchant_id = $1
+           AND customer_phone = $2
+           AND expires_at > NOW()
+         ORDER BY opened_at DESC
+         LIMIT 1
+         FOR UPDATE`,
+        [merchantId, customerPhone],
+      );
+
+      if (activeWindow.rows[0]?.id) {
+        await client.query(
+          `UPDATE whatsapp_conversation_windows
+           SET message_count = message_count + 1
+           WHERE id = $1`,
+          [activeWindow.rows[0].id],
+        );
+        await client.query("COMMIT");
+        return { isNewConversation: false, quotaExceeded: false };
+      }
+
+      const merchantPlan = await client.query<{
+        currency: string | null;
+        plan_name: string | null;
+      }>(
+        `SELECT
+           COALESCE(NULLIF(m.currency, ''), 'EGP') AS currency,
+           LOWER(COALESCE(NULLIF(p.name, ''), NULLIF(p.code, ''), 'starter')) AS plan_name
+         FROM merchants m
+         LEFT JOIN subscriptions s
+           ON s.merchant_id = m.id
+          AND s.status = 'ACTIVE'
+         LEFT JOIN plans p ON p.id = s.plan_id
+         WHERE m.id = $1
+         ORDER BY s.created_at DESC NULLS LAST
+         LIMIT 1`,
+        [merchantId],
+      );
+
+      const currency = String(
+        merchantPlan.rows[0]?.currency || "EGP",
+      ).toUpperCase();
+      const usageResult = await client.query<{ total: string }>(
+        `SELECT COUNT(*)::text AS total
+         FROM whatsapp_conversation_windows
+         WHERE merchant_id = $1
+           AND opened_at >= date_trunc('month', NOW())`,
+        [merchantId],
+      );
+      const monthlyCount = parseInt(usageResult.rows[0]?.total || "0", 10);
+
+      const planLimitResult = await client.query<{
+        monthly_conversations_egypt: number | null;
+        monthly_conversations_gulf: number | null;
+        monthly_conversations_included: number | null;
+      }>(
+        `SELECT
+           pl.monthly_conversations_egypt,
+           pl.monthly_conversations_gulf,
+           pl.monthly_conversations_included
+         FROM subscriptions s
+         JOIN plan_limits pl ON pl.plan_id = s.plan_id
+         WHERE s.merchant_id = $1
+           AND s.status = 'ACTIVE'
+         ORDER BY s.created_at DESC
+         LIMIT 1`,
+        [merchantId],
+      );
+
+      const limits = planLimitResult.rows[0];
+      const egyptLimit = this.toFiniteNumber(
+        limits?.monthly_conversations_egypt,
+      );
+      const gulfLimit =
+        this.toFiniteNumber(limits?.monthly_conversations_gulf) ??
+        this.toFiniteNumber(limits?.monthly_conversations_included);
+      const limit =
+        currency === "AED" || currency === "SAR"
+          ? (gulfLimit ?? -1)
+          : (egyptLimit ?? -1);
+      const quotaExceeded = limit !== -1 && monthlyCount >= limit;
+      const isOverage =
+        quotaExceeded && (currency === "AED" || currency === "SAR");
+
+      if (quotaExceeded && !isOverage) {
+        await client.query("COMMIT");
+        return { isNewConversation: true, quotaExceeded: true };
+      }
+
+      await client.query(
+        `INSERT INTO whatsapp_conversation_windows (
+           merchant_id,
+           customer_phone,
+           opened_at,
+           expires_at,
+           message_count,
+           ai_replies_count,
+           instant_reply_count,
+           model_4o_count,
+           model_mini_count,
+           is_overage
+         ) VALUES (
+           $1,
+           $2,
+           NOW(),
+           NOW() + INTERVAL '24 hours',
+           1,
+           0,
+           0,
+           0,
+           0,
+           $3
+         )`,
+        [merchantId, customerPhone, isOverage],
+      );
+
+      await client.query("COMMIT");
+      return { isNewConversation: true, quotaExceeded: false };
+    } catch (error) {
+      await client.query("ROLLBACK");
+      this.logger.warn(
+        `Failed to check conversation quota for ${merchantId}/${customerPhone}: ${(error as Error).message}`,
+      );
+      return { isNewConversation: false, quotaExceeded: false };
+    } finally {
+      client.release();
+    }
+  }
+
+  async trackOverage(merchantId: string, count: number): Promise<void> {
+    const safeCount = Math.max(1, Math.floor(Number(count || 1)));
+    try {
+      await this.pool.query(
+        `WITH latest_window AS (
+           SELECT id
+           FROM whatsapp_conversation_windows
+           WHERE merchant_id = $1
+             AND opened_at >= date_trunc('month', NOW())
+           ORDER BY opened_at DESC
+           LIMIT 1
+         )
+         UPDATE whatsapp_conversation_windows
+         SET is_overage = true
+         WHERE id IN (SELECT id FROM latest_window)`,
+        [merchantId],
+      );
+      if (safeCount > 1) {
+        this.logger.debug(
+          `Marked latest conversation window as overage ${safeCount} time(s) for ${merchantId}`,
+        );
+      }
+    } catch (error) {
+      this.logger.warn(
+        `Failed to mark overage for ${merchantId}: ${(error as Error).message}`,
+      );
+    }
+  }
+
+  async notifyMerchantQuotaExceeded(merchantId: string): Promise<void> {
+    const redisKey = `quota-exceeded-notified:${merchantId}`;
+    try {
+      const existing = await this.redisService.get(redisKey);
+      if (existing) {
+        return;
+      }
+    } catch {
+      // Redis failures should not block notification insertion.
+    }
+
+    try {
+      await this.pool.query(
+        `INSERT INTO notifications (
+           merchant_id,
+           type,
+           title,
+           title_ar,
+           message,
+           message_ar,
+           priority,
+           channels,
+           data
+         ) VALUES (
+           $1,
+           'quota_exceeded',
+           'Conversation quota exceeded',
+           'تم تجاوز حد المحادثات',
+           'Automatic replies are temporarily paused due to plan usage limits.',
+           'تم إيقاف الردود التلقائية مؤقتاً بسبب استهلاك حد المحادثات في باقتك.',
+           'HIGH',
+           ARRAY['IN_APP'],
+           $2::jsonb
+         )`,
+        [merchantId, JSON.stringify({ kind: "quota_exceeded" })],
+      );
+      await this.redisService.set(redisKey, "1", 3600);
+    } catch (error) {
+      this.logger.warn(
+        `Failed to create quota notification for ${merchantId}: ${(error as Error).message}`,
+      );
+    }
+  }
+
+  @Cron("15 2 * * *")
+  async cleanupConversationWindows(): Promise<void> {
+    try {
+      await this.pool.query(
+        `DELETE FROM whatsapp_conversation_windows
+         WHERE expires_at < NOW() - INTERVAL '48 hours'`,
+      );
+    } catch (error) {
+      this.logger.warn(
+        `Failed cleaning expired conversation windows: ${(error as Error).message}`,
+      );
+    }
+
+    try {
+      await this.pool.query(
+        `DELETE FROM ai_routing_log
+         WHERE created_at < NOW() - INTERVAL '90 days'`,
+      );
+    } catch {
+      // Table may not exist until the analytics migration is applied.
+    }
+  }
+
   async recordUsagePackCredit(
     merchantId: string,
     metric: UsageMetricKey,
@@ -422,17 +667,19 @@ export class UsageGuardService {
       if (!row) return null;
 
       return this.mergeLimits({
-        messagesPerMonth: this.toFiniteNumber(row.messages_per_month),
-        aiCallsPerDay: this.toFiniteNumber(row.ai_calls_per_day),
-        tokenBudgetDaily: this.toFiniteNumber(row.token_budget_daily),
-        paidTemplatesPerMonth: this.toFiniteNumber(
-          row.paid_templates_per_month,
-        ),
-        paymentProofScansPerMonth: this.toFiniteNumber(
-          row.payment_proof_scans_per_month,
-        ),
-        voiceMinutesPerMonth: this.toFiniteNumber(row.voice_minutes_per_month),
-        mapsLookupsPerMonth: this.toFiniteNumber(row.maps_lookups_per_month),
+        messagesPerMonth:
+          this.toFiniteNumber(row.messages_per_month) ?? undefined,
+        aiCallsPerDay: this.toFiniteNumber(row.ai_calls_per_day) ?? undefined,
+        tokenBudgetDaily:
+          this.toFiniteNumber(row.token_budget_daily) ?? undefined,
+        paidTemplatesPerMonth:
+          this.toFiniteNumber(row.paid_templates_per_month) ?? undefined,
+        paymentProofScansPerMonth:
+          this.toFiniteNumber(row.payment_proof_scans_per_month) ?? undefined,
+        voiceMinutesPerMonth:
+          this.toFiniteNumber(row.voice_minutes_per_month) ?? undefined,
+        mapsLookupsPerMonth:
+          this.toFiniteNumber(row.maps_lookups_per_month) ?? undefined,
       });
     } catch (error) {
       this.logger.debug(
@@ -706,27 +953,34 @@ export class UsageGuardService {
         : raw;
 
     return {
-      messagesPerMonth: this.toFiniteNumber(
-        value.messagesPerMonth ?? value.messages_per_month,
-      ),
-      aiCallsPerDay: this.toFiniteNumber(
-        value.aiCallsPerDay ?? value.ai_calls_per_day,
-      ),
-      tokenBudgetDaily: this.toFiniteNumber(
-        value.tokenBudgetDaily ?? value.token_budget_daily,
-      ),
-      paidTemplatesPerMonth: this.toFiniteNumber(
-        value.paidTemplatesPerMonth ?? value.paid_templates_per_month,
-      ),
-      paymentProofScansPerMonth: this.toFiniteNumber(
-        value.paymentProofScansPerMonth ?? value.payment_proof_scans_per_month,
-      ),
-      voiceMinutesPerMonth: this.toFiniteNumber(
-        value.voiceMinutesPerMonth ?? value.voice_minutes_per_month,
-      ),
-      mapsLookupsPerMonth: this.toFiniteNumber(
-        value.mapsLookupsPerMonth ?? value.maps_lookups_per_month,
-      ),
+      messagesPerMonth:
+        this.toFiniteNumber(
+          value.messagesPerMonth ?? value.messages_per_month,
+        ) ?? undefined,
+      aiCallsPerDay:
+        this.toFiniteNumber(value.aiCallsPerDay ?? value.ai_calls_per_day) ??
+        undefined,
+      tokenBudgetDaily:
+        this.toFiniteNumber(
+          value.tokenBudgetDaily ?? value.token_budget_daily,
+        ) ?? undefined,
+      paidTemplatesPerMonth:
+        this.toFiniteNumber(
+          value.paidTemplatesPerMonth ?? value.paid_templates_per_month,
+        ) ?? undefined,
+      paymentProofScansPerMonth:
+        this.toFiniteNumber(
+          value.paymentProofScansPerMonth ??
+            value.payment_proof_scans_per_month,
+        ) ?? undefined,
+      voiceMinutesPerMonth:
+        this.toFiniteNumber(
+          value.voiceMinutesPerMonth ?? value.voice_minutes_per_month,
+        ) ?? undefined,
+      mapsLookupsPerMonth:
+        this.toFiniteNumber(
+          value.mapsLookupsPerMonth ?? value.maps_lookups_per_month,
+        ) ?? undefined,
     };
   }
 

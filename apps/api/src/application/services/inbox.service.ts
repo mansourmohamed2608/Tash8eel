@@ -6,10 +6,11 @@ import {
   BadRequestException,
   ConflictException,
 } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { Pool } from "pg";
 import { v4 as uuidv4 } from "uuid";
 import { DATABASE_POOL } from "../../infrastructure/database/database.module";
-import { LlmService, LlmResult } from "../llm/llm.service";
+import { LlmService, LlmResult, LLMCallOptions } from "../llm/llm.service";
 import { OutboxService } from "../events/outbox.service";
 import { EVENT_TYPES } from "../events/event-types";
 import { RedisService, Lock } from "../../infrastructure/redis/redis.service";
@@ -33,6 +34,7 @@ import { PaymentService } from "./payment.service";
 import { CustomerReorderService } from "./customer-reorder.service";
 import { UsageGuardService } from "./usage-guard.service";
 import { RagRetrievalService } from "./rag-retrieval.service";
+import { MessageRouterService } from "../llm/message-router.service";
 
 // Repository imports
 import {
@@ -73,6 +75,7 @@ import { Merchant } from "../../domain/entities/merchant.entity";
 import { Conversation } from "../../domain/entities/conversation.entity";
 import { Customer } from "../../domain/entities/customer.entity";
 import { Order } from "../../domain/entities/order.entity";
+import { Address } from "../../shared/schemas";
 
 export interface VoiceNoteParams {
   /** URL to the voice note audio file (e.g., from WhatsApp media URL) */
@@ -89,6 +92,8 @@ export interface InboxMessageParams {
   merchantId: string;
   senderId: string;
   text: string;
+  messageType?: string;
+  providerMessageId?: string;
   /** Voice note parameters - if provided, will be transcribed */
   voiceNote?: VoiceNoteParams;
   correlationId?: string;
@@ -105,6 +110,9 @@ export interface InboxResponse {
   replyText: string;
   action: ActionType;
   cart: any;
+  markAsRead?: boolean;
+  routingDecision?: string;
+  modelUsed?: "gpt-4o" | "gpt-4o-mini";
   orderId?: string;
   orderNumber?: string;
   /** Transcription result if voice note was processed */
@@ -119,9 +127,11 @@ export interface InboxResponse {
 @Injectable()
 export class InboxService {
   private readonly logger = new Logger(InboxService.name);
+  private readonly planCacheTtlSeconds: number;
 
   constructor(
     @Inject(DATABASE_POOL) private readonly pool: Pool,
+    private readonly configService: ConfigService,
     @Inject(MERCHANT_REPOSITORY)
     private readonly merchantRepo: IMerchantRepository,
     @Inject(CONVERSATION_REPOSITORY)
@@ -148,7 +158,12 @@ export class InboxService {
     private readonly customerReorderService: CustomerReorderService,
     private readonly usageGuard: UsageGuardService,
     private readonly ragRetrieval: RagRetrievalService,
-  ) {}
+    private readonly messageRouter: MessageRouterService,
+  ) {
+    this.planCacheTtlSeconds = Number(
+      this.configService.get<string>("MERCHANT_PLAN_CACHE_TTL_SECONDS", "300"),
+    );
+  }
 
   private readonly LOCK_TTL_MS = 30000; // 30 seconds
   private readonly CONTINUITY_RESPONSE_AR =
@@ -168,6 +183,91 @@ export class InboxService {
     "confirm",
     "اكد",
   ];
+
+  private isBlockedForPlan(planName: string, messageType: string): boolean {
+    if (String(planName || "").toLowerCase() !== "starter") {
+      return false;
+    }
+
+    return [
+      "audio",
+      "voice",
+      "image",
+      "document",
+      "sticker",
+      "reaction",
+    ].includes(String(messageType || "").toLowerCase());
+  }
+
+  async getMerchantPlanCached(
+    merchantId: string,
+  ): Promise<{ name: string; currency: string }> {
+    const cacheKey = `merchant:plan:${merchantId}`;
+    const cached = await this.redisService.get(cacheKey);
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached) as {
+          name?: string;
+          currency?: string;
+        };
+        return {
+          name: String(parsed.name || "starter").toLowerCase(),
+          currency: String(parsed.currency || "EGP").toUpperCase(),
+        };
+      } catch {
+        // Fall through to DB.
+      }
+    }
+
+    const result = await this.pool.query<{
+      plan_name: string;
+      currency: string;
+    }>(
+      `SELECT
+         LOWER(COALESCE(NULLIF(p.name, ''), NULLIF(p.code, ''), 'starter')) AS plan_name,
+         UPPER(COALESCE(NULLIF(m.currency, ''), 'EGP')) AS currency
+       FROM merchants m
+       LEFT JOIN subscriptions s
+         ON s.merchant_id = m.id
+        AND s.status = 'ACTIVE'
+       LEFT JOIN plans p ON p.id = s.plan_id
+       WHERE m.id = $1
+       ORDER BY s.created_at DESC NULLS LAST
+       LIMIT 1`,
+      [merchantId],
+    );
+
+    const snapshot = {
+      name: String(result.rows[0]?.plan_name || "starter").toLowerCase(),
+      currency: String(result.rows[0]?.currency || "EGP").toUpperCase(),
+    };
+    await this.redisService.set(
+      cacheKey,
+      JSON.stringify(snapshot),
+      this.planCacheTtlSeconds,
+    );
+    return snapshot;
+  }
+
+  private normalizeAddress(raw?: Partial<Address>): Address | undefined {
+    if (!raw) return undefined;
+
+    return {
+      city: raw.city,
+      area: raw.area,
+      street: raw.street,
+      building: raw.building,
+      floor: raw.floor,
+      apartment: raw.apartment,
+      landmark: raw.landmark,
+      delivery_notes: raw.delivery_notes,
+      raw_text: raw.raw_text,
+      map_url: raw.map_url,
+      coordinates: raw.coordinates,
+      confidence: raw.confidence ?? 0,
+      missing_fields: raw.missing_fields ?? [],
+    };
+  }
 
   /**
    * Check if merchant has exceeded their monthly message limit.
@@ -393,7 +493,8 @@ export class InboxService {
 
     if (!merchant.isActive) {
       this.logger.warn({
-        message: "Merchant is inactive (subscription expired) — suppressing reply",
+        message:
+          "Merchant is inactive (subscription expired) — suppressing reply",
         merchantId: params.merchantId,
         correlationId,
       });
@@ -435,15 +536,19 @@ export class InboxService {
     if (customer.name || customer.phone || customer.address) {
       const existing = conversation.collectedInfo as any;
       const prefill: Record<string, any> = { ...existing };
-      if (!existing?.customerName && customer.name) prefill.customerName = customer.name;
+      if (!existing?.customerName && customer.name)
+        prefill.customerName = customer.name;
       if (!existing?.phone && customer.phone) prefill.phone = customer.phone;
-      if (!existing?.address && customer.address) prefill.address = customer.address;
+      if (!existing?.address && customer.address)
+        prefill.address = customer.address;
       const changed =
         prefill.customerName !== existing?.customerName ||
         prefill.phone !== existing?.phone ||
         prefill.address !== existing?.address;
       if (changed) {
-        await this.conversationRepo.update(conversation.id, { collectedInfo: prefill });
+        await this.conversationRepo.update(conversation.id, {
+          collectedInfo: prefill,
+        });
         conversation = { ...conversation, collectedInfo: prefill };
       }
     }
@@ -471,6 +576,157 @@ export class InboxService {
         text: params.text,
       },
     });
+
+    const merchantPlan = await this.getMerchantPlanCached(params.merchantId);
+    const effectiveMessageType = String(
+      params.messageType || (params.voiceNote ? "audio" : "text"),
+    ).toLowerCase();
+
+    if (this.isBlockedForPlan(merchantPlan.name, effectiveMessageType)) {
+      const redirectReply =
+        this.messageRouter.getMediaRedirectReply(effectiveMessageType);
+      if (redirectReply === "") {
+        await this.recordRoutingDecision({
+          merchantId: params.merchantId,
+          planName: merchantPlan.name,
+          messageType: effectiveMessageType,
+          routingDecision: "media_redirect",
+        });
+        return {
+          conversationId: conversation.id,
+          replyText: "",
+          action: ActionType.ASK_CLARIFYING_QUESTION,
+          cart: { items: [] },
+          markAsRead: true,
+          routingDecision: "media_redirect",
+        };
+      }
+
+      await this.messageRepo.create({
+        conversationId: conversation.id,
+        merchantId: params.merchantId,
+        senderId: "bot",
+        direction: MessageDirection.OUTBOUND,
+        text: redirectReply,
+      });
+      await this.bumpConversationWindow(
+        params.merchantId,
+        params.senderId,
+        "instant",
+      );
+      await this.recordRoutingDecision({
+        merchantId: params.merchantId,
+        planName: merchantPlan.name,
+        messageType: effectiveMessageType,
+        routingDecision: "media_redirect",
+      });
+      return {
+        conversationId: conversation.id,
+        replyText: redirectReply,
+        action: ActionType.ASK_CLARIFYING_QUESTION,
+        cart: { items: [] },
+        routingDecision: "media_redirect",
+      };
+    }
+
+    const instantReply = await this.messageRouter.getInstantReply(
+      params.text ?? "",
+      effectiveMessageType,
+      params.merchantId,
+      params.senderId,
+    );
+
+    if (instantReply !== null) {
+      if (instantReply === "") {
+        await this.recordRoutingDecision({
+          merchantId: params.merchantId,
+          planName: merchantPlan.name,
+          messageType: effectiveMessageType,
+          routingDecision: "ack_no_reply",
+        });
+        return {
+          conversationId: conversation.id,
+          replyText: "",
+          action: ActionType.ASK_CLARIFYING_QUESTION,
+          cart: { items: [] },
+          markAsRead: true,
+          routingDecision: "ack_no_reply",
+        };
+      }
+
+      await this.messageRepo.create({
+        conversationId: conversation.id,
+        merchantId: params.merchantId,
+        senderId: "bot",
+        direction: MessageDirection.OUTBOUND,
+        text: instantReply,
+      });
+      await this.bumpConversationWindow(
+        params.merchantId,
+        params.senderId,
+        "instant",
+      );
+      const instantDecision = instantReply.includes("طلبك رقم")
+        ? "instant_order_status"
+        : instantReply.includes("جنيه")
+          ? "instant_price"
+          : "instant_greeting";
+      await this.recordRoutingDecision({
+        merchantId: params.merchantId,
+        planName: merchantPlan.name,
+        messageType: effectiveMessageType,
+        routingDecision: instantDecision,
+      });
+      return {
+        conversationId: conversation.id,
+        replyText: instantReply,
+        action: ActionType.ASK_CLARIFYING_QUESTION,
+        cart: { items: [] },
+        routingDecision: instantDecision,
+      };
+    }
+
+    const quotaResult = await this.usageGuard.checkAndTrackConversation(
+      params.merchantId,
+      params.senderId,
+      params.providerMessageId || correlationId,
+    );
+
+    if (quotaResult.isNewConversation && quotaResult.quotaExceeded) {
+      if (merchantPlan.currency === "EGP") {
+        await this.usageGuard.notifyMerchantQuotaExceeded(params.merchantId);
+        await this.recordRoutingDecision({
+          merchantId: params.merchantId,
+          planName: merchantPlan.name,
+          messageType: effectiveMessageType,
+          routingDecision: "quota_blocked",
+        });
+        const blockedReply =
+          "نأسف، خدمة الرد التلقائي متوقفة مؤقتاً. سيتواصل معك أحد الزملاء قريباً 🙏";
+        await this.messageRepo.create({
+          conversationId: conversation.id,
+          merchantId: params.merchantId,
+          senderId: "bot",
+          direction: MessageDirection.OUTBOUND,
+          text: blockedReply,
+        });
+        return {
+          conversationId: conversation.id,
+          replyText: blockedReply,
+          action: ActionType.ASK_CLARIFYING_QUESTION,
+          cart: { items: [] },
+          routingDecision: "quota_blocked",
+        };
+      }
+
+      await this.usageGuard.trackOverage(params.merchantId, 1);
+      await this.recordRoutingDecision({
+        merchantId: params.merchantId,
+        planName: merchantPlan.name,
+        messageType: effectiveMessageType,
+        routingDecision: "overage_allowed",
+      });
+    }
 
     // ======== REORDER FLOW DETECTION ========
     // Check if customer is requesting to reorder their last order
@@ -537,7 +793,37 @@ export class InboxService {
       });
 
       // Check for address update in message
-      let address = conversation.collectedInfo?.reorderDetails?.address;
+      const reorderAddress =
+        conversation.collectedInfo?.reorderDetails?.address;
+      let address:
+        | { city?: string; area?: string; street?: string; full?: string }
+        | undefined =
+        reorderAddress &&
+        typeof reorderAddress === "object" &&
+        !Array.isArray(reorderAddress)
+          ? {
+              city:
+                "city" in reorderAddress &&
+                typeof reorderAddress.city === "string"
+                  ? reorderAddress.city
+                  : undefined,
+              area:
+                "area" in reorderAddress &&
+                typeof reorderAddress.area === "string"
+                  ? reorderAddress.area
+                  : undefined,
+              street:
+                "street" in reorderAddress &&
+                typeof reorderAddress.street === "string"
+                  ? reorderAddress.street
+                  : undefined,
+              full:
+                "full" in reorderAddress &&
+                typeof reorderAddress.full === "string"
+                  ? reorderAddress.full
+                  : undefined,
+            }
+          : undefined;
       if (this.looksLikeAddress(params.text)) {
         address = {
           full: params.text,
@@ -621,12 +907,41 @@ export class InboxService {
     );
 
     // 7. Get LLM response
-    const llmResponse = await this.llmService.processMessage({
-      merchant,
-      conversation,
-      catalogItems,
-      recentMessages: recentMessages.slice(-20),
-      customerMessage: params.text,
+    const llmOptions: LLMCallOptions = {
+      model: this.messageRouter.selectModel(
+        merchantPlan.name,
+        params.text ?? "",
+        effectiveMessageType,
+      ),
+      maxTokens: merchantPlan.name === "starter" ? 300 : 1000,
+    };
+    const llmResponse = await this.llmService.processMessage(
+      {
+        merchant,
+        conversation,
+        catalogItems,
+        recentMessages: recentMessages.slice(-20),
+        customerMessage: params.text,
+      },
+      llmOptions,
+    );
+    await this.bumpConversationWindow(
+      params.merchantId,
+      params.senderId,
+      "ai",
+      llmOptions.model,
+    );
+    await this.recordRoutingDecision({
+      merchantId: params.merchantId,
+      planName: merchantPlan.name,
+      messageType: effectiveMessageType,
+      routingDecision: llmOptions.model === "gpt-4o" ? "ai_4o" : "ai_4o_mini",
+      modelUsed: llmOptions.model,
+      complexityScore: this.messageRouter.scoreComplexity(params.text ?? ""),
+      estimatedCostUsd: this.estimateInboxCostUsd(
+        llmOptions.model,
+        llmResponse.tokensUsed,
+      ),
     });
 
     // 8. Process LLM action
@@ -659,7 +974,7 @@ export class InboxService {
         llmResponse.address,
         params.text,
       );
-      collectedInfo.address = address;
+      collectedInfo.address = this.normalizeAddress(address);
     }
 
     await this.conversationRepo.update(conversation.id, {
@@ -685,9 +1000,97 @@ export class InboxService {
       replyText: result.replyText,
       action: result.action,
       cart: result.cart,
+      modelUsed: llmOptions.model,
+      routingDecision: llmOptions.model === "gpt-4o" ? "ai_4o" : "ai_4o_mini",
       orderId: result.orderId,
       orderNumber: result.orderNumber,
     };
+  }
+
+  private async bumpConversationWindow(
+    merchantId: string,
+    customerPhone: string,
+    mode: "instant" | "ai",
+    model?: "gpt-4o" | "gpt-4o-mini",
+  ): Promise<void> {
+    const updates: string[] = [];
+    if (mode === "instant") {
+      updates.push("instant_reply_count = instant_reply_count + 1");
+    } else {
+      updates.push("ai_replies_count = ai_replies_count + 1");
+      if (model === "gpt-4o") {
+        updates.push("model_4o_count = model_4o_count + 1");
+      } else {
+        updates.push("model_mini_count = model_mini_count + 1");
+      }
+    }
+
+    if (updates.length === 0) return;
+
+    try {
+      await this.pool.query(
+        `WITH latest_window AS (
+           SELECT id
+           FROM whatsapp_conversation_windows
+           WHERE merchant_id = $1
+             AND customer_phone = $2
+             AND expires_at > NOW()
+           ORDER BY opened_at DESC
+           LIMIT 1
+         )
+         UPDATE whatsapp_conversation_windows
+         SET ${updates.join(", ")}
+         WHERE id IN (SELECT id FROM latest_window)`,
+        [merchantId, customerPhone],
+      );
+    } catch {
+      // Window table may not exist until migration is applied.
+    }
+  }
+
+  private async recordRoutingDecision(input: {
+    merchantId: string;
+    planName: string;
+    messageType: string;
+    routingDecision: string;
+    modelUsed?: string;
+    complexityScore?: number;
+    estimatedCostUsd?: number;
+  }): Promise<void> {
+    try {
+      await this.pool.query(
+        `INSERT INTO ai_routing_log (
+           merchant_id,
+           plan_name,
+           message_type,
+           complexity_score,
+           routing_decision,
+           model_used,
+           estimated_cost_usd
+         ) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [
+          input.merchantId,
+          input.planName,
+          input.messageType,
+          input.complexityScore ?? null,
+          input.routingDecision,
+          input.modelUsed ?? null,
+          input.estimatedCostUsd ?? 0,
+        ],
+      );
+    } catch {
+      // Analytics table may not exist until migration is applied.
+    }
+  }
+
+  private estimateInboxCostUsd(
+    model: "gpt-4o" | "gpt-4o-mini",
+    tokensUsed: number,
+  ): number {
+    const costPerThousandTokens = model === "gpt-4o" ? 0.012 : 0.0012;
+    return Number(
+      ((Math.max(tokensUsed, 0) / 1000) * costPerThousandTokens).toFixed(6),
+    );
   }
 
   /**
@@ -927,7 +1330,7 @@ export class InboxService {
     // Update customer with extracted info
     if (llmResponse.customerName || llmResponse.address || llmResponse.phone) {
       const addressObj = llmResponse.address
-        ? { raw_text: llmResponse.address }
+        ? this.normalizeAddress({ raw_text: llmResponse.address })
         : undefined;
       await this.customerRepo.update(customer.id, {
         name: llmResponse.customerName || customer.name,
@@ -938,8 +1341,8 @@ export class InboxService {
 
     const deliveryFee = merchant.defaultDeliveryFee || 30;
     const deliveryAddr = llmResponse.address
-      ? { raw_text: llmResponse.address }
-      : customer.address;
+      ? this.normalizeAddress({ raw_text: llmResponse.address })
+      : this.normalizeAddress(customer.address);
 
     // Create order
     const createdOrder = await this.orderRepo.create({
@@ -1215,16 +1618,38 @@ export class InboxService {
     addressText: string,
     messageText: string,
   ): {
+    city?: string;
+    area?: string;
+    street?: string;
+    building?: string;
+    floor?: string;
+    apartment?: string;
+    landmark?: string;
     raw_text: string;
     map_url?: string;
     coordinates?: { lat: number; lng: number };
+    confidence: number;
+    missing_fields: string[];
   } {
     // Start with raw text
     const result: {
+      city?: string;
+      area?: string;
+      street?: string;
+      building?: string;
+      floor?: string;
+      apartment?: string;
+      landmark?: string;
       raw_text: string;
       map_url?: string;
       coordinates?: { lat: number; lng: number };
-    } = { raw_text: addressText };
+      confidence: number;
+      missing_fields: string[];
+    } = {
+      raw_text: addressText,
+      confidence: 0,
+      missing_fields: [],
+    };
 
     // Extract Google Maps URL from both address text and original message
     const combinedText = `${addressText} ${messageText}`;

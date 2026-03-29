@@ -447,7 +447,10 @@ export class CopilotAiService {
           systemPrompt += `\n\n=== بيانات التاجر الحالية ===\n${liveData}`;
         }
       } catch (err) {
-        logger.warn("Failed to fetch merchant context for copilot", err);
+        const error = err instanceof Error ? err : new Error(String(err));
+        logger.warn("Failed to fetch merchant context for copilot", {
+          error: error.message,
+        });
       }
     }
 

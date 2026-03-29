@@ -174,7 +174,8 @@ export class MerchantContextService {
 
       return parts.join("\n");
     } catch (err) {
-      logger.error("Failed to build orders context", err);
+      const error = err instanceof Error ? err : new Error(String(err));
+      logger.error("Failed to build orders context", { error: error.message });
       return "بيانات الطلبات غير متاحة حالياً";
     }
   }
@@ -240,7 +241,10 @@ export class MerchantContextService {
 
       return parts.join("\n");
     } catch (err) {
-      logger.error("Failed to build inventory context", err);
+      const error = err instanceof Error ? err : new Error(String(err));
+      logger.error("Failed to build inventory context", {
+        error: error.message,
+      });
       return "بيانات المخزون غير متاحة حالياً";
     }
   }
@@ -305,7 +309,8 @@ export class MerchantContextService {
         `COD — محصّل: ${Number(c.collected).toLocaleString()} ج.م | معلّق: ${Number(c.pending).toLocaleString()} ج.م`,
       ].join("\n");
     } catch (err) {
-      logger.error("Failed to build finance context", err);
+      const error = err instanceof Error ? err : new Error(String(err));
+      logger.error("Failed to build finance context", { error: error.message });
       return "بيانات المالية غير متاحة حالياً";
     }
   }
@@ -352,7 +357,10 @@ export class MerchantContextService {
 
       return parts.join("\n");
     } catch (err) {
-      logger.error("Failed to build customers context", err);
+      const error = err instanceof Error ? err : new Error(String(err));
+      logger.error("Failed to build customers context", {
+        error: error.message,
+      });
       return "بيانات العملاء غير متاحة حالياً";
     }
   }
@@ -378,7 +386,10 @@ export class MerchantContextService {
         `نشطة اليوم: ${s.active_today}`,
       ].join("\n");
     } catch (err) {
-      logger.error("Failed to build conversations context", err);
+      const error = err instanceof Error ? err : new Error(String(err));
+      logger.error("Failed to build conversations context", {
+        error: error.message,
+      });
       return "بيانات المحادثات غير متاحة حالياً";
     }
   }

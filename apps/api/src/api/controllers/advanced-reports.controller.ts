@@ -56,10 +56,10 @@ import {
 
 class TaxReportDto {
   @IsString()
-  periodStart: string;
+  periodStart!: string;
 
   @IsString()
-  periodEnd: string;
+  periodEnd!: string;
 
   @IsOptional()
   includeExempt?: boolean;
@@ -83,14 +83,14 @@ class PeriodQueryDto {
 
 class ReceiveLotDto {
   @IsString()
-  itemId: string;
+  itemId!: string;
 
   @IsString()
   @IsOptional()
   variantId?: string;
 
   @IsString()
-  lotNumber: string;
+  lotNumber!: string;
 
   @IsString()
   @IsOptional()
@@ -98,11 +98,11 @@ class ReceiveLotDto {
 
   @IsNumber()
   @Min(1)
-  quantity: number;
+  quantity!: number;
 
   @IsNumber()
   @Min(0)
-  costPrice: number;
+  costPrice!: number;
 
   @IsString()
   @IsOptional()
@@ -119,10 +119,10 @@ class ReceiveLotDto {
 
 class MergeSkusDto {
   @IsString()
-  sourceItemId: string;
+  sourceItemId!: string;
 
   @IsString()
-  targetItemId: string;
+  targetItemId!: string;
 
   @IsString()
   @IsOptional()
@@ -131,16 +131,16 @@ class MergeSkusDto {
 
 class SaveMemoryDto {
   @IsString()
-  customerId: string;
+  customerId!: string;
 
   @IsString()
-  memoryType: string;
+  memoryType!: string;
 
   @IsString()
-  key: string;
+  key!: string;
 
   @IsString()
-  value: string;
+  value!: string;
 
   @IsString()
   @IsOptional()
@@ -153,11 +153,11 @@ class SaveMemoryDto {
 
 class FifoCOGSDto {
   @IsString()
-  itemId: string;
+  itemId!: string;
 
   @IsNumber()
   @Min(1)
-  quantitySold: number;
+  quantitySold!: number;
 }
 
 // ============================================================================

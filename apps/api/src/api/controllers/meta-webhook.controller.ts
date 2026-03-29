@@ -35,6 +35,7 @@ import {
 import { TranscriptionAdapterFactory } from "../../application/adapters/transcription.adapter";
 import { CopilotAiService } from "../../application/llm/copilot-ai.service";
 import { CopilotDispatcherService } from "../../application/llm/copilot-dispatcher.service";
+import { MessageRouterService } from "../../application/llm/message-router.service";
 import { DriverStatusService } from "../../application/services/driver-status.service";
 import { UsageGuardService } from "../../application/services/usage-guard.service";
 
@@ -53,6 +54,7 @@ export class MetaWebhookController {
     private readonly transcriptionFactory: TranscriptionAdapterFactory,
     private readonly copilotAiService: CopilotAiService,
     private readonly copilotDispatcher: CopilotDispatcherService,
+    private readonly messageRouter: MessageRouterService,
     private readonly usageGuard: UsageGuardService,
   ) {}
 
@@ -212,6 +214,9 @@ export class MetaWebhookController {
         displayName: merchantMapping.displayName,
       });
 
+      const merchantPlan =
+        await this.inboxService.getMerchantPlanCached(merchantId);
+
       // BL-008: Deduplicate inbound webhook — Meta may retry the same message
       if (parsed.messageId) {
         try {
@@ -291,6 +296,47 @@ export class MetaWebhookController {
 
       // Handle voice note transcription
       if (parsed.isVoiceNote && parsed.audioMediaId) {
+        if (merchantPlan.name === "starter") {
+          const redirectReply =
+            this.messageRouter.getMediaRedirectReply("voice");
+          const sendResult = await this.metaAdapter.sendTextMessage(
+            parsed.fromNumber,
+            redirectReply,
+            parsed.phoneNumberId,
+          );
+          try {
+            await this.pool.query(
+              `INSERT INTO ai_routing_log (
+                 merchant_id,
+                 plan_name,
+                 message_type,
+                 routing_decision,
+                 model_used,
+                 estimated_cost_usd
+               ) VALUES ($1, $2, $3, $4, $5, $6)`,
+              [
+                merchantId,
+                merchantPlan.name,
+                "audio",
+                "media_redirect",
+                null,
+                0,
+              ],
+            );
+          } catch {
+            // Analytics table may not exist until migration is applied.
+          }
+          if (!sendResult.success) {
+            this.logger.warn({
+              msg: "Failed to send starter voice redirect reply",
+              correlationId,
+              merchantId,
+              errorCode: sendResult.errorCode,
+              errorMessage: sendResult.errorMessage,
+            });
+          }
+          return;
+        }
         try {
           transcriptionResult = await this.processVoiceNote(
             parsed,
@@ -354,6 +400,8 @@ export class MetaWebhookController {
         merchantId,
         senderId: parsed.fromNumber,
         text: effectiveText,
+        messageType: parsed.messageType,
+        providerMessageId: parsed.messageId,
         correlationId,
         // Pass the WA business number that received the message so the
         // conversation can be routed to the correct branch.
@@ -371,6 +419,12 @@ export class MetaWebhookController {
 
       // Send reply via Meta (skip if empty — e.g. inactive/expired merchant)
       if (!inboxResponse.replyText) {
+        if (inboxResponse.markAsRead && parsed.messageId) {
+          await this.metaAdapter.markMessageRead(
+            parsed.messageId,
+            parsed.phoneNumberId,
+          );
+        }
         this.logger.debug({
           msg: "No reply to send (suppressed)",
           correlationId,

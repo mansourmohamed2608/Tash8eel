@@ -11,6 +11,7 @@ import { CopilotDispatcherService } from "./copilot-dispatcher.service";
 import { MerchantContextService } from "./merchant-context.service";
 import { EmbeddingService } from "./embedding.service";
 import { VectorSearchService } from "./vector-search.service";
+import { MessageRouterService } from "./message-router.service";
 import { RepositoriesModule } from "../../infrastructure/repositories";
 import { DatabaseModule } from "../../infrastructure/database/database.module";
 import { SharedAiModule } from "../shared/shared-ai.module";
@@ -29,6 +30,7 @@ import { SharedAiModule } from "../shared/shared-ai.module";
     MerchantContextService,
     EmbeddingService,
     VectorSearchService,
+    MessageRouterService,
   ],
   exports: [
     LlmService,
@@ -42,6 +44,7 @@ import { SharedAiModule } from "../shared/shared-ai.module";
     MerchantContextService,
     EmbeddingService,
     VectorSearchService,
+    MessageRouterService,
   ],
 })
 export class LlmModule {}

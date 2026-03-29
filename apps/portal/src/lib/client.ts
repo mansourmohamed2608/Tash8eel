@@ -398,6 +398,38 @@ export const merchantApi = {
     );
   },
 
+  async getDeletionRequest(apiKey: string) {
+    return apiFetch<{
+      id: string;
+      merchantId: string;
+      requestedByStaffId: string;
+      requestedAt: string;
+      scheduledFor: string;
+      status: "PENDING" | "CANCELLED" | "COMPLETED";
+    } | null>("/v1/portal/account/delete-request", { apiKey });
+  },
+
+  async createDeletionRequest(apiKey: string) {
+    return apiFetch<{
+      requestId: string;
+      scheduledFor: string;
+      message: string;
+    }>("/v1/portal/account/delete-request", {
+      method: "POST",
+      apiKey,
+    });
+  },
+
+  async cancelDeletionRequest(apiKey: string, requestId: string) {
+    return apiFetch<{ message: string }>(
+      `/v1/portal/account/delete-request/${requestId}`,
+      {
+        method: "DELETE",
+        apiKey,
+      },
+    );
+  },
+
   async getOrders(
     merchantId: string,
     apiKey: string,

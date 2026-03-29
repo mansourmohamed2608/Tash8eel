@@ -13,7 +13,9 @@ import { MessageDeliveryWorker } from "./message-delivery.worker";
 import { WeeklyReportScheduler } from "./weekly-report.scheduler";
 import { SubscriptionExpiryScheduler } from "./subscription-expiry.scheduler";
 import { AutomationScheduler } from "./automation.scheduler";
+import { MerchantDeletionScheduler } from "./merchant-deletion.scheduler";
 import { ForecastModule } from "../forecasting/forecast.module";
+import { OverageService } from "../services/overage.service";
 
 @Module({
   imports: [
@@ -34,6 +36,8 @@ import { ForecastModule } from "../forecasting/forecast.module";
     MessageDeliveryWorker,
     SubscriptionExpiryScheduler,
     AutomationScheduler,
+    MerchantDeletionScheduler,
+    OverageService,
   ],
   exports: [
     FollowupScheduler,
@@ -43,6 +47,8 @@ import { ForecastModule } from "../forecasting/forecast.module";
     MessageDeliveryWorker,
     SubscriptionExpiryScheduler,
     AutomationScheduler,
+    MerchantDeletionScheduler,
+    OverageService,
     ForecastModule,
   ],
 })

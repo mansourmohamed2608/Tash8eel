@@ -1,9 +1,11 @@
 import {
   Controller,
+  Get,
   Post,
   Put,
   Body,
   Param,
+  Query,
   UseGuards,
   Logger,
   HttpCode,
@@ -67,7 +69,7 @@ class SubmitProofDto {
 
 class VerifyProofDto {
   @IsBoolean()
-  approved: boolean;
+  approved!: boolean;
 
   @IsOptional()
   @IsString()
@@ -137,7 +139,7 @@ export class PaymentsController {
     return this.paymentService.verifyPaymentProof(
       id,
       merchantId,
-      staffId,
+      staffId ?? "",
       dto.approved,
       dto.rejectionReason,
     );

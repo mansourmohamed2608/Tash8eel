@@ -1,4 +1,10 @@
-import { Injectable, Logger, Inject, NotFoundException } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  Inject,
+  NotFoundException,
+  BadRequestException,
+} from "@nestjs/common";
 import { Pool } from "pg";
 import { DATABASE_POOL } from "../../infrastructure/database/database.module";
 import { OutboxService } from "../events/outbox.service";
@@ -92,6 +98,16 @@ export class DlqService {
     });
 
     try {
+      if (!event.aggregateType) {
+        throw new BadRequestException("aggregateType required");
+      }
+      if (!event.aggregateId) {
+        throw new BadRequestException("aggregateId required");
+      }
+      if (!event.merchantId) {
+        throw new BadRequestException("merchantId required");
+      }
+
       // Re-publish to outbox
       const newEvent = await this.outboxService.publishEvent({
         eventType: event.eventType as any,

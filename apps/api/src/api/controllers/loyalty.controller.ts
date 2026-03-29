@@ -227,15 +227,19 @@ export class LoyaltyController {
   async validatePromoCode(
     @Param("merchantId") merchantId: string,
     @Param("code") code: string,
+    @Query("customerId") customerId?: string,
     @Query("orderAmount") orderAmount: string,
     @Req() req: Request,
   ): Promise<any> {
     const resolvedMerchantId = this.getMerchantIdFromParams(merchantId, req);
+    if (!customerId) {
+      throw new BadRequestException("required");
+    }
     const amount = orderAmount ? parseFloat(orderAmount) : undefined;
     const result = await this.loyaltyService.validatePromoCode(
       resolvedMerchantId,
       code,
-      undefined, // customerId not passed from portal
+      customerId,
       amount,
     );
     return result;

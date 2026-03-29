@@ -47,6 +47,15 @@ export class DeliveryStatusHandler implements IEventHandler, OnModuleInit {
 
   async handle(event: OutboxEvent): Promise<void> {
     const payload = event.payload as unknown as DeliveryStatusUpdatedPayload;
+    const merchantId = event.merchantId;
+
+    if (!merchantId) {
+      this.logger.warn({
+        msg: "Skipping DeliveryStatusUpdated event without merchantId",
+        eventId: event.id,
+      });
+      return;
+    }
 
     this.logger.log({
       msg: "Processing DeliveryStatusUpdated event",
@@ -82,11 +91,12 @@ export class DeliveryStatusHandler implements IEventHandler, OnModuleInit {
         newOrderStatus = OrderStatus.DELIVERED;
 
         // Also close the conversation
-        const conversation =
-          await this.conversationRepository.findByMerchantAndSender(
-            event.merchantId,
-            order.customerId,
-          );
+        const conversation = order.customerId
+          ? await this.conversationRepository.findByMerchantAndSender(
+              merchantId,
+              order.customerId,
+            )
+          : null;
 
         if (conversation) {
           await this.conversationRepository.update(conversation.id, {
@@ -99,11 +109,11 @@ export class DeliveryStatusHandler implements IEventHandler, OnModuleInit {
             eventType: EVENT_TYPES.CONVERSATION_CLOSED,
             aggregateType: "conversation",
             aggregateId: conversation.id,
-            merchantId: event.merchantId,
+            merchantId,
             correlationId: event.correlationId,
             payload: {
               conversationId: conversation.id,
-              merchantId: event.merchantId,
+              merchantId,
               reason: "Order delivered",
             },
           });
@@ -120,7 +130,7 @@ export class DeliveryStatusHandler implements IEventHandler, OnModuleInit {
         });
 
         // Send real-time WebSocket notification
-        this.webSocketService.notifyDeliveryStatusUpdated(event.merchantId, {
+        this.webSocketService.notifyDeliveryStatusUpdated(merchantId, {
           orderId: order.id,
           trackingNumber: payload.trackingId,
           status: payload.status,
@@ -130,7 +140,7 @@ export class DeliveryStatusHandler implements IEventHandler, OnModuleInit {
 
         // Also notify about order status change
         this.webSocketService.notifyOrderStatusChanged(
-          event.merchantId,
+          merchantId,
           {
             id: order.id,
             orderNumber: order.orderNumber,

@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { PageHeader } from "@/components/layout";
 import {
@@ -34,6 +35,7 @@ import {
   Smartphone,
   Building2,
   Wallet,
+  AlertTriangle,
 } from "lucide-react";
 import { merchantApi } from "@/lib/client";
 import { useMerchant } from "@/hooks/use-merchant";
@@ -958,6 +960,29 @@ export default function SettingsPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <Card className="border-destructive/30">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-destructive">
+            <AlertTriangle className="h-5 w-5" />
+            منطقة خطرة
+          </CardTitle>
+          <CardDescription>
+            حذف الحساب لا يتم فوراً. سيتم إنشاء طلب حذف مؤجل لمدة 30 يوماً مع
+            إمكانية الإلغاء قبل التنفيذ.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-muted-foreground">
+            إذا كنت تريد إغلاق المتجر نهائياً، انتقل إلى صفحة حذف الحساب.
+          </p>
+          <Button variant="destructive" asChild>
+            <Link href="/merchant/settings/delete-account">
+              إدارة حذف الحساب
+            </Link>
+          </Button>
+        </CardContent>
+      </Card>
     </div>
   );
 }

@@ -21,7 +21,7 @@ export class CatalogItemDto {
   @ApiProperty({ description: "Product name", example: "تيشيرت قطن" })
   @IsString()
   @IsNotEmpty()
-  name: string;
+  name!: string;
 
   @ApiPropertyOptional({ description: "Product description" })
   @IsString()
@@ -31,7 +31,7 @@ export class CatalogItemDto {
   @ApiProperty({ description: "Price in local currency", example: 150 })
   @IsNumber()
   @Min(0)
-  price: number;
+  price!: number;
 
   @ApiPropertyOptional({
     description: "Product category",
@@ -73,7 +73,7 @@ export class CatalogUpsertDto {
   @ApiProperty({ description: "Merchant ID" })
   @IsString()
   @IsNotEmpty()
-  merchantId: string;
+  merchantId!: string;
 
   @ApiProperty({
     description: "List of catalog items to upsert",
@@ -82,21 +82,21 @@ export class CatalogUpsertDto {
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => CatalogItemDto)
-  items: CatalogItemDto[];
+  items!: CatalogItemDto[];
 }
 
 export class CatalogItemResponseDto {
   @ApiProperty()
-  id: string;
+  id!: string;
 
   @ApiProperty()
-  merchantId: string;
+  merchantId!: string;
 
   @ApiPropertyOptional()
   sku?: string;
 
   @ApiProperty()
-  name: string;
+  name!: string;
 
   @ApiPropertyOptional()
   nameEn?: string;
@@ -108,7 +108,7 @@ export class CatalogItemResponseDto {
   descriptionEn?: string;
 
   @ApiProperty()
-  price: number;
+  price!: number;
 
   @ApiPropertyOptional()
   category?: string;
@@ -117,7 +117,7 @@ export class CatalogItemResponseDto {
   stock?: number;
 
   @ApiProperty()
-  isActive: boolean;
+  isActive!: boolean;
 
   @ApiPropertyOptional()
   hasRecipe?: boolean;
@@ -129,24 +129,24 @@ export class CatalogItemResponseDto {
   imageUrl?: string;
 
   @ApiProperty()
-  createdAt: Date;
+  createdAt!: Date;
 
   @ApiProperty()
-  updatedAt: Date;
+  updatedAt!: Date;
 }
 
 export class CatalogUpsertResponseDto {
   @ApiProperty({ description: "Number of items created" })
-  created: number;
+  created!: number;
 
   @ApiProperty({ description: "Number of items updated" })
-  updated: number;
+  updated!: number;
 
   @ApiProperty({ description: "Total items processed" })
-  total: number;
+  total!: number;
 
   @ApiProperty({ type: [CatalogItemResponseDto] })
-  items: CatalogItemResponseDto[];
+  items!: CatalogItemResponseDto[];
 }
 
 // New DTOs for full CRUD operations
@@ -160,7 +160,7 @@ export class CreateCatalogItemDto {
   @ApiProperty({ description: "Product name", example: "تيشيرت قطن" })
   @IsString()
   @IsNotEmpty()
-  name: string;
+  name!: string;
 
   @ApiPropertyOptional({
     description: "Product name (English)",
@@ -183,7 +183,7 @@ export class CreateCatalogItemDto {
   @ApiProperty({ description: "Price in local currency", example: 150 })
   @IsNumber()
   @Min(0)
-  price: number;
+  price!: number;
 
   @ApiPropertyOptional({
     description: "Product category",
@@ -289,7 +289,7 @@ export class CatalogSearchDto {
   })
   @IsString()
   @IsNotEmpty()
-  query: string;
+  query!: string;
 
   @ApiPropertyOptional({
     description: "Maximum number of results to return",

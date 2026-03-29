@@ -123,7 +123,6 @@ export function useWebSocket(
     });
 
     socket.on("connect", () => {
-      console.log("[WebSocket] Connected");
       connectingRef.current = false;
       setIsConnecting(false);
 
@@ -155,7 +154,6 @@ export function useWebSocket(
     });
 
     socket.on("disconnect", (reason) => {
-      console.log("[WebSocket] Disconnected:", reason);
       connectingRef.current = false;
       setIsConnected(false);
       optionsRef.current.onDisconnect?.();

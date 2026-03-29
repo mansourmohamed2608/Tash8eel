@@ -181,9 +181,10 @@ export class SeedService {
       );
       return { tables: tableCount, duration };
     } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
       await client.query("ROLLBACK");
-      this.logger.error(`❌ Seed failed: ${err.message}`, err.stack);
-      throw err;
+      this.logger.error(`❌ Seed failed: ${error.message}`, error.stack);
+      throw error;
     } finally {
       client.release();
     }
@@ -203,9 +204,10 @@ export class SeedService {
       this.logger.log(`🧹 Demo data cleaned in ${duration}ms`);
       return { duration };
     } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
       await client.query("ROLLBACK");
-      this.logger.error(`❌ Clean failed: ${err.message}`, err.stack);
-      throw err;
+      this.logger.error(`❌ Clean failed: ${error.message}`, error.stack);
+      throw error;
     } finally {
       client.release();
     }

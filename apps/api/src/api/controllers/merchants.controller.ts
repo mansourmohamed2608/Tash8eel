@@ -123,12 +123,33 @@ export class MerchantsController {
         greetingTemplate: dto.greetingTemplate,
         negotiationRules: dto.negotiationRules || {
           maxDiscountPercent: 10,
+          minMarginPercent: 0,
+          allowQuantityNegotiation: false,
+          allowDeliveryFeeNegotiation: false,
+          freeDeliveryThreshold: undefined,
           allowNegotiation: true,
         },
         workingHours: dto.workingHours,
-        config: {},
+        config: {
+          brandName: undefined,
+          tone: "friendly",
+          welcomeMessage: undefined,
+          currency: dto.currency || "EGP",
+          language: dto.language || "ar-EG",
+          timezone: "Africa/Cairo",
+          enableNegotiation: true,
+          enableSubstitution: false,
+          followupEnabled: true,
+          followupIntervalMinutes: 60,
+          maxFollowups: 3,
+        },
         branding: {},
-        deliveryRules: { defaultFee: dto.defaultDeliveryFee || 30 },
+        deliveryRules: {
+          defaultFee: dto.defaultDeliveryFee || 30,
+          freeDeliveryThreshold: undefined,
+          deliveryZones: undefined,
+          workingHours: undefined,
+        },
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -157,7 +178,24 @@ export class MerchantsController {
       if (dto.greetingTemplate !== undefined)
         updates.greetingTemplate = dto.greetingTemplate;
       if (dto.negotiationRules !== undefined)
-        updates.negotiationRules = dto.negotiationRules;
+        updates.negotiationRules = {
+          maxDiscountPercent:
+            dto.negotiationRules.maxDiscountPercent ??
+            merchant.negotiationRules.maxDiscountPercent,
+          minMarginPercent: merchant.negotiationRules.minMarginPercent ?? 0,
+          allowQuantityNegotiation:
+            dto.negotiationRules.allowQuantityNegotiation ??
+            merchant.negotiationRules.allowQuantityNegotiation,
+          allowDeliveryFeeNegotiation:
+            dto.negotiationRules.allowDeliveryFeeNegotiation ??
+            merchant.negotiationRules.allowDeliveryFeeNegotiation,
+          freeDeliveryThreshold:
+            dto.negotiationRules.freeDeliveryThreshold ??
+            merchant.negotiationRules.freeDeliveryThreshold,
+          allowNegotiation: merchant.negotiationRules.allowNegotiation ?? false,
+          bundleDiscounts: merchant.negotiationRules.bundleDiscounts,
+          activePromotion: merchant.negotiationRules.activePromotion,
+        };
       if (dto.workingHours !== undefined)
         updates.workingHours = dto.workingHours;
 

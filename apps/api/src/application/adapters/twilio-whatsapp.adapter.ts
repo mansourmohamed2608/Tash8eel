@@ -535,7 +535,12 @@ export class TwilioWhatsAppAdapter implements ITwilioWhatsAppAdapter {
       });
 
       // Log outbound message
-      await this.logOutboundMessage(result.sid, normalizedTo, body, result);
+      await this.logOutboundMessage(
+        result.sid ?? "",
+        normalizedTo,
+        body,
+        result,
+      );
 
       return {
         success: true,

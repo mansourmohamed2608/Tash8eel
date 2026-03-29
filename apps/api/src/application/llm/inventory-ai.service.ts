@@ -113,7 +113,7 @@ export interface SupplierDiscoveryRequest {
 
 @Injectable()
 export class InventoryAiService {
-  private client: OpenAI;
+  private client!: OpenAI;
   private model: string;
   /** Circuit breaker: when OpenAI returns 429, stop calling until this timestamp */
   private quotaBlockedUntil = 0;
@@ -470,7 +470,10 @@ ${alternatives.map((a, i) => `${i + 1}. ${a.name} (${a.sku}) - ${a.price} جني
         includeFinance: true,
       });
     } catch (err) {
-      logger.warn("Failed to fetch live context for restock", err);
+      const error = err instanceof Error ? err : new Error(String(err));
+      logger.warn("Failed to fetch live context for restock", {
+        error: error.message,
+      });
     }
 
     if (!(await this.checkAndDeductBudget(merchantId, estimatedTokens))) {
@@ -769,8 +772,9 @@ ${knowledgeBaseSummary || "لا توجد معلومات إضافية."}
       }
 
       const content = response.choices[0]?.message?.content ?? "{}";
-      const parsed = JSON.parse(content);
-      const suppliers = Array.isArray(parsed.suppliers) ? parsed.suppliers : [];
+      const parsed = JSON.parse(content) as Record<string, unknown>;
+      const parsedSuppliers = parsed["suppliers"];
+      const suppliers = Array.isArray(parsedSuppliers) ? parsedSuppliers : [];
 
       void this.aiMetrics.record({
         serviceName: "InventoryAiService",

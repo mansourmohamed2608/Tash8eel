@@ -122,6 +122,7 @@ export interface MetaError {
 
 export interface ParsedWhatsAppMessage {
   messageId: string; // wamid.xxx
+  messageType: string;
   wabaId: string; // WhatsApp Business Account ID
   phoneNumberId: string; // Business phone number ID
   fromNumber: string; // Sender phone: +201234567890
@@ -210,6 +211,10 @@ export interface IMetaWhatsAppAdapter {
   sendTextMessage(
     to: string,
     body: string,
+    phoneNumberId?: string,
+  ): Promise<WhatsAppSendResult>;
+  markMessageRead(
+    messageId: string,
     phoneNumberId?: string,
   ): Promise<WhatsAppSendResult>;
   sendMediaMessage(
@@ -356,7 +361,8 @@ export class MetaWhatsAppAdapter implements IMetaWhatsAppAdapter {
     if (!change?.value?.messages?.length) return null;
 
     const value = change.value;
-    const msg = value.messages[0];
+    const msg = value.messages?.[0];
+    if (!msg) return null;
     const contact = value.contacts?.[0];
 
     // Extract media
@@ -447,6 +453,7 @@ export class MetaWhatsAppAdapter implements IMetaWhatsAppAdapter {
 
     const result: ParsedWhatsAppMessage = {
       messageId: msg.id,
+      messageType: msg.type,
       wabaId: entry.id,
       phoneNumberId: value.metadata.phone_number_id,
       fromNumber,
@@ -711,6 +718,58 @@ export class MetaWhatsAppAdapter implements IMetaWhatsAppAdapter {
       return {
         success: false,
         errorCode: "SEND_ERROR",
+        errorMessage: (error as Error).message,
+      };
+    }
+  }
+
+  async markMessageRead(
+    messageId: string,
+    phoneNumberId?: string,
+  ): Promise<WhatsAppSendResult> {
+    const pnId = phoneNumberId || this.phoneNumberId;
+    if (!this.accessToken || !pnId) {
+      return {
+        success: false,
+        errorCode: "NO_CREDENTIALS",
+        errorMessage: "Meta Cloud API credentials not configured",
+      };
+    }
+
+    try {
+      const url = `${this.graphBaseUrl}/${this.apiVersion}/${pnId}/messages`;
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${this.accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          messaging_product: "whatsapp",
+          status: "read",
+          message_id: messageId,
+        }),
+      });
+
+      const result = (await response.json()) as any;
+      if (!response.ok) {
+        return {
+          success: false,
+          errorCode: result.error?.code?.toString(),
+          errorMessage:
+            result.error?.message || result.error?.error_data?.details,
+        };
+      }
+
+      return {
+        success: true,
+        messageId,
+        status: "read",
+      };
+    } catch (error) {
+      return {
+        success: false,
+        errorCode: "READ_ERROR",
         errorMessage: (error as Error).message,
       };
     }
@@ -1241,6 +1300,7 @@ export class MockMetaWhatsAppAdapter implements IMetaWhatsAppAdapter {
 
     return {
       messageId: msg.id || `mock_${Date.now()}`,
+      messageType: msg.type || "text",
       wabaId: entry?.id || "mock_waba",
       phoneNumberId: change?.value?.metadata?.phone_number_id || "mock_pn_id",
       fromNumber: "+" + (msg.from || "201234567890"),
@@ -1297,6 +1357,14 @@ export class MockMetaWhatsAppAdapter implements IMetaWhatsAppAdapter {
       success: true,
       messageId: `wamid_mock_${Date.now()}`,
       status: "sent",
+    };
+  }
+
+  async markMessageRead(messageId: string): Promise<WhatsAppSendResult> {
+    return {
+      success: true,
+      messageId,
+      status: "read",
     };
   }
 

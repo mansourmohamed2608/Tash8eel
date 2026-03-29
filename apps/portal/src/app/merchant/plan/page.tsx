@@ -55,9 +55,11 @@ function getCycleOptions(
 }
 
 const LIMIT_LABELS: Record<string, string> = {
-  aiCallsPerDay: "ردود وإجراءات الذكاء الاصطناعي / يوم",
-  tokenBudgetDaily: "سعة الذكاء الاصطناعي / يوم",
-  messagesPerMonth: "سعة رسائل واتساب / شهر",
+  aiCallsPerDay: "ردود الذكاء الاصطناعي / يوم",
+  messagesPerMonth: "محادثات واتساب / شهر",
+  monthlyConversationsEgypt: "محادثات واتساب / شهر",
+  monthlyConversationsGulf: "محادثات واتساب / شهر",
+  monthlyConversationsIncluded: "محادثات واتساب / شهر",
   paidTemplatesPerMonth:
     "رسائل القوالب المدفوعة / شهر (Broadcast/OTP/خارج 24 ساعة)",
   voiceMinutesPerMonth: "دقائق الملاحظات الصوتية / شهر",
@@ -73,7 +75,7 @@ const LIMIT_LABELS: Record<string, string> = {
 };
 
 const METRIC_LABELS: Record<string, string> = {
-  AI_CAPACITY: "سعة الذكاء الاصطناعي",
+  AI_CAPACITY: "الردود الذكية الإضافية",
   IN_APP_AI_ACTIONS: "إجراءات الذكاء الاصطناعي داخل النظام",
   PAYMENT_PROOF_SCANS: "فحوصات إثبات الدفع",
   VOICE_MINUTES: "الدقائق الصوتية",
@@ -83,9 +85,8 @@ const METRIC_LABELS: Record<string, string> = {
 };
 
 const USAGE_STATUS_LABELS: Record<string, string> = {
-  MESSAGES: "سعة رسائل واتساب / شهر",
-  AI_CALLS: "ردود وإجراءات الذكاء الاصطناعي / يوم",
-  TOKENS: "سعة الذكاء الاصطناعي / يوم",
+  MESSAGES: "محادثات واتساب / شهر",
+  AI_CALLS: "ردود الذكاء الاصطناعي / يوم",
   PAID_TEMPLATES: "القوالب المدفوعة / شهر",
   PAYMENT_PROOF_SCANS: "فحوصات إثبات الدفع / شهر",
   VOICE_MINUTES: "الدقائق الصوتية / شهر",
@@ -102,13 +103,12 @@ const PLAN_NAME_AR: Record<string, string> = {
 
 const PLAN_DESC_AR: Record<string, string> = {
   STARTER:
-    "واتساب ذكي 24/7 + استقبال طلبات - 250 محادثة/شهر، بدون ملاحظات صوتية",
-  BASIC: "كل مميزات المبتدئ + لينكات دفع + مخزون + ربط API - 500 محادثة/شهر",
-  GROWTH:
-    "كل مميزات الأساسي + الفريق + حملات البث + برنامج الولاء + 10 أتمتات - 1,500 محادثة/شهر",
-  PRO: "كل مميزات النمو + الخط الصوتي + قراءة صور الدفع + منصة التنبؤات + 50 أتمتة + فروع متعددة - 4,000 محادثة/شهر",
+    "واتساب ذكي لاستقبال الطلبات والرد التلقائي - يشمل 1,200 محادثة/شهر في مصر",
+  BASIC: "كل أساسيات التشغيل + الدفع والمخزون - يشمل 1,500 محادثة/شهر في مصر",
+  GROWTH: "تشغيل متقدم مع الفريق والبث والولاء - يشمل 3,500 محادثة/شهر في مصر",
+  PRO: "للعمليات المتقدمة والفروع المتعددة - يشمل 8,000 محادثة/شهر في مصر",
   ENTERPRISE:
-    "كل مميزات الاحترافي + محرك مكالمات ذكية بالعربية + SLA 4 ساعات + دعم مؤسسي مخصص - 10,000 محادثة/شهر",
+    "للمؤسسات الكبيرة مع حدود تشغيل واسعة ودعم مخصص - يشمل 15,000 محادثة/شهر في مصر",
 };
 
 const ADDON_NAME_AR: Record<string, string> = {
@@ -246,6 +246,33 @@ const SCALABLE_CAPACITY_ADDONS = new Set([
   "MULTI_BRANCH_EXTRA",
 ]);
 
+const CONVERSATION_TOOLTIP =
+  "المحادثة = 24 ساعة مع نفس العميل على واتساب. مثال: إذا راسلك العميل 10 مرات في يوم واحد = محادثة واحدة فقط";
+
+const HIDDEN_LIMIT_KEYS = new Set(["tokenBudgetDaily", "monthlyAiCapacity"]);
+
+const HIDDEN_USAGE_METRICS = new Set(["TOKENS"]);
+
+const HIDDEN_USAGE_PACK_CODES = new Set(["AI_CAPACITY_L", "AI_CAPACITY_XL"]);
+
+const STARTER_INCLUDED_FEATURES = [
+  "✅ الرد التلقائي الذكي على رسائل واتساب",
+  "✅ إدارة الطلبات والمبيعات",
+  "✅ كتالوج المنتجات",
+  "✅ المخزون الأساسي",
+  "✅ قاعدة المعرفة",
+  "✅ التقارير الأساسية",
+  "✅ عضوان في الفريق",
+  "✅ فرع واحد",
+];
+
+const STARTER_UPGRADE_FEATURES = [
+  "✗ الكوبايلوت (متاح من الباقة الأساسية)",
+  "✗ الرسائل الصوتية والملفات (متاح من الباقة الأساسية)",
+  "✗ تحليلات الذكاء الاصطناعي المتقدمة (متاح من باقة النمو)",
+  "✗ التقارير المالية المتقدمة (متاح من باقة النمو)",
+];
+
 function localizePlanName(code?: string, fallbackName?: string): string {
   const key = String(code || "").toUpperCase();
   return PLAN_NAME_AR[key] || fallbackName || key;
@@ -341,10 +368,53 @@ function usagePackBenefitLines(pack: any, quantity = 1): string[] {
   const deltas = getUsagePackDeltas(pack);
   return Object.entries(deltas)
     .filter(([, value]) => Number(value) > 0)
+    .filter(([key]) => !HIDDEN_LIMIT_KEYS.has(key))
     .map(([key, value]) => {
       const total = Number(value) * safeQty;
       return `+${total.toLocaleString("ar-EG")} ${LIMIT_LABELS[key] || key}`;
     });
+}
+
+function getConversationLimit(
+  bundle: any,
+  regionCode: RegionCode,
+): number | null {
+  const limits = bundle?.limits || {};
+  if (regionCode === "EG") {
+    const value = Number(
+      limits.monthlyConversationsEgypt || limits.messagesPerMonth || 0,
+    );
+    return value > 0 ? value : null;
+  }
+
+  const gulfValue = Number(
+    limits.monthlyConversationsGulf ||
+      limits.monthlyConversationsIncluded ||
+      limits.messagesPerMonth ||
+      0,
+  );
+  return gulfValue > 0 ? gulfValue : null;
+}
+
+function getOverageRate(bundle: any, currency: string): number | null {
+  const limits = bundle?.limits || {};
+  if (currency === "AED") {
+    const value = Number(limits.overageRateAed ?? 0);
+    return value > 0 ? value : null;
+  }
+  if (currency === "SAR") {
+    const value = Number(limits.overageRateSar ?? 0);
+    return value > 0 ? value : null;
+  }
+  return null;
+}
+
+function getModelBadgeText(planCode?: string): string {
+  const normalized = String(planCode || "").toUpperCase();
+  if (normalized === "STARTER" || normalized === "BASIC") {
+    return "AI: GPT-4o-mini";
+  }
+  return "AI: GPT-4o + 4o-mini";
 }
 
 export default function PlanPage() {
@@ -407,7 +477,14 @@ export default function PlanPage() {
 
   const bundleUsagePacksByMetric = useMemo(() => {
     const groups: Record<string, any[]> = {};
-    for (const usagePack of catalog?.bundleAddOns?.usagePacks || []) {
+    for (const usagePack of (catalog?.bundleAddOns?.usagePacks || []).filter(
+      (addon: any) => addon?.isActive !== false,
+    )) {
+      if (
+        HIDDEN_USAGE_PACK_CODES.has(String(usagePack.code || "").toUpperCase())
+      ) {
+        continue;
+      }
       const key = String(usagePack.metricKey || "OTHER");
       groups[key] = groups[key] || [];
       groups[key].push(usagePack);
@@ -417,7 +494,14 @@ export default function PlanPage() {
 
   const byoUsagePacksByMetric = useMemo(() => {
     const groups: Record<string, any[]> = {};
-    for (const usagePack of catalog?.byo?.usagePacks || []) {
+    for (const usagePack of (catalog?.byo?.usagePacks || []).filter(
+      (addon: any) => addon?.isActive !== false,
+    )) {
+      if (
+        HIDDEN_USAGE_PACK_CODES.has(String(usagePack.code || "").toUpperCase())
+      ) {
+        continue;
+      }
       const key = String(usagePack.metricKey || "OTHER");
       groups[key] = groups[key] || [];
       groups[key].push(usagePack);
@@ -697,11 +781,17 @@ export default function PlanPage() {
         </CardHeader>
         <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           {Object.entries(usageStatus?.metrics || {})
+            .filter(([metric]) => !HIDDEN_USAGE_METRICS.has(String(metric)))
             .slice(0, 8)
             .map(([metric, data]: any) => (
               <div key={metric} className="rounded-md border p-3">
                 <p className="text-xs text-muted-foreground">
                   {USAGE_STATUS_LABELS[String(metric)] || metric}
+                  {String(metric) === "MESSAGES" ? (
+                    <span className="mr-1" title={CONVERSATION_TOOLTIP}>
+                      ℹ️
+                    </span>
+                  ) : null}
                 </p>
                 <p className="text-sm font-semibold">
                   {Number(data?.used || 0).toLocaleString("ar-EG")} /{" "}
@@ -732,6 +822,19 @@ export default function PlanPage() {
             const selectedCyclePrice = cyclePriceMap.get(Number(cycleMonths));
             const isCurrent =
               currentPlan === String(bundle.code || "").toUpperCase();
+            const normalizedPlanCode = String(bundle.code || "").toUpperCase();
+            const conversationLimit = getConversationLimit(bundle, regionCode);
+            const overageRate = getOverageRate(bundle, currency);
+            const visibleLimits = Object.entries(bundle.limits || {}).filter(
+              ([key]) =>
+                !HIDDEN_LIMIT_KEYS.has(key) &&
+                key !== "messagesPerMonth" &&
+                key !== "monthlyConversationsEgypt" &&
+                key !== "monthlyConversationsGulf" &&
+                key !== "monthlyConversationsIncluded" &&
+                key !== "overageRateAed" &&
+                key !== "overageRateSar",
+            );
             return (
               <Card
                 key={bundle.code}
@@ -747,6 +850,9 @@ export default function PlanPage() {
                   <p className="text-sm text-muted-foreground">
                     {localizePlanDescription(bundle.code, bundle.description)}
                   </p>
+                  <Badge variant="secondary" className="w-fit text-xs">
+                    {getModelBadgeText(bundle.code)}
+                  </Badge>
                   {selectedCyclePrice ? (
                     <div>
                       <p className="text-2xl font-bold">
@@ -764,10 +870,22 @@ export default function PlanPage() {
                       لا يوجد سعر لهذه الدولة
                     </p>
                   )}
+                  {conversationLimit ? (
+                    <div className="rounded-md border bg-muted/20 p-2 text-xs">
+                      <p className="font-medium">
+                        {currency === "AED" || currency === "SAR"
+                          ? `يشمل ${conversationLimit.toLocaleString("ar-EG")} محادثة - بعدها ${overageRate ?? 0} ${currency} لكل محادثة إضافية`
+                          : `يشمل ${conversationLimit.toLocaleString("ar-EG")} محادثة`}
+                        <span className="mr-1" title={CONVERSATION_TOOLTIP}>
+                          ℹ️
+                        </span>
+                      </p>
+                    </div>
+                  ) : null}
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div className="space-y-1">
-                    {Object.entries(bundle.limits || {}).map(([key, value]) => (
+                    {visibleLimits.map(([key, value]) => (
                       <div
                         key={key}
                         className="flex justify-between gap-2 text-xs"
@@ -783,17 +901,41 @@ export default function PlanPage() {
                   </div>
 
                   <div className="space-y-1">
-                    {(bundle.features || []).slice(0, 9).map((feature: any) => (
-                      <p
-                        key={feature.key}
-                        className="flex items-center gap-2 text-xs"
-                      >
-                        <Check className="h-3 w-3 text-emerald-600" />
-                        <span>
-                          {localizeFeatureLabel(feature.key, feature.label)}
-                        </span>
-                      </p>
-                    ))}
+                    {normalizedPlanCode === "STARTER" ? (
+                      <>
+                        <p className="text-sm font-medium">
+                          ما يشمله الباقة المبتدئة
+                        </p>
+                        {STARTER_INCLUDED_FEATURES.map((line) => (
+                          <p key={line} className="text-xs">
+                            {line}
+                          </p>
+                        ))}
+                        <div className="border-t pt-2" />
+                        {STARTER_UPGRADE_FEATURES.map((line) => (
+                          <p
+                            key={line}
+                            className="text-xs text-muted-foreground"
+                          >
+                            {line}
+                          </p>
+                        ))}
+                      </>
+                    ) : (
+                      (bundle.features || [])
+                        .slice(0, 9)
+                        .map((feature: any) => (
+                          <p
+                            key={feature.key}
+                            className="flex items-center gap-2 text-xs"
+                          >
+                            <Check className="h-3 w-3 text-emerald-600" />
+                            <span>
+                              {localizeFeatureLabel(feature.key, feature.label)}
+                            </span>
+                          </p>
+                        ))
+                    )}
                   </div>
 
                   <Button
@@ -829,8 +971,9 @@ export default function PlanPage() {
               ظهرت "مضمنة بالفعل" فهذا يعني أن باقتك الحالية تغطيها.
             </p>
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-              {(catalog.bundleAddOns?.capacityAddOns || []).map(
-                (addOn: any) => {
+              {(catalog.bundleAddOns?.capacityAddOns || [])
+                .filter((addon: any) => addon?.isActive !== false)
+                .map((addOn: any) => {
                   const allowsQuantity =
                     SCALABLE_CAPACITY_ADDONS.has(
                       String(addOn.code || "").toUpperCase(),
@@ -926,8 +1069,7 @@ export default function PlanPage() {
                       </CardContent>
                     </Card>
                   );
-                },
-              )}
+                })}
             </div>
           </CardContent>
         </Card>
@@ -1068,108 +1210,110 @@ export default function PlanPage() {
             <div className="space-y-3">
               <h3 className="font-medium">إضافات BYO (تخضع لخصم الدورة)</h3>
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                {(byoAddOns || []).map((addOn: any) => {
-                  const checked = Number(byoAddOnQty[addOn.code] || 0) > 0;
-                  const isCore = addOn.code === "PLATFORM_CORE";
-                  const normalizedAddOnCode = String(
-                    addOn.code || "",
-                  ).toUpperCase();
-                  const allowsQuantity =
-                    SCALABLE_CAPACITY_ADDONS.has(normalizedAddOnCode) ||
-                    Object.keys(addOn.limitIncrements || {}).length > 0;
-                  const cyclePriceMap = mapPricesByCycle(addOn.prices || []);
-                  const selectedCyclePrice = cyclePriceMap.get(
-                    Number(cycleMonths),
-                  );
+                {(byoAddOns || [])
+                  .filter((addon: any) => addon?.isActive !== false)
+                  .map((addOn: any) => {
+                    const checked = Number(byoAddOnQty[addOn.code] || 0) > 0;
+                    const isCore = addOn.code === "PLATFORM_CORE";
+                    const normalizedAddOnCode = String(
+                      addOn.code || "",
+                    ).toUpperCase();
+                    const allowsQuantity =
+                      SCALABLE_CAPACITY_ADDONS.has(normalizedAddOnCode) ||
+                      Object.keys(addOn.limitIncrements || {}).length > 0;
+                    const cyclePriceMap = mapPricesByCycle(addOn.prices || []);
+                    const selectedCyclePrice = cyclePriceMap.get(
+                      Number(cycleMonths),
+                    );
 
-                  return (
-                    <Card
-                      key={addOn.code}
-                      className={checked ? "border-primary" : ""}
-                    >
-                      <CardContent className="space-y-2 pt-4">
-                        <div className="flex items-start justify-between gap-2">
-                          <div>
-                            <p className="font-medium text-sm">
-                              {localizeAddOnName(addOn.code, addOn.name)}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {localizeAddOnDescription(
-                                addOn.code,
-                                addOn.description,
-                              )}
-                            </p>
-                          </div>
-                          {isCore ? <Badge>إلزامي</Badge> : null}
-                        </div>
-
-                        <div className="flex items-center justify-between text-xs">
-                          <span>شهري فعلي ({cycleMonths} شهر)</span>
-                          <span className="font-medium">
-                            {selectedCyclePrice
-                              ? toCurrency(
-                                  selectedCyclePrice.effectiveMonthlyCents,
-                                  selectedCyclePrice.currency,
-                                )
-                              : "-"}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-2">
-                            <Checkbox
-                              checked={checked}
-                              disabled={isCore}
-                              onCheckedChange={(nextChecked) => {
-                                const enabled = nextChecked === true;
-                                setByoAddOnQty((prev) => ({
-                                  ...prev,
-                                  [addOn.code]: enabled
-                                    ? allowsQuantity
-                                      ? Math.max(
-                                          1,
-                                          Number(prev[addOn.code] || 1),
-                                        )
-                                      : 1
-                                    : 0,
-                                }));
-                              }}
-                            />
-                            <span className="text-xs">اختيار</span>
+                    return (
+                      <Card
+                        key={addOn.code}
+                        className={checked ? "border-primary" : ""}
+                      >
+                        <CardContent className="space-y-2 pt-4">
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <p className="font-medium text-sm">
+                                {localizeAddOnName(addOn.code, addOn.name)}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {localizeAddOnDescription(
+                                  addOn.code,
+                                  addOn.description,
+                                )}
+                              </p>
+                            </div>
+                            {isCore ? <Badge>إلزامي</Badge> : null}
                           </div>
 
-                          {allowsQuantity ? (
-                            <Input
-                              type="number"
-                              min={1}
-                              value={Math.max(
-                                1,
-                                Number(byoAddOnQty[addOn.code] || 1),
-                              )}
-                              className="h-8 w-20"
-                              disabled={!checked || !canEdit}
-                              onChange={(event) => {
-                                const quantity = Math.max(
+                          <div className="flex items-center justify-between text-xs">
+                            <span>شهري فعلي ({cycleMonths} شهر)</span>
+                            <span className="font-medium">
+                              {selectedCyclePrice
+                                ? toCurrency(
+                                    selectedCyclePrice.effectiveMonthlyCents,
+                                    selectedCyclePrice.currency,
+                                  )
+                                : "-"}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <Checkbox
+                                checked={checked}
+                                disabled={isCore}
+                                onCheckedChange={(nextChecked) => {
+                                  const enabled = nextChecked === true;
+                                  setByoAddOnQty((prev) => ({
+                                    ...prev,
+                                    [addOn.code]: enabled
+                                      ? allowsQuantity
+                                        ? Math.max(
+                                            1,
+                                            Number(prev[addOn.code] || 1),
+                                          )
+                                        : 1
+                                      : 0,
+                                  }));
+                                }}
+                              />
+                              <span className="text-xs">اختيار</span>
+                            </div>
+
+                            {allowsQuantity ? (
+                              <Input
+                                type="number"
+                                min={1}
+                                value={Math.max(
                                   1,
-                                  Number(event.target.value || 1),
-                                );
-                                setByoAddOnQty((prev) => ({
-                                  ...prev,
-                                  [addOn.code]: quantity,
-                                }));
-                              }}
-                            />
-                          ) : null}
-                        </div>
-                        <p className="text-[11px] text-muted-foreground">
-                          {allowsQuantity
-                            ? "الرقم = عدد الفروع الإضافية المطلوبة."
-                            : "هذه الإضافة تُختار مرة واحدة فقط."}
-                        </p>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
+                                  Number(byoAddOnQty[addOn.code] || 1),
+                                )}
+                                className="h-8 w-20"
+                                disabled={!checked || !canEdit}
+                                onChange={(event) => {
+                                  const quantity = Math.max(
+                                    1,
+                                    Number(event.target.value || 1),
+                                  );
+                                  setByoAddOnQty((prev) => ({
+                                    ...prev,
+                                    [addOn.code]: quantity,
+                                  }));
+                                }}
+                              />
+                            ) : null}
+                          </div>
+                          <p className="text-[11px] text-muted-foreground">
+                            {allowsQuantity
+                              ? "الرقم = عدد الفروع الإضافية المطلوبة."
+                              : "هذه الإضافة تُختار مرة واحدة فقط."}
+                          </p>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
               </div>
             </div>
 

@@ -69,7 +69,10 @@ export class MerchantAssistantService {
         },
       );
     } catch (err) {
-      logger.warn("Failed to fetch live context, continuing without it", err);
+      const error = err instanceof Error ? err : new Error(String(err));
+      logger.warn("Failed to fetch live context, continuing without it", {
+        error: error.message,
+      });
     }
 
     const fullPrompt = liveDataBlock

@@ -26,13 +26,7 @@ import {
 } from "../../domain/ports/merchant.repository";
 import { MerchantCategory } from "../../shared/constants/enums";
 import { v4 as uuidv4 } from "uuid";
-import {
-  IsNumber,
-  IsOptional,
-  IsArray,
-  IsString,
-  Min,
-} from "class-validator";
+import { IsNumber, IsOptional, IsArray, IsString, Min } from "class-validator";
 import {
   AgentType,
   FeatureType,
@@ -47,18 +41,18 @@ import {
 class UpdateBudgetDto {
   @IsNumber()
   @Min(0)
-  dailyTokenBudget: number;
+  dailyTokenBudget!: number;
 }
 
 class UpdateEnabledAgentsDto {
   @IsArray()
   @IsString({ each: true })
-  enabledAgents: string[];
+  enabledAgents!: string[];
 }
 
 class UpdateMerchantPlanDto {
   @IsString()
-  plan: PlanType;
+  plan!: PlanType;
 
   @IsArray()
   @IsString({ each: true })

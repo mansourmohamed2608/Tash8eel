@@ -37,6 +37,15 @@ export class OrderCreatedHandler implements IEventHandler, OnModuleInit {
 
   async handle(event: OutboxEvent): Promise<void> {
     const payload = event.payload as unknown as OrderCreatedPayload;
+    const merchantId = event.merchantId;
+
+    if (!merchantId) {
+      this.logger.warn({
+        msg: "Skipping OrderCreated event without merchantId",
+        eventId: event.id,
+      });
+      return;
+    }
 
     this.logger.log({
       msg: "Processing OrderCreated event",
@@ -47,19 +56,19 @@ export class OrderCreatedHandler implements IEventHandler, OnModuleInit {
     });
 
     // Send real-time WebSocket notification
-    this.notifyViaWebSocket(event.merchantId, payload);
+    this.notifyViaWebSocket(merchantId, payload);
 
     // Update customer statistics
     if (payload.customerId) {
       await this.updateCustomerStats(
         payload.customerId,
-        event.merchantId,
+        merchantId,
         payload.total,
       );
     }
 
     // Alert merchant about new order
-    await this.alertMerchant(event.merchantId, payload, event.correlationId);
+    await this.alertMerchant(merchantId, payload, event.correlationId);
   }
 
   /**
@@ -106,14 +115,14 @@ export class OrderCreatedHandler implements IEventHandler, OnModuleInit {
       if (customer) {
         await this.customerRepository.update(customerId, {
           totalOrders: customer.totalOrders + 1,
-          totalSpent: customer.totalSpent + orderTotal,
+          totalSpent: (customer.totalSpent ?? 0) + orderTotal,
         });
 
         this.logger.debug({
           message: "Customer stats updated",
           customerId,
           totalOrders: customer.totalOrders + 1,
-          totalSpent: customer.totalSpent + orderTotal,
+          totalSpent: (customer.totalSpent ?? 0) + orderTotal,
         });
       }
     } catch (error: any) {

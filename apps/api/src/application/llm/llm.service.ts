@@ -96,6 +96,11 @@ export interface LlmResult {
   missingSlots?: string[];
 }
 
+export interface LLMCallOptions {
+  model?: "gpt-4o" | "gpt-4o-mini";
+  maxTokens?: number;
+}
+
 // Alias for backward compatibility
 export type LlmResponse = LlmResult;
 
@@ -127,6 +132,39 @@ export function createLlmResult(
     discountPercent: response.negotiation?.requestedDiscount ?? undefined,
     deliveryFee: response.delivery_fee ?? undefined,
     missingSlots: response.missing_slots ?? undefined,
+  };
+}
+
+function createEmptyExtractedEntities(): NonNullable<
+  ValidatedLlmResponse["extracted_entities"]
+> {
+  return {
+    products: null,
+    customerName: null,
+    phone: null,
+    address: null,
+    substitutionAllowed: null,
+    deliveryPreference: null,
+  };
+}
+
+function createExtractedEntities(
+  overrides: Partial<NonNullable<ValidatedLlmResponse["extracted_entities"]>>,
+): NonNullable<ValidatedLlmResponse["extracted_entities"]> {
+  return {
+    ...createEmptyExtractedEntities(),
+    ...overrides,
+  };
+}
+
+function createEmptyNegotiation(): NonNullable<
+  ValidatedLlmResponse["negotiation"]
+> {
+  return {
+    requestedDiscount: null,
+    approved: false,
+    offerText: null,
+    finalPrices: null,
   };
 }
 
@@ -192,7 +230,10 @@ export class LlmService {
     }
   }
 
-  async processMessage(context: LlmContext): Promise<LlmResult> {
+  async processMessage(
+    context: LlmContext,
+    options?: LLMCallOptions,
+  ): Promise<LlmResult> {
     // Use mock responses in test mode
     if (this.isTestMode) {
       if (this.strictAiMode) {
@@ -231,7 +272,11 @@ export class LlmService {
             reply_ar:
               "أنا هنا بس لخدمة طلبات المتجر! 😊 إيه إللي تحتاجه من منتجاتنا؟",
             confidence: 1.0,
+            extracted_entities: null,
             missing_slots: [],
+            negotiation: null,
+            reasoning: null,
+            delivery_fee: null,
           },
           0,
           false,
@@ -246,7 +291,13 @@ export class LlmService {
       const _aiCallStart = Date.now(); // BL-004 metric latency
       const response = await withTimeout(
         withRetry(
-          () => this.callOpenAI(systemPrompt, conversationHistory, userPrompt),
+          () =>
+            this.callOpenAI(
+              systemPrompt,
+              conversationHistory,
+              userPrompt,
+              options,
+            ),
           { maxRetries: 2, initialDelayMs: 1000 },
         ),
         this.timeoutMs,
@@ -319,9 +370,10 @@ export class LlmService {
     systemPrompt: string,
     conversationHistory: OpenAI.ChatCompletionMessageParam[],
     userPrompt: string,
+    options?: LLMCallOptions,
   ) {
     return this.client.beta.chat.completions.parse({
-      model: this.model,
+      model: options?.model || this.model || "gpt-4o-mini",
       messages: [
         { role: "system", content: systemPrompt },
         ...conversationHistory,
@@ -332,7 +384,7 @@ export class LlmService {
         json_schema:
           LLM_RESPONSE_JSON_SCHEMA as OpenAI.ResponseFormatJSONSchema["json_schema"],
       },
-      max_tokens: this.maxTokens,
+      max_tokens: options?.maxTokens ?? this.maxTokens,
       temperature: 0.7,
     });
   }
@@ -981,8 +1033,13 @@ recentAgentActions: آخر 10 إجراءات اتخذها الوكلاء في آ
             ? `أهلاً ${nameMatch[1]}! كيف أقدر أساعدك اليوم؟`
             : "أهلاً وسهلاً! كيف أقدر أساعدك؟",
           confidence: 0.95,
-          extracted_entities: nameMatch ? { customerName: nameMatch[1] } : {},
+          extracted_entities: nameMatch
+            ? createExtractedEntities({ customerName: nameMatch[1] })
+            : createEmptyExtractedEntities(),
           missing_slots: ["product"],
+          negotiation: null,
+          reasoning: null,
+          delivery_fee: null,
         },
         0,
         false,
@@ -1063,10 +1120,20 @@ recentAgentActions: آخر 10 إجراءات اتخذها الوكلاء في آ
           actionType: ActionType.UPDATE_CART,
           reply_ar: `تمام! ضفت ${matchedItems.map((i) => i.name).join(" و ")} للسلة. عايز حاجة تانية؟`,
           confidence: 0.9,
-          extracted_entities: {
-            products: matchedItems,
-          },
+          extracted_entities: createExtractedEntities({
+            products: matchedItems.map((item) => ({
+              name: item.name,
+              quantity: item.quantity ?? null,
+              size: item.size ?? null,
+              color: item.color ?? null,
+              options: null,
+              notes: null,
+            })),
+          }),
           missing_slots: ["customer_name", "address_city"],
+          negotiation: null,
+          reasoning: null,
+          delivery_fee: null,
         },
         0,
         false,
@@ -1087,10 +1154,22 @@ recentAgentActions: آخر 10 إجراءات اتخذها الوكلاء في آ
           actionType: ActionType.COLLECT_SLOTS,
           reply_ar: "تمام، تم تسجيل العنوان. ممكن اعرف رقم تليفونك للتواصل؟",
           confidence: 0.85,
-          extracted_entities: {
-            address: { raw_text: customerMessage, city: "القاهرة" },
-          },
+          extracted_entities: createExtractedEntities({
+            address: {
+              city: "القاهرة",
+              area: null,
+              street: null,
+              building: null,
+              floor: null,
+              apartment: null,
+              landmark: null,
+              raw_text: customerMessage,
+            },
+          }),
           missing_slots: ["phone"],
+          negotiation: null,
+          reasoning: null,
+          delivery_fee: null,
         },
         0,
         false,
@@ -1111,6 +1190,11 @@ recentAgentActions: آخر 10 إجراءات اتخذها الوكلاء في آ
           reply_ar:
             "تمام! تم تأكيد طلبك. هنتواصل معاك قريب للتوصيل. شكراً لطلبك! 🎉",
           confidence: 0.95,
+          extracted_entities: null,
+          missing_slots: null,
+          negotiation: null,
+          reasoning: null,
+          delivery_fee: null,
         },
         0,
         false,
@@ -1128,7 +1212,16 @@ recentAgentActions: آخر 10 إجراءات اتخذها الوكلاء في آ
           actionType: ActionType.HANDLE_NEGOTIATION,
           reply_ar: "فاهم! ممكن نعملك خصم 10% على الطلب ده. إيه رأيك؟",
           confidence: 0.8,
-          negotiation: { requestedDiscount: 10 },
+          extracted_entities: null,
+          missing_slots: null,
+          negotiation: {
+            requestedDiscount: 10,
+            approved: false,
+            offerText: null,
+            finalPrices: null,
+          },
+          reasoning: null,
+          delivery_fee: null,
         },
         0,
         false,
@@ -1149,6 +1242,11 @@ recentAgentActions: آخر 10 إجراءات اتخذها الوكلاء في آ
           reply_ar:
             "نأسف جداً لأي إزعاج! حيتم تحويلك لأحد ممثلي خدمة العملاء فوراً للمساعدة.",
           confidence: 0.9,
+          extracted_entities: null,
+          missing_slots: null,
+          negotiation: null,
+          reasoning: null,
+          delivery_fee: null,
         },
         0,
         false,
@@ -1161,10 +1259,14 @@ recentAgentActions: آخر 10 إجراءات اتخذها الوكلاء في آ
         actionType: ActionType.ASK_CLARIFYING_QUESTION,
         reply_ar: "تمام! كيف أقدر أساعدك النهاردة؟",
         confidence: 0.7,
+        extracted_entities: null,
         missing_slots:
           conversation.missingSlots.length > 0
             ? conversation.missingSlots
             : ["product"],
+        negotiation: null,
+        reasoning: null,
+        delivery_fee: null,
       },
       0,
       false,
@@ -1264,7 +1366,11 @@ recentAgentActions: آخر 10 إجراءات اتخذها الوكلاء في آ
         actionType,
         reply_ar: reply,
         confidence: 0.5,
+        extracted_entities: null,
         missing_slots: conversation.missingSlots,
+        negotiation: null,
+        reasoning: null,
+        delivery_fee: null,
       },
       tokensUsed: 0,
       llmUsed: false,
@@ -1280,7 +1386,11 @@ recentAgentActions: آخر 10 إجراءات اتخذها الوكلاء في آ
         reply_ar:
           "ميزة الذكاء الاصطناعي غير مفعّلة حالياً. فعّل مفتاح OPENAI_API_KEY لتشغيل ردود AI الحقيقية.",
         confidence: 0.0,
+        extracted_entities: null,
         missing_slots: conversation.missingSlots,
+        negotiation: null,
+        reasoning: null,
+        delivery_fee: null,
       },
       tokensUsed: 0,
       llmUsed: false,

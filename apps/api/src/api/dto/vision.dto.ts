@@ -110,7 +110,7 @@ export class ImageBase64Dto {
   @IsValidBase64Image({
     message: "Invalid image format. Supported: JPEG, PNG, GIF, WebP",
   })
-  imageBase64: string;
+  imageBase64!: string;
 }
 
 /**

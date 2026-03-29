@@ -12,6 +12,7 @@ import {
   UseGuards,
   HttpStatus,
   BadRequestException,
+  ConflictException,
   NotFoundException,
   UnauthorizedException,
   ForbiddenException,
@@ -54,6 +55,7 @@ import {
 import * as net from "net";
 import { StaffService } from "../../application/services/staff.service";
 import { BulkOperationsService } from "../../application/services/bulk-operations.service";
+import { MerchantDeletionService } from "../../application/services/merchant-deletion.service";
 import {
   RateLimitService,
   RateLimit,
@@ -102,6 +104,7 @@ export class ProductionFeaturesController {
     private readonly staffService: StaffService,
     private readonly bulkOpsService: BulkOperationsService,
     private readonly rateLimitService: RateLimitService,
+    private readonly merchantDeletionService: MerchantDeletionService,
   ) {}
 
   private getMerchantId(req: Request): string {
@@ -812,6 +815,57 @@ export class ProductionFeaturesController {
   ): Promise<any> {
     await this.staffService.revokeSession(id, sessionId);
     return { success: true };
+  }
+
+  @Get("account/delete-request")
+  @ApiOperation({ summary: "Get current pending account deletion request" })
+  async getDeletionRequest(@Req() req: Request): Promise<any> {
+    const merchantId = this.getMerchantId(req);
+    return this.merchantDeletionService.getPendingRequest(merchantId);
+  }
+
+  @Post("account/delete-request")
+  @RequireRole("OWNER")
+  @UseGuards(EnhancedRateLimitGuard)
+  @RateLimit({ limit: 2, window: 86400, keyType: "merchant" })
+  @ApiOperation({ summary: "Create account deletion request" })
+  async createDeletionRequest(@Req() req: Request): Promise<any> {
+    const merchantId = this.getMerchantId(req);
+    const staffId = String((req as any).staffId || "").trim();
+    if (!staffId) {
+      throw new UnauthorizedException(
+        "Staff ID missing from authenticated request",
+      );
+    }
+
+    try {
+      return await this.merchantDeletionService.createDeletionRequest(
+        merchantId,
+        staffId,
+      );
+    } catch (error) {
+      if (error instanceof ConflictException) {
+        throw error;
+      }
+      throw error;
+    }
+  }
+
+  @Delete("account/delete-request/:requestId")
+  @RequireRole("OWNER")
+  @ApiOperation({ summary: "Cancel pending account deletion request" })
+  async cancelDeletionRequest(
+    @Req() req: Request,
+    @Param("requestId") requestId: string,
+  ): Promise<any> {
+    const merchantId = this.getMerchantId(req);
+    if (!requestId) {
+      throw new BadRequestException("requestId is required");
+    }
+    return this.merchantDeletionService.cancelDeletionRequest(
+      merchantId,
+      requestId,
+    );
   }
 
   // ============== BULK OPERATIONS ==============

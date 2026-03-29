@@ -73,6 +73,7 @@ export class AdminOpsController {
       conversationStats,
       dlqStats,
       billingStats,
+      aiRoutingStats,
       dailyOrders,
       merchantDistribution,
       recentDlq,
@@ -83,6 +84,7 @@ export class AdminOpsController {
       this.getConversationStats(),
       this.dlqService.getStats(),
       this.getBillingStats(),
+      this.getAiRoutingStats(),
       this.getDailyOrders(),
       this.getMerchantDistribution(),
       this.getRecentDlq(),
@@ -100,6 +102,13 @@ export class AdminOpsController {
       activeSubscriptions: billingStats.activeSubscriptions,
       totalRevenue: orderStats.totalRevenue,
       systemHealth: systemHealth.status,
+      routingStats: aiRoutingStats,
+      ai_calls_4o_today: aiRoutingStats.aiCalls4oToday,
+      ai_calls_mini_today: aiRoutingStats.aiCallsMiniToday,
+      instant_replies_today: aiRoutingStats.instantRepliesToday,
+      media_redirects_today: aiRoutingStats.mediaRedirectsToday,
+      quota_blocked_today: aiRoutingStats.quotaBlockedToday,
+      estimated_ai_cost_today_usd: aiRoutingStats.estimatedAiCostTodayUsd,
       dailyOrders,
       merchantDistribution,
       recentDlq,
@@ -119,6 +128,7 @@ export class AdminOpsController {
   async getSystemHealth(): Promise<{
     status: AdminServiceState;
     services: AdminServiceHealth[];
+    lastBackupAt: string | null;
     checkedAt: string;
   }> {
     const summary = await this.getSystemHealthSummary();
@@ -464,6 +474,111 @@ export class AdminOpsController {
     };
   }
 
+  private async getAiRoutingStats(): Promise<{
+    total4oCalls: number;
+    totalMiniCalls: number;
+    totalInstantReplies: number;
+    totalBlocked: number;
+    estimated4oCostToday: number;
+    estimatedMiniCostToday: number;
+    totalEstimatedCostToday: number;
+    savingsVsPure4o: number;
+    aiCalls4oToday: number;
+    aiCallsMiniToday: number;
+    instantRepliesToday: number;
+    mediaRedirectsToday: number;
+    quotaBlockedToday: number;
+    estimatedAiCostTodayUsd: number;
+  }> {
+    try {
+      const result = await this.pool.query(`
+        SELECT
+          COUNT(*) FILTER (
+            WHERE model_used = 'gpt-4o'
+              AND created_at >= date_trunc('day', NOW())
+          ) AS ai_calls_4o_today,
+          COUNT(*) FILTER (
+            WHERE model_used = 'gpt-4o-mini'
+              AND created_at >= date_trunc('day', NOW())
+          ) AS ai_calls_mini_today,
+          COUNT(*) FILTER (
+            WHERE routing_decision IN ('instant_order_status', 'instant_price', 'instant_greeting')
+              AND created_at >= date_trunc('day', NOW())
+          ) AS instant_replies_today,
+          COUNT(*) FILTER (
+            WHERE routing_decision = 'media_redirect'
+              AND created_at >= date_trunc('day', NOW())
+          ) AS media_redirects_today,
+          COUNT(*) FILTER (
+            WHERE routing_decision = 'quota_blocked'
+              AND created_at >= date_trunc('day', NOW())
+          ) AS quota_blocked_today,
+          COALESCE(SUM(estimated_cost_usd) FILTER (
+            WHERE created_at >= date_trunc('day', NOW())
+          ), 0) AS estimated_ai_cost_today_usd
+        FROM ai_routing_log
+      `);
+
+      const row = result.rows[0] || {};
+      const total4oCalls = parseInt(row.ai_calls_4o_today ?? "0", 10);
+      const totalMiniCalls = parseInt(row.ai_calls_mini_today ?? "0", 10);
+      const totalInstantReplies = parseInt(
+        row.instant_replies_today ?? "0",
+        10,
+      );
+      const totalBlocked = parseInt(row.quota_blocked_today ?? "0", 10);
+      const estimated4oCostToday = Number((total4oCalls * 0.005).toFixed(6));
+      const estimatedMiniCostToday = Number(
+        (totalMiniCalls * 0.000195).toFixed(6),
+      );
+      const totalEstimatedCostToday = Number(
+        (estimated4oCostToday + estimatedMiniCostToday).toFixed(6),
+      );
+      const savingsVsPure4o = Number(
+        (
+          (total4oCalls + totalMiniCalls) * 0.005 -
+          totalEstimatedCostToday
+        ).toFixed(6),
+      );
+      return {
+        total4oCalls,
+        totalMiniCalls,
+        totalInstantReplies,
+        totalBlocked,
+        estimated4oCostToday,
+        estimatedMiniCostToday,
+        totalEstimatedCostToday,
+        savingsVsPure4o,
+        aiCalls4oToday: total4oCalls,
+        aiCallsMiniToday: totalMiniCalls,
+        instantRepliesToday: totalInstantReplies,
+        mediaRedirectsToday: parseInt(row.media_redirects_today ?? "0", 10),
+        quotaBlockedToday: totalBlocked,
+        estimatedAiCostTodayUsd: totalEstimatedCostToday,
+      };
+    } catch (error) {
+      this.logger.warn("Failed to load AI routing stats", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return {
+        total4oCalls: 0,
+        totalMiniCalls: 0,
+        totalInstantReplies: 0,
+        totalBlocked: 0,
+        estimated4oCostToday: 0,
+        estimatedMiniCostToday: 0,
+        totalEstimatedCostToday: 0,
+        savingsVsPure4o: 0,
+        aiCalls4oToday: 0,
+        aiCallsMiniToday: 0,
+        instantRepliesToday: 0,
+        mediaRedirectsToday: 0,
+        quotaBlockedToday: 0,
+        estimatedAiCostTodayUsd: 0,
+      };
+    }
+  }
+
   private async getOrderStats(): Promise<any> {
     const result = await this.pool.query(`
       SELECT 
@@ -616,11 +731,13 @@ export class AdminOpsController {
   private async getSystemHealthSummary(): Promise<{
     status: AdminServiceState;
     services: AdminServiceHealth[];
+    lastBackupAt: string | null;
   }> {
-    const [database, redis, worker] = await Promise.all([
+    const [database, redis, worker, lastBackupAt] = await Promise.all([
       this.checkDatabaseHealth(),
       this.checkRedisHealth(),
       this.checkWorkerHealth(),
+      this.getLastBackupAt(),
     ]);
 
     const services: AdminServiceHealth[] = [
@@ -643,7 +760,30 @@ export class AdminOpsController {
         ? "degraded"
         : "healthy";
 
-    return { status, services };
+    return { status, services, lastBackupAt };
+  }
+
+  private async getLastBackupAt(): Promise<string | null> {
+    try {
+      const result = await this.pool.query<{ last_backup_at: Date | null }>(`
+        SELECT CASE
+          WHEN to_regclass('system_health_log') IS NULL THEN NULL
+          ELSE (
+            SELECT MAX(created_at)
+            FROM system_health_log
+            WHERE event_type = 'backup_completed'
+          )
+        END AS last_backup_at
+      `);
+
+      const value = result.rows[0]?.last_backup_at;
+      return value ? new Date(value).toISOString() : null;
+    } catch (error) {
+      this.logger.warn("Failed to read backup timestamp for system health", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return null;
+    }
   }
 
   private async checkDatabaseHealth(): Promise<AdminServiceHealth> {

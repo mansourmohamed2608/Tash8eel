@@ -24,6 +24,7 @@ import { DriverStatusService } from "./driver-status.service";
 import { SeedService } from "./seed.service";
 import { BillingCatalogService } from "./billing-catalog.service";
 import { RagRetrievalService } from "./rag-retrieval.service";
+import { MerchantDeletionService } from "./merchant-deletion.service";
 import { IdempotencyService } from "../../shared/services/idempotency.service";
 import { AiMetricsService } from "../../shared/services/ai-metrics.service";
 
@@ -72,6 +73,7 @@ import { SharedAiModule } from "../shared/shared-ai.module";
     SeedService,
     BillingCatalogService,
     RagRetrievalService,
+    MerchantDeletionService,
     IdempotencyService,
     AiMetricsService,
   ],
@@ -98,6 +100,7 @@ import { SharedAiModule } from "../shared/shared-ai.module";
     SeedService,
     BillingCatalogService,
     RagRetrievalService,
+    MerchantDeletionService,
     IdempotencyService,
     AiMetricsService,
     SharedAiModule,

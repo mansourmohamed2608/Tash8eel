@@ -59,7 +59,7 @@ export class CreateInventoryItemDto {
   catalogItemId?: string;
 
   @IsString()
-  sku: string;
+  sku!: string;
 
   @IsString()
   @IsOptional()
@@ -120,17 +120,17 @@ export class CreateInventoryItemDto {
 
 export class CreateVariantDto {
   @IsString()
-  inventoryItemId: string;
+  inventoryItemId!: string;
 
   @IsString()
-  sku: string;
+  sku!: string;
 
   @IsString()
   @IsOptional()
   barcode?: string;
 
   @IsString()
-  name: string;
+  name!: string;
 
   @IsObject()
   @IsOptional()
@@ -155,10 +155,10 @@ export class CreateVariantDto {
 
 export class UpdateStockDto {
   @IsNumber()
-  quantity: number;
+  quantity!: number;
 
   @IsString()
-  movementType: "purchase" | "adjustment" | "return" | "transfer";
+  movementType!: "purchase" | "adjustment" | "return" | "transfer";
 
   @IsString()
   @IsOptional()
@@ -171,11 +171,11 @@ export class UpdateStockDto {
 
 export class ReserveStockDto {
   @IsString()
-  variantId: string;
+  variantId!: string;
 
   @IsNumber()
   @Min(1)
-  quantity: number;
+  quantity!: number;
 
   @IsString()
   @IsOptional()
@@ -192,13 +192,13 @@ export class ReserveStockDto {
 
 class BulkStockUpdateItem {
   @IsString()
-  variantId: string;
+  variantId!: string;
 
   @IsNumber()
-  quantity: number;
+  quantity!: number;
 
   @IsString()
-  movementType: "purchase" | "adjustment" | "return" | "transfer";
+  movementType!: "purchase" | "adjustment" | "return" | "transfer";
 
   @IsString()
   @IsOptional()
@@ -209,12 +209,12 @@ export class BulkStockUpdateDto {
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => BulkStockUpdateItem)
-  updates: BulkStockUpdateItem[];
+  updates!: BulkStockUpdateItem[];
 }
 
 export class CreateWarehouseLocationDto {
   @IsString()
-  name: string;
+  name!: string;
 
   @IsString()
   @IsOptional()
@@ -235,17 +235,17 @@ export class CreateWarehouseLocationDto {
 
 export class StockTransferDto {
   @IsString()
-  variantId: string;
+  variantId!: string;
 
   @IsNumber()
   @Min(1)
-  quantity: number;
+  quantity!: number;
 
   @IsString()
-  fromLocation: string;
+  fromLocation!: string;
 
   @IsString()
-  toLocation: string;
+  toLocation!: string;
 
   @IsString()
   @IsOptional()
@@ -254,7 +254,7 @@ export class StockTransferDto {
 
 export class BulkImportItemDto {
   @IsString()
-  sku: string;
+  sku!: string;
 
   @IsString()
   @IsOptional()
@@ -285,7 +285,7 @@ export class BulkImportDto {
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => BulkImportItemDto)
-  items: BulkImportItemDto[];
+  items!: BulkImportItemDto[];
 
   @IsBoolean()
   @IsOptional()

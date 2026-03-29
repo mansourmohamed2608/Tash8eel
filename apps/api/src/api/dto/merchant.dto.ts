@@ -22,7 +22,7 @@ class NegotiationRulesDto {
   @IsNumber()
   @Min(0)
   @Max(50)
-  maxDiscountPercent: number;
+  maxDiscountPercent!: number;
 
   @ApiPropertyOptional({
     description: "Allow negotiation on quantities",
@@ -54,12 +54,12 @@ class WorkingHoursDto {
   @ApiProperty({ description: "Opening time", example: "09:00" })
   @IsString()
   @IsNotEmpty()
-  open: string;
+  open!: string;
 
   @ApiProperty({ description: "Closing time", example: "22:00" })
   @IsString()
   @IsNotEmpty()
-  close: string;
+  close!: string;
 }
 
 export class MerchantConfigDto {
@@ -159,69 +159,69 @@ export class MerchantOnboardingDto extends MerchantConfigDto {
   @ApiProperty({ description: "Trade name for the merchant" })
   @IsString()
   @IsNotEmpty()
-  tradeName: string;
+  tradeName!: string;
 }
 
 export class MerchantResponseDto {
   @ApiProperty()
-  id: string;
+  id!: string;
 
   @ApiProperty()
-  name: string;
+  name!: string;
 
   @ApiPropertyOptional()
   tradeName?: string;
 
   @ApiProperty({ enum: MerchantCategory })
-  category: MerchantCategory;
+  category!: MerchantCategory;
 
   @ApiProperty()
-  city: string;
+  city!: string;
 
   @ApiProperty()
-  currency: string;
+  currency!: string;
 
   @ApiProperty()
-  language: string;
+  language!: string;
 
   @ApiProperty()
-  dailyTokenBudget: number;
+  dailyTokenBudget!: number;
 
   @ApiProperty()
-  defaultDeliveryFee: number;
+  defaultDeliveryFee!: number;
 
   @ApiProperty()
-  autoBookDelivery: boolean;
+  autoBookDelivery!: boolean;
 
   @ApiProperty()
-  enableFollowups: boolean;
+  enableFollowups!: boolean;
 
   @ApiProperty()
-  isActive: boolean;
+  isActive!: boolean;
 
   @ApiProperty()
-  createdAt: Date;
+  createdAt!: Date;
 
   @ApiProperty()
-  updatedAt: Date;
+  updatedAt!: Date;
 }
 
 export class MerchantUsageResponseDto {
   @ApiProperty()
-  merchantId: string;
+  merchantId!: string;
 
   @ApiProperty()
-  date: string;
+  date!: string;
 
   @ApiProperty()
-  tokensUsed: number;
+  tokensUsed!: number;
 
   @ApiProperty()
-  llmCalls: number;
+  llmCalls!: number;
 
   @ApiProperty()
-  budget: number;
+  budget!: number;
 
   @ApiProperty()
-  remaining: number;
+  remaining!: number;
 }

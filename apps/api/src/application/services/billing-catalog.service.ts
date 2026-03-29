@@ -111,6 +111,18 @@ export class BillingCatalogService {
          pl.maps_lookups_per_month,
          pl.pos_connections,
          pl.branches,
+         MAX(NULLIF((to_jsonb(pl)->>'monthly_conversations_egypt'), '')::int) AS monthly_conversations_egypt,
+         MAX(NULLIF((to_jsonb(pl)->>'monthly_conversations_gulf'), '')::int) AS monthly_conversations_gulf,
+         MAX(NULLIF((to_jsonb(pl)->>'monthly_conversations_included'), '')::int) AS monthly_conversations_included,
+         MAX(NULLIF((to_jsonb(pl)->>'daily_ai_responses'), '')::int) AS daily_ai_responses,
+         MAX(NULLIF((to_jsonb(pl)->>'monthly_ai_capacity'), '')::int) AS monthly_ai_capacity,
+         MAX(NULLIF((to_jsonb(pl)->>'monthly_copilot_calls'), '')::int) AS monthly_copilot_calls,
+         MAX(NULLIF((to_jsonb(pl)->>'monthly_voice_minutes'), '')::int) AS monthly_voice_minutes,
+         MAX(NULLIF((to_jsonb(pl)->>'monthly_payment_proofs'), '')::int) AS monthly_payment_proofs,
+         MAX(NULLIF((to_jsonb(pl)->>'monthly_broadcasts'), '')::int) AS monthly_broadcasts,
+         MAX(NULLIF((to_jsonb(pl)->>'monthly_map_searches'), '')::int) AS monthly_map_searches,
+         MAX(NULLIF((to_jsonb(pl)->>'overage_rate_aed'), '')::numeric) AS overage_rate_aed,
+         MAX(NULLIF((to_jsonb(pl)->>'overage_rate_sar'), '')::numeric) AS overage_rate_sar,
          COALESCE(
            json_agg(
              json_build_object(
@@ -291,6 +303,30 @@ export class BillingCatalogService {
             mapsLookupsPerMonth: Number(row.maps_lookups_per_month || 0),
             posConnections: Number(row.pos_connections || 0),
             branches: Number(row.branches || 0),
+            monthlyConversationsEgypt: Number(
+              row.monthly_conversations_egypt || 0,
+            ),
+            monthlyConversationsGulf: Number(
+              row.monthly_conversations_gulf || 0,
+            ),
+            monthlyConversationsIncluded: Number(
+              row.monthly_conversations_included || 0,
+            ),
+            dailyAiResponses: Number(row.daily_ai_responses || 0),
+            monthlyAiCapacity: Number(row.monthly_ai_capacity || 0),
+            monthlyCopilotCalls: Number(row.monthly_copilot_calls || 0),
+            monthlyVoiceMinutes: Number(row.monthly_voice_minutes || 0),
+            monthlyPaymentProofs: Number(row.monthly_payment_proofs || 0),
+            monthlyBroadcasts: Number(row.monthly_broadcasts || 0),
+            monthlyMapSearches: Number(row.monthly_map_searches || 0),
+            overageRateAed:
+              row.overage_rate_aed === null
+                ? null
+                : Number(row.overage_rate_aed || 0),
+            overageRateSar:
+              row.overage_rate_sar === null
+                ? null
+                : Number(row.overage_rate_sar || 0),
           },
           prices: row.prices || [],
         })),
@@ -330,7 +366,9 @@ export class BillingCatalogService {
     const cycleMonths = this.normalizeCycle(input.cycleMonths);
 
     const normalizedAddOns = this.normalizeSelections(input.addOns || []);
-    const normalizedUsagePacks = this.normalizeSelections(input.usagePacks || []);
+    const normalizedUsagePacks = this.normalizeSelections(
+      input.usagePacks || [],
+    );
 
     if (!normalizedAddOns.find((item) => item.code === "PLATFORM_CORE")) {
       normalizedAddOns.unshift({ code: "PLATFORM_CORE", quantity: 1 });
@@ -389,7 +427,9 @@ export class BillingCatalogService {
       const fetchedAddOnCodes = new Set(
         addOnPricesResult.rows.map((row) => String(row.code)),
       );
-      const missingAddOns = addOnCodes.filter((code) => !fetchedAddOnCodes.has(code));
+      const missingAddOns = addOnCodes.filter(
+        (code) => !fetchedAddOnCodes.has(code),
+      );
       if (missingAddOns.length > 0) {
         throw new BadRequestException(
           `Unknown/unavailable BYO add-ons for ${regionCode}: ${missingAddOns.join(", ")}`,
@@ -410,9 +450,11 @@ export class BillingCatalogService {
 
       const addOnBreakdown = addOnPricesResult.rows.map((row) => {
         const quantity = Number(addOnQtyByCode.get(row.code) || 1);
-        const baseCycle = Number(row.base_price_cents || 0) * cycleMonths * quantity;
+        const baseCycle =
+          Number(row.base_price_cents || 0) * cycleMonths * quantity;
         const discountedCycle = Number(row.total_price_cents || 0) * quantity;
-        const effectiveMonthly = Number(row.effective_monthly_cents || 0) * quantity;
+        const effectiveMonthly =
+          Number(row.effective_monthly_cents || 0) * quantity;
         return {
           code: row.code,
           name: row.name,
@@ -513,7 +555,9 @@ export class BillingCatalogService {
           floorBundle = {
             code: bundleRow.code,
             name: bundleRow.name,
-            effectiveMonthlyCents: Number(bundleRow.effective_monthly_cents || 0),
+            effectiveMonthlyCents: Number(
+              bundleRow.effective_monthly_cents || 0,
+            ),
             totalCycleCents: Number(bundleRow.total_price_cents || 0),
             floorEffectiveMonthlyCents: floorMonthly,
             floorCycleTotalCents: floorCycle,
@@ -540,7 +584,10 @@ export class BillingCatalogService {
 
       const bundleComparison = bundlesComparisonResult.rows.map((row) => {
         const bundleMonthly = Number(row.effective_monthly_cents || 0);
-        const savesAmount = Math.max(0, byoEffectiveMonthlyCents - bundleMonthly);
+        const savesAmount = Math.max(
+          0,
+          byoEffectiveMonthlyCents - bundleMonthly,
+        );
         const savesPercent =
           byoEffectiveMonthlyCents > 0
             ? Math.max(0, (savesAmount / byoEffectiveMonthlyCents) * 100)
@@ -558,7 +605,9 @@ export class BillingCatalogService {
 
       const recommendedBundle = bundleComparison.reduce((best, current) => {
         if (!best) return current;
-        return current.savesAmountCents > best.savesAmountCents ? current : best;
+        return current.savesAmountCents > best.savesAmountCents
+          ? current
+          : best;
       }, null as any);
 
       return {
@@ -621,7 +670,10 @@ export class BillingCatalogService {
     };
   }
 
-  private mapUsagePackRow(row: any, fallbackCurrency: string): CatalogUsagePack {
+  private mapUsagePackRow(
+    row: any,
+    fallbackCurrency: string,
+  ): CatalogUsagePack {
     return {
       code: String(row.code),
       name: String(row.name || row.code),
@@ -638,7 +690,8 @@ export class BillingCatalogService {
           ? null
           : Number(row.included_token_budget_daily || 0),
       limitDeltas: this.toNumberRecord(row.limit_deltas),
-      priceCents: row.price_cents === null ? null : Number(row.price_cents || 0),
+      priceCents:
+        row.price_cents === null ? null : Number(row.price_cents || 0),
       currency: row.currency || fallbackCurrency,
     };
   }

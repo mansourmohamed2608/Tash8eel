@@ -152,7 +152,7 @@ export interface OrderConfirmationRequest {
 
 @Injectable()
 export class OpsAiService {
-  private client: OpenAI;
+  private client!: OpenAI;
   private model: string;
 
   constructor(

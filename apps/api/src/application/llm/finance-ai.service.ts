@@ -129,7 +129,7 @@ export interface ProfitCalculationRequest {
 
 @Injectable()
 export class FinanceAiService {
-  private client: OpenAI;
+  private client!: OpenAI;
   private model: string;
 
   constructor(

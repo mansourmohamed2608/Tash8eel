@@ -3436,8 +3436,9 @@ export class MerchantPortalController {
         );
         sentCount++;
       } catch (err) {
+        const error = err instanceof Error ? err : new Error(String(err));
         failCount++;
-        this.logger.warn(`Failed to send to ${recipient.id}: ${err.message}`);
+        this.logger.warn(`Failed to send to ${recipient.id}: ${error.message}`);
       }
     }
 
@@ -3479,7 +3480,7 @@ export class MerchantPortalController {
     @Body() body: { channel: "EMAIL" | "WHATSAPP" | "PUSH"; target?: string },
   ): Promise<any> {
     const channel = body?.channel;
-    const target = body?.target?.trim();
+    const target = body?.target?.trim() ?? "";
     const merchantId = this.getMerchantId(req);
 
     if (!channel) {
@@ -7402,7 +7403,8 @@ export class MerchantPortalController {
         count: parseInt(totalResult.rows[0]?.count || "0"),
         byCategory: result.rows.reduce(
           (acc, row) => {
-            acc[row.category] = parseFloat(row.total);
+            const category = row.category ?? "uncategorized";
+            acc[category] = parseFloat(row.total);
             return acc;
           },
           {} as Record<string, number>,
