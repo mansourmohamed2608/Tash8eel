@@ -8275,7 +8275,12 @@ export class MerchantPortalController {
   // Private helper for verification hints
   private getVerificationHints(
     proof: PaymentProof,
-    order: { totalAmount: number } | null,
+    order: {
+      totalAmount: number;
+      orderNumber?: any;
+      customerName?: any;
+      customerPhone?: any;
+    } | null,
     paymentLink: PaymentLink | null,
   ): string[] {
     const hints: string[] = [];

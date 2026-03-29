@@ -46,6 +46,7 @@ import {
   EnhancedRateLimitGuard,
   RateLimit,
 } from "../../shared/guards/rate-limit.guard";
+import { CopilotPlanGuard } from "../../shared/guards/copilot-plan.guard";
 import {
   DESTRUCTIVE_INTENTS,
   hasPermissionForIntent,
@@ -93,7 +94,7 @@ export class CopilotController {
    * Process text command from merchant
    */
   @Post("message")
-  @UseGuards(EnhancedRateLimitGuard)
+  @UseGuards(EnhancedRateLimitGuard, CopilotPlanGuard)
   @RateLimit({ limit: 10, window: 60, keyType: "merchant" })
   @ApiOperation({ summary: "Send text command to copilot" })
   @ApiBody({
@@ -313,7 +314,7 @@ export class CopilotController {
    * Process voice command from merchant
    */
   @Post("voice")
-  @UseGuards(EnhancedRateLimitGuard)
+  @UseGuards(EnhancedRateLimitGuard, CopilotPlanGuard)
   @RateLimit({ limit: 10, window: 60, keyType: "merchant" })
   @ApiOperation({
     summary: "Send voice command to copilot (transcribed first)",
@@ -577,7 +578,7 @@ export class CopilotController {
    * Confirm or cancel a pending action
    */
   @Post("confirm")
-  @UseGuards(EnhancedRateLimitGuard)
+  @UseGuards(EnhancedRateLimitGuard, CopilotPlanGuard)
   @RateLimit({ limit: 10, window: 60, keyType: "merchant" })
   @ApiOperation({ summary: "Confirm or cancel a pending copilot action" })
   @ApiBody({

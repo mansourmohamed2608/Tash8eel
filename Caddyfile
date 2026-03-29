@@ -1,0 +1,7 @@
+api.{$DOMAIN} {
+    reverse_proxy api:3000
+}
+
+{$DOMAIN} {
+    reverse_proxy portal:3001
+}

@@ -175,7 +175,7 @@ export class MerchantContextService {
       return parts.join("\n");
     } catch (err) {
       const error = err instanceof Error ? err : new Error(String(err));
-      logger.error("Failed to build orders context", { error: error.message });
+      logger.error("Failed to build orders context", error, { cause: err });
       return "بيانات الطلبات غير متاحة حالياً";
     }
   }
@@ -242,9 +242,7 @@ export class MerchantContextService {
       return parts.join("\n");
     } catch (err) {
       const error = err instanceof Error ? err : new Error(String(err));
-      logger.error("Failed to build inventory context", {
-        error: error.message,
-      });
+      logger.error("Failed to build inventory context", error, { cause: err });
       return "بيانات المخزون غير متاحة حالياً";
     }
   }
@@ -310,7 +308,7 @@ export class MerchantContextService {
       ].join("\n");
     } catch (err) {
       const error = err instanceof Error ? err : new Error(String(err));
-      logger.error("Failed to build finance context", { error: error.message });
+      logger.error("Failed to build finance context", error, { cause: err });
       return "بيانات المالية غير متاحة حالياً";
     }
   }
@@ -358,9 +356,7 @@ export class MerchantContextService {
       return parts.join("\n");
     } catch (err) {
       const error = err instanceof Error ? err : new Error(String(err));
-      logger.error("Failed to build customers context", {
-        error: error.message,
-      });
+      logger.error("Failed to build customers context", error, { cause: err });
       return "بيانات العملاء غير متاحة حالياً";
     }
   }
@@ -387,8 +383,8 @@ export class MerchantContextService {
       ].join("\n");
     } catch (err) {
       const error = err instanceof Error ? err : new Error(String(err));
-      logger.error("Failed to build conversations context", {
-        error: error.message,
+      logger.error("Failed to build conversations context", error, {
+        cause: err,
       });
       return "بيانات المحادثات غير متاحة حالياً";
     }

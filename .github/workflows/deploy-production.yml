@@ -39,11 +39,40 @@ jobs:
           fi
           echo "✅ SHA looks valid: ${{ inputs.sha }}"
 
+  verify:
+    name: Verify Build And TypeScript
+    runs-on: ubuntu-latest
+    needs: [validate-inputs]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.sha }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: TypeScript check API
+        run: cd apps/api && npx tsc -p tsconfig.json --noEmit
+
+      - name: TypeScript check Worker
+        run: cd apps/worker && npx tsc -p tsconfig.json --noEmit
+
+      - name: Build API
+        run: npm run build:api
+
+      - name: Build Worker
+        run: npm run build:worker
+
   deploy-production:
     name: Deploy to Production
     runs-on: ubuntu-latest
-    needs: [validate-inputs]
-    environment: production        # Requires manual approval in GitHub environment settings
+    needs: [validate-inputs, verify]
+    environment: production # Requires manual approval in GitHub environment settings
     # Add required reviewers in Settings → Environments → production
 
     steps:

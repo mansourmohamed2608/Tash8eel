@@ -90,6 +90,7 @@ import { CategoriesModule } from "../categories/categories.module";
 
 // Guards and services needed by controllers
 import { RateLimitService } from "../shared/guards/rate-limit.guard";
+import { CopilotPlanGuard } from "../shared/guards/copilot-plan.guard";
 
 @Module({
   imports: [
@@ -168,6 +169,6 @@ import { RateLimitService } from "../shared/guards/rate-limit.guard";
     AdminOpsController,
     AdminMerchantsController,
   ],
-  providers: [RateLimitService],
+  providers: [RateLimitService, CopilotPlanGuard],
 })
 export class ApiModule {}
