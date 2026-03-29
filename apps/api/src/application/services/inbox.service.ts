@@ -907,12 +907,14 @@ export class InboxService {
     );
 
     // 7. Get LLM response
-    const llmOptions: LLMCallOptions = {
-      model: this.messageRouter.selectModel(
+    const model =
+      this.messageRouter.selectModel(
         merchantPlan.name,
         params.text ?? "",
         effectiveMessageType,
-      ),
+      ) ?? "gpt-4o-mini";
+    const llmOptions: LLMCallOptions = {
+      model,
       maxTokens: merchantPlan.name === "starter" ? 300 : 1000,
     };
     const llmResponse = await this.llmService.processMessage(
@@ -935,11 +937,11 @@ export class InboxService {
       merchantId: params.merchantId,
       planName: merchantPlan.name,
       messageType: effectiveMessageType,
-      routingDecision: llmOptions.model === "gpt-4o" ? "ai_4o" : "ai_4o_mini",
-      modelUsed: llmOptions.model,
+      routingDecision: model === "gpt-4o" ? "ai_4o" : "ai_4o_mini",
+      modelUsed: model,
       complexityScore: this.messageRouter.scoreComplexity(params.text ?? ""),
       estimatedCostUsd: this.estimateInboxCostUsd(
-        llmOptions.model,
+        model,
         llmResponse.tokensUsed,
       ),
     });
@@ -1221,9 +1223,9 @@ export class InboxService {
   ): Promise<{
     items: any[];
     total: number;
-    subtotal?: number;
-    discount?: number;
-    deliveryFee?: number;
+    subtotal: number;
+    discount: number;
+    deliveryFee: number;
   }> {
     const items = [...(currentCart.items || [])];
 

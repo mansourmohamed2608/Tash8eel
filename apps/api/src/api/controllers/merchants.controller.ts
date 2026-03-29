@@ -107,6 +107,17 @@ export class MerchantsController {
         merchantId: id,
       });
 
+      const createNegotiationRuleOverrides =
+        dto.negotiationRules !== undefined
+          ? Object.values(dto.negotiationRules).filter(
+              (value): value is boolean => typeof value === "boolean",
+            )
+          : [];
+      const createAllowNegotiationOverride =
+        createNegotiationRuleOverrides.length > 0
+          ? createNegotiationRuleOverrides.some(Boolean)
+          : undefined;
+
       merchant = {
         id,
         name: dto.name || `Merchant ${id}`,
@@ -121,14 +132,27 @@ export class MerchantsController {
         autoBookDelivery: dto.autoBookDelivery ?? false,
         enableFollowups: dto.enableFollowups ?? true,
         greetingTemplate: dto.greetingTemplate,
-        negotiationRules: dto.negotiationRules || {
-          maxDiscountPercent: 10,
-          minMarginPercent: 0,
-          allowQuantityNegotiation: false,
-          allowDeliveryFeeNegotiation: false,
-          freeDeliveryThreshold: undefined,
-          allowNegotiation: true,
-        },
+        negotiationRules: dto.negotiationRules
+          ? {
+              maxDiscountPercent: dto.negotiationRules.maxDiscountPercent,
+              minMarginPercent: 0,
+              ...(dto.negotiationRules.freeDeliveryThreshold !== undefined
+                ? {
+                    freeDeliveryThreshold:
+                      dto.negotiationRules.freeDeliveryThreshold,
+                  }
+                : {}),
+              allowNegotiation: createAllowNegotiationOverride ?? true,
+              bundleDiscounts: undefined,
+              activePromotion: undefined,
+            }
+          : {
+              maxDiscountPercent: 10,
+              minMarginPercent: 0,
+              allowNegotiation: true,
+              bundleDiscounts: undefined,
+              activePromotion: undefined,
+            },
         workingHours: dto.workingHours,
         config: {
           brandName: undefined,
@@ -177,22 +201,29 @@ export class MerchantsController {
         updates.enableFollowups = dto.enableFollowups;
       if (dto.greetingTemplate !== undefined)
         updates.greetingTemplate = dto.greetingTemplate;
+      const negotiationRuleOverrides =
+        dto.negotiationRules !== undefined
+          ? Object.values(dto.negotiationRules).filter(
+              (value): value is boolean => typeof value === "boolean",
+            )
+          : [];
+      const allowNegotiationOverride =
+        negotiationRuleOverrides.length > 0
+          ? negotiationRuleOverrides.some(Boolean)
+          : undefined;
       if (dto.negotiationRules !== undefined)
         updates.negotiationRules = {
           maxDiscountPercent:
             dto.negotiationRules.maxDiscountPercent ??
             merchant.negotiationRules.maxDiscountPercent,
           minMarginPercent: merchant.negotiationRules.minMarginPercent ?? 0,
-          allowQuantityNegotiation:
-            dto.negotiationRules.allowQuantityNegotiation ??
-            merchant.negotiationRules.allowQuantityNegotiation,
-          allowDeliveryFeeNegotiation:
-            dto.negotiationRules.allowDeliveryFeeNegotiation ??
-            merchant.negotiationRules.allowDeliveryFeeNegotiation,
           freeDeliveryThreshold:
             dto.negotiationRules.freeDeliveryThreshold ??
             merchant.negotiationRules.freeDeliveryThreshold,
-          allowNegotiation: merchant.negotiationRules.allowNegotiation ?? false,
+          allowNegotiation:
+            allowNegotiationOverride ??
+            merchant.negotiationRules.allowNegotiation ??
+            false,
           bundleDiscounts: merchant.negotiationRules.bundleDiscounts,
           activePromotion: merchant.negotiationRules.activePromotion,
         };

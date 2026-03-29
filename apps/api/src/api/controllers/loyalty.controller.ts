@@ -227,9 +227,9 @@ export class LoyaltyController {
   async validatePromoCode(
     @Param("merchantId") merchantId: string,
     @Param("code") code: string,
-    @Query("customerId") customerId?: string,
-    @Query("orderAmount") orderAmount: string,
     @Req() req: Request,
+    @Query("customerId") customerId?: string,
+    @Query("orderAmount") orderAmount = "0",
   ): Promise<any> {
     const resolvedMerchantId = this.getMerchantIdFromParams(merchantId, req);
     if (!customerId) {
@@ -240,7 +240,7 @@ export class LoyaltyController {
       resolvedMerchantId,
       code,
       customerId,
-      amount,
+      amount ?? 0,
     );
     return result;
   }
