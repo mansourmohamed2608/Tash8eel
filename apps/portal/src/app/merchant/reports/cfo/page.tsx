@@ -324,7 +324,7 @@ export default function CFOBriefPage() {
         amount: Math.max(0, toSafeNumber(expense?.amount, 0)),
       }));
       const expensesTotalFromBreakdown = normalizedExpenses.reduce(
-        (sum, row) => sum + row.amount,
+        (sum: number, row: { amount: number }) => sum + row.amount,
         0,
       );
 
@@ -432,7 +432,7 @@ export default function CFOBriefPage() {
 
         // Expenses by Category from API
         expensesByCategory: normalizedExpenses
-          .map((expense) => ({
+          .map((expense: { category: string; amount: number }) => ({
             category: expense.category,
             amount: expense.amount,
             percentage:
@@ -443,7 +443,7 @@ export default function CFOBriefPage() {
                   )
                 : 0,
           }))
-          .filter((expense) => expense.amount > 0),
+          .filter((expense: { amount: number }) => expense.amount > 0),
       };
 
       setMetrics(transformedMetrics);

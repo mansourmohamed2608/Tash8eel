@@ -1346,7 +1346,7 @@ recentAgentActions: آخر 10 إجراءات اتخذها الوكلاء في آ
 
     // Determine fallback action based on state
     let reply = ARABIC_TEMPLATES.BUDGET_EXCEEDED;
-    let actionType = ActionType.ASK_CLARIFYING_QUESTION;
+    const actionType = ActionType.ASK_CLARIFYING_QUESTION;
 
     if (conversation.missingSlots.length > 0) {
       const slot = conversation.missingSlots[0];

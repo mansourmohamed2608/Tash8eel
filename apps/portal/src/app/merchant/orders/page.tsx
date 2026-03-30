@@ -301,7 +301,7 @@ export default function OrdersPage() {
           lineTotal,
         };
       })
-      .filter((item) => item.quantity > 0);
+      .filter((item: OrderItem) => item.quantity > 0);
 
     const consolidatedItems = Array.from(
       transformedItems.reduce((acc, item) => {

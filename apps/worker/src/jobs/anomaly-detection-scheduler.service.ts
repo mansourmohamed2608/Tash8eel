@@ -66,7 +66,9 @@ export class AnomalyDetectionSchedulerService {
            VALUES ($1, $2, $3)`,
           ["AnomalyDetectionScheduler", String(error), null],
         )
-        .catch(() => {/* non-fatal */});
+        .catch(() => {
+          /* non-fatal */
+        });
     }
   }
 

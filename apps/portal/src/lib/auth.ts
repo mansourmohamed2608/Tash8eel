@@ -23,6 +23,9 @@ declare module "next-auth" {
       role: string;
       merchantId: string;
     };
+    accessToken?: string;
+    refreshToken?: string;
+    adminKey?: string;
     error?: string;
     requiresPasswordChange?: boolean;
   }
@@ -231,6 +234,12 @@ export const authOptions: NextAuthOptions = {
         role: String(token.role ?? ""),
         merchantId: String(token.merchantId ?? ""),
       };
+      session.accessToken =
+        typeof token.accessToken === "string" ? token.accessToken : undefined;
+      session.refreshToken =
+        typeof token.refreshToken === "string" ? token.refreshToken : undefined;
+      session.adminKey =
+        typeof token.adminKey === "string" ? token.adminKey : undefined;
       session.error = token.error;
       session.requiresPasswordChange = false;
       return session;

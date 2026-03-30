@@ -89,10 +89,7 @@ export function BarChart({
               axisLine={{ stroke: "#e5e7eb" }}
             />
             <Tooltip
-              labelFormatter={(
-                label: string | number,
-                payload: Array<{ payload?: Record<string, unknown> }>,
-              ) => {
+              labelFormatter={(label: any, payload: any) => {
                 const tooltipLabel = payload?.[0]?.payload?.label;
                 return typeof tooltipLabel === "string"
                   ? tooltipLabel

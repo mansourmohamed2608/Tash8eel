@@ -1,17 +1,16 @@
 import { isObviouslyOffTopic } from "./llm.service";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
-const blocked = (msg: string) =>
-  expect(isObviouslyOffTopic(msg)).toBe(true);
-const passes = (msg: string) =>
-  expect(isObviouslyOffTopic(msg)).toBe(false);
+const blocked = (msg: string) => expect(isObviouslyOffTopic(msg)).toBe(true);
+const passes = (msg: string) => expect(isObviouslyOffTopic(msg)).toBe(false);
 
 // ── Should be BLOCKED (off-topic — 0 tokens used) ───────────────────────────
 describe("isObviouslyOffTopic — blocked cases", () => {
   // General knowledge
   it("blocks capital city question", () => blocked("ما هي عاصمة فرنسا؟"));
   it("blocks country history", () => blocked("ما هو تاريخ مصر القديمة"));
-  it("blocks who is the president", () => blocked("من هو رئيس الدولة السعودية"));
+  it("blocks who is the president", () =>
+    blocked("من هو رئيس الدولة السعودية"));
 
   // Jokes
   it("blocks احكيلي نكتة", () => blocked("احكيلي نكتة مضحكة"));
@@ -34,11 +33,13 @@ describe("isObviouslyOffTopic — blocked cases", () => {
   it("blocks I want code", () => blocked("عايز كود في جافا"));
 
   // Translation (unrelated)
-  it("blocks translate this paragraph", () => blocked("ترجملي الفقرة دي من انجليزي"));
+  it("blocks translate this paragraph", () =>
+    blocked("ترجملي الفقرة دي من انجليزي"));
   it("blocks translate random text", () => blocked("ترجملي كلمة resilience"));
 
   // Sports
-  it("blocks football team name Liverpool", () => blocked("ليفربول هيفوز النهارده؟"));
+  it("blocks football team name Liverpool", () =>
+    blocked("ليفربول هيفوز النهارده؟"));
   it("blocks Barcelona", () => blocked("برشلونة عمل إيه امبارح؟"));
   it("blocks Real Madrid", () => blocked("ريال مدريد لعب امبارح؟"));
   it("blocks football كرة القدم", () => blocked("كرة القدم بتحبها؟"));
@@ -143,5 +144,6 @@ describe("isObviouslyOffTopic — pass-through cases", () => {
   it("passes product with الم in name", () => passes("عايز منتج الماس"));
   it("passes question with كورة in product name context", () =>
     passes("عندكم كورة أطفال"));
-  it("passes مباراة سعر figurative", () => passes("فيه مباراة سعر بين المنتجين؟"));
+  it("passes مباراة سعر figurative", () =>
+    passes("فيه مباراة سعر بين المنتجين؟"));
 });

@@ -38,6 +38,10 @@ BEGIN
     FROM information_schema.columns
     WHERE table_name = 'merchant_agent_subscriptions'
       AND column_name = 'agent_name'
+  ) AND EXISTS (
+    SELECT 1
+    FROM merchants
+    WHERE id = 'demo-merchant'
   ) THEN
     INSERT INTO merchant_agent_subscriptions (merchant_id, agent_name, enabled, settings, plan_tier)
     VALUES

@@ -38,7 +38,11 @@ import { MerchantId } from "../../shared/decorators/merchant-id.decorator";
 // HELPERS
 // ============================================================================
 
-function parseIntParam(val: string | undefined, def: number, max = 365): number {
+function parseIntParam(
+  val: string | undefined,
+  def: number,
+  max = 365,
+): number {
   const n = parseInt(val || String(def), 10);
   return Number.isNaN(n) ? def : Math.min(Math.max(n, 1), max);
 }
@@ -253,7 +257,9 @@ export class BranchesController {
   // ------------------------------------------------------------------
   @Delete(":branchId")
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: "Delete a branch (cannot delete the default branch)" })
+  @ApiOperation({
+    summary: "Delete a branch (cannot delete the default branch)",
+  })
   @ApiParam({ name: "branchId", description: "Branch UUID" })
   async deleteBranch(
     @MerchantId() merchantId: string,
@@ -299,8 +305,13 @@ export class BranchAnalyticsController {
   // GET /v1/branches/:branchId/analytics/summary
   // -----------------------------------------------------------------------
   @Get(":branchId/analytics/summary")
-  @ApiOperation({ summary: "Revenue, orders, expenses, net-profit summary for a branch" })
-  @ApiParam({ name: "branchId", description: "Branch UUID or 'all' for whole-merchant view" })
+  @ApiOperation({
+    summary: "Revenue, orders, expenses, net-profit summary for a branch",
+  })
+  @ApiParam({
+    name: "branchId",
+    description: "Branch UUID or 'all' for whole-merchant view",
+  })
   @ApiQuery({ name: "days", required: false, type: Number })
   async getBranchSummary(
     @MerchantId() merchantId: string,
@@ -310,7 +321,8 @@ export class BranchAnalyticsController {
     const days = parseIntParam(daysStr, 30);
     const amtExpr = this.orderAmountExpr("o");
     const branchFilter = branchId === "all" ? "" : "AND o.branch_id = $2";
-    const params: unknown[] = branchId === "all" ? [merchantId] : [merchantId, branchId];
+    const params: unknown[] =
+      branchId === "all" ? [merchantId] : [merchantId, branchId];
 
     const ordersResult = await this.pool.query(
       `SELECT
@@ -344,7 +356,8 @@ export class BranchAnalyticsController {
 
     // Expenses for the period
     const expBranchFilter = branchId === "all" ? "" : "AND e.branch_id = $2";
-    const expParams: unknown[] = branchId === "all" ? [merchantId] : [merchantId, branchId];
+    const expParams: unknown[] =
+      branchId === "all" ? [merchantId] : [merchantId, branchId];
     const expResult = await this.pool.query(
       `SELECT COALESCE(SUM(e.amount), 0) AS total_expenses
        FROM expenses e
@@ -361,7 +374,9 @@ export class BranchAnalyticsController {
     const totalExpenses = round2(pn(expResult.rows[0].total_expenses));
     const netProfit = round2(revenue - totalExpenses);
     const revenueChange =
-      prevRevenue > 0 ? round2(((revenue - prevRevenue) / prevRevenue) * 100) : 0;
+      prevRevenue > 0
+        ? round2(((revenue - prevRevenue) / prevRevenue) * 100)
+        : 0;
 
     return {
       branchId,
@@ -395,7 +410,8 @@ export class BranchAnalyticsController {
     const days = parseIntParam(daysStr, 30);
     const amtExpr = this.orderAmountExpr("o");
     const branchFilter = branchId === "all" ? "" : "AND o.branch_id = $2";
-    const params: unknown[] = branchId === "all" ? [merchantId] : [merchantId, branchId];
+    const params: unknown[] =
+      branchId === "all" ? [merchantId] : [merchantId, branchId];
 
     const result = await this.pool.query(
       `SELECT DATE(o.created_at) AS date,
@@ -471,7 +487,8 @@ export class BranchAnalyticsController {
     for (const row of statsResult.rows) statsMap.set(row.branch_id, row);
 
     const expMap = new Map<string | null, number>();
-    for (const row of expResult.rows) expMap.set(row.branch_id, pn(row.expenses));
+    for (const row of expResult.rows)
+      expMap.set(row.branch_id, pn(row.expenses));
 
     const comparisons = branchesResult.rows.map((branch: any) => {
       const stats = statsMap.get(branch.id) ?? {};
@@ -510,7 +527,8 @@ export class BranchAnalyticsController {
         avgOrderValue: round2(pn(nullStats.aov)),
         totalExpenses: round2(nullExpenses),
         netProfit: nullNetProfit,
-        margin: nullRevenue > 0 ? round2((nullNetProfit / nullRevenue) * 100) : 0,
+        margin:
+          nullRevenue > 0 ? round2((nullNetProfit / nullRevenue) * 100) : 0,
       });
     }
 
@@ -520,7 +538,8 @@ export class BranchAnalyticsController {
       totalRevenue: round2(totalRevenue),
       branches: comparisons.map((b) => ({
         ...b,
-        revenuePct: totalRevenue > 0 ? round2((b.revenue / totalRevenue) * 100) : 0,
+        revenuePct:
+          totalRevenue > 0 ? round2((b.revenue / totalRevenue) * 100) : 0,
       })),
     };
   }
@@ -542,7 +561,8 @@ export class BranchAnalyticsController {
     const days = parseIntParam(daysStr, 30);
     const limit = parseIntParam(limitStr, 10, 50);
     const branchFilter = branchId === "all" ? "" : "AND o.branch_id = $2";
-    const params: unknown[] = branchId === "all" ? [merchantId] : [merchantId, branchId];
+    const params: unknown[] =
+      branchId === "all" ? [merchantId] : [merchantId, branchId];
 
     const result = await this.pool.query(
       `SELECT
@@ -588,7 +608,8 @@ export class BranchAnalyticsController {
   ) {
     const days = parseIntParam(daysStr, 30);
     const branchFilter = branchId === "all" ? "" : "AND e.branch_id = $2";
-    const params: unknown[] = branchId === "all" ? [merchantId] : [merchantId, branchId];
+    const params: unknown[] =
+      branchId === "all" ? [merchantId] : [merchantId, branchId];
 
     const result = await this.pool.query(
       `SELECT category,
@@ -603,7 +624,10 @@ export class BranchAnalyticsController {
       [...params, days],
     );
 
-    const grandTotal = result.rows.reduce((s: number, r: any) => s + pn(r.total), 0);
+    const grandTotal = result.rows.reduce(
+      (s: number, r: any) => s + pn(r.total),
+      0,
+    );
 
     return {
       branchId,

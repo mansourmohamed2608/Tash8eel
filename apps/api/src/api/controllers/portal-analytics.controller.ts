@@ -7,23 +7,14 @@ import {
   Query,
   UseGuards,
 } from "@nestjs/common";
-import {
-  ApiHeader,
-  ApiOperation,
-  ApiSecurity,
-  ApiTags,
-} from "@nestjs/swagger";
+import { ApiHeader, ApiOperation, ApiSecurity, ApiTags } from "@nestjs/swagger";
 import { Request } from "express";
 import { Pool } from "pg";
 import { DATABASE_POOL } from "../../infrastructure/database/database.module";
 import { MerchantApiKeyGuard } from "../../shared/guards/merchant-api-key.guard";
 import { EntitlementGuard } from "../../shared/guards/entitlement.guard";
 import { RolesGuard } from "../../shared/guards/roles.guard";
-import {
-  getMerchantId,
-  toNumber,
-  parseWindow,
-} from "./portal-compat.helpers";
+import { getMerchantId, toNumber, parseWindow } from "./portal-compat.helpers";
 
 @ApiTags("Merchant Portal Compatibility")
 @ApiSecurity("api-key")
@@ -106,10 +97,7 @@ export class PortalAnalyticsController {
       ]);
 
     const totalOrders = toNumber(ordersResult.rows[0]?.total_orders, 0);
-    const deliveredOrders = toNumber(
-      ordersResult.rows[0]?.delivered_orders,
-      0,
-    );
+    const deliveredOrders = toNumber(ordersResult.rows[0]?.delivered_orders, 0);
     const totalRevenue = toNumber(ordersResult.rows[0]?.total_revenue, 0);
 
     return {

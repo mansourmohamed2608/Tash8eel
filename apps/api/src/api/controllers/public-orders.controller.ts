@@ -26,13 +26,14 @@ import { DATABASE_POOL } from "../../infrastructure/database/database.module";
 export class PublicOrdersController {
   private readonly logger = new Logger(PublicOrdersController.name);
 
-  constructor(
-    @Inject(DATABASE_POOL) private readonly pool: Pool,
-  ) {}
+  constructor(@Inject(DATABASE_POOL) private readonly pool: Pool) {}
 
   @Get(":orderNumber")
   @ApiOperation({ summary: "Track order by order number (public, no auth)" })
-  @ApiParam({ name: "orderNumber", description: "Order number as shown in WhatsApp confirmation" })
+  @ApiParam({
+    name: "orderNumber",
+    description: "Order number as shown in WhatsApp confirmation",
+  })
   @ApiResponse({ status: 200, description: "Order tracking info" })
   @ApiResponse({ status: 404, description: "Order not found" })
   async trackOrder(@Param("orderNumber") orderNumber: string): Promise<any> {
@@ -111,7 +112,9 @@ export class PublicOrdersController {
         }
       }
     } catch (err) {
-      this.logger.warn(`Failed to load order items for public tracking: ${String(err)}`);
+      this.logger.warn(
+        `Failed to load order items for public tracking: ${String(err)}`,
+      );
     }
 
     const statusLabels: Record<string, string> = {
@@ -155,7 +158,8 @@ export class PublicOrdersController {
       status: currentStatus,
       statusLabel: statusLabels[currentStatus] || currentStatus,
       isCancelled: currentStatus === "CANCELLED" || currentStatus === "FAILED",
-      isDelivered: currentStatus === "DELIVERED" || currentStatus === "COMPLETED",
+      isDelivered:
+        currentStatus === "DELIVERED" || currentStatus === "COMPLETED",
       createdAt: row.created_at,
       updatedAt: row.updated_at,
       totalPrice: Number(row.total_price) || 0,

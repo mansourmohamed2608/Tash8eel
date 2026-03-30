@@ -5,23 +5,25 @@
  *   npx ts-node -r tsconfig-paths/register src/database/seeds/create-demo-staff.ts
  */
 
-import { Client } from 'pg';
-import * as dotenv from 'dotenv';
-import * as bcrypt from 'bcrypt';
-import { v4 as uuidv4 } from 'uuid';
-import * as path from 'path';
+import { Client } from "pg";
+import * as dotenv from "dotenv";
+import * as bcrypt from "bcrypt";
+import { v4 as uuidv4 } from "uuid";
+import * as path from "path";
 
-dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
+dotenv.config({ path: path.resolve(__dirname, "../../../.env") });
 if (!process.env.DATABASE_URL) {
-  dotenv.config({ path: path.resolve(__dirname, '../../../../../apps/api/.env') });
+  dotenv.config({
+    path: path.resolve(__dirname, "../../../../../apps/api/.env"),
+  });
 }
 
-const MERCHANT_ID = 'bayt-aljamaal';
-const EMAIL = 'demo@baytaljamaal.com';
-const PASSWORD = 'Demo123!';
+const MERCHANT_ID = "bayt-aljamaal";
+const EMAIL = "demo@baytaljamaal.com";
+const PASSWORD = "Demo123!";
 
 async function run() {
-  if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL not set');
+  if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL not set");
 
   const c = new Client({
     connectionString: process.env.DATABASE_URL,
@@ -31,7 +33,7 @@ async function run() {
 
   // Delete existing if present (idempotent)
   await c.query(
-    'DELETE FROM merchant_staff WHERE merchant_id = $1 AND email = $2',
+    "DELETE FROM merchant_staff WHERE merchant_id = $1 AND email = $2",
     [MERCHANT_ID, EMAIL],
   );
 
@@ -45,14 +47,17 @@ async function run() {
     [id, MERCHANT_ID, EMAIL, passwordHash],
   );
 
-  console.log('\n✅ Demo staff account created!');
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  console.log('  Merchant ID :', MERCHANT_ID);
-  console.log('  Email       :', EMAIL);
-  console.log('  Password    :', PASSWORD);
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+  console.log("\n✅ Demo staff account created!");
+  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+  console.log("  Merchant ID :", MERCHANT_ID);
+  console.log("  Email       :", EMAIL);
+  console.log("  Password    :", PASSWORD);
+  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
 
   await c.end();
 }
 
-run().catch((e) => { console.error('ERROR:', e.message); process.exit(1); });
+run().catch((e) => {
+  console.error("ERROR:", e.message);
+  process.exit(1);
+});

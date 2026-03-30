@@ -55,7 +55,9 @@ export class DeliveryStatusPoller {
            VALUES ($1, $2, $3)`,
           ["delivery-status-poller", error.message, error.stack ?? null],
         );
-      } catch { /* non-fatal */ }
+      } catch {
+        /* non-fatal */
+      }
     } finally {
       await this.redisService.releaseLock(lock);
     }

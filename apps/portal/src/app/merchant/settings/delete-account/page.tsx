@@ -119,24 +119,24 @@ export default function DeleteAccountPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <AlertBanner
-            variant="warning"
+            type="warning"
             title="فترة انتظار إلزامية"
-            description="سيظل الحساب متاحاً خلال فترة الانتظار. بعد الموعد المحدد سيتم حذف البيانات نهائياً."
+            message="سيظل الحساب متاحاً خلال فترة الانتظار. بعد الموعد المحدد سيتم حذف البيانات نهائياً."
           />
 
           {error ? (
             <AlertBanner
-              variant="error"
+              type="error"
               title="تعذر تنفيذ الطلب"
-              description={error}
+              message={error}
             />
           ) : null}
 
           {success ? (
             <AlertBanner
-              variant="success"
+              type="success"
               title="تم تحديث الحالة"
-              description={success}
+              message={success}
             />
           ) : null}
 

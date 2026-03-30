@@ -68,7 +68,10 @@ export class PortalDeliveryController {
     body: { autoAssign?: boolean; mode?: string; notifyCustomer?: boolean },
   ) {
     const merchantId = getMerchantId(req);
-    const current = await getAutoAssignSettingsForMerchant(merchantId, this.pool);
+    const current = await getAutoAssignSettingsForMerchant(
+      merchantId,
+      this.pool,
+    );
     const allowedModes = new Set(["least_load", "round_robin", "nearest"]);
     const next = {
       autoAssign:
@@ -123,7 +126,10 @@ export class PortalDeliveryController {
     @Param("orderId") orderId: string,
   ) {
     const merchantId = getMerchantId(req);
-    const settings = await getAutoAssignSettingsForMerchant(merchantId, this.pool);
+    const settings = await getAutoAssignSettingsForMerchant(
+      merchantId,
+      this.pool,
+    );
 
     const orderResult = await this.pool.query<{
       id: string;
@@ -207,7 +213,10 @@ export class PortalDeliveryController {
   @ApiOperation({ summary: "Auto-assign all unassigned delivery orders" })
   async autoAssignAllOrders(@Req() req: Request) {
     const merchantId = getMerchantId(req);
-    const settings = await getAutoAssignSettingsForMerchant(merchantId, this.pool);
+    const settings = await getAutoAssignSettingsForMerchant(
+      merchantId,
+      this.pool,
+    );
 
     const unassignedOrdersResult = await this.pool.query<{
       id: string;

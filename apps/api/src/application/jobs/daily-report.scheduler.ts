@@ -80,32 +80,40 @@ export class DailyReportScheduler {
             today,
           );
 
-          const ownerPhone = merchant.wa_enabled ? (merchant.whatsapp_number ?? null) : null;
+          const ownerPhone = merchant.wa_enabled
+            ? (merchant.whatsapp_number ?? null)
+            : null;
           // Try AI insight (non-blocking, best-effort)
           let aiInsight: string | null = null;
           try {
-            const aiResult = await this.financeAiService.generateAnomalyNarrative({
-              merchantId: merchant.id,
-              metrics: {
-                totalRevenue: stats.totalRevenue,
-                totalCogs: 0,
-                grossProfit: stats.totalRevenue * 0.4,
-                grossMargin: 40,
-                totalExpenses: 0,
-                netProfit: stats.totalRevenue * 0.25,
-                netMargin: 25,
-                codCollected: 0,
-                codPending: 0,
-                averageOrderValue: stats.averageOrderValue,
-                orderCount: stats.ordersCreated,
-              },
-              historicalAvg: { totalRevenue: stats.totalRevenue, orderCount: stats.ordersCreated },
-              periodType: "daily",
-            });
+            const aiResult =
+              await this.financeAiService.generateAnomalyNarrative({
+                merchantId: merchant.id,
+                metrics: {
+                  totalRevenue: stats.totalRevenue,
+                  totalCogs: 0,
+                  grossProfit: stats.totalRevenue * 0.4,
+                  grossMargin: 40,
+                  totalExpenses: 0,
+                  netProfit: stats.totalRevenue * 0.25,
+                  netMargin: 25,
+                  codCollected: 0,
+                  codPending: 0,
+                  averageOrderValue: stats.averageOrderValue,
+                  orderCount: stats.ordersCreated,
+                },
+                historicalAvg: {
+                  totalRevenue: stats.totalRevenue,
+                  orderCount: stats.ordersCreated,
+                },
+                periodType: "daily",
+              });
             if (aiResult.success && aiResult.data?.hasAnomaly) {
               aiInsight = `\n\n🤖 ملاحظة الذكاء الاصطناعي:\n${aiResult.data.narrativeAr}`;
             }
-          } catch { /* non-fatal */ }
+          } catch {
+            /* non-fatal */
+          }
           await this.sendDailyReport(stats, ownerPhone, aiInsight);
         } catch (error: any) {
           this.logger.error({
@@ -131,7 +139,9 @@ export class DailyReportScheduler {
            VALUES ($1, $2, $3)`,
           ["daily-report-scheduler", error.message, error.stack ?? null],
         );
-      } catch { /* non-fatal */ }
+      } catch {
+        /* non-fatal */
+      }
     } finally {
       await this.redisService.releaseLock(lock);
     }
@@ -245,14 +255,21 @@ export class DailyReportScheduler {
     };
   }
 
-  private async sendDailyReport(stats: DailyStats, ownerPhone?: string | null, aiInsight?: string | null): Promise<void> {
+  private async sendDailyReport(
+    stats: DailyStats,
+    ownerPhone?: string | null,
+    aiInsight?: string | null,
+  ): Promise<void> {
     // Format report message in Arabic
     const message = this.formatReportMessage(stats) + (aiInsight ?? "");
 
     // Send directly via WhatsApp if merchant has a number configured
     if (ownerPhone) {
       try {
-        await this.notificationsService.sendBroadcastWhatsApp(ownerPhone, message);
+        await this.notificationsService.sendBroadcastWhatsApp(
+          ownerPhone,
+          message,
+        );
       } catch (err: any) {
         this.logger.warn({
           msg: "Failed to send daily report via WhatsApp",

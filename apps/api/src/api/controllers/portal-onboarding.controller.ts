@@ -6,12 +6,7 @@ import {
   Req,
   UseGuards,
 } from "@nestjs/common";
-import {
-  ApiHeader,
-  ApiOperation,
-  ApiSecurity,
-  ApiTags,
-} from "@nestjs/swagger";
+import { ApiHeader, ApiOperation, ApiSecurity, ApiTags } from "@nestjs/swagger";
 import { Request } from "express";
 import { Pool } from "pg";
 import { DATABASE_POOL } from "../../infrastructure/database/database.module";

@@ -66,7 +66,9 @@ export class ProactiveAlertsSchedulerService {
            VALUES ($1, $2, $3)`,
           ["ProactiveAlertsScheduler", String(error), null],
         )
-        .catch(() => {/* non-fatal */});
+        .catch(() => {
+          /* non-fatal */
+        });
     }
   }
 

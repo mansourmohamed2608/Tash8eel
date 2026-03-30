@@ -113,7 +113,9 @@ function shouldSkipError(err: unknown, statement: string): boolean {
   return false;
 }
 
-export async function runPendingSqlMigrations(logger?: Logger): Promise<number> {
+export async function runPendingSqlMigrations(
+  logger?: Logger,
+): Promise<number> {
   const databaseUrl = process.env.DATABASE_URL || DEFAULT_DATABASE_URL;
   const sslFromEnv = process.env.DATABASE_SSL === "true";
   const sslFromUrl = resolveSslConfig(databaseUrl);

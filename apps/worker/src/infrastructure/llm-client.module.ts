@@ -10,8 +10,8 @@
 import { Module, Injectable } from "@nestjs/common";
 import { ConfigService, ConfigModule } from "@nestjs/config";
 import { HttpService, HttpModule } from "@nestjs/axios";
+import { AxiosResponse } from "axios";
 import { z } from "zod";
-import { firstValueFrom } from "rxjs";
 import { createLogger } from "@tash8eel/shared";
 
 const logger = createLogger("WorkerLlmClient");
@@ -149,19 +149,21 @@ export class ApiLlmClient implements ILlmClient {
 
   private async callApi<T>(endpoint: string, body: unknown): Promise<T | null> {
     try {
-      const response = await firstValueFrom(
-        this.httpService.post<{
-          success: boolean;
-          data?: T;
-          error?: string;
-          tokensUsed?: number;
-        }>(`${this.apiBaseUrl}/internal/ai/${endpoint}`, body, {
+      const response: AxiosResponse<{
+        success: boolean;
+        data?: T;
+        error?: string;
+        tokensUsed?: number;
+      }> = await this.httpService.axiosRef.post(
+        `${this.apiBaseUrl}/internal/ai/${endpoint}`,
+        body,
+        {
           headers: {
             "Content-Type": "application/json",
             "x-internal-api-key": this.internalApiKey,
           },
           timeout: 30000,
-        }),
+        },
       );
 
       if (!response.data.success) {

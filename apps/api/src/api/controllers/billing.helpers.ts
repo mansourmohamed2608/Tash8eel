@@ -1,9 +1,6 @@
 import { BadRequestException } from "@nestjs/common";
 import { Pool } from "pg";
-import {
-  PLAN_ENTITLEMENTS,
-  PlanType,
-} from "../../shared/entitlements";
+import { PLAN_ENTITLEMENTS, PlanType } from "../../shared/entitlements";
 import { UsageMetricKey } from "../../application/services/usage-guard.service";
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -35,7 +32,9 @@ export function normalizePlanCode(value: unknown): PlanType | null {
   return null;
 }
 
-export function applyCanonicalPlanData<T extends Record<string, any>>(row: T): T {
+export function applyCanonicalPlanData<T extends Record<string, any>>(
+  row: T,
+): T {
   const normalizedCode = normalizePlanCode(row?.code || row?.plan_code);
   if (!normalizedCode) return row;
 
@@ -62,9 +61,9 @@ export function applyCanonicalPlanData<T extends Record<string, any>>(row: T): T
 // Merchant schema helpers
 // ──────────────────────────────────────────────────────────────────────────────
 
-export async function getMerchantColumns(
-  client: { query: Function },
-): Promise<Set<string>> {
+export async function getMerchantColumns(client: {
+  query: Function;
+}): Promise<Set<string>> {
   const result = await client.query(
     `SELECT column_name
      FROM information_schema.columns
@@ -138,14 +137,24 @@ export async function updateMerchantProvisioning(
 // Region / cycle validation
 // ──────────────────────────────────────────────────────────────────────────────
 
-export function normalizeRegion(value?: unknown): "EG" | "SA" | "AE" | "OM" | "KW" {
+export function normalizeRegion(
+  value?: unknown,
+): "EG" | "SA" | "AE" | "OM" | "KW" {
   const region = String(value || "EG")
     .trim()
     .toUpperCase();
-  if (region === "EG" || region === "SA" || region === "AE" || region === "OM" || region === "KW") {
+  if (
+    region === "EG" ||
+    region === "SA" ||
+    region === "AE" ||
+    region === "OM" ||
+    region === "KW"
+  ) {
     return region;
   }
-  throw new BadRequestException("regionCode must be one of: EG, SA, AE, OM, KW");
+  throw new BadRequestException(
+    "regionCode must be one of: EG, SA, AE, OM, KW",
+  );
 }
 
 export function normalizeCycle(value?: unknown): 1 | 3 | 6 | 12 {
@@ -230,8 +239,10 @@ export function resolveUsagePackCredits(
     const tokens = Number(
       limitDeltas.tokenBudgetDaily ?? pack.included_token_budget_daily ?? 0,
     );
-    if (aiCalls > 0) credits.push({ metric: "AI_CALLS", quantity: aiCalls * quantity });
-    if (tokens > 0) credits.push({ metric: "TOKENS", quantity: tokens * quantity });
+    if (aiCalls > 0)
+      credits.push({ metric: "AI_CALLS", quantity: aiCalls * quantity });
+    if (tokens > 0)
+      credits.push({ metric: "TOKENS", quantity: tokens * quantity });
   } else {
     const units = Number(
       limitDeltas.paymentProofScansPerMonth ??
@@ -248,7 +259,8 @@ export function resolveUsagePackCredits(
       MAP_LOOKUPS: "MAP_LOOKUPS",
     };
     const metric = metricMap[String(pack.metric_key || "")];
-    if (metric && units > 0) credits.push({ metric, quantity: units * quantity });
+    if (metric && units > 0)
+      credits.push({ metric, quantity: units * quantity });
   }
 
   return credits;

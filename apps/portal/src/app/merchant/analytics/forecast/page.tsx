@@ -167,18 +167,17 @@ export default function ForecastPage() {
 
       try {
         const data = await portalApi.getDemandForecast(forceRefresh);
-        const forecasts: ForecastItem[] = (data.forecasts ?? []).map(
-          (item: any) => ({
-            ...item,
-            current_stock: asNumber(item.current_stock),
-            avg_daily_orders: asNumber(item.avg_daily_orders),
-            days_until_stockout: asNullableNumber(item.days_until_stockout),
-            trend_pct: asNumber(item.trend_pct),
-            forecast_7d: asNumber(item.forecast_7d),
-            forecast_30d: asNumber(item.forecast_30d),
-            reorder_suggestion: asNumber(item.reorder_suggestion),
-          }),
-        );
+        const rawForecasts = "forecasts" in data ? data.forecasts : [];
+        const forecasts: ForecastItem[] = rawForecasts.map((item: any) => ({
+          ...item,
+          current_stock: asNumber(item.current_stock),
+          avg_daily_orders: asNumber(item.avg_daily_orders),
+          days_until_stockout: asNullableNumber(item.days_until_stockout),
+          trend_pct: asNumber(item.trend_pct),
+          forecast_7d: asNumber(item.forecast_7d),
+          forecast_30d: asNumber(item.forecast_30d),
+          reorder_suggestion: asNumber(item.reorder_suggestion),
+        }));
         setItems(forecasts);
         if (forecasts.length > 0) {
           setComputedAt(forecasts[0].computed_at);

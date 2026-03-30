@@ -318,7 +318,8 @@ export class WebhookService {
           responseTime,
         );
         await this.resetWebhookFailures(delivery.webhook_id);
-        this.logger.log({ // BL-005
+        this.logger.log({
+          // BL-005
           msg: "webhook_delivery_metric",
           metric: "webhook_delivery",
           webhookId: delivery.webhook_id,
@@ -346,7 +347,8 @@ export class WebhookService {
         null,
         responseTime,
       );
-      this.logger.log({ // BL-005
+      this.logger.log({
+        // BL-005
         msg: "webhook_delivery_metric",
         metric: "webhook_delivery",
         webhookId: delivery.webhook_id,

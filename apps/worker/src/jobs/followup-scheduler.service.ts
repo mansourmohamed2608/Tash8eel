@@ -106,9 +106,15 @@ export class FollowupSchedulerService {
         .query(
           `INSERT INTO job_failure_events (job_name, error_message, error_stack)
            VALUES ($1, $2, $3)`,
-          ["FollowupScheduler.processScheduledFollowups", err.message, err.stack ?? null],
+          [
+            "FollowupScheduler.processScheduledFollowups",
+            err.message,
+            err.stack ?? null,
+          ],
         )
-        .catch(() => {/* non-fatal */});
+        .catch(() => {
+          /* non-fatal */
+        });
     }
   }
 

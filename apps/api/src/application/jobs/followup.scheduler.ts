@@ -27,7 +27,10 @@ export class FollowupScheduler {
    */
   @Cron(CronExpression.EVERY_10_MINUTES)
   async scheduleFollowups(): Promise<void> {
-    const lock = await this.redisService.acquireLock(this.lockKey, this.lockTtl);
+    const lock = await this.redisService.acquireLock(
+      this.lockKey,
+      this.lockTtl,
+    );
     if (!lock) {
       this.logger.debug("Could not acquire followup scheduler lock");
       return;
@@ -36,14 +39,19 @@ export class FollowupScheduler {
     try {
       await this.processAbandonedCarts();
     } catch (error: any) {
-      this.logger.error({ msg: "Error in followup scheduler", error: error.message });
+      this.logger.error({
+        msg: "Error in followup scheduler",
+        error: error.message,
+      });
       try {
         await this.pool.query(
           `INSERT INTO job_failure_events (job_name, error_message, error_stack)
            VALUES ($1, $2, $3)`,
           ["followup-scheduler", error.message, error.stack ?? null],
         );
-      } catch { /* non-fatal */ }
+      } catch {
+        /* non-fatal */
+      }
     } finally {
       await this.redisService.releaseLock(lock);
     }
@@ -85,7 +93,10 @@ export class FollowupScheduler {
       return;
     }
 
-    this.logger.log({ msg: "Processing abandoned cart follow-ups", count: result.rows.length });
+    this.logger.log({
+      msg: "Processing abandoned cart follow-ups",
+      count: result.rows.length,
+    });
 
     for (const row of result.rows) {
       const nextFollowupCount = (row.followup_count ?? 0) + 1;
@@ -121,11 +132,17 @@ export class FollowupScheduler {
       }
 
       // Build cart summary
-      const cartItems: Array<{ name: string; quantity: number; unitPrice?: number }> =
-        row.cart?.items ?? [];
+      const cartItems: Array<{
+        name: string;
+        quantity: number;
+        unitPrice?: number;
+      }> = row.cart?.items ?? [];
       const cartSummary = cartItems
         .slice(0, 3)
-        .map((item) => `• ${item.name}${item.quantity > 1 ? ` ×${item.quantity}` : ""}`)
+        .map(
+          (item) =>
+            `• ${item.name}${item.quantity > 1 ? ` ×${item.quantity}` : ""}`,
+        )
         .join("\n");
       const cartTotal = cartItems.reduce(
         (s, i) => s + (i.unitPrice ?? 0) * (i.quantity ?? 1),
@@ -142,14 +159,21 @@ export class FollowupScheduler {
       );
 
       try {
-        await this.notificationsService.sendBroadcastWhatsApp(row.customer_phone, message);
+        await this.notificationsService.sendBroadcastWhatsApp(
+          row.customer_phone,
+          message,
+        );
         this.logger.debug({
           msg: "Followup sent",
           conversationId: row.id,
           followupCount: nextFollowupCount,
         });
       } catch (e: any) {
-        this.logger.warn({ msg: "Followup WA send failed", conversationId: row.id, error: e.message });
+        this.logger.warn({
+          msg: "Followup WA send failed",
+          conversationId: row.id,
+          error: e.message,
+        });
       }
     }
   }
@@ -164,8 +188,11 @@ export class FollowupScheduler {
     priorOrders: number,
   ): string {
     const isReturning = priorOrders > 0;
-    const totalLine = cartTotal > 0 ? `\n💰 إجمالي السلة: *${cartTotal.toFixed(2)} ج.م*` : "";
-    const returningLine = isReturning ? `\nنتشرف بك دائماً — لديك ${priorOrders} طلب سابق معنا 💙` : "";
+    const totalLine =
+      cartTotal > 0 ? `\n💰 إجمالي السلة: *${cartTotal.toFixed(2)} ج.م*` : "";
+    const returningLine = isReturning
+      ? `\nنتشرف بك دائماً — لديك ${priorOrders} طلب سابق معنا 💙`
+      : "";
 
     if (followupCount === 1) {
       return `مرحباً ${customerName} 👋

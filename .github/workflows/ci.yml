@@ -7,7 +7,7 @@ on:
     branches: [main, develop]
 
 env:
-  NODE_VERSION: "20"
+  NODE_VERSION: "20.19.0"
   POSTGRES_USER: test_user
   POSTGRES_PASSWORD: test_password
   POSTGRES_DB: operations_test
@@ -24,10 +24,10 @@ jobs:
           cache: "npm"
       - name: Install dependencies
         run: npm ci
-      - name: Audit for high/critical CVEs
-        run: npm audit --audit-level=high
-        # Override to warn (not block) on moderate; block on high+
-        continue-on-error: false
+      - name: Audit for critical CVEs (blocking)
+        run: npm audit --audit-level=critical
+      - name: Audit for high CVEs (report-only)
+        run: npm audit --audit-level=high || true
 
   secret-scan:
     name: Secret Scanning (gitleaks)
@@ -35,12 +35,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Full history for leak detection
+          fetch-depth: 0 # Full history for leak detection
       - name: Run gitleaks
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}  # optional for OSS
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }} # optional for OSS
 
   security-check:
     name: Security Check

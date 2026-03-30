@@ -115,10 +115,8 @@ export class BillingPlansController {
     const plans = result.rows
       .map((row) => applyCanonicalPlanData(row))
       .sort((a, b) => {
-        const left =
-          planOrder[String(a.code || "").toUpperCase()] ?? 999;
-        const right =
-          planOrder[String(b.code || "").toUpperCase()] ?? 999;
+        const left = planOrder[String(a.code || "").toUpperCase()] ?? 999;
+        const right = planOrder[String(b.code || "").toUpperCase()] ?? 999;
         return left - right;
       });
     return { plans };
@@ -126,8 +124,7 @@ export class BillingPlansController {
 
   @Get("catalog")
   @ApiOperation({
-    summary:
-      "Get bundles + add-ons + usage packs catalog (regional pricing)",
+    summary: "Get bundles + add-ons + usage packs catalog (regional pricing)",
   })
   async getCatalog(@Query("region") region?: string) {
     return this.billingCatalogService.getCatalog(region);

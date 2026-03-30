@@ -99,10 +99,7 @@ export function expandAgentFilter(agent?: string): string[] {
   return map[normalized] || [normalized];
 }
 
-export async function getMerchantPortalSummary(
-  merchantId: string,
-  pool: Pool,
-) {
+export async function getMerchantPortalSummary(merchantId: string, pool: Pool) {
   const [
     merchantResult,
     productsResult,

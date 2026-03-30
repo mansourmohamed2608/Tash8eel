@@ -91,7 +91,9 @@ export class WeeklyReportScheduler {
            VALUES ($1, $2, $3)`,
           ["weekly-report-scheduler", error.message, error.stack ?? null],
         );
-      } catch { /* non-fatal */ }
+      } catch {
+        /* non-fatal */
+      }
     } finally {
       await this.redisService.releaseLock(lock);
     }
@@ -138,7 +140,9 @@ export class WeeklyReportScheduler {
            VALUES ($1, $2, $3)`,
           ["monthly-report-scheduler", error.message, error.stack ?? null],
         );
-      } catch { /* non-fatal */ }
+      } catch {
+        /* non-fatal */
+      }
     } finally {
       await this.redisService.releaseLock(lock);
     }
@@ -179,31 +183,57 @@ export class WeeklyReportScheduler {
               merchantId: merchant.id,
               comparison: {
                 previousPeriod: {
-                  totalRevenue: stats.totalRevenue * (1 - stats.comparedToPrevious.revenueChange / 100),
-                  totalCogs: 0, grossProfit: 0, grossMargin: 0,
-                  totalExpenses: 0, netProfit: 0, netMargin: 0,
-                  codCollected: 0, codPending: 0,
+                  totalRevenue:
+                    stats.totalRevenue *
+                    (1 - stats.comparedToPrevious.revenueChange / 100),
+                  totalCogs: 0,
+                  grossProfit: 0,
+                  grossMargin: 0,
+                  totalExpenses: 0,
+                  netProfit: 0,
+                  netMargin: 0,
+                  codCollected: 0,
+                  codPending: 0,
                   averageOrderValue: stats.averageOrderValue,
-                  orderCount: Math.round(stats.ordersCreated * (1 - stats.comparedToPrevious.ordersChange / 100)),
+                  orderCount: Math.round(
+                    stats.ordersCreated *
+                      (1 - stats.comparedToPrevious.ordersChange / 100),
+                  ),
                 },
                 currentPeriod: {
                   totalRevenue: stats.totalRevenue,
-                  totalCogs: 0, grossProfit: stats.totalRevenue * 0.4, grossMargin: 40,
-                  totalExpenses: 0, netProfit: stats.totalRevenue * 0.25, netMargin: 25,
-                  codCollected: 0, codPending: 0,
+                  totalCogs: 0,
+                  grossProfit: stats.totalRevenue * 0.4,
+                  grossMargin: 40,
+                  totalExpenses: 0,
+                  netProfit: stats.totalRevenue * 0.25,
+                  netMargin: 25,
+                  codCollected: 0,
+                  codPending: 0,
                   averageOrderValue: stats.averageOrderValue,
                   orderCount: stats.ordersCreated,
                 },
                 periodType,
               },
-              topProducts: (stats.topProducts ?? []).map(p => ({ name: p.name, revenue: p.revenue, margin: 35 })),
+              topProducts: (stats.topProducts ?? []).map((p) => ({
+                name: p.name,
+                revenue: p.revenue,
+                margin: 35,
+              })),
               topExpenses: [],
             });
             if (briefResult.success && briefResult.data?.summaryAr) {
               aiBrief = `\n\n🤖 تحليل الذكاء الاصطناعي:\n${briefResult.data.summaryAr}`;
             }
-          } catch { /* non-fatal */ }
-          await this.sendReportNotification(merchant.id, stats, merchant.notification_phone, aiBrief ?? "");
+          } catch {
+            /* non-fatal */
+          }
+          await this.sendReportNotification(
+            merchant.id,
+            stats,
+            merchant.notification_phone,
+            aiBrief ?? "",
+          );
         }
 
         this.logger.log({
@@ -432,7 +462,10 @@ ${
 `;
 
     try {
-      await this.notificationsService.sendBroadcastWhatsApp(phone, message + aiSuffix);
+      await this.notificationsService.sendBroadcastWhatsApp(
+        phone,
+        message + aiSuffix,
+      );
       this.logger.log({
         msg: `${stats.periodType} report delivered via WhatsApp`,
         merchantId,
@@ -500,7 +533,7 @@ ${
 
     const now = new Date();
     let periodStart: Date;
-    let periodEnd = new Date(now);
+    const periodEnd = new Date(now);
     periodEnd.setHours(0, 0, 0, 0);
 
     if (periodType === "weekly") {

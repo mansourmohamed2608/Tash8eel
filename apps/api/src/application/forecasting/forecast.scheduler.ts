@@ -34,7 +34,9 @@ export class ForecastScheduler {
         `SELECT id FROM merchants WHERE is_active = true ORDER BY id`,
       );
 
-      this.logger.log(`ForecastScheduler: running for ${merchantsResult.rows.length} merchants`);
+      this.logger.log(
+        `ForecastScheduler: running for ${merchantsResult.rows.length} merchants`,
+      );
 
       for (const { id: merchantId } of merchantsResult.rows) {
         await this.runForMerchant(merchantId);
@@ -53,7 +55,8 @@ export class ForecastScheduler {
     // 1. Demand forecasts
     //
     await this.runWithTracking(merchantId, "demand", async () => {
-      const results = await this.forecastEngine.computeDemandForecast(merchantId);
+      const results =
+        await this.forecastEngine.computeDemandForecast(merchantId);
       await this.forecastEngine.persistDemandForecasts(merchantId, results);
       return results.length;
     });
@@ -64,7 +67,11 @@ export class ForecastScheduler {
     await this.runWithTracking(merchantId, "backtest", async () => {
       const metrics = await this.forecastEngine.backtestDemand(merchantId);
       if (metrics.sampleSize > 0) {
-        await this.forecastEngine.saveModelMetrics(merchantId, "demand", metrics);
+        await this.forecastEngine.saveModelMetrics(
+          merchantId,
+          "demand",
+          metrics,
+        );
       }
       return metrics.sampleSize;
     });
@@ -73,7 +80,10 @@ export class ForecastScheduler {
     // 3. Churn forecast — write to forecast_predictions
     //
     await this.runWithTracking(merchantId, "churn", async () => {
-      const items = await this.forecastEngine.computeChurnForecast(merchantId, 100);
+      const items = await this.forecastEngine.computeChurnForecast(
+        merchantId,
+        100,
+      );
       if (items.length === 0) return 0;
       // Bulk upsert as forecast_predictions
       const client = await this.pool.connect();
@@ -87,10 +97,16 @@ export class ForecastScheduler {
                 reason_codes, metadata)
              VALUES ($1,'churn',$2,30,$3,$4,'down',$5::jsonb,$6::jsonb)`,
             [
-              merchantId, item.customerId, item.churnProbability * 100,
+              merchantId,
+              item.customerId,
+              item.churnProbability * 100,
               item.churnProbability,
               JSON.stringify([{ code: item.riskLevel, label: item.riskLevel }]),
-              JSON.stringify({ daysSinceLast: item.daysSinceLastOrder, ltv: item.lifetimeValue, action: item.recommendedAction }),
+              JSON.stringify({
+                daysSinceLast: item.daysSinceLastOrder,
+                ltv: item.lifetimeValue,
+                action: item.recommendedAction,
+              }),
             ],
           );
         }
@@ -108,7 +124,8 @@ export class ForecastScheduler {
     // 4. SLA breach forecast
     //
     await this.runWithTracking(merchantId, "sla_breach", async () => {
-      const items = await this.forecastEngine.computeSlaBreachForecast(merchantId);
+      const items =
+        await this.forecastEngine.computeSlaBreachForecast(merchantId);
       return items.length;
     });
 
@@ -130,10 +147,23 @@ export class ForecastScheduler {
     const t0 = Date.now();
     try {
       const itemCount = await fn();
-      await this.forecastEngine.recordForecastRun(merchantId, type, itemCount, Date.now() - t0);
+      await this.forecastEngine.recordForecastRun(
+        merchantId,
+        type,
+        itemCount,
+        Date.now() - t0,
+      );
     } catch (err: any) {
-      this.logger.warn(`Forecast type=${type} merchant=${merchantId} failed: ${err?.message}`);
-      await this.forecastEngine.recordForecastRun(merchantId, type, 0, Date.now() - t0, String(err?.message ?? err));
+      this.logger.warn(
+        `Forecast type=${type} merchant=${merchantId} failed: ${err?.message}`,
+      );
+      await this.forecastEngine.recordForecastRun(
+        merchantId,
+        type,
+        0,
+        Date.now() - t0,
+        String(err?.message ?? err),
+      );
     }
   }
 }

@@ -43,7 +43,8 @@ function pn(v: unknown): number {
 }
 
 function ownsCheck(row: { merchant_id: string }, merchantId: string) {
-  if (row.merchant_id !== merchantId) throw new ForbiddenException("Access denied");
+  if (row.merchant_id !== merchantId)
+    throw new ForbiddenException("Access denied");
 }
 
 // ─────────────────────────────────────────────────────
@@ -119,7 +120,8 @@ export class BranchStaffController {
       `SELECT id FROM merchant_staff WHERE id = $1 AND merchant_id = $2`,
       [body.staffId, merchantId],
     );
-    if (!staffCheck.rows.length) throw new NotFoundException("Staff member not found");
+    if (!staffCheck.rows.length)
+      throw new NotFoundException("Staff member not found");
 
     const client = await this.pool.connect();
     try {
@@ -140,7 +142,13 @@ export class BranchStaffController {
          ON CONFLICT (branch_id, staff_id) DO UPDATE
            SET role = EXCLUDED.role, is_primary = EXCLUDED.is_primary
          RETURNING *`,
-        [merchantId, branchId, body.staffId, body.role ?? "AGENT", body.isPrimary ?? false],
+        [
+          merchantId,
+          branchId,
+          body.staffId,
+          body.role ?? "AGENT",
+          body.isPrimary ?? false,
+        ],
       );
 
       await client.query("COMMIT");
@@ -232,10 +240,22 @@ export class BranchGoalsController {
           actual_revenue: pn(act.actual_revenue),
           actual_orders: parseInt(act.actual_orders || "0", 10),
           revenue_pct: goal.target_revenue
-            ? Math.min(100, Math.round((pn(act.actual_revenue) / pn(goal.target_revenue)) * 100))
+            ? Math.min(
+                100,
+                Math.round(
+                  (pn(act.actual_revenue) / pn(goal.target_revenue)) * 100,
+                ),
+              )
             : null,
           orders_pct: goal.target_orders
-            ? Math.min(100, Math.round((parseInt(act.actual_orders || "0", 10) / goal.target_orders) * 100))
+            ? Math.min(
+                100,
+                Math.round(
+                  (parseInt(act.actual_orders || "0", 10) /
+                    goal.target_orders) *
+                    100,
+                ),
+              )
             : null,
         };
       }),
@@ -307,7 +327,14 @@ export class BranchGoalsController {
            updated_at     = NOW()
        WHERE id = $1 AND branch_id = $2 AND merchant_id = $6
        RETURNING *`,
-      [goalId, branchId, body.targetRevenue ?? null, body.targetOrders ?? null, body.notes ?? null, merchantId],
+      [
+        goalId,
+        branchId,
+        body.targetRevenue ?? null,
+        body.targetOrders ?? null,
+        body.notes ?? null,
+        merchantId,
+      ],
     );
     if (!rows.length) throw new NotFoundException("Goal not found");
     return { data: rows[0] };
@@ -401,14 +428,22 @@ export class BranchShiftsController {
       [branchId],
     );
     if (existing.length) {
-      throw new ConflictException("A shift is already open for this branch. Close it before opening a new one.");
+      throw new ConflictException(
+        "A shift is already open for this branch. Close it before opening a new one.",
+      );
     }
 
     const { rows } = await this.pool.query(
       `INSERT INTO branch_shifts (merchant_id, branch_id, opened_by, opening_cash, notes, status)
        VALUES ($1, $2, $3, $4, $5, 'OPEN')
        RETURNING *`,
-      [merchantId, branchId, body.openedBy ?? null, body.openingCash ?? 0, body.notes ?? null],
+      [
+        merchantId,
+        branchId,
+        body.openedBy ?? null,
+        body.openingCash ?? 0,
+        body.notes ?? null,
+      ],
     );
     return { data: rows[0] };
   }
@@ -432,7 +467,8 @@ export class BranchShiftsController {
       [shiftId, branchId, merchantId],
     );
     if (!existing.length) throw new NotFoundException("Shift not found");
-    if (existing[0].status !== "OPEN") throw new BadRequestException("Shift is not open");
+    if (existing[0].status !== "OPEN")
+      throw new BadRequestException("Shift is not open");
 
     // Calculate totals from orders in this shift
     const { rows: orderStats } = await this.pool.query(
@@ -524,16 +560,21 @@ export class BranchPLController {
    */
   @Get()
   @ApiOperation({ summary: "Branch P&L report for a given month" })
-  @ApiQuery({ name: "month", required: false, description: "Format YYYY-MM, defaults to current month" })
+  @ApiQuery({
+    name: "month",
+    required: false,
+    description: "Format YYYY-MM, defaults to current month",
+  })
   async getPLReport(
     @MerchantId() merchantId: string,
     @Param("branchId") branchId: string,
     @Query("month") month?: string,
   ) {
     // Resolve date range
-    const target = month && /^\d{4}-\d{2}$/.test(month)
-      ? month
-      : new Date().toISOString().slice(0, 7);
+    const target =
+      month && /^\d{4}-\d{2}$/.test(month)
+        ? month
+        : new Date().toISOString().slice(0, 7);
     const [year, mon] = target.split("-").map(Number);
     const startDate = `${target}-01`;
     const endOfMonth = new Date(year, mon, 0);
@@ -615,7 +656,8 @@ export class BranchPLController {
     const netRevenue = grossRevenue - discounts;
     const totalExpenses = pn(expRows[0].total_expenses);
     const netProfit = netRevenue - totalExpenses;
-    const margin = netRevenue > 0 ? Math.round((netProfit / netRevenue) * 10000) / 100 : 0;
+    const margin =
+      netRevenue > 0 ? Math.round((netProfit / netRevenue) * 10000) / 100 : 0;
 
     const prevGross = pn(prevRevRows[0].gross_revenue);
     const prevExp = pn(prevExpRows[0].total_expenses);
@@ -637,9 +679,12 @@ export class BranchPLController {
         totalOrders: parseInt(revRows[0].total_orders || "0", 10),
         cancelledOrders: parseInt(revRows[0].cancelled_orders || "0", 10),
         cancelledRevenue: pn(revRows[0].cancelled_revenue),
-        avgOrderValue: parseInt(revRows[0].total_orders || "1", 10) > 0
-          ? Math.round((grossRevenue / parseInt(revRows[0].total_orders, 10)) * 100) / 100
-          : 0,
+        avgOrderValue:
+          parseInt(revRows[0].total_orders || "1", 10) > 0
+            ? Math.round(
+                (grossRevenue / parseInt(revRows[0].total_orders, 10)) * 100,
+              ) / 100
+            : 0,
       },
       expenses: {
         totalExpenses,
@@ -650,7 +695,11 @@ export class BranchPLController {
         netProfit,
         margin,
         prevNetProfit: prevNet,
-        change: prevNet !== 0 ? Math.round(((netProfit - prevNet) / Math.abs(prevNet)) * 10000) / 100 : null,
+        change:
+          prevNet !== 0
+            ? Math.round(((netProfit - prevNet) / Math.abs(prevNet)) * 10000) /
+              100
+            : null,
       },
     };
   }
@@ -747,14 +796,38 @@ export class BranchAlertsController {
     const vals: any[] = [merchantId, branchId];
     let i = 3;
 
-    if (body.expiryThresholdDays !== undefined) { sets.push(`expiry_threshold_days = $${i++}`); vals.push(body.expiryThresholdDays); }
-    if (body.cashFlowForecastDays !== undefined) { sets.push(`cash_flow_forecast_days = $${i++}`); vals.push(body.cashFlowForecastDays); }
-    if (body.demandSpikeMultiplier !== undefined) { sets.push(`demand_spike_multiplier = $${i++}`); vals.push(body.demandSpikeMultiplier); }
-    if (body.isActive !== undefined) { sets.push(`is_active = $${i++}`); vals.push(body.isActive); }
-    if (body.noOrdersThresholdMinutes !== undefined) { sets.push(`no_orders_threshold_minutes = $${i++}`); vals.push(body.noOrdersThresholdMinutes); }
-    if ("lowCashThreshold" in body) { sets.push(`low_cash_threshold = $${i++}`); vals.push(body.lowCashThreshold ?? null); }
-    if ("alertEmail" in body) { sets.push(`alert_email = $${i++}`); vals.push(body.alertEmail ?? null); }
-    if ("alertWhatsapp" in body) { sets.push(`alert_whatsapp = $${i++}`); vals.push(body.alertWhatsapp ?? null); }
+    if (body.expiryThresholdDays !== undefined) {
+      sets.push(`expiry_threshold_days = $${i++}`);
+      vals.push(body.expiryThresholdDays);
+    }
+    if (body.cashFlowForecastDays !== undefined) {
+      sets.push(`cash_flow_forecast_days = $${i++}`);
+      vals.push(body.cashFlowForecastDays);
+    }
+    if (body.demandSpikeMultiplier !== undefined) {
+      sets.push(`demand_spike_multiplier = $${i++}`);
+      vals.push(body.demandSpikeMultiplier);
+    }
+    if (body.isActive !== undefined) {
+      sets.push(`is_active = $${i++}`);
+      vals.push(body.isActive);
+    }
+    if (body.noOrdersThresholdMinutes !== undefined) {
+      sets.push(`no_orders_threshold_minutes = $${i++}`);
+      vals.push(body.noOrdersThresholdMinutes);
+    }
+    if ("lowCashThreshold" in body) {
+      sets.push(`low_cash_threshold = $${i++}`);
+      vals.push(body.lowCashThreshold ?? null);
+    }
+    if ("alertEmail" in body) {
+      sets.push(`alert_email = $${i++}`);
+      vals.push(body.alertEmail ?? null);
+    }
+    if ("alertWhatsapp" in body) {
+      sets.push(`alert_whatsapp = $${i++}`);
+      vals.push(body.alertWhatsapp ?? null);
+    }
 
     if (!sets.length) throw new BadRequestException("No fields to update");
 
@@ -812,11 +885,17 @@ export class BranchAlertsController {
       expiryThresholdDays: r.expiry_threshold_days ?? 7,
       alertEmail: r.alert_email ?? null,
       alertWhatsapp: r.alert_whatsapp ?? null,
-      minutesSinceLastOrder: r.minutes_since_last_order != null ? Math.round(pn(r.minutes_since_last_order)) : null,
+      minutesSinceLastOrder:
+        r.minutes_since_last_order != null
+          ? Math.round(pn(r.minutes_since_last_order))
+          : null,
       ordersLast24h: parseInt(r.orders_last_24h || "0", 10),
-      isAlertTriggered: r.is_active && r.no_orders_threshold_minutes != null
-        && r.minutes_since_last_order != null
-        && Math.round(pn(r.minutes_since_last_order)) > parseInt(r.no_orders_threshold_minutes, 10),
+      isAlertTriggered:
+        r.is_active &&
+        r.no_orders_threshold_minutes != null &&
+        r.minutes_since_last_order != null &&
+        Math.round(pn(r.minutes_since_last_order)) >
+          parseInt(r.no_orders_threshold_minutes, 10),
     }));
   }
 }
@@ -899,7 +978,8 @@ export class BranchInventoryController {
         acc.totalItems++;
         acc.totalOnHand += pn(r.quantity_on_hand);
         acc.totalAvailable += pn(r.quantity_available);
-        if (pn(r.quantity_available) <= (r.reorder_point ?? 5)) acc.lowStockItems++;
+        if (pn(r.quantity_available) <= (r.reorder_point ?? 5))
+          acc.lowStockItems++;
         return acc;
       },
       { totalItems: 0, totalOnHand: 0, totalAvailable: 0, lowStockItems: 0 },
