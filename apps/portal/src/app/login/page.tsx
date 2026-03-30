@@ -90,8 +90,12 @@ function LoginForm() {
             ? "/admin/dashboard"
             : callbackUrl;
 
-        // Use window.location for a full navigation to ensure session is picked up
-        window.location.href = targetUrl;
+        // Keep client-side routing for immediate transition, then force full
+        // navigation so the server picks up fresh auth session state.
+        router.push(targetUrl);
+        if (process.env.NODE_ENV !== "test") {
+          window.location.href = targetUrl;
+        }
         return; // Don't call setIsLoading(false) since we're navigating away
       }
     } catch (err) {

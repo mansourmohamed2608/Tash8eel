@@ -41,23 +41,43 @@ CREATE TABLE IF NOT EXISTS objection_templates (
 );
 
 -- Insert default objection templates (global defaults)
-INSERT INTO objection_templates (merchant_id, objection_type, keywords, response_template_ar, response_template_en, is_active)
-VALUES 
-  ('demo-merchant', 'expensive', ARRAY['غالي', 'غاليه', 'سعر عالي', 'مكلف'], 
-   'أفهم تماماً! السعر يشمل {value_points}. ممكن نشوف عرض مناسب ليك؟', 
-   'I understand! The price includes {value_points}. Can we find a suitable offer for you?', true),
-  ('demo-merchant', 'trust', ARRAY['مش واثق', 'خايف', 'أول مرة', 'ازاي اضمن'], 
-   'طبيعي تحب تتأكد! عندنا {trust_signals} و{return_policy}. تحب تشوف تقييمات العملاء؟', 
-   'It''s natural to want to be sure! We have {trust_signals} and {return_policy}. Would you like to see customer reviews?', true),
-  ('demo-merchant', 'product_quality', ARRAY['مش عاجبني', 'مش حلو', 'في أحسن', 'جودة'], 
-   'تمام خالص! ممكن أقترح عليك {alternatives} في نفس الفئة. تحب تشوفهم؟', 
-   'Absolutely! Let me suggest {alternatives} in the same category. Would you like to see them?', true),
-  ('demo-merchant', 'delivery_cost', ARRAY['توصيل غالي', 'الشحن', 'رسوم التوصيل'], 
-   'فاهم! لو الطلب يوصل {free_delivery_threshold} التوصيل ببلاش. تحب تضيف حاجة تانية؟', 
-   'I understand! If your order reaches {free_delivery_threshold}, delivery is free. Want to add something else?', true),
-  ('demo-merchant', 'thinking', ARRAY['هفكر', 'محتاج وقت', 'مش دلوقتي', 'بعدين'], 
-   'تمام! خد وقتك. تحب أبعتلك تذكير كمان {followup_hours} ساعات؟', 
-   'Sure! Take your time. Would you like me to send a reminder in {followup_hours} hours?', true)
+WITH default_templates (objection_type, keywords, response_template_ar, response_template_en, is_active) AS (
+  VALUES
+    ('expensive', ARRAY['غالي', 'غاليه', 'سعر عالي', 'مكلف'],
+     'أفهم تماماً! السعر يشمل {value_points}. ممكن نشوف عرض مناسب ليك؟',
+     'I understand! The price includes {value_points}. Can we find a suitable offer for you?', true),
+    ('trust', ARRAY['مش واثق', 'خايف', 'أول مرة', 'ازاي اضمن'],
+     'طبيعي تحب تتأكد! عندنا {trust_signals} و{return_policy}. تحب تشوف تقييمات العملاء؟',
+     'It''s natural to want to be sure! We have {trust_signals} and {return_policy}. Would you like to see customer reviews?', true),
+    ('product_quality', ARRAY['مش عاجبني', 'مش حلو', 'في أحسن', 'جودة'],
+     'تمام خالص! ممكن أقترح عليك {alternatives} في نفس الفئة. تحب تشوفهم؟',
+     'Absolutely! Let me suggest {alternatives} in the same category. Would you like to see them?', true),
+    ('delivery_cost', ARRAY['توصيل غالي', 'الشحن', 'رسوم التوصيل'],
+     'فاهم! لو الطلب يوصل {free_delivery_threshold} التوصيل ببلاش. تحب تضيف حاجة تانية؟',
+     'I understand! If your order reaches {free_delivery_threshold}, delivery is free. Want to add something else?', true),
+    ('thinking', ARRAY['هفكر', 'محتاج وقت', 'مش دلوقتي', 'بعدين'],
+     'تمام! خد وقتك. تحب أبعتلك تذكير كمان {followup_hours} ساعات؟',
+     'Sure! Take your time. Would you like me to send a reminder in {followup_hours} hours?', true)
+)
+INSERT INTO objection_templates (
+  merchant_id,
+  objection_type,
+  keywords,
+  response_template_ar,
+  response_template_en,
+  is_active
+)
+SELECT
+  'demo-merchant',
+  t.objection_type,
+  t.keywords,
+  t.response_template_ar,
+  t.response_template_en,
+  t.is_active
+FROM default_templates t
+WHERE EXISTS (
+  SELECT 1 FROM merchants m WHERE m.id = 'demo-merchant'
+)
 ON CONFLICT (merchant_id, objection_type) DO NOTHING;
 
 -- Recovered carts tracking

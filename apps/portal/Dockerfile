@@ -3,17 +3,20 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Copy package files
-COPY apps/portal/package*.json ./
+# Copy workspace manifests so npm can honor root lockfile/workspaces
+COPY package*.json ./
+COPY apps/api/package*.json ./apps/api/
+COPY apps/worker/package*.json ./apps/worker/
+COPY apps/portal/package*.json ./apps/portal/
+COPY packages/shared/package*.json ./packages/shared/
+COPY packages/agent-sdk/package*.json ./packages/agent-sdk/
 
-# Install dependencies
-RUN npm ci
+# Install only portal workspace deps in deterministic mode
+RUN npm ci --workspace apps/portal
 
-# Copy source files
-COPY apps/portal ./
-
-# Build Next.js app
-RUN npm run build
+# Copy portal source and build it
+COPY apps/portal ./apps/portal
+RUN npm run build -w apps/portal
 
 # Production stage
 FROM node:20-alpine AS production
@@ -24,16 +27,21 @@ WORKDIR /app
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S nextjs -u 1001
 
-# Copy package files
-COPY --from=builder /app/package*.json ./
+# Copy workspace manifests for runtime dependency install
+COPY package*.json ./
+COPY apps/api/package*.json ./apps/api/
+COPY apps/worker/package*.json ./apps/worker/
+COPY apps/portal/package*.json ./apps/portal/
+COPY packages/shared/package*.json ./packages/shared/
+COPY packages/agent-sdk/package*.json ./packages/agent-sdk/
 
-# Install production dependencies only
-RUN npm ci --omit=dev
+# Install production dependencies for portal workspace
+RUN npm ci --omit=dev --workspace apps/portal
 
-# Copy built files
-COPY --from=builder /app/.next ./.next
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/next.config.js ./
+# Copy built portal output
+COPY --from=builder /app/apps/portal/.next ./apps/portal/.next
+COPY --from=builder /app/apps/portal/public ./apps/portal/public
+COPY --from=builder /app/apps/portal/next.config.js ./apps/portal/next.config.js
 
 # Set ownership
 RUN chown -R nextjs:nodejs /app
@@ -45,4 +53,4 @@ EXPOSE 3001
 ENV NODE_ENV=production
 ENV PORT=3001
 
-CMD ["npm", "start"]
+CMD ["npm", "run", "start", "-w", "apps/portal"]

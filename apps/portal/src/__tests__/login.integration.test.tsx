@@ -28,7 +28,7 @@ vi.mock("next-auth/react", () => ({
 
 // next/navigation is not available in jsdom - provide stubs.
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), prefetch: vi.fn() }),
+  useRouter: vi.fn(),
   useSearchParams: () => new URLSearchParams(),
   usePathname: () => "/login",
 }));
@@ -46,8 +46,13 @@ function renderLogin() {
   return render(<LoginPage />);
 }
 
-async function fillAndSubmit(email: string, password: string) {
+async function fillAndSubmit(
+  email: string,
+  password: string,
+  merchantId: string = "demo-merchant",
+) {
   const user = userEvent.setup();
+  await user.type(screen.getByLabelText(/رقم المتجر/i), merchantId);
   await user.type(screen.getByLabelText(/البريد الإلكتروني/i), email);
   await user.type(screen.getByLabelText(/كلمة المرور/i), password);
   await user.click(screen.getByRole("button", { name: /دخول|تسجيل/i }));
@@ -63,11 +68,11 @@ describe("Login page", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockPush = vi.fn();
-    (useRouter as ReturnType<typeof vi.fn>).mockReturnValue({
+    vi.mocked(useRouter).mockReturnValue({
       push: mockPush,
       replace: vi.fn(),
       prefetch: vi.fn(),
-    });
+    } as any);
   });
 
   test("renders the login form with Arabic labels", () => {
@@ -143,7 +148,7 @@ describe("Login page", () => {
       ok: true,
     });
     (getSession as ReturnType<typeof vi.fn>).mockResolvedValue({
-      user: { id: "admin_001", role: "ADMIN" },
+      user: { id: "admin_001", role: "ADMIN", merchantId: "system" },
     });
 
     renderLogin();
