@@ -1,6 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { INestApplication, ValidationPipe } from "@nestjs/common";
-import request from "supertest";
+import request, { type Response } from "supertest";
 import { Pool } from "pg";
 import * as crypto from "crypto";
 import { AppModule } from "../../src/app.module";
@@ -547,7 +547,7 @@ describe("Order Flows (e2e)", () => {
       const responses = await Promise.all(promises);
 
       // All should succeed
-      responses.forEach((r) => {
+      responses.forEach((r: Response) => {
         expect(r.status).toBe(200);
       });
     }, 90000);
