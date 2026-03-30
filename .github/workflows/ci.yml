@@ -430,11 +430,14 @@ jobs:
     strategy:
       matrix:
         include:
-          - context: ./apps/api
+          - context: .
+            dockerfile: ./apps/api/Dockerfile
             image: tash8eel/operations-api
-          - context: ./apps/worker
+          - context: .
+            dockerfile: ./apps/worker/Dockerfile
             image: tash8eel/operations-worker
-          - context: ./apps/portal
+          - context: .
+            dockerfile: ./apps/portal/Dockerfile
             image: tash8eel/operations-portal
     steps:
       - uses: actions/checkout@v4
@@ -444,6 +447,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
           push: false
           tags: ${{ matrix.image }}:${{ github.sha }}
           cache-from: type=gha

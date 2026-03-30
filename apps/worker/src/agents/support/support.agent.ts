@@ -49,7 +49,7 @@ export class SupportAgent implements IAgent {
 
         default:
           output = {
-            action: "NO_ACTION",
+            action: "COMING_SOON",
             message: `Unknown task type: ${task.taskType}`,
           };
       }

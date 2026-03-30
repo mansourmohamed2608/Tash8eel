@@ -1497,6 +1497,10 @@ export class FinanceHandlers {
     includeExempt?: boolean;
   }): Promise<Record<string, unknown>> {
     try {
+      if (!input.merchantId) {
+        return { action: "FAILED", message: "merchantId is required" };
+      }
+
       const VAT_RATE = 0.14;
 
       // Get merchant tax config
@@ -1587,7 +1591,7 @@ export class FinanceHandlers {
         action: "TAX_REPORT_GENERATED",
         report: {
           period: { start: input.periodStart, end: input.periodEnd },
-          vatRate: `${effectiveVatRate * 100}%`,
+          vatRate: Math.round(effectiveVatRate * 10000) / 100,
           totalOrders: parseInt(orders.total_orders),
           grossRevenue,
           totalDiscounts,
@@ -1870,7 +1874,7 @@ export class FinanceHandlers {
       const totalRevenue = discountedRevenue + fullPriceRevenue;
 
       return {
-        action: "DISCOUNT_IMPACT_ANALYSIS",
+        action: "DISCOUNT_IMPACT_ANALYZED",
         analysis: {
           period: `${days} days`,
           overview: {

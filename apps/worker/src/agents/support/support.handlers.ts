@@ -121,9 +121,10 @@ export class SupportHandlers {
          LIMIT 5`,
         [merchantId, question.substring(0, 100)],
       );
+      const kbRows = kbResult?.rows || [];
 
-      if (kbResult.rows.length > 0) {
-        const bestMatch = kbResult.rows[0];
+      if (kbRows.length > 0) {
+        const bestMatch = kbRows[0];
         this.logger.log(
           `FAQ answered from knowledge base: "${bestMatch.title}"`,
         );
@@ -138,7 +139,7 @@ export class SupportHandlers {
             category: bestMatch.category,
           },
           confidence: "HIGH",
-          alternativeAnswers: kbResult.rows.slice(1).map((r: any) => ({
+          alternativeAnswers: kbRows.slice(1).map((r: any) => ({
             title: r.title,
             content: r.content.substring(0, 200),
           })),
@@ -193,15 +194,16 @@ export class SupportHandlers {
              LIMIT 5`,
             [merchantId, fallbackQuestion.substring(0, 100)],
           );
+          const fallbackRows = kbResult?.rows || [];
 
-          if (kbResult.rows.length > 0) {
+          if (fallbackRows.length > 0) {
             return {
               action: "FAQ_ANSWERED",
               question: input.question,
-              answer: kbResult.rows[0].content,
+              answer: fallbackRows[0].content,
               source: {
-                id: kbResult.rows[0].id,
-                title: kbResult.rows[0].title,
+                id: fallbackRows[0].id,
+                title: fallbackRows[0].title,
               },
               confidence: "MEDIUM",
             };

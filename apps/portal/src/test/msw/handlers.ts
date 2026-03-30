@@ -36,6 +36,15 @@ export const fixtures = {
       id: "order_001",
       orderNumber: "ORD-0001",
       status: "CONFIRMED",
+      items: [
+        {
+          sku: "TSHIRT-BLUE-M",
+          name: "Blue T-Shirt",
+          quantity: 2,
+          unitPrice: 200,
+          lineTotal: 400,
+        },
+      ],
       total: 450.0,
       subtotal: 400.0,
       discount: 0,
@@ -48,6 +57,15 @@ export const fixtures = {
       id: "order_002",
       orderNumber: "ORD-0002",
       status: "PENDING",
+      items: [
+        {
+          sku: "DRESS-RED-S",
+          name: "Red Dress",
+          quantity: 1,
+          unitPrice: 300,
+          lineTotal: 300,
+        },
+      ],
       total: 320.0,
       subtotal: 300.0,
       discount: 30.0,

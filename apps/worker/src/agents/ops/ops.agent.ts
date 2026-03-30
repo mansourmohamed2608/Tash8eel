@@ -52,21 +52,19 @@ export class OpsAgent implements IAgent {
           output = await this.handlers.handleEscalation(task);
           break;
         case OPS_AGENT_TASK_TYPES.UPSELL_SUGGESTIONS:
-          output = await this.handlers.getUpsellSuggestions(task.input as any);
+          output = await this.handlers.getUpsellSuggestions(task);
           break;
         case OPS_AGENT_TASK_TYPES.RECORD_UPSELL_CONVERSION:
-          output = await this.handlers.recordUpsellConversion(
-            task.input as any,
-          );
+          output = await this.handlers.recordUpsellConversion(task);
           break;
         case OPS_AGENT_TASK_TYPES.CALCULATE_DELIVERY_ETA:
-          output = await this.handlers.calculateDeliveryEta(task.input as any);
+          output = await this.handlers.calculateDeliveryEta(task);
           break;
         case OPS_AGENT_TASK_TYPES.HANDLE_COMPLAINT:
-          output = await this.handlers.handleComplaint(task.input as any);
+          output = await this.handlers.handleComplaint(task);
           break;
         case OPS_AGENT_TASK_TYPES.ADVANCE_COMPLAINT:
-          output = await this.handlers.advanceComplaintStep(task.input as any);
+          output = await this.handlers.advanceComplaintStep(task);
           break;
         case OPS_AGENT_TASK_TYPES.SAVE_CUSTOMER_MEMORY:
           output = await this.handlers.saveCustomerMemory(task.input as any);

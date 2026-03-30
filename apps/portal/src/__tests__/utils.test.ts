@@ -123,9 +123,15 @@ describe("formatRelativeTime", () => {
 
 describe("getStatusColor", () => {
   test("returns correct color for known status", () => {
-    expect(getStatusColor("CONFIRMED")).toBe("bg-blue-100 text-blue-800");
-    expect(getStatusColor("DELIVERED")).toBe("bg-green-100 text-green-800");
-    expect(getStatusColor("CANCELLED")).toBe("bg-red-100 text-red-800");
+    expect(getStatusColor("CONFIRMED")).toBe(
+      "bg-blue-100 text-blue-800 border-blue-300",
+    );
+    expect(getStatusColor("DELIVERED")).toBe(
+      "bg-green-100 text-green-800 border-green-300",
+    );
+    expect(getStatusColor("CANCELLED")).toBe(
+      "bg-red-100 text-red-800 border-red-300",
+    );
   });
 
   test("returns default for unknown status", () => {

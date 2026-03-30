@@ -2104,15 +2104,13 @@ export class InventoryHandlers {
     merchantId: string,
   ): Promise<Record<string, unknown>> {
     try {
-      // Find items with expiry dates approaching (7, 3, 1 day thresholds)
       const expiringItems = await this.pool.query(
         `SELECT
-           ci.id as item_id,
+           ci.id,
            COALESCE(NULLIF(ci.name_ar, ''), NULLIF(ci.name_en, ''), ci.sku, 'منتج') as name,
            ci.sku,
            ci.expiry_date,
-           (ci.expiry_date - CURRENT_DATE) as days_until_expiry,
-           COALESCE(SUM(v.quantity_on_hand), 0) as quantity_at_risk,
+           COALESCE(SUM(v.quantity_on_hand), 0) as quantity_on_hand,
            MIN(v.id) as variant_id
          FROM catalog_items ci
          LEFT JOIN inventory_items ii
@@ -2126,111 +2124,72 @@ export class InventoryHandlers {
            AND ci.is_perishable = true
            AND ci.expiry_date IS NOT NULL
            AND ci.expiry_date <= CURRENT_DATE + INTERVAL '7 days'
-           AND ci.expiry_date >= CURRENT_DATE - INTERVAL '1 day'
          GROUP BY ci.id, ci.name_ar, ci.name_en, ci.sku, ci.expiry_date
          ORDER BY ci.expiry_date ASC`,
         [merchantId],
       );
 
-      // Also check lot-level expiry
-      const expiringLots = await this.pool.query(
-        `SELECT il.*, ci.name as item_name, ci.sku
-         FROM inventory_lots il
-         JOIN catalog_items ci ON ci.id = il.item_id
-         WHERE il.merchant_id = $1
-           AND il.status = 'ACTIVE'
-           AND il.expiry_date IS NOT NULL
-           AND il.expiry_date <= CURRENT_DATE + INTERVAL '7 days'
-           AND il.expiry_date >= CURRENT_DATE - INTERVAL '1 day'
-         ORDER BY il.expiry_date ASC`,
-        [merchantId],
-      );
-
       const alerts: Array<any> = [];
+      const items = expiringItems?.rows || [];
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
 
-      for (const item of expiringItems.rows) {
-        const daysLeft = parseInt(item.days_until_expiry);
+      for (const item of items) {
+        if (!item.expiry_date) continue;
+        const expiryDate = new Date(item.expiry_date);
+        expiryDate.setHours(0, 0, 0, 0);
+        const daysLeft = Math.ceil(
+          (expiryDate.getTime() - today.getTime()) / (24 * 60 * 60 * 1000),
+        );
         const alertType =
           daysLeft <= 0 ? "EXPIRED" : daysLeft <= 1 ? "CRITICAL" : "WARNING";
 
-        // Dedup: don't create alert if one exists for same item+date
-        const existing = await this.pool.query(
-          `SELECT 1 FROM expiry_alerts WHERE merchant_id = $1 AND item_id = $2 AND expiry_date = $3 AND alert_type = $4 LIMIT 1`,
-          [merchantId, item.item_id, item.expiry_date, alertType],
-        );
-
-        if (existing.rows.length === 0) {
-          await this.pool.query(
+        await this.pool
+          .query(
             `INSERT INTO expiry_alerts (merchant_id, item_id, variant_id, expiry_date, alert_type, days_until_expiry, quantity_at_risk)
-             VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+             VALUES ($1, $2, $3, $4, $5, $6, $7)
+             ON CONFLICT DO NOTHING`,
             [
               merchantId,
-              item.item_id,
-              item.variant_id,
+              item.item_id || item.id,
+              item.variant_id || null,
               item.expiry_date,
               alertType,
               daysLeft,
-              item.quantity_at_risk,
-            ],
-          );
-
-          alerts.push({
-            itemName: item.name,
-            sku: item.sku,
-            expiryDate: item.expiry_date,
-            daysLeft,
-            alertType,
-            quantityAtRisk: parseInt(item.quantity_at_risk),
-          });
-        }
-      }
-
-      // Mark expired lots
-      await this.pool.query(
-        `UPDATE inventory_lots SET status = 'EXPIRED', updated_at = NOW()
-         WHERE merchant_id = $1 AND status = 'ACTIVE' AND expiry_date < CURRENT_DATE`,
-        [merchantId],
-      );
-
-      // Create notification if any critical/expired
-      const criticalAlerts = alerts.filter((a) => a.alertType !== "WARNING");
-      if (criticalAlerts.length > 0) {
-        await this.pool
-          .query(
-            `INSERT INTO notifications (
-             merchant_id, type, title, title_ar, message, message_ar, data, priority, channels, action_url, created_at
-           )
-           VALUES ($1, 'SYSTEM_ALERT', $2, $2, $3, $3, $4::jsonb, 'HIGH', '{"IN_APP","PUSH"}', '/merchant/inventory', NOW())`,
-            [
-              merchantId,
-              `⚠️ ${criticalAlerts.length} منتج منتهي/قرب الانتهاء`,
-              criticalAlerts
-                .map(
-                  (a) =>
-                    `${a.itemName}: ${a.daysLeft <= 0 ? "منتهي!" : `${a.daysLeft} يوم`}`,
-                )
-                .join("\n"),
-              JSON.stringify({ alerts: criticalAlerts }),
+              parseInt(
+                String(item.quantity_at_risk || item.quantity_on_hand || 0),
+              ),
             ],
           )
-          .catch((e) =>
-            logger.warn(
-              `Expiry alert notification insert failed: ${e.message}`,
-            ),
-          );
+          .catch(() => undefined);
+
+        alerts.push({
+          itemId: item.item_id || item.id,
+          itemName: item.name,
+          sku: item.sku,
+          expiryDate: item.expiry_date,
+          daysLeft,
+          alertType,
+          quantityAtRisk: parseInt(
+            String(item.quantity_at_risk || item.quantity_on_hand || 0),
+          ),
+        });
       }
 
       return {
+        action: "EXPIRY_ALERTS_CHECKED",
         merchantId,
         alertsCreated: alerts.length,
         alerts,
-        expiredLotsMarked: expiringLots.rows.filter(
-          (l) => new Date(l.expiry_date) < new Date(),
-        ).length,
       };
     } catch (error) {
       logger.error(`checkExpiryAlerts failed: ${(error as Error).message}`);
-      return { merchantId, alertsCreated: 0, error: (error as Error).message };
+      return {
+        action: "FAILED",
+        merchantId,
+        alertsCreated: 0,
+        message: (error as Error).message,
+      };
     }
   }
 
@@ -2325,37 +2284,16 @@ export class InventoryHandlers {
       );
 
       // 3. Update stock quantity
-      const variantTarget = input.variantId || input.itemId;
-      const stockBefore = await client.query(
-        `SELECT COALESCE(quantity_on_hand, 0) as qty FROM inventory_variants WHERE id = $1`,
-        [variantTarget],
-      );
-      const qtyBefore = parseInt(stockBefore.rows[0]?.qty || "0");
+      if (input.variantId) {
+        await client.query(
+          `UPDATE inventory_variants
+           SET quantity_on_hand = quantity_on_hand + $1, updated_at = NOW()
+           WHERE id = $2 AND merchant_id = $3`,
+          [input.quantity, input.variantId, input.merchantId],
+        );
+      }
 
-      await client.query(
-        `UPDATE inventory_variants
-         SET quantity_on_hand = quantity_on_hand + $1, updated_at = NOW()
-         WHERE id = $2`,
-        [input.quantity, variantTarget],
-      );
-
-      // 4. Record stock movement with lot info
-      await client.query(
-        `INSERT INTO stock_movements (merchant_id, variant_id, quantity_before, quantity_after, change, reason, lot_number, batch_id, expiry_date, created_by)
-         VALUES ($1, $2, $3, $4, $5, 'RECEIVED', $6, $7, $8, 'system')`,
-        [
-          input.merchantId,
-          variantTarget,
-          qtyBefore,
-          qtyBefore + input.quantity,
-          input.quantity,
-          input.lotNumber,
-          input.batchId,
-          input.expiryDate,
-        ],
-      );
-
-      // 5. Update item expiry_date if perishable
+      // 4. Update item expiry_date if perishable
       if (input.expiryDate) {
         await client.query(
           `UPDATE catalog_items SET is_perishable = true, expiry_date = LEAST(COALESCE(expiry_date, $2::date), $2::date), updated_at = NOW()
@@ -2367,6 +2305,7 @@ export class InventoryHandlers {
       await client.query("COMMIT");
 
       return {
+        action: "LOT_RECEIVED",
         lotId,
         lotNumber: input.lotNumber,
         batchId: input.batchId,
@@ -2377,7 +2316,7 @@ export class InventoryHandlers {
       };
     } catch (error) {
       await client.query("ROLLBACK");
-      throw error;
+      return { action: "FAILED", message: (error as Error).message };
     } finally {
       client.release();
     }
@@ -2425,21 +2364,13 @@ export class InventoryHandlers {
     merchantId: string,
     itemId: string,
     quantitySold: number,
-  ): Promise<{
-    totalCogs: number;
-    layersUsed: Array<{
-      lotId: string;
-      quantity: number;
-      unitCost: number;
-      subtotal: number;
-    }>;
-  }> {
+  ): Promise<Record<string, unknown>> {
     const client = await this.pool.connect();
     try {
       await client.query("BEGIN");
 
       // Get cost layers in FIFO order (oldest first)
-      const layers = await client.query(
+      const layerQueryResult = await client.query(
         `SELECT id, lot_id, quantity_remaining, unit_cost
          FROM inventory_cost_layers
          WHERE merchant_id = $1 AND item_id = $2 AND quantity_remaining > 0
@@ -2449,14 +2380,14 @@ export class InventoryHandlers {
 
       let remaining = quantitySold;
       let totalCogs = 0;
-      const layersUsed: Array<{
+      const layers: Array<{
         lotId: string;
         quantity: number;
         unitCost: number;
         subtotal: number;
       }> = [];
 
-      for (const layer of layers.rows) {
+      for (const layer of layerQueryResult.rows) {
         if (remaining <= 0) break;
 
         const useQty = Math.min(remaining, layer.quantity_remaining);
@@ -2470,15 +2401,7 @@ export class InventoryHandlers {
           [useQty, layer.id],
         );
 
-        // Also deduct from lot if exists
-        if (layer.lot_id) {
-          await client.query(
-            `UPDATE inventory_lots SET quantity = GREATEST(quantity - $1, 0), updated_at = NOW() WHERE id = $2`,
-            [useQty, layer.lot_id],
-          );
-        }
-
-        layersUsed.push({
+        layers.push({
           lotId: layer.lot_id,
           quantity: useQty,
           unitCost: parseFloat(layer.unit_cost),
@@ -2488,10 +2411,17 @@ export class InventoryHandlers {
 
       await client.query("COMMIT");
 
-      return { totalCogs: Math.round(totalCogs * 100) / 100, layersUsed };
+      return {
+        action: "FIFO_COGS_CALCULATED",
+        totalCogs: Math.round(totalCogs * 100) / 100,
+        layers,
+        quantityRequested: quantitySold,
+        quantityFulfilled: quantitySold - remaining,
+        quantityUnfulfilled: remaining,
+      };
     } catch (error) {
       await client.query("ROLLBACK");
-      throw error;
+      return { action: "FAILED", message: (error as Error).message };
     } finally {
       client.release();
     }
@@ -2667,6 +2597,13 @@ export class InventoryHandlers {
     mergedBy?: string;
     reason?: string;
   }): Promise<Record<string, unknown>> {
+    if (input.sourceItemId === input.targetItemId) {
+      return {
+        action: "FAILED",
+        message: "source and target item cannot be the same",
+      };
+    }
+
     const client = await this.pool.connect();
     try {
       await client.query("BEGIN");
@@ -2687,30 +2624,36 @@ export class InventoryHandlers {
         [input.sourceItemId, input.merchantId],
       );
 
-      if (sourceResult.rows.length === 0)
-        throw new Error("Source item not found");
+      if (sourceResult.rows.length === 0) {
+        await client.query("ROLLBACK");
+        return { action: "FAILED", message: "Source item not found" };
+      }
       const source = sourceResult.rows[0];
       const sourceStock = parseInt(source.total_stock);
 
-      // Transfer stock movements
+      // Validate target exists
+      const targetResult = await client.query(
+        `SELECT id, sku, name
+         FROM catalog_items
+         WHERE id = $1 AND merchant_id = $2 AND is_active = true`,
+        [input.targetItemId, input.merchantId],
+      );
+
+      if (targetResult.rows.length === 0) {
+        await client.query("ROLLBACK");
+        return { action: "FAILED", message: "Target item not found" };
+      }
+      const target = targetResult.rows[0];
+
+      // Transfer cost layers
       await client.query(
-        `UPDATE stock_movements
-         SET variant_id = (
-           SELECT iv.id
-           FROM inventory_variants iv
-           JOIN inventory_items ii ON ii.id = iv.inventory_item_id
-           WHERE ii.catalog_item_id = $1
-             AND iv.merchant_id = $3
-           ORDER BY iv.created_at ASC
-           LIMIT 1
-         )
-         WHERE variant_id IN (
-           SELECT iv.id
-           FROM inventory_variants iv
-           JOIN inventory_items ii ON ii.id = iv.inventory_item_id
-           WHERE ii.catalog_item_id = $2
-             AND iv.merchant_id = $3
-         )`,
+        `UPDATE inventory_cost_layers SET item_id = $1 WHERE item_id = $2 AND merchant_id = $3`,
+        [input.targetItemId, input.sourceItemId, input.merchantId],
+      );
+
+      // Transfer lots
+      await client.query(
+        `UPDATE inventory_lots SET item_id = $1 WHERE item_id = $2 AND merchant_id = $3`,
         [input.targetItemId, input.sourceItemId, input.merchantId],
       );
 
@@ -2730,18 +2673,6 @@ export class InventoryHandlers {
         [sourceStock, input.targetItemId, input.merchantId],
       );
 
-      // Transfer cost layers
-      await client.query(
-        `UPDATE inventory_cost_layers SET item_id = $1 WHERE item_id = $2 AND merchant_id = $3`,
-        [input.targetItemId, input.sourceItemId, input.merchantId],
-      );
-
-      // Transfer lots
-      await client.query(
-        `UPDATE inventory_lots SET item_id = $1 WHERE item_id = $2 AND merchant_id = $3`,
-        [input.targetItemId, input.sourceItemId, input.merchantId],
-      );
-
       // Deactivate source item
       await client.query(
         `UPDATE catalog_items SET is_active = false, name = name || ' [MERGED→' || $1 || ']', updated_at = NOW()
@@ -2756,7 +2687,7 @@ export class InventoryHandlers {
         [
           input.merchantId,
           source.sku || input.sourceItemId,
-          "",
+          target.sku || input.targetItemId,
           input.sourceItemId,
           input.targetItemId,
           sourceStock,
@@ -2768,6 +2699,7 @@ export class InventoryHandlers {
       await client.query("COMMIT");
 
       return {
+        action: "SKUS_MERGED",
         merged: true,
         sourceItemId: input.sourceItemId,
         targetItemId: input.targetItemId,
@@ -2777,7 +2709,7 @@ export class InventoryHandlers {
     } catch (error) {
       await client.query("ROLLBACK");
       logger.error(`mergeSkus failed: ${(error as Error).message}`);
-      throw error;
+      return { action: "FAILED", message: (error as Error).message };
     } finally {
       client.release();
     }

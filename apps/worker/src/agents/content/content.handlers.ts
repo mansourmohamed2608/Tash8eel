@@ -106,9 +106,13 @@ export class ContentHandlers {
    */
   async translateContent(task: AgentTask): Promise<Record<string, unknown>> {
     const input = task.input as unknown as TranslateContentInput;
+    const rawContent =
+      input.content || (task.input as Record<string, unknown>)?.text;
+    const content =
+      typeof rawContent === "string" ? rawContent : String(rawContent || "");
 
     try {
-      if (!input.content) {
+      if (!content.trim()) {
         return {
           action: "FAILED",
           message: "Content is required for translation",
@@ -141,7 +145,7 @@ export class ContentHandlers {
         enToAr[en] = ar;
       }
 
-      let translated = input.content;
+      let translated = content;
       const dict = input.sourceLanguage === "ar" ? arToEn : enToAr;
 
       for (const [from, to] of Object.entries(dict)) {
@@ -154,7 +158,7 @@ export class ContentHandlers {
 
       return {
         action: "TRANSLATION_COMPLETE",
-        originalContent: input.content,
+        originalContent: content,
         translatedContent: translated,
         sourceLanguage: input.sourceLanguage,
         targetLanguage: input.targetLanguage,
