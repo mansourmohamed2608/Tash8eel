@@ -85,7 +85,7 @@
     "flatted": "^3.4.2"
   },
   "devDependencies": {
-    "@angular-devkit/core": "19.2.22",
+    "@angular-devkit/core": "19.2.23",
     "@angular-devkit/schematics": "19.2.22",
     "@angular-devkit/schematics-cli": "19.2.22",
     "@nestjs/cli": "^11.0.16",
