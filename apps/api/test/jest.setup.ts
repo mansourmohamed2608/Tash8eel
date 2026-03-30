@@ -43,6 +43,11 @@ console.log(
 process.env.ADMIN_API_KEY = process.env.ADMIN_API_KEY || "test-admin-key";
 process.env.INTERNAL_API_KEY =
   process.env.INTERNAL_API_KEY || "test-internal-key";
+process.env.JWT_SECRET =
+  process.env.JWT_SECRET || "test_jwt_secret_for_e2e_at_least_32_chars";
+process.env.JWT_REFRESH_SECRET =
+  process.env.JWT_REFRESH_SECRET ||
+  "test_jwt_refresh_secret_for_e2e_at_least_32_chars";
 
 // Use mocked LLM behavior in tests by default to keep e2e deterministic.
 // Set USE_REAL_OPENAI_IN_TESTS=true only when explicitly validating live model behavior.
