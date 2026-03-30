@@ -6,6 +6,7 @@ DECLARE
   v_cancel_status TEXT := 'CANCELED';
   v_subscription_columns TEXT := 'merchant_id, plan_id, status';
   v_subscription_values TEXT := quote_literal('demo-merchant') || ', bp.id, ''ACTIVE''';
+  v_demo_merchant_exists BOOLEAN := false;
 BEGIN
   -- 1) Canonical billing plans (source of truth used by portal pricing UI)
   IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'billing_plans') THEN
@@ -72,8 +73,12 @@ BEGIN
         is_active = EXCLUDED.is_active;
   END IF;
 
-  -- 2) Ensure demo merchant row reflects PRO (entitlements + limits)
   IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'merchants') THEN
+    SELECT EXISTS (SELECT 1 FROM merchants WHERE id = 'demo-merchant') INTO v_demo_merchant_exists;
+  END IF;
+
+  -- 2) Ensure demo merchant row reflects PRO (entitlements + limits)
+  IF v_demo_merchant_exists THEN
     IF EXISTS (
       SELECT 1 FROM information_schema.columns
       WHERE table_name = 'merchants' AND column_name = 'plan'
@@ -146,7 +151,8 @@ BEGIN
   END IF;
 
   -- 3) Ensure demo merchant has an ACTIVE PRO subscription
-  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'merchant_subscriptions')
+    IF v_demo_merchant_exists
+      AND EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'merchant_subscriptions')
      AND EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'billing_plans') THEN
 
     IF EXISTS (
@@ -217,7 +223,8 @@ BEGIN
   END IF;
 
   -- 4) Ensure agent subscription table reflects PRO agents
-  IF EXISTS (
+  IF v_demo_merchant_exists
+     AND EXISTS (
     SELECT 1 FROM information_schema.tables WHERE table_name = 'merchant_agent_subscriptions'
   ) THEN
     IF EXISTS (
