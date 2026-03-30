@@ -43,7 +43,7 @@ fi
 log_ok "Latest code pulled"
 
 log_step "Installing API dependencies for migration runner"
-npm install --legacy-peer-deps --prefix apps/api
+npm install --legacy-peer-deps --ignore-scripts --workspace packages/shared --workspace packages/agent-sdk --workspace apps/api
 log_ok "API dependencies installed"
 
 log_step "Running database migrations"
