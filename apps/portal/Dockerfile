@@ -12,7 +12,7 @@ COPY packages/shared/package*.json ./packages/shared/
 COPY packages/agent-sdk/package*.json ./packages/agent-sdk/
 
 # Install only portal workspace deps in deterministic mode
-RUN npm ci --workspace apps/portal
+RUN npm ci --workspace apps/portal --ignore-scripts
 
 # Copy portal source and build it
 COPY apps/portal ./apps/portal
