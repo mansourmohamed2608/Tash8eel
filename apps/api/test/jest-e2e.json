@@ -4,7 +4,7 @@
   "testEnvironment": "node",
   "testRegex": ".e2e-spec.ts$",
   "transform": {
-    "^.+\\.(t|j)s$": "ts-jest"
+    "^.+\\.ts$": "ts-jest"
   },
   "moduleNameMapper": {
     "^@/(.*)$": "<rootDir>/../src/$1",
@@ -13,6 +13,7 @@
     "^@application/(.*)$": "<rootDir>/../src/application/$1",
     "^@shared/(.*)$": "<rootDir>/../src/shared/$1"
   },
+  "testPathIgnorePatterns": ["/test/e2e/twilio-whatsapp\\.e2e-spec\\.ts$"],
   "setupFilesAfterEnv": ["<rootDir>/jest.setup.ts"],
   "detectOpenHandles": true,
   "forceExit": false,

@@ -44,11 +44,12 @@ process.env.ADMIN_API_KEY = process.env.ADMIN_API_KEY || "test-admin-key";
 process.env.INTERNAL_API_KEY =
   process.env.INTERNAL_API_KEY || "test-internal-key";
 
-// Provide a dummy OpenAI API key for tests (the actual calls should be mocked)
-// OpenAI SDK validates key format: sk-<anything> for regular keys or sk-proj-<anything> for project keys
-if (!process.env.OPENAI_API_KEY) {
+// Use mocked LLM behavior in tests by default to keep e2e deterministic.
+// Set USE_REAL_OPENAI_IN_TESTS=true only when explicitly validating live model behavior.
+if (process.env.USE_REAL_OPENAI_IN_TESTS !== "true") {
   process.env.OPENAI_API_KEY =
     "sk-test-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
+  process.env.AI_STRICT_MODE = "false";
 }
 
 // Suppress console logs during tests

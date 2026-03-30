@@ -6,10 +6,21 @@ import { RedisModule } from "../../infrastructure/redis/redis.module";
 import { AuditService } from "../services/audit.service";
 import { NotificationsService } from "../services/notifications.service";
 import { UsageGuardService } from "../services/usage-guard.service";
+import { AiMetricsService } from "../../shared/services/ai-metrics.service";
 
 @Module({
   imports: [ConfigModule, DatabaseModule, RedisModule, AdaptersModule],
-  providers: [AuditService, NotificationsService, UsageGuardService],
-  exports: [AuditService, NotificationsService, UsageGuardService],
+  providers: [
+    AuditService,
+    NotificationsService,
+    UsageGuardService,
+    AiMetricsService,
+  ],
+  exports: [
+    AuditService,
+    NotificationsService,
+    UsageGuardService,
+    AiMetricsService,
+  ],
 })
 export class SharedAiModule {}
