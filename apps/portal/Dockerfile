@@ -16,6 +16,7 @@ RUN npm ci --workspace apps/portal --ignore-scripts
 
 # Copy portal source and build it
 COPY apps/portal ./apps/portal
+RUN mkdir -p ./apps/portal/public
 RUN npm run build -w apps/portal
 
 # Production stage
