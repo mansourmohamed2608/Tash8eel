@@ -38,7 +38,7 @@ COPY packages/agent-sdk/package*.json ./packages/agent-sdk/
 COPY apps/worker/package*.json ./apps/worker/
 
 # Install production dependencies only
-RUN npm ci --omit=dev
+RUN npm ci --omit=dev --ignore-scripts
 
 # Copy built files
 COPY --from=builder /app/packages/shared/dist ./packages/shared/dist

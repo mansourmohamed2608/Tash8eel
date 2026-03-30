@@ -8,6 +8,10 @@ BEGIN
     RETURN;
   END IF;
 
+  IF NOT EXISTS (SELECT 1 FROM merchants WHERE id = 'demo-merchant') THEN
+    RETURN;
+  END IF;
+
   IF EXISTS (
     SELECT 1 FROM information_schema.columns
     WHERE table_name = 'merchants' AND column_name = 'plan'
@@ -108,6 +112,14 @@ DECLARE
   v_subscription_columns TEXT := 'merchant_id, plan_id, status';
   v_subscription_values TEXT := quote_literal('demo-merchant') || ', bp.id, ''ACTIVE''';
 BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'merchants') THEN
+    RETURN;
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM merchants WHERE id = 'demo-merchant') THEN
+    RETURN;
+  END IF;
+
   IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'billing_plans') THEN
     -- Ensure PRO plan exists without assuming optional columns.
     IF EXISTS (
@@ -200,6 +212,14 @@ END $$;
 -- 3. Ensure agent subscriptions are active
 DO $$
 BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'merchants') THEN
+    RETURN;
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM merchants WHERE id = 'demo-merchant') THEN
+    RETURN;
+  END IF;
+
   IF NOT EXISTS (
     SELECT 1 FROM information_schema.tables WHERE table_name = 'merchant_agent_subscriptions'
   ) THEN
