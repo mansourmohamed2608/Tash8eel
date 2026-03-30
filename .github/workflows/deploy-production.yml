@@ -44,7 +44,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [validate-inputs]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: ${{ inputs.sha }}
 
@@ -76,7 +76,7 @@ jobs:
     # Add required reviewers in Settings → Environments → production
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: ${{ inputs.sha }}
 
