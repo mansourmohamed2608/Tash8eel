@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS customer_tags (
   customer_id VARCHAR(100) NOT NULL,
   tag VARCHAR(50) NOT NULL, -- 'VIP', 'BLACKLIST', 'WHOLESALE', 'INFLUENCER', 'RETURNING'
   source VARCHAR(20) NOT NULL DEFAULT 'manual', -- 'manual', 'auto_rule'
-  rule_id UUID REFERENCES vip_rules(id) ON DELETE SET NULL,
+  rule_id UUID,
   created_by VARCHAR(100),
   expires_at TIMESTAMPTZ,
   metadata JSONB DEFAULT '{}',
@@ -39,12 +39,38 @@ CREATE TABLE IF NOT EXISTS vip_rules (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.tables
+    WHERE table_schema = 'public' AND table_name = 'vip_rules'
+  ) AND EXISTS (
+    SELECT 1
+    FROM information_schema.tables
+    WHERE table_schema = 'public' AND table_name = 'customer_tags'
+  ) AND NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'fk_customer_tags_rule_id'
+  ) THEN
+    ALTER TABLE customer_tags
+      ADD CONSTRAINT fk_customer_tags_rule_id
+      FOREIGN KEY (rule_id) REFERENCES vip_rules(id) ON DELETE SET NULL;
+  END IF;
+END $$;
+
 -- Insert default VIP rules
-INSERT INTO vip_rules (id, merchant_id, name, tag_to_apply, conditions, is_active, priority) VALUES
-  (uuid_generate_v4(), 'demo-merchant', 'High Spender VIP', 'VIP', '{"minOrders": 3, "minSpent": 5000, "withinDays": 90}', true, 10),
-  (uuid_generate_v4(), 'demo-merchant', 'Frequent Buyer', 'LOYAL', '{"minOrders": 5, "withinDays": 60}', true, 5),
-  (uuid_generate_v4(), 'demo-merchant', 'Wholesale Customer', 'WHOLESALE', '{"minAvgOrderValue": 2000, "minOrders": 2}', true, 8)
-ON CONFLICT DO NOTHING;
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM merchants WHERE id = 'demo-merchant') THEN
+    INSERT INTO vip_rules (id, merchant_id, name, tag_to_apply, conditions, is_active, priority) VALUES
+      (uuid_generate_v4(), 'demo-merchant', 'High Spender VIP', 'VIP', '{"minOrders": 3, "minSpent": 5000, "withinDays": 90}', true, 10),
+      (uuid_generate_v4(), 'demo-merchant', 'Frequent Buyer', 'LOYAL', '{"minOrders": 5, "withinDays": 60}', true, 5),
+      (uuid_generate_v4(), 'demo-merchant', 'Wholesale Customer', 'WHOLESALE', '{"minAvgOrderValue": 2000, "minOrders": 2}', true, 8)
+    ON CONFLICT DO NOTHING;
+  END IF;
+END $$;
 
 -- Customer order history for quick reorder
 ALTER TABLE customers

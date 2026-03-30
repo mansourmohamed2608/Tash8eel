@@ -36,7 +36,7 @@ COPY packages/shared/package*.json ./packages/shared/
 COPY packages/agent-sdk/package*.json ./packages/agent-sdk/
 
 # Install production dependencies for portal workspace
-RUN npm ci --omit=dev --workspace apps/portal
+RUN npm ci --omit=dev --workspace apps/portal --ignore-scripts
 
 # Copy built portal output
 COPY --from=builder /app/apps/portal/.next ./apps/portal/.next
