@@ -91,7 +91,7 @@ describe("Scope 1 — Staff Auth Guards", () => {
     it("returns success even with invalid token (no info leakage)", () => {
       // When verifyRefreshTokenPayload returns null (invalid/expired),
       // the controller returns { success: true } — not an error
-      const tokenPayload: { staffId: string } | null = null;
+      const tokenPayload = null as { staffId: string } | null;
       const shouldReturnEarly = !tokenPayload?.staffId;
       expect(shouldReturnEarly).toBe(true);
       // Controller returns { success: true } in this branch

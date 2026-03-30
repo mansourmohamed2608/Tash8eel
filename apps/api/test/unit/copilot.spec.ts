@@ -7,6 +7,7 @@
 import {
   CopilotCommandSchema,
   CopilotIntentEnum,
+  CopilotIntent,
   INTENT_FEATURE_MAP,
   DESTRUCTIVE_INTENTS,
 } from "../../src/application/llm/copilot-schema";
@@ -390,11 +391,16 @@ describe("Arabic Command Parsing Examples", () => {
 });
 
 describe("Entitlement Gating Logic", () => {
+  const isKnownIntent = (intent: string): intent is CopilotIntent =>
+    intent in INTENT_FEATURE_MAP;
+
   const checkEntitlement = (
     intent: string,
     enabledFeatures: string[],
   ): boolean => {
-    const requiredFeatures = INTENT_FEATURE_MAP[intent] || [];
+    const requiredFeatures = isKnownIntent(intent)
+      ? INTENT_FEATURE_MAP[intent]
+      : [];
     return requiredFeatures.every((f) => enabledFeatures.includes(f));
   };
 

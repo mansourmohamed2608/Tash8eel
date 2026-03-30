@@ -35,7 +35,7 @@ export function isObviouslyOffTopic(text: string): boolean {
 
   const hardDenyPatterns = [
     // General knowledge
-    /ما\s*(هي|هو|اسم)\s*(عاصمة|رئيس|حكومة|دولة|تاريخ)/i,
+    /(ما|من)\s*(هي|هو|اسم)?\s*(عاصمة|رئيس|حكومة|دولة|تاريخ)/i,
     // Jokes / stories
     /احكيلي\s*(نكتة|حكاية|قصة)/i,
     /قولي\s*نكتة/i,
@@ -56,10 +56,10 @@ export function isObviouslyOffTopic(text: string): boolean {
     // Medical symptoms
     /عندي\s*(ألم|وجع|مرض|صداع|حمى|كحة|حساسية)\s/i,
     // Celebrities / pure entertainment with no product context
-    /فيلم\s*(إيه|حلو|جديد|نشوفه)\b/i,
-    /مسلسل\s*(إيه|جديد|حلو|ينتهي)\b/i,
+    /فيلم\s*(إيه|ايه|حلو|جديد|نشوفه|أشوفه|اشوفه)/i,
+    /مسلسل\s*(إيه|ايه|جديد|حلو|ينتهي)/i,
     // Religion Q&A
-    /ما\s*(حكم|رأي\s*الدين)\s*(في|على)/i,
+    /ما\s*(حكم|رأي\s*الدين).{0,40}(في|على)/i,
     // Pure math expression (no text at all)
     /^[\d\s\+\-\*\/\^\(\)=]+$/,
   ];

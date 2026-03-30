@@ -95,6 +95,8 @@ describe("SlotFillingPolicy", () => {
           area: "المعادي",
           street: "شارع 9",
           building: "15",
+          confidence: 1,
+          missing_fields: [],
         },
       };
       const result = policy.evaluate(cart, collectedInfo, []);
@@ -140,6 +142,8 @@ describe("SlotFillingPolicy", () => {
           area: "مدينة نصر",
           street: "شارع الطيران",
           building: "10",
+          confidence: 1,
+          missing_fields: [],
         },
       };
       const result = policy.evaluate(cart, collectedInfo, []);
@@ -166,6 +170,8 @@ describe("SlotFillingPolicy", () => {
           area: "التجمع",
           street: "شارع التسعين",
           building: "10",
+          confidence: 1,
+          missing_fields: [],
         },
       };
       const result = policy.evaluate(cart, collectedInfo, []);
@@ -190,6 +196,8 @@ describe("SlotFillingPolicy", () => {
           area: "التجمع",
           street: "شارع التسعين",
           building: "10",
+          confidence: 1,
+          missing_fields: [],
         },
       };
       const result = policy.evaluate(cart, collectedInfo, []);
@@ -226,6 +234,8 @@ describe("SlotFillingPolicy", () => {
           area: "المعادي",
           street: "شارع 9",
           building: "15",
+          confidence: 1,
+          missing_fields: [],
         },
       };
       const result = policy.evaluate(cart, collectedInfo, []);

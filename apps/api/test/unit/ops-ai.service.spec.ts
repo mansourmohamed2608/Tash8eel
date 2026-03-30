@@ -5,6 +5,7 @@ import {
 } from "../../src/application/llm/ops-ai.service";
 import { ConfigService } from "@nestjs/config";
 import { IMerchantRepository } from "../../src/domain/ports";
+import { AiMetricsService } from "../../src/shared/services/ai-metrics.service";
 
 // Mock merchant repository
 const mockMerchantRepository: Partial<IMerchantRepository> = {
@@ -24,6 +25,10 @@ const mockConfigService: Partial<ConfigService> = {
   }),
 };
 
+const mockAiMetricsService: Partial<AiMetricsService> = {
+  record: jest.fn().mockResolvedValue(undefined),
+};
+
 describe("OpsAiService", () => {
   let service: OpsAiService;
 
@@ -31,6 +36,7 @@ describe("OpsAiService", () => {
     service = new OpsAiService(
       mockConfigService as ConfigService,
       mockMerchantRepository as IMerchantRepository,
+      mockAiMetricsService as AiMetricsService,
     );
   });
 

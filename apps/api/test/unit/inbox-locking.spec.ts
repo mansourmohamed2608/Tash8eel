@@ -1,4 +1,5 @@
 import { Test, TestingModule } from "@nestjs/testing";
+import { ConfigService } from "@nestjs/config";
 import { InboxService } from "../../src/application/services/inbox.service";
 import {
   RedisService,
@@ -20,6 +21,9 @@ import { TranscriptionAdapterFactory } from "../../src/application/adapters/tran
 import { AddressDepthService } from "../../src/application/services/address-depth.service";
 import { PaymentService } from "../../src/application/services/payment.service";
 import { CustomerReorderService } from "../../src/application/services/customer-reorder.service";
+import { UsageGuardService } from "../../src/application/services/usage-guard.service";
+import { RagRetrievalService } from "../../src/application/services/rag-retrieval.service";
+import { MessageRouterService } from "../../src/application/llm/message-router.service";
 import { ActionType } from "../../src/shared/constants/enums";
 
 describe("InboxService - Distributed Locking", () => {
@@ -57,9 +61,20 @@ describe("InboxService - Distributed Locking", () => {
       providers: [
         InboxService,
         {
+          provide: ConfigService,
+          useValue: {
+            get: jest.fn((key: string, defaultValue?: string) => {
+              if (key === "MERCHANT_PLAN_CACHE_TTL_SECONDS") return "300";
+              return defaultValue;
+            }),
+          },
+        },
+        {
           provide: RedisService,
           useValue: {
             acquireLock: jest.fn(),
+            get: jest.fn().mockResolvedValue('{"name":"pro","currency":"EGP"}'),
+            set: jest.fn().mockResolvedValue(undefined),
           },
         },
         {
@@ -183,6 +198,38 @@ describe("InboxService - Distributed Locking", () => {
             checkReorderAvailability: jest.fn(),
             confirmReorder: jest.fn(),
             generateReorderConfirmationMessage: jest.fn(),
+          },
+        },
+        {
+          provide: UsageGuardService,
+          useValue: {
+            consume: jest
+              .fn()
+              .mockResolvedValue({ allowed: true, used: 1, limit: 10000 }),
+            checkLimit: jest
+              .fn()
+              .mockResolvedValue({ allowed: true, used: 0, limit: 10000 }),
+            checkAndTrackConversation: jest.fn().mockResolvedValue({
+              isNewConversation: false,
+              quotaExceeded: false,
+            }),
+            notifyMerchantQuotaExceeded: jest.fn().mockResolvedValue(undefined),
+            trackOverage: jest.fn().mockResolvedValue(undefined),
+          },
+        },
+        {
+          provide: RagRetrievalService,
+          useValue: {
+            retrieveForQuery: jest.fn().mockResolvedValue([]),
+          },
+        },
+        {
+          provide: MessageRouterService,
+          useValue: {
+            getMediaRedirectReply: jest.fn().mockReturnValue(""),
+            getInstantReply: jest.fn().mockResolvedValue("Test instant reply"),
+            selectModel: jest.fn().mockReturnValue("gpt-4o-mini"),
+            scoreComplexity: jest.fn().mockReturnValue(0.1),
           },
         },
       ],

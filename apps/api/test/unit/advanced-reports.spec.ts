@@ -45,7 +45,14 @@ describe("FinanceReportsController", () => {
     it("should generate a tax report with VAT 14%", async () => {
       pool.query
         .mockResolvedValueOnce({
-          rows: [{ vat_rate: "14", tax_registration_no: "EG-1234" }],
+          rows: [
+            {
+              vat_rate: "14",
+              tax_registration_no: "EG-1234",
+              tax_enabled: true,
+              include_vat_in_price: false,
+            },
+          ],
         })
         .mockResolvedValueOnce({
           rows: [
@@ -56,7 +63,16 @@ describe("FinanceReportsController", () => {
             },
           ],
         })
-        .mockResolvedValueOnce({ rows: [{ total_expenses: "30000.00" }] })
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              amount: "30000.00",
+              category: "inventory",
+              subcategory: null,
+              description: "Stock purchase",
+            },
+          ],
+        })
         .mockResolvedValueOnce({
           rows: [{ total_refunds: "10", refund_total: "3000.00" }],
         })
@@ -69,11 +85,11 @@ describe("FinanceReportsController", () => {
 
       expect(result.vatRate).toBe("14%");
       expect(result.grossRevenue).toBe(100000);
-      expect(result.netRevenue).toBe(95000); // 100000 - 5000
-      expect(result.vatOnSales).toBe(13300); // 95000 * 0.14 = 13300
+      expect(result.netRevenue).toBe(100000); // order totals are already net of discount
+      expect(result.vatOnSales).toBe(14000); // 100000 * 0.14
       expect(result.vatOnPurchases).toBe(4200); // 30000 * 0.14!
       expect(result.vatOnRefunds).toBe(420); // 3000 * 0.14
-      expect(result.netVatPayable).toBe(8680); // 13300 - 4200 - 420
+      expect(result.netVatPayable).toBe(9380); // 14000 - 4200 - 420
       expect(result.taxRegistrationNo).toBe("EG-1234");
     });
 
@@ -89,6 +105,7 @@ describe("FinanceReportsController", () => {
         .mockResolvedValueOnce({
           rows: [{ total_refunds: "0", refund_total: "0" }],
         })
+        .mockResolvedValueOnce({ rowCount: 0 })
         .mockResolvedValueOnce({ rows: [] });
 
       await controller.generateTaxReport("merchant-1", {
@@ -96,10 +113,10 @@ describe("FinanceReportsController", () => {
         periodEnd: "2024-07-01",
       });
 
-      // 5th call should be the INSERT into tax_reports
-      const persistCall = pool.query.mock.calls[4];
-      expect(persistCall[0]).toContain("INSERT INTO tax_reports");
-      expect(persistCall[0]).toContain("ON CONFLICT");
+      const updateCall = pool.query.mock.calls[4];
+      const insertCall = pool.query.mock.calls[5];
+      expect(updateCall[0]).toContain("UPDATE tax_reports");
+      expect(insertCall[0]).toContain("INSERT INTO tax_reports");
     });
   });
 
@@ -260,40 +277,43 @@ describe("AdvancedInventoryController", () => {
 
   describe("GET /:merchantId/expiry-alerts", () => {
     it("should return alerts categorized by severity", async () => {
-      pool.query.mockResolvedValueOnce({
-        rows: [
-          {
-            id: "1",
-            item_name: "Milk",
-            sku: "MLK",
-            expiry_date: "2024-01-01",
-            days_until_expiry: -5,
-            alert_type: "EXPIRED",
-            quantity_at_risk: 20,
-            acknowledged: false,
-          },
-          {
-            id: "2",
-            item_name: "Yogurt",
-            sku: "YOG",
-            expiry_date: "2024-02-01",
-            days_until_expiry: 2,
-            alert_type: "CRITICAL",
-            quantity_at_risk: 15,
-            acknowledged: false,
-          },
-          {
-            id: "3",
-            item_name: "Juice",
-            sku: "JCE",
-            expiry_date: "2024-03-01",
-            days_until_expiry: 6,
-            alert_type: "WARNING",
-            quantity_at_risk: 50,
-            acknowledged: false,
-          },
-        ],
-      });
+      pool.query
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              id: "1",
+              item_name: "Milk",
+              sku: "MLK",
+              expiry_date: "2024-01-01",
+              days_until_expiry: -5,
+              alert_type: "EXPIRED",
+              quantity_at_risk: 20,
+              acknowledged: false,
+            },
+            {
+              id: "2",
+              item_name: "Yogurt",
+              sku: "YOG",
+              expiry_date: "2024-02-01",
+              days_until_expiry: 2,
+              alert_type: "CRITICAL",
+              quantity_at_risk: 15,
+              acknowledged: false,
+            },
+            {
+              id: "3",
+              item_name: "Juice",
+              sku: "JCE",
+              expiry_date: "2024-03-01",
+              days_until_expiry: 6,
+              alert_type: "WARNING",
+              quantity_at_risk: 50,
+              acknowledged: false,
+            },
+          ],
+        })
+        .mockResolvedValueOnce({ rows: [{ count: 0 }] })
+        .mockResolvedValueOnce({ rows: [] });
 
       const result = await controller.getExpiryAlerts("merchant-1");
 
@@ -365,6 +385,7 @@ describe("AdvancedInventoryController", () => {
             total_cost: "1500.00",
             weighted_avg_cost: "15.00",
             retail_price: "25.00",
+            total_retail: "2500.00",
           },
           {
             id: "item-2",
@@ -375,6 +396,7 @@ describe("AdvancedInventoryController", () => {
             total_cost: "500.00",
             weighted_avg_cost: "10.00",
             retail_price: "20.00",
+            total_retail: "1000.00",
           },
         ],
       });

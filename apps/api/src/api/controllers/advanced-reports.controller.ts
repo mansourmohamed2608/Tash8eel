@@ -268,7 +268,7 @@ export class FinanceReportsController {
       ? parseNumber(taxConfig.vat_rate)
       : VAT_RATE * 100;
     const includeVatInPrice = taxConfig?.include_vat_in_price !== false;
-    const taxEnabled = taxConfig ? Boolean(taxConfig.tax_enabled) : true;
+    const taxEnabled = taxConfig ? taxConfig.tax_enabled !== false : true;
     // Default: delivery is taxable unless merchant explicitly disables it in config.
     const includeDeliveryInTax = taxConfig?.include_delivery_in_tax !== false;
     const effectiveVatRate = taxEnabled ? configuredVatRatePct / 100 : 0;
@@ -533,7 +533,7 @@ export class FinanceReportsController {
 
     const rawDays = parseInt(forecastDays || "30", 10);
     const daysFromQuery = Number.isFinite(rawDays)
-      ? Math.min(Math.max(rawDays, 1), 365)
+      ? Math.min(Math.max(rawDays, 7), 90)
       : 30;
 
     const parsedStart = parseDateOnly(startDateRaw);
@@ -1385,10 +1385,20 @@ export class AdvancedInventoryController {
       (s, r) => s + parseFloat(r.total_cost || "0"),
       0,
     );
-    const totalRetailValue = result.rows.reduce(
-      (s, r) => s + parseFloat(r.total_retail || "0"),
-      0,
-    );
+    const totalRetailValue = result.rows.reduce((sum, row) => {
+      const totalRetail = Number.parseFloat(String(row.total_retail));
+      if (Number.isFinite(totalRetail)) {
+        return sum + totalRetail;
+      }
+
+      const qty = Number.parseFloat(String(row.total_qty || "0"));
+      const retailPrice = Number.parseFloat(String(row.retail_price || "0"));
+      return (
+        sum +
+        (Number.isFinite(qty) ? qty : 0) *
+          (Number.isFinite(retailPrice) ? retailPrice : 0)
+      );
+    }, 0);
 
     return {
       method,
@@ -1534,6 +1544,12 @@ export class AdvancedInventoryController {
     @Param("merchantId") merchantId: string,
     @Body(new ZodValidationPipe(MergeSkusSchema)) dto: MergeSkusDto,
   ) {
+    if (dto.sourceItemId === dto.targetItemId) {
+      throw new BadRequestException(
+        "Source and target items must be different",
+      );
+    }
+
     const variantOnHandExpr = `COALESCE(
       NULLIF((to_jsonb(iv)->>'quantity_on_hand'), '')::numeric,
       NULLIF((to_jsonb(iv)->>'quantity_available'), '')::numeric,

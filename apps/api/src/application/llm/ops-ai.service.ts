@@ -353,18 +353,14 @@ export class OpsAiService {
       };
     }
 
-    // Cart has items — trigger upsell/cross-sell
-    if (
-      cartValue > 0 &&
-      cartValue < 500 &&
-      conversationState !== "ORDER_PLACED"
-    ) {
+    // Escalation for complex cases
+    if (messageCount > 15 && conversationState !== "ORDER_PLACED") {
       return {
-        actionType: "upsell",
-        priority: "medium",
-        descriptionAr: "اقترح منتجات إضافية لزيادة قيمة السلة",
-        descriptionEn: "Suggest additional products to increase cart value",
-        suggestedMessageAr: "عندنا منتجات تانية ممكن تعجبك — تحب أقولك؟",
+        actionType: "takeover",
+        priority: "high",
+        descriptionAr: "محادثة طويلة بدون تحويل - يُنصح بتدخل بشري",
+        descriptionEn:
+          "Long conversation without conversion - human takeover recommended",
       };
     }
 
@@ -380,14 +376,18 @@ export class OpsAiService {
       };
     }
 
-    // Escalation for complex cases
-    if (messageCount > 15 && conversationState !== "ORDER_PLACED") {
+    // Cart has items — trigger upsell/cross-sell
+    if (
+      cartValue > 0 &&
+      cartValue < 500 &&
+      conversationState !== "ORDER_PLACED"
+    ) {
       return {
-        actionType: "takeover",
-        priority: "high",
-        descriptionAr: "محادثة طويلة بدون تحويل - يُنصح بتدخل بشري",
-        descriptionEn:
-          "Long conversation without conversion - human takeover recommended",
+        actionType: "upsell",
+        priority: "medium",
+        descriptionAr: "اقترح منتجات إضافية لزيادة قيمة السلة",
+        descriptionEn: "Suggest additional products to increase cart value",
+        suggestedMessageAr: "عندنا منتجات تانية ممكن تعجبك — تحب أقولك؟",
       };
     }
 

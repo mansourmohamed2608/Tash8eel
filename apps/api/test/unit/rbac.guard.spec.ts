@@ -97,7 +97,7 @@ describe("RolesGuard", () => {
     it("should allow access when user has matching role", () => {
       jest
         .spyOn(reflector, "getAllAndOverride")
-        .mockImplementation((key: string) => {
+        .mockImplementation((key: unknown) => {
           if (key === ROLES_KEY) return ["ADMIN"];
           return undefined;
         });
@@ -109,7 +109,7 @@ describe("RolesGuard", () => {
     it("should allow access when user has one of multiple allowed roles", () => {
       jest
         .spyOn(reflector, "getAllAndOverride")
-        .mockImplementation((key: string) => {
+        .mockImplementation((key: unknown) => {
           if (key === ROLES_KEY) return ["ADMIN", "MANAGER"];
           return undefined;
         });
@@ -124,7 +124,7 @@ describe("RolesGuard", () => {
     it("should deny access when user role not in allowed list", () => {
       jest
         .spyOn(reflector, "getAllAndOverride")
-        .mockImplementation((key: string) => {
+        .mockImplementation((key: unknown) => {
           if (key === ROLES_KEY) return ["OWNER"];
           return undefined;
         });
@@ -136,7 +136,7 @@ describe("RolesGuard", () => {
     it("should work with OWNER-only restriction", () => {
       jest
         .spyOn(reflector, "getAllAndOverride")
-        .mockImplementation((key: string) => {
+        .mockImplementation((key: unknown) => {
           if (key === ROLES_KEY) return ["OWNER"];
           return undefined;
         });
@@ -153,7 +153,7 @@ describe("RolesGuard", () => {
     it("should allow access for user with exact required role", () => {
       jest
         .spyOn(reflector, "getAllAndOverride")
-        .mockImplementation((key: string) => {
+        .mockImplementation((key: unknown) => {
           if (key === REQUIRE_ROLE_KEY) return "MANAGER";
           return undefined;
         });
@@ -165,7 +165,7 @@ describe("RolesGuard", () => {
     it("should allow access for user with higher role than required", () => {
       jest
         .spyOn(reflector, "getAllAndOverride")
-        .mockImplementation((key: string) => {
+        .mockImplementation((key: unknown) => {
           if (key === REQUIRE_ROLE_KEY) return "MANAGER";
           return undefined;
         });
@@ -180,7 +180,7 @@ describe("RolesGuard", () => {
     it("should deny access for user with lower role than required", () => {
       jest
         .spyOn(reflector, "getAllAndOverride")
-        .mockImplementation((key: string) => {
+        .mockImplementation((key: unknown) => {
           if (key === REQUIRE_ROLE_KEY) return "MANAGER";
           return undefined;
         });
@@ -197,7 +197,7 @@ describe("RolesGuard", () => {
     it("should enforce ADMIN minimum for finance operations", () => {
       jest
         .spyOn(reflector, "getAllAndOverride")
-        .mockImplementation((key: string) => {
+        .mockImplementation((key: unknown) => {
           if (key === REQUIRE_ROLE_KEY) return "ADMIN";
           return undefined;
         });
@@ -218,7 +218,7 @@ describe("RolesGuard", () => {
     it("should throw when no role on request and roles required", () => {
       jest
         .spyOn(reflector, "getAllAndOverride")
-        .mockImplementation((key: string) => {
+        .mockImplementation((key: unknown) => {
           if (key === ROLES_KEY) return ["ADMIN"];
           return undefined;
         });
@@ -233,7 +233,7 @@ describe("RolesGuard", () => {
     it("should throw with descriptive message for insufficient role level", () => {
       jest
         .spyOn(reflector, "getAllAndOverride")
-        .mockImplementation((key: string) => {
+        .mockImplementation((key: unknown) => {
           if (key === REQUIRE_ROLE_KEY) return "ADMIN";
           return undefined;
         });
@@ -250,7 +250,7 @@ describe("RolesGuard", () => {
       // Simulating @RequireRole('MANAGER') on expense creation
       jest
         .spyOn(reflector, "getAllAndOverride")
-        .mockImplementation((key: string) => {
+        .mockImplementation((key: unknown) => {
           if (key === REQUIRE_ROLE_KEY) return "MANAGER";
           return undefined;
         });
@@ -263,7 +263,7 @@ describe("RolesGuard", () => {
       // Simulating @RequireRole('ADMIN') on payment verification
       jest
         .spyOn(reflector, "getAllAndOverride")
-        .mockImplementation((key: string) => {
+        .mockImplementation((key: unknown) => {
           if (key === REQUIRE_ROLE_KEY) return "ADMIN";
           return undefined;
         });
@@ -281,7 +281,7 @@ describe("RolesGuard", () => {
       // Simulating @RequireRole('ADMIN') on expense deletion
       jest
         .spyOn(reflector, "getAllAndOverride")
-        .mockImplementation((key: string) => {
+        .mockImplementation((key: unknown) => {
           if (key === REQUIRE_ROLE_KEY) return "ADMIN";
           return undefined;
         });
@@ -297,7 +297,7 @@ describe("RolesGuard", () => {
       // Simulating @RequireRole('ADMIN') on settings update
       jest
         .spyOn(reflector, "getAllAndOverride")
-        .mockImplementation((key: string) => {
+        .mockImplementation((key: unknown) => {
           if (key === REQUIRE_ROLE_KEY) return "ADMIN";
           return undefined;
         });
