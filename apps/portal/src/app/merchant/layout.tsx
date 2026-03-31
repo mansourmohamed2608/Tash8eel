@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
-import { useSession } from "next-auth/react";
+import { signOut, useSession } from "next-auth/react";
 import { useRouter, usePathname } from "next/navigation";
 import { Sidebar, TopBar } from "@/components/layout";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -165,6 +165,10 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
       router.replace(
         "/login?callbackUrl=" + encodeURIComponent(window.location.pathname),
       );
+    }
+    if (session?.error === "RefreshAccessTokenError") {
+      signOut({ callbackUrl: "/login", redirect: true });
+      return;
     }
     if (
       session?.requiresPasswordChange &&

@@ -51,6 +51,40 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const useSecureCookies = process.env.NODE_ENV === "production";
 const cookiePrefix = useSecureCookies ? "__Secure-" : "";
 
+type RefreshResultCacheEntry = {
+  accessToken: string;
+  refreshToken: string;
+  accessTokenExpires: number;
+  cachedAt: number;
+};
+
+// Mitigate refresh-token rotation races by briefly caching successful
+// refresh results keyed by the previous refresh token.
+const RECENT_REFRESH_CACHE_TTL_MS = 60_000;
+const recentRefreshByPreviousToken = new Map<string, RefreshResultCacheEntry>();
+
+const getRecentRefreshResult = (
+  previousRefreshToken: string,
+): RefreshResultCacheEntry | null => {
+  const cached = recentRefreshByPreviousToken.get(previousRefreshToken);
+  if (!cached) return null;
+  if (Date.now() - cached.cachedAt > RECENT_REFRESH_CACHE_TTL_MS) {
+    recentRefreshByPreviousToken.delete(previousRefreshToken);
+    return null;
+  }
+  return cached;
+};
+
+const setRecentRefreshResult = (
+  previousRefreshToken: string,
+  next: Omit<RefreshResultCacheEntry, "cachedAt">,
+) => {
+  recentRefreshByPreviousToken.set(previousRefreshToken, {
+    ...next,
+    cachedAt: Date.now(),
+  });
+};
+
 async function refreshAccessToken(token: any) {
   if (!API_URL) {
     return {
@@ -65,6 +99,18 @@ async function refreshAccessToken(token: any) {
       ...token,
       error: "RefreshAccessTokenError",
       accessTokenExpires: Date.now() + 5 * 60 * 1000,
+    };
+  }
+
+  const previousRefreshToken = String(token.refreshToken);
+  const cachedRefresh = getRecentRefreshResult(previousRefreshToken);
+  if (cachedRefresh) {
+    return {
+      ...token,
+      accessToken: cachedRefresh.accessToken,
+      refreshToken: cachedRefresh.refreshToken,
+      accessTokenExpires: cachedRefresh.accessTokenExpires,
+      error: undefined,
     };
   }
 
@@ -88,14 +134,39 @@ async function refreshAccessToken(token: any) {
       throw new Error("Missing access token in refresh response");
     }
 
-    return {
+    const nextRefreshToken =
+      typeof refreshedTokens.refreshToken === "string" &&
+      refreshedTokens.refreshToken.length > 0
+        ? refreshedTokens.refreshToken
+        : previousRefreshToken;
+
+    const refreshed = {
       ...token,
       accessToken: refreshedTokens.accessToken,
-      refreshToken: refreshedTokens.refreshToken ?? token.refreshToken,
+      refreshToken: nextRefreshToken,
       accessTokenExpires: Date.now() + 14 * 60 * 1000, // 14 minutes
       error: undefined, // clear any previous error on successful refresh
     };
+
+    setRecentRefreshResult(previousRefreshToken, {
+      accessToken: refreshed.accessToken,
+      refreshToken: refreshed.refreshToken,
+      accessTokenExpires: refreshed.accessTokenExpires,
+    });
+
+    return refreshed;
   } catch (error) {
+    const fallback = getRecentRefreshResult(previousRefreshToken);
+    if (fallback) {
+      return {
+        ...token,
+        accessToken: fallback.accessToken,
+        refreshToken: fallback.refreshToken,
+        accessTokenExpires: fallback.accessTokenExpires,
+        error: undefined,
+      };
+    }
+
     console.error("Error refreshing access token:", error);
     return {
       ...token,
