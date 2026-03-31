@@ -36,6 +36,19 @@ log_step "Switching to deployment directory"
 cd "${DEPLOY_DIR}" || fail "Deployment directory ${DEPLOY_DIR} does not exist"
 log_ok "Working directory set to ${DEPLOY_DIR}"
 
+log_step "Validating deployment environment"
+[ -f .env ] || fail "Missing .env file in ${DEPLOY_DIR}"
+
+if grep -Eiq '^API_BASE_URL=(https?://)?(localhost|127\.0\.0\.1|::1|\[::1\])(:[0-9]+)?/?$' .env; then
+  fail "API_BASE_URL points to loopback in .env. Use API_BASE_URL=http://api:3000 for container networking."
+fi
+
+if grep -Eiq '^NEXT_PUBLIC_API_URL=(https?://)?(localhost|127\.0\.0\.1|::1|\[::1\])(:[0-9]+)?/?$' .env; then
+  fail "NEXT_PUBLIC_API_URL points to loopback in .env. Use your public host/IP or leave it empty to use portal proxy routes."
+fi
+
+log_ok "Deployment environment variables validated"
+
 log_step "Pulling latest code"
 if ! git pull origin main; then
   fail "Failed to pull latest code"

@@ -4,11 +4,32 @@ const normalizeApiBase = (value) => {
   return trimmed.endsWith("/api") ? trimmed.slice(0, -4) : trimmed;
 };
 
+const isLoopbackHttpUrl = (value) => {
+  try {
+    const parsed = new URL(value);
+    if (!["http:", "https:"].includes(parsed.protocol)) return false;
+
+    return (
+      parsed.hostname === "localhost" ||
+      parsed.hostname === "127.0.0.1" ||
+      parsed.hostname === "::1"
+    );
+  } catch {
+    return false;
+  }
+};
+
 const defaultApiHost =
   process.env.NODE_ENV === "production"
     ? "http://api:3000"
     : "http://localhost:3000";
-const apiHost = normalizeApiBase(process.env.API_BASE_URL || defaultApiHost);
+const configuredApiHost = normalizeApiBase(
+  process.env.API_BASE_URL || defaultApiHost,
+);
+const apiHost =
+  process.env.NODE_ENV === "production" && isLoopbackHttpUrl(configuredApiHost)
+    ? "http://api:3000"
+    : configuredApiHost;
 
 const nextConfig = {
   output: "standalone",

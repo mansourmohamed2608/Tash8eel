@@ -1,6 +1,25 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL
-  ? `${process.env.NEXT_PUBLIC_API_URL}/api`
-  : "http://localhost:3000/api";
+const normalizeBaseUrl = (value: string) => value.replace(/\/+$/, "");
+
+const getApiBaseUrl = () => {
+  const publicBase = normalizeBaseUrl(process.env.NEXT_PUBLIC_API_URL || "");
+  if (publicBase) {
+    return `${publicBase}/api`;
+  }
+
+  if (typeof window !== "undefined") {
+    // Browser requests should use the Next.js proxy when no public API URL is set.
+    return "/api";
+  }
+
+  const internalBase = normalizeBaseUrl(
+    process.env.API_BASE_URL ||
+      (process.env.NODE_ENV === "production"
+        ? "http://api:3000"
+        : "http://localhost:3000"),
+  );
+
+  return `${internalBase}/api`;
+};
 
 // Connection status tracking
 let lastConnectionStatus: "connected" | "disconnected" | "unknown" = "unknown";
@@ -129,7 +148,7 @@ export async function apiFetch<T>(
   }
 
   try {
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    const response = await fetch(`${getApiBaseUrl()}${endpoint}`, {
       ...fetchOptions,
       headers,
     });
@@ -3154,7 +3173,11 @@ export const branchesApi = {
 };
 
 const AUTHENTICATED_API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
+  process.env.NEXT_PUBLIC_API_URL ||
+  process.env.API_BASE_URL ||
+  (process.env.NODE_ENV === "production"
+    ? "http://api:3000"
+    : "http://localhost:3000");
 
 // Client-side requests should go through the Next.js proxy (relative URL)
 // to avoid CORS. Server-side requests can hit the API directly.
