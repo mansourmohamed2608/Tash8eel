@@ -130,6 +130,14 @@ services:
 
   portal:
     image: ${REGISTRY}/portal:${IMAGE_TAG}
+    build:
+      context: .
+      dockerfile: apps/portal/Dockerfile
+      args:
+        API_BASE_URL: ${API_BASE_URL:-http://api:3000}
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+        NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL:-}
+        NEXT_PUBLIC_WS_ENABLED: ${NEXT_PUBLIC_WS_ENABLED:-true}
     restart: unless-stopped
     environment:
       NODE_ENV: production

@@ -1,33 +1,43 @@
 /** @type {import('next').NextConfig} */
+const normalizeApiBase = (value) => {
+  const trimmed = (value || "").replace(/\/+$/, "");
+  return trimmed.endsWith("/api") ? trimmed.slice(0, -4) : trimmed;
+};
+
+const defaultApiHost =
+  process.env.NODE_ENV === "production"
+    ? "http://api:3000"
+    : "http://localhost:3000";
+const apiHost = normalizeApiBase(process.env.API_BASE_URL || defaultApiHost);
+
 const nextConfig = {
   output: "standalone",
   env: {
-    API_BASE_URL: process.env.API_BASE_URL || "http://localhost:3000/api",
+    API_BASE_URL: `${apiHost}/api`,
   },
 
   // Proxy API requests to backend
   async rewrites() {
-    const apiUrl = process.env.API_BASE_URL || "http://localhost:3000";
     return [
       {
         source: "/api/v1/:path*",
-        destination: `${apiUrl}/api/v1/:path*`,
+        destination: `${apiHost}/api/v1/:path*`,
       },
       {
         source: "/api/internal/:path*",
-        destination: `${apiUrl}/api/internal/:path*`,
+        destination: `${apiHost}/api/internal/:path*`,
       },
       {
         source: "/api/merchants/:path*",
-        destination: `${apiUrl}/api/merchants/:path*`,
+        destination: `${apiHost}/api/merchants/:path*`,
       },
       {
         source: "/api/admin/:path*",
-        destination: `${apiUrl}/api/admin/:path*`,
+        destination: `${apiHost}/api/admin/:path*`,
       },
       {
         source: "/health",
-        destination: `${apiUrl}/health`,
+        destination: `${apiHost}/health`,
       },
     ];
   },

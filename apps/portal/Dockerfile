@@ -3,6 +3,16 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
+# Build-time variables consumed by Next.js during `next build`
+ARG API_BASE_URL=http://api:3000
+ARG NEXT_PUBLIC_API_URL=
+ARG NEXT_PUBLIC_WS_URL=
+ARG NEXT_PUBLIC_WS_ENABLED=true
+ENV API_BASE_URL=${API_BASE_URL}
+ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+ENV NEXT_PUBLIC_WS_URL=${NEXT_PUBLIC_WS_URL}
+ENV NEXT_PUBLIC_WS_ENABLED=${NEXT_PUBLIC_WS_ENABLED}
+
 # Copy workspace manifests so npm can honor root lockfile/workspaces
 COPY package*.json ./
 COPY apps/api/package*.json ./apps/api/
