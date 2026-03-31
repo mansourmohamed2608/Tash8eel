@@ -466,7 +466,6 @@ export class MerchantPortalController {
   // ============== DASHBOARD ==============
 
   @Get("dashboard/stats")
-  @RequiresFeature("KPI_DASHBOARD")
   @ApiOperation({
     summary: "Get dashboard statistics for authenticated merchant",
   })
