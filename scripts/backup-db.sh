@@ -1,7 +1,5 @@
-#!/bin/bash
-set -e
-
-trap 'echo "Backup failed at $(date +%Y%m%d_%H%M%S)"; exit 1' ERR
+#!/bin/sh
+set -eu
 
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 BACKUP_DIR=${BACKUP_DIR:-/backups}
@@ -26,16 +24,20 @@ fi
 
 mkdir -p "$BACKUP_DIR"
 
-pg_dump \
+if ! pg_dump \
   -h "$DB_HOST" \
   -p "${DB_PORT:-5432}" \
   -U "$DB_USER" \
   -d "$DB_NAME" \
   --no-password \
-  --format=plain | gzip -9 > "$FILENAME"
+  --format=plain | gzip -9 > "$FILENAME"; then
+  echo "ERROR: Backup dump failed"
+  exit 1
+fi
 
 echo "Backup written to $FILENAME"
 
+# Best effort: do not fail backup if audit log table/schema is missing.
 psql \
   -h "$DB_HOST" \
   -p "${DB_PORT:-5432}" \
@@ -44,7 +46,8 @@ psql \
   --no-password \
   -v backup_file="$FILENAME" \
   -v backup_timestamp="$TIMESTAMP" \
-  -c "INSERT INTO system_health_log (event_type, metadata) VALUES ('backup_completed', jsonb_build_object('file', :'backup_file', 'timestamp', :'backup_timestamp'));"
+  -c "INSERT INTO system_health_log (event_type, metadata) VALUES ('backup_completed', jsonb_build_object('file', :'backup_file', 'timestamp', :'backup_timestamp'));" >/dev/null 2>&1 || \
+  echo "WARN: Could not write backup audit log row; continuing"
 
 find "$BACKUP_DIR" -name "backup_*.sql.gz" \
   -mtime +$RETAIN_DAYS -delete
