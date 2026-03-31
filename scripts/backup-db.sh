@@ -19,7 +19,8 @@ if [ -z "$DB_HOST" ] || [ -z "$DB_USER" ] || [ -z "$DB_NAME" ]; then
   fi
 fi
 
-FILENAME="$BACKUP_DIR/backup_$TIMESTAMP.sql.gz"
+RAW_FILENAME="$BACKUP_DIR/backup_$TIMESTAMP.sql"
+FILENAME="$RAW_FILENAME.gz"
 
 echo "Starting backup at $TIMESTAMP"
 if [ -z "$DATABASE_URL" ] && { [ -z "$DB_HOST" ] || [ -z "$DB_USER" ] || [ -z "$DB_NAME" ]; }; then
@@ -31,8 +32,9 @@ mkdir -p "$BACKUP_DIR"
 
 if [ -n "$DATABASE_URL" ]; then
   # Prefer DATABASE_URL so sslmode and other connection options are preserved.
-  if ! pg_dump --no-password --format=plain --dbname="$DATABASE_URL" | gzip -9 > "$FILENAME"; then
+  if ! pg_dump --no-password --format=plain --dbname="$DATABASE_URL" > "$RAW_FILENAME"; then
     echo "ERROR: Backup dump failed (DATABASE_URL mode)"
+    rm -f "$RAW_FILENAME"
     exit 1
   fi
 else
@@ -42,10 +44,17 @@ else
     -U "$DB_USER" \
     -d "$DB_NAME" \
     --no-password \
-    --format=plain | gzip -9 > "$FILENAME"; then
+    --format=plain > "$RAW_FILENAME"; then
     echo "ERROR: Backup dump failed (host/user mode)"
+    rm -f "$RAW_FILENAME"
     exit 1
   fi
+fi
+
+if ! gzip -9 "$RAW_FILENAME"; then
+  echo "ERROR: Backup compression failed"
+  rm -f "$RAW_FILENAME" "$FILENAME"
+  exit 1
 fi
 
 echo "Backup written to $FILENAME"

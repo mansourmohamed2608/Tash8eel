@@ -168,7 +168,7 @@ services:
       - no-new-privileges:true
 
   db-backup:
-    image: postgres:15-alpine
+    image: postgres:16-alpine
     restart: unless-stopped
     environment:
       DATABASE_URL: ${DATABASE_URL:-""}
