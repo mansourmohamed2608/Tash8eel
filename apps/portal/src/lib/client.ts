@@ -1,24 +1,28 @@
 const normalizeBaseUrl = (value: string) => value.replace(/\/+$/, "");
 
 const getApiBaseUrl = () => {
+  if (typeof window !== "undefined") {
+    // Always use the Next.js proxy in browsers to avoid cross-origin CORS issues.
+    return "/api";
+  }
+
+  const internalBase = normalizeBaseUrl(process.env.API_BASE_URL || "");
+  if (internalBase) {
+    return `${internalBase}/api`;
+  }
+
   const publicBase = normalizeBaseUrl(process.env.NEXT_PUBLIC_API_URL || "");
   if (publicBase) {
     return `${publicBase}/api`;
   }
 
-  if (typeof window !== "undefined") {
-    // Browser requests should use the Next.js proxy when no public API URL is set.
-    return "/api";
-  }
-
-  const internalBase = normalizeBaseUrl(
-    process.env.API_BASE_URL ||
-      (process.env.NODE_ENV === "production"
-        ? "http://api:3000"
-        : "http://localhost:3000"),
+  const fallbackBase = normalizeBaseUrl(
+    process.env.NODE_ENV === "production"
+      ? "http://api:3000"
+      : "http://localhost:3000",
   );
 
-  return `${internalBase}/api`;
+  return `${fallbackBase}/api`;
 };
 
 // Connection status tracking

@@ -47,7 +47,14 @@ declare module "next-auth/jwt" {
   }
 }
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
+const normalizeBaseUrl = (value?: string) => (value || "").replace(/\/+$/, "");
+
+const API_URL =
+  normalizeBaseUrl(process.env.API_BASE_URL) ||
+  normalizeBaseUrl(process.env.NEXT_PUBLIC_API_URL) ||
+  (process.env.NODE_ENV === "production"
+    ? "http://api:3000"
+    : "http://localhost:3000");
 const useSecureCookies = process.env.NODE_ENV === "production";
 const cookiePrefix = useSecureCookies ? "__Secure-" : "";
 
@@ -86,14 +93,6 @@ const setRecentRefreshResult = (
 };
 
 async function refreshAccessToken(token: any) {
-  if (!API_URL) {
-    return {
-      ...token,
-      error: "RefreshAccessTokenError",
-      accessTokenExpires: Date.now() + 5 * 60 * 1000,
-    };
-  }
-
   if (!token?.refreshToken) {
     return {
       ...token,
@@ -188,10 +187,6 @@ export const authOptions: NextAuthOptions = {
       async authorize(credentials): Promise<User | null> {
         if (!credentials?.email || !credentials?.password) {
           throw new Error("البريد الإلكتروني وكلمة المرور مطلوبان");
-        }
-
-        if (!API_URL) {
-          throw new Error("NEXT_PUBLIC_API_URL is not configured");
         }
 
         try {
