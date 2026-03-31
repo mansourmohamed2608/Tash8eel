@@ -1,0 +1,6 @@
+# robots.txt
+# This application is a private SaaS dashboard.
+# Crawling and indexing is disabled for all search engines.
+
+User-agent: *
+Disallow: /
