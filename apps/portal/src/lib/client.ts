@@ -215,7 +215,8 @@ export async function checkApiHealth(): Promise<{
   message: string;
 }> {
   try {
-    const response = await fetch(`${API_BASE_URL.replace("/api", "")}/health`, {
+    const healthUrl = `${getApiBaseUrl().replace(/\/api$/, "")}/health`;
+    const response = await fetch(healthUrl, {
       method: "GET",
       signal: AbortSignal.timeout(5000),
     });
@@ -329,9 +330,10 @@ export const merchantApi = {
     period: string = "30days",
   ) {
     const headers: Record<string, string> = buildApiAuthHeaders(apiKey);
+    const apiBaseUrl = getApiBaseUrl();
 
     const response = await fetch(
-      `${API_BASE_URL}/v1/merchants/${merchantId}/analytics/pdf?period=${encodeURIComponent(period)}`,
+      `${apiBaseUrl}/v1/merchants/${merchantId}/analytics/pdf?period=${encodeURIComponent(period)}`,
       { headers },
     );
     if (!response.ok) {
@@ -1258,8 +1260,9 @@ export const merchantApi = {
     taskId: string,
     format: "txt" | "html" = "txt",
   ) {
+    const apiBaseUrl = getApiBaseUrl();
     const response = await fetch(
-      `${API_BASE_URL}/v1/portal/teams/tasks/${encodeURIComponent(taskId)}/report?format=${encodeURIComponent(format)}`,
+      `${apiBaseUrl}/v1/portal/teams/tasks/${encodeURIComponent(taskId)}/report?format=${encodeURIComponent(format)}`,
       {
         method: "GET",
         headers: buildApiAuthHeaders(apiKey),
