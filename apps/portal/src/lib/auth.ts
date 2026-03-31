@@ -49,6 +49,38 @@ declare module "next-auth/jwt" {
 
 const normalizeBaseUrl = (value?: string) => (value || "").replace(/\/+$/, "");
 
+const API_PATH_PREFIXES = ["/api/v1", "/v1"] as const;
+
+const buildApiBaseCandidates = (): string[] => {
+  const candidates: string[] = [];
+
+  const add = (raw?: string) => {
+    const value = normalizeBaseUrl(raw);
+    if (!value) return;
+
+    if (!candidates.includes(value)) {
+      candidates.push(value);
+    }
+
+    if (value.endsWith("/api")) {
+      const stripped = normalizeBaseUrl(value.slice(0, -4));
+      if (stripped && !candidates.includes(stripped)) {
+        candidates.push(stripped);
+      }
+    }
+  };
+
+  add(process.env.API_BASE_URL);
+  add(process.env.NEXT_PUBLIC_API_URL);
+  add(
+    process.env.NODE_ENV === "production"
+      ? "http://api:3000"
+      : "http://localhost:3000",
+  );
+
+  return candidates;
+};
+
 const API_URL =
   normalizeBaseUrl(process.env.API_BASE_URL) ||
   normalizeBaseUrl(process.env.NEXT_PUBLIC_API_URL) ||
@@ -92,6 +124,54 @@ const setRecentRefreshResult = (
   });
 };
 
+const postJsonWithFallback = async (
+  route: string,
+  body: Record<string, unknown>,
+): Promise<{ response: Response; data: any }> => {
+  const errors: unknown[] = [];
+
+  for (const base of buildApiBaseCandidates()) {
+    for (const prefix of API_PATH_PREFIXES) {
+      const url = `${base}${prefix}${route}`;
+      try {
+        const response = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+
+        const contentType = response.headers.get("content-type") || "";
+        const data = contentType.includes("application/json")
+          ? await response.json().catch(() => ({ message: "API Error" }))
+          : { message: await response.text() };
+
+        // Try next candidate for route-mismatch 404s.
+        if (response.status === 404) {
+          errors.push({ url, status: response.status, data });
+          continue;
+        }
+
+        return { response, data };
+      } catch (error) {
+        errors.push({ url, error });
+      }
+    }
+  }
+
+  const last = errors.at(-1);
+  if (last && typeof last === "object" && "error" in last) {
+    throw (last as { error: unknown }).error;
+  }
+
+  return {
+    response: new Response(JSON.stringify({ message: "API Error" }), {
+      status: 404,
+      headers: { "Content-Type": "application/json" },
+    }),
+    data: { message: "الخدمة المطلوبة غير متاحة حالياً." },
+  };
+};
+
 async function refreshAccessToken(token: any) {
   if (!token?.refreshToken) {
     return {
@@ -114,16 +194,12 @@ async function refreshAccessToken(token: any) {
   }
 
   try {
-    const response = await fetch(`${API_URL}/api/v1/staff/refresh`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ refreshToken: token.refreshToken }),
-    });
-
-    const contentType = response.headers.get("content-type") || "";
-    const refreshedTokens = contentType.includes("application/json")
-      ? await response.json()
-      : { message: await response.text() };
+    const { response, data: refreshedTokens } = await postJsonWithFallback(
+      "/staff/refresh",
+      {
+        refreshToken: token.refreshToken,
+      },
+    );
 
     if (!response.ok) {
       throw refreshedTokens;
@@ -190,17 +266,14 @@ export const authOptions: NextAuthOptions = {
         }
 
         try {
-          const response = await fetch(`${API_URL}/api/v1/staff/login`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
+          const { response, data } = await postJsonWithFallback(
+            "/staff/login",
+            {
               email: credentials.email,
               password: credentials.password,
               merchantId: credentials.merchantId,
-            }),
-          });
-
-          const data = await response.json();
+            },
+          );
 
           if (!response.ok) {
             // Always use a consistent, user-friendly Arabic message for auth failures
