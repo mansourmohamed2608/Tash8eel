@@ -59,6 +59,15 @@ function pi(v: unknown): number {
   return parseInt(String(v || "0"), 10) || 0;
 }
 
+function expenseDateExpr(alias: string): string {
+  // Support both modern `expense_date` and legacy `date` fields.
+  return `COALESCE(
+    NULLIF((to_jsonb(${alias})->>'expense_date'), '')::date,
+    NULLIF((to_jsonb(${alias})->>'date'), '')::date,
+    (${alias}.created_at)::date
+  )`;
+}
+
 // ============================================================================
 // CONTROLLER — BRANCH CRUD
 // ============================================================================
@@ -320,6 +329,7 @@ export class BranchAnalyticsController {
   ) {
     const days = parseIntParam(daysStr, 30);
     const amtExpr = this.orderAmountExpr("o");
+    const expDateExpr = expenseDateExpr("e");
     const branchFilter = branchId === "all" ? "" : "AND o.branch_id = $2";
     const params: unknown[] =
       branchId === "all" ? [merchantId] : [merchantId, branchId];
@@ -363,7 +373,7 @@ export class BranchAnalyticsController {
        FROM expenses e
        WHERE e.merchant_id = $1
          ${expBranchFilter}
-         AND e.expense_date >= (CURRENT_DATE - ($${expParams.length + 1} || ' days')::interval)`,
+         AND ${expDateExpr} >= (CURRENT_DATE - ($${expParams.length + 1} || ' days')::interval)`,
       [...expParams, days],
     );
 
@@ -450,6 +460,7 @@ export class BranchAnalyticsController {
   ) {
     const days = parseIntParam(daysStr, 30);
     const amtExpr = this.orderAmountExpr("o");
+    const expDateExpr = expenseDateExpr("e");
 
     // Get all branches
     const branchesResult = await this.pool.query(
@@ -478,7 +489,7 @@ export class BranchAnalyticsController {
       `SELECT branch_id, COALESCE(SUM(amount), 0) AS expenses
        FROM expenses
        WHERE merchant_id = $1
-         AND expense_date >= CURRENT_DATE - ($2 || ' days')::interval
+         AND ${expDateExpr} >= CURRENT_DATE - ($2 || ' days')::interval
        GROUP BY branch_id`,
       [merchantId, days],
     );
@@ -608,6 +619,7 @@ export class BranchAnalyticsController {
   ) {
     const days = parseIntParam(daysStr, 30);
     const branchFilter = branchId === "all" ? "" : "AND e.branch_id = $2";
+    const expDateExpr = expenseDateExpr("e");
     const params: unknown[] =
       branchId === "all" ? [merchantId] : [merchantId, branchId];
 
@@ -618,7 +630,7 @@ export class BranchAnalyticsController {
        FROM expenses e
        WHERE merchant_id = $1
          ${branchFilter}
-         AND expense_date >= CURRENT_DATE - ($${params.length + 1} || ' days')::interval
+         AND ${expDateExpr} >= CURRENT_DATE - ($${params.length + 1} || ' days')::interval
        GROUP BY category
        ORDER BY total DESC`,
       [...params, days],
