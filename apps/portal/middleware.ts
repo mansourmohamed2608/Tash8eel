@@ -34,11 +34,11 @@ export function middleware(request: NextRequest) {
 
   const cspParts = [
     "default-src 'self'",
-    // Next.js injects inline bootstrap scripts during runtime.
-    // Keep nonce support and allow inline script execution to prevent
-    // chunk/bootstrap failures in production.
-    `script-src 'self' 'nonce-${nonce}' 'unsafe-inline'`,
-    `script-src-elem 'self' 'nonce-${nonce}' 'unsafe-inline'`,
+    // Allow Next.js inline bootstrap scripts and same-origin chunk scripts.
+    // Do not mix nonce with unsafe-inline, because browsers ignore unsafe-inline
+    // when a nonce/hash is present in the same source list.
+    "script-src 'self' 'unsafe-inline'",
+    "script-src-elem 'self' 'unsafe-inline'",
     "script-src-attr 'unsafe-inline'",
     // Inline styles are still needed for CSS-in-JS / Radix UI animations.
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
@@ -69,6 +69,15 @@ export function middleware(request: NextRequest) {
 
   // Set the CSP on the response.
   response.headers.set("Content-Security-Policy", cspHeader);
+
+  // Avoid serving stale HTML after deployments (prevents chunk/hash mismatches).
+  const accept = request.headers.get("accept") || "";
+  if (accept.includes("text/html")) {
+    response.headers.set(
+      "Cache-Control",
+      "no-store, no-cache, must-revalidate",
+    );
+  }
 
   return response;
 }
