@@ -35,9 +35,10 @@ export function middleware(request: NextRequest) {
 
   const cspParts = [
     "default-src 'self'",
-    // 'strict-dynamic' allows scripts loaded by a trusted (nonce'd) script
-    // to load further scripts without needing an explicit allowlist.
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`,
+    // Keep nonce support for inline scripts while explicitly allowing
+    // same-origin chunk files emitted by Next.js.
+    `script-src 'self' 'nonce-${nonce}'`,
+    `script-src-elem 'self' 'nonce-${nonce}'`,
     // Inline styles are still needed for CSS-in-JS / Radix UI animations.
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com",
