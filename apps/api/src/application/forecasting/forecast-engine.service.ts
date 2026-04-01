@@ -752,8 +752,16 @@ export class ForecastEngineService {
     const result = await this.pool.query(
       `SELECT
          c.id,
-         c.customer_name,
-         COALESCE(c.agent_type, 'SUPPORT') AS agent_type,
+         COALESCE(
+           NULLIF((to_jsonb(c)->>'customer_name'), ''),
+           NULLIF((to_jsonb(c)->>'customerName'), ''),
+           'غير معروف'
+         ) AS customer_name,
+         COALESCE(
+           NULLIF((to_jsonb(c)->>'agent_type'), ''),
+           NULLIF((to_jsonb(c)->>'agentType'), ''),
+           'SUPPORT'
+         ) AS agent_type,
          EXTRACT(EPOCH FROM (NOW() - c.created_at)) / 3600.0 AS open_hours
        FROM conversations c
        WHERE c.merchant_id = $1
