@@ -486,11 +486,11 @@ export class BranchAnalyticsController {
 
     // Expenses per branch
     const expResult = await this.pool.query(
-      `SELECT branch_id, COALESCE(SUM(amount), 0) AS expenses
-       FROM expenses
+      `SELECT e.branch_id, COALESCE(SUM(e.amount), 0) AS expenses
+       FROM expenses e
        WHERE merchant_id = $1
          AND ${expDateExpr} >= CURRENT_DATE - ($2 || ' days')::interval
-       GROUP BY branch_id`,
+       GROUP BY e.branch_id`,
       [merchantId, days],
     );
 
