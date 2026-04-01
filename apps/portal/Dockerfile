@@ -49,10 +49,11 @@ COPY packages/agent-sdk/package*.json ./packages/agent-sdk/
 # Install production dependencies for portal workspace
 RUN npm ci --omit=dev --workspace apps/portal --ignore-scripts
 
-# Copy built portal output
-COPY --from=builder /app/apps/portal/.next ./apps/portal/.next
-COPY --from=builder /app/apps/portal/public ./apps/portal/public
-COPY --from=builder /app/apps/portal/next.config.js ./apps/portal/next.config.js
+# Copy built portal output for standalone runtime.
+# Next.js standalone expects `server.js` plus colocated `.next/static` and `public`.
+COPY --from=builder /app/apps/portal/.next/standalone ./apps/portal/.next/standalone
+COPY --from=builder /app/apps/portal/.next/static ./apps/portal/.next/standalone/apps/portal/.next/static
+COPY --from=builder /app/apps/portal/public ./apps/portal/.next/standalone/apps/portal/public
 
 # Set ownership
 RUN chown -R nextjs:nodejs /app
@@ -64,4 +65,4 @@ EXPOSE 3001
 ENV NODE_ENV=production
 ENV PORT=3001
 
-CMD ["npm", "run", "start", "-w", "apps/portal"]
+CMD ["node", "apps/portal/.next/standalone/apps/portal/server.js"]
