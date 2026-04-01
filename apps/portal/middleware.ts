@@ -2,14 +2,13 @@
  * middleware.ts
  *
  * Generates a per-request cryptographic nonce and injects it into the
- * Content-Security-Policy header, eliminating the need for 'unsafe-inline'
- * and 'unsafe-eval' in script-src.
+ * Content-Security-Policy header.
  *
  * How it works:
  *   1. A fresh nonce (base64-encoded UUID) is generated for every request.
  *   2. The nonce is forwarded as the x-nonce request header so that
  *      layout.tsx can read it via next/headers and pass it to <Script> tags.
- *   3. The full CSP string is set on the *response* headers, overriding the
+ *   3. The full CSP string is set on the *response* headers, overriding any
  *      static CSP configured in next.config.js for production.
  *
  * Note: static assets (_next/static, images, favicon) are excluded from the
@@ -35,10 +34,12 @@ export function middleware(request: NextRequest) {
 
   const cspParts = [
     "default-src 'self'",
-    // Keep nonce support for inline scripts while explicitly allowing
-    // same-origin chunk files emitted by Next.js.
-    `script-src 'self' 'nonce-${nonce}'`,
-    `script-src-elem 'self' 'nonce-${nonce}'`,
+    // Next.js injects inline bootstrap scripts during runtime.
+    // Keep nonce support and allow inline script execution to prevent
+    // chunk/bootstrap failures in production.
+    `script-src 'self' 'nonce-${nonce}' 'unsafe-inline'`,
+    `script-src-elem 'self' 'nonce-${nonce}' 'unsafe-inline'`,
+    "script-src-attr 'unsafe-inline'",
     // Inline styles are still needed for CSS-in-JS / Radix UI animations.
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com",
