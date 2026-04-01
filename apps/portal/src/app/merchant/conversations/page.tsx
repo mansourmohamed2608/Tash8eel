@@ -82,6 +82,28 @@ interface Conversation {
   requiresConfirmation?: boolean;
 }
 
+function normalizeConversationsPayload(response: any): Conversation[] {
+  const source = Array.isArray(response?.conversations)
+    ? response.conversations
+    : Array.isArray(response?.data)
+      ? response.data
+      : [];
+
+  return source
+    .filter((item: any) => item && typeof item === "object")
+    .map((item: any) => ({
+      ...item,
+      id: String(item.id ?? ""),
+      senderId: String(item.senderId ?? ""),
+      state: String(item.state ?? ""),
+      lastMessageAt: String(item.lastMessageAt ?? item.updatedAt ?? ""),
+      createdAt: String(item.createdAt ?? ""),
+      updatedAt: String(item.updatedAt ?? ""),
+      isHumanTakeover: Boolean(item.isHumanTakeover),
+    }))
+    .filter((item: Conversation) => item.id.length > 0);
+}
+
 // Lead Score Badge Component
 function LeadScoreBadge({ score }: { score?: "HOT" | "WARM" | "COLD" | null }) {
   if (!score) return null;
@@ -218,7 +240,7 @@ export default function ConversationsPage() {
     try {
       // Always fetch full list, then apply the same effective-state filter used in UI badges.
       const response = await merchantApi.getConversations(merchantId, apiKey);
-      setConversations(response.conversations || []);
+      setConversations(normalizeConversationsPayload(response));
     } catch (err) {
       console.error("Failed to fetch conversations:", err);
       setError(err instanceof Error ? err.message : "فشل في تحميل المحادثات");
@@ -269,7 +291,7 @@ export default function ConversationsPage() {
       getDisplayName(conv).toLowerCase().includes(searchQuery.toLowerCase()) ||
       (conv.customerPhone || "").includes(searchQuery) ||
       (conv.senderId || "").includes(searchQuery) ||
-      conv.id.includes(searchQuery);
+      String(conv.id || "").includes(searchQuery);
     return matchesState && matchesSearch;
   });
 
