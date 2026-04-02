@@ -247,7 +247,6 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
 
 function MerchantLayoutContent({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
-  const [liveRevision, setLiveRevision] = useState(0);
   const liveRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
@@ -316,11 +315,15 @@ function MerchantLayoutContent({ children }: { children: React.ReactNode }) {
   const triggerRealtimeRefresh = useCallback(() => {
     if (!pathname || pathname === "/merchant/change-password") return;
 
-    // Force client pages under merchant layout to remount and refetch.
-    setLiveRevision((prev) => prev + 1);
+    const shouldRefreshServerData =
+      pathname.startsWith("/merchant/dashboard") ||
+      pathname.startsWith("/merchant/analytics") ||
+      pathname.startsWith("/merchant/reports");
 
-    // Also refresh server components/data caches for hybrid pages.
-    router.refresh();
+    // Refresh server data only on metric-heavy pages to avoid disruptive remounts.
+    if (shouldRefreshServerData) {
+      router.refresh();
+    }
 
     if (typeof window !== "undefined") {
       window.dispatchEvent(
@@ -371,17 +374,6 @@ function MerchantLayoutContent({ children }: { children: React.ReactNode }) {
   }, [isConnected, on, scheduleRealtimeRefresh]);
 
   useEffect(() => {
-    if (isConnected) return;
-
-    // Fallback sync for environments where websocket is unavailable.
-    const interval = setInterval(() => {
-      scheduleRealtimeRefresh();
-    }, 60000);
-
-    return () => clearInterval(interval);
-  }, [isConnected, scheduleRealtimeRefresh]);
-
-  useEffect(() => {
     return () => {
       if (liveRefreshTimerRef.current) {
         clearTimeout(liveRefreshTimerRef.current);
@@ -412,10 +404,7 @@ function MerchantLayoutContent({ children }: { children: React.ReactNode }) {
         )}
       >
         {!isCashierRoute && <TopBar role="merchant" collapsed={collapsed} />}
-        <main
-          key={liveRevision}
-          className={cn(isCashierRoute ? "p-0" : "p-4 lg:p-6")}
-        >
+        <main className={cn(isCashierRoute ? "p-0" : "p-4 lg:p-6")}>
           {isDemo && !isCashierRoute && (
             <div className="mb-4 px-4 py-2 bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-300 dark:border-yellow-700 rounded-lg text-yellow-800 dark:text-yellow-200 text-sm">
               <strong>وضع العرض التجريبي:</strong> البيانات المعروضة للتجربة

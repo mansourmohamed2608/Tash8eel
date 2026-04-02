@@ -88,6 +88,7 @@ interface Order {
   items: OrderItem[];
   total: number;
   status: string;
+  sourceChannel?: string;
   createdAt: string;
   updatedAt: string;
   deliveryStatus?: string;
@@ -120,6 +121,44 @@ const statusIcons: Record<string, React.ReactNode> = {
 };
 
 const DRIVER_ASSIGNABLE_STATUSES = new Set(["CONFIRMED"]);
+
+const SOURCE_LABELS: Record<string, string> = {
+  manual_button: "زر يدوي",
+  cashier: "الكاشير",
+  calls: "المكالمات",
+  whatsapp: "واتساب",
+  voice_ai: "مكالمة AI",
+  manual: "يدوي (قديم)",
+};
+
+function normalizeSourceChannel(value: unknown): string {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase();
+  if (!normalized) return "whatsapp";
+  if (normalized === "manual") return "manual_button";
+  return normalized;
+}
+
+function getSourceLabel(value: unknown): string {
+  const normalized = normalizeSourceChannel(value);
+  return SOURCE_LABELS[normalized] || normalized || "غير معروف";
+}
+
+function getSourceBadgeClass(value: unknown): string {
+  const normalized = normalizeSourceChannel(value);
+  if (normalized === "cashier")
+    return "bg-blue-100 text-blue-700 border-blue-200";
+  if (normalized === "calls")
+    return "bg-amber-100 text-amber-700 border-amber-200";
+  if (normalized === "manual_button")
+    return "bg-slate-100 text-slate-700 border-slate-200";
+  if (normalized === "voice_ai")
+    return "bg-purple-100 text-purple-700 border-purple-200";
+  if (normalized === "whatsapp")
+    return "bg-emerald-100 text-emerald-700 border-emerald-200";
+  return "bg-muted text-foreground border-border";
+}
 
 // Heuristic cancellation-risk score based on order age + status
 function getCancelRisk(
@@ -166,6 +205,7 @@ export default function OrdersPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [branchFilter, setBranchFilter] = useState<string>("all");
+  const [sourceFilter, setSourceFilter] = useState<string>("all");
   const [branches, setBranches] = useState<{ id: string; name: string }[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [reordering, setReordering] = useState(false);
@@ -403,6 +443,9 @@ export default function OrdersPage() {
       items: normalizedItems,
       total: orderTotal,
       status: order.status,
+      sourceChannel: normalizeSourceChannel(
+        order.sourceChannel || order.source_channel,
+      ),
       trackingNumber: order.trackingNumber,
       createdAt: order.createdAt,
       updatedAt: order.updatedAt,
@@ -419,13 +462,19 @@ export default function OrdersPage() {
       setAllOrders(allTransformed);
 
       // If any filter applied, fetch filtered data for table
-      const hasFilter = statusFilter !== "all" || branchFilter !== "all";
+      const hasFilter =
+        statusFilter !== "all" ||
+        branchFilter !== "all" ||
+        sourceFilter !== "all";
       if (hasFilter) {
         const filteredResponse = await merchantApi.getOrders(
           merchantId,
           apiKey,
-          statusFilter !== "all" ? statusFilter : undefined,
-          branchFilter !== "all" ? branchFilter : undefined,
+          {
+            status: statusFilter !== "all" ? statusFilter : undefined,
+            branchId: branchFilter !== "all" ? branchFilter : undefined,
+            source: sourceFilter !== "all" ? sourceFilter : undefined,
+          },
         );
         const filteredTransformed = filteredResponse.orders.map(transformOrder);
         setOrders(filteredTransformed);
@@ -438,7 +487,14 @@ export default function OrdersPage() {
     } finally {
       setLoading(false);
     }
-  }, [merchantId, apiKey, statusFilter, branchFilter, transformOrder]);
+  }, [
+    merchantId,
+    apiKey,
+    statusFilter,
+    branchFilter,
+    sourceFilter,
+    transformOrder,
+  ]);
 
   const resetManualOrderForm = useCallback(() => {
     setProductSearch("");
@@ -660,7 +716,7 @@ export default function OrdersPage() {
           manualDeliveryType === "delivery" ? deliveryAddress : undefined,
         paymentMethod: manualPaymentMethod,
         notes: notes || undefined,
-        source: "manual",
+        source: "manual_button",
       });
 
       toastFn({
@@ -1033,6 +1089,25 @@ export default function OrdersPage() {
                 <SelectItem value="CANCELLED">ملغي</SelectItem>
               </SelectContent>
             </Select>
+            <Select
+              value={sourceFilter}
+              onValueChange={(value) => {
+                setSourceFilter(value);
+                setCurrentPage(1);
+              }}
+            >
+              <SelectTrigger className="w-full sm:w-44">
+                <SelectValue placeholder="المصدر" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">كل المصادر</SelectItem>
+                <SelectItem value="manual_button">زر يدوي</SelectItem>
+                <SelectItem value="cashier">الكاشير</SelectItem>
+                <SelectItem value="calls">المكالمات</SelectItem>
+                <SelectItem value="whatsapp">واتساب</SelectItem>
+                <SelectItem value="voice_ai">مكالمة AI</SelectItem>
+              </SelectContent>
+            </Select>
             {branches.length > 1 && (
               <Select
                 value={branchFilter}
@@ -1102,7 +1177,10 @@ export default function OrdersPage() {
               icon={<ShoppingCart className="h-16 w-16" />}
               title="لا توجد طلبات"
               description={
-                searchQuery || statusFilter !== "all" || branchFilter !== "all"
+                searchQuery ||
+                statusFilter !== "all" ||
+                branchFilter !== "all" ||
+                sourceFilter !== "all"
                   ? "لم يتم العثور على طلبات مطابقة للبحث"
                   : "لم يتم إنشاء أي طلبات بعد. يمكنك إنشاء طلب جديد يدوياً من الزر بالأعلى."
               }
@@ -1190,6 +1268,20 @@ export default function OrdersPage() {
                     </div>
                   );
                 },
+              },
+              {
+                key: "source",
+                header: "المصدر",
+                render: (order) => (
+                  <span
+                    className={cn(
+                      "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold",
+                      getSourceBadgeClass(order.sourceChannel),
+                    )}
+                  >
+                    {getSourceLabel(order.sourceChannel)}
+                  </span>
+                ),
               },
               {
                 key: "createdAt",

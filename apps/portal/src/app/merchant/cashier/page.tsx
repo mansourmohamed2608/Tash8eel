@@ -453,7 +453,7 @@ export default function CashierPage() {
           deliveryType === "delivery" ? normalizedAddress : undefined,
         paymentMethod,
         notes: mergedOrderNotes || undefined,
-        source: "manual",
+        source: "cashier",
       });
 
       const responseTotal = Number(

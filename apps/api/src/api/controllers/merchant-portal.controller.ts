@@ -1316,7 +1316,10 @@ export class MerchantPortalController {
           enum: ["cash", "card", "transfer"],
         },
         notes: { type: "string" },
-        source: { type: "string", enum: ["manual"] },
+        source: {
+          type: "string",
+          enum: ["manual", "manual_button", "cashier", "calls"],
+        },
       },
     },
   })
@@ -1337,7 +1340,7 @@ export class MerchantPortalController {
       deliveryAddress?: string;
       paymentMethod: "cash" | "card" | "transfer";
       notes?: string;
-      source: "manual";
+      source: "manual" | "manual_button" | "cashier" | "calls";
     },
   ): Promise<any> {
     const merchantId = this.getMerchantId(req);
@@ -1351,13 +1354,18 @@ export class MerchantPortalController {
       throw new BadRequestException("customerPhone is required");
     }
 
-    if (
-      String(body?.source || "")
-        .trim()
-        .toLowerCase() !== "manual"
-    ) {
-      throw new BadRequestException("source must be 'manual'");
+    const source = String(body?.source || "")
+      .trim()
+      .toLowerCase();
+
+    const allowedSources = ["manual", "manual_button", "cashier", "calls"];
+    if (!allowedSources.includes(source)) {
+      throw new BadRequestException(
+        "source must be one of: manual, manual_button, cashier, calls",
+      );
     }
+
+    const sourceChannel = source === "manual" ? "manual_button" : source;
 
     const deliveryType = this.normalizeManualDeliveryType(body?.deliveryType);
     const paymentMethod = this.normalizeManualPaymentMethod(
@@ -1475,7 +1483,7 @@ export class MerchantPortalController {
            $12,
            $13,
            'PENDING',
-           'manual',
+           $14,
            NOW()
          )
          RETURNING id::text as id, order_number, status::text as status, total::text as total, created_at, updated_at`,
@@ -1495,6 +1503,7 @@ export class MerchantPortalController {
           orderNotes,
           deliveryType.toUpperCase(),
           paymentMethodDb,
+          sourceChannel,
         ],
       );
 
@@ -1531,7 +1540,7 @@ export class MerchantPortalController {
       deliveryAddress: deliveryAddressText || null,
       paymentMethod,
       notes: orderNotes,
-      source: "manual",
+      source: sourceChannel,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };
@@ -1552,54 +1561,146 @@ export class MerchantPortalController {
     description: "Pagination offset",
     required: false,
   })
+  @ApiQuery({
+    name: "branchId",
+    description: "Filter by branch id",
+    required: false,
+  })
+  @ApiQuery({
+    name: "source",
+    description:
+      "Filter by source channel (manual_button, cashier, calls, whatsapp, voice_ai)",
+    required: false,
+  })
   async listOrders(
     @Req() req: Request,
     @Query("status") status?: string,
-    @Query("limit") limit?: number,
-    @Query("offset") offset?: number,
+    @Query("limit") limit?: string | number,
+    @Query("offset") offset?: string | number,
+    @Query("branchId") branchId?: string,
+    @Query("source") source?: string,
   ): Promise<{ orders: any[]; total: number }> {
     const merchantId = this.getMerchantId(req);
 
-    let orders = await this.orderRepo.findByMerchant(merchantId);
+    const filters: string[] = ["o.merchant_id = $1"];
+    const values: Array<string | number> = [merchantId];
 
     if (status) {
-      const normalizedStatus = String(status).trim().toUpperCase();
-      orders = orders.filter(
-        (o) => String(o.status || "").toUpperCase() === normalizedStatus,
+      values.push(String(status).trim().toUpperCase());
+      filters.push(`UPPER(o.status::text) = $${values.length}`);
+    }
+
+    if (branchId && String(branchId).trim().length > 0) {
+      values.push(String(branchId).trim());
+      filters.push(
+        `COALESCE(NULLIF(to_jsonb(o)->>'branch_id', ''), '') = $${values.length}`,
       );
     }
 
+    const normalizedSource = String(source || "")
+      .trim()
+      .toLowerCase();
+    if (normalizedSource.length > 0 && normalizedSource !== "all") {
+      if (normalizedSource === "manual_button") {
+        values.push("manual_button", "manual");
+        filters.push(
+          `COALESCE(NULLIF(LOWER(to_jsonb(o)->>'source_channel'), ''), 'whatsapp') IN ($${values.length - 1}, $${values.length})`,
+        );
+      } else {
+        values.push(normalizedSource);
+        filters.push(
+          `COALESCE(NULLIF(LOWER(to_jsonb(o)->>'source_channel'), ''), 'whatsapp') = $${values.length}`,
+        );
+      }
+    }
+
+    const whereClause = filters.join(" AND ");
+
+    const countResult = await this.pool.query<{ total: string }>(
+      `SELECT COUNT(*)::text as total FROM orders o WHERE ${whereClause}`,
+      values,
+    );
+
     const parsedOffset = Number(offset);
     const parsedLimit = Number(limit);
-    const start =
+    const safeOffset =
       Number.isFinite(parsedOffset) && parsedOffset > 0
         ? Math.floor(parsedOffset)
         : 0;
-    const safeLimit =
-      Number.isFinite(parsedLimit) && parsedLimit > 0
-        ? Math.min(Math.floor(parsedLimit), 200)
-        : 20;
-    const end = start + safeLimit;
-    const paginated = orders.slice(start, end);
+    const hasLimit = Number.isFinite(parsedLimit) && parsedLimit > 0;
+    const safeLimit = hasLimit ? Math.min(Math.floor(parsedLimit), 500) : null;
 
-    const normalizedOrders = paginated.map((order: any) => ({
+    const dataValues = [...values];
+    let dataQuery = `
+      SELECT
+        o.id::text as id,
+        o.merchant_id,
+        o.conversation_id::text as conversation_id,
+        o.order_number,
+        o.status::text as status,
+        o.items,
+        o.subtotal,
+        o.discount,
+        o.delivery_fee,
+        o.total,
+        o.customer_name,
+        o.customer_phone,
+        o.delivery_address,
+        o.delivery_notes,
+        o.delivery_preference,
+        o.created_at,
+        o.updated_at,
+        COALESCE(NULLIF(to_jsonb(o)->>'source_channel', ''), 'whatsapp') as source_channel
+      FROM orders o
+      WHERE ${whereClause}
+      ORDER BY o.created_at DESC
+    `;
+
+    if (hasLimit && safeLimit !== null) {
+      dataValues.push(safeLimit, safeOffset);
+      dataQuery += ` LIMIT $${dataValues.length - 1} OFFSET $${dataValues.length}`;
+    }
+
+    const result = await this.pool.query<{
+      id: string;
+      merchant_id: string;
+      conversation_id: string | null;
+      order_number: string;
+      status: string;
+      items: unknown;
+      subtotal: string | number | null;
+      discount: string | number | null;
+      delivery_fee: string | number | null;
+      total: string | number | null;
+      customer_name: string | null;
+      customer_phone: string | null;
+      delivery_address: unknown;
+      delivery_notes: string | null;
+      delivery_preference: string | null;
+      created_at: Date;
+      updated_at: Date;
+      source_channel: string | null;
+    }>(dataQuery, dataValues);
+
+    const normalizedOrders = result.rows.map((order) => ({
       id: order.id,
-      merchantId: order.merchantId,
-      conversationId: order.conversationId,
-      orderNumber: order.orderNumber,
+      merchantId: order.merchant_id,
+      conversationId: order.conversation_id || undefined,
+      orderNumber: order.order_number,
       status: order.status,
-      items: this.normalizeOrderItems(order?.items),
-      subtotal: order.subtotal,
-      discount: order.discount,
-      deliveryFee: order.deliveryFee,
-      total: order.total,
-      customerName: order.customerName,
-      customerPhone: order.customerPhone,
-      deliveryAddress: order.deliveryAddress,
-      deliveryNotes: order.deliveryNotes,
-      deliveryPreference: order.deliveryPreference,
-      createdAt: order.createdAt,
-      updatedAt: order.updatedAt,
+      sourceChannel: String(order.source_channel || "whatsapp").toLowerCase(),
+      items: this.normalizeOrderItems(order.items),
+      subtotal: Number(order.subtotal || 0),
+      discount: Number(order.discount || 0),
+      deliveryFee: Number(order.delivery_fee || 0),
+      total: Number(order.total || 0),
+      customerName: order.customer_name || undefined,
+      customerPhone: order.customer_phone || undefined,
+      deliveryAddress: order.delivery_address,
+      deliveryNotes: order.delivery_notes || undefined,
+      deliveryPreference: order.delivery_preference || undefined,
+      createdAt: order.created_at,
+      updatedAt: order.updated_at,
     }));
 
     const orderIds = normalizedOrders
@@ -1617,7 +1718,7 @@ export class MerchantPortalController {
 
       return {
         orders: hydratedOrders,
-        total: orders.length,
+        total: Number(countResult.rows[0]?.total || 0),
       };
     } catch (error) {
       this.logger.warn(
@@ -1627,7 +1728,7 @@ export class MerchantPortalController {
 
     return {
       orders: normalizedOrders,
-      total: orders.length,
+      total: Number(countResult.rows[0]?.total || 0),
     };
   }
 

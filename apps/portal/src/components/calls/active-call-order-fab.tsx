@@ -195,7 +195,7 @@ export function ActiveCallOrderFab() {
           deliveryType === "delivery" ? deliveryAddress.trim() : undefined,
         paymentMethod,
         notes: orderNotes.trim() || undefined,
-        source: "manual",
+        source: "calls",
       });
 
       toast({

@@ -31,6 +31,7 @@ import {
   Minus,
   PhoneCall,
   Plus,
+  Search,
   RefreshCw,
   ShoppingCart,
   Trash2,
@@ -82,10 +83,19 @@ interface ActiveCallPayload {
 }
 
 interface ManualOrderItem {
+  catalogItemId?: string;
   name: string;
   quantity: number;
   unitPrice: number;
   notes?: string;
+}
+
+interface CatalogProduct {
+  id: string;
+  name: string;
+  sku?: string;
+  unitPrice: number;
+  isAvailable: boolean;
 }
 
 const defaultStats: VoiceCallStats = {
@@ -124,6 +134,9 @@ export default function CallsPage() {
   const [orderItems, setOrderItems] = useState<ManualOrderItem[]>([
     { name: "", quantity: 1, unitPrice: 0 },
   ]);
+  const [catalogLoading, setCatalogLoading] = useState(false);
+  const [catalogProducts, setCatalogProducts] = useState<CatalogProduct[]>([]);
+  const [productSearch, setProductSearch] = useState("");
 
   const loadCalls = useCallback(async () => {
     if (!apiKey) return;
@@ -167,6 +180,65 @@ export default function CallsPage() {
     });
   }, [merchantId, apiKey]);
 
+  const loadCatalog = useCallback(async () => {
+    if (!apiKey) {
+      setCatalogProducts([]);
+      setCatalogLoading(false);
+      return;
+    }
+
+    setCatalogLoading(true);
+    try {
+      const response = await merchantApi.getCatalogItems(
+        merchantId,
+        apiKey,
+        1,
+        600,
+      );
+
+      const mapped: CatalogProduct[] = (response.items || [])
+        .map((item: any) => {
+          const name =
+            String(
+              item?.name_ar ||
+                item?.nameAr ||
+                item?.name ||
+                item?.title ||
+                item?.sku ||
+                "",
+            ).trim() || "منتج";
+          const unitPrice = Number(
+            item?.base_price ?? item?.price ?? item?.unit_price ?? 0,
+          );
+
+          return {
+            id: String(item?.id || "").trim(),
+            name,
+            sku: String(item?.sku || "").trim() || undefined,
+            unitPrice: Number.isFinite(unitPrice) ? unitPrice : 0,
+            isAvailable:
+              item?.is_available !== false && item?.isActive !== false,
+          };
+        })
+        .filter(
+          (item: CatalogProduct) => item.id.length > 0 && item.isAvailable,
+        );
+
+      setCatalogProducts(mapped);
+    } catch (error) {
+      toast({
+        title: "تعذر تحميل الكتالوج",
+        description:
+          error instanceof Error
+            ? error.message
+            : "حدث خطأ أثناء تحميل المنتجات",
+        variant: "destructive",
+      });
+    } finally {
+      setCatalogLoading(false);
+    }
+  }, [merchantId, apiKey, toast]);
+
   const refreshAll = useCallback(async () => {
     setRefreshing(true);
     try {
@@ -189,6 +261,10 @@ export default function CallsPage() {
   useEffect(() => {
     void refreshAll();
   }, [refreshAll]);
+
+  useEffect(() => {
+    void loadCatalog();
+  }, [loadCatalog]);
 
   useWebSocketEvent<ActiveCallPayload>(
     RealTimeEvent.CALL_ACTIVE,
@@ -274,8 +350,55 @@ export default function CallsPage() {
     setDeliveryAddress("");
     setPaymentMethod("cash");
     setOrderNotes("");
+    setProductSearch("");
     setOrderItems([{ name: "", quantity: 1, unitPrice: 0 }]);
   };
+
+  const filteredCatalogProducts = useMemo(() => {
+    const query = productSearch.trim().toLowerCase();
+    if (!query) return [];
+
+    return catalogProducts
+      .filter((item) => {
+        return (
+          item.name.toLowerCase().includes(query) ||
+          String(item.sku || "")
+            .toLowerCase()
+            .includes(query)
+        );
+      })
+      .slice(0, 8);
+  }, [catalogProducts, productSearch]);
+
+  const addCatalogItemToOrder = useCallback((product: CatalogProduct) => {
+    setOrderItems((prev) => {
+      const existingIndex = prev.findIndex(
+        (item) =>
+          item.catalogItemId === product.id ||
+          (!item.catalogItemId && item.name === product.name),
+      );
+
+      if (existingIndex >= 0) {
+        return prev.map((item, index) =>
+          index === existingIndex
+            ? { ...item, quantity: item.quantity + 1 }
+            : item,
+        );
+      }
+
+      return [
+        ...prev,
+        {
+          catalogItemId: product.id,
+          name: product.name,
+          quantity: 1,
+          unitPrice: product.unitPrice,
+        },
+      ];
+    });
+
+    setProductSearch("");
+  }, []);
 
   const orderTotal = useMemo(
     () =>
@@ -300,6 +423,7 @@ export default function CallsPage() {
 
     const normalizedItems = orderItems
       .map((item) => ({
+        catalogItemId: item.catalogItemId,
         name: String(item.name || "").trim(),
         quantity: Math.max(1, Number(item.quantity || 1)),
         unitPrice: Math.max(0, Number(item.unitPrice || 0)),
@@ -354,7 +478,7 @@ export default function CallsPage() {
           deliveryType === "delivery" ? cleanedAddress : undefined,
         paymentMethod,
         notes: orderNotes.trim() || undefined,
-        source: "manual",
+        source: "calls",
       });
 
       toast({
@@ -604,6 +728,51 @@ export default function CallsPage() {
                   placeholder="01000000000"
                   dir="ltr"
                 />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-sm font-medium">بحث المنتجات وإضافتها</p>
+              <div className="relative">
+                <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  value={productSearch}
+                  onChange={(event) => setProductSearch(event.target.value)}
+                  placeholder="اكتب اسم المنتج أو SKU..."
+                  className="pr-9"
+                />
+
+                {productSearch.trim().length > 0 && (
+                  <div className="absolute z-20 mt-1 w-full rounded-md border bg-background shadow-md max-h-56 overflow-y-auto">
+                    {catalogLoading ? (
+                      <div className="px-3 py-2 text-sm text-muted-foreground flex items-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        جاري تحميل المنتجات...
+                      </div>
+                    ) : filteredCatalogProducts.length > 0 ? (
+                      filteredCatalogProducts.map((product) => (
+                        <button
+                          key={product.id}
+                          type="button"
+                          className="w-full text-right px-3 py-2 hover:bg-muted transition-colors"
+                          onClick={() => addCatalogItemToOrder(product)}
+                        >
+                          <div className="font-medium text-sm">
+                            {product.name}
+                          </div>
+                          <div className="text-xs text-muted-foreground flex items-center justify-between">
+                            <span dir="ltr">{product.sku || "-"}</span>
+                            <span>{formatCurrency(product.unitPrice)}</span>
+                          </div>
+                        </button>
+                      ))
+                    ) : (
+                      <div className="px-3 py-2 text-sm text-muted-foreground">
+                        لا توجد منتجات مطابقة
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 

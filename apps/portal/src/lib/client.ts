@@ -458,12 +458,45 @@ export const merchantApi = {
   async getOrders(
     merchantId: string,
     apiKey: string,
-    status?: string,
-    branchId?: string,
+    filtersOrStatus?:
+      | string
+      | {
+          status?: string;
+          branchId?: string;
+          source?: string;
+          limit?: number;
+          offset?: number;
+        },
+    branchIdArg?: string,
   ) {
+    let status: string | undefined;
+    let branchId: string | undefined;
+    let source: string | undefined;
+    let limit: number | undefined;
+    let offset: number | undefined;
+
+    if (typeof filtersOrStatus === "string" || filtersOrStatus === undefined) {
+      status = filtersOrStatus;
+      branchId = branchIdArg;
+    } else {
+      status = filtersOrStatus.status;
+      branchId = filtersOrStatus.branchId;
+      source = filtersOrStatus.source;
+      limit = filtersOrStatus.limit;
+      offset = filtersOrStatus.offset;
+    }
+
     const params = new URLSearchParams();
     if (status) params.set("status", status);
     if (branchId && branchId !== "all") params.set("branchId", branchId);
+    if (source && source !== "all") params.set("source", source);
+    if (Number.isFinite(Number(limit)) && Number(limit) > 0) {
+      params.set("limit", String(Math.floor(Number(limit))));
+    }
+    if (Number.isFinite(Number(offset)) && Number(offset) >= 0) {
+      params.set("offset", String(Math.floor(Number(offset))));
+    }
+
     const qs = params.toString();
     const url = `/v1/portal/orders${qs ? `?${qs}` : ""}`;
     return apiFetch<{ orders: any[]; total: number }>(url, { apiKey });
@@ -486,7 +519,7 @@ export const merchantApi = {
       deliveryAddress?: string;
       paymentMethod: "cash" | "card" | "transfer";
       notes?: string;
-      source: "manual";
+      source: "manual" | "manual_button" | "cashier" | "calls";
     },
   ) {
     return apiFetch<any>("/v1/portal/orders", {
