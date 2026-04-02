@@ -2,6 +2,7 @@ import {
   Injectable,
   Inject,
   UnauthorizedException,
+  ServiceUnavailableException,
   BadRequestException,
   NotFoundException,
   ConflictException,
@@ -604,12 +605,21 @@ export class StaffService {
         throw new UnauthorizedException("Account is not active");
       }
 
+      // Keep the same refresh token session alive and only rotate access token.
+      // This avoids false auth failures caused by concurrent refresh races.
       await client.query(
-        `DELETE FROM staff_sessions WHERE refresh_token_hash = $1`,
-        [tokenHash],
+        `UPDATE staff_sessions
+         SET last_used_at = NOW()
+         WHERE id = $1`,
+        [sessionResult.rows[0].id],
       );
 
-      const tokens = await this.generateTokens(staff, undefined, client);
+      const accessToken = this.createAccessToken(staff);
+      const tokens: StaffTokens = {
+        accessToken,
+        refreshToken,
+        expiresIn: 900,
+      };
 
       await client.query("COMMIT");
       return tokens;
@@ -622,7 +632,13 @@ export class StaffService {
       if (error instanceof UnauthorizedException) {
         throw error;
       }
-      throw new UnauthorizedException("Invalid refresh token");
+
+      this.logger.warn(
+        `Transient refresh failure (non-auth): ${String((error as any)?.message || error)}`,
+      );
+      throw new ServiceUnavailableException(
+        "Auth service temporarily unavailable",
+      );
     } finally {
       client.release();
     }
@@ -996,16 +1012,7 @@ export class StaffService {
     deviceInfo?: any,
     queryRunner: Pick<PoolClient, "query"> | Pool = this.pool,
   ): Promise<StaffTokens> {
-    const accessToken = jwt.sign(
-      {
-        staffId: staff.id,
-        merchantId: staff.merchantId,
-        role: staff.role,
-        email: staff.email,
-      },
-      this.jwtSecret,
-      { expiresIn: this.accessTokenExpiry },
-    );
+    const accessToken = this.createAccessToken(staff);
 
     const refreshToken = jwt.sign(
       {
@@ -1035,6 +1042,19 @@ export class StaffService {
       refreshToken,
       expiresIn: 900, // 15 minutes in seconds
     };
+  }
+
+  private createAccessToken(staff: Staff): string {
+    return jwt.sign(
+      {
+        staffId: staff.id,
+        merchantId: staff.merchantId,
+        role: staff.role,
+        email: staff.email,
+      },
+      this.jwtSecret,
+      { expiresIn: this.accessTokenExpiry },
+    );
   }
 
   private async handleFailedLogin(
