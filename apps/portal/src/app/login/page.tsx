@@ -33,10 +33,20 @@ function LoginForm() {
     const signup = searchParams.get("signup");
     const nextMerchantId = searchParams.get("merchantId");
     const nextEmail = searchParams.get("email");
+    const reason = searchParams.get("reason");
 
     if (signup === "success") {
       setSuccessMessage(
         "تم إنشاء الحساب التجريبي بنجاح. استخدم رقم المتجر والبريد الإلكتروني لإتمام تسجيل الدخول.",
+      );
+    }
+    if (reason === "idle") {
+      setSuccessMessage(
+        "تم تسجيل الخروج تلقائياً بسبب عدم النشاط. سجّل الدخول للمتابعة.",
+      );
+    } else if (reason === "session_expired") {
+      setSuccessMessage(
+        "انتهت صلاحية الجلسة أو تعذر تحديثها. سجّل الدخول مرة أخرى.",
       );
     }
     if (nextMerchantId) {

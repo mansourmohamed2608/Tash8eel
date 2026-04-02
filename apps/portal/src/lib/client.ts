@@ -3306,6 +3306,7 @@ interface AuthenticatedFetchOptions extends Omit<RequestInit, "body"> {
   apiKey?: string;
   skipAuth?: boolean;
   timeout?: number;
+  retryOnUnauthorized?: boolean;
 }
 
 const sanitizeAuthenticatedErrorMessage = (
@@ -3449,6 +3450,7 @@ export async function authenticatedFetch<T>(
     apiKey,
     skipAuth = false,
     timeout = 30000,
+    retryOnUnauthorized = true,
     ...fetchOptions
   } = options;
 
@@ -3539,10 +3541,31 @@ export async function authenticatedFetch<T>(
     if (!response.ok) {
       // 401 = invalid/expired token → force redirect to login
       if (response.status === 401 && typeof window !== "undefined") {
+        if (!skipAuth && retryOnUnauthorized) {
+          cachedAuthTokens = null;
+          authTokenRequest = null;
+          return authenticatedFetch<T>(endpoint, {
+            ...options,
+            retryOnUnauthorized: false,
+          });
+        }
+
         if (!authenticatedIsSigningOut) {
           authenticatedIsSigningOut = true;
+          window.dispatchEvent(
+            new CustomEvent("app:session-expired", {
+              detail: {
+                endpoint,
+                status: 401,
+                at: Date.now(),
+              },
+            }),
+          );
           const { signOut } = await import("next-auth/react");
-          await signOut({ callbackUrl: "/login", redirect: true });
+          await signOut({
+            callbackUrl: "/login?reason=session_expired",
+            redirect: true,
+          });
         }
         return new Promise(() => {}) as T; // never resolves, page is redirecting
       }

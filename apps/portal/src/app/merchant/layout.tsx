@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
-import { signOut, useSession } from "next-auth/react";
+import { getSession, signOut, useSession } from "next-auth/react";
 import { useRouter, usePathname } from "next/navigation";
 import { Sidebar, TopBar } from "@/components/layout";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -12,6 +12,7 @@ import { ActiveCallOrderFab } from "@/components/calls/active-call-order-fab";
 import { MerchantProvider, useMerchant } from "@/hooks/use-merchant";
 import { RealTimeEvent, useWebSocket } from "@/hooks/use-websocket";
 import { useAnalytics } from "@/hooks/use-analytics";
+import { useToast } from "@/hooks/use-toast";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Loader2, Lock } from "lucide-react";
 
@@ -162,6 +163,8 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   const { data: session, status } = useSession();
   const router = useRouter();
   const pathname = usePathname();
+  const { toast } = useToast();
+  const [isRecoveringSession, setIsRecoveringSession] = useState(false);
   const isHardBlockedRoute =
     !!pathname &&
     BLOCKED_ROUTES.some((r) => pathname === r || pathname.startsWith(r + "/"));
@@ -172,10 +175,6 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
       router.replace(
         "/login?callbackUrl=" + encodeURIComponent(window.location.pathname),
       );
-    }
-    if (session?.error === "RefreshAccessTokenError") {
-      signOut({ callbackUrl: "/login", redirect: true });
-      return;
     }
     if (
       session?.requiresPasswordChange &&
@@ -189,6 +188,59 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     }
   }, [status, router, session, pathname, isHardBlockedRoute]);
 
+  useEffect(() => {
+    if (session?.error !== "RefreshAccessTokenError") {
+      setIsRecoveringSession(false);
+      return;
+    }
+
+    let cancelled = false;
+    setIsRecoveringSession(true);
+    toast({
+      title: "إعادة الاتصال بالجلسة...",
+      description: "نحاول استعادة الجلسة تلقائياً. لحظة واحدة.",
+    });
+
+    const recoverSession = async () => {
+      try {
+        await new Promise((resolve) => setTimeout(resolve, 1200));
+        const nextSession = await getSession();
+
+        if (cancelled) return;
+
+        if (nextSession && !(nextSession as any).error) {
+          setIsRecoveringSession(false);
+          toast({
+            title: "تمت استعادة الجلسة",
+            description: "يمكنك متابعة العمل بشكل طبيعي.",
+            variant: "success",
+          });
+          return;
+        }
+      } catch {
+        // fall through to sign out below
+      }
+
+      if (!cancelled) {
+        toast({
+          title: "انتهت الجلسة",
+          description: "يرجى تسجيل الدخول مرة أخرى.",
+          variant: "destructive",
+        });
+        signOut({
+          callbackUrl: "/login?reason=session_expired",
+          redirect: true,
+        });
+      }
+    };
+
+    recoverSession();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [session?.error, toast]);
+
   // Show loading while checking session
   if (status === "loading") {
     return (
@@ -196,6 +248,19 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
           <p className="text-muted-foreground">جاري التحقق من الجلسة...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (isRecoveringSession) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-muted/30">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-muted-foreground">
+            جاري استعادة الجلسة تلقائياً...
+          </p>
         </div>
       </div>
     );
