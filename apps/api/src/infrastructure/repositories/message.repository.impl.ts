@@ -54,25 +54,48 @@ export class MessageRepository implements IMessageRepository {
         ? this.sanitizeInboundText(input.text)
         : input.text || null;
 
-    const result = await this.pool.query(
-      `INSERT INTO messages (id, conversation_id, merchant_id, provider_message_id, direction, sender_id, text, attachments, metadata, llm_used, tokens_used)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-       RETURNING *`,
-      [
-        id,
-        input.conversationId,
-        input.merchantId,
-        input.providerMessageId || null,
-        input.direction,
-        input.senderId,
-        storedText,
-        JSON.stringify(input.attachments || []),
-        JSON.stringify(input.metadata || {}),
-        input.llmUsed || false,
-        input.tokensUsed || 0,
-      ],
-    );
-    return this.mapToEntity(result.rows[0]);
+    try {
+      const result = await this.pool.query(
+        `INSERT INTO messages (id, conversation_id, merchant_id, channel, provider_message_id, direction, sender_id, text, attachments, metadata, llm_used, tokens_used)
+         VALUES ($1, $2, $3, COALESCE($4, (SELECT channel FROM conversations WHERE id = $2), 'whatsapp'), $5, $6, $7, $8, $9, $10, $11, $12)
+         RETURNING *`,
+        [
+          id,
+          input.conversationId,
+          input.merchantId,
+          input.channel || null,
+          input.providerMessageId || null,
+          input.direction,
+          input.senderId,
+          storedText,
+          JSON.stringify(input.attachments || []),
+          JSON.stringify(input.metadata || {}),
+          input.llmUsed || false,
+          input.tokensUsed || 0,
+        ],
+      );
+      return this.mapToEntity(result.rows[0]);
+    } catch {
+      const result = await this.pool.query(
+        `INSERT INTO messages (id, conversation_id, merchant_id, provider_message_id, direction, sender_id, text, attachments, metadata, llm_used, tokens_used)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+         RETURNING *`,
+        [
+          id,
+          input.conversationId,
+          input.merchantId,
+          input.providerMessageId || null,
+          input.direction,
+          input.senderId,
+          storedText,
+          JSON.stringify(input.attachments || []),
+          JSON.stringify(input.metadata || {}),
+          input.llmUsed || false,
+          input.tokensUsed || 0,
+        ],
+      );
+      return this.mapToEntity(result.rows[0]);
+    }
   }
 
   async countByMerchantAndDate(
@@ -91,6 +114,9 @@ export class MessageRepository implements IMessageRepository {
       id: row.id as string,
       conversationId: row.conversation_id as string,
       merchantId: row.merchant_id as string,
+      channel:
+        (row.channel as "whatsapp" | "messenger" | "instagram" | undefined) ||
+        "whatsapp",
       providerMessageId: row.provider_message_id as string | undefined,
       direction: row.direction as MessageDirection,
       senderId: row.sender_id as string,

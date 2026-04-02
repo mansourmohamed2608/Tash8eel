@@ -37,15 +37,39 @@ export class ConversationRepository implements IConversationRepository {
   async findByMerchantAndSender(
     merchantId: string,
     senderId: string,
+    channel?: "whatsapp" | "messenger" | "instagram",
   ): Promise<Conversation | null> {
-    const result = await this.pool.query(
-      `SELECT * FROM conversations 
-       WHERE merchant_id = $1 AND sender_id = $2 
-       AND state NOT IN ('CLOSED')
-       ORDER BY created_at DESC LIMIT 1`,
-      [merchantId, senderId],
-    );
-    return result.rows[0] ? this.mapToEntity(result.rows[0]) : null;
+    if (!channel) {
+      const result = await this.pool.query(
+        `SELECT * FROM conversations 
+         WHERE merchant_id = $1 AND sender_id = $2 
+         AND state NOT IN ('CLOSED')
+         ORDER BY created_at DESC LIMIT 1`,
+        [merchantId, senderId],
+      );
+      return result.rows[0] ? this.mapToEntity(result.rows[0]) : null;
+    }
+
+    try {
+      const result = await this.pool.query(
+        `SELECT * FROM conversations 
+         WHERE merchant_id = $1 AND sender_id = $2 AND channel = $3
+         AND state NOT IN ('CLOSED')
+         ORDER BY created_at DESC LIMIT 1`,
+        [merchantId, senderId, channel],
+      );
+      return result.rows[0] ? this.mapToEntity(result.rows[0]) : null;
+    } catch {
+      // Legacy schema fallback (channel column absent).
+      const result = await this.pool.query(
+        `SELECT * FROM conversations 
+         WHERE merchant_id = $1 AND sender_id = $2 
+         AND state NOT IN ('CLOSED')
+         ORDER BY created_at DESC LIMIT 1`,
+        [merchantId, senderId],
+      );
+      return result.rows[0] ? this.mapToEntity(result.rows[0]) : null;
+    }
   }
 
   async findPendingFollowups(before: Date): Promise<Conversation[]> {
@@ -64,23 +88,46 @@ export class ConversationRepository implements IConversationRepository {
 
   async create(input: CreateConversationInput): Promise<Conversation> {
     const id = input.id || generateId();
-    const result = await this.pool.query(
-      `INSERT INTO conversations (id, merchant_id, sender_id, customer_id, state, context, cart, collected_info, missing_slots)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-       RETURNING *`,
-      [
-        id,
-        input.merchantId,
-        input.senderId,
-        input.customerId || null,
-        ConversationState.GREETING,
-        JSON.stringify({}),
-        JSON.stringify({ items: [], subtotal: 0, discount: 0, total: 0 }),
-        JSON.stringify({}),
-        [],
-      ],
-    );
-    return this.mapToEntity(result.rows[0]);
+    const channel = input.channel || "whatsapp";
+
+    try {
+      const result = await this.pool.query(
+        `INSERT INTO conversations (id, merchant_id, sender_id, customer_id, channel, state, context, cart, collected_info, missing_slots)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+         RETURNING *`,
+        [
+          id,
+          input.merchantId,
+          input.senderId,
+          input.customerId || null,
+          channel,
+          ConversationState.GREETING,
+          JSON.stringify({}),
+          JSON.stringify({ items: [], subtotal: 0, discount: 0, total: 0 }),
+          JSON.stringify({}),
+          [],
+        ],
+      );
+      return this.mapToEntity(result.rows[0]);
+    } catch {
+      const result = await this.pool.query(
+        `INSERT INTO conversations (id, merchant_id, sender_id, customer_id, state, context, cart, collected_info, missing_slots)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+         RETURNING *`,
+        [
+          id,
+          input.merchantId,
+          input.senderId,
+          input.customerId || null,
+          ConversationState.GREETING,
+          JSON.stringify({}),
+          JSON.stringify({ items: [], subtotal: 0, discount: 0, total: 0 }),
+          JSON.stringify({}),
+          [],
+        ],
+      );
+      return this.mapToEntity(result.rows[0]);
+    }
   }
 
   async update(
@@ -173,6 +220,9 @@ export class ConversationRepository implements IConversationRepository {
       id: row.id as string,
       merchantId: row.merchant_id as string,
       customerId: row.customer_id as string | undefined,
+      channel:
+        (row.channel as "whatsapp" | "messenger" | "instagram" | undefined) ||
+        "whatsapp",
       senderId: row.sender_id as string,
       state: row.state as ConversationState,
       context: row.context as Conversation["context"],

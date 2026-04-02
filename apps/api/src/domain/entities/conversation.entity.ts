@@ -41,6 +41,7 @@ export interface Conversation {
   id: string;
   merchantId: string;
   customerId?: string;
+  channel?: "whatsapp" | "messenger" | "instagram";
   senderId: string;
   state: ConversationState;
   context: ConversationContext;
@@ -81,6 +82,7 @@ export interface CreateConversationInput {
   id?: string;
   merchantId: string;
   senderId: string;
+  channel?: "whatsapp" | "messenger" | "instagram";
   customerId?: string;
 }
 

@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { DataTable, Pagination } from "@/components/ui/data-table";
 import { TableSkeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/alerts";
@@ -41,6 +42,9 @@ import {
   Clock,
   RotateCcw,
   Loader2,
+  Plus,
+  Minus,
+  Trash2,
 } from "lucide-react";
 import {
   cn,
@@ -88,6 +92,21 @@ interface Order {
   updatedAt: string;
   deliveryStatus?: string;
   trackingNumber?: string;
+}
+
+interface CatalogProduct {
+  id: string;
+  name: string;
+  sku?: string;
+  unitPrice: number;
+}
+
+interface ManualOrderItem {
+  catalogItemId?: string;
+  name: string;
+  quantity: number;
+  unitPrice: number;
+  notes?: string;
 }
 
 const statusIcons: Record<string, React.ReactNode> = {
@@ -167,6 +186,22 @@ export default function OrdersPage() {
     orderNumber?: string;
     unavailableItems?: any[];
   } | null>(null);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [creatingOrder, setCreatingOrder] = useState(false);
+  const [catalogLoading, setCatalogLoading] = useState(false);
+  const [catalogProducts, setCatalogProducts] = useState<CatalogProduct[]>([]);
+  const [productSearch, setProductSearch] = useState("");
+  const [manualCustomerName, setManualCustomerName] = useState("");
+  const [manualCustomerPhone, setManualCustomerPhone] = useState("");
+  const [manualItems, setManualItems] = useState<ManualOrderItem[]>([]);
+  const [manualDeliveryType, setManualDeliveryType] = useState<
+    "delivery" | "pickup" | "dine_in"
+  >("delivery");
+  const [manualDeliveryAddress, setManualDeliveryAddress] = useState("");
+  const [manualPaymentMethod, setManualPaymentMethod] = useState<
+    "cash" | "card" | "transfer"
+  >("cash");
+  const [manualNotes, setManualNotes] = useState("");
   const itemsPerPage = 10;
 
   // Transform order data from API
@@ -405,6 +440,262 @@ export default function OrdersPage() {
     }
   }, [merchantId, apiKey, statusFilter, branchFilter, transformOrder]);
 
+  const resetManualOrderForm = useCallback(() => {
+    setProductSearch("");
+    setManualCustomerName("");
+    setManualCustomerPhone("");
+    setManualItems([]);
+    setManualDeliveryType("delivery");
+    setManualDeliveryAddress("");
+    setManualPaymentMethod("cash");
+    setManualNotes("");
+  }, []);
+
+  const openCreateOrderDialog = useCallback(async () => {
+    if (!apiKey) {
+      toastFn({
+        title: "تعذر المتابعة",
+        description: "مفتاح التاجر غير متوفر حالياً",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setCreateDialogOpen(true);
+    if (catalogProducts.length > 0) return;
+
+    setCatalogLoading(true);
+    try {
+      const response = await merchantApi.getCatalogItems(
+        merchantId,
+        apiKey,
+        1,
+        500,
+      );
+      const mapped: CatalogProduct[] = (response.items || [])
+        .map((item: any) => {
+          const name =
+            String(
+              item?.name_ar ||
+                item?.nameAr ||
+                item?.name ||
+                item?.title ||
+                item?.sku ||
+                "",
+            ).trim() || "منتج";
+          const unitPrice = Number(
+            item?.base_price ?? item?.price ?? item?.unit_price ?? 0,
+          );
+
+          return {
+            id: String(item?.id || "").trim(),
+            name,
+            sku: String(item?.sku || "").trim() || undefined,
+            unitPrice: Number.isFinite(unitPrice) ? unitPrice : 0,
+          };
+        })
+        .filter((item: CatalogProduct) => item.id.length > 0);
+
+      setCatalogProducts(mapped);
+    } catch (err) {
+      toastFn({
+        title: "تعذر تحميل المنتجات",
+        description:
+          err instanceof Error ? err.message : "حدث خطأ أثناء تحميل الكتالوج",
+        variant: "destructive",
+      });
+    } finally {
+      setCatalogLoading(false);
+    }
+  }, [catalogProducts.length, merchantId, apiKey, toastFn]);
+
+  const addCatalogItemToManualOrder = useCallback((product: CatalogProduct) => {
+    setManualItems((prev) => {
+      const existingIndex = prev.findIndex(
+        (item) =>
+          item.catalogItemId === product.id ||
+          (!item.catalogItemId && item.name === product.name),
+      );
+
+      if (existingIndex >= 0) {
+        return prev.map((item, index) =>
+          index === existingIndex
+            ? { ...item, quantity: item.quantity + 1 }
+            : item,
+        );
+      }
+
+      return [
+        ...prev,
+        {
+          catalogItemId: product.id,
+          name: product.name,
+          quantity: 1,
+          unitPrice: product.unitPrice,
+        },
+      ];
+    });
+    setProductSearch("");
+  }, []);
+
+  const updateManualItem = useCallback(
+    (
+      index: number,
+      patch: Partial<{
+        quantity: number;
+        unitPrice: number;
+        notes: string;
+      }>,
+    ) => {
+      setManualItems((prev) =>
+        prev.map((item, itemIndex) =>
+          itemIndex === index
+            ? {
+                ...item,
+                ...patch,
+                quantity:
+                  patch.quantity !== undefined
+                    ? Math.max(1, Number(patch.quantity) || 1)
+                    : item.quantity,
+                unitPrice:
+                  patch.unitPrice !== undefined
+                    ? Math.max(0, Number(patch.unitPrice) || 0)
+                    : item.unitPrice,
+              }
+            : item,
+        ),
+      );
+    },
+    [],
+  );
+
+  const removeManualItem = useCallback((index: number) => {
+    setManualItems((prev) =>
+      prev.filter((_, itemIndex) => itemIndex !== index),
+    );
+  }, []);
+
+  const handleCreateManualOrder = useCallback(async () => {
+    if (!apiKey) {
+      toastFn({
+        title: "تعذر إنشاء الطلب",
+        description: "مفتاح التاجر غير متوفر حالياً",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const customerName = manualCustomerName.trim();
+    const customerPhone = manualCustomerPhone.trim();
+    const deliveryAddress = manualDeliveryAddress.trim();
+    const notes = manualNotes.trim();
+
+    if (!customerName) {
+      toastFn({
+        title: "بيانات ناقصة",
+        description: "يرجى إدخال اسم العميل",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!customerPhone) {
+      toastFn({
+        title: "بيانات ناقصة",
+        description: "يرجى إدخال رقم هاتف العميل",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (manualItems.length === 0) {
+      toastFn({
+        title: "بيانات ناقصة",
+        description: "أضف منتجاً واحداً على الأقل للطلب",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (manualDeliveryType === "delivery" && !deliveryAddress) {
+      toastFn({
+        title: "بيانات ناقصة",
+        description: "يرجى إدخال عنوان التوصيل",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const invalidItem = manualItems.find(
+      (item) =>
+        !item.name ||
+        !Number.isFinite(Number(item.quantity)) ||
+        Number(item.quantity) <= 0 ||
+        !Number.isFinite(Number(item.unitPrice)) ||
+        Number(item.unitPrice) < 0,
+    );
+    if (invalidItem) {
+      toastFn({
+        title: "عناصر الطلب غير صالحة",
+        description: "تأكد من أن كل عنصر يحتوي على اسم وكمية وسعر وحدة صحيح",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setCreatingOrder(true);
+    try {
+      const created = await merchantApi.createManualOrder(merchantId, apiKey, {
+        customerName,
+        customerPhone,
+        items: manualItems.map((item) => ({
+          catalogItemId: item.catalogItemId,
+          name: item.name,
+          quantity: Number(item.quantity),
+          unitPrice: Number(item.unitPrice),
+          notes: item.notes?.trim() || undefined,
+        })),
+        deliveryType: manualDeliveryType,
+        deliveryAddress:
+          manualDeliveryType === "delivery" ? deliveryAddress : undefined,
+        paymentMethod: manualPaymentMethod,
+        notes: notes || undefined,
+        source: "manual",
+      });
+
+      toastFn({
+        title: "تم إنشاء الطلب بنجاح",
+        description: `رقم الطلب: ${created.orderNumber}`,
+      });
+
+      setCreateDialogOpen(false);
+      resetManualOrderForm();
+      await fetchOrders();
+    } catch (err) {
+      toastFn({
+        title: "فشل إنشاء الطلب",
+        description:
+          err instanceof Error ? err.message : "تعذر إنشاء الطلب حالياً",
+        variant: "destructive",
+      });
+    } finally {
+      setCreatingOrder(false);
+    }
+  }, [
+    manualCustomerName,
+    manualCustomerPhone,
+    manualDeliveryAddress,
+    manualNotes,
+    manualItems,
+    manualDeliveryType,
+    manualPaymentMethod,
+    merchantId,
+    apiKey,
+    toastFn,
+    resetManualOrderForm,
+    fetchOrders,
+  ]);
+
   useEffect(() => {
     fetchOrders();
   }, [fetchOrders]);
@@ -439,6 +730,30 @@ export default function OrdersPage() {
       order.customerPhone.includes(searchQuery);
     return matchesSearch;
   });
+
+  const filteredCatalogProducts =
+    productSearch.trim().length === 0
+      ? []
+      : catalogProducts
+          .filter((product) => {
+            const query = productSearch.trim().toLowerCase();
+            return (
+              product.name.toLowerCase().includes(query) ||
+              String(product.sku || "")
+                .toLowerCase()
+                .includes(query)
+            );
+          })
+          .slice(0, 8);
+
+  const manualOrderTotal = Number(
+    manualItems
+      .reduce(
+        (sum, item) => sum + Number(item.quantity) * Number(item.unitPrice),
+        0,
+      )
+      .toFixed(2),
+  );
 
   const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
   const paginatedOrders = filteredOrders.slice(
@@ -633,6 +948,12 @@ export default function OrdersPage() {
         }
         actions={
           <div className="flex gap-2">
+            {canCreate && (
+              <Button onClick={openCreateOrderDialog}>
+                <Plus className="h-4 w-4 ml-2" />
+                إنشاء طلب جديد
+              </Button>
+            )}
             <Button variant="outline" size="sm" onClick={fetchOrders}>
               <RefreshCw className="h-4 w-4" />
             </Button>
@@ -783,7 +1104,7 @@ export default function OrdersPage() {
               description={
                 searchQuery || statusFilter !== "all" || branchFilter !== "all"
                   ? "لم يتم العثور على طلبات مطابقة للبحث"
-                  : "لم يتم إنشاء أي طلبات بعد. ابدأ بالتحدث مع العملاء عبر WhatsApp!"
+                  : "لم يتم إنشاء أي طلبات بعد. يمكنك إنشاء طلب جديد يدوياً من الزر بالأعلى."
               }
             />
           </CardContent>
@@ -908,6 +1229,322 @@ export default function OrdersPage() {
           )}
         </>
       )}
+
+      {/* Manual Order Creation Dialog */}
+      <Dialog
+        open={createDialogOpen}
+        onOpenChange={(open) => {
+          if (creatingOrder) return;
+          setCreateDialogOpen(open);
+          if (!open) {
+            resetManualOrderForm();
+          }
+        }}
+      >
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ShoppingCart className="h-5 w-5" />
+              إنشاء طلب جديد
+            </DialogTitle>
+            <DialogDescription>
+              أنشئ طلباً يدوياً من داخل البوابة بدون محادثة واتساب.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-5" dir="rtl">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <p className="text-sm font-medium">اسم العميل</p>
+                <Input
+                  value={manualCustomerName}
+                  onChange={(e) => setManualCustomerName(e.target.value)}
+                  placeholder="مثال: محمد أحمد"
+                />
+              </div>
+              <div className="space-y-2">
+                <p className="text-sm font-medium">رقم هاتف العميل</p>
+                <Input
+                  value={manualCustomerPhone}
+                  onChange={(e) => setManualCustomerPhone(e.target.value)}
+                  placeholder="01000000000"
+                  dir="ltr"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <p className="text-sm font-medium">بحث المنتجات وإضافتها</p>
+              <div className="relative">
+                <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  value={productSearch}
+                  onChange={(e) => setProductSearch(e.target.value)}
+                  placeholder="اكتب اسم المنتج أو SKU..."
+                  className="pr-9"
+                />
+
+                {productSearch.trim().length > 0 && (
+                  <div className="absolute z-20 mt-1 w-full rounded-md border bg-background shadow-md max-h-56 overflow-y-auto">
+                    {catalogLoading ? (
+                      <div className="px-3 py-2 text-sm text-muted-foreground flex items-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        جاري تحميل المنتجات...
+                      </div>
+                    ) : filteredCatalogProducts.length > 0 ? (
+                      filteredCatalogProducts.map((product) => (
+                        <button
+                          key={product.id}
+                          type="button"
+                          className="w-full text-right px-3 py-2 hover:bg-muted transition-colors"
+                          onClick={() => addCatalogItemToManualOrder(product)}
+                        >
+                          <div className="font-medium text-sm">
+                            {product.name}
+                          </div>
+                          <div className="text-xs text-muted-foreground flex items-center justify-between">
+                            <span dir="ltr">{product.sku || "-"}</span>
+                            <span>{formatCurrency(product.unitPrice)}</span>
+                          </div>
+                        </button>
+                      ))
+                    ) : (
+                      <div className="px-3 py-2 text-sm text-muted-foreground">
+                        لا توجد منتجات مطابقة
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div className="rounded-lg border">
+                <div className="px-3 py-2 border-b bg-muted/40 text-sm font-medium">
+                  عناصر الطلب
+                </div>
+                {manualItems.length === 0 ? (
+                  <div className="px-3 py-5 text-sm text-muted-foreground text-center">
+                    لم تتم إضافة منتجات بعد
+                  </div>
+                ) : (
+                  <div className="divide-y">
+                    {manualItems.map((item, index) => (
+                      <div
+                        key={`${item.catalogItemId || item.name}-${index}`}
+                        className="p-3 space-y-3"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium truncate">
+                              {item.name}
+                            </p>
+                            <p
+                              className="text-xs text-muted-foreground"
+                              dir="ltr"
+                            >
+                              {item.catalogItemId || "Custom Item"}
+                            </p>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive"
+                            onClick={() => removeManualItem(index)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                          <div className="space-y-1">
+                            <p className="text-xs text-muted-foreground">
+                              الكمية
+                            </p>
+                            <div className="flex items-center gap-1">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() =>
+                                  updateManualItem(index, {
+                                    quantity: Math.max(1, item.quantity - 1),
+                                  })
+                                }
+                              >
+                                <Minus className="h-3 w-3" />
+                              </Button>
+                              <Input
+                                type="number"
+                                min={1}
+                                value={item.quantity}
+                                onChange={(e) =>
+                                  updateManualItem(index, {
+                                    quantity: Number(e.target.value || 1),
+                                  })
+                                }
+                                className="h-8 text-center"
+                              />
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() =>
+                                  updateManualItem(index, {
+                                    quantity: item.quantity + 1,
+                                  })
+                                }
+                              >
+                                <Plus className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          </div>
+
+                          <div className="space-y-1">
+                            <p className="text-xs text-muted-foreground">
+                              سعر الوحدة
+                            </p>
+                            <Input
+                              type="number"
+                              min={0}
+                              step="0.01"
+                              value={item.unitPrice}
+                              onChange={(e) =>
+                                updateManualItem(index, {
+                                  unitPrice: Number(e.target.value || 0),
+                                })
+                              }
+                              className="h-8"
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <p className="text-xs text-muted-foreground">
+                              إجمالي السطر
+                            </p>
+                            <div className="h-8 px-3 rounded-md border bg-muted/40 flex items-center text-sm font-medium">
+                              {formatCurrency(item.quantity * item.unitPrice)}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="space-y-1">
+                          <p className="text-xs text-muted-foreground">
+                            ملاحظات العنصر (اختياري)
+                          </p>
+                          <Input
+                            value={item.notes || ""}
+                            onChange={(e) =>
+                              updateManualItem(index, { notes: e.target.value })
+                            }
+                            placeholder="مثال: بدون بصل"
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center justify-between rounded-md border px-3 py-2 bg-primary/5">
+                <span className="text-sm font-medium">الإجمالي الحالي</span>
+                <span className="text-sm font-bold text-primary">
+                  {formatCurrency(manualOrderTotal)}
+                </span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <p className="text-sm font-medium">نوع الطلب</p>
+                <Select
+                  value={manualDeliveryType}
+                  onValueChange={(value: "delivery" | "pickup" | "dine_in") =>
+                    setManualDeliveryType(value)
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="اختر نوع الطلب" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="delivery">توصيل</SelectItem>
+                    <SelectItem value="pickup">استلام</SelectItem>
+                    <SelectItem value="dine_in">تناول هنا</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-sm font-medium">طريقة الدفع</p>
+                <Select
+                  value={manualPaymentMethod}
+                  onValueChange={(value: "cash" | "card" | "transfer") =>
+                    setManualPaymentMethod(value)
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="اختر طريقة الدفع" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="cash">كاش</SelectItem>
+                    <SelectItem value="card">كارت</SelectItem>
+                    <SelectItem value="transfer">تحويل</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {manualDeliveryType === "delivery" && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium">عنوان التوصيل</p>
+                <Input
+                  value={manualDeliveryAddress}
+                  onChange={(e) => setManualDeliveryAddress(e.target.value)}
+                  placeholder="المدينة، المنطقة، الشارع..."
+                />
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <p className="text-sm font-medium">ملاحظات الطلب (اختياري)</p>
+              <Textarea
+                value={manualNotes}
+                onChange={(e) => setManualNotes(e.target.value)}
+                placeholder="أي تفاصيل إضافية للطلب"
+                rows={3}
+              />
+            </div>
+
+            <div className="flex justify-end gap-3 pt-2 border-t">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  if (creatingOrder) return;
+                  setCreateDialogOpen(false);
+                  resetManualOrderForm();
+                }}
+                disabled={creatingOrder}
+              >
+                إلغاء
+              </Button>
+              <Button
+                onClick={handleCreateManualOrder}
+                disabled={creatingOrder}
+              >
+                {creatingOrder ? (
+                  <>
+                    <Loader2 className="h-4 w-4 ml-2 animate-spin" />
+                    جاري الإنشاء...
+                  </>
+                ) : (
+                  "إنشاء الطلب"
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Order Detail Dialog */}
       <Dialog

@@ -469,6 +469,66 @@ export const merchantApi = {
     return apiFetch<{ orders: any[]; total: number }>(url, { apiKey });
   },
 
+  async createManualOrder(
+    merchantId: string,
+    apiKey: string,
+    payload: {
+      customerName: string;
+      customerPhone: string;
+      items: Array<{
+        catalogItemId?: string;
+        name?: string;
+        quantity: number;
+        unitPrice: number;
+        notes?: string;
+      }>;
+      deliveryType: "delivery" | "pickup" | "dine_in";
+      deliveryAddress?: string;
+      paymentMethod: "cash" | "card" | "transfer";
+      notes?: string;
+      source: "manual";
+    },
+  ) {
+    return apiFetch<any>("/v1/portal/orders", {
+      method: "POST",
+      apiKey,
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async getCalls(
+    merchantId: string,
+    apiKey: string,
+    options?: {
+      limit?: number;
+      offset?: number;
+      handledBy?: string;
+      status?: string;
+    },
+  ) {
+    const params = new URLSearchParams();
+    if (options?.limit) params.set("limit", String(options.limit));
+    if (options?.offset) params.set("offset", String(options.offset));
+    if (options?.handledBy) params.set("handledBy", options.handledBy);
+    if (options?.status) params.set("status", options.status);
+
+    const qs = params.toString();
+    const url = `/v1/portal/calls${qs ? `?${qs}` : ""}`;
+    return apiFetch<{ calls: any[]; total: number }>(url, { apiKey });
+  },
+
+  async getCallStats(merchantId: string, apiKey: string, days = 1) {
+    const safeDays = Math.max(1, Math.min(90, Number(days) || 1));
+    return apiFetch<{
+      periodDays: number;
+      callsToday: number;
+      aiHandled: number;
+      staffHandled: number;
+      missedCalls: number;
+      ordersFromCalls: number;
+    }>(`/v1/portal/calls/stats?days=${safeDays}`, { apiKey });
+  },
+
   async getConversations(merchantId: string, apiKey: string, status?: string) {
     let url = "/v1/portal/conversations";
     if (status) url += `?state=${status}`;

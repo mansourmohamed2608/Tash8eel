@@ -8,6 +8,7 @@ import { Sidebar, TopBar } from "@/components/layout";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { WebSocketNotifications } from "@/components/notifications/websocket-notifications";
+import { ActiveCallOrderFab } from "@/components/calls/active-call-order-fab";
 import { MerchantProvider, useMerchant } from "@/hooks/use-merchant";
 import { RealTimeEvent, useWebSocket } from "@/hooks/use-websocket";
 import { useAnalytics } from "@/hooks/use-analytics";
@@ -38,6 +39,12 @@ const FEATURE_GATES: Array<{
     featureKey: "conversations",
     title: "المحادثات غير مفعّلة",
     description: "ترقية للوصول إلى المحادثات وإدارة العملاء.",
+  },
+  {
+    prefix: "/merchant/calls",
+    featureKey: "conversations",
+    title: "المكالمات غير مفعّلة",
+    description: "ترقية لتفعيل مركز المكالمات الذكي.",
   },
   {
     prefix: "/merchant/inventory",
@@ -280,6 +287,7 @@ function MerchantLayoutContent({ children }: { children: React.ReactNode }) {
   const agentGate = AGENT_GATES.find((gate) =>
     pathname?.startsWith(gate.prefix),
   );
+  const isCashierRoute = pathname === "/merchant/cashier";
   const shouldWaitForEntitlements = !!(featureGate || agentGate) && isLoading;
   const isFeatureBlocked =
     !isLoading &&
@@ -384,24 +392,31 @@ function MerchantLayoutContent({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-muted/30">
-      <Sidebar
-        role="merchant"
-        merchantName={merchantName}
-        features={merchant?.features}
-        enabledAgents={merchant?.enabledAgents}
-        merchantId={merchantId}
-        apiKey={apiKey}
-        userRole={session?.user?.role}
-      />
+      {!isCashierRoute && (
+        <Sidebar
+          role="merchant"
+          merchantName={merchantName}
+          features={merchant?.features}
+          enabledAgents={merchant?.enabledAgents}
+          merchantId={merchantId}
+          apiKey={apiKey}
+          collapsed={collapsed}
+          onCollapsedChange={setCollapsed}
+          userRole={session?.user?.role}
+        />
+      )}
       <div
         className={cn(
-          "transition-all duration-300",
-          collapsed ? "lg:mr-16" : "lg:mr-64",
+          isCashierRoute ? "min-h-screen" : "transition-all duration-300",
+          !isCashierRoute && (collapsed ? "lg:mr-16" : "lg:mr-64"),
         )}
       >
-        <TopBar role="merchant" collapsed={collapsed} />
-        <main key={liveRevision} className="p-4 lg:p-6">
-          {isDemo && (
+        {!isCashierRoute && <TopBar role="merchant" collapsed={collapsed} />}
+        <main
+          key={liveRevision}
+          className={cn(isCashierRoute ? "p-0" : "p-4 lg:p-6")}
+        >
+          {isDemo && !isCashierRoute && (
             <div className="mb-4 px-4 py-2 bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-300 dark:border-yellow-700 rounded-lg text-yellow-800 dark:text-yellow-200 text-sm">
               <strong>وضع العرض التجريبي:</strong> البيانات المعروضة للتجربة
               فقط.{" "}
@@ -433,6 +448,7 @@ function MerchantLayoutContent({ children }: { children: React.ReactNode }) {
       </div>
       {/* Real-time WebSocket Notifications */}
       <WebSocketNotifications />
+      <ActiveCallOrderFab />
     </div>
   );
 }

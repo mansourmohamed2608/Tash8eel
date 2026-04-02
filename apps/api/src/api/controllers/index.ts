@@ -25,3 +25,5 @@ export * from "./integrations.controller";
 export * from "./integrations-public.controller";
 export * from "./copilot.controller";
 export * from "./advanced-reports.controller";
+export * from "./voice.controller";
+export * from "./portal-calls.controller";

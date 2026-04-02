@@ -10,6 +10,7 @@ export interface IConversationRepository {
   findByMerchantAndSender(
     merchantId: string,
     senderId: string,
+    channel?: "whatsapp" | "messenger" | "instagram",
   ): Promise<Conversation | null>;
   findPendingFollowups(before: Date): Promise<Conversation[]>;
   create(input: CreateConversationInput): Promise<Conversation>;

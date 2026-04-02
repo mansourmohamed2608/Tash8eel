@@ -91,6 +91,7 @@ export interface VoiceNoteParams {
 export interface InboxMessageParams {
   merchantId: string;
   senderId: string;
+  channel?: "whatsapp" | "messenger" | "instagram";
   text: string;
   messageType?: string;
   providerMessageId?: string;
@@ -391,7 +392,7 @@ export class InboxService {
     }
 
     // Acquire distributed lock to prevent race conditions
-    const lockKey = `conversation:${params.merchantId}:${params.senderId}`;
+    const lockKey = `conversation:${params.merchantId}:${params.channel || "whatsapp"}:${params.senderId}`;
     const lock = await this.redisService.acquireLock(lockKey, this.LOCK_TTL_MS);
 
     if (!lock) {
@@ -510,6 +511,7 @@ export class InboxService {
     let conversation = await this.conversationRepo.findByMerchantAndSender(
       params.merchantId,
       params.senderId,
+      params.channel,
     );
 
     if (!conversation || conversation.state === ConversationState.CLOSED) {
@@ -517,6 +519,7 @@ export class InboxService {
         params.merchantId,
         params.senderId,
         params.destinationPhone,
+        params.channel,
       );
     }
 
@@ -1475,6 +1478,7 @@ export class InboxService {
     merchantId: string,
     senderId: string,
     destinationPhone?: string,
+    channel: "whatsapp" | "messenger" | "instagram" = "whatsapp",
   ): Promise<Conversation> {
     // ── Branch routing ──────────────────────────────────────────────────────
     // When a merchant has multiple branches with distinct WA numbers, route
@@ -1510,6 +1514,7 @@ export class InboxService {
     const conversation = await this.conversationRepo.create({
       merchantId,
       senderId,
+      channel,
     });
 
     // Assign branch if found

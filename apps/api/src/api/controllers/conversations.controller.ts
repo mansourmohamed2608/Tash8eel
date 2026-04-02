@@ -38,6 +38,7 @@ interface ConversationResponseDto {
   id: string;
   merchantId: string;
   customerId?: string;
+  channel?: "whatsapp" | "messenger" | "instagram";
   senderId: string;
   state: string;
   cart: unknown;
@@ -175,6 +176,7 @@ export class ConversationsController {
       id: conversation.id,
       merchantId: conversation.merchantId,
       customerId: conversation.customerId,
+      channel: (conversation as any).channel || "whatsapp",
       senderId: conversation.senderId,
       state: conversation.state,
       cart: conversation.cart,

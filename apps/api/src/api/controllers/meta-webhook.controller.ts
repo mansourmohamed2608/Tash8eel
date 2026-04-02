@@ -32,6 +32,15 @@ import {
   MetaWebhookPayload,
   ParsedWhatsAppMessage,
 } from "../../application/adapters/meta-whatsapp.adapter";
+import {
+  IMessengerAdapter,
+  META_MESSENGER_ADAPTER,
+} from "../../application/adapters/messenger.adapter";
+import {
+  IInstagramAdapter,
+  META_INSTAGRAM_ADAPTER,
+} from "../../application/adapters/instagram.adapter";
+import { InboundMessage } from "../../application/adapters/channel.adapter.interface";
 import { TranscriptionAdapterFactory } from "../../application/adapters/transcription.adapter";
 import { CopilotAiService } from "../../application/llm/copilot-ai.service";
 import { CopilotDispatcherService } from "../../application/llm/copilot-dispatcher.service";
@@ -49,6 +58,10 @@ export class MetaWebhookController {
     @Inject(DATABASE_POOL) private readonly pool: Pool,
     @Inject(META_WHATSAPP_ADAPTER)
     private readonly metaAdapter: IMetaWhatsAppAdapter,
+    @Inject(META_MESSENGER_ADAPTER)
+    private readonly messengerAdapter: IMessengerAdapter,
+    @Inject(META_INSTAGRAM_ADAPTER)
+    private readonly instagramAdapter: IInstagramAdapter,
     private readonly inboxService: InboxService,
     private readonly driverStatusService: DriverStatusService,
     private readonly transcriptionFactory: TranscriptionAdapterFactory,
@@ -64,7 +77,10 @@ export class MetaWebhookController {
   // We must respond with the challenge integer to verify
   // ============================================================================
 
+  @Get()
   @Get("whatsapp")
+  @Get("messenger")
+  @Get("instagram")
   @ApiOperation({
     summary: "Meta WhatsApp webhook verification",
     description:
@@ -99,6 +115,48 @@ export class MetaWebhookController {
     }
   }
 
+  @Post()
+  @HttpCode(HttpStatus.OK)
+  @ApiExcludeEndpoint()
+  async handleMetaWebhook(
+    @Req() req: RawBodyRequest<Request>,
+    @Res() res: Response,
+    @Headers("x-hub-signature-256") signature: string,
+  ): Promise<void> {
+    const payload = (req.body || {}) as { object?: string };
+    const objectType = String(payload.object || "").toLowerCase();
+
+    if (objectType === "whatsapp_business_account") {
+      await this.handleWhatsAppWebhook(req, res, signature);
+      return;
+    }
+
+    if (objectType === "page") {
+      await this.handleSocialWebhook(
+        req,
+        res,
+        signature,
+        "messenger",
+        this.messengerAdapter,
+      );
+      return;
+    }
+
+    if (objectType === "instagram") {
+      await this.handleSocialWebhook(
+        req,
+        res,
+        signature,
+        "instagram",
+        this.instagramAdapter,
+      );
+      return;
+    }
+
+    this.logger.warn({ msg: "Unsupported Meta webhook object", objectType });
+    res.status(200).json({ status: "ignored" });
+  }
+
   // ============================================================================
   // INBOUND MESSAGES (POST)
   // Meta POSTs JSON with X-Hub-Signature-256 header
@@ -118,6 +176,29 @@ export class MetaWebhookController {
     @Res() res: Response,
     @Headers("x-hub-signature-256") signature: string,
   ): Promise<void> {
+    const objectType = String((req.body as any)?.object || "").toLowerCase();
+    if (objectType === "page") {
+      await this.handleSocialWebhook(
+        req,
+        res,
+        signature,
+        "messenger",
+        this.messengerAdapter,
+      );
+      return;
+    }
+
+    if (objectType === "instagram") {
+      await this.handleSocialWebhook(
+        req,
+        res,
+        signature,
+        "instagram",
+        this.instagramAdapter,
+      );
+      return;
+    }
+
     const correlationId = uuidv4();
     const startTime = Date.now();
 
@@ -651,5 +732,147 @@ export class MetaWebhookController {
        WHERE w.message_id = m.id AND w.wa_message_id = $2`,
       [status, waMessageId],
     );
+  }
+
+  private async handleSocialWebhook(
+    req: RawBodyRequest<Request>,
+    res: Response,
+    signature: string,
+    channel: "messenger" | "instagram",
+    adapter: IMessengerAdapter | IInstagramAdapter,
+  ): Promise<void> {
+    const correlationId = uuidv4();
+    const startTime = Date.now();
+
+    try {
+      const rawBody = req.rawBody;
+      if (!rawBody) {
+        res
+          .status(401)
+          .json({ error: "Missing raw body for signature validation" });
+        return;
+      }
+
+      if (!adapter.validateSignature(rawBody, signature)) {
+        this.logger.warn({
+          msg: `Invalid ${channel} webhook signature`,
+          correlationId,
+        });
+        res.status(401).json({ error: "Invalid signature" });
+        return;
+      }
+
+      const payload = req.body;
+      res.status(200).json({ status: "ok" });
+
+      const parsed = adapter.parseInboundMessage(payload);
+      if (!parsed) {
+        this.logger.debug({
+          msg: `No ${channel} inbound message in webhook`,
+          correlationId,
+        });
+        return;
+      }
+
+      const merchantId = await adapter.resolveMerchantIdFromPayload(
+        payload,
+        parsed.recipientId,
+      );
+
+      if (!merchantId) {
+        this.logger.warn({
+          msg: `No merchant mapping found for ${channel} recipient`,
+          correlationId,
+          recipientId: parsed.recipientId,
+        });
+        return;
+      }
+
+      const provider =
+        channel === "messenger" ? "META_MESSENGER" : "META_INSTAGRAM";
+      if (parsed.messageId) {
+        try {
+          const dedup = await this.pool.query(
+            `INSERT INTO inbound_webhook_events (provider, message_id, merchant_id)
+             VALUES ($1, $2, $3)
+             ON CONFLICT (provider, message_id) DO NOTHING
+             RETURNING id`,
+            [provider, parsed.messageId, merchantId],
+          );
+
+          if ((dedup.rowCount ?? 0) === 0) {
+            this.logger.warn({
+              msg: `Duplicate ${channel} webhook; skipping`,
+              messageId: parsed.messageId,
+              correlationId,
+            });
+            return;
+          }
+        } catch {
+          // Proceed if dedup table is not migrated yet.
+        }
+      }
+
+      const effectiveText = this.buildInboundText(parsed);
+      const inboxResponse = await this.inboxService.processMessage({
+        merchantId,
+        senderId: parsed.senderId,
+        text: effectiveText,
+        messageType: parsed.messageType,
+        providerMessageId: parsed.messageId,
+        correlationId,
+        channel,
+      });
+
+      this.logger.log({
+        msg: `${channel} inbox response generated`,
+        correlationId,
+        conversationId: inboxResponse.conversationId,
+        action: inboxResponse.action,
+        duration: Date.now() - startTime,
+      });
+
+      if (!inboxResponse.replyText) {
+        if (typeof (adapter as any).sendReadReceipt === "function") {
+          await (adapter as any).sendReadReceipt(parsed.senderId);
+        }
+        return;
+      }
+
+      try {
+        await adapter.sendTypingIndicator(parsed.senderId);
+      } catch (typingError) {
+        this.logger.debug({
+          msg: `${channel} typing indicator failed`,
+          correlationId,
+          error: (typingError as Error).message,
+        });
+      }
+
+      await adapter.sendMessage(parsed.senderId, inboxResponse.replyText);
+    } catch (error) {
+      this.logger.error({
+        msg: `Error processing ${channel} webhook`,
+        correlationId,
+        error: (error as Error).message,
+        stack: (error as Error).stack,
+      });
+    }
+  }
+
+  private buildInboundText(parsed: InboundMessage): string {
+    const body = String(parsed.text || "").trim();
+    if (body.length > 0) {
+      return body;
+    }
+
+    const type = String(parsed.messageType || "").toLowerCase();
+    if (type === "image") {
+      return "[صورة]";
+    }
+    if (type === "audio") {
+      return "[رسالة صوتية]";
+    }
+    return "[رسالة]";
   }
 }

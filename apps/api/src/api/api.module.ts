@@ -53,6 +53,8 @@ import { PaymentsController } from "./controllers/payments.controller";
 import { PublicOrdersController } from "./controllers/public-orders.controller";
 import { KpiController } from "./controllers/kpi.controller";
 import { AgentTeamsController } from "./controllers/agent-teams.controller";
+import { VoiceController } from "./controllers/voice.controller";
+import { PortalCallsController } from "./controllers/portal-calls.controller";
 import {
   FinanceReportsController,
   AdvancedInventoryController,
@@ -135,6 +137,8 @@ import { CopilotPlanGuard } from "../shared/guards/copilot-plan.guard";
     PaymentsController,
     PublicOrdersController,
     KpiController,
+    VoiceController,
+    PortalCallsController,
     EarlyAccessController,
     LoyaltyController,
     FeatureRequestsController,

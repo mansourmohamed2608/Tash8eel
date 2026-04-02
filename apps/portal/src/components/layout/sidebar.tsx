@@ -15,6 +15,7 @@ import {
   Bell,
   Menu,
   X,
+  ChevronDown,
   ChevronLeft,
   Users,
   AlertTriangle,
@@ -27,7 +28,6 @@ import {
   Star,
   TrendingUp,
   LineChart,
-  CreditCard,
   ScanLine,
   Target,
   Lock,
@@ -38,7 +38,6 @@ import {
   LifeBuoy,
   RefreshCw,
   Tag,
-  Link2,
   Wallet,
   ClipboardList,
   Receipt,
@@ -49,6 +48,7 @@ import {
   UserCheck,
   BellRing,
   Banknote,
+  PhoneCall,
   Truck,
   Store,
   Image,
@@ -86,6 +86,24 @@ interface NavItem {
   hidden?: boolean; // Hide from sidebar (coming_soon features)
 }
 
+interface ProcessedNavItem extends NavItem {
+  disabled: boolean;
+  roleBlocked: boolean;
+  hiddenBlocked: boolean;
+}
+
+interface SectionNavItem {
+  href: string;
+  label?: string;
+}
+
+interface MerchantSidebarSection {
+  id: string;
+  label: string;
+  icon: React.ElementType;
+  items: SectionNavItem[];
+}
+
 const merchantNavItems: NavItem[] = [
   // OPERATIONS AGENT (أولاً)
   { href: "/merchant/dashboard", label: "لوحة التحكم", icon: LayoutDashboard },
@@ -95,7 +113,14 @@ const merchantNavItems: NavItem[] = [
     icon: MessageSquare,
     featureKey: "conversations",
   },
+  {
+    href: "/merchant/calls",
+    label: "المكالمات",
+    icon: PhoneCall,
+    featureKey: "conversations",
+  },
   { href: "/merchant/orders", label: "الطلبات", icon: ShoppingCart },
+  { href: "/merchant/cashier", label: "الكاشير", icon: Banknote },
   { href: "/merchant/followups", label: "المتابعات", icon: ClipboardList },
   { href: "/merchant/delivery-drivers", label: "سائقي التوصيل", icon: Truck },
   { href: "/merchant/customers", label: "العملاء", icon: Users },
@@ -365,11 +390,140 @@ const adminNavItems: NavItem[] = [
   { href: "/admin/audit-logs", label: "سجل النشاط", icon: FileText },
 ];
 
+const MERCHANT_SECTION_STORAGE_KEY = "merchant-sidebar-open-section";
+
+const MERCHANT_SECTION_CONFIG: MerchantSidebarSection[] = [
+  {
+    id: "main",
+    label: "الرئيسية",
+    icon: LayoutDashboard,
+    items: [
+      { href: "/merchant/dashboard", label: "لوحة التحكم" },
+      { href: "/merchant/onboarding", label: "البدء السريع" },
+    ],
+  },
+  {
+    id: "conversations",
+    label: "المحادثات",
+    icon: MessageSquare,
+    items: [
+      { href: "/merchant/conversations", label: "المحادثات" },
+      { href: "/merchant/calls", label: "المكالمات" },
+      {
+        href: "/merchant/audit/ai-decisions",
+        label: "قرارات الذكاء الاصطناعي",
+      },
+      { href: "/merchant/agent-activity", label: "نشاط الوكلاء" },
+      { href: "/merchant/agents", label: "الوكلاء والذكاء" },
+      { href: "/merchant/teams", label: "فريق الوكلاء" },
+    ],
+  },
+  {
+    id: "orders",
+    label: "الطلبات",
+    icon: ShoppingCart,
+    items: [
+      { href: "/merchant/orders", label: "الطلبات" },
+      { href: "/merchant/cashier", label: "الكاشير" },
+      { href: "/merchant/billing", label: "الفواتير" },
+      { href: "/merchant/payments/cod", label: "تحصيل عند الاستلام" },
+      { href: "/merchant/payments/proofs", label: "إثبات الدفع" },
+      { href: "/merchant/plan", label: "خطي والأسعار" },
+      { href: "/merchant/followups", label: "المتابعات" },
+      { href: "/merchant/delivery-drivers", label: "سائقو التوصيل" },
+      { href: "/merchant/feature-requests", label: "اقتراحات وعروض السعر" },
+    ],
+  },
+  {
+    id: "inventory",
+    label: "المخزون",
+    icon: Package,
+    items: [
+      { href: "/merchant/inventory", label: "المخزون" },
+      { href: "/merchant/inventory-insights", label: "رؤى المخزون" },
+      { href: "/merchant/suppliers", label: "الموردون" },
+      { href: "/merchant/automations", label: "الأتمتة" },
+      { href: "/merchant/analytics/forecast", label: "توقعات الطلب" },
+      { href: "/merchant/forecast", label: "منصة التنبؤ" },
+      {
+        href: "/merchant/inventory-insights/expiry-alerts",
+        label: "تنبيهات الصلاحية",
+      },
+      {
+        href: "/merchant/inventory-insights/fifo-valuation",
+        label: "تقييم المخزون FIFO",
+      },
+      {
+        href: "/merchant/inventory-insights/sku-merge",
+        label: "دمج المنتجات المكررة",
+      },
+    ],
+  },
+  {
+    id: "customers",
+    label: "العملاء",
+    icon: Users,
+    items: [
+      { href: "/merchant/customers", label: "العملاء" },
+      { href: "/merchant/loyalty", label: "برنامج الولاء" },
+      { href: "/merchant/campaigns", label: "الحملات" },
+      { href: "/merchant/customer-segments", label: "شرائح العملاء" },
+      { href: "/merchant/notifications", label: "الإشعارات" },
+      { href: "/merchant/push-notifications", label: "إرسال إشعارات" },
+    ],
+  },
+  {
+    id: "reports",
+    label: "التقارير",
+    icon: BarChart3,
+    items: [
+      { href: "/merchant/analytics", label: "التحليلات" },
+      { href: "/merchant/kpis", label: "مؤشرات الأداء" },
+      { href: "/merchant/reports", label: "التقارير" },
+      { href: "/merchant/reports/cfo", label: "ملخص المدير المالي" },
+      { href: "/merchant/reports/accountant", label: "حزمة المحاسب" },
+      { href: "/merchant/reports/tax", label: "تقرير الضرائب" },
+      { href: "/merchant/reports/cash-flow", label: "التدفق النقدي" },
+      { href: "/merchant/reports/discount-impact", label: "تأثير الخصومات" },
+      { href: "/merchant/reports/refund-analysis", label: "تحليل المرتجعات" },
+      { href: "/merchant/expenses", label: "المصروفات" },
+      { href: "/merchant/branches/comparison", label: "مقارنة الفروع" },
+      { href: "/merchant/branches", label: "الفروع" },
+    ],
+  },
+  {
+    id: "settings",
+    label: "الإعدادات",
+    icon: Settings,
+    items: [
+      { href: "/merchant/team", label: "الفريق" },
+      { href: "/merchant/security", label: "الأمان" },
+      { href: "/merchant/audit", label: "سجل التدقيق" },
+      { href: "/merchant/pos-integrations", label: "POS Integrations" },
+      { href: "/merchant/settings", label: "الإعدادات" },
+      { href: "/merchant/import-export", label: "استيراد/تصدير" },
+      { href: "/merchant/assistant", label: "الدعم الفني" },
+    ],
+  },
+  {
+    id: "help",
+    label: "المساعدة",
+    icon: HelpCircle,
+    items: [
+      { href: "/merchant/help", label: "مركز المساعدة" },
+      { href: "/merchant/roadmap", label: "قادم قريباً" },
+      { href: "/merchant/knowledge-base", label: "قاعدة المعرفة" },
+    ],
+  },
+];
+
 interface SidebarProps {
   role: "merchant" | "admin";
   merchantName?: string;
   merchantId?: string;
   apiKey?: string;
+  collapsed?: boolean;
+  onCollapsedChange?: (collapsed: boolean) => void;
   userRole?: string; // Staff role: OWNER, ADMIN, MANAGER, AGENT, VIEWER
   enabledAgents?: string[];
   features?: {
@@ -397,62 +551,187 @@ export function Sidebar({
   enabledAgents,
   merchantId,
   apiKey,
+  collapsed: collapsedProp,
+  onCollapsedChange,
   userRole,
 }: SidebarProps) {
-  const [collapsed, setCollapsed] = useState(false);
+  const [internalCollapsed, setInternalCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();
   const [kbCompletion, setKbCompletion] = useState<number | null>(null);
   const [kbSyncing, setKbSyncing] = useState(false);
   const [kbLastUpdated, setKbLastUpdated] = useState<number | null>(null);
+  const [expandedSectionId, setExpandedSectionId] = useState<string | null>(
+    null,
+  );
+
+  const collapsed =
+    typeof collapsedProp === "boolean" ? collapsedProp : internalCollapsed;
+
+  const setCollapsed = (next: boolean) => {
+    if (typeof collapsedProp !== "boolean") {
+      setInternalCollapsed(next);
+    }
+    onCollapsedChange?.(next);
+  };
 
   // Process nav items: show all but mark disabled features or RBAC-restricted
-  const processedNavItems = useMemo(() => {
+  const processedNavItems = useMemo<ProcessedNavItem[]>(() => {
     if (role !== "merchant") {
       return adminNavItems.map((item) => ({
         ...item,
         disabled: false,
         roleBlocked: false,
+        hiddenBlocked: false,
       }));
     }
 
-    return merchantNavItems
-      .filter((item) => !item.hidden)
-      .map((item) => {
-        // Check role-based restriction first
-        const userLevel = ROLE_LEVEL[userRole || "OWNER"] ?? 0;
-        const requiredLevel = item.minRole
-          ? (ROLE_LEVEL[item.minRole] ?? 100)
-          : 0;
-        const roleBlocked = userLevel < requiredLevel;
+    return merchantNavItems.map((item) => {
+      // Check role-based restriction first
+      const userLevel = ROLE_LEVEL[userRole || "OWNER"] ?? 0;
+      const requiredLevel = item.minRole
+        ? (ROLE_LEVEL[item.minRole] ?? 100)
+        : 0;
+      const roleBlocked = userLevel < requiredLevel;
 
-        // Check feature gate
-        let featureDisabled = false;
-        if (item.featureKey && features) {
-          featureDisabled =
-            features[item.featureKey as keyof typeof features] === false;
-        }
+      // Check feature gate
+      let featureDisabled = false;
+      if (item.featureKey && features) {
+        featureDisabled =
+          features[item.featureKey as keyof typeof features] === false;
+      }
 
-        const agentDisabled =
-          !!item.agentKey &&
-          Array.isArray(enabledAgents) &&
-          !enabledAgents.includes(item.agentKey);
+      const agentDisabled =
+        !!item.agentKey &&
+        Array.isArray(enabledAgents) &&
+        !enabledAgents.includes(item.agentKey);
 
-        return {
-          ...item,
-          disabled: featureDisabled || roleBlocked || agentDisabled,
-          roleBlocked,
-        };
-      });
+      const hiddenBlocked = !!item.hidden;
+
+      return {
+        ...item,
+        disabled:
+          featureDisabled || roleBlocked || agentDisabled || hiddenBlocked,
+        roleBlocked,
+        hiddenBlocked,
+      };
+    });
   }, [role, features, userRole, enabledAgents]);
 
   const navItems = processedNavItems;
   const title = role === "merchant" ? "تشغيل" : "تشغيل - لوحة الإدارة";
 
+  const isItemActive = (href: string, hrefs: string[]) => {
+    const isExact = pathname === href;
+    const isPrefix = pathname.startsWith(href + "/");
+    const hasMoreSpecificMatch =
+      isPrefix &&
+      hrefs.some(
+        (otherHref) =>
+          otherHref !== href &&
+          otherHref.startsWith(href + "/") &&
+          (pathname === otherHref || pathname.startsWith(otherHref + "/")),
+      );
+
+    return isExact || (isPrefix && !hasMoreSpecificMatch);
+  };
+
+  const merchantSections = useMemo(() => {
+    if (role !== "merchant") return [];
+
+    const navByHref = new Map(navItems.map((item) => [item.href, item]));
+    const usedHrefs = new Set<string>();
+
+    const sections = MERCHANT_SECTION_CONFIG.map((section) => {
+      const items = section.items
+        .map((mappedItem) => {
+          const sourceItem = navByHref.get(mappedItem.href);
+          if (!sourceItem) return null;
+          usedHrefs.add(mappedItem.href);
+          return {
+            ...sourceItem,
+            label: mappedItem.label || sourceItem.label,
+          };
+        })
+        .filter(Boolean) as ProcessedNavItem[];
+
+      return {
+        ...section,
+        items,
+      };
+    });
+
+    const uncategorizedItems = navItems.filter(
+      (item) => !usedHrefs.has(item.href),
+    );
+
+    if (uncategorizedItems.length > 0) {
+      const helpSection = sections.find((section) => section.id === "help");
+      if (helpSection) {
+        helpSection.items.push(...uncategorizedItems);
+      }
+    }
+
+    return sections;
+  }, [role, navItems]);
+
+  const merchantSectionItemHrefs = useMemo(
+    () =>
+      merchantSections.flatMap((section) =>
+        section.items.map((item) => item.href),
+      ),
+    [merchantSections],
+  );
+
+  const activeMerchantSectionId = useMemo(() => {
+    if (role !== "merchant") return null;
+
+    return (
+      merchantSections.find((section) =>
+        section.items.some((item) =>
+          isItemActive(item.href, merchantSectionItemHrefs),
+        ),
+      )?.id ?? null
+    );
+  }, [role, merchantSections, merchantSectionItemHrefs, pathname]);
+
   // Close mobile nav on route change
   useEffect(() => {
     setMobileOpen(false);
   }, [pathname]);
+
+  useEffect(() => {
+    if (role !== "merchant" || typeof window === "undefined") return;
+
+    const savedSection = window.localStorage.getItem(
+      MERCHANT_SECTION_STORAGE_KEY,
+    );
+
+    if (
+      savedSection &&
+      merchantSections.some((section) => section.id === savedSection)
+    ) {
+      setExpandedSectionId(savedSection);
+      return;
+    }
+
+    setExpandedSectionId(merchantSections[0]?.id ?? null);
+  }, [role, merchantSections]);
+
+  useEffect(() => {
+    if (role !== "merchant" || !activeMerchantSectionId) return;
+
+    setExpandedSectionId((previous) =>
+      previous === activeMerchantSectionId ? previous : activeMerchantSectionId,
+    );
+
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(
+        MERCHANT_SECTION_STORAGE_KEY,
+        activeMerchantSectionId,
+      );
+    }
+  }, [role, activeMerchantSectionId]);
 
   useEffect(() => {
     if (role !== "merchant" || !merchantId || !apiKey) return;
@@ -593,7 +872,7 @@ export function Sidebar({
         aria-label="القائمة الجانبية"
         className={cn(
           "fixed top-0 right-0 h-full bg-card border-l shadow-sm z-50 transition-all duration-300",
-          collapsed ? "w-16" : "w-64",
+          collapsed ? "w-64 lg:w-16" : "w-64",
           mobileOpen ? "translate-x-0" : "translate-x-full lg:translate-x-0",
         )}
       >
@@ -640,68 +919,209 @@ export function Sidebar({
             className="flex-1 overflow-y-auto p-2"
             aria-label="التنقل الرئيسي"
           >
-            <ul className="space-y-1" role="list">
-              {navItems.map((item) => {
-                // Use exact match, or prefix match only if no other nav item is a more specific match
-                const isExact = pathname === item.href;
-                const isPrefix = pathname.startsWith(item.href + "/");
-                const hasMoreSpecificMatch =
-                  isPrefix &&
-                  navItems.some(
-                    (other) =>
-                      other.href !== item.href &&
-                      other.href.startsWith(item.href + "/") &&
-                      (pathname === other.href ||
-                        pathname.startsWith(other.href + "/")),
+            {role === "merchant" ? (
+              <ul className="space-y-1" role="list">
+                {merchantSections.map((section) => {
+                  const isExpanded =
+                    !collapsed && expandedSectionId === section.id;
+                  const isActiveSection = section.items.some((item) =>
+                    isItemActive(item.href, merchantSectionItemHrefs),
                   );
-                const isActive = isExact || (isPrefix && !hasMoreSpecificMatch);
-                const isDisabled = item.disabled;
 
-                // Disabled items show as greyed out with upgrade link or role restriction
-                if (isDisabled) {
-                  const isRoleRestricted = item.roleBlocked;
+                  const sectionButton = (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (collapsed) return;
+
+                        setExpandedSectionId((previous) => {
+                          const nextValue =
+                            previous === section.id && !isActiveSection
+                              ? null
+                              : section.id;
+
+                          if (typeof window !== "undefined" && nextValue) {
+                            window.localStorage.setItem(
+                              MERCHANT_SECTION_STORAGE_KEY,
+                              nextValue,
+                            );
+                          }
+
+                          return nextValue;
+                        });
+                      }}
+                      className={cn(
+                        "h-11 w-full rounded-md px-3 text-sm font-semibold transition-colors",
+                        collapsed
+                          ? "flex items-center justify-center"
+                          : "flex flex-row-reverse items-center justify-between",
+                        isActiveSection
+                          ? "bg-primary-50 text-primary-700"
+                          : "text-foreground hover:bg-muted",
+                      )}
+                      aria-expanded={isExpanded}
+                      aria-controls={`section-${section.id}`}
+                      aria-label={collapsed ? section.label : undefined}
+                    >
+                      <span className="flex items-center gap-3">
+                        <section.icon className="h-5 w-5 flex-shrink-0" />
+                        {!collapsed && <span>{section.label}</span>}
+                      </span>
+                      {!collapsed && (
+                        <ChevronDown
+                          className={cn(
+                            "h-4 w-4 transition-transform",
+                            isExpanded && "rotate-180",
+                          )}
+                          aria-hidden="true"
+                        />
+                      )}
+                    </button>
+                  );
+
                   return (
-                    <li key={item.href}>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <div
-                            className={cn(
-                              "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors",
-                              "text-muted-foreground/40 cursor-not-allowed",
-                            )}
-                          >
-                            <item.icon className="h-5 w-5 flex-shrink-0 opacity-40" />
-                            {!collapsed && (
-                              <>
-                                <span className="flex-1 line-through opacity-40">
-                                  {item.label}
-                                </span>
-                                {isRoleRestricted ? (
-                                  <Shield className="h-3 w-3 text-red-400/60" />
-                                ) : (
-                                  <Lock className="h-3 w-3 text-muted-foreground/60" />
-                                )}
-                              </>
-                            )}
-                          </div>
-                        </TooltipTrigger>
-                        <TooltipContent side="left">
-                          {isRoleRestricted
-                            ? "ليس لديك صلاحية للوصول لهذا القسم"
-                            : item.upgradeText || "ترقية لتفعيل هذه الميزة"}
-                        </TooltipContent>
-                      </Tooltip>
+                    <li key={section.id} className="space-y-1">
+                      {collapsed ? (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            {sectionButton}
+                          </TooltipTrigger>
+                          <TooltipContent side="left">
+                            {section.label}
+                          </TooltipContent>
+                        </Tooltip>
+                      ) : (
+                        sectionButton
+                      )}
+
+                      {!collapsed && isExpanded && (
+                        <ul
+                          id={`section-${section.id}`}
+                          className="space-y-0.5 pr-4"
+                          role="list"
+                        >
+                          {section.items.map((item) => {
+                            const isActive = isItemActive(
+                              item.href,
+                              merchantSectionItemHrefs,
+                            );
+
+                            if (item.disabled) {
+                              const tooltipText = item.roleBlocked
+                                ? "ليس لديك صلاحية للوصول لهذا القسم"
+                                : item.hiddenBlocked
+                                  ? "هذه الصفحة قادمة قريباً"
+                                  : item.upgradeText ||
+                                    "ترقية لتفعيل هذه الميزة";
+
+                              return (
+                                <li key={item.href}>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <div
+                                        className={cn(
+                                          "flex items-center gap-3 rounded-md border-l-2 border-transparent px-3 py-2 text-[13px] font-medium",
+                                          "cursor-not-allowed text-muted-foreground/45",
+                                        )}
+                                      >
+                                        <item.icon className="h-4 w-4 flex-shrink-0 opacity-45" />
+                                        <span className="flex-1 line-through opacity-50">
+                                          {item.label}
+                                        </span>
+                                        {item.roleBlocked ? (
+                                          <Shield className="h-3 w-3 text-red-400/70" />
+                                        ) : (
+                                          <Lock className="h-3 w-3 text-muted-foreground/70" />
+                                        )}
+                                      </div>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="left">
+                                      {tooltipText}
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </li>
+                              );
+                            }
+
+                            return (
+                              <li key={item.href}>
+                                <Link
+                                  href={item.href}
+                                  aria-current={isActive ? "page" : undefined}
+                                  className={cn(
+                                    "flex items-center gap-3 rounded-md border-l-2 px-3 py-2 text-[13px] font-medium transition-colors",
+                                    isActive
+                                      ? "border-primary-600 bg-primary-50/70 text-primary-700"
+                                      : "border-transparent text-muted-foreground hover:bg-muted hover:text-foreground",
+                                  )}
+                                >
+                                  <item.icon className="h-4 w-4 flex-shrink-0" />
+                                  <span className="flex-1">{item.label}</span>
+                                  {item.href === "/merchant/knowledge-base" &&
+                                    kbCompletion !== null && (
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <div className="flex items-center gap-1">
+                                            <RefreshCw
+                                              className={cn(
+                                                "h-3 w-3 text-muted-foreground",
+                                                kbSyncing && "animate-spin",
+                                              )}
+                                            />
+                                            <Badge
+                                              variant={
+                                                kbCompletion < 100
+                                                  ? "secondary"
+                                                  : "default"
+                                              }
+                                              className="text-xs"
+                                            >
+                                              {kbCompletion}%
+                                            </Badge>
+                                          </div>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          {kbLastUpdated
+                                            ? `آخر تحديث: ${new Date(kbLastUpdated).toLocaleString("ar-SA")}`
+                                            : "آخر تحديث: غير متوفر"}
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    )}
+                                  {item.badge !== undefined &&
+                                    item.badge > 0 && (
+                                      <Badge
+                                        variant="destructive"
+                                        className="text-xs"
+                                      >
+                                        {item.badge}
+                                      </Badge>
+                                    )}
+                                </Link>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      )}
                     </li>
                   );
-                }
+                })}
+              </ul>
+            ) : (
+              <ul className="space-y-1" role="list">
+                {navItems.map((item) => {
+                  const isActive = isItemActive(
+                    item.href,
+                    navItems.map((entry) => entry.href),
+                  );
 
-                return (
-                  <li key={item.href}>
+                  const adminLink = (
                     <Link
                       href={item.href}
                       aria-current={isActive ? "page" : undefined}
+                      aria-label={collapsed ? item.label : undefined}
                       className={cn(
                         "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors",
+                        collapsed && "justify-center",
                         isActive
                           ? "bg-primary-100 text-primary-700"
                           : "text-muted-foreground hover:bg-muted hover:text-foreground",
@@ -709,50 +1129,28 @@ export function Sidebar({
                     >
                       <item.icon className="h-5 w-5 flex-shrink-0" />
                       {!collapsed && (
-                        <>
-                          <span className="flex-1">{item.label}</span>
-                          {item.href === "/merchant/knowledge-base" &&
-                            kbCompletion !== null && (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <div className="flex items-center gap-1">
-                                    <RefreshCw
-                                      className={cn(
-                                        "h-3 w-3 text-muted-foreground",
-                                        kbSyncing && "animate-spin",
-                                      )}
-                                    />
-                                    <Badge
-                                      variant={
-                                        kbCompletion < 100
-                                          ? "secondary"
-                                          : "default"
-                                      }
-                                      className="text-xs"
-                                    >
-                                      {kbCompletion}%
-                                    </Badge>
-                                  </div>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  {kbLastUpdated
-                                    ? `آخر تحديث: ${new Date(kbLastUpdated).toLocaleString("ar-SA")}`
-                                    : "آخر تحديث: غير متوفر"}
-                                </TooltipContent>
-                              </Tooltip>
-                            )}
-                          {item.badge !== undefined && item.badge > 0 && (
-                            <Badge variant="destructive" className="text-xs">
-                              {item.badge}
-                            </Badge>
-                          )}
-                        </>
+                        <span className="flex-1">{item.label}</span>
                       )}
                     </Link>
-                  </li>
-                );
-              })}
-            </ul>
+                  );
+
+                  return (
+                    <li key={item.href}>
+                      {collapsed ? (
+                        <Tooltip>
+                          <TooltipTrigger asChild>{adminLink}</TooltipTrigger>
+                          <TooltipContent side="left">
+                            {item.label}
+                          </TooltipContent>
+                        </Tooltip>
+                      ) : (
+                        adminLink
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
           </nav>
 
           {/* Footer */}

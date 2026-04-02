@@ -10,4 +10,5 @@ export * from "./driver-status.service";
 export * from "./usage-guard.service";
 export * from "./billing-catalog.service";
 export * from "./merchant-deletion.service";
+export * from "./voice-ai.service";
 export * from "./services.module";

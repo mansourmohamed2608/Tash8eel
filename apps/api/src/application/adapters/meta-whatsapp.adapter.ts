@@ -9,6 +9,10 @@ import { Pool } from "pg";
 import { v4 as uuidv4 } from "uuid";
 import * as crypto from "crypto";
 import { DATABASE_POOL } from "../../infrastructure/database/database.module";
+import {
+  ChannelAdapterInterface,
+  InboundMessage,
+} from "./channel.adapter.interface";
 
 // ============================================================================
 // Meta Cloud API Types
@@ -183,16 +187,22 @@ export interface MerchantPhoneMapping {
 
 export const META_WHATSAPP_ADAPTER = Symbol("META_WHATSAPP_ADAPTER");
 
-export interface IMetaWhatsAppAdapter {
+export interface IMetaWhatsAppAdapter extends ChannelAdapterInterface {
   // Webhook verification (GET challenge-response)
   verifyWebhook(mode: string, token: string, challenge: string): string | null;
 
   // Signature validation (X-Hub-Signature-256)
   validateSignature(signature: string, rawBody: Buffer): boolean;
+  validateSignature(rawBody: Buffer, signature: string): boolean;
 
   // Parsing
   parseWebhook(payload: MetaWebhookPayload): ParsedWhatsAppMessage | null;
+  parseInboundMessage(webhookPayload: unknown): InboundMessage | null;
   parseStatusUpdates(payload: MetaWebhookPayload): MetaStatusUpdate[];
+
+  // Generic channel interface wrappers
+  sendMessage(recipientId: string, message: string): Promise<void>;
+  sendTypingIndicator(recipientId: string): Promise<void>;
 
   // Merchant lookup
   getMerchantByPhoneNumberId(
@@ -315,7 +325,16 @@ export class MetaWhatsAppAdapter implements IMetaWhatsAppAdapter {
   // HMAC-SHA256 of raw body using App Secret
   // ============================================================================
 
-  validateSignature(signature: string, rawBody: Buffer): boolean {
+  validateSignature(rawBody: Buffer, signature: string): boolean;
+  validateSignature(signature: string, rawBody: Buffer): boolean;
+  validateSignature(arg1: string | Buffer, arg2: string | Buffer): boolean {
+    const signature = typeof arg1 === "string" ? arg1 : String(arg2 || "");
+    const rawBody = Buffer.isBuffer(arg1)
+      ? arg1
+      : Buffer.isBuffer(arg2)
+        ? arg2
+        : Buffer.from(String(arg2 || ""));
+
     if (!this.appSecret) {
       this.logger.error(
         "META_APP_SECRET is not configured. Rejecting all webhook requests.",
@@ -494,6 +513,40 @@ export class MetaWhatsAppAdapter implements IMetaWhatsAppAdapter {
     });
 
     return result;
+  }
+
+  parseInboundMessage(webhookPayload: unknown): InboundMessage | null {
+    const parsed = this.parseWebhook(webhookPayload as MetaWebhookPayload);
+    if (!parsed) {
+      return null;
+    }
+
+    return {
+      channel: "whatsapp",
+      messageId: parsed.messageId,
+      senderId: parsed.fromNumber,
+      recipientId: parsed.toNumber,
+      text: parsed.body,
+      messageType: parsed.messageType,
+      hasMedia: parsed.hasMedia,
+      mediaId: parsed.mediaIds[0],
+      mediaMimeType: parsed.mediaContentTypes[0],
+      rawPayload: parsed.rawPayload,
+    };
+  }
+
+  async sendMessage(recipientId: string, message: string): Promise<void> {
+    const result = await this.sendTextMessage(recipientId, message);
+    if (!result.success) {
+      throw new Error(result.errorMessage || "Failed to send WhatsApp message");
+    }
+  }
+
+  async sendTypingIndicator(recipientId: string): Promise<void> {
+    this.logger.debug({
+      msg: "Typing indicator is not available for WhatsApp Cloud API",
+      recipientId,
+    });
   }
 
   // ============================================================================
@@ -1287,7 +1340,9 @@ export class MockMetaWhatsAppAdapter implements IMetaWhatsAppAdapter {
     return challenge;
   }
 
-  validateSignature(signature: string, rawBody: Buffer): boolean {
+  validateSignature(rawBody: Buffer, signature: string): boolean;
+  validateSignature(signature: string, rawBody: Buffer): boolean;
+  validateSignature(_arg1: string | Buffer, _arg2: string | Buffer): boolean {
     return true;
   }
 
@@ -1320,6 +1375,26 @@ export class MockMetaWhatsAppAdapter implements IMetaWhatsAppAdapter {
       isVoiceNote: false,
       isButtonResponse: false,
       rawPayload: payload,
+    };
+  }
+
+  parseInboundMessage(webhookPayload: unknown): InboundMessage | null {
+    const parsed = this.parseWebhook(webhookPayload as MetaWebhookPayload);
+    if (!parsed) {
+      return null;
+    }
+
+    return {
+      channel: "whatsapp",
+      messageId: parsed.messageId,
+      senderId: parsed.fromNumber,
+      recipientId: parsed.toNumber,
+      text: parsed.body,
+      messageType: parsed.messageType,
+      hasMedia: parsed.hasMedia,
+      mediaId: parsed.mediaIds[0],
+      mediaMimeType: parsed.mediaContentTypes[0],
+      rawPayload: parsed.rawPayload,
     };
   }
 
@@ -1358,6 +1433,14 @@ export class MockMetaWhatsAppAdapter implements IMetaWhatsAppAdapter {
       messageId: `wamid_mock_${Date.now()}`,
       status: "sent",
     };
+  }
+
+  async sendMessage(recipientId: string, message: string): Promise<void> {
+    await this.sendTextMessage(recipientId, message);
+  }
+
+  async sendTypingIndicator(recipientId: string): Promise<void> {
+    return;
   }
 
   async markMessageRead(messageId: string): Promise<WhatsAppSendResult> {

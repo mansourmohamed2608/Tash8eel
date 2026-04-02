@@ -19,6 +19,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/textarea";
 import {
   MessageSquare,
+  MessageCircle,
   Search,
   Filter,
   Send,
@@ -62,6 +63,7 @@ interface Conversation {
   id: string;
   merchantId: string;
   customerId?: string;
+  channel?: "whatsapp" | "messenger" | "instagram";
   customerName?: string;
   customerPhone?: string;
   customerAvatarUrl?: string;
@@ -94,6 +96,10 @@ function normalizeConversationsPayload(response: any): Conversation[] {
     .map((item: any) => ({
       ...item,
       id: String(item.id ?? ""),
+      channel: String(item.channel || "whatsapp").toLowerCase() as
+        | "whatsapp"
+        | "messenger"
+        | "instagram",
       senderId: String(item.senderId ?? ""),
       state: String(item.state ?? ""),
       lastMessageAt: String(item.lastMessageAt ?? item.updatedAt ?? ""),
@@ -102,6 +108,45 @@ function normalizeConversationsPayload(response: any): Conversation[] {
       isHumanTakeover: Boolean(item.isHumanTakeover),
     }))
     .filter((item: Conversation) => item.id.length > 0);
+}
+
+function ConversationChannelIcon({
+  channel,
+}: {
+  channel?: "whatsapp" | "messenger" | "instagram" | string;
+}) {
+  const normalized = String(channel || "whatsapp").toLowerCase();
+
+  if (normalized === "messenger") {
+    return (
+      <span
+        className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-blue-100"
+        title="Messenger"
+      >
+        <MessageSquare className="h-3.5 w-3.5 text-blue-600" />
+      </span>
+    );
+  }
+
+  if (normalized === "instagram") {
+    return (
+      <span
+        className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-br from-fuchsia-500 via-rose-500 to-amber-400"
+        title="Instagram"
+      >
+        <span className="text-[9px] font-bold text-white leading-none">IG</span>
+      </span>
+    );
+  }
+
+  return (
+    <span
+      className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-green-100"
+      title="WhatsApp"
+    >
+      <MessageCircle className="h-3.5 w-3.5 text-green-600" />
+    </span>
+  );
 }
 
 // Lead Score Badge Component
@@ -573,9 +618,12 @@ export default function ConversationsPage() {
                         </Avatar>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between">
-                            <p className="font-medium truncate">
-                              {getDisplayName(conv)}
-                            </p>
+                            <div className="flex min-w-0 items-center gap-2">
+                              <ConversationChannelIcon channel={conv.channel} />
+                              <p className="font-medium truncate">
+                                {getDisplayName(conv)}
+                              </p>
+                            </div>
                             <span className="text-xs text-muted-foreground">
                               {formatRelativeTime(
                                 conv.lastMessageAt || conv.updatedAt,
@@ -652,7 +700,10 @@ export default function ConversationsPage() {
                       </AvatarFallback>
                     </Avatar>
                     <div>
-                      <p className="font-medium">
+                      <p className="font-medium flex items-center gap-2">
+                        <ConversationChannelIcon
+                          channel={selectedConversation.channel}
+                        />
                         {getDisplayName(selectedConversation)}
                       </p>
                       <p className="text-sm text-muted-foreground" dir="ltr">

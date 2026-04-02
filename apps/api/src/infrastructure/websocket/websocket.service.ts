@@ -22,6 +22,10 @@ export enum RealTimeEvent {
   CONVERSATION_STARTED = "conversation:started",
   CONVERSATION_CLOSED = "conversation:closed",
 
+  // Voice call events
+  CALL_ACTIVE = "call:active",
+  CALL_ENDED = "call:ended",
+
   // Notification events
   NOTIFICATION = "notification",
   ALERT = "alert",

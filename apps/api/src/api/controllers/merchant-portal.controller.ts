@@ -84,6 +84,7 @@ import {
   PLAN_ENTITLEMENTS,
   PlanType,
 } from "../../shared/entitlements";
+import { generateOrderNumber } from "../../shared/utils/helpers";
 
 /**
  * Merchant Portal Controller
@@ -259,6 +260,107 @@ export class MerchantPortalController {
     }
 
     return byOrderId;
+  }
+
+  private normalizeManualDeliveryType(
+    value: unknown,
+  ): "delivery" | "pickup" | "dine_in" {
+    const normalized = String(value || "")
+      .trim()
+      .toLowerCase();
+
+    if (["delivery", "pickup", "dine_in"].includes(normalized)) {
+      return normalized as "delivery" | "pickup" | "dine_in";
+    }
+
+    throw new BadRequestException(
+      "deliveryType must be one of: delivery, pickup, dine_in",
+    );
+  }
+
+  private normalizeManualPaymentMethod(
+    value: unknown,
+  ): "cash" | "card" | "transfer" {
+    const normalized = String(value || "")
+      .trim()
+      .toLowerCase();
+
+    if (["cash", "card", "transfer"].includes(normalized)) {
+      return normalized as "cash" | "card" | "transfer";
+    }
+
+    throw new BadRequestException(
+      "paymentMethod must be one of: cash, card, transfer",
+    );
+  }
+
+  private toOrderPaymentMethod(
+    paymentMethod: "cash" | "card" | "transfer",
+  ): "COD" | "CARD" | "BANK_TRANSFER" {
+    if (paymentMethod === "cash") return "COD";
+    if (paymentMethod === "card") return "CARD";
+    return "BANK_TRANSFER";
+  }
+
+  private async createUniquePortalOrderNumber(
+    merchantId: string,
+  ): Promise<string> {
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const candidate = generateOrderNumber(merchantId);
+      const exists = await this.orderRepo.findByOrderNumber(
+        merchantId,
+        candidate,
+      );
+      if (!exists) return candidate;
+    }
+
+    const fallback = `ORD-${Date.now().toString(36).toUpperCase()}-${Math.random()
+      .toString(36)
+      .slice(2, 6)
+      .toUpperCase()}`;
+    return fallback;
+  }
+
+  private async createManualConversationFallback(
+    merchantId: string,
+    customerName: string,
+    customerPhone: string,
+  ): Promise<string> {
+    const conversationId = `manual-${Date.now().toString(36)}-${Math.random()
+      .toString(36)
+      .slice(2, 8)}`;
+
+    await this.pool.query(
+      `INSERT INTO conversations (
+         id,
+         merchant_id,
+         sender_id,
+         state,
+         collected_info,
+         last_message_at,
+         updated_at
+       ) VALUES (
+         $1,
+         $2,
+         'manual-portal',
+         'ORDER_PLACED',
+         $3,
+         NOW(),
+         NOW()
+       )
+       ON CONFLICT (id) DO NOTHING`,
+      [
+        conversationId,
+        merchantId,
+        JSON.stringify({
+          customerName,
+          phone: customerPhone,
+          source: "manual_portal_order",
+        }),
+      ],
+    );
+
+    return conversationId;
   }
 
   /**
@@ -1167,6 +1269,273 @@ export class MerchantPortalController {
   }
 
   // ============== ORDERS ==============
+
+  @Post("orders")
+  @UseGuards(MerchantApiKeyGuard, EntitlementGuard)
+  @RequiresFeature("ORDERS")
+  @RequireRole("MANAGER")
+  @ApiOperation({
+    summary: "Create manual order from portal",
+    description:
+      "Creates an order directly from the merchant portal without requiring a WhatsApp conversation.",
+  })
+  @ApiBody({
+    schema: {
+      type: "object",
+      required: [
+        "customerName",
+        "customerPhone",
+        "items",
+        "deliveryType",
+        "paymentMethod",
+        "source",
+      ],
+      properties: {
+        customerName: { type: "string" },
+        customerPhone: { type: "string" },
+        items: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              catalogItemId: { type: "string" },
+              name: { type: "string" },
+              quantity: { type: "number" },
+              unitPrice: { type: "number" },
+              notes: { type: "string" },
+            },
+          },
+        },
+        deliveryType: {
+          type: "string",
+          enum: ["delivery", "pickup", "dine_in"],
+        },
+        deliveryAddress: { type: "string" },
+        paymentMethod: {
+          type: "string",
+          enum: ["cash", "card", "transfer"],
+        },
+        notes: { type: "string" },
+        source: { type: "string", enum: ["manual"] },
+      },
+    },
+  })
+  async createManualOrder(
+    @Req() req: Request,
+    @Body()
+    body: {
+      customerName: string;
+      customerPhone: string;
+      items: Array<{
+        catalogItemId?: string;
+        name?: string;
+        quantity: number;
+        unitPrice: number;
+        notes?: string;
+      }>;
+      deliveryType: "delivery" | "pickup" | "dine_in";
+      deliveryAddress?: string;
+      paymentMethod: "cash" | "card" | "transfer";
+      notes?: string;
+      source: "manual";
+    },
+  ): Promise<any> {
+    const merchantId = this.getMerchantId(req);
+    const customerName = String(body?.customerName || "").trim();
+    const customerPhone = String(body?.customerPhone || "").trim();
+
+    if (!customerName) {
+      throw new BadRequestException("customerName is required");
+    }
+    if (!customerPhone) {
+      throw new BadRequestException("customerPhone is required");
+    }
+
+    if (
+      String(body?.source || "")
+        .trim()
+        .toLowerCase() !== "manual"
+    ) {
+      throw new BadRequestException("source must be 'manual'");
+    }
+
+    const deliveryType = this.normalizeManualDeliveryType(body?.deliveryType);
+    const paymentMethod = this.normalizeManualPaymentMethod(
+      body?.paymentMethod,
+    );
+    const paymentMethodDb = this.toOrderPaymentMethod(paymentMethod);
+    const deliveryAddressText = String(body?.deliveryAddress || "").trim();
+    if (deliveryType === "delivery" && !deliveryAddressText) {
+      throw new BadRequestException(
+        "deliveryAddress is required when deliveryType is 'delivery'",
+      );
+    }
+
+    const rawItems = Array.isArray(body?.items) ? body.items : [];
+    if (rawItems.length === 0) {
+      throw new BadRequestException("items must include at least one item");
+    }
+
+    const normalizedItems = rawItems.map((item, index) => {
+      const catalogItemId = String(item?.catalogItemId || "").trim();
+      const name = String(item?.name || "").trim();
+      const quantity = Number(item?.quantity);
+      const unitPrice = Number(item?.unitPrice);
+
+      if (!catalogItemId && !name) {
+        throw new BadRequestException(
+          `items[${index}] must include catalogItemId or name`,
+        );
+      }
+      if (!Number.isFinite(quantity) || quantity <= 0) {
+        throw new BadRequestException(
+          `items[${index}].quantity must be a positive number`,
+        );
+      }
+      if (!Number.isFinite(unitPrice) || unitPrice < 0) {
+        throw new BadRequestException(
+          `items[${index}].unitPrice must be a non-negative number`,
+        );
+      }
+
+      const lineTotal = Number((quantity * unitPrice).toFixed(2));
+      return {
+        catalogItemId: catalogItemId || undefined,
+        name: name || "منتج",
+        quantity: Number(quantity),
+        unitPrice: Number(unitPrice),
+        notes:
+          item?.notes && String(item.notes).trim().length > 0
+            ? String(item.notes).trim()
+            : undefined,
+        lineTotal,
+      };
+    });
+
+    const subtotal = Number(
+      normalizedItems.reduce((sum, item) => sum + item.lineTotal, 0).toFixed(2),
+    );
+    const deliveryFee = 0;
+    const total = Number((subtotal + deliveryFee).toFixed(2));
+    const orderNumber = await this.createUniquePortalOrderNumber(merchantId);
+    const orderNotes = String(body?.notes || "").trim() || null;
+
+    const deliveryAddressPayload =
+      deliveryType === "delivery"
+        ? {
+            street: deliveryAddressText,
+            raw_text: deliveryAddressText,
+          }
+        : null;
+
+    const insertOrder = async (conversationId: string | null) =>
+      this.pool.query<{
+        id: string;
+        order_number: string;
+        status: string;
+        total: string;
+        created_at: Date;
+        updated_at: Date;
+      }>(
+        `INSERT INTO orders (
+           merchant_id,
+           conversation_id,
+           customer_id,
+           order_number,
+           status,
+           items,
+           subtotal,
+           discount,
+           delivery_fee,
+           total,
+           customer_name,
+           customer_phone,
+           delivery_address,
+           delivery_notes,
+           delivery_preference,
+           payment_method,
+           payment_status,
+           source_channel,
+           updated_at
+         ) VALUES (
+           $1,
+           $2,
+           NULL,
+           $3,
+           'DRAFT',
+           $4,
+           $5,
+           0,
+           $6,
+           $7,
+           $8,
+           $9,
+           $10,
+           $11,
+           $12,
+           $13,
+           'PENDING',
+           'manual',
+           NOW()
+         )
+         RETURNING id::text as id, order_number, status::text as status, total::text as total, created_at, updated_at`,
+        [
+          merchantId,
+          conversationId,
+          orderNumber,
+          JSON.stringify(normalizedItems),
+          subtotal,
+          deliveryFee,
+          total,
+          customerName,
+          customerPhone,
+          deliveryAddressPayload
+            ? JSON.stringify(deliveryAddressPayload)
+            : null,
+          orderNotes,
+          deliveryType.toUpperCase(),
+          paymentMethodDb,
+        ],
+      );
+
+    let created;
+    try {
+      created = await insertOrder(null);
+    } catch (error: any) {
+      const code = String(error?.code || "");
+      const message = String(error?.message || "").toLowerCase();
+      if (code === "23502" && message.includes("conversation_id")) {
+        const fallbackConversationId =
+          await this.createManualConversationFallback(
+            merchantId,
+            customerName,
+            customerPhone,
+          );
+        created = await insertOrder(fallbackConversationId);
+      } else {
+        throw error;
+      }
+    }
+
+    const row = created.rows[0];
+
+    return {
+      id: row.id,
+      orderNumber: row.order_number,
+      status: row.status,
+      total: Number(row.total || 0),
+      customerName,
+      customerPhone,
+      items: normalizedItems,
+      deliveryType,
+      deliveryAddress: deliveryAddressText || null,
+      paymentMethod,
+      notes: orderNotes,
+      source: "manual",
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    };
+  }
 
   @Get("orders")
   @UseGuards(MerchantApiKeyGuard, EntitlementGuard)
@@ -3863,6 +4232,7 @@ export class MerchantPortalController {
       id: conversation.id,
       merchantId: conversation.merchantId,
       customerId: conversation.customerId,
+      channel: (conversation as any).channel || "whatsapp",
       customerName: customerOverride?.name || infoName || undefined,
       customerPhone: customerOverride?.phone || infoPhone || undefined,
       senderId: conversation.senderId,

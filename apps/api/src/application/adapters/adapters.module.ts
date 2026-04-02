@@ -12,6 +12,8 @@ import {
   MetaWhatsAppAdapter,
   META_WHATSAPP_ADAPTER,
 } from "./meta-whatsapp.adapter";
+import { MessengerAdapter, META_MESSENGER_ADAPTER } from "./messenger.adapter";
+import { InstagramAdapter, META_INSTAGRAM_ADAPTER } from "./instagram.adapter";
 import { DatabaseModule } from "../../infrastructure/database/database.module";
 
 @Module({
@@ -40,6 +42,18 @@ import { DatabaseModule } from "../../infrastructure/database/database.module";
       useFactory: (realAdapter: MetaWhatsAppAdapter) => realAdapter,
       inject: [MetaWhatsAppAdapter],
     },
+    MessengerAdapter,
+    {
+      provide: META_MESSENGER_ADAPTER,
+      useFactory: (realAdapter: MessengerAdapter) => realAdapter,
+      inject: [MessengerAdapter],
+    },
+    InstagramAdapter,
+    {
+      provide: META_INSTAGRAM_ADAPTER,
+      useFactory: (realAdapter: InstagramAdapter) => realAdapter,
+      inject: [InstagramAdapter],
+    },
   ],
   exports: [
     DELIVERY_ADAPTER,
@@ -47,6 +61,10 @@ import { DatabaseModule } from "../../infrastructure/database/database.module";
     TranscriptionAdapterFactory,
     META_WHATSAPP_ADAPTER,
     MetaWhatsAppAdapter,
+    META_MESSENGER_ADAPTER,
+    MessengerAdapter,
+    META_INSTAGRAM_ADAPTER,
+    InstagramAdapter,
   ],
 })
 export class AdaptersModule {}

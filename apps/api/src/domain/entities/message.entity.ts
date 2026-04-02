@@ -17,6 +17,7 @@ export interface Message {
   id: string;
   conversationId: string;
   merchantId: string;
+  channel?: "whatsapp" | "messenger" | "instagram";
   providerMessageId?: string;
   direction: MessageDirection;
   senderId: string;
@@ -31,6 +32,7 @@ export interface Message {
 export interface CreateMessageInput {
   conversationId: string;
   merchantId: string;
+  channel?: "whatsapp" | "messenger" | "instagram";
   providerMessageId?: string;
   direction: MessageDirection;
   senderId: string;
