@@ -145,6 +145,7 @@ services:
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-}
       API_BASE_URL: "http://api:3000"
+      HOSTNAME: "0.0.0.0"
       PORT: 3001
       NODE_OPTIONS: "--max-old-space-size=256"
     depends_on:
@@ -154,7 +155,7 @@ services:
       test:
         [
           "CMD-SHELL",
-          'node -e "const req=require(''http'').get(''http://localhost:3001/login'',res=>process.exit(res.statusCode>=200&&res.statusCode<400?0:1));req.setTimeout(4000,()=>req.destroy(new Error(''timeout'')));req.on(''error'',()=>process.exit(1));"',
+          'node -e "const req=require(''http'').get(''http://127.0.0.1:3001/login'',res=>process.exit(res.statusCode>=200&&res.statusCode<400?0:1));req.setTimeout(4000,()=>req.destroy(new Error(''timeout'')));req.on(''error'',()=>process.exit(1));"',
         ]
       interval: 15s
       timeout: 5s
