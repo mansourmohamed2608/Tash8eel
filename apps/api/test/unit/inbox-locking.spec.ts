@@ -251,7 +251,7 @@ describe("InboxService - Distributed Locking", () => {
       });
 
       expect(acquireLockSpy).toHaveBeenCalledWith(
-        "conversation:merchant-1:user-1",
+        "conversation:merchant-1:whatsapp:user-1",
         30000,
       );
       expect(mockLock.release).toHaveBeenCalled();
