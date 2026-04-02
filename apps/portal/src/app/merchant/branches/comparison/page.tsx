@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { PageHeader } from "@/components/layout";
 import {
   Card,
@@ -46,22 +46,39 @@ export default function BranchComparisonPage() {
   const [loading, setLoading] = useState(true);
   const [branches, setBranches] = useState<any[]>([]);
 
-  const fetchComparison = useCallback(async () => {
+  const fetchComparison = async (showError = true) => {
     if (!apiKey) return;
     setLoading(true);
     try {
-      const res = await branchesApi.getComparison(apiKey, parseInt(days));
-      setBranches((res as any).branches ?? []);
+      const res = await branchesApi.getComparison(apiKey, parseInt(days, 10));
+      const normalized = Array.isArray((res as any)?.branches)
+        ? (res as any).branches.map((b: any) => ({
+            branchId: b.branchId ?? null,
+            name: b.name ?? b.branchName ?? "غير محدد",
+            isActive: b.isActive ?? b.is_active ?? true,
+            revenue: Number(b.revenue ?? 0),
+            orders: Number(b.orders ?? b.totalOrders ?? 0),
+            aov: Number(b.aov ?? b.avgOrderValue ?? 0),
+            expenses: Number(b.expenses ?? b.totalExpenses ?? 0),
+            netProfit: Number(b.netProfit ?? 0),
+            margin: Number(b.margin ?? 0),
+            revenuePct: Number(b.revenuePct ?? 0),
+          }))
+        : [];
+      setBranches(normalized);
     } catch {
-      toast({ title: "فشل في تحميل المقارنة", variant: "destructive" });
+      if (showError) {
+        toast({ title: "فشل في تحميل المقارنة", variant: "destructive" });
+      }
+      setBranches([]);
     } finally {
       setLoading(false);
     }
-  }, [apiKey, days, toast]);
+  };
 
   useEffect(() => {
-    fetchComparison();
-  }, [fetchComparison]);
+    void fetchComparison(false);
+  }, [apiKey, days]);
 
   const maxRevenue = Math.max(...branches.map((b) => b.revenue ?? 0), 1);
 
@@ -87,7 +104,9 @@ export default function BranchComparisonPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={fetchComparison}
+              onClick={() => {
+                void fetchComparison(true);
+              }}
               disabled={loading}
             >
               <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />

@@ -1130,18 +1130,34 @@ export default function KnowledgeBasePage() {
                       merchantId,
                       apiKey,
                     );
+
+                    if (result.total === 0) {
+                      toast({
+                        title: "تنبيه",
+                        description:
+                          "لا توجد عناصر في الكتالوج لإرسالها إلى المخزون",
+                      });
+                      return;
+                    }
+
                     const parts: string[] = [];
                     if (result.created > 0)
                       parts.push(`تم إنشاء ${result.created} منتج في المخزون`);
                     if ((result as any).variantsCreated > 0)
                       parts.push(`${(result as any).variantsCreated} متغير`);
+                    if ((result.updated || 0) > 0)
+                      parts.push(`تم تحديث ${result.updated} منتج في المخزون`);
                     if (result.linked > 0)
                       parts.push(`تم ربط ${result.linked}`);
                     const msg =
                       parts.length > 0
                         ? parts.join(" + ")
-                        : "جميع المنتجات موجودة في المخزون بالفعل";
-                    toast({ title: "تم", description: msg });
+                        : "جميع عناصر الكتالوج مرتبطة بالمخزون بالفعل";
+                    toast({
+                      title: parts.length > 0 ? "تم" : "تنبيه",
+                      description: msg,
+                    });
+                    await loadData();
                   } catch {
                     showError("فشل في إرسال المنتجات للمخزون");
                   } finally {
@@ -1166,13 +1182,33 @@ export default function KnowledgeBasePage() {
                       merchantId,
                       apiKey,
                     );
+
+                    if (result.total === 0) {
+                      toast({
+                        title: "تنبيه",
+                        description:
+                          "لا توجد عناصر في المخزون لاستيرادها إلى الكتالوج",
+                      });
+                      await loadData();
+                      return;
+                    }
+
+                    const parts: string[] = [];
+                    if (result.created > 0)
+                      parts.push(`تم إضافة ${result.created} منتج من المخزون`);
+                    if (result.updated > 0)
+                      parts.push(`تم تحديث ${result.updated} منتج من المخزون`);
+                    if (result.linked > 0)
+                      parts.push(`تم ربط ${result.linked} منتج مع الكتالوج`);
+
                     const msg =
-                      result.created > 0
-                        ? `تم إضافة ${result.created} منتج من المخزون`
-                        : result.updated > 0
-                          ? `تم تحديث ${result.updated} منتج من المخزون`
-                          : "لا توجد منتجات جديدة في المخزون";
-                    toast({ title: "تم", description: msg });
+                      parts.length > 0
+                        ? parts.join(" + ")
+                        : "لا توجد تغييرات جديدة عند الاستيراد من المخزون";
+                    toast({
+                      title: parts.length > 0 ? "تم" : "تنبيه",
+                      description: msg,
+                    });
                     await loadData();
                   } catch {
                     showError("فشل في استيراد المنتجات من المخزون");

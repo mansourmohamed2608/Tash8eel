@@ -1047,7 +1047,32 @@ export const merchantApi = {
     page = 1,
     pageSize = 100,
   ) {
-    return apiFetch<{
+    const response = await apiFetch<any>(
+      `/v1/portal/catalog/items?page=${page}&pageSize=${pageSize}`,
+      {
+        apiKey,
+      },
+    );
+
+    const items = Array.isArray(response?.items)
+      ? response.items
+      : Array.isArray(response?.data)
+        ? response.data
+        : [];
+
+    const total =
+      typeof response?.total === "number"
+        ? response.total
+        : typeof response?.totalCount === "number"
+          ? response.totalCount
+          : items.length;
+
+    return {
+      items,
+      total,
+      page: Number(response?.page || page),
+      pageSize: Number(response?.pageSize || pageSize),
+    } as {
       items: Array<{
         id: string;
         sku?: string;
@@ -1072,9 +1097,7 @@ export const merchantApi = {
       total: number;
       page: number;
       pageSize: number;
-    }>(`/v1/portal/catalog/items?page=${page}&pageSize=${pageSize}`, {
-      apiKey,
-    });
+    };
   },
 
   async createCatalogItem(
@@ -1221,6 +1244,7 @@ export const merchantApi = {
       total: number;
       created: number;
       linked: number;
+      updated?: number;
     }>(`/v1/portal/knowledge-base/pull-from-catalog`, {
       method: "POST",
       apiKey,

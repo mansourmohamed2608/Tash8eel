@@ -9394,11 +9394,16 @@ export class MerchantPortalController {
       let updated = 0;
       let linked = 0;
 
-      const linkInventory = async (inventoryId: string, catalogId: string) => {
+      const linkInventory = async (
+        inventoryId: string,
+        catalogId: string | null,
+      ) => {
         try {
           await client.query(
-            `UPDATE inventory_items SET catalog_item_id = $1, updated_at = NOW() WHERE id = $2`,
-            [catalogId, inventoryId],
+            `UPDATE inventory_items
+             SET catalog_item_id = $1, updated_at = NOW()
+             WHERE id = $2 AND merchant_id = $3`,
+            [catalogId, inventoryId, merchantId],
           );
           return true;
         } catch (error: any) {
@@ -9417,7 +9422,7 @@ export class MerchantPortalController {
         const price = toNumber(row.price ?? row.base_price ?? row.sell_price);
         const catalogItemId = row.catalog_item_id || row.catalogItemId;
 
-        const updateCatalog = async (catalogId: string) => {
+        const updateCatalog = async (catalogId: string): Promise<boolean> => {
           const updates: string[] = [];
           const values: any[] = [];
           let idx = 1;
@@ -9441,16 +9446,25 @@ export class MerchantPortalController {
 
           updates.push(`updated_at = NOW()`);
           values.push(catalogId, merchantId);
-          await client.query(
-            `UPDATE catalog_items SET ${updates.join(", ")} WHERE id = $${idx} AND merchant_id = $${idx + 1}`,
+          const updateResult = await client.query(
+            `UPDATE catalog_items
+             SET ${updates.join(", ")}
+             WHERE id = $${idx} AND merchant_id = $${idx + 1}
+             RETURNING id`,
             values,
           );
+          return updateResult.rowCount > 0;
         };
 
         if (catalogItemId) {
-          await updateCatalog(catalogItemId);
-          updated += 1;
-          continue;
+          const didUpdateExisting = await updateCatalog(catalogItemId);
+          if (didUpdateExisting) {
+            updated += 1;
+            continue;
+          }
+
+          // Broken link (catalog item deleted): unlink and resolve using SKU/create path.
+          await linkInventory(inventoryId, null);
         }
 
         let existingCatalogId: string | null = null;
@@ -9467,9 +9481,11 @@ export class MerchantPortalController {
         if (existingCatalogId) {
           const didLink = await linkInventory(inventoryId, existingCatalogId);
           if (didLink) linked += 1;
-          await updateCatalog(existingCatalogId);
-          updated += 1;
-          continue;
+          const didUpdateExisting = await updateCatalog(existingCatalogId);
+          if (didUpdateExisting) {
+            updated += 1;
+            continue;
+          }
         }
 
         const insert = await client.query(

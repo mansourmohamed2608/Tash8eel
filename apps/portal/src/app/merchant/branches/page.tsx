@@ -63,6 +63,35 @@ const emptyForm = {
   sort_order: 0,
 };
 
+const normalizeBranchName = (value?: string | null) => {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  const normalizedDigits = raw
+    .replace(/[٠-٩]/g, (d) => "0123456789"["٠١٢٣٤٥٦٧٨٩".indexOf(d)] ?? d)
+    .replace(/[۰-۹]/g, (d) => "0123456789"["۰۱۲۳۴۵۶۷۸۹".indexOf(d)] ?? d);
+
+  return normalizedDigits
+    .normalize("NFKC")
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, "");
+};
+
+const getBranchNameSet = (name?: string | null, nameEn?: string | null) => {
+  const values = new Set<string>();
+  const primary = normalizeBranchName(name);
+  const english = normalizeBranchName(nameEn);
+  if (primary) values.add(primary);
+  if (english) values.add(english);
+  return values;
+};
+
+const hasNameOverlap = (a: Set<string>, b: Set<string>) => {
+  for (const value of a) {
+    if (b.has(value)) return true;
+  }
+  return false;
+};
+
 export default function BranchesPage() {
   const router = useRouter();
   const { merchantId, apiKey } = useMerchant();
@@ -124,6 +153,29 @@ export default function BranchesPage() {
       toast({ title: "اسم الفرع مطلوب", variant: "destructive" });
       return;
     }
+
+    const requestedNames = getBranchNameSet(formData.name, formData.name_en);
+    if (requestedNames.size === 0) {
+      toast({ title: "اسم الفرع غير صالح", variant: "destructive" });
+      return;
+    }
+
+    const duplicateBranch = branches.find((branch) => {
+      if (editingBranch && branch.id === editingBranch.id) return false;
+      return hasNameOverlap(
+        requestedNames,
+        getBranchNameSet(branch.name, branch.name_en),
+      );
+    });
+    if (duplicateBranch) {
+      toast({
+        title: "اسم الفرع مستخدم بالفعل",
+        description: "اختر اسماً مختلفاً بالعربي أو الإنجليزي",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       setSubmitting(true);
       const dto = {
@@ -265,17 +317,6 @@ export default function BranchesPage() {
                 !branch.is_active && "opacity-60",
               )}
             >
-              {branch.is_default && (
-                <div className="absolute top-3 left-3">
-                  <Badge
-                    variant="secondary"
-                    className="text-xs bg-amber-100 text-amber-700 border-amber-200"
-                  >
-                    <Star className="h-3 w-3 ml-1 fill-amber-500 text-amber-500" />
-                    افتراضي
-                  </Badge>
-                </div>
-              )}
               <CardHeader className="pb-2 pt-4 px-4">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1 min-w-0">
@@ -288,17 +329,28 @@ export default function BranchesPage() {
                       </p>
                     )}
                   </div>
-                  <Badge
-                    variant={branch.is_active ? "default" : "secondary"}
-                    className={cn(
-                      "text-xs shrink-0",
-                      branch.is_active
-                        ? "bg-green-100 text-green-700 border-green-200"
-                        : "bg-gray-100 text-gray-500",
+                  <div className="flex shrink-0 items-center gap-1">
+                    {branch.is_default && (
+                      <Badge
+                        variant="secondary"
+                        className="text-xs bg-amber-100 text-amber-700 border-amber-200"
+                      >
+                        <Star className="h-3 w-3 ml-1 fill-amber-500 text-amber-500" />
+                        افتراضي
+                      </Badge>
                     )}
-                  >
-                    {branch.is_active ? "نشط" : "معطل"}
-                  </Badge>
+                    <Badge
+                      variant={branch.is_active ? "default" : "secondary"}
+                      className={cn(
+                        "text-xs",
+                        branch.is_active
+                          ? "bg-green-100 text-green-700 border-green-200"
+                          : "bg-gray-100 text-gray-500",
+                      )}
+                    >
+                      {branch.is_active ? "نشط" : "معطل"}
+                    </Badge>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent className="px-4 pb-4 space-y-1.5">

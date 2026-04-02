@@ -629,6 +629,9 @@ export class StaffService {
       if (error instanceof jwt.TokenExpiredError) {
         throw new UnauthorizedException("Refresh token expired");
       }
+      if (error instanceof jwt.JsonWebTokenError) {
+        throw new UnauthorizedException("Invalid refresh token");
+      }
       if (error instanceof UnauthorizedException) {
         throw error;
       }

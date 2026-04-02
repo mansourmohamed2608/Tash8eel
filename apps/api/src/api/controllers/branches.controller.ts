@@ -15,6 +15,7 @@ import {
   BadRequestException,
   NotFoundException,
   ForbiddenException,
+  ConflictException,
 } from "@nestjs/common";
 import {
   ApiTags,
@@ -60,12 +61,66 @@ function pi(v: unknown): number {
 }
 
 function expenseDateExpr(alias: string): string {
-  // Support both modern `expense_date` and legacy `date` fields.
-  return `COALESCE(
-    NULLIF((to_jsonb(${alias})->>'expense_date'), '')::date,
-    NULLIF((to_jsonb(${alias})->>'date'), '')::date,
-    (${alias}.created_at)::date
+  // Support both modern `expense_date` and legacy `date` fields across mixed deployments.
+  const rawDateExpr = `COALESCE(
+    NULLIF(to_jsonb(${alias})->>'expense_date', ''),
+    NULLIF(to_jsonb(${alias})->>'date', ''),
+    NULLIF(to_jsonb(${alias})->>'created_at', '')
   )`;
+  return `COALESCE(
+    CASE
+      WHEN ${rawDateExpr} IS NULL THEN NULL
+      WHEN LEFT(${rawDateExpr}, 10) ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+        THEN to_date(LEFT(${rawDateExpr}, 10), 'YYYY-MM-DD')
+      ELSE NULL
+    END,
+    CURRENT_DATE
+  )`;
+}
+
+function branchIdTextExpr(alias: string): string {
+  return `NULLIF(to_jsonb(${alias})->>'branch_id', '')`;
+}
+
+function jsonNumericExpr(alias: string, key: string): string {
+  const raw = `NULLIF(to_jsonb(${alias})->>'${key}', '')`;
+  return `COALESCE(
+    CASE WHEN ${raw} ~ '^-?[0-9]+(\\.[0-9]+)?$' THEN (${raw})::numeric ELSE NULL END,
+    0
+  )`;
+}
+
+function normalizeBranchName(value: string | null | undefined): string {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+
+  const normalizedDigits = raw
+    .replace(/[٠-٩]/g, (d) => "0123456789"["٠١٢٣٤٥٦٧٨٩".indexOf(d)] ?? d)
+    .replace(/[۰-۹]/g, (d) => "0123456789"["۰۱۲۳۴۵۶۷۸۹".indexOf(d)] ?? d);
+
+  return normalizedDigits
+    .normalize("NFKC")
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, "");
+}
+
+function normalizedBranchNameSet(
+  name: string | null | undefined,
+  nameEn: string | null | undefined,
+): Set<string> {
+  const set = new Set<string>();
+  const primary = normalizeBranchName(name);
+  const english = normalizeBranchName(nameEn);
+  if (primary) set.add(primary);
+  if (english) set.add(english);
+  return set;
+}
+
+function hasNormalizedNameOverlap(a: Set<string>, b: Set<string>): boolean {
+  for (const value of a) {
+    if (b.has(value)) return true;
+  }
+  return false;
 }
 
 // ============================================================================
@@ -143,6 +198,32 @@ export class BranchesController {
   ) {
     if (!dto.name?.trim()) throw new BadRequestException("اسم الفرع مطلوب");
 
+    const requestedNames = normalizedBranchNameSet(dto.name, dto.name_en);
+    if (requestedNames.size === 0) {
+      throw new BadRequestException("اسم الفرع غير صالح");
+    }
+
+    const duplicates = await this.pool.query<{
+      id: string;
+      name: string | null;
+      name_en: string | null;
+    }>(
+      `SELECT id::text as id, name, name_en
+       FROM merchant_branches
+       WHERE merchant_id = $1`,
+      [merchantId],
+    );
+
+    const hasDuplicate = duplicates.rows.some((row) =>
+      hasNormalizedNameOverlap(
+        requestedNames,
+        normalizedBranchNameSet(row.name, row.name_en),
+      ),
+    );
+    if (hasDuplicate) {
+      throw new ConflictException("اسم الفرع مستخدم بالفعل");
+    }
+
     const client = await this.pool.connect();
     try {
       await client.query("BEGIN");
@@ -206,10 +287,52 @@ export class BranchesController {
     },
   ) {
     const existing = await this.pool.query(
-      `SELECT id FROM merchant_branches WHERE id = $1 AND merchant_id = $2`,
+      `SELECT id, name, name_en
+       FROM merchant_branches
+       WHERE id = $1 AND merchant_id = $2`,
       [branchId, merchantId],
     );
     if (existing.rowCount === 0) throw new NotFoundException("الفرع غير موجود");
+
+    const current = existing.rows[0] as {
+      id: string;
+      name: string | null;
+      name_en: string | null;
+    };
+    const nextName =
+      dto.name !== undefined ? dto.name?.trim() || "" : current.name;
+    const nextNameEn =
+      dto.name_en !== undefined ? dto.name_en?.trim() || "" : current.name_en;
+
+    if (!nextName?.trim()) {
+      throw new BadRequestException("اسم الفرع مطلوب");
+    }
+
+    const requestedNames = normalizedBranchNameSet(nextName, nextNameEn);
+    if (requestedNames.size === 0) {
+      throw new BadRequestException("اسم الفرع غير صالح");
+    }
+
+    const duplicates = await this.pool.query<{
+      id: string;
+      name: string | null;
+      name_en: string | null;
+    }>(
+      `SELECT id::text as id, name, name_en
+       FROM merchant_branches
+       WHERE merchant_id = $1 AND id <> $2`,
+      [merchantId, branchId],
+    );
+
+    const hasDuplicate = duplicates.rows.some((row) =>
+      hasNormalizedNameOverlap(
+        requestedNames,
+        normalizedBranchNameSet(row.name, row.name_en),
+      ),
+    );
+    if (hasDuplicate) {
+      throw new ConflictException("اسم الفرع مستخدم بالفعل");
+    }
 
     const client = await this.pool.connect();
     try {
@@ -307,7 +430,13 @@ export class BranchAnalyticsController {
 
   // Detect which column holds the order amount
   private orderAmountExpr(alias: string): string {
-    return `COALESCE(NULLIF(${alias}.total_amount, 0), NULLIF(${alias}.total, 0), 0)`;
+    const totalAmountTxt = `NULLIF(to_jsonb(${alias})->>'total_amount', '')`;
+    const totalTxt = `NULLIF(to_jsonb(${alias})->>'total', '')`;
+    return `COALESCE(
+      NULLIF(CASE WHEN ${totalAmountTxt} ~ '^-?[0-9]+(\\.[0-9]+)?$' THEN (${totalAmountTxt})::numeric ELSE NULL END, 0),
+      NULLIF(CASE WHEN ${totalTxt} ~ '^-?[0-9]+(\\.[0-9]+)?$' THEN (${totalTxt})::numeric ELSE NULL END, 0),
+      0
+    )`;
   }
 
   // -----------------------------------------------------------------------
@@ -461,47 +590,103 @@ export class BranchAnalyticsController {
     const days = parseIntParam(daysStr, 30);
     const amtExpr = this.orderAmountExpr("o");
     const expDateExpr = expenseDateExpr("e");
+    const orderBranchExpr = branchIdTextExpr("o");
+    const expenseBranchExpr = branchIdTextExpr("e");
+    const expenseAmountExpr = jsonNumericExpr("e", "amount");
 
     // Get all branches
-    const branchesResult = await this.pool.query(
-      `SELECT id, name, name_en, is_active FROM merchant_branches WHERE merchant_id = $1 ORDER BY sort_order, created_at`,
-      [merchantId],
-    );
+    let branchRows: any[] = [];
+    try {
+      const branchesResult = await this.pool.query(
+        `SELECT id, name, name_en, is_active
+         FROM merchant_branches
+         WHERE merchant_id = $1
+         ORDER BY sort_order, created_at`,
+        [merchantId],
+      );
+      branchRows = branchesResult.rows;
+    } catch (error: any) {
+      if (error?.code === "42703") {
+        const fallbackBranchesResult = await this.pool.query(
+          `SELECT id, name, name_en, is_active
+           FROM merchant_branches
+           WHERE merchant_id = $1
+           ORDER BY created_at`,
+          [merchantId],
+        );
+        branchRows = fallbackBranchesResult.rows;
+      } else {
+        throw error;
+      }
+    }
 
     // Revenue + orders per branch
-    const statsResult = await this.pool.query(
-      `SELECT
-         o.branch_id,
-         COALESCE(SUM(${amtExpr}), 0)                                    AS revenue,
-         COUNT(*) FILTER (WHERE o.status::text NOT IN ('CANCELLED','DRAFT')) AS total_orders,
-         COUNT(*) FILTER (WHERE o.status::text IN ('DELIVERED','COMPLETED')) AS completed_orders,
-         COALESCE(AVG(${amtExpr}) FILTER (WHERE o.status::text IN ('DELIVERED','COMPLETED')), 0) AS aov
-       FROM orders o
-       WHERE o.merchant_id = $1
-         AND o.status::text IN ('DELIVERED','COMPLETED')
-         AND o.created_at >= NOW() - ($2 || ' days')::interval
-       GROUP BY o.branch_id`,
-      [merchantId, days],
-    );
+    let statsRows: any[] = [];
+    try {
+      const statsResult = await this.pool.query(
+        `SELECT
+           ${orderBranchExpr} AS branch_id,
+           COALESCE(SUM(${amtExpr}), 0) AS revenue,
+           COUNT(*) FILTER (WHERE o.status::text NOT IN ('CANCELLED','DRAFT')) AS total_orders,
+           COUNT(*) FILTER (WHERE o.status::text IN ('DELIVERED','COMPLETED')) AS completed_orders,
+           COALESCE(AVG(${amtExpr}) FILTER (WHERE o.status::text IN ('DELIVERED','COMPLETED')), 0) AS aov
+         FROM orders o
+         WHERE o.merchant_id = $1
+           AND o.status::text IN ('DELIVERED','COMPLETED')
+           AND o.created_at >= NOW() - ($2 || ' days')::interval
+         GROUP BY 1`,
+        [merchantId, days],
+      );
+      statsRows = statsResult.rows;
+    } catch (error: any) {
+      if (
+        error?.code === "42P01" ||
+        error?.code === "42703" ||
+        error?.code === "42883"
+      ) {
+        this.logger.warn(
+          `Branch comparison: orders aggregation skipped (${error.code})`,
+        );
+      } else {
+        throw error;
+      }
+    }
 
     // Expenses per branch
-    const expResult = await this.pool.query(
-      `SELECT e.branch_id, COALESCE(SUM(e.amount), 0) AS expenses
-       FROM expenses e
-       WHERE merchant_id = $1
-         AND ${expDateExpr} >= CURRENT_DATE - ($2 || ' days')::interval
-       GROUP BY e.branch_id`,
-      [merchantId, days],
-    );
+    let expRows: any[] = [];
+    try {
+      const expResult = await this.pool.query(
+        `SELECT ${expenseBranchExpr} AS branch_id,
+                COALESCE(SUM(${expenseAmountExpr}), 0) AS expenses
+         FROM expenses e
+         WHERE e.merchant_id = $1
+           AND ${expDateExpr} >= CURRENT_DATE - ($2 || ' days')::interval
+         GROUP BY 1`,
+        [merchantId, days],
+      );
+      expRows = expResult.rows;
+    } catch (error: any) {
+      // Keep comparison endpoint available even on partial/legacy expense schemas.
+      if (
+        error?.code === "42P01" ||
+        error?.code === "42703" ||
+        error?.code === "42883"
+      ) {
+        this.logger.warn(
+          `Branch comparison: expenses aggregation skipped (${error.code})`,
+        );
+      } else {
+        throw error;
+      }
+    }
 
-    const statsMap = new Map<string | null, (typeof statsResult.rows)[0]>();
-    for (const row of statsResult.rows) statsMap.set(row.branch_id, row);
+    const statsMap = new Map<string | null, any>();
+    for (const row of statsRows) statsMap.set(row.branch_id, row);
 
     const expMap = new Map<string | null, number>();
-    for (const row of expResult.rows)
-      expMap.set(row.branch_id, pn(row.expenses));
+    for (const row of expRows) expMap.set(row.branch_id, pn(row.expenses));
 
-    const comparisons = branchesResult.rows.map((branch: any) => {
+    const comparisons = branchRows.map((branch: any) => {
       const stats = statsMap.get(branch.id) ?? {};
       const expenses = expMap.get(branch.id) ?? 0;
       const revenue = round2(pn(stats.revenue));
