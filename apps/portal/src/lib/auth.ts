@@ -42,6 +42,7 @@ declare module "next-auth/jwt" {
     refreshToken: string;
     adminKey?: string;
     accessTokenExpires: number;
+    refreshFailureCount?: number;
     error?: string;
     requiresPasswordChange?: boolean;
   }
@@ -66,6 +67,34 @@ type RefreshResultCacheEntry = {
   refreshToken: string;
   accessTokenExpires: number;
   cachedAt: number;
+};
+
+const isTransientRefreshFailure = (error: unknown): boolean => {
+  if (!error) return false;
+
+  if (error instanceof TypeError) {
+    const message = String(error.message || "").toLowerCase();
+    return (
+      message.includes("fetch") ||
+      message.includes("network") ||
+      message.includes("timed out")
+    );
+  }
+
+  const maybeObj = error as Record<string, unknown>;
+  const status = Number(maybeObj?.status || 0);
+  if ([408, 425, 429, 500, 502, 503, 504].includes(status)) {
+    return true;
+  }
+
+  const message = String(maybeObj?.message || "").toLowerCase();
+  return (
+    message.includes("timeout") ||
+    message.includes("network") ||
+    message.includes("temporarily") ||
+    message.includes("service unavailable") ||
+    message.includes("gateway")
+  );
 };
 
 // Mitigate refresh-token rotation races by briefly caching successful
@@ -143,6 +172,15 @@ async function refreshAccessToken(token: any) {
     );
 
     if (!response.ok) {
+      if ([408, 425, 429, 500, 502, 503, 504].includes(response.status)) {
+        throw {
+          transient: true,
+          status: response.status,
+          message:
+            refreshedTokens?.message ||
+            `Transient refresh failure (${response.status})`,
+        };
+      }
       throw refreshedTokens;
     }
 
@@ -161,6 +199,7 @@ async function refreshAccessToken(token: any) {
       accessToken: refreshedTokens.accessToken,
       refreshToken: nextRefreshToken,
       accessTokenExpires: Date.now() + 14 * 60 * 1000, // 14 minutes
+      refreshFailureCount: 0,
       error: undefined, // clear any previous error on successful refresh
     };
 
@@ -183,10 +222,27 @@ async function refreshAccessToken(token: any) {
       };
     }
 
+    if (isTransientRefreshFailure(error)) {
+      const previousFailures = Number(token?.refreshFailureCount || 0);
+      const nextFailures = Number.isFinite(previousFailures)
+        ? previousFailures + 1
+        : 1;
+      const retryInMs = Math.min(15_000, 2_000 * nextFailures);
+
+      return {
+        ...token,
+        // Keep existing tokens and try refresh again shortly.
+        accessTokenExpires: Date.now() + retryInMs,
+        refreshFailureCount: nextFailures,
+        error: undefined,
+      };
+    }
+
     console.error("Error refreshing access token:", error);
     return {
       ...token,
       error: "RefreshAccessTokenError",
+      refreshFailureCount: Number(token?.refreshFailureCount || 0) + 1,
       accessTokenExpires: Date.now() + 5 * 60 * 1000, // backoff to avoid tight retry loop
     };
   }
@@ -275,6 +331,7 @@ export const authOptions: NextAuthOptions = {
           refreshToken: user.refreshToken,
           adminKey: user.adminKey,
           requiresPasswordChange: false,
+          refreshFailureCount: 0,
           accessTokenExpires: Date.now() + 14 * 60 * 1000, // 14 minutes
           error: undefined, // clear any stale error from a previous session
         };

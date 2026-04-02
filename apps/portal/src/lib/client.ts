@@ -3295,6 +3295,16 @@ let authTokenRequest: Promise<{
   accessToken?: string;
   adminKey?: string;
 }> | null = null;
+let unauthorizedStreak = 0;
+let unauthorizedFirstAt = 0;
+
+const AUTH_RECOVERY_GRACE_MS = 90_000;
+const MAX_UNAUTHORIZED_RECOVERY_ATTEMPTS = 3;
+
+const resetUnauthorizedRecovery = () => {
+  unauthorizedStreak = 0;
+  unauthorizedFirstAt = 0;
+};
 
 export interface ApiError extends Error {
   status: number;
@@ -3550,6 +3560,37 @@ export async function authenticatedFetch<T>(
           });
         }
 
+        if (unauthorizedFirstAt === 0) {
+          unauthorizedFirstAt = Date.now();
+        }
+        unauthorizedStreak += 1;
+
+        const inRecoveryWindow =
+          Date.now() - unauthorizedFirstAt <= AUTH_RECOVERY_GRACE_MS;
+        if (
+          inRecoveryWindow &&
+          unauthorizedStreak <= MAX_UNAUTHORIZED_RECOVERY_ATTEMPTS
+        ) {
+          window.dispatchEvent(
+            new CustomEvent("app:auth-recovering", {
+              detail: {
+                endpoint,
+                status: 401,
+                attempt: unauthorizedStreak,
+                maxAttempts: MAX_UNAUTHORIZED_RECOVERY_ATTEMPTS,
+                at: Date.now(),
+              },
+            }),
+          );
+
+          const recoveringError = new Error(
+            "نقوم باستعادة الجلسة تلقائياً. الرجاء المحاولة بعد لحظات.",
+          ) as ApiError;
+          recoveringError.status = 503;
+          recoveringError.code = "AUTH_RECOVERING";
+          throw recoveringError;
+        }
+
         if (!authenticatedIsSigningOut) {
           authenticatedIsSigningOut = true;
           window.dispatchEvent(
@@ -3580,6 +3621,8 @@ export async function authenticatedFetch<T>(
       error.code = (data as any)?.code;
       throw error;
     }
+
+    resetUnauthorizedRecovery();
 
     return data;
   } catch (error) {

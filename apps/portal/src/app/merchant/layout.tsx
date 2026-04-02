@@ -165,6 +165,7 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { toast } = useToast();
   const [isRecoveringSession, setIsRecoveringSession] = useState(false);
+  const lastRecoveryToastAtRef = useRef(0);
   const isHardBlockedRoute =
     !!pathname &&
     BLOCKED_ROUTES.some((r) => pathname === r || pathname.startsWith(r + "/"));
@@ -240,6 +241,38 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
       cancelled = true;
     };
   }, [session?.error, toast]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const onAuthRecovering = (event: Event) => {
+      const now = Date.now();
+      if (now - lastRecoveryToastAtRef.current < 5000) {
+        return;
+      }
+      lastRecoveryToastAtRef.current = now;
+
+      const detail = (
+        event as CustomEvent<{
+          attempt?: number;
+          maxAttempts?: number;
+        }>
+      ).detail;
+
+      const attempt = Number(detail?.attempt || 1);
+      const maxAttempts = Number(detail?.maxAttempts || 3);
+
+      toast({
+        title: "الجلسة قيد الاستعادة",
+        description: `تعذر التحقق من الجلسة مؤقتاً (محاولة ${attempt}/${maxAttempts}).`,
+      });
+    };
+
+    window.addEventListener("app:auth-recovering", onAuthRecovering);
+    return () => {
+      window.removeEventListener("app:auth-recovering", onAuthRecovering);
+    };
+  }, [toast]);
 
   // Show loading while checking session
   if (status === "loading") {
