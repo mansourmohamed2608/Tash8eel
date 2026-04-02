@@ -363,6 +363,364 @@ export class MerchantPortalController {
     return conversationId;
   }
 
+  private toFiniteNumber(value: unknown, fallback = 0): number {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+  }
+
+  private async getCatalogItemAvailabilityForOrder(
+    merchantId: string,
+    catalogItemId: string,
+  ): Promise<{
+    itemId: string;
+    name: string;
+    mode: "simple" | "recipe";
+    availableQuantity: number;
+    limitingIngredient: string | null;
+  }> {
+    const itemResult = await this.pool.query<{
+      id: string;
+      name: string;
+      has_recipe: boolean;
+      stock_quantity: string | null;
+    }>(
+      `SELECT
+         id::text as id,
+         COALESCE(name_ar, name_en, sku) as name,
+         COALESCE(has_recipe, false) as has_recipe,
+         COALESCE(stock_quantity, 0)::text as stock_quantity
+       FROM catalog_items
+       WHERE merchant_id = $1 AND id::text = $2
+       LIMIT 1`,
+      [merchantId, catalogItemId],
+    );
+
+    if (itemResult.rows.length === 0) {
+      throw new NotFoundException(`Catalog item ${catalogItemId} not found`);
+    }
+
+    const item = itemResult.rows[0];
+    if (!item.has_recipe) {
+      const stockResult = await this.pool.query<{ available: string }>(
+        `SELECT
+           COALESCE(SUM(COALESCE(v.quantity_on_hand, 0) - COALESCE(v.quantity_reserved, 0)), 0)::text as available
+         FROM inventory_items ii
+         LEFT JOIN inventory_variants v ON v.inventory_item_id = ii.id
+           AND v.merchant_id = ii.merchant_id
+           AND COALESCE(v.is_active, true) = true
+         WHERE ii.merchant_id = $1 AND ii.catalog_item_id::text = $2`,
+        [merchantId, catalogItemId],
+      );
+
+      const variantsAvailable = this.toFiniteNumber(
+        stockResult.rows[0]?.available,
+        0,
+      );
+      const fallbackStock = this.toFiniteNumber(item.stock_quantity, 0);
+
+      return {
+        itemId: item.id,
+        name: item.name,
+        mode: "simple",
+        availableQuantity: Math.max(variantsAvailable, fallbackStock),
+        limitingIngredient: null,
+      };
+    }
+
+    const ingredientsResult = await this.pool.query<{
+      ingredient_name: string;
+      ingredient_inventory_item_id: string | null;
+      ingredient_catalog_item_id: string | null;
+      quantity_required: string;
+      waste_factor: string;
+      is_optional: boolean;
+    }>(
+      `SELECT
+         ingredient_name,
+         ingredient_inventory_item_id::text as ingredient_inventory_item_id,
+         ingredient_catalog_item_id::text as ingredient_catalog_item_id,
+         quantity_required::text as quantity_required,
+         COALESCE(waste_factor, 1)::text as waste_factor,
+         COALESCE(is_optional, false) as is_optional
+       FROM item_recipes
+       WHERE merchant_id = $1
+         AND catalog_item_id::text = $2
+       ORDER BY sort_order ASC, created_at ASC`,
+      [merchantId, catalogItemId],
+    );
+
+    let minCanMake = Number.POSITIVE_INFINITY;
+    let limitingIngredient: string | null = null;
+
+    for (const ingredient of ingredientsResult.rows) {
+      const required =
+        this.toFiniteNumber(ingredient.quantity_required, 0) *
+        this.toFiniteNumber(ingredient.waste_factor, 1);
+      if (required <= 0) continue;
+
+      let stockOnHand = 0;
+      if (ingredient.ingredient_inventory_item_id) {
+        const invStock = await this.pool.query<{ available: string }>(
+          `SELECT
+             COALESCE(SUM(COALESCE(quantity_on_hand, 0) - COALESCE(quantity_reserved, 0)), 0)::text as available
+           FROM inventory_variants
+           WHERE merchant_id = $1
+             AND inventory_item_id::text = $2
+             AND COALESCE(is_active, true) = true`,
+          [merchantId, ingredient.ingredient_inventory_item_id],
+        );
+        stockOnHand = this.toFiniteNumber(invStock.rows[0]?.available, 0);
+      } else if (ingredient.ingredient_catalog_item_id) {
+        const catalogStock = await this.pool.query<{ available: string }>(
+          `SELECT COALESCE(stock_quantity, 0)::text as available
+           FROM catalog_items
+           WHERE merchant_id = $1 AND id::text = $2
+           LIMIT 1`,
+          [merchantId, ingredient.ingredient_catalog_item_id],
+        );
+        stockOnHand = this.toFiniteNumber(catalogStock.rows[0]?.available, 0);
+      }
+
+      const canMake = required > 0 ? Math.floor(stockOnHand / required) : 0;
+      if (!ingredient.is_optional && canMake < minCanMake) {
+        minCanMake = canMake;
+        limitingIngredient = ingredient.ingredient_name;
+      }
+    }
+
+    if (!Number.isFinite(minCanMake)) {
+      minCanMake = 0;
+    }
+
+    return {
+      itemId: item.id,
+      name: item.name,
+      mode: "recipe",
+      availableQuantity: minCanMake,
+      limitingIngredient,
+    };
+  }
+
+  private async resolveOrderItemByNameOrSku(
+    merchantId: string,
+    rawNameOrSku: string,
+  ): Promise<{
+    catalogItemId?: string;
+    inventoryItemId?: string;
+    name: string;
+    sku?: string;
+    availableQuantity?: number;
+  } | null> {
+    const lookup = String(rawNameOrSku || "").trim();
+    if (!lookup) return null;
+
+    const catalogMatch = await this.pool.query<{
+      id: string;
+      name: string;
+      sku: string | null;
+    }>(
+      `SELECT
+         id::text as id,
+         COALESCE(name_ar, name_en, sku) as name,
+         NULLIF(sku, '') as sku
+       FROM catalog_items
+       WHERE merchant_id = $1
+         AND (
+           LOWER(COALESCE(name_ar, '')) = LOWER($2)
+           OR LOWER(COALESCE(name_en, '')) = LOWER($2)
+           OR LOWER(COALESCE(sku, '')) = LOWER($2)
+         )
+       ORDER BY COALESCE(is_available, true) DESC, updated_at DESC
+       LIMIT 1`,
+      [merchantId, lookup],
+    );
+
+    if (catalogMatch.rows.length > 0) {
+      return {
+        catalogItemId: catalogMatch.rows[0].id,
+        name: catalogMatch.rows[0].name || lookup,
+        sku: catalogMatch.rows[0].sku || undefined,
+      };
+    }
+
+    const inventoryMatch = await this.pool.query<{
+      inventory_item_id: string;
+      catalog_item_id: string | null;
+      item_name: string;
+      sku: string | null;
+      available: string;
+    }>(
+      `SELECT
+         ii.id::text as inventory_item_id,
+         ii.catalog_item_id::text as catalog_item_id,
+         COALESCE(NULLIF((to_jsonb(ii)->>'name'), ''), ci.name_ar, ci.name_en, ii.sku, '') as item_name,
+         COALESCE(NULLIF(ii.sku, ''), NULLIF(ci.sku, '')) as sku,
+         COALESCE(SUM(COALESCE(iv.quantity_on_hand, 0) - COALESCE(iv.quantity_reserved, 0)), 0)::text as available
+       FROM inventory_items ii
+       LEFT JOIN catalog_items ci
+         ON ci.id = ii.catalog_item_id AND ci.merchant_id = ii.merchant_id
+       LEFT JOIN inventory_variants iv
+         ON iv.inventory_item_id = ii.id
+         AND iv.merchant_id = ii.merchant_id
+         AND COALESCE(iv.is_active, true) = true
+       WHERE ii.merchant_id = $1
+         AND (
+           LOWER(COALESCE(NULLIF((to_jsonb(ii)->>'name'), ''), '')) = LOWER($2)
+           OR LOWER(COALESCE(ii.sku, '')) = LOWER($2)
+           OR LOWER(COALESCE(ci.name_ar, '')) = LOWER($2)
+           OR LOWER(COALESCE(ci.name_en, '')) = LOWER($2)
+           OR LOWER(COALESCE(ci.sku, '')) = LOWER($2)
+         )
+       GROUP BY ii.id, ii.catalog_item_id, ci.name_ar, ci.name_en, ii.sku, ci.sku
+       ORDER BY available::numeric DESC, ii.created_at ASC
+       LIMIT 1`,
+      [merchantId, lookup],
+    );
+
+    if (inventoryMatch.rows.length === 0) {
+      return null;
+    }
+
+    const matched = inventoryMatch.rows[0];
+    return {
+      catalogItemId: matched.catalog_item_id || undefined,
+      inventoryItemId: matched.inventory_item_id,
+      name: matched.item_name || lookup,
+      sku: matched.sku || undefined,
+      availableQuantity: this.toFiniteNumber(matched.available, 0),
+    };
+  }
+
+  private async validateManualOrderStock(
+    merchantId: string,
+    items: Array<{
+      catalogItemId?: string;
+      sku?: string;
+      name: string;
+      quantity: number;
+      unitPrice: number;
+      notes?: string;
+      lineTotal: number;
+    }>,
+  ): Promise<void> {
+    const unavailableItems: Array<{
+      index: number;
+      name: string;
+      requestedQty: number;
+      availableQty: number;
+      reason: string;
+      mode: "recipe" | "simple" | "inventory_only" | "unknown";
+      limitingIngredient?: string;
+    }> = [];
+
+    const availabilityCache = new Map<
+      string,
+      {
+        name: string;
+        mode: "simple" | "recipe";
+        availableQuantity: number;
+        limitingIngredient: string | null;
+      }
+    >();
+
+    for (let index = 0; index < items.length; index++) {
+      const line = items[index];
+      const requestedQty = this.toFiniteNumber(line.quantity, 0);
+      if (requestedQty <= 0) continue;
+
+      let resolvedName = String(line.name || "منتج").trim() || "منتج";
+      let resolvedMode: "recipe" | "simple" | "inventory_only" | "unknown" =
+        "unknown";
+      let availableQty = 0;
+      let limitingIngredient: string | null = null;
+
+      let catalogItemId = String(line.catalogItemId || "").trim();
+
+      if (!catalogItemId) {
+        const resolved = await this.resolveOrderItemByNameOrSku(
+          merchantId,
+          line.name,
+        );
+
+        if (!resolved) {
+          unavailableItems.push({
+            index,
+            name: resolvedName,
+            requestedQty,
+            availableQty: 0,
+            reason: "ITEM_NOT_FOUND",
+            mode: "unknown",
+          });
+          continue;
+        }
+
+        resolvedName = String(resolved.name || resolvedName);
+        if (resolved.sku && !line.sku) {
+          line.sku = resolved.sku;
+        }
+
+        if (resolved.catalogItemId) {
+          catalogItemId = resolved.catalogItemId;
+          line.catalogItemId = resolved.catalogItemId;
+        } else {
+          resolvedMode = "inventory_only";
+          availableQty = Math.max(
+            0,
+            this.toFiniteNumber(resolved.availableQuantity, 0),
+          );
+        }
+      }
+
+      if (catalogItemId) {
+        let availability = availabilityCache.get(catalogItemId);
+        if (!availability) {
+          const fetched = await this.getCatalogItemAvailabilityForOrder(
+            merchantId,
+            catalogItemId,
+          );
+          availability = {
+            name: fetched.name,
+            mode: fetched.mode,
+            availableQuantity: fetched.availableQuantity,
+            limitingIngredient: fetched.limitingIngredient,
+          };
+          availabilityCache.set(catalogItemId, availability);
+        }
+
+        resolvedName = availability.name || resolvedName;
+        resolvedMode = availability.mode;
+        availableQty = Math.max(
+          0,
+          this.toFiniteNumber(availability.availableQuantity, 0),
+        );
+        limitingIngredient = availability.limitingIngredient;
+      }
+
+      if (requestedQty - availableQty > 1e-9) {
+        unavailableItems.push({
+          index,
+          name: resolvedName,
+          requestedQty,
+          availableQty,
+          reason:
+            resolvedMode === "recipe"
+              ? "INSUFFICIENT_INGREDIENTS"
+              : "INSUFFICIENT_STOCK",
+          mode: resolvedMode,
+          limitingIngredient: limitingIngredient || undefined,
+        });
+      }
+    }
+
+    if (unavailableItems.length > 0) {
+      throw new BadRequestException({
+        message: "One or more items are unavailable in inventory",
+        code: "INSUFFICIENT_STOCK",
+        unavailableItems,
+      });
+    }
+  }
+
   /**
    * Deduct or restore stock for an order's items.
    * Two modes:
@@ -404,6 +762,9 @@ export class MerchantPortalController {
       const items = orderResult.rows[0]?.items;
       if (Array.isArray(items)) {
         orderLineItems = items.map((it: any) => ({
+          catalog_item_id:
+            String(it.catalogItemId || it.catalog_item_id || "").trim() ||
+            undefined,
           sku: it.sku,
           quantity: parseInt(it.quantity || it.qty, 10) || 0,
         }));
@@ -1299,6 +1660,7 @@ export class MerchantPortalController {
             type: "object",
             properties: {
               catalogItemId: { type: "string" },
+              sku: { type: "string" },
               name: { type: "string" },
               quantity: { type: "number" },
               unitPrice: { type: "number" },
@@ -1331,6 +1693,7 @@ export class MerchantPortalController {
       customerPhone: string;
       items: Array<{
         catalogItemId?: string;
+        sku?: string;
         name?: string;
         quantity: number;
         unitPrice: number;
@@ -1386,6 +1749,7 @@ export class MerchantPortalController {
 
     const normalizedItems = rawItems.map((item, index) => {
       const catalogItemId = String(item?.catalogItemId || "").trim();
+      const sku = String(item?.sku || "").trim();
       const name = String(item?.name || "").trim();
       const quantity = Number(item?.quantity);
       const unitPrice = Number(item?.unitPrice);
@@ -1409,6 +1773,7 @@ export class MerchantPortalController {
       const lineTotal = Number((quantity * unitPrice).toFixed(2));
       return {
         catalogItemId: catalogItemId || undefined,
+        sku: sku || undefined,
         name: name || "منتج",
         quantity: Number(quantity),
         unitPrice: Number(unitPrice),
@@ -1419,6 +1784,8 @@ export class MerchantPortalController {
         lineTotal,
       };
     });
+
+    await this.validateManualOrderStock(merchantId, normalizedItems);
 
     const subtotal = Number(
       normalizedItems.reduce((sum, item) => sum + item.lineTotal, 0).toFixed(2),
@@ -1889,64 +2256,138 @@ export class MerchantPortalController {
       throw new ForbiddenException("Access denied");
     }
 
-    // Check inventory for each item
-    const reorderItems: any[] = [];
-    const unavailableItems: any[] = [];
-
-    for (const item of originalOrder.items || []) {
-      // Try to find current inventory/catalog item
-      const inventoryCheck = await this.pool.query(
-        `SELECT sku, name, quantity, unit_price FROM inventory 
-         WHERE merchant_id = $1 AND (sku = $2 OR LOWER(name) = LOWER($3))`,
-        [merchantId, item.sku, item.name],
-      );
-
-      if (inventoryCheck.rows.length > 0) {
-        const inv = inventoryCheck.rows[0];
-        const available = inv.quantity >= item.quantity;
-        const reorderItem = {
-          sku: inv.sku,
-          name: inv.name,
-          requestedQty: item.quantity,
-          availableQty: inv.quantity,
-          unitPrice: Number(inv.unit_price) || Number(item.unitPrice) || 0,
-          available,
-        };
-        reorderItems.push(reorderItem);
-        if (!available) {
-          unavailableItems.push(reorderItem);
-        }
-      } else {
-        // Item not in inventory - may have been removed
-        unavailableItems.push({
-          sku: item.sku,
-          name: item.name,
-          requestedQty: item.quantity,
-          availableQty: 0,
-          unitPrice: item.unitPrice,
-          available: false,
-          reason: "NOT_IN_INVENTORY",
-        });
+    let sourceItems = this.normalizeOrderItems((originalOrder as any).items);
+    if (sourceItems.length === 0) {
+      try {
+        const itemsByOrder = await this.loadOrderItemsFromTable([String(id)]);
+        sourceItems = itemsByOrder.get(String(id)) || [];
+      } catch (error) {
+        this.logger.warn(
+          `Failed to hydrate items for reorder ${id}: ${String(error)}`,
+        );
       }
     }
 
-    // Calculate total for available items
-    const availableForOrder = reorderItems.filter((i) => i.available);
-    const total = availableForOrder.reduce(
-      (sum, i) => sum + i.unitPrice * i.requestedQty,
-      0,
-    );
+    const reorderItems = sourceItems
+      .map((item: any, index: number) => {
+        const catalogItemId = String(
+          item?.catalogItemId || item?.catalog_item_id || "",
+        ).trim();
+        const sku = String(item?.sku || item?.variantSku || "").trim();
+        const name = String(
+          item?.name || item?.productName || item?.title || sku || "منتج",
+        ).trim();
+        const quantity = Math.max(
+          0,
+          Math.trunc(
+            this.toFiniteNumber(item?.quantity ?? item?.qty ?? item?.count, 0),
+          ),
+        );
+        const lineTotalInput = this.toFiniteNumber(
+          item?.lineTotal ??
+            item?.line_total ??
+            item?.total ??
+            item?.totalPrice ??
+            item?.total_price,
+          NaN,
+        );
+        const unitPriceInput = this.toFiniteNumber(
+          item?.unitPrice ?? item?.unit_price ?? item?.price,
+          NaN,
+        );
 
-    // Create the new order with available items
-    if (availableForOrder.length === 0) {
+        let unitPrice =
+          Number.isFinite(unitPriceInput) && unitPriceInput >= 0
+            ? unitPriceInput
+            : 0;
+        if (
+          unitPrice <= 0 &&
+          Number.isFinite(lineTotalInput) &&
+          lineTotalInput > 0 &&
+          quantity > 0
+        ) {
+          unitPrice = Number((lineTotalInput / quantity).toFixed(2));
+        }
+
+        if (quantity <= 0) {
+          return null;
+        }
+
+        return {
+          index,
+          catalogItemId: catalogItemId || undefined,
+          sku: sku || undefined,
+          name: name || "منتج",
+          quantity,
+          unitPrice: Number(unitPrice.toFixed(2)),
+          lineTotal: Number((quantity * unitPrice).toFixed(2)),
+        };
+      })
+      .filter(Boolean) as Array<{
+      index: number;
+      catalogItemId?: string;
+      sku?: string;
+      name: string;
+      quantity: number;
+      unitPrice: number;
+      lineTotal: number;
+    }>;
+
+    if (reorderItems.length === 0) {
       return {
         success: false,
-        message: "لا يمكن إعادة الطلب - جميع المنتجات غير متوفرة حالياً",
-        unavailableItems,
+        message: "لا يمكن إعادة الطلب - لا توجد عناصر صالحة في الطلب الأصلي",
+        unavailableItems: [],
       };
     }
 
-    const newOrderNumber = `ORD-${Date.now().toString(36).toUpperCase()}`;
+    try {
+      await this.validateManualOrderStock(
+        merchantId,
+        reorderItems.map((item) => ({
+          catalogItemId: item.catalogItemId,
+          sku: item.sku,
+          name: item.name,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          lineTotal: item.lineTotal,
+        })),
+      );
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        const response = error.getResponse();
+        const payload =
+          response && typeof response === "object"
+            ? (response as Record<string, any>)
+            : {};
+        const directUnavailable = Array.isArray(payload.unavailableItems)
+          ? payload.unavailableItems
+          : [];
+        const nestedMessage = payload.message;
+        const nestedUnavailable =
+          nestedMessage &&
+          typeof nestedMessage === "object" &&
+          Array.isArray((nestedMessage as Record<string, any>).unavailableItems)
+            ? ((nestedMessage as Record<string, any>).unavailableItems as any[])
+            : [];
+
+        return {
+          success: false,
+          message: "لا يمكن إعادة الطلب - بعض المنتجات غير متوفرة حالياً",
+          unavailableItems:
+            directUnavailable.length > 0
+              ? directUnavailable
+              : nestedUnavailable,
+        };
+      }
+      throw error;
+    }
+
+    const total = Number(
+      reorderItems.reduce((sum, item) => sum + item.lineTotal, 0).toFixed(2),
+    );
+
+    const newOrderNumber = await this.createUniquePortalOrderNumber(merchantId);
 
     const result = await this.pool.query(
       `INSERT INTO orders (
@@ -1962,10 +2403,11 @@ export class MerchantPortalController {
         originalOrder.customerPhone,
         originalOrder.deliveryAddress,
         JSON.stringify(
-          availableForOrder.map((i) => ({
+          reorderItems.map((i) => ({
+            catalogItemId: i.catalogItemId,
             sku: i.sku,
             name: i.name,
-            quantity: i.requestedQty,
+            quantity: i.quantity,
             unitPrice: i.unitPrice,
           })),
         ),
@@ -1988,26 +2430,19 @@ export class MerchantPortalController {
         newValues: {
           orderNumber: newOrderNumber,
           reorderFrom: originalOrder.orderNumber,
-          itemCount: availableForOrder.length,
+          itemCount: reorderItems.length,
         },
         metadata: { reorderFromId: id },
       })
       .catch(() => {});
 
-    // ─── Freeze stock for new order ─────────────────────
-    // Deduct stock immediately when order is created (DRAFT)
+    // Freeze stock for the created reorder immediately.
     try {
-      let stockDeducted = 0;
-      for (const item of availableForOrder) {
-        if (item.sku) {
-          const result = await this.pool.query(
-            `UPDATE catalog_items SET stock_quantity = GREATEST(0, COALESCE(stock_quantity, 0) - $1), updated_at = NOW()
-             WHERE merchant_id = $2 AND sku = $3 AND stock_quantity IS NOT NULL`,
-            [item.requestedQty, merchantId, item.sku],
-          );
-          if (result.rowCount > 0) stockDeducted++;
-        }
-      }
+      const stockDeducted = await this.handleStockForOrder(
+        newOrder.id,
+        merchantId,
+        "DEDUCT",
+      );
       await this.pool.query(
         `UPDATE orders SET stock_deducted = true WHERE id = $1`,
         [newOrder.id],
@@ -2023,14 +2458,18 @@ export class MerchantPortalController {
 
     return {
       success: true,
-      message:
-        unavailableItems.length > 0
-          ? `تم إنشاء الطلب مع ${availableForOrder.length} منتجات متوفرة. ${unavailableItems.length} منتجات غير متوفرة.`
-          : "تم إنشاء الطلب بنجاح",
+      message: "تم إنشاء الطلب بنجاح",
       orderId: newOrder.id,
       orderNumber: newOrderNumber,
-      availableItems: availableForOrder,
-      unavailableItems,
+      availableItems: reorderItems.map((item) => ({
+        sku: item.sku,
+        name: item.name,
+        requestedQty: item.quantity,
+        availableQty: item.quantity,
+        unitPrice: item.unitPrice,
+        available: true,
+      })),
+      unavailableItems: [],
       total,
     };
   }
