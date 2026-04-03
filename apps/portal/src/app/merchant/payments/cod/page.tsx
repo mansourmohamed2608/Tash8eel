@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { PageHeader } from "@/components/layout";
 import {
   Card,
@@ -167,6 +168,9 @@ const isCodStatus = (value: unknown): value is CODOrder["status"] =>
 
 export default function CODReconciliationPage() {
   const { merchantId, apiKey } = useMerchant();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [orders, setOrders] = useState<CODOrder[]>([]);
   const [summary, setSummary] = useState<ReconciliationSummary | null>(null);
@@ -397,6 +401,35 @@ export default function CODReconciliationPage() {
   useEffect(() => {
     fetchOrders();
   }, [fetchOrders]);
+
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (
+      tab === "pending" ||
+      tab === "collected" ||
+      tab === "reconciled" ||
+      tab === "disputed" ||
+      tab === "reminders"
+    ) {
+      setActiveTab(tab);
+      return;
+    }
+    setActiveTab("pending");
+  }, [searchParams]);
+
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    const params = new URLSearchParams(searchParams.toString());
+    if (tab === "pending") {
+      params.delete("tab");
+    } else {
+      params.set("tab", tab);
+    }
+    const query = params.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, {
+      scroll: false,
+    });
+  };
 
   // COD Reminders functions
   const fetchReminders = useCallback(async () => {
@@ -925,7 +958,7 @@ export default function CODReconciliationPage() {
       </Card>
 
       {/* Orders Table with Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
+      <Tabs value={activeTab} onValueChange={handleTabChange}>
         <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="pending" className="gap-2">
             <Clock className="h-4 w-4" />

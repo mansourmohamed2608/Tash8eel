@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { PageHeader } from "@/components/layout";
 import {
   Card,
@@ -240,6 +241,9 @@ const businessCategories = [
 
 export default function KnowledgeBasePage() {
   const { merchantId, apiKey, isDemo, merchant } = useMerchant();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { canCreate, canEdit, canDelete, isReadOnly } =
     useRoleAccess("knowledge-base");
   const [loading, setLoading] = useState(true);
@@ -291,6 +295,13 @@ export default function KnowledgeBasePage() {
 
   const showError = (description: string) => {
     toast({ title: "خطأ", description, variant: "destructive" });
+  };
+
+  const getErrorMessage = (error: unknown, fallback: string) => {
+    if (error instanceof Error && error.message.trim()) {
+      return error.message;
+    }
+    return fallback;
   };
 
   // ==================== LOAD DATA ====================
@@ -369,10 +380,45 @@ export default function KnowledgeBasePage() {
     loadData();
   }, [loadData]);
 
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (tab === "menu" || tab === "faqs" || tab === "business") {
+      setActiveTab(tab);
+      return;
+    }
+    setActiveTab("menu");
+  }, [searchParams]);
+
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    const params = new URLSearchParams(searchParams.toString());
+    if (tab === "menu") {
+      params.delete("tab");
+    } else {
+      params.set("tab", tab);
+    }
+    const query = params.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, {
+      scroll: false,
+    });
+  };
+
   // ==================== MENU HANDLERS ====================
 
   const handleSaveMenuItem = async () => {
-    if (!merchantId || !apiKey || !menuFormData.name || menuFormData.price < 0)
+    const trimmedName = menuFormData.name.trim();
+    if (!canEdit) {
+      showError("غير مصرح بتنفيذ هذا الإجراء");
+      return;
+    }
+
+    if (
+      !merchantId ||
+      !apiKey ||
+      !trimmedName ||
+      !Number.isFinite(menuFormData.price) ||
+      menuFormData.price < 0
+    )
       return;
 
     setSaving(true);
@@ -383,7 +429,7 @@ export default function KnowledgeBasePage() {
           merchantId,
           editingMenuItem.id,
           {
-            name: menuFormData.name,
+            name: trimmedName,
             nameEn: menuFormData.nameEn,
             description: menuFormData.description,
             price: menuFormData.price,
@@ -397,7 +443,7 @@ export default function KnowledgeBasePage() {
         await merchantApi.createCatalogItem(
           merchantId,
           {
-            name: menuFormData.name,
+            name: trimmedName,
             nameEn: menuFormData.nameEn,
             description: menuFormData.description,
             price: menuFormData.price,
@@ -415,7 +461,7 @@ export default function KnowledgeBasePage() {
       await loadData();
     } catch (err) {
       console.error("Failed to save menu item:", err);
-      showError("فشل في حفظ المنتج/الخدمة");
+      showError(getErrorMessage(err, "فشل في حفظ المنتج/الخدمة"));
     }
     setSaving(false);
   };
@@ -1097,7 +1143,7 @@ export default function KnowledgeBasePage() {
       </div>
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
+      <Tabs value={activeTab} onValueChange={handleTabChange}>
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="menu" className="flex items-center gap-2">
             <Package className="h-4 w-4" />
@@ -1121,9 +1167,13 @@ export default function KnowledgeBasePage() {
               <Button
                 variant="outline"
                 size="sm"
-                disabled={syncing}
+                disabled={syncing || !canEdit}
                 onClick={async () => {
                   if (!merchantId || !apiKey) return;
+                  if (!canEdit) {
+                    showError("غير مصرح بتنفيذ هذا الإجراء");
+                    return;
+                  }
                   setSyncing(true);
                   try {
                     const result = await merchantApi.pullCatalogToInventory(
@@ -1158,8 +1208,10 @@ export default function KnowledgeBasePage() {
                       description: msg,
                     });
                     await loadData();
-                  } catch {
-                    showError("فشل في إرسال المنتجات للمخزون");
+                  } catch (err) {
+                    showError(
+                      getErrorMessage(err, "فشل في إرسال المنتجات للمخزون"),
+                    );
                   } finally {
                     setSyncing(false);
                   }
@@ -1173,9 +1225,13 @@ export default function KnowledgeBasePage() {
               <Button
                 variant="outline"
                 size="sm"
-                disabled={syncing}
+                disabled={syncing || !canEdit}
                 onClick={async () => {
                   if (!merchantId || !apiKey) return;
+                  if (!canEdit) {
+                    showError("غير مصرح بتنفيذ هذا الإجراء");
+                    return;
+                  }
                   setSyncing(true);
                   try {
                     const result = await merchantApi.pushInventoryToCatalog(
@@ -1210,8 +1266,13 @@ export default function KnowledgeBasePage() {
                       description: msg,
                     });
                     await loadData();
-                  } catch {
-                    showError("فشل في استيراد المنتجات من المخزون");
+                  } catch (err) {
+                    showError(
+                      getErrorMessage(
+                        err,
+                        "فشل في استيراد المنتجات من المخزون",
+                      ),
+                    );
                   } finally {
                     setSyncing(false);
                   }
@@ -1222,16 +1283,18 @@ export default function KnowledgeBasePage() {
                 />
                 استيراد من المخزون
               </Button>
-              <Button
-                onClick={() => {
-                  setEditingMenuItem(null);
-                  setMenuFormData(defaultMenuItem);
-                  setShowMenuDialog(true);
-                }}
-              >
-                <Plus className="h-4 w-4 ml-2" />
-                إضافة منتج/خدمة
-              </Button>
+              {canCreate && (
+                <Button
+                  onClick={() => {
+                    setEditingMenuItem(null);
+                    setMenuFormData(defaultMenuItem);
+                    setShowMenuDialog(true);
+                  }}
+                >
+                  <Plus className="h-4 w-4 ml-2" />
+                  إضافة منتج/خدمة
+                </Button>
+              )}
             </div>
           </div>
 
@@ -1241,10 +1304,12 @@ export default function KnowledgeBasePage() {
               title="لا توجد منتجات أو خدمات"
               description="أضف منتجاتك أو خدماتك ليتمكن الذكاء الاصطناعي من الإجابة عن أسئلة العملاء"
               action={
-                <Button onClick={() => setShowMenuDialog(true)}>
-                  <Plus className="h-4 w-4 ml-2" />
-                  إضافة منتج/خدمة
-                </Button>
+                canCreate ? (
+                  <Button onClick={() => setShowMenuDialog(true)}>
+                    <Plus className="h-4 w-4 ml-2" />
+                    إضافة منتج/خدمة
+                  </Button>
+                ) : undefined
               }
             />
           ) : (
@@ -1296,6 +1361,7 @@ export default function KnowledgeBasePage() {
                           size="icon"
                           title="إدارة الوصفة"
                           onClick={() => setRecipeItem(item)}
+                          disabled={!canEdit}
                           className={
                             item.has_recipe
                               ? "text-orange-600"
@@ -1308,6 +1374,7 @@ export default function KnowledgeBasePage() {
                           variant="ghost"
                           size="icon"
                           onClick={() => openEditMenuItem(item)}
+                          disabled={!canEdit}
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
@@ -1316,6 +1383,7 @@ export default function KnowledgeBasePage() {
                           size="icon"
                           className="text-destructive"
                           onClick={() => setMenuItemToDelete(item)}
+                          disabled={!canDelete}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>

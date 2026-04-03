@@ -20,7 +20,7 @@ import { Pool } from "pg";
 import { DATABASE_POOL } from "../../infrastructure/database/database.module";
 import { MerchantApiKeyGuard } from "../../shared/guards/merchant-api-key.guard";
 import { EntitlementGuard } from "../../shared/guards/entitlement.guard";
-import { RolesGuard } from "../../shared/guards/roles.guard";
+import { RequireRole, RolesGuard } from "../../shared/guards/roles.guard";
 import { getMerchantId, parseJsonObject } from "./portal-compat.helpers";
 
 @ApiTags("Merchant Portal Compatibility")
@@ -36,6 +36,7 @@ export class PortalKnowledgeBaseController {
   constructor(@Inject(DATABASE_POOL) private readonly pool: Pool) {}
 
   @Post("knowledge-base/pull-from-catalog")
+  @RequireRole("MANAGER")
   @ApiOperation({ summary: "Pull catalog items into inventory items" })
   async pullCatalogToInventory(@Req() req: Request) {
     const merchantId = getMerchantId(req);

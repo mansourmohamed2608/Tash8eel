@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { PageHeader } from "@/components/layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -84,6 +85,9 @@ const ConfidenceBar = ({ value }: { value: number }) => {
 
 export default function ForecastPage() {
   const { toast } = useToast();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState("demand");
   const [loading, setLoading] = useState(true);
   const [moduleErrors, setModuleErrors] = useState<Record<string, boolean>>({});
@@ -208,6 +212,37 @@ export default function ForecastPage() {
   useEffect(() => {
     loadAll();
   }, [loadAll]);
+
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (
+      tab === "demand" ||
+      tab === "replenishment" ||
+      tab === "cashflow" ||
+      tab === "churn" ||
+      tab === "workforce" ||
+      tab === "whatif" ||
+      tab === "metrics"
+    ) {
+      setActiveTab(tab);
+      return;
+    }
+    setActiveTab("demand");
+  }, [searchParams]);
+
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    const params = new URLSearchParams(searchParams.toString());
+    if (tab === "demand") {
+      params.delete("tab");
+    } else {
+      params.set("tab", tab);
+    }
+    const query = params.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, {
+      scroll: false,
+    });
+  };
 
   const loadProductHistory = async (productId: string) => {
     setHistoryLoading(true);
@@ -379,7 +414,7 @@ export default function ForecastPage() {
         </div>
       )}
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
+      <Tabs value={activeTab} onValueChange={handleTabChange}>
         <TabsList className="grid grid-cols-4 md:grid-cols-7 w-full mb-4">
           <TabsTrigger value="demand">
             <TrendingUp className="w-4 h-4 ml-1" />

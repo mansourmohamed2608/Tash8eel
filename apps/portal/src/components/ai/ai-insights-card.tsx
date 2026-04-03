@@ -883,7 +883,7 @@ export function generateLoyaltyInsights(data: {
       description:
         "العملاء لا يستخدمون نقاطهم. ذكّرهم عبر واتساب بالمكافآت المتاحة.",
       actionLabel: "إرسال تذكير",
-      actionHref: "/merchant/push-notifications",
+      actionHref: "/merchant/notifications?tab=broadcast",
     });
   }
 
@@ -1074,7 +1074,7 @@ export function generateSecurityInsights(data: {
         description:
           "يُنصح بتغيير كلمة المرور كل 90 يوم للحفاظ على أمان الحساب.",
         actionLabel: "تغيير كلمة المرور",
-        actionHref: "/merchant/change-password",
+        actionHref: "/merchant/security?tab=settings",
       });
     }
   }

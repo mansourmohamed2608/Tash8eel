@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { PageHeader } from "@/components/layout";
 import {
   Card,
@@ -30,12 +30,13 @@ import {
   Bell,
   Clock,
   Save,
-  AlertCircle,
   CreditCard,
   Smartphone,
   Building2,
   Wallet,
   AlertTriangle,
+  ArrowUpRight,
+  Shield,
 } from "lucide-react";
 import { merchantApi } from "@/lib/client";
 import { useMerchant } from "@/hooks/use-merchant";
@@ -43,6 +44,7 @@ import {
   AiInsightsCard,
   generateSettingsInsights,
 } from "@/components/ai/ai-insights-card";
+import { DeleteAccountPanel } from "@/components/merchant/settings/delete-account-panel";
 
 // Settings structure matching API response
 interface MerchantSettings {
@@ -66,6 +68,8 @@ interface MerchantSettings {
     workingHours: { start: string; end: string };
     autoResponseEnabled: boolean;
     followupDelayMinutes: number;
+    requireReauthForFinance?: boolean;
+    sessionTimeoutMinutes?: number;
   };
   payout: {
     instapayAlias: string | null;
@@ -100,6 +104,8 @@ const defaultSettings: MerchantSettings = {
     workingHours: { start: "09:00", end: "21:00" },
     autoResponseEnabled: true,
     followupDelayMinutes: 60,
+    requireReauthForFinance: true,
+    sessionTimeoutMinutes: 60,
   },
   payout: {
     instapayAlias: null,
@@ -111,12 +117,6 @@ const defaultSettings: MerchantSettings = {
     preferredMethod: "INSTAPAY",
   },
 };
-
-const reportPeriodOptions = [
-  { id: "daily", label: "يومي" },
-  { id: "weekly", label: "أسبوعي" },
-  { id: "monthly", label: "شهري" },
-];
 
 const CATEGORY_OPTIONS = [
   "عام",
@@ -157,6 +157,8 @@ const CATEGORY_TO_ENUM: Record<string, string> = {
 
 export default function SettingsPage() {
   const { apiKey } = useMerchant();
+  const router = useRouter();
+  const pathname = usePathname();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -167,6 +169,10 @@ export default function SettingsPage() {
   const searchParams = useSearchParams();
   const initialTab = searchParams?.get("tab") || "business";
   const [activeTab, setActiveTab] = useState(initialTab);
+  const showGlobalSave =
+    activeTab === "business" ||
+    activeTab === "payout" ||
+    activeTab === "preferences";
   const categoryOptions = useMemo(() => {
     const current = settings?.business.category?.trim();
     if (current && !CATEGORY_OPTIONS.includes(current)) {
@@ -216,30 +222,92 @@ export default function SettingsPage() {
 
   useEffect(() => {
     const tab = searchParams?.get("tab");
-    if (tab && tab !== activeTab) {
+    if (
+      tab === "business" ||
+      tab === "payout" ||
+      tab === "notifications" ||
+      tab === "preferences" ||
+      tab === "danger"
+    ) {
       setActiveTab(tab);
+      return;
     }
-  }, [searchParams, activeTab]);
+    setActiveTab("business");
+  }, [searchParams]);
+
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    const params = new URLSearchParams(searchParams?.toString() || "");
+    if (tab === "business") {
+      params.delete("tab");
+    } else {
+      params.set("tab", tab);
+    }
+    const query = params.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, {
+      scroll: false,
+    });
+  };
 
   const handleSave = async () => {
     if (!settings || !apiKey) return;
 
     setSaving(true);
     try {
-      const categoryValue = settings.business.category?.trim();
-      const normalizedCategory = categoryValue || "";
-      const mappedCategory = normalizedCategory
-        ? CATEGORY_TO_ENUM[normalizedCategory] || normalizedCategory
-        : normalizedCategory;
-      const payload: MerchantSettings = {
-        ...settings,
-        business: {
-          ...settings.business,
-          category: mappedCategory || "",
-        },
-      };
-      await merchantApi.updateSettings(apiKey, payload);
-      setInitialSettings(settings);
+      if (activeTab === "business") {
+        const categoryValue = settings.business.category?.trim();
+        const normalizedCategory = categoryValue || "";
+        const mappedCategory = normalizedCategory
+          ? CATEGORY_TO_ENUM[normalizedCategory] || normalizedCategory
+          : normalizedCategory;
+
+        await merchantApi.updateSettings(apiKey, {
+          business: {
+            ...settings.business,
+            category: mappedCategory || "",
+          },
+        } as any);
+
+        setInitialSettings((prev) =>
+          prev
+            ? {
+                ...prev,
+                business: settings.business,
+              }
+            : settings,
+        );
+      }
+
+      if (activeTab === "payout") {
+        await merchantApi.updateSettings(apiKey, {
+          payout: settings.payout,
+        } as any);
+
+        setInitialSettings((prev) =>
+          prev
+            ? {
+                ...prev,
+                payout: settings.payout,
+              }
+            : settings,
+        );
+      }
+
+      if (activeTab === "preferences") {
+        await merchantApi.updateSettings(apiKey, {
+          preferences: settings.preferences,
+        } as any);
+
+        setInitialSettings((prev) =>
+          prev
+            ? {
+                ...prev,
+                preferences: settings.preferences,
+              }
+            : settings,
+        );
+      }
+
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (err) {
@@ -248,22 +316,6 @@ export default function SettingsPage() {
     } finally {
       setSaving(false);
     }
-  };
-
-  const notificationsDirty = useMemo(() => {
-    if (!settings || !initialSettings) return false;
-    return (
-      JSON.stringify(settings.notifications) !==
-      JSON.stringify(initialSettings.notifications)
-    );
-  }, [settings, initialSettings]);
-
-  const handleResetNotifications = () => {
-    if (!settings || !initialSettings) return;
-    setSettings({
-      ...settings,
-      notifications: { ...initialSettings.notifications },
-    });
   };
 
   if (loading || !settings) {
@@ -285,7 +337,7 @@ export default function SettingsPage() {
         title="الإعدادات"
         description="إدارة إعدادات المتجر والإشعارات"
         actions={
-          activeTab !== "notifications" && (
+          showGlobalSave && (
             <Button onClick={handleSave} disabled={saving}>
               <Save className="h-4 w-4" />
               {saving ? "جاري الحفظ..." : "حفظ التغييرات"}
@@ -329,10 +381,10 @@ export default function SettingsPage() {
 
       <Tabs
         value={activeTab}
-        onValueChange={setActiveTab}
+        onValueChange={handleTabChange}
         className="space-y-6"
       >
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="business" className="flex items-center gap-2">
             <Store className="h-4 w-4" />
             المتجر
@@ -351,6 +403,10 @@ export default function SettingsPage() {
           <TabsTrigger value="preferences" className="flex items-center gap-2">
             <Clock className="h-4 w-4" />
             التفضيلات
+          </TabsTrigger>
+          <TabsTrigger value="danger" className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4" />
+            الحذف
           </TabsTrigger>
         </TabsList>
 
@@ -635,192 +691,27 @@ export default function SettingsPage() {
 
         {/* Notifications Tab */}
         <TabsContent value="notifications">
-          {notificationsDirty && (
-            <Card className="border-amber-200 bg-amber-50/60">
-              <CardContent className="py-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex items-center gap-2 text-amber-800">
-                  <AlertCircle className="w-4 h-4" />
-                  <span>لديك تغييرات غير محفوظة</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    onClick={handleResetNotifications}
-                    disabled={saving}
-                  >
-                    إعادة الضبط
-                  </Button>
-                  <Button onClick={handleSave} disabled={saving}>
-                    {saving ? "جاري الحفظ..." : "حفظ التغييرات"}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          )}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Bell className="h-5 w-5" />
                 إعدادات الإشعارات
               </CardTitle>
-              <CardDescription>تخصيص التنبيهات والتقارير</CardDescription>
+              <CardDescription>
+                تم توحيد إعدادات الإشعارات في مركز الإشعارات.
+              </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <label className="text-sm font-medium">تقارير WhatsApp</label>
-                  <p className="text-xs text-muted-foreground">
-                    استلام التقارير الدورية عبر واتساب
-                  </p>
-                </div>
-                <Switch
-                  checked={settings.notifications.whatsappReportsEnabled}
-                  onCheckedChange={(checked) =>
-                    setSettings({
-                      ...settings,
-                      notifications: {
-                        ...settings.notifications,
-                        whatsappReportsEnabled: checked,
-                      },
-                    })
-                  }
-                />
+            <CardContent className="space-y-4">
+              <div className="rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground">
+                إعدادات القنوات، تفضيلات التنبيهات، فترات التقارير، وأرقام
+                الإشعارات تم دمجها في صفحة واحدة.
               </div>
-
-              {settings.notifications.whatsappReportsEnabled && (
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">فترات التقارير</label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {reportPeriodOptions.map((option) => {
-                      const enabled =
-                        settings.notifications.reportPeriodsEnabled.includes(
-                          option.id,
-                        );
-                      return (
-                        <div
-                          key={option.id}
-                          className="flex items-center gap-2"
-                        >
-                          <Switch
-                            checked={enabled}
-                            onCheckedChange={(checked) => {
-                              const current =
-                                settings.notifications.reportPeriodsEnabled ||
-                                [];
-                              const next = checked
-                                ? Array.from(new Set([...current, option.id]))
-                                : current.filter((p) => p !== option.id);
-                              setSettings({
-                                ...settings,
-                                notifications: {
-                                  ...settings.notifications,
-                                  reportPeriodsEnabled: next,
-                                },
-                              });
-                            }}
-                          />
-                          <span className="text-sm">{option.label}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    اختر الفترات التي تريد استلام التقارير فيها
-                  </p>
-                </div>
-              )}
-
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <label className="text-sm font-medium">تذكير بالدفعات</label>
-                  <p className="text-xs text-muted-foreground">
-                    تنبيهات المدفوعات المعلقة
-                  </p>
-                </div>
-                <Switch
-                  checked={settings.notifications.paymentRemindersEnabled}
-                  onCheckedChange={(checked) =>
-                    setSettings({
-                      ...settings,
-                      notifications: {
-                        ...settings.notifications,
-                        paymentRemindersEnabled: checked,
-                      },
-                    })
-                  }
-                />
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <label className="text-sm font-medium">
-                    تنبيهات المخزون المنخفض
-                  </label>
-                  <p className="text-xs text-muted-foreground">
-                    تنبيه عند انخفاض مستوى المخزون
-                  </p>
-                </div>
-                <Switch
-                  checked={settings.notifications.lowStockAlertsEnabled}
-                  onCheckedChange={(checked) =>
-                    setSettings({
-                      ...settings,
-                      notifications: {
-                        ...settings.notifications,
-                        lowStockAlertsEnabled: checked,
-                      },
-                    })
-                  }
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">
-                  رقمك لاستلام الإشعارات
-                </label>
-                <Input
-                  value={settings.notifications.notificationPhone || ""}
-                  onChange={(e) =>
-                    setSettings({
-                      ...settings,
-                      notifications: {
-                        ...settings.notifications,
-                        notificationPhone: e.target.value || null,
-                      },
-                    })
-                  }
-                  placeholder="+966xxxxxxxxx"
-                  dir="ltr"
-                />
-                <p className="text-xs text-muted-foreground">
-                  رقمك الشخصي الذي تستلم عليه إشعارات الطلبات والتقارير وتنبيهات
-                  المخزون.
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">
-                  رقم واتساب الأعمال (للتواصل مع العملاء)
-                </label>
-                <Input
-                  value={settings.notifications.whatsappNumber || ""}
-                  onChange={(e) =>
-                    setSettings({
-                      ...settings,
-                      notifications: {
-                        ...settings.notifications,
-                        whatsappNumber: e.target.value || null,
-                      },
-                    })
-                  }
-                  placeholder="+966xxxxxxxxx"
-                  dir="ltr"
-                />
-                <p className="text-xs text-muted-foreground">
-                  الرقم الذي يراه العملاء ويتواصلون معه - يجب تسجيله في واتساب
-                  بزنس عبر الدعم الفني.
-                </p>
-              </div>
+              <Button asChild className="w-fit">
+                <Link href="/merchant/notifications?tab=settings">
+                  الانتقال إلى مركز الإشعارات
+                  <ArrowUpRight className="h-4 w-4" />
+                </Link>
+              </Button>
             </CardContent>
           </Card>
         </TabsContent>
@@ -956,33 +847,76 @@ export default function SettingsPage() {
                   الوقت قبل إرسال رسالة متابعة للعملاء
                 </p>
               </div>
+
+              <div className="border-t pt-4 space-y-4">
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <Shield className="h-4 w-4" />
+                  تفضيلات الأمان (منقولة من صفحة الأمان)
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <label className="text-sm font-medium">
+                      حماية العمليات المالية
+                    </label>
+                    <p className="text-xs text-muted-foreground">
+                      طلب إعادة المصادقة قبل العمليات الحساسة
+                    </p>
+                  </div>
+                  <Switch
+                    checked={
+                      settings.preferences.requireReauthForFinance ?? true
+                    }
+                    onCheckedChange={(checked) =>
+                      setSettings({
+                        ...settings,
+                        preferences: {
+                          ...settings.preferences,
+                          requireReauthForFinance: checked,
+                        },
+                      })
+                    }
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">مهلة الجلسة</label>
+                  <Select
+                    value={String(
+                      settings.preferences.sessionTimeoutMinutes ?? 60,
+                    )}
+                    onValueChange={(value) =>
+                      setSettings({
+                        ...settings,
+                        preferences: {
+                          ...settings.preferences,
+                          sessionTimeoutMinutes: parseInt(value) || 60,
+                        },
+                      })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="15">15 دقيقة</SelectItem>
+                      <SelectItem value="30">30 دقيقة</SelectItem>
+                      <SelectItem value="60">ساعة واحدة</SelectItem>
+                      <SelectItem value="120">ساعتين</SelectItem>
+                      <SelectItem value="480">8 ساعات</SelectItem>
+                      <SelectItem value="0">بدون مهلة</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
-      </Tabs>
 
-      <Card className="border-destructive/30">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-destructive">
-            <AlertTriangle className="h-5 w-5" />
-            منطقة خطرة
-          </CardTitle>
-          <CardDescription>
-            حذف الحساب لا يتم فوراً. سيتم إنشاء طلب حذف مؤجل لمدة 30 يوماً مع
-            إمكانية الإلغاء قبل التنفيذ.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-sm text-muted-foreground">
-            إذا كنت تريد إغلاق المتجر نهائياً، انتقل إلى صفحة حذف الحساب.
-          </p>
-          <Button variant="destructive" asChild>
-            <Link href="/merchant/settings/delete-account">
-              إدارة حذف الحساب
-            </Link>
-          </Button>
-        </CardContent>
-      </Card>
+        <TabsContent value="danger">
+          <DeleteAccountPanel />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

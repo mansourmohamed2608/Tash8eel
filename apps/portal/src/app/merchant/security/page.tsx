@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { PageHeader } from "@/components/layout";
 import {
   Card,
@@ -15,13 +17,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -52,7 +47,6 @@ import {
   AlertTriangle,
   CheckCircle2,
   RefreshCw,
-  Lock,
   Fingerprint,
   History,
   MapPin,
@@ -62,7 +56,6 @@ import {
 import { cn } from "@/lib/utils";
 import { useMerchant } from "@/hooks/use-merchant";
 import portalApi from "@/lib/client";
-import { merchantApi } from "@/lib/client";
 import {
   AiInsightsCard,
   generateSecurityInsights,
@@ -93,8 +86,6 @@ interface AuditLog {
 interface SecuritySettings {
   twoFactorEnabled: boolean;
   twoFactorMethod?: "sms" | "email" | "authenticator";
-  requireReauthForFinance: boolean;
-  sessionTimeout: number; // minutes
   allowedIps?: string[];
   lastPasswordChange?: string;
 }
@@ -106,14 +97,16 @@ const DEVICE_ICONS = {
 };
 
 export default function SecurityPage() {
-  const { merchantId, apiKey, userId } = useMerchant();
+  const { merchantId, apiKey } = useMerchant();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState("sessions");
   const [sessions, setSessions] = useState<Session[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [settings, setSettings] = useState<SecuritySettings>({
     twoFactorEnabled: false,
-    requireReauthForFinance: true,
-    sessionTimeout: 60,
   });
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
@@ -124,8 +117,6 @@ export default function SecurityPage() {
   const [showCurrentPw, setShowCurrentPw] = useState(false);
   const [showNewPw, setShowNewPw] = useState(false);
   const [showConfirmPw, setShowConfirmPw] = useState(false);
-  const [sessionTimeoutMinutes, setSessionTimeoutMinutes] = useState(60);
-  const [savingSettings, setSavingSettings] = useState(false);
 
   const fetchSecurityData = useCallback(async () => {
     if (!merchantId || !apiKey) return;
@@ -209,8 +200,6 @@ export default function SecurityPage() {
       setAuditLogs(transformedLogs);
       setSettings({
         twoFactorEnabled: false,
-        requireReauthForFinance: true,
-        sessionTimeout: 60,
         lastPasswordChange: new Date(
           Date.now() - 45 * 24 * 60 * 60 * 1000,
         ).toISOString(),
@@ -225,6 +214,29 @@ export default function SecurityPage() {
   useEffect(() => {
     fetchSecurityData();
   }, [fetchSecurityData]);
+
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (tab === "sessions" || tab === "settings" || tab === "audit") {
+      setActiveTab(tab);
+      return;
+    }
+    setActiveTab("sessions");
+  }, [searchParams]);
+
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    const params = new URLSearchParams(searchParams.toString());
+    if (tab === "sessions") {
+      params.delete("tab");
+    } else {
+      params.set("tab", tab);
+    }
+    const query = params.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, {
+      scroll: false,
+    });
+  };
 
   const handleRevokeSession = async (sessionId: string) => {
     try {
@@ -289,62 +301,6 @@ export default function SecurityPage() {
     }
   };
 
-  const handleToggleFinanceProtection = async (checked: boolean) => {
-    setSettings((prev) => ({ ...prev, requireReauthForFinance: checked }));
-    if (!apiKey) return;
-    try {
-      setSavingSettings(true);
-      await merchantApi.updateSettings(apiKey, {
-        preferences: { requireReauthForFinance: checked },
-      } as any);
-    } catch {
-      // revert on failure
-      setSettings((prev) => ({ ...prev, requireReauthForFinance: !checked }));
-    } finally {
-      setSavingSettings(false);
-    }
-  };
-
-  const handleSessionTimeoutChange = async (value: string) => {
-    const mins = parseInt(value) || 60;
-    setSessionTimeoutMinutes(mins);
-    setSettings((prev) => ({ ...prev, sessionTimeout: mins }));
-    if (!apiKey) return;
-    try {
-      setSavingSettings(true);
-      await merchantApi.updateSettings(apiKey, {
-        preferences: { sessionTimeoutMinutes: mins },
-      } as any);
-    } catch {
-      // silent fail, setting is stored locally too
-    } finally {
-      setSavingSettings(false);
-    }
-  };
-
-  // Idle session timeout effect
-  useEffect(() => {
-    if (sessionTimeoutMinutes <= 0) return;
-    let timer: ReturnType<typeof setTimeout>;
-    const resetTimer = () => {
-      clearTimeout(timer);
-      timer = setTimeout(
-        () => {
-          // Force logout on idle timeout
-          window.location.href = "/login?reason=idle";
-        },
-        sessionTimeoutMinutes * 60 * 1000,
-      );
-    };
-    const events = ["mousedown", "keydown", "scroll", "touchstart"];
-    events.forEach((e) => window.addEventListener(e, resetTimer));
-    resetTimer();
-    return () => {
-      clearTimeout(timer);
-      events.forEach((e) => window.removeEventListener(e, resetTimer));
-    };
-  }, [sessionTimeoutMinutes]);
-
   const formatTimeAgo = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
@@ -391,7 +347,7 @@ export default function SecurityPage() {
         loading={loading}
       />
 
-      <Tabs defaultValue="sessions">
+      <Tabs value={activeTab} onValueChange={handleTabChange}>
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="sessions" className="gap-2">
             <Laptop className="h-4 w-4" />
@@ -704,62 +660,20 @@ export default function SecurityPage() {
             </CardContent>
           </Card>
 
-          {/* Re-auth for Finance */}
-          <Card>
+          <Card className="border-dashed">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Lock className="h-5 w-5" />
-                حماية العمليات المالية
-              </CardTitle>
+              <CardTitle>تم نقل تفضيلات الأمان التشغيلية</CardTitle>
+              <CardDescription>
+                إعدادات مهلة الجلسة وحماية العمليات المالية أصبحت ضمن صفحة
+                التفضيلات في الإعدادات.
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">
-                    طلب إعادة المصادقة عند إجراء التحويلات والمصروفات الكبيرة
-                  </p>
-                </div>
-                <Switch
-                  checked={settings.requireReauthForFinance}
-                  onCheckedChange={handleToggleFinanceProtection}
-                  disabled={savingSettings}
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Session Timeout */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Clock className="h-5 w-5" />
-                مهلة الجلسة
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-between">
-                <div className="space-y-1">
-                  <p className="text-sm text-muted-foreground">
-                    تسجيل الخروج التلقائي بعد فترة من عدم النشاط
-                  </p>
-                </div>
-                <Select
-                  value={String(sessionTimeoutMinutes)}
-                  onValueChange={handleSessionTimeoutChange}
-                >
-                  <SelectTrigger className="w-[160px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="15">15 دقيقة</SelectItem>
-                    <SelectItem value="30">30 دقيقة</SelectItem>
-                    <SelectItem value="60">ساعة واحدة</SelectItem>
-                    <SelectItem value="120">ساعتين</SelectItem>
-                    <SelectItem value="480">8 ساعات</SelectItem>
-                    <SelectItem value="0">بدون مهلة</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              <Button variant="outline" asChild>
+                <Link href="/merchant/settings?tab=preferences">
+                  فتح تفضيلات الإعدادات
+                </Link>
+              </Button>
             </CardContent>
           </Card>
         </TabsContent>

@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { PageHeader } from "@/components/layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -76,6 +77,9 @@ import { SmartAnalysisButton } from "@/components/ai/smart-analysis-button";
 
 export default function InventoryPage() {
   const { merchantId, apiKey, isDemo } = useMerchant();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const liveRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
@@ -182,6 +186,13 @@ export default function InventoryPage() {
 
   const showError = (description: string) => {
     toast({ title: "خطأ", description, variant: "destructive" });
+  };
+
+  const getErrorMessage = (error: unknown, fallback: string) => {
+    if (error instanceof Error && error.message.trim()) {
+      return error.message;
+    }
+    return fallback;
   };
 
   const handleGenerateAiDesc = async (item: InventoryItem) => {
@@ -592,11 +603,37 @@ export default function InventoryPage() {
     }
   };
 
+  const handleTabChange = useCallback(
+    (tab: "inventory" | "locations" | "shrinkage") => {
+      setActiveTab(tab);
+      const params = new URLSearchParams(searchParams.toString());
+      if (tab === "inventory") {
+        params.delete("tab");
+      } else {
+        params.set("tab", tab);
+      }
+      const query = params.toString();
+      router.replace(query ? `${pathname}?${query}` : pathname, {
+        scroll: false,
+      });
+    },
+    [pathname, router, searchParams],
+  );
+
   useEffect(() => {
     loadData();
     loadWarehouseLocations();
     loadStockByLocation();
   }, [loadData, loadWarehouseLocations, loadStockByLocation]);
+
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (tab === "locations" || tab === "shrinkage") {
+      setActiveTab(tab);
+      return;
+    }
+    setActiveTab("inventory");
+  }, [searchParams]);
 
   useEffect(() => {
     if (activeTab === "locations") {
@@ -1420,75 +1457,88 @@ export default function InventoryPage() {
         description="إدارة منتجات وكميات المخزون"
         actions={
           <div className="flex gap-2 flex-wrap">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={refreshing}
-              onClick={async () => {
-                if (!merchantId || !apiKey) return;
-                try {
-                  const result = await merchantApi.pushInventoryToCatalog(
-                    merchantId,
-                    apiKey,
-                  );
-                  toast({
-                    title: "تم",
-                    description:
-                      result.created > 0
-                        ? `تم إرسال ${result.created} منتج للقائمة`
-                        : result.updated > 0
-                          ? `تم تحديث ${result.updated} منتج`
-                          : "جميع المنتجات موجودة في القائمة",
-                  });
-                } catch {
-                  toast({
-                    title: "خطأ",
-                    description: "فشل إرسال المنتجات للقائمة",
-                    variant: "destructive",
-                  });
-                }
-              }}
-            >
-              <Store className="h-4 w-4" />
-              إرسال للقائمة
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={refreshing}
-              onClick={async () => {
-                if (!merchantId || !apiKey) return;
-                try {
-                  const result = await merchantApi.pullCatalogToInventory(
-                    merchantId,
-                    apiKey,
-                  );
-                  const parts: string[] = [];
-                  if (result.created > 0)
-                    parts.push(`تم استيراد ${result.created} منتج من القائمة`);
-                  if ((result as any).variantsCreated > 0)
-                    parts.push(`${(result as any).variantsCreated} متغير`);
-                  if (result.linked > 0) parts.push(`تم ربط ${result.linked}`);
-                  toast({
-                    title: "تم",
-                    description:
-                      parts.length > 0
-                        ? parts.join(" + ")
-                        : "جميع منتجات القائمة موجودة بالفعل",
-                  });
-                  handleRefresh();
-                } catch {
-                  toast({
-                    title: "خطأ",
-                    description: "فشل استيراد المنتجات من القائمة",
-                    variant: "destructive",
-                  });
-                }
-              }}
-            >
-              <Package className="h-4 w-4" />
-              استيراد من القائمة
-            </Button>
+            {canEdit && (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={refreshing}
+                onClick={async () => {
+                  if (!merchantId || !apiKey) return;
+                  try {
+                    const result = await merchantApi.pushInventoryToCatalog(
+                      merchantId,
+                      apiKey,
+                    );
+                    toast({
+                      title: "تم",
+                      description:
+                        result.created > 0
+                          ? `تم إرسال ${result.created} منتج للقائمة`
+                          : result.updated > 0
+                            ? `تم تحديث ${result.updated} منتج`
+                            : "جميع المنتجات موجودة في القائمة",
+                    });
+                  } catch (err) {
+                    toast({
+                      title: "خطأ",
+                      description: getErrorMessage(
+                        err,
+                        "فشل إرسال المنتجات للقائمة",
+                      ),
+                      variant: "destructive",
+                    });
+                  }
+                }}
+              >
+                <Store className="h-4 w-4" />
+                إرسال للقائمة
+              </Button>
+            )}
+            {canEdit && (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={refreshing}
+                onClick={async () => {
+                  if (!merchantId || !apiKey) return;
+                  try {
+                    const result = await merchantApi.pullCatalogToInventory(
+                      merchantId,
+                      apiKey,
+                    );
+                    const parts: string[] = [];
+                    if (result.created > 0)
+                      parts.push(
+                        `تم استيراد ${result.created} منتج من القائمة`,
+                      );
+                    if ((result as any).variantsCreated > 0)
+                      parts.push(`${(result as any).variantsCreated} متغير`);
+                    if (result.linked > 0)
+                      parts.push(`تم ربط ${result.linked}`);
+                    toast({
+                      title: "تم",
+                      description:
+                        parts.length > 0
+                          ? parts.join(" + ")
+                          : "جميع منتجات القائمة موجودة بالفعل",
+                    });
+                    handleRefresh();
+                  } catch (err) {
+                    toast({
+                      title: "خطأ",
+                      description: getErrorMessage(
+                        err,
+                        "فشل استيراد المنتجات من القائمة",
+                      ),
+                      variant: "destructive",
+                    });
+                  }
+                }}
+              >
+                <Package className="h-4 w-4" />
+                استيراد من القائمة
+              </Button>
+            )}
             <Button
               variant="outline"
               size="sm"
@@ -1521,7 +1571,7 @@ export default function InventoryPage() {
       {/* Tab Navigation */}
       <div className="flex border-b">
         <button
-          onClick={() => setActiveTab("inventory")}
+          onClick={() => handleTabChange("inventory")}
           className={cn(
             "px-4 py-2 font-medium text-sm border-b-2 -mb-px",
             activeTab === "inventory"
@@ -1533,7 +1583,7 @@ export default function InventoryPage() {
           المنتجات
         </button>
         <button
-          onClick={() => setActiveTab("locations")}
+          onClick={() => handleTabChange("locations")}
           className={cn(
             "px-4 py-2 font-medium text-sm border-b-2 -mb-px",
             activeTab === "locations"
@@ -1545,10 +1595,7 @@ export default function InventoryPage() {
           المواقع ({warehouseLocations.length})
         </button>
         <button
-          onClick={() => {
-            setActiveTab("shrinkage");
-            loadShrinkageData();
-          }}
+          onClick={() => handleTabChange("shrinkage")}
           className={cn(
             "px-4 py-2 font-medium text-sm border-b-2 -mb-px",
             activeTab === "shrinkage"
@@ -1656,8 +1703,7 @@ export default function InventoryPage() {
             }}
             onScanBarcode={() => setShowBarcodeDialog(true)}
             onStockCount={() => {
-              setActiveTab("shrinkage");
-              loadShrinkageData();
+              handleTabChange("shrinkage");
             }}
             canCreate={canCreate}
             canImport={canImport}

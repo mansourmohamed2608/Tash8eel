@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { PageHeader } from "@/components/layout";
 import {
   Card,
@@ -11,7 +12,6 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
@@ -106,6 +106,9 @@ const FOLLOWUP_STATUS_LABELS: Record<string, string> = {
 };
 
 export default function FollowupsPage() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [followups, setFollowups] = useState<Followup[]>([]);
   const [activeTab, setActiveTab] = useState("all");
@@ -126,6 +129,36 @@ export default function FollowupsPage() {
   useEffect(() => {
     fetchFollowups();
   }, [fetchFollowups]);
+
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (
+      tab === "all" ||
+      tab === "cod_collection" ||
+      tab === "feedback_request" ||
+      tab === "delivery_check" ||
+      tab === "abandoned_cart" ||
+      tab === "general"
+    ) {
+      setActiveTab(tab);
+      return;
+    }
+    setActiveTab("all");
+  }, [searchParams]);
+
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    const params = new URLSearchParams(searchParams.toString());
+    if (tab === "all") {
+      params.delete("tab");
+    } else {
+      params.set("tab", tab);
+    }
+    const query = params.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, {
+      scroll: false,
+    });
+  };
 
   const filteredFollowups =
     activeTab === "all"
@@ -229,7 +262,7 @@ export default function FollowupsPage() {
                 "cursor-pointer transition-all hover:shadow-md",
                 activeTab === key && "ring-2 ring-primary",
               )}
-              onClick={() => setActiveTab(activeTab === key ? "all" : key)}
+              onClick={() => handleTabChange(activeTab === key ? "all" : key)}
             >
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">

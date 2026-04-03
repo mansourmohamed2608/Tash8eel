@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { PageHeader } from "@/components/layout";
 import {
   Card,
@@ -182,6 +183,9 @@ const QUICK_LINKS = [
 
 export default function AgentsPage() {
   const { apiKey } = useMerchant();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [agents, setAgents] = useState<AgentInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentPlan, setCurrentPlan] = useState("STARTER");
@@ -205,6 +209,29 @@ export default function AgentsPage() {
   useEffect(() => {
     fetchAgents();
   }, [fetchAgents]);
+
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (tab === "overview" || tab === "agents" || tab === "capabilities") {
+      setActiveTab(tab);
+      return;
+    }
+    setActiveTab("overview");
+  }, [searchParams]);
+
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    const params = new URLSearchParams(searchParams.toString());
+    if (tab === "overview") {
+      params.delete("tab");
+    } else {
+      params.set("tab", tab);
+    }
+    const query = params.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, {
+      scroll: false,
+    });
+  };
 
   const enabledCount = agents.filter((a) => a.isEnabled).length;
 
@@ -263,7 +290,7 @@ export default function AgentsPage() {
         </Card>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
+      <Tabs value={activeTab} onValueChange={handleTabChange}>
         <TabsList className="w-full flex">
           <TabsTrigger value="overview" className="flex-1">
             نظرة عامة

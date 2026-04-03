@@ -37,15 +37,17 @@ import {
   Clock,
   ExternalLink,
 } from "lucide-react";
-import { portalApi } from "@/lib/client";
+import { merchantApi, portalApi } from "@/lib/client";
 import { formatDistanceToNow } from "date-fns";
 import { ar } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   AiInsightsCard,
   generateNotificationsInsights,
 } from "@/components/ai/ai-insights-card";
 import { useMerchant } from "@/hooks/use-merchant";
+import { BroadcastNotificationsPanel } from "@/components/merchant/notifications/broadcast-notifications-panel";
 
 interface Notification {
   id: string;
@@ -70,6 +72,30 @@ interface NotificationPreferences {
   emailAddress?: string;
   whatsappNumber?: string;
 }
+
+interface MerchantNotificationSettings {
+  whatsappReportsEnabled: boolean;
+  reportPeriodsEnabled: string[];
+  notificationPhone: string | null;
+  whatsappNumber: string | null;
+  paymentRemindersEnabled: boolean;
+  lowStockAlertsEnabled: boolean;
+}
+
+const DEFAULT_MERCHANT_NOTIFICATION_SETTINGS: MerchantNotificationSettings = {
+  whatsappReportsEnabled: true,
+  reportPeriodsEnabled: ["daily"],
+  notificationPhone: null,
+  whatsappNumber: null,
+  paymentRemindersEnabled: true,
+  lowStockAlertsEnabled: true,
+};
+
+const reportPeriodOptions = [
+  { id: "daily", label: "يومي" },
+  { id: "weekly", label: "أسبوعي" },
+  { id: "monthly", label: "شهري" },
+];
 
 const NOTIFICATION_TYPES = [
   { value: "ORDER_PLACED", label: "طلب جديد", icon: ShoppingCart },
@@ -107,7 +133,10 @@ const getPriorityColor = (priority: string) => {
 };
 
 export default function NotificationsPage() {
-  const { merchantId } = useMerchant();
+  const { merchantId, apiKey } = useMerchant();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("all");
@@ -121,10 +150,27 @@ export default function NotificationsPage() {
   const [draftPreferences, setDraftPreferences] =
     useState<NotificationPreferences | null>(null);
   const [savingPreferences, setSavingPreferences] = useState(false);
+  const [merchantSettingsLoading, setMerchantSettingsLoading] = useState(false);
+  const [merchantNotificationSettings, setMerchantNotificationSettings] =
+    useState<MerchantNotificationSettings | null>(null);
+  const [
+    draftMerchantNotificationSettings,
+    setDraftMerchantNotificationSettings,
+  ] = useState<MerchantNotificationSettings | null>(null);
+  const [savingMerchantSettings, setSavingMerchantSettings] = useState(false);
 
   // Filter
   const [unreadOnly, setUnreadOnly] = useState(false);
   const { toast } = useToast();
+
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (tab === "settings" || tab === "broadcast") {
+      setActiveTab(tab);
+      return;
+    }
+    setActiveTab("all");
+  }, [searchParams]);
 
   const fetchNotifications = useCallback(async () => {
     if (!merchantId) return;
@@ -209,10 +255,33 @@ export default function NotificationsPage() {
     }
   }, [merchantId]);
 
+  const fetchMerchantNotificationSettings = useCallback(async () => {
+    if (!apiKey) return;
+    setMerchantSettingsLoading(true);
+    try {
+      const settings = await merchantApi.getSettings(apiKey);
+      const raw = settings?.notifications || {};
+      const normalized: MerchantNotificationSettings = {
+        ...DEFAULT_MERCHANT_NOTIFICATION_SETTINGS,
+        ...raw,
+        reportPeriodsEnabled: Array.isArray(raw?.reportPeriodsEnabled)
+          ? raw.reportPeriodsEnabled
+          : DEFAULT_MERCHANT_NOTIFICATION_SETTINGS.reportPeriodsEnabled,
+      };
+      setMerchantNotificationSettings(normalized);
+      setDraftMerchantNotificationSettings(normalized);
+    } catch (err: any) {
+      console.error("Failed to load merchant notification settings:", err);
+    } finally {
+      setMerchantSettingsLoading(false);
+    }
+  }, [apiKey]);
+
   useEffect(() => {
     fetchNotifications();
     fetchPreferences();
-  }, [fetchNotifications, fetchPreferences]);
+    fetchMerchantNotificationSettings();
+  }, [fetchNotifications, fetchPreferences, fetchMerchantNotificationSettings]);
 
   const handleMarkAsRead = async (notificationId: string) => {
     try {
@@ -300,6 +369,68 @@ export default function NotificationsPage() {
     return JSON.stringify(preferences) !== JSON.stringify(draftPreferences);
   }, [preferences, draftPreferences]);
 
+  const merchantSettingsDirty = useMemo(() => {
+    if (!merchantNotificationSettings || !draftMerchantNotificationSettings) {
+      return false;
+    }
+    return (
+      JSON.stringify(merchantNotificationSettings) !==
+      JSON.stringify(draftMerchantNotificationSettings)
+    );
+  }, [merchantNotificationSettings, draftMerchantNotificationSettings]);
+
+  const updateMerchantDraft = (
+    updates: Partial<MerchantNotificationSettings>,
+  ) => {
+    setDraftMerchantNotificationSettings((prev) =>
+      prev ? { ...prev, ...updates } : prev,
+    );
+  };
+
+  const handleSaveMerchantSettings = async () => {
+    if (!apiKey || !draftMerchantNotificationSettings) return;
+    setSavingMerchantSettings(true);
+    setError(null);
+    try {
+      await merchantApi.updateSettings(apiKey, {
+        notifications: draftMerchantNotificationSettings,
+      } as any);
+      setMerchantNotificationSettings(draftMerchantNotificationSettings);
+      toast({
+        title: "تم الحفظ",
+        description: "تم حفظ إعدادات إشعارات التشغيل بنجاح",
+      });
+    } catch (err: any) {
+      setError(err.message || "Failed to save merchant notification settings");
+      toast({
+        title: "خطأ",
+        description: "فشل في حفظ إعدادات التشغيل",
+        variant: "destructive",
+      });
+    } finally {
+      setSavingMerchantSettings(false);
+    }
+  };
+
+  const handleResetMerchantSettings = () => {
+    if (!merchantNotificationSettings) return;
+    setDraftMerchantNotificationSettings(merchantNotificationSettings);
+  };
+
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    const params = new URLSearchParams(searchParams.toString());
+    if (tab === "all") {
+      params.delete("tab");
+    } else {
+      params.set("tab", tab);
+    }
+    const query = params.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, {
+      scroll: false,
+    });
+  };
+
   if (loading && notifications.length === 0) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -344,7 +475,7 @@ export default function NotificationsPage() {
         </Card>
       )}
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
+      <Tabs value={activeTab} onValueChange={handleTabChange}>
         <TabsList>
           <TabsTrigger value="all" className="flex items-center gap-2">
             <Bell className="w-4 h-4" />
@@ -358,6 +489,10 @@ export default function NotificationsPage() {
           <TabsTrigger value="settings" className="flex items-center gap-2">
             <Settings className="w-4 h-4" />
             الإعدادات
+          </TabsTrigger>
+          <TabsTrigger value="broadcast" className="flex items-center gap-2">
+            <MessageSquare className="w-4 h-4" />
+            البث الجماعي
           </TabsTrigger>
         </TabsList>
 
@@ -687,6 +822,184 @@ export default function NotificationsPage() {
               </div>
             </CardContent>
           </Card>
+
+          {merchantSettingsDirty && (
+            <Card className="border-amber-200 bg-amber-50/60">
+              <CardContent className="py-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center gap-2 text-amber-800">
+                  <AlertCircle className="w-4 h-4" />
+                  <span>لديك تغييرات غير محفوظة في إشعارات التشغيل</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={handleResetMerchantSettings}
+                    disabled={savingMerchantSettings}
+                  >
+                    إعادة الضبط
+                  </Button>
+                  <Button
+                    onClick={handleSaveMerchantSettings}
+                    disabled={savingMerchantSettings}
+                  >
+                    {savingMerchantSettings ? "جارٍ الحفظ" : "حفظ التغييرات"}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          <Card>
+            <CardHeader>
+              <CardTitle>إشعارات التشغيل والتقارير</CardTitle>
+              <CardDescription>
+                إعدادات التقارير الدورية والتنبيهات التشغيلية الخاصة بالمتجر
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {merchantSettingsLoading || !draftMerchantNotificationSettings ? (
+                <div className="text-sm text-muted-foreground">
+                  جاري تحميل إعدادات التشغيل...
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label>تقارير WhatsApp</Label>
+                      <p className="text-xs text-muted-foreground">
+                        استلام التقارير الدورية عبر واتساب
+                      </p>
+                    </div>
+                    <Switch
+                      checked={
+                        draftMerchantNotificationSettings.whatsappReportsEnabled
+                      }
+                      onCheckedChange={(checked) =>
+                        updateMerchantDraft({ whatsappReportsEnabled: checked })
+                      }
+                    />
+                  </div>
+
+                  {draftMerchantNotificationSettings.whatsappReportsEnabled && (
+                    <div className="space-y-2">
+                      <Label>فترات التقارير</Label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {reportPeriodOptions.map((option) => {
+                          const enabled =
+                            draftMerchantNotificationSettings.reportPeriodsEnabled.includes(
+                              option.id,
+                            );
+                          return (
+                            <div
+                              key={option.id}
+                              className="flex items-center gap-2"
+                            >
+                              <Switch
+                                checked={enabled}
+                                onCheckedChange={(checked) => {
+                                  const current =
+                                    draftMerchantNotificationSettings.reportPeriodsEnabled ||
+                                    [];
+                                  const next = checked
+                                    ? Array.from(
+                                        new Set([...current, option.id]),
+                                      )
+                                    : current.filter((p) => p !== option.id);
+                                  updateMerchantDraft({
+                                    reportPeriodsEnabled: next,
+                                  });
+                                }}
+                              />
+                              <span className="text-sm">{option.label}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label>تذكير بالدفعات</Label>
+                      <p className="text-xs text-muted-foreground">
+                        تنبيهات المدفوعات المعلقة
+                      </p>
+                    </div>
+                    <Switch
+                      checked={
+                        draftMerchantNotificationSettings.paymentRemindersEnabled
+                      }
+                      onCheckedChange={(checked) =>
+                        updateMerchantDraft({
+                          paymentRemindersEnabled: checked,
+                        })
+                      }
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label>تنبيهات المخزون المنخفض</Label>
+                      <p className="text-xs text-muted-foreground">
+                        تنبيه عند انخفاض مستوى المخزون
+                      </p>
+                    </div>
+                    <Switch
+                      checked={
+                        draftMerchantNotificationSettings.lowStockAlertsEnabled
+                      }
+                      onCheckedChange={(checked) =>
+                        updateMerchantDraft({ lowStockAlertsEnabled: checked })
+                      }
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>رقمك لاستلام الإشعارات</Label>
+                    <Input
+                      value={
+                        draftMerchantNotificationSettings.notificationPhone ||
+                        ""
+                      }
+                      onChange={(e) =>
+                        updateMerchantDraft({
+                          notificationPhone: e.target.value || null,
+                        })
+                      }
+                      placeholder="+966xxxxxxxxx"
+                      dir="ltr"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      رقمك الشخصي الذي تستلم عليه إشعارات الطلبات والتقارير.
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>رقم واتساب الأعمال (للتواصل مع العملاء)</Label>
+                    <Input
+                      value={
+                        draftMerchantNotificationSettings.whatsappNumber || ""
+                      }
+                      onChange={(e) =>
+                        updateMerchantDraft({
+                          whatsappNumber: e.target.value || null,
+                        })
+                      }
+                      placeholder="+966xxxxxxxxx"
+                      dir="ltr"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      الرقم الذي يراه العملاء ويتواصلون معه.
+                    </p>
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="broadcast" className="space-y-6">
+          <BroadcastNotificationsPanel />
         </TabsContent>
       </Tabs>
     </div>

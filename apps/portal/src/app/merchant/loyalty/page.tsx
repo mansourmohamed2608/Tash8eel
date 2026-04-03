@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useRoleAccess } from "@/hooks/use-role-access";
 import { PageHeader } from "@/components/layout";
@@ -121,6 +122,9 @@ const localizeTierName = (tierName?: string | null): string => {
 
 export default function LoyaltyPage() {
   const { data: session } = useSession();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { canCreate, canEdit, canDelete } = useRoleAccess("loyalty");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -206,6 +210,34 @@ export default function LoyaltyPage() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (
+      tab === "overview" ||
+      tab === "tiers" ||
+      tab === "promotions" ||
+      tab === "members"
+    ) {
+      setActiveTab(tab);
+      return;
+    }
+    setActiveTab("overview");
+  }, [searchParams]);
+
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    const params = new URLSearchParams(searchParams.toString());
+    if (tab === "overview") {
+      params.delete("tab");
+    } else {
+      params.set("tab", tab);
+    }
+    const query = params.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, {
+      scroll: false,
+    });
+  };
 
   // Load members when members tab is selected
   const fetchMembers = useCallback(async () => {
@@ -373,7 +405,7 @@ export default function LoyaltyPage() {
         </Card>
       )}
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
+      <Tabs value={activeTab} onValueChange={handleTabChange}>
         <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="overview" className="flex items-center gap-2">
             <TrendingUp className="w-4 h-4" />

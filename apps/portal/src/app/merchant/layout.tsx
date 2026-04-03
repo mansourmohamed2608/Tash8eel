@@ -154,7 +154,6 @@ const BLOCKED_ROUTES = [
   "/merchant/customer-segments", // Marketing Agent - coming soon
   "/merchant/webhooks", // Replaced by POS integrations
   "/merchant/vision", // General OCR removed (payment-proof workflow only)
-  "/merchant/quotes", // Quote requests - not launched yet
   "/merchant/pricing", // Old pricing page - replaced by /merchant/plan
   "/merchant/ocr-review", // OCR review - internal/not launched yet
 ];

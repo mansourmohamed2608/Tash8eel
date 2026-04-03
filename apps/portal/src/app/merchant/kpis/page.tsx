@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { PageHeader } from "@/components/layout";
 import {
   Card,
@@ -117,6 +118,9 @@ interface CustomerData {
 export default function KpisPage() {
   const { apiKey } = useMerchant();
   const { toast } = useToast();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [period, setPeriod] = useState(() =>
     String(getStoredReportingDays(30)),
   );
@@ -207,6 +211,35 @@ export default function KpisPage() {
   useEffect(() => {
     fetchAllKpis();
   }, [fetchAllKpis]);
+
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (
+      tab === "overview" ||
+      tab === "carts" ||
+      tab === "delivery" ||
+      tab === "agents" ||
+      tab === "customers"
+    ) {
+      setActiveTab(tab);
+      return;
+    }
+    setActiveTab("overview");
+  }, [searchParams]);
+
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    const params = new URLSearchParams(searchParams.toString());
+    if (tab === "overview") {
+      params.delete("tab");
+    } else {
+      params.set("tab", tab);
+    }
+    const query = params.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, {
+      scroll: false,
+    });
+  };
 
   const TrendIndicator = ({
     value,
@@ -383,7 +416,7 @@ export default function KpisPage() {
       {loading ? (
         <LoadingSkeleton />
       ) : (
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <Tabs value={activeTab} onValueChange={handleTabChange}>
           <TabsList className="grid w-full max-w-2xl grid-cols-5">
             <TabsTrigger value="overview">نظرة عامة</TabsTrigger>
             <TabsTrigger value="carts">السلات</TabsTrigger>

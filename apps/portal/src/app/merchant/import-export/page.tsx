@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { PageHeader } from "@/components/layout";
 import {
   Card,
@@ -230,6 +231,9 @@ const ingredientFields = [
 ];
 
 export default function BulkOperationsPage() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [operations, setOperations] = useState<BulkOperation[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("products");
@@ -265,6 +269,34 @@ export default function BulkOperationsPage() {
   useEffect(() => {
     fetchOperations();
   }, [fetchOperations]);
+
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (
+      tab === "products" ||
+      tab === "customers" ||
+      tab === "inventory" ||
+      tab === "ingredients"
+    ) {
+      setActiveTab(tab);
+      return;
+    }
+    setActiveTab("products");
+  }, [searchParams]);
+
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    const params = new URLSearchParams(searchParams.toString());
+    if (tab === "products") {
+      params.delete("tab");
+    } else {
+      params.set("tab", tab);
+    }
+    const query = params.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, {
+      scroll: false,
+    });
+  };
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -606,7 +638,7 @@ export default function BulkOperationsPage() {
         loading={loading}
       />
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
+      <Tabs value={activeTab} onValueChange={handleTabChange}>
         <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="products" className="flex items-center gap-2">
             <Package className="h-4 w-4" />

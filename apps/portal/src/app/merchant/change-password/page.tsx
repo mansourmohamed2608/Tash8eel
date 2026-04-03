@@ -32,7 +32,7 @@ export default function ForceChangePasswordPage() {
       router.replace("/login");
     }
     if (session && session.requiresPasswordChange === false) {
-      router.replace("/merchant/dashboard");
+      router.replace("/merchant/security?tab=settings");
     }
   }, [status, session, router]);
 

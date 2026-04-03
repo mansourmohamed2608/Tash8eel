@@ -46,7 +46,6 @@ import {
   UsersRound,
   Megaphone,
   UserCheck,
-  BellRing,
   Banknote,
   PhoneCall,
   Truck,
@@ -149,12 +148,6 @@ const merchantNavItems: NavItem[] = [
     href: "/merchant/notifications",
     label: "صندوق الإشعارات",
     icon: Bell,
-    featureKey: "notifications",
-  },
-  {
-    href: "/merchant/push-notifications",
-    label: "إرسال إشعارات",
-    icon: BellRing,
     featureKey: "notifications",
   },
 
@@ -469,7 +462,6 @@ const MERCHANT_SECTION_CONFIG: MerchantSidebarSection[] = [
       { href: "/merchant/campaigns", label: "الحملات" },
       { href: "/merchant/customer-segments", label: "شرائح العملاء" },
       { href: "/merchant/notifications", label: "الإشعارات" },
-      { href: "/merchant/push-notifications", label: "إرسال إشعارات" },
     ],
   },
   {

@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { PageHeader } from "@/components/layout";
 import {
   Card,
@@ -80,6 +80,8 @@ const QUOTE_STATUS_LABELS: Record<
 export default function FeatureRequestsPage() {
   const { merchantId, apiKey } = useMerchant();
   const { canApprove } = useRoleAccess("feature-requests");
+  const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState("requests");
   const [loading, setLoading] = useState(true);
@@ -202,6 +204,20 @@ export default function FeatureRequestsPage() {
     }
   }, [searchParams]);
 
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    const params = new URLSearchParams(searchParams.toString());
+    if (tab === "requests") {
+      params.delete("tab");
+    } else {
+      params.set("tab", tab);
+    }
+    const query = params.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, {
+      scroll: false,
+    });
+  };
+
   const handleSubmit = async () => {
     if (!title.trim()) return;
     setSubmitting(true);
@@ -278,7 +294,7 @@ export default function FeatureRequestsPage() {
         />
       )}
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
+      <Tabs value={activeTab} onValueChange={handleTabChange}>
         <TabsList className="grid grid-cols-2 w-full md:w-[360px]">
           <TabsTrigger value="requests">الاقتراحات</TabsTrigger>
           <TabsTrigger value="quotes">عروض السعر</TabsTrigger>
