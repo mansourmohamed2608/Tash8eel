@@ -51,6 +51,11 @@ services:
       REDIS_URL: redis://:${REDIS_PASSWORD:-redis_secure_password_change_me}@redis:6379
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      JWT_SECRET: ${JWT_SECRET:-}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-}
+      ADMIN_API_KEY: ${ADMIN_API_KEY:-}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3001,http://localhost:3000}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-}
       PORT: 3000
       LOG_LEVEL: ${LOG_LEVEL:-info}
     ports:
