@@ -499,4 +499,5 @@ INSERT INTO known_areas (city, area_name_ar, area_name_en, area_aliases) VALUES
 ('الإسكندرية', 'ستانلي', 'Stanley', ARRAY['stanley']),
 ('الإسكندرية', 'سيدي جابر', 'Sidi Gaber', ARRAY['sidi gaber']),
 ('الإسكندرية', 'المنتزه', 'Montazah', ARRAY['montazah']),
-('الإسكندرية', 'سان ستيفانو', 'San Stefano', ARRAY['san stefano']);
+('الإسكندرية', 'سان ستيفانو', 'San Stefano', ARRAY['san stefano'])
+ON CONFLICT (city, area_name_ar) DO NOTHING;
