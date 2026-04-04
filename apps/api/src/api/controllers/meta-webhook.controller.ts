@@ -291,11 +291,16 @@ export class MetaWebhookController {
 
           if (merchantResult.rows.length > 0) {
             const row = merchantResult.rows[0];
+            const validParsedPhoneNumberId = this.isValidMetaPhoneNumberId(
+              parsed.phoneNumberId,
+            )
+              ? parsed.phoneNumberId
+              : undefined;
             merchantMapping = {
               merchantId: row.id,
               phoneNumber: normalizedTo,
               whatsappNumber: row.whatsapp_number || normalizedTo,
-              phoneNumberId: parsed.phoneNumberId,
+              phoneNumberId: validParsedPhoneNumberId,
               displayName: row.name,
               isSandbox: true,
             };
@@ -326,9 +331,11 @@ export class MetaWebhookController {
                   normalizedTo,
                   normalizedTo,
                   row.name || "Merchant",
-                  JSON.stringify({
-                    phone_number_id: parsed.phoneNumberId,
-                  }),
+                  JSON.stringify(
+                    validParsedPhoneNumberId
+                      ? { phone_number_id: validParsedPhoneNumberId }
+                      : {},
+                  ),
                 ],
               );
             } catch (mappingError) {
@@ -362,6 +369,13 @@ export class MetaWebhookController {
       }
 
       const merchantId = merchantMapping.merchantId;
+      const outboundPhoneNumberId = this.isValidMetaPhoneNumberId(
+        merchantMapping.phoneNumberId,
+      )
+        ? merchantMapping.phoneNumberId
+        : this.isValidMetaPhoneNumberId(parsed.phoneNumberId)
+          ? parsed.phoneNumberId
+          : undefined;
       this.logger.log({
         msg: "Merchant found",
         correlationId,
@@ -409,7 +423,7 @@ export class MetaWebhookController {
           const customerSend = await this.metaAdapter.sendTextMessage(
             driverStatus.customerNotification.phone,
             driverStatus.customerNotification.message,
-            parsed.phoneNumberId,
+            outboundPhoneNumberId,
           );
 
           if (!customerSend.success) {
@@ -429,7 +443,7 @@ export class MetaWebhookController {
         const replySend = await this.metaAdapter.sendTextMessage(
           parsed.fromNumber,
           driverReply,
-          parsed.phoneNumberId,
+          outboundPhoneNumberId,
         );
 
         if (!replySend.success) {
@@ -457,7 +471,7 @@ export class MetaWebhookController {
           const sendResult = await this.metaAdapter.sendTextMessage(
             parsed.fromNumber,
             redirectReply,
-            parsed.phoneNumberId,
+            outboundPhoneNumberId,
           );
           try {
             await this.pool.query(
@@ -577,7 +591,7 @@ export class MetaWebhookController {
         if (inboxResponse.markAsRead && parsed.messageId) {
           await this.metaAdapter.markMessageRead(
             parsed.messageId,
-            parsed.phoneNumberId,
+            outboundPhoneNumberId,
           );
         }
         this.logger.debug({
@@ -590,7 +604,7 @@ export class MetaWebhookController {
       const sendResult = await this.metaAdapter.sendTextMessage(
         parsed.fromNumber,
         inboxResponse.replyText,
-        parsed.phoneNumberId,
+        outboundPhoneNumberId,
       );
 
       if (!sendResult.success) {
@@ -621,6 +635,18 @@ export class MetaWebhookController {
   // ============================================================================
   // STATUS UPDATE PROCESSOR
   // ============================================================================
+
+  private isValidMetaPhoneNumberId(value?: string): value is string {
+    if (!value) {
+      return false;
+    }
+    const normalized = String(value).trim();
+    // Meta dashboard sample payload often uses synthetic 123456123.
+    if (normalized === "123456123") {
+      return false;
+    }
+    return /^\d{10,20}$/.test(normalized);
+  }
 
   private async processStatusUpdate(
     status: {
