@@ -121,7 +121,11 @@ services:
     container_name: tash8eel-portal
     environment:
       NODE_ENV: ${NODE_ENV:-development}
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://api:3000}
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3000}
+      API_BASE_URL: ${API_BASE_URL:-http://api:3000}
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3001}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-}
+      AUTH_TRUST_HOST: ${AUTH_TRUST_HOST:-true}
       PORT: 3001
     ports:
       - "3001:3001"
