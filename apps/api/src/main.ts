@@ -54,8 +54,28 @@ async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
 
   // Body size limits (support image payloads for vision endpoints)
-  app.use(json({ limit: "20mb" }));
-  app.use(urlencoded({ extended: true, limit: "20mb" }));
+  // Keep a copy of raw body for webhook signature validation.
+  app.use(
+    json({
+      limit: "20mb",
+      verify: (req: any, _res, buf) => {
+        if (buf?.length) {
+          req.rawBody = Buffer.from(buf);
+        }
+      },
+    }),
+  );
+  app.use(
+    urlencoded({
+      extended: true,
+      limit: "20mb",
+      verify: (req: any, _res, buf) => {
+        if (buf?.length) {
+          req.rawBody = Buffer.from(buf);
+        }
+      },
+    }),
+  );
 
   // Security headers — explicit HSTS (1 year + includeSubDomains; override helmet default of 180 days)
   app.use(

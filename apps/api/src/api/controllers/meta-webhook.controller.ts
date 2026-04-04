@@ -77,10 +77,7 @@ export class MetaWebhookController {
   // We must respond with the challenge integer to verify
   // ============================================================================
 
-  @Get()
-  @Get("whatsapp")
-  @Get("messenger")
-  @Get("instagram")
+  @Get(["", "whatsapp", "messenger", "instagram"])
   @ApiOperation({
     summary: "Meta WhatsApp webhook verification",
     description:
