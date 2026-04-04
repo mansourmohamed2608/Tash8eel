@@ -15,6 +15,11 @@
 #   NEXTAUTH_SECRET  - >32-char random NextAuth secret
 #   NEXT_PUBLIC_API_URL
 #   NEXTAUTH_URL
+#   META_ACCESS_TOKEN
+#   META_PHONE_NUMBER_ID
+#   META_WABA_ID
+#   META_APP_SECRET
+#   WEBHOOK_VERIFY_TOKEN
 
 services:
   api:
@@ -39,6 +44,12 @@ services:
       NODE_OPTIONS: "--max-old-space-size=512"
       # Internal API key for worker→api trust
       INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+      # Meta Cloud API (WhatsApp)
+      META_ACCESS_TOKEN: ${META_ACCESS_TOKEN:-""}
+      META_PHONE_NUMBER_ID: ${META_PHONE_NUMBER_ID:-""}
+      META_WABA_ID: ${META_WABA_ID:-""}
+      META_APP_SECRET: ${META_APP_SECRET:-""}
+      WEBHOOK_VERIFY_TOKEN: ${WEBHOOK_VERIFY_TOKEN:-""}
       # Telemetry
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-""}
       OTEL_SERVICE_NAME: tash8eel-api
