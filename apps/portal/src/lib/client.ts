@@ -4327,7 +4327,7 @@ export const portalApi = {
     if (options?.limit) query.set("limit", String(options.limit));
     if (options?.offset) query.set("offset", String(options.offset));
     return authenticatedFetch<any>(
-      `/api/v1/merchants/${merchantId}/notifications?${query}`,
+      `/api/merchants/${merchantId}/notifications?${query}`,
     );
   },
 
