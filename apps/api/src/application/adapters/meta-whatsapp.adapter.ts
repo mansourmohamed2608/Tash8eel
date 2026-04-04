@@ -1015,31 +1015,51 @@ export class MetaWhatsAppAdapter implements IMetaWhatsAppAdapter {
     const id = uuidv4();
     const sanitizedBody = this.sanitizeInboundText(parsed.body);
 
-    await this.pool.query(
-      `INSERT INTO whatsapp_message_log (
-        id, message_id, wa_message_id, waba_id, phone_number_id, direction,
-        from_number, to_number, body, num_media, media_ids, media_content_types,
-        status, latitude, longitude, webhook_received_at, raw_webhook_payload
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NOW(), $16)`,
-      [
-        id,
-        messageId,
-        parsed.messageId,
-        parsed.wabaId,
-        parsed.phoneNumberId,
-        "inbound",
-        parsed.fromNumber,
-        parsed.toNumber,
-        sanitizedBody,
-        parsed.mediaCount,
-        JSON.stringify(parsed.mediaIds),
-        JSON.stringify(parsed.mediaContentTypes),
-        "received",
-        parsed.latitude,
-        parsed.longitude,
-        JSON.stringify(parsed.rawPayload),
-      ],
-    );
+    try {
+      await this.pool.query(
+        `INSERT INTO whatsapp_message_log (
+          id, message_id, wa_message_id, waba_id, phone_number_id, direction,
+          from_number, to_number, body, num_media, media_ids, media_content_types,
+          status, latitude, longitude, webhook_received_at, raw_webhook_payload
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NOW(), $16)`,
+        [
+          id,
+          messageId,
+          parsed.messageId,
+          parsed.wabaId,
+          parsed.phoneNumberId,
+          "inbound",
+          parsed.fromNumber,
+          parsed.toNumber,
+          sanitizedBody,
+          parsed.mediaCount,
+          JSON.stringify(parsed.mediaIds),
+          JSON.stringify(parsed.mediaContentTypes),
+          "received",
+          parsed.latitude,
+          parsed.longitude,
+          JSON.stringify(parsed.rawPayload),
+        ],
+      );
+    } catch (error: any) {
+      if (error?.code === "23505") {
+        const existing = await this.pool.query(
+          `SELECT id FROM whatsapp_message_log
+           WHERE wa_message_id = $1 AND direction = 'inbound'
+           ORDER BY created_at DESC
+           LIMIT 1`,
+          [parsed.messageId],
+        );
+        if (existing.rows.length > 0) {
+          this.logger.debug({
+            msg: "Duplicate inbound webhook message ignored",
+            waMessageId: parsed.messageId,
+          });
+          return existing.rows[0].id;
+        }
+      }
+      throw error;
+    }
 
     return id;
   }
