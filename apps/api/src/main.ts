@@ -50,8 +50,11 @@ async function bootstrap(): Promise<void> {
 
   await initTelemetry("tash8eel-api");
 
-  // Create app with default logger
-  const app = await NestFactory.create(AppModule);
+  // Disable Nest's default parser so our custom parser can preserve req.rawBody
+  // for webhook signature validation.
+  const app = await NestFactory.create(AppModule, {
+    bodyParser: false,
+  });
 
   // Body size limits (support image payloads for vision endpoints)
   // Keep a copy of raw body for webhook signature validation.
