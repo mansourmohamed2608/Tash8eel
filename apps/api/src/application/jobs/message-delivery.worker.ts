@@ -108,17 +108,29 @@ export class MessageDeliveryWorker implements OnModuleInit, OnModuleDestroy {
     );
 
     if (!sendResult.success) {
-      const hardFail = sendResult.errorCode === "NO_CREDENTIALS";
+      const errorMessage = sendResult.errorMessage || "Failed to send message";
+      const hardFail = this.isNonRetryableMetaError(
+        sendResult.errorCode,
+        errorMessage,
+      );
       await this.messageDeliveryService.updateDeliveryStatus({
         messageId: message.id,
         status: "FAILED",
         providerMessageId: sendResult.messageId,
         provider: "meta",
-        error: sendResult.errorMessage || "Failed to send message",
+        error: errorMessage,
       });
       if (!hardFail) {
-        throw new Error(sendResult.errorMessage || "Failed to send message");
+        throw new Error(errorMessage);
       }
+
+      this.logger.warn({
+        msg: "Meta send marked as non-retryable",
+        messageId: message.id,
+        recipient: message.recipientId,
+        errorCode: sendResult.errorCode,
+        error: errorMessage,
+      });
       return;
     }
 
@@ -135,5 +147,31 @@ export class MessageDeliveryWorker implements OnModuleInit, OnModuleDestroy {
       recipient: message.recipientId,
       providerMessageId: sendResult.messageId,
     });
+  }
+
+  private isNonRetryableMetaError(
+    errorCode?: string,
+    errorMessage?: string,
+  ): boolean {
+    if (errorCode === "NO_CREDENTIALS") {
+      return true;
+    }
+
+    // Meta permanent failures: recipient is not a WhatsApp account/test recipient
+    if (errorCode === "133010") {
+      return true;
+    }
+
+    const message = String(errorMessage || "").toLowerCase();
+    if (message.includes("account not registered")) {
+      return true;
+    }
+
+    // Usually indicates wrong sender object/permissions, not transient network failure.
+    if (message.includes("unsupported post request")) {
+      return true;
+    }
+
+    return false;
   }
 }
