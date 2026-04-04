@@ -11,9 +11,22 @@ import { DATABASE_POOL } from "./infrastructure/database/database.module";
 
 async function bootstrap(): Promise<void> {
   const logger = new Logger("Bootstrap");
+  const nodeEnv = process.env.NODE_ENV || "development";
+  const databaseUrl = process.env.DATABASE_URL || "";
+
+  // Safety guard: if prod/staging boots against local compose postgres host,
+  // the app will read/write a different database and appear as data loss.
+  if (
+    (nodeEnv === "production" || nodeEnv === "staging") &&
+    /@postgres(?::\d+)?\//i.test(databaseUrl)
+  ) {
+    throw new Error(
+      "Refusing to start with local compose database host 'postgres' in production/staging. Use docker-compose.prod.yml or docker-compose.staging.yml with external DATABASE_URL.",
+    );
+  }
 
   // Validate required environment variables in production
-  if (process.env.NODE_ENV === "production") {
+  if (nodeEnv === "production") {
     const requiredEnvVars = [
       "DATABASE_URL",
       "JWT_SECRET",
@@ -95,7 +108,7 @@ async function bootstrap(): Promise<void> {
   const corsOrigins = process.env.CORS_ORIGINS?.split(",").map((o) => o.trim());
   app.enableCors({
     origin:
-      process.env.NODE_ENV === "production"
+      nodeEnv === "production"
         ? corsOrigins || false // Require explicit origins in production
         : corsOrigins || true, // Allow all in development
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
@@ -220,10 +233,10 @@ Multi-tenant conversational commerce agent for Egyptian SMBs.
   await app.listen(port);
 
   logger.log(`🚀 Operations Agent running on port ${port}`);
-  logger.log(`📚 Environment: ${process.env.NODE_ENV || "development"}`);
+  logger.log(`📚 Environment: ${nodeEnv}`);
   logger.log(`🔗 API base: http://localhost:${port}/api/v1`);
 
-  if (process.env.NODE_ENV !== "production") {
+  if (nodeEnv !== "production") {
     logger.log(`📖 Swagger: http://localhost:${port}/docs`);
   }
 
