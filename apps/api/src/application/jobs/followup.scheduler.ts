@@ -66,7 +66,7 @@ export class FollowupScheduler {
              c.followup_count,
              m.name          AS merchant_name,
              m.category,
-             m.whatsapp_number AS merchant_wa,
+              NULLIF(to_jsonb(m)->>'whatsapp_number', '') AS merchant_wa,
              COALESCE(m.followup_delay_minutes, 60) AS followup_delay_minutes,
              cust.phone      AS customer_phone,
              COALESCE(cust.name, 'عزيزي العميل') AS customer_name,
