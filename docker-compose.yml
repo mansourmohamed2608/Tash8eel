@@ -126,6 +126,7 @@ services:
       NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3001}
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-}
       AUTH_TRUST_HOST: ${AUTH_TRUST_HOST:-true}
+      HOSTNAME: 0.0.0.0
       PORT: 3001
     ports:
       - "3001:3001"
