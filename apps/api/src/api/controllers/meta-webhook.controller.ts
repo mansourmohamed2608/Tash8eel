@@ -274,6 +274,83 @@ export class MetaWebhookController {
       }
 
       if (!merchantMapping) {
+        const normalizedTo = String(parsed.toNumber || "")
+          .replace(/^whatsapp:/i, "")
+          .replace(/\s+/g, "");
+
+        try {
+          const merchantResult = await this.pool.query(
+            `SELECT id, name, whatsapp_number
+             FROM merchants
+             WHERE is_active = true
+               AND whatsapp_number IS NOT NULL
+               AND (whatsapp_number = $1 OR whatsapp_number = $2 OR whatsapp_number = $3)
+             LIMIT 1`,
+            [normalizedTo, parsed.toNumber, `whatsapp:${normalizedTo}`],
+          );
+
+          if (merchantResult.rows.length > 0) {
+            const row = merchantResult.rows[0];
+            merchantMapping = {
+              merchantId: row.id,
+              phoneNumber: normalizedTo,
+              whatsappNumber: row.whatsapp_number || normalizedTo,
+              phoneNumberId: parsed.phoneNumberId,
+              displayName: row.name,
+              isSandbox: true,
+            };
+
+            try {
+              await this.pool.query(
+                `INSERT INTO merchant_phone_numbers (
+                   merchant_id,
+                   phone_number,
+                   whatsapp_number,
+                   provider,
+                   display_name,
+                   is_active,
+                   is_sandbox,
+                   metadata
+                 ) VALUES ($1, $2, $3, 'meta', $4, true, true, $5::jsonb)
+                 ON CONFLICT (whatsapp_number)
+                 DO UPDATE SET
+                   merchant_id = EXCLUDED.merchant_id,
+                   phone_number = EXCLUDED.phone_number,
+                   provider = 'meta',
+                   display_name = EXCLUDED.display_name,
+                   is_active = true,
+                   metadata = COALESCE(merchant_phone_numbers.metadata, '{}'::jsonb) || EXCLUDED.metadata,
+                   updated_at = NOW()`,
+                [
+                  row.id,
+                  normalizedTo,
+                  normalizedTo,
+                  row.name || "Merchant",
+                  JSON.stringify({
+                    phone_number_id: parsed.phoneNumberId,
+                  }),
+                ],
+              );
+            } catch (mappingError) {
+              this.logger.warn({
+                msg: "Failed to persist merchant phone mapping",
+                correlationId,
+                merchantId: row.id,
+                error: (mappingError as Error).message,
+              });
+            }
+          }
+        } catch (resolveError) {
+          this.logger.warn({
+            msg: "Failed to resolve merchant by profile WhatsApp number",
+            correlationId,
+            toNumber: parsed.toNumber,
+            error: (resolveError as Error).message,
+          });
+        }
+      }
+
+      if (!merchantMapping) {
         this.logger.warn({
           msg: "No merchant found for phone number",
           correlationId,
