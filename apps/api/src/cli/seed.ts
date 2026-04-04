@@ -36,7 +36,7 @@ async function main(): Promise<void> {
       );
       console.log("\nDemo credentials:");
       console.log("  Merchant ID: demo-merchant");
-      console.log("  Staff login: owner@demo.tash8eel.com / demo123");
+      console.log("  Staff login: owner@tash8eel.com / Demo@1234");
       console.log("  API endpoint: POST /internal/seed/demo");
     }
   } catch (error: any) {
