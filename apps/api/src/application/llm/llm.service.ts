@@ -9,7 +9,7 @@ import { Merchant } from "../../domain/entities/merchant.entity";
 import { Conversation } from "../../domain/entities/conversation.entity";
 import { CatalogItem } from "../../domain/entities/catalog.entity";
 import { Message } from "../../domain/entities/message.entity";
-import { ActionType } from "../../shared/constants/enums";
+import { ActionType, MerchantCategory } from "../../shared/constants/enums";
 import { ARABIC_TEMPLATES } from "../../shared/constants/templates";
 import {
   withRetry,
