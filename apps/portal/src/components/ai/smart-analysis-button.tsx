@@ -101,6 +101,7 @@ const CONTEXT_SUBTITLES: Record<AnalysisContext, string> = {
 };
 
 const ANALYSIS_CACHE_TTL_MS = 12 * 60 * 60 * 1000;
+const ANALYSIS_STORAGE_VERSION = "v2";
 
 function normalizeAnalysisText(text: string): string {
   return text
@@ -120,6 +121,33 @@ interface ParsedAnalysisSection {
 interface PersistedAnalysisState {
   rawText: string | null;
   updatedAt: string | null;
+}
+
+interface DailyDashboardReport {
+  date?: string;
+  orders?: {
+    total?: number;
+    delivered?: number;
+    cancelled?: number;
+    changeFromYesterday?: number;
+  };
+  revenue?: {
+    total?: number;
+    changeFromYesterday?: number;
+  };
+  conversations?: {
+    total?: number;
+    converted?: number;
+    conversionRate?: number;
+  };
+  customers?: {
+    new?: number;
+  };
+  topProducts?: Array<{
+    productName?: string;
+    quantity?: number;
+    revenue?: number;
+  }>;
 }
 
 const SECTION_STYLES = [
@@ -222,6 +250,49 @@ function formatAnalysisTimestamp(timestamp: string | null): string | null {
   }).format(date);
 }
 
+function buildDashboardReportPrompt(report: DailyDashboardReport | null): string {
+  if (!report) {
+    return ANALYSIS_PROMPTS.dashboard;
+  }
+
+  const topProductsSummary =
+    report.topProducts && report.topProducts.length > 0
+      ? report.topProducts
+          .slice(0, 3)
+          .map((product) => {
+            const name = product.productName || "منتج غير مسمى";
+            const quantity = product.quantity ?? 0;
+            const revenue = product.revenue ?? 0;
+            return `${name} - الكمية ${quantity} - الإيراد ${revenue}`;
+          })
+          .join("\n")
+      : "لا توجد منتجات بارزة اليوم.";
+
+  return `${ANALYSIS_PROMPTS.dashboard}
+
+بيانات تقرير اليوم المؤكدة من النظام:
+- التاريخ: ${report.date || "غير متوفر"}
+- إجمالي الطلبات: ${report.orders?.total ?? 0}
+- الطلبات المسلمة: ${report.orders?.delivered ?? 0}
+- الطلبات الملغاة: ${report.orders?.cancelled ?? 0}
+- تغير الطلبات عن أمس: ${report.orders?.changeFromYesterday ?? 0}%
+- الإيرادات اليوم: ${report.revenue?.total ?? 0}
+- تغير الإيرادات عن أمس: ${report.revenue?.changeFromYesterday ?? 0}%
+- إجمالي المحادثات: ${report.conversations?.total ?? 0}
+- المحادثات المحولة لطلبات: ${report.conversations?.converted ?? 0}
+- معدل التحويل: ${report.conversations?.conversionRate ?? 0}%
+- العملاء الجدد: ${report.customers?.new ?? 0}
+
+أهم المنتجات اليوم:
+${topProductsSummary}
+
+تعليمات إضافية:
+1. اعتمد على هذه الأرقام كمرجع أساسي.
+2. كل قسم يمكن أن يحتوي حتى 3 سطور قصيرة إذا لزم.
+3. إذا كانت الأرقام ضعيفة أو صفرية، فسر ذلك بوضوح بدل الاكتفاء بجملة عامة.
+4. في "فرصة قريبة" استخدم المنتجات أو التحويل أو العملاء الجدد فقط إذا كان عندك دليل من البيانات أعلاه.`;
+}
+
 interface SmartAnalysisButtonProps {
   context: AnalysisContext;
   className?: string;
@@ -236,7 +307,7 @@ export function SmartAnalysisButton({
   const [error, setError] = useState<string | null>(null);
   const [isExpanded, setIsExpanded] = useState(true);
   const storageKey = merchantId
-    ? `smart-analysis:${merchantId}:${context}`
+    ? `smart-analysis:${ANALYSIS_STORAGE_VERSION}:${merchantId}:${context}`
     : null;
   const [persistedAnalysis, setPersistedAnalysis, isPersistedAnalysisHydrated] =
     useLocalStorageState<PersistedAnalysisState>(storageKey, {
@@ -268,9 +339,18 @@ export function SmartAnalysisButton({
     setError(null);
 
     try {
-      const result = await portalApi.chatWithAssistant(
-        ANALYSIS_PROMPTS[context],
-      );
+      let prompt = ANALYSIS_PROMPTS[context];
+
+      if (context === "dashboard") {
+        try {
+          const report = await portalApi.getDailyReport();
+          prompt = buildDashboardReportPrompt(report);
+        } catch {
+          prompt = ANALYSIS_PROMPTS.dashboard;
+        }
+      }
+
+      const result = await portalApi.chatWithAssistant(prompt);
       setPersistedAnalysis({
         rawText: result.reply,
         updatedAt: new Date().toISOString(),
@@ -397,7 +477,7 @@ export function SmartAnalysisButton({
           {isExpanded && (
             <div className="px-4 pb-4">
               {renderStructuredSections ? (
-                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3" dir="rtl">
+                <div className="grid gap-3 md:grid-cols-2" dir="rtl">
                   {parsedSections.map((section, idx) => {
                     const style = SECTION_STYLES[idx % SECTION_STYLES.length];
                     const Icon = style.icon;
