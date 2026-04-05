@@ -345,6 +345,15 @@ function formatPercent(value: number): string {
   }).format(toNumber(value))}%`;
 }
 
+function isHumanReadableProductName(value: string | undefined): boolean {
+  const normalized = String(value || "").trim();
+  if (!normalized) {
+    return false;
+  }
+
+  return !/^[A-Z0-9-]{3,}$/.test(normalized);
+}
+
 function countUnreadNotifications(
   payload: PortalNotificationsResponse | null,
 ): number {
@@ -415,6 +424,11 @@ function buildDashboardSystemSummary(input: {
       return availableQuantity > 0 && availableQuantity <= threshold;
     }) ||
     null;
+  const highestRiskInventoryLabel = isHumanReadableProductName(
+    highestRiskInventoryItem?.name,
+  )
+    ? highestRiskInventoryItem?.name?.trim() || null
+    : null;
 
   const topProduct =
     report?.topProducts?.find(
@@ -433,9 +447,15 @@ function buildDashboardSystemSummary(input: {
   } else {
     performanceParts.push("لم يتم تسجيل أي طلبات اليوم.");
   }
-  performanceParts.push(
-    `الإيرادات ${formatMoney(revenueToday)}، وعدد المحادثات ${formatCount(conversationsToday)} مع تحويل ${formatCount(convertedToday)} إلى طلبات بمعدل ${formatPercent(conversionRateToday)}.`,
-  );
+  if (conversationsToday > 0 && convertedToday === 0) {
+    performanceParts.push(
+      `الإيرادات ${formatMoney(revenueToday)}، وتم تسجيل ${formatCount(conversationsToday)} محادثات اليوم لكن لم يتحول أي منها إلى طلب حتى الآن.`,
+    );
+  } else {
+    performanceParts.push(
+      `الإيرادات ${formatMoney(revenueToday)}، وعدد المحادثات ${formatCount(conversationsToday)} مع تحويل ${formatCount(convertedToday)} إلى طلبات بمعدل ${formatPercent(conversionRateToday)}.`,
+    );
+  }
   if (newCustomersToday > 0) {
     performanceParts.push(
       `كما دخل ${formatCount(newCustomersToday)} عميل جديد إلى قاعدة العملاء اليوم.`,
@@ -497,8 +517,11 @@ function buildDashboardSystemSummary(input: {
 
   let actionText =
     "لا يوجد إجراء عاجل ظاهر الآن، والأفضل مراقبة أول طلب أو محادثة جديدة فور دخولها.";
-  if (outOfStockCount > 0 && highestRiskInventoryItem?.name) {
-    actionText = `ابدأ بمراجعة المنتج ${highestRiskInventoryItem.name} لأنه ضمن العناصر الأكثر ضغطاً في المخزون، ثم حدّث البدائل أو إعادة التوريد قبل فقد مبيعات إضافية.`;
+  if (outOfStockCount > 0 && highestRiskInventoryLabel) {
+    actionText = `ابدأ بمراجعة المنتج ${highestRiskInventoryLabel} لأنه ضمن العناصر الأكثر ضغطاً في المخزون، ثم حدّث البدائل أو أعد التوريد قبل فقد مبيعات إضافية.`;
+  } else if (outOfStockCount > 0) {
+    actionText =
+      "ابدأ بمراجعة المنتجات النافدة الآن وتحديد البدائل أو خطة إعادة التوريد قبل فقد مبيعات إضافية.";
   } else if (pendingDeliveries > 0) {
     actionText =
       "ابدأ بمتابعة الطلبات قيد التوصيل والتأكد من تحديث حالتها، لأنها أقرب نقطة تؤثر على رضا العميل والتحصيل.";
