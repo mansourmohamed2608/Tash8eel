@@ -70,13 +70,26 @@ export function NotificationsPopover() {
       notifications: Notification[];
       unreadCount: number;
     }> => {
+      const isAuthFailure = (error: unknown) => {
+        const status = (error as any)?.status;
+        const code = (error as any)?.code;
+        return (
+          status === 401 ||
+          code === "AUTH_RECOVERING" ||
+          code === "SESSION_EXPIRED"
+        );
+      };
+
       // Keep the same load strategy used by notifications page for consistency.
       let response: any = null;
       try {
         response = await portalApi.getPortalNotifications({
           unreadOnly: false,
         });
-      } catch {
+      } catch (error) {
+        if (isAuthFailure(error)) {
+          throw error;
+        }
         response = null;
       }
 

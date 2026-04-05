@@ -177,10 +177,23 @@ export default function NotificationsPage() {
     setLoading(true);
     setError(null);
     const loadNotifications = async () => {
+      const isAuthFailure = (error: unknown) => {
+        const status = (error as any)?.status;
+        const code = (error as any)?.code;
+        return (
+          status === 401 ||
+          code === "AUTH_RECOVERING" ||
+          code === "SESSION_EXPIRED"
+        );
+      };
+
       let response: any = null;
       try {
         response = await portalApi.getPortalNotifications({ unreadOnly });
-      } catch {
+      } catch (error) {
+        if (isAuthFailure(error)) {
+          throw error;
+        }
         response = null;
       }
 

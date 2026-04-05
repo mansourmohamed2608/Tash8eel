@@ -90,6 +90,13 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
       message = sanitizePublicMessage(rawMessage || message, status);
       const technicalHidden = message !== rawMessage && rawMessage !== "";
+      const path = request?.originalUrl || request?.url || "";
+      const isProbe404 =
+        status === HttpStatus.NOT_FOUND &&
+        (path === "/" ||
+          path === "/.env" ||
+          path === "/wp-login.php" ||
+          path === "/phpinfo.php");
       if (
         status === HttpStatus.UNAUTHORIZED ||
         status === HttpStatus.FORBIDDEN
@@ -99,7 +106,15 @@ export class AllExceptionsFilter implements ExceptionFilter {
           status,
           rawMessage,
           method: request?.method,
-          path: request?.originalUrl || request?.url,
+          path,
+        });
+      } else if (isProbe404) {
+        logger.debug("Probe-style request rejected", {
+          correlationId,
+          status,
+          rawMessage,
+          method: request?.method,
+          path,
         });
       } else if (technicalHidden || status >= HttpStatus.INTERNAL_SERVER_ERROR) {
         details = undefined;

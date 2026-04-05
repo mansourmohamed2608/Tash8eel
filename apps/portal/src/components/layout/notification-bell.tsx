@@ -54,12 +54,25 @@ export function NotificationBell() {
     if (!merchantId) return;
 
     const loadNotifications = async () => {
+      const isAuthFailure = (error: unknown) => {
+        const status = (error as any)?.status;
+        const code = (error as any)?.code;
+        return (
+          status === 401 ||
+          code === "AUTH_RECOVERING" ||
+          code === "SESSION_EXPIRED"
+        );
+      };
+
       let response: any = null;
       try {
         response = await portalApi.getPortalNotifications({
           unreadOnly: false,
         });
       } catch (err) {
+        if (isAuthFailure(err)) {
+          throw err;
+        }
         console.warn("[bell] getPortalNotifications failed:", err);
         response = null;
       }
@@ -72,6 +85,9 @@ export function NotificationBell() {
             offset: 0,
           });
         } catch (err) {
+          if (isAuthFailure(err)) {
+            throw err;
+          }
           console.error("[bell] getNotifications fallback failed:", err);
           throw err;
         }
