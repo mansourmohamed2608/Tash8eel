@@ -1362,7 +1362,106 @@ recentAgentActions: آخر 10 إجراءات اتخذها الوكلاء في آ
     return /عايز|عاوز|اطلب|أطلب|طلب|اشتري|شراء|عايزة|عاوزه/i.test(messageLower);
   }
 
-  private buildFallbackCatalogReply(catalogItems: CatalogItem[]): string {
+  private extractProductHint(
+    messageLower: string,
+    catalogItems: CatalogItem[],
+  ): string | null {
+    const normalizedMessage = String(messageLower || "")
+      .replace(/[؟?!.,،]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (!normalizedMessage) {
+      return null;
+    }
+
+    // If the customer explicitly says they are unsure, avoid fake precision.
+    if (/معرفش|ماعرفش|مش\s*عارف|محتار|مش\s*متأكد/i.test(normalizedMessage)) {
+      return null;
+    }
+
+    const catalogNames = catalogItems
+      .map((item) => String(item.nameAr || item.name || "").trim())
+      .filter(Boolean)
+      .sort((a, b) => b.length - a.length);
+
+    const matchedCatalogName = catalogNames.find((name) =>
+      normalizedMessage.includes(String(name).toLowerCase()),
+    );
+    if (matchedCatalogName) {
+      return matchedCatalogName;
+    }
+
+    const stopWords = new Set([
+      "عايز",
+      "عاوز",
+      "عايزة",
+      "عاوزه",
+      "اطلب",
+      "أطلب",
+      "طلب",
+      "اشتري",
+      "شراء",
+      "ممكن",
+      "لو",
+      "سمحت",
+      "انا",
+      "أنا",
+      "ايه",
+      "إيه",
+      "بتبيعوا",
+      "عندكم",
+      "المنيو",
+      "menu",
+      "catalog",
+      "منتج",
+      "منتجات",
+      "حاجة",
+      "شي",
+      "شيء",
+      "يعني",
+      "ولا",
+      "او",
+      "أو",
+      "انت",
+      "إنت",
+    ]);
+
+    const genericIntentTokens = new Set([
+      "اعمل",
+      "أعمل",
+      "order",
+      "اوردر",
+      "اوردر",
+      "help",
+      "مساعدة",
+    ]);
+
+    const tokens = normalizedMessage
+      .split(" ")
+      .map((token) => token.trim())
+      .filter(Boolean)
+      .filter((token) => !stopWords.has(token));
+
+    if (tokens.length === 0) {
+      return null;
+    }
+
+    if (tokens.every((token) => genericIntentTokens.has(token))) {
+      return null;
+    }
+
+    const hint = tokens.join(" ").trim();
+    return hint.length >= 2 ? hint : null;
+  }
+
+  private buildFallbackOrderProgressReply(productHint: string): string {
+    return `تمام 👌 فهمت إنك عايز ${productHint}.\nممكن تقولي الكمية المطلوبة؟`;
+  }
+
+  private buildFallbackCatalogReply(
+    catalogItems: CatalogItem[],
+    merchantCategory?: MerchantCategory,
+  ): string {
     const names = Array.from(
       new Set(
         catalogItems
@@ -1372,6 +1471,15 @@ recentAgentActions: آخر 10 إجراءات اتخذها الوكلاء في آ
     ).slice(0, 6);
 
     if (names.length === 0) {
+      if (merchantCategory === MerchantCategory.CLOTHES) {
+        return "أكيد 🙌 إحنا متجر ملابس. اكتب نوع القطعة اللي محتاجها (مثلاً بنطلون/تيشيرت) وأنا أرشح لك بسرعة.";
+      }
+      if (merchantCategory === MerchantCategory.FOOD) {
+        return "أكيد 🙌 إحنا مطعم/أكل. اكتب اسم الصنف اللي محتاجه وأنا أساعدك فوراً.";
+      }
+      if (merchantCategory === MerchantCategory.SUPERMARKET) {
+        return "أكيد 🙌 إحنا سوبرماركت. اكتب نوع المنتج اللي محتاجه وأنا أساعدك تختار.";
+      }
       return "أكيد 🙌 عندنا منتجات متنوعة. اكتب اسم المنتج اللي بتدور عليه وأنا أساعدك فوراً.";
     }
 
@@ -1382,9 +1490,15 @@ recentAgentActions: آخر 10 إجراءات اتخذها الوكلاء في آ
     context: LlmContext,
     reason: FallbackReason = "openai_error",
   ): LlmResult {
-    const { conversation, customerMessage, catalogItems, recentMessages } =
-      context;
+    const {
+      merchant,
+      conversation,
+      customerMessage,
+      catalogItems,
+      recentMessages,
+    } = context;
     const messageLower = String(customerMessage || "").toLowerCase();
+    const productHint = this.extractProductHint(messageLower, catalogItems);
 
     logger.warn("Using fallback response", {
       reason,
@@ -1406,11 +1520,17 @@ recentAgentActions: آخر 10 إجراءات اتخذها الوكلاء في آ
         address_city: ARABIC_TEMPLATES.ASK_ADDRESS_CITY,
         address_area: ARABIC_TEMPLATES.ASK_ADDRESS_AREA,
       };
-      reply = questions[slot] || ARABIC_TEMPLATES.FALLBACK;
+      if (slot === "product" && productHint) {
+        reply = this.buildFallbackOrderProgressReply(productHint);
+      } else {
+        reply = questions[slot] || ARABIC_TEMPLATES.FALLBACK;
+      }
     } else if (this.isCatalogInquiryMessage(messageLower)) {
-      reply = this.buildFallbackCatalogReply(catalogItems);
+      reply = this.buildFallbackCatalogReply(catalogItems, merchant.category);
     } else if (this.isOrderIntentMessage(messageLower)) {
-      reply = ARABIC_TEMPLATES.ASK_PRODUCT;
+      reply = productHint
+        ? this.buildFallbackOrderProgressReply(productHint)
+        : ARABIC_TEMPLATES.ASK_PRODUCT;
     } else if (/السلام\s*عليكم|اهلا|أهلا|مرحبا|هاي|hello/i.test(messageLower)) {
       reply = "أهلاً! كيف أقدر أساعدك اليوم؟ 😊";
     }
@@ -1426,9 +1546,12 @@ recentAgentActions: آخر 10 إجراءات اتخذها الوكلاء في آ
       String(lastOutbound.text || "").trim() === String(reply).trim()
     ) {
       if (this.isCatalogInquiryMessage(messageLower)) {
-        reply = this.buildFallbackCatalogReply(catalogItems);
+        reply = this.buildFallbackCatalogReply(catalogItems, merchant.category);
+      } else if (productHint) {
+        reply = `تمام 👌 سجلت ${productHint}. آخر خطوة: ابعت الكمية المطلوبة (مثلاً 1 أو 2).`;
       } else {
-        reply = ARABIC_TEMPLATES.ASK_PRODUCT;
+        reply =
+          "تمام 🙌 ابعت اسم المنتج أو النوع اللي محتاجه وأنا أكمل معاك خطوة بخطوة.";
       }
     }
 
