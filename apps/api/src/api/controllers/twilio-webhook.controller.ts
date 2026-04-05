@@ -413,6 +413,7 @@ export class TwilioWebhookController {
         merchantId,
         senderId: parsed.fromNumber,
         text: effectiveText,
+        providerMessageId: parsed.messageSid,
         // Only pass voiceNote if transcription wasn't attempted in this controller
         // This prevents double transcription attempts
         correlationId,
@@ -426,6 +427,19 @@ export class TwilioWebhookController {
         replyLength: inboxResponse.replyText.length,
         duration: Date.now() - startTime,
       });
+
+      if (!inboxResponse.replyText) {
+        this.logger.debug({
+          msg: "No reply to send (suppressed)",
+          correlationId,
+          conversationId: inboxResponse.conversationId,
+          action: inboxResponse.action,
+          routingDecision: inboxResponse.routingDecision,
+          markAsRead: !!inboxResponse.markAsRead,
+        });
+        res.type("text/xml").send("<Response></Response>");
+        return;
+      }
 
       // Send the reply back via Twilio
       const sendResult = await this.twilioAdapter.sendTextMessage(
@@ -441,6 +455,11 @@ export class TwilioWebhookController {
           errorMessage: sendResult.errorMessage,
         });
       } else {
+        await this.markConversationReplyAsSent(
+          inboxResponse.conversationId,
+          sendResult.messageSid,
+        );
+
         this.logger.log({
           msg: "Reply sent successfully",
           correlationId,
@@ -711,6 +730,47 @@ export class TwilioWebhookController {
        WHERE t.message_id = m.id AND t.message_sid = $2`,
       [mappedStatus, messageSid],
     );
+  }
+
+  private async markConversationReplyAsSent(
+    conversationId: string,
+    providerMessageId?: string,
+  ): Promise<void> {
+    if (!conversationId) {
+      return;
+    }
+
+    const updated = await this.pool.query<{ id: string }>(
+      `WITH target AS (
+         SELECT id
+         FROM messages
+         WHERE conversation_id = $1
+           AND direction = 'outbound'
+           AND sender_id = 'bot'
+           AND delivery_status IN ('PENDING', 'QUEUED')
+           AND created_at >= NOW() - INTERVAL '10 minutes'
+         ORDER BY created_at DESC
+         LIMIT 1
+       )
+       UPDATE messages m
+       SET delivery_status = 'SENT',
+           provider_message_id_outbound = COALESCE($2, m.provider_message_id_outbound),
+           sent_at = COALESCE(m.sent_at, NOW()),
+           delivery_status_updated_at = NOW(),
+           next_retry_at = NULL
+       FROM target t
+       WHERE m.id = t.id
+       RETURNING m.id`,
+      [conversationId, providerMessageId || null],
+    );
+
+    if ((updated.rowCount ?? 0) === 0) {
+      this.logger.warn({
+        msg: "No pending outbound message found to mark as sent",
+        conversationId,
+        providerMessageId,
+      });
+    }
   }
 
   /**

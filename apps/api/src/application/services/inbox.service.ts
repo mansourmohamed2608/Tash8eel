@@ -556,14 +556,75 @@ export class InboxService {
       }
     }
 
+    // Provider-level idempotency guard (extra safety on top of webhook dedupe).
+    if (params.providerMessageId) {
+      const existingMessage = await this.messageRepo.findByProviderMessageId(
+        params.merchantId,
+        params.providerMessageId,
+      );
+
+      if (existingMessage?.direction === MessageDirection.INBOUND) {
+        this.logger.warn({
+          message: "Duplicate inbound message detected in inbox service",
+          merchantId: params.merchantId,
+          senderId: params.senderId,
+          providerMessageId: params.providerMessageId,
+          conversationId: existingMessage.conversationId,
+          correlationId,
+        });
+
+        return {
+          conversationId: existingMessage.conversationId,
+          replyText: "",
+          action: ActionType.ASK_CLARIFYING_QUESTION,
+          cart: conversation.cart || { items: [] },
+          markAsRead: true,
+          routingDecision: "duplicate_inbound_ignored",
+        };
+      }
+    }
+
     // 4. Store incoming message
-    await this.messageRepo.create({
-      conversationId: conversation.id,
-      merchantId: params.merchantId,
-      senderId: params.senderId,
-      direction: MessageDirection.INBOUND,
-      text: params.text,
-    });
+    try {
+      await this.messageRepo.create({
+        conversationId: conversation.id,
+        merchantId: params.merchantId,
+        providerMessageId: params.providerMessageId,
+        senderId: params.senderId,
+        direction: MessageDirection.INBOUND,
+        text: params.text,
+      });
+    } catch (error) {
+      const pgError = error as { code?: string; constraint?: string };
+      const isProviderMessageDuplicate =
+        !!params.providerMessageId &&
+        pgError?.code === "23505" &&
+        String(pgError?.constraint || "").includes(
+          "merchant_id_provider_message_id",
+        );
+
+      if (isProviderMessageDuplicate) {
+        this.logger.warn({
+          message: "Duplicate inbound message insert blocked",
+          merchantId: params.merchantId,
+          senderId: params.senderId,
+          providerMessageId: params.providerMessageId,
+          conversationId: conversation.id,
+          correlationId,
+        });
+
+        return {
+          conversationId: conversation.id,
+          replyText: "",
+          action: ActionType.ASK_CLARIFYING_QUESTION,
+          cart: conversation.cart || { items: [] },
+          markAsRead: true,
+          routingDecision: "duplicate_inbound_ignored",
+        };
+      }
+
+      throw error;
+    }
 
     // 5. Publish MessageReceived event
     await this.outboxService.publishEvent({
@@ -1125,6 +1186,10 @@ export class InboxService {
     let orderId: string | undefined;
     let orderNumber: string | undefined;
     let replyText = llmResponse.reply || llmResponse.response.reply_ar;
+
+    if (!String(replyText || "").trim()) {
+      replyText = "تمام 🙌 اكتب طلبك بشكل أوضح شوية وأنا أساعدك فورًا.";
+    }
 
     // Update cart if items extracted
     if (llmResponse.cartItems && llmResponse.cartItems.length > 0) {

@@ -157,7 +157,9 @@ export class MessageDeliveryService {
        FROM messages m
        JOIN conversations c ON m.conversation_id = c.id
        WHERE m.delivery_status IN ('QUEUED', 'PENDING')
+         AND COALESCE(c.channel, 'whatsapp') = 'whatsapp'
          AND m.direction = 'outbound'
+         AND m.provider_message_id_outbound IS NULL
          AND (m.next_retry_at IS NULL OR m.next_retry_at <= NOW())
          AND m.retry_count < m.max_retries
        ORDER BY m.created_at ASC

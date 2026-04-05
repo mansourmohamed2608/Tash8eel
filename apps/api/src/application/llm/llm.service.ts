@@ -101,6 +101,12 @@ export interface LLMCallOptions {
   maxTokens?: number;
 }
 
+type FallbackReason =
+  | "budget_exhausted"
+  | "openai_429"
+  | "openai_timeout"
+  | "openai_error";
+
 // Alias for backward compatibility
 export type LlmResponse = LlmResult;
 
@@ -258,7 +264,7 @@ export class LlmService {
         remaining: budgetCheck.remaining,
       });
       this.fireBudgetExhaustedNotification(merchant.id);
-      return this.createFallbackResponse(context);
+      return this.createFallbackResponse(context, "budget_exhausted");
     }
 
     try {
@@ -362,7 +368,12 @@ export class LlmService {
       if (is429) {
         this.fireOpenAiQuotaNotification(merchant.id);
       }
-      return this.createFallbackResponse(context);
+      const reason: FallbackReason = is429
+        ? "openai_429"
+        : err.message?.includes("timed out")
+          ? "openai_timeout"
+          : "openai_error";
+      return this.createFallbackResponse(context, reason);
     }
   }
 
@@ -1341,8 +1352,45 @@ recentAgentActions: آخر 10 إجراءات اتخذها الوكلاء في آ
       );
   }
 
-  private createFallbackResponse(context: LlmContext): LlmResult {
-    const { conversation } = context;
+  private isCatalogInquiryMessage(messageLower: string): boolean {
+    return /بتبيعوا|عندكم\s*(ايه|إيه)|المنيو|menu|catalog|الاصناف|الأصناف|متاح\s*ايه|متاح\s*إيه|ايه\s*عندكم|إيه\s*عندكم/i.test(
+      messageLower,
+    );
+  }
+
+  private isOrderIntentMessage(messageLower: string): boolean {
+    return /عايز|عاوز|اطلب|أطلب|طلب|اشتري|شراء|عايزة|عاوزه/i.test(messageLower);
+  }
+
+  private buildFallbackCatalogReply(catalogItems: CatalogItem[]): string {
+    const names = Array.from(
+      new Set(
+        catalogItems
+          .map((item) => String(item.nameAr || item.name || "").trim())
+          .filter(Boolean),
+      ),
+    ).slice(0, 6);
+
+    if (names.length === 0) {
+      return "أكيد 🙌 عندنا منتجات متنوعة. اكتب اسم المنتج اللي بتدور عليه وأنا أساعدك فوراً.";
+    }
+
+    return `أكيد 🙌 عندنا: ${names.join("، ")}.\nتحب أساعدك تختار أنسب حاجة؟`;
+  }
+
+  private createFallbackResponse(
+    context: LlmContext,
+    reason: FallbackReason = "openai_error",
+  ): LlmResult {
+    const { conversation, customerMessage, catalogItems, recentMessages } =
+      context;
+    const messageLower = String(customerMessage || "").toLowerCase();
+
+    logger.warn("Using fallback response", {
+      reason,
+      state: conversation.state,
+      missingSlotsCount: conversation.missingSlots.length,
+    });
 
     // Determine fallback action based on state
     let reply = ARABIC_TEMPLATES.BUDGET_EXCEEDED;
@@ -1359,6 +1407,29 @@ recentAgentActions: آخر 10 إجراءات اتخذها الوكلاء في آ
         address_area: ARABIC_TEMPLATES.ASK_ADDRESS_AREA,
       };
       reply = questions[slot] || ARABIC_TEMPLATES.FALLBACK;
+    } else if (this.isCatalogInquiryMessage(messageLower)) {
+      reply = this.buildFallbackCatalogReply(catalogItems);
+    } else if (this.isOrderIntentMessage(messageLower)) {
+      reply = ARABIC_TEMPLATES.ASK_PRODUCT;
+    } else if (/السلام\s*عليكم|اهلا|أهلا|مرحبا|هاي|hello/i.test(messageLower)) {
+      reply = "أهلاً! كيف أقدر أساعدك اليوم؟ 😊";
+    }
+
+    const lastOutbound = [...recentMessages]
+      .reverse()
+      .find(
+        (msg) =>
+          String((msg as any).direction || "").toLowerCase() === "outbound",
+      );
+    if (
+      lastOutbound &&
+      String(lastOutbound.text || "").trim() === String(reply).trim()
+    ) {
+      if (this.isCatalogInquiryMessage(messageLower)) {
+        reply = this.buildFallbackCatalogReply(catalogItems);
+      } else {
+        reply = ARABIC_TEMPLATES.ASK_PRODUCT;
+      }
     }
 
     return {
@@ -1369,7 +1440,7 @@ recentAgentActions: آخر 10 إجراءات اتخذها الوكلاء في آ
         extracted_entities: null,
         missing_slots: conversation.missingSlots,
         negotiation: null,
-        reasoning: null,
+        reasoning: `fallback_reason:${reason}`,
         delivery_fee: null,
       },
       tokensUsed: 0,

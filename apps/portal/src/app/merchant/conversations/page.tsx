@@ -110,6 +110,58 @@ function normalizeConversationsPayload(response: any): Conversation[] {
     .filter((item: Conversation) => item.id.length > 0);
 }
 
+function normalizeMessagesPayload(payload: any): Message[] {
+  const source = Array.isArray(payload) ? payload : [];
+  const seenIds = new Set<string>();
+  const seenFingerprints = new Set<string>();
+
+  return source
+    .filter((item: any) => item && typeof item === "object")
+    .map((item: any) => ({
+      id: String(item.id ?? ""),
+      conversationId: String(item.conversationId ?? item.conversation_id ?? ""),
+      direction: String(item.direction ?? "inbound") as Message["direction"],
+      text: String(item.text ?? ""),
+      createdAt: String(item.createdAt ?? item.created_at ?? ""),
+    }))
+    .filter((item: Message) => item.id.length > 0)
+    .filter((item: Message) => {
+      if (seenIds.has(item.id)) {
+        return false;
+      }
+      seenIds.add(item.id);
+
+      const normalizedText = String(item.text || "")
+        .replace(/\s+/g, " ")
+        .trim();
+      const createdAtMs = Date.parse(item.createdAt);
+      const secondBucket = Number.isNaN(createdAtMs)
+        ? item.createdAt
+        : String(Math.floor(createdAtMs / 1000));
+
+      const fingerprint = [
+        item.conversationId,
+        String(item.direction || "").toLowerCase(),
+        normalizedText,
+        secondBucket,
+      ].join("|");
+
+      if (seenFingerprints.has(fingerprint)) {
+        return false;
+      }
+      seenFingerprints.add(fingerprint);
+      return true;
+    })
+    .sort((a, b) => {
+      const aTs = Date.parse(a.createdAt);
+      const bTs = Date.parse(b.createdAt);
+      if (Number.isNaN(aTs) || Number.isNaN(bTs)) {
+        return a.createdAt.localeCompare(b.createdAt);
+      }
+      return aTs - bTs;
+    });
+}
+
 function ConversationChannelIcon({
   channel,
 }: {
@@ -302,7 +354,7 @@ export default function ConversationsPage() {
           conversationId,
           apiKey,
         );
-        setMessages(response.messages || []);
+        setMessages(normalizeMessagesPayload(response.messages));
         setSelectedConversation(response);
       } catch (err) {
         console.error("Failed to fetch messages:", err);

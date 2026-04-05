@@ -208,7 +208,11 @@ export class MessageRouterService {
     }
 
     if (this.shouldIgnoreWithoutReply(rawText, normalized)) {
-      return "";
+      return this.pickRandom([
+        "تمام 🙌 لو حابب تطلب حاجة، ابعت اسم المنتج وأنا معاك.",
+        "شكرًا 😊 جاهز أساعدك في أي طلب وقت ما تحب.",
+        "حاضر ✨ ابعتلي المنتج أو الكمية اللي محتاجها.",
+      ]);
     }
 
     if (rawText.length < 20 && this.greetingPhrases.has(normalized)) {
@@ -339,15 +343,13 @@ export class MessageRouterService {
     normalizedText: string,
   ): boolean {
     if (this.ackPhrases.has(normalizedText)) {
-      return true;
+      // Short text acknowledgements can carry intent in checkout flows.
+      // Let the normal router/AI path process them instead of suppressing.
+      return false;
     }
 
     const compact = rawText.replace(/\s+/g, "");
-    if (compact.length <= 1) {
-      return true;
-    }
-
-    return this.isPureEmoji(compact);
+    return compact.length > 0 && this.isPureEmoji(compact);
   }
 
   private async getWelcomeMessage(merchantId: string): Promise<string | null> {
