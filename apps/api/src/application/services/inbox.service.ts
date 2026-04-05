@@ -1239,11 +1239,10 @@ export class InboxService {
       if (!newItem.name) continue;
 
       // Try to match with catalog using fuzzy search
-      const catalogMatches = await this.catalogRepo.searchByName(
+      const catalogItem = await this.findBestCatalogItemMatch(
         merchantId,
         newItem.name,
       );
-      const catalogItem = catalogMatches[0];
 
       // Skip items that don't match catalog
       if (!catalogItem) {
@@ -1316,6 +1315,72 @@ export class InboxService {
       discount: currentCart.discount || 0,
       deliveryFee: currentCart.deliveryFee || 0,
     };
+  }
+
+  private async findBestCatalogItemMatch(
+    merchantId: string,
+    searchTerm: string,
+  ): Promise<any | null> {
+    const directMatches = await this.catalogRepo.searchByName(
+      merchantId,
+      searchTerm,
+    );
+    if (directMatches.length > 0) {
+      return directMatches[0];
+    }
+
+    const catalogItems = await this.catalogRepo.findByMerchant(merchantId);
+    if (catalogItems.length === 0) {
+      return null;
+    }
+
+    const normalizedSearch = this.normalizeCatalogSearchText(searchTerm);
+    const searchTokens = normalizedSearch.split(" ").filter(Boolean);
+
+    const scored = catalogItems
+      .map((item: any) => {
+        const haystack = this.normalizeCatalogSearchText(
+          [
+            item.nameAr,
+            item.nameEn,
+            item.sku,
+            item.descriptionAr,
+            item.category,
+            ...(Array.isArray(item.tags) ? item.tags : []),
+          ]
+            .filter(Boolean)
+            .join(" "),
+        );
+
+        let score = 0;
+        if (normalizedSearch.length > 0 && haystack.includes(normalizedSearch)) {
+          score += 100;
+        }
+
+        for (const token of searchTokens) {
+          if (token.length < 2) continue;
+          if (haystack.includes(token)) {
+            score += token.length >= 4 ? 20 : 8;
+          }
+        }
+
+        return { item, score };
+      })
+      .filter((entry) => entry.score > 0)
+      .sort((a, b) => b.score - a.score);
+
+    return scored[0]?.item || null;
+  }
+
+  private normalizeCatalogSearchText(value: string): string {
+    return String(value || "")
+      .toLowerCase()
+      .replace(/[أإآ]/g, "ا")
+      .replace(/ة/g, "ه")
+      .replace(/[ىي]/g, "ي")
+      .replace(/[^\p{L}\p{N}\s]/gu, " ")
+      .replace(/\s+/g, " ")
+      .trim();
   }
 
   /**

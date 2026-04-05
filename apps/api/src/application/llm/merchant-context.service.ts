@@ -548,7 +548,38 @@ export class MerchantContextService {
       return scored;
     }
 
+    if (this.isCatalogOrProductIntent(customerMessage)) {
+      return [];
+    }
+
     return entries.slice(0, 20);
+  }
+
+  private isCatalogOrProductIntent(message: string): boolean {
+    const normalized = String(message || "")
+      .toLowerCase()
+      .replace(/[أإآا]/g, "ا")
+      .replace(/[ىي]/g, "ي");
+
+    return [
+      "بتبيعوا",
+      "بتبيعو",
+      "عندك ايه",
+      "عندكم ايه",
+      "عندك اي",
+      "منتجات",
+      "كتالوج",
+      "بكام",
+      "سعر",
+      "مقاس",
+      "لون",
+      "متوفر",
+      "بنطلون",
+      "جينز",
+      "تيشيرت",
+      "فستان",
+      "جاكيت",
+    ].some((term) => normalized.includes(term));
   }
 
   private buildKnowledgeBaseSection(

@@ -120,6 +120,14 @@ export function createLlmResult(
   // Filter products to only include those with names
   const products =
     response.extracted_entities?.products?.filter((p: any) => p.name) || [];
+  const cartItems = shouldTreatExtractedProductsAsChosen(response)
+    ? products.map((p: any) => ({
+        name: p.name as string,
+        quantity: p.quantity,
+        size: p.size,
+        color: p.color,
+      }))
+    : [];
 
   return {
     response,
@@ -127,12 +135,7 @@ export function createLlmResult(
     llmUsed,
     action: response.actionType,
     reply: response.reply_ar,
-    cartItems: products.map((p: any) => ({
-      name: p.name as string,
-      quantity: p.quantity,
-      size: p.size,
-      color: p.color,
-    })),
+    cartItems,
     customerName: response.extracted_entities?.customerName ?? undefined,
     phone: response.extracted_entities?.phone ?? undefined,
     address: response.extracted_entities?.address?.raw_text ?? undefined,
@@ -153,6 +156,45 @@ function createEmptyExtractedEntities(): NonNullable<
     substitutionAllowed: null,
     deliveryPreference: null,
   };
+}
+
+function shouldTreatExtractedProductsAsChosen(
+  response: ValidatedLlmResponse,
+): boolean {
+  const products = response.extracted_entities?.products || [];
+  if (!products || products.length === 0) {
+    return false;
+  }
+
+  const reply = String(response.reply_ar || "")
+    .toLowerCase()
+    .replace(/[أإآا]/g, "ا")
+    .replace(/[ىي]/g, "ي");
+
+  const unavailablePatterns = [
+    /مش\s+متوفر/,
+    /غير\s+متوفر/,
+    /مش\s+موجود/,
+    /مش\s+عندنا/,
+    /مش\s+متاح/,
+  ];
+  const substitutePatterns = [
+    /بديل/,
+    /اقرب\s+بديل/,
+    /اقترح/,
+    /ممكن\s+اخدلك/,
+    /ممكن\s+اقدم/,
+    /تحب\s+بدل/,
+  ];
+
+  const isUnavailableReply = unavailablePatterns.some((pattern) =>
+    pattern.test(reply),
+  );
+  const isSuggestionReply = substitutePatterns.some((pattern) =>
+    pattern.test(reply),
+  );
+
+  return !(isUnavailableReply && isSuggestionReply);
 }
 
 function createExtractedEntities(
@@ -483,6 +525,7 @@ ${merchantContext.conversationHistory}
    - ابحث في القائمة أعلاه فوراً
    - لو لقيته: قوله السعر والمتاح فوراً
    - لو مش موجود بالاسم ده: اقترح أقرب بديل من القائمة
+   - لو بتقترح بديل لأن المطلوب غير متوفر: لا تعتبر البديل مختاراً ولا تضيفه للسلة إلا بعد موافقة صريحة من العميل
    - لا تقوله "ممكن تكتبلي الطلب" إلا بعد ما يختار المنتج
 
 4. مسار الطلب الصحيح:
