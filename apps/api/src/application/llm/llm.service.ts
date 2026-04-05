@@ -267,28 +267,6 @@ export class LlmService {
     }
 
     try {
-      // ── Off-topic pre-filter ──────────────────────────────────────────────
-      // Detect obviously off-topic messages (general knowledge, jokes, etc.)
-      // before spending any tokens on OpenAI.
-      if (this.isObviouslyOffTopic(customerMessage)) {
-        return createLlmResult(
-          {
-            actionType: ActionType.ASK_CLARIFYING_QUESTION,
-            reply_ar:
-              "أنا هنا بس لخدمة طلبات المتجر! 😊 إيه إللي تحتاجه من منتجاتنا؟",
-            confidence: 1.0,
-            extracted_entities: null,
-            missing_slots: [],
-            negotiation: null,
-            reasoning: null,
-            delivery_fee: null,
-          },
-          0,
-          false,
-        );
-      }
-      // ─────────────────────────────────────────────────────────────────────
-
       const systemPrompt = this.buildSystemPrompt(merchant, catalogItems);
       const conversationHistory = this.buildConversationHistory(recentMessages);
       const userPrompt = this.buildUserPrompt(conversation, customerMessage);

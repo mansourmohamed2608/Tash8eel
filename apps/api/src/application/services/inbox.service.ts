@@ -693,62 +693,7 @@ export class InboxService {
       };
     }
 
-    const instantReply = await this.messageRouter.getInstantReply(
-      params.text ?? "",
-      effectiveMessageType,
-      params.merchantId,
-      params.senderId,
-    );
-
-    if (instantReply !== null) {
-      if (instantReply === "") {
-        await this.recordRoutingDecision({
-          merchantId: params.merchantId,
-          planName: merchantPlan.name,
-          messageType: effectiveMessageType,
-          routingDecision: "ack_no_reply",
-        });
-        return {
-          conversationId: conversation.id,
-          replyText: "",
-          action: ActionType.ASK_CLARIFYING_QUESTION,
-          cart: { items: [] },
-          markAsRead: true,
-          routingDecision: "ack_no_reply",
-        };
-      }
-
-      await this.messageRepo.create({
-        conversationId: conversation.id,
-        merchantId: params.merchantId,
-        senderId: "bot",
-        direction: MessageDirection.OUTBOUND,
-        text: instantReply,
-      });
-      await this.bumpConversationWindow(
-        params.merchantId,
-        params.senderId,
-        "instant",
-      );
-      const instantDecision = instantReply.includes("طلبك رقم")
-        ? "instant_order_status"
-        : instantReply.includes("جنيه")
-          ? "instant_price"
-          : "instant_greeting";
-      await this.recordRoutingDecision({
-        merchantId: params.merchantId,
-        planName: merchantPlan.name,
-        messageType: effectiveMessageType,
-        routingDecision: instantDecision,
-      });
-      return {
-        conversationId: conversation.id,
-        replyText: instantReply,
-        action: ActionType.ASK_CLARIFYING_QUESTION,
-        cart: { items: [] },
-        routingDecision: instantDecision,
-      };
-    }
+    // Force all text messages through LLM so even short inputs get AI-generated replies.
 
     const quotaResult = await this.usageGuard.checkAndTrackConversation(
       params.merchantId,
