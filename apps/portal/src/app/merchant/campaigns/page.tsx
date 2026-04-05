@@ -66,6 +66,7 @@ import {
 } from "@/components/ai/ai-insights-card";
 import { SmartAnalysisButton } from "@/components/ai/smart-analysis-button";
 import portalApi from "@/lib/client";
+import { useLocalStorageState } from "@/hooks/use-local-storage-state";
 
 interface CampaignResult {
   sent: number;
@@ -74,7 +75,7 @@ interface CampaignResult {
 }
 
 export default function WinbackCampaignsPage() {
-  const { apiKey } = useMerchant();
+  const { apiKey, merchantId } = useMerchant();
   const [showCreate, setShowCreate] = useState(false);
   const [confirmSend, setConfirmSend] = useState(false);
   const [sending, setSending] = useState(false);
@@ -89,13 +90,15 @@ export default function WinbackCampaignsPage() {
   // Campaign options
   const [discountPercent, setDiscountPercent] = useState(15);
   const [validDays, setValidDays] = useState(7);
-  const [message, setMessage] = useState(
+  const [message, setMessage] = useLocalStorageState(
+    merchantId ? `campaigns:winback-message:${merchantId}` : null,
     "وحشتنا! 🎁 عرض خاص لك - خصم {discount}% على طلبك القادم. العرض ساري لمدة {days} أيام فقط!",
   );
 
   // Seasonal campaign state
   const [showSeasonal, setShowSeasonal] = useState(false);
-  const [seasonalMsg, setSeasonalMsg] = useState(
+  const [seasonalMsg, setSeasonalMsg] = useLocalStorageState(
+    merchantId ? `campaigns:seasonal-message:${merchantId}` : null,
     "مرحباً {name}! 🎉 بمناسبة العيد، استمتع بعروضنا الحصرية. تسوق الآن وادخل كود الخصم: {code}",
   );
   const [seasonalSegment, setSeasonalSegment] = useState<
@@ -112,7 +115,8 @@ export default function WinbackCampaignsPage() {
 
   // Re-engagement campaign state
   const [showReengagement, setShowReengagement] = useState(false);
-  const [reengageMsg, setReengageMsg] = useState(
+  const [reengageMsg, setReengageMsg] = useLocalStorageState(
+    merchantId ? `campaigns:reengagement-message:${merchantId}` : null,
     "مرحبًا {name}! غبت عنا {days} يوم - يسعدنا رجوعك. خصم خاص ينتظرك باستخدام كود: {code}",
   );
   const [reengageInactiveDays, setReengageInactiveDays] = useState(30);

@@ -21,9 +21,11 @@ import {
   MessageSquare,
   Bot,
   AlertCircle,
+  User,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import portalApi from "@/lib/client";
+import { useLocalStorageState } from "@/hooks/use-local-storage-state";
 
 interface AskAiButtonProps {
   /** The merchant ID */
@@ -62,8 +64,17 @@ export function AskAiButton({
   contextData,
 }: AskAiButtonProps) {
   const [open, setOpen] = useState(false);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [input, setInput] = useState("");
+  const messagesStorageKey = merchantId
+    ? `ask-ai:messages:${merchantId}:${context}`
+    : null;
+  const inputStorageKey = merchantId
+    ? `ask-ai:input:${merchantId}:${context}`
+    : null;
+  const [messages, setMessages] = useLocalStorageState<ChatMessage[]>(
+    messagesStorageKey,
+    [],
+  );
+  const [input, setInput] = useLocalStorageState<string>(inputStorageKey, "");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
@@ -93,7 +104,7 @@ export function AskAiButton({
 
       const aiMsg: ChatMessage = {
         role: "assistant",
-        content: data.reply || "لم أتمكن من الرد.",
+        content: data.reply?.trim() || "لم أتمكن من الرد.",
       };
       setMessages([...updatedMessages, aiMsg]);
     } catch (err: any) {
@@ -104,7 +115,7 @@ export function AskAiButton({
         {
           role: "assistant",
           content:
-            "⚠️ تعذر الاتصال بخدمة الذكاء الاصطناعي حالياً. يمكنك شراء/ترقية حزمة الذكاء الاصطناعي ثم إعادة المحاولة.",
+            "تعذر الاتصال بخدمة الذكاء الاصطناعي حالياً. يمكنك المحاولة مرة أخرى لاحقاً.",
         },
       ]);
     } finally {
@@ -161,6 +172,10 @@ export function AskAiButton({
               الحقيقية
             </DialogDescription>
           </DialogHeader>
+          <div className="rounded-xl border border-purple-200 bg-purple-50/70 px-3 py-2 text-xs text-purple-700 dark:border-purple-900 dark:bg-purple-950/20 dark:text-purple-300">
+            هذه المحادثة محفوظة على هذا الجهاز لتجنب تكرار استهلاك الذكاء
+            الاصطناعي عند الرجوع للصفحة.
+          </div>
 
           {/* Chat Messages */}
           <div className="flex-1 overflow-y-auto space-y-3 py-4 min-h-[200px] max-h-[400px]">
@@ -206,7 +221,11 @@ export function AskAiButton({
                         : "bg-purple-100 text-purple-600",
                     )}
                   >
-                    {msg.role === "user" ? "👤" : "🤖"}
+                    {msg.role === "user" ? (
+                      <User className="h-3.5 w-3.5" />
+                    ) : (
+                      <Bot className="h-3.5 w-3.5" />
+                    )}
                   </div>
                   <div
                     className={cn(
@@ -239,8 +258,8 @@ export function AskAiButton({
 
             {loading && (
               <div className="flex gap-2">
-                <div className="h-7 w-7 rounded-full bg-purple-100 flex items-center justify-center text-xs">
-                  🤖
+                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-purple-100 text-purple-600">
+                  <Bot className="h-3.5 w-3.5" />
                 </div>
                 <div className="bg-muted rounded-xl px-4 py-3">
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">

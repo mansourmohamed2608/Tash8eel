@@ -5,6 +5,10 @@ import { MERCHANT_REPOSITORY, IMerchantRepository } from "../../domain/ports";
 import { Merchant } from "../../domain/entities/merchant.entity";
 import { MerchantContextService } from "./merchant-context.service";
 import { createLogger } from "../../shared/logging/logger";
+import {
+  AiCacheService,
+  CACHE_TTL,
+} from "../../infrastructure/cache/ai-cache.service";
 
 const logger = createLogger("MerchantAssistantService");
 
@@ -25,6 +29,7 @@ export class MerchantAssistantService {
     @Inject(MERCHANT_REPOSITORY)
     private merchantRepository: IMerchantRepository,
     private readonly contextService: MerchantContextService,
+    private readonly aiCache: AiCacheService,
   ) {
     const apiKey = this.configService.get<string>("OPENAI_API_KEY") || "";
     this.isTestMode =
@@ -47,9 +52,26 @@ export class MerchantAssistantService {
     message: string,
     history: AssistantMessage[] = [],
   ) {
+    const trimmedMessage = message.trim();
     const merchant = await this.merchantRepository.findById(merchantId);
     if (!merchant) {
       throw new Error("Merchant not found");
+    }
+
+    const cacheKey =
+      history.length === 0
+        ? this.aiCache.getReportCacheKey(
+            merchantId,
+            "assistant-chat",
+            trimmedMessage.toLowerCase(),
+          )
+        : null;
+
+    if (cacheKey) {
+      const cached = await this.aiCache.get<{ reply: string }>(cacheKey);
+      if (cached) {
+        return cached;
+      }
     }
 
     const systemPrompt = this.buildSystemPrompt(merchant);
@@ -80,9 +102,13 @@ export class MerchantAssistantService {
       : systemPrompt;
 
     if (this.isTestMode) {
-      return {
-        reply: `تم استلام سؤالك. (وضع تجريبي) سؤالك كان: ${message}`,
+      const response = {
+        reply: `تم استلام سؤالك. (وضع تجريبي) سؤالك كان: ${trimmedMessage}`,
       };
+      if (cacheKey) {
+        await this.aiCache.set(cacheKey, response, CACHE_TTL.KPI_REPORT);
+      }
+      return response;
     }
 
     try {
@@ -91,7 +117,7 @@ export class MerchantAssistantService {
         messages: [
           { role: "system", content: fullPrompt },
           ...history,
-          { role: "user", content: message },
+          { role: "user", content: trimmedMessage },
         ],
         temperature: 0.4,
         max_tokens: this.maxTokens,
@@ -100,7 +126,11 @@ export class MerchantAssistantService {
       const reply =
         response.choices[0]?.message?.content?.trim() ||
         "لم أتمكن من توليد إجابة الآن.";
-      return { reply };
+      const result = { reply };
+      if (cacheKey) {
+        await this.aiCache.set(cacheKey, result, CACHE_TTL.KPI_REPORT);
+      }
+      return result;
     } catch (error: any) {
       logger.error("Assistant chat failed", error);
       return {

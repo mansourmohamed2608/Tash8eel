@@ -1,16 +1,19 @@
 "use client";
 
-import React, { useState, useCallback, useMemo } from "react";
+import React, { useState, useCallback, useMemo, useEffect } from "react";
 import {
   Activity,
   AlertTriangle,
   ChevronDown,
+  Clock3,
   PlayCircle,
   Sparkles,
   Target,
   TrendingUp,
 } from "lucide-react";
 import { portalApi } from "@/lib/client";
+import { useMerchant } from "@/hooks/use-merchant";
+import { useLocalStorageState } from "@/hooks/use-local-storage-state";
 
 type AnalysisContext =
   | "cfo"
@@ -26,7 +29,9 @@ const ANALYSIS_PROMPTS: Record<AnalysisContext, string> = {
 3. أهم 3 نقاط قوة مالية
 4. أهم 3 مخاطر أو تحديات
 5. توصيات عملية لتحسين الأرباح خلال الأسبوع القادم
-اكتب بالعربية بشكل مختصر ومفيد مع أرقام حقيقية. لا تستخدم ايموجي نهائيا في الرد.`,
+اكتب بالعربية بشكل مختصر ومفيد مع أرقام حقيقية.
+اكتب 5 نقاط مرقمة فقط بدون Markdown أو مقدمات إنشائية.
+لا تستخدم ايموجي نهائيا في الرد.`,
 
   analytics: `أنت محلل بيانات متخصص. بناءً على بيانات النظام الحية، قم بتحليل شامل يشمل:
 1. ملخص معدلات التحويل وأداء المبيعات
@@ -34,7 +39,9 @@ const ANALYSIS_PROMPTS: Record<AnalysisContext, string> = {
 3. المنتجات الأكثر والأقل مبيعاً
 4. تحليل سلوك العملاء (عملاء جدد vs عائدين)
 5. توصيات عملية لزيادة المبيعات خلال الأسبوع القادم
-اكتب بالعربية بشكل مختصر ومفيد مع أرقام حقيقية. لا تستخدم ايموجي نهائيا في الرد.`,
+اكتب بالعربية بشكل مختصر ومفيد مع أرقام حقيقية.
+اكتب 5 نقاط مرقمة فقط بدون Markdown أو مقدمات إنشائية.
+لا تستخدم ايموجي نهائيا في الرد.`,
 
   dashboard: `أنت مستشار تشغيل ونمو لتاجر مصري. المطلوب: موجز يومي تنفيذي قصير يصلح للعرض داخل لوحة التحكم، اعتماداً فقط على بيانات النظام الحية.
 
@@ -62,7 +69,9 @@ const ANALYSIS_PROMPTS: Record<AnalysisContext, string> = {
 3. تحليل حركة المخزون (منتجات بطيئة الحركة وسريعة الحركة)
 4. تقدير قيمة المخزون الراكد وتوصيات للتصريف
 5. توصيات عملية لتحسين إدارة المخزون
-اكتب بالعربية بشكل مختصر ومفيد مع أرقام حقيقية. لا تستخدم ايموجي نهائيا في الرد.`,
+اكتب بالعربية بشكل مختصر ومفيد مع أرقام حقيقية.
+اكتب 5 نقاط مرقمة فقط بدون Markdown أو مقدمات إنشائية.
+لا تستخدم ايموجي نهائيا في الرد.`,
 
   operations: `أنت وكيل عمليات ذكي. بناءً على بيانات النظام الحية، قم بتحليل:
 1. ملخص العمليات اليومية (طلبات جديدة، معلقة، مكتملة، ملغاة)
@@ -70,7 +79,9 @@ const ANALYSIS_PROMPTS: Record<AnalysisContext, string> = {
 3. تحليل المحادثات (معدل الرد، رضا العملاء)
 4. اختناقات العمليات (طلبات متأخرة، شكاوى، مشاكل توصيل)
 5. توصيات عملية لتحسين الكفاءة التشغيلية
-اكتب بالعربية بشكل مختصر ومفيد مع أرقام حقيقية. لا تستخدم ايموجي نهائيا في الرد.`,
+اكتب بالعربية بشكل مختصر ومفيد مع أرقام حقيقية.
+اكتب 5 نقاط مرقمة فقط بدون Markdown أو مقدمات إنشائية.
+لا تستخدم ايموجي نهائيا في الرد.`,
 };
 
 const CONTEXT_TITLES: Record<AnalysisContext, string> = {
@@ -80,6 +91,16 @@ const CONTEXT_TITLES: Record<AnalysisContext, string> = {
   inventory: "وكيل المخزون الذكي",
   operations: "وكيل العمليات الذكي",
 };
+
+const CONTEXT_SUBTITLES: Record<AnalysisContext, string> = {
+  cfo: "خلاصة مالية مركزة مبنية على بياناتك الحالية",
+  analytics: "قراءة سريعة للأداء والسلوك والاتجاهات",
+  dashboard: "موجز تنفيذي سريع لحالة النشاط الآن",
+  inventory: "إشارات حركة المخزون والقرارات العاجلة",
+  operations: "ملخص تشغيلي لأهم الاختناقات والفرص",
+};
+
+const ANALYSIS_CACHE_TTL_MS = 12 * 60 * 60 * 1000;
 
 function normalizeAnalysisText(text: string): string {
   return text
@@ -94,6 +115,11 @@ interface ParsedAnalysisSection {
   index: number;
   title: string;
   body: string;
+}
+
+interface PersistedAnalysisState {
+  rawText: string | null;
+  updatedAt: string | null;
 }
 
 const SECTION_STYLES = [
@@ -180,6 +206,22 @@ function parseAnalysisSections(text: string): ParsedAnalysisSection[] {
     .filter((section) => section.title || section.body);
 }
 
+function formatAnalysisTimestamp(timestamp: string | null): string | null {
+  if (!timestamp) {
+    return null;
+  }
+
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  return new Intl.DateTimeFormat("ar-EG", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(date);
+}
+
 interface SmartAnalysisButtonProps {
   context: AnalysisContext;
   className?: string;
@@ -189,36 +231,70 @@ export function SmartAnalysisButton({
   context,
   className = "",
 }: SmartAnalysisButtonProps) {
+  const { merchantId } = useMerchant();
   const [loading, setLoading] = useState(false);
-  const [analysis, setAnalysis] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isExpanded, setIsExpanded] = useState(true);
+  const storageKey = merchantId
+    ? `smart-analysis:${merchantId}:${context}`
+    : null;
+  const [persistedAnalysis, setPersistedAnalysis, isPersistedAnalysisHydrated] =
+    useLocalStorageState<PersistedAnalysisState>(storageKey, {
+      rawText: null,
+      updatedAt: null,
+    });
+
+  useEffect(() => {
+    if (!isPersistedAnalysisHydrated || !persistedAnalysis.updatedAt) {
+      return;
+    }
+
+    const ageMs =
+      Date.now() - new Date(persistedAnalysis.updatedAt).getTime();
+    if (ageMs > ANALYSIS_CACHE_TTL_MS) {
+      setPersistedAnalysis({
+        rawText: null,
+        updatedAt: null,
+      });
+    }
+  }, [
+    isPersistedAnalysisHydrated,
+    persistedAnalysis.updatedAt,
+    setPersistedAnalysis,
+  ]);
 
   const runAnalysis = useCallback(async () => {
     setLoading(true);
     setError(null);
-    setAnalysis(null);
 
     try {
       const result = await portalApi.chatWithAssistant(
         ANALYSIS_PROMPTS[context],
       );
-      setAnalysis(result.reply);
+      setPersistedAnalysis({
+        rawText: result.reply,
+        updatedAt: new Date().toISOString(),
+      });
       setIsExpanded(true);
     } catch (err: any) {
       setError(err?.message || "فشل في تحليل البيانات. حاول مرة أخرى.");
     } finally {
       setLoading(false);
     }
-  }, [context]);
+  }, [context, setPersistedAnalysis]);
 
-  const normalizedAnalysis = analysis ? normalizeAnalysisText(analysis) : null;
+  const normalizedAnalysis = persistedAnalysis.rawText
+    ? normalizeAnalysisText(persistedAnalysis.rawText)
+    : null;
   const parsedSections = useMemo(
     () => (normalizedAnalysis ? parseAnalysisSections(normalizedAnalysis) : []),
     [normalizedAnalysis],
   );
-  const renderStructuredDashboard =
-    context === "dashboard" && parsedSections.length >= 3;
+  const renderStructuredSections = parsedSections.length >= 3;
+  const formattedUpdatedAt = useMemo(
+    () => formatAnalysisTimestamp(persistedAnalysis.updatedAt),
+    [persistedAnalysis.updatedAt],
+  );
 
   return (
     <div
@@ -236,7 +312,7 @@ export function SmartAnalysisButton({
                 {CONTEXT_TITLES[context]}
               </h3>
               <p className="text-xs text-purple-700/80 dark:text-purple-300/80">
-                تحليل مباشر مبني على بيانات النظام الحالية
+                {CONTEXT_SUBTITLES[context]}
               </p>
             </div>
           </div>
@@ -284,11 +360,20 @@ export function SmartAnalysisButton({
                   d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456z"
                 />
               </svg>
-              {analysis ? "تحليل جديد" : "تحليل ذكي"}
+              {normalizedAnalysis ? "تحديث التحليل" : "تحليل ذكي"}
             </>
           )}
         </button>
       </div>
+
+      {formattedUpdatedAt && (
+        <div className="px-4 pb-3">
+          <div className="inline-flex items-center gap-2 rounded-full border border-purple-200 bg-white/70 px-3 py-1 text-xs text-purple-700 dark:border-purple-800 dark:bg-slate-950/40 dark:text-purple-300">
+            <Clock3 className="h-3.5 w-3.5" />
+            آخر تحديث: {formattedUpdatedAt}
+          </div>
+        </div>
+      )}
 
       {/* Error state */}
       {error && (
@@ -298,7 +383,7 @@ export function SmartAnalysisButton({
       )}
 
       {/* Analysis result */}
-      {analysis && (
+      {normalizedAnalysis && (
         <div className="border-t border-purple-200 dark:border-purple-800">
           <button
             onClick={() => setIsExpanded(!isExpanded)}
@@ -311,7 +396,7 @@ export function SmartAnalysisButton({
           </button>
           {isExpanded && (
             <div className="px-4 pb-4">
-              {renderStructuredDashboard ? (
+              {renderStructuredSections ? (
                 <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3" dir="rtl">
                   {parsedSections.map((section, idx) => {
                     const style = SECTION_STYLES[idx % SECTION_STYLES.length];
@@ -361,7 +446,7 @@ export function SmartAnalysisButton({
       )}
 
       {/* Empty state hint */}
-      {!analysis && !loading && !error && (
+      {!normalizedAnalysis && !loading && !error && isPersistedAnalysisHydrated && (
         <div className="px-4 pb-4 text-center">
           <p className="text-sm text-purple-500 dark:text-purple-400">
             اضغط "تحليل ذكي" للحصول على تحليل مبني على بيانات نشاطك الحقيقية

@@ -67,6 +67,7 @@ import { Textarea } from "@/components/ui/textarea";
 import portalApi from "@/lib/client";
 import { useMerchant } from "@/hooks/use-merchant";
 import { useWebSocket, RealTimeEvent } from "@/hooks/use-websocket";
+import { useLocalStorageState } from "@/hooks/use-local-storage-state";
 import {
   REPORTING_PERIOD_OPTIONS,
   getReportingDateRange,
@@ -303,9 +304,18 @@ export default function InventoryInsightsPage() {
 
   // Supplier send dialog
   const [showSupplierDialog, setShowSupplierDialog] = useState(false);
-  const [supplierPhone, setSupplierPhone] = useState("");
-  const [supplierName, setSupplierName] = useState("");
-  const [supplierMsg, setSupplierMsg] = useState("");
+  const [supplierPhone, setSupplierPhone] = useLocalStorageState(
+    merchantId ? `inventory-insights:supplier-phone:${merchantId}` : null,
+    "",
+  );
+  const [supplierName, setSupplierName] = useLocalStorageState(
+    merchantId ? `inventory-insights:supplier-name:${merchantId}` : null,
+    "",
+  );
+  const [supplierMsg, setSupplierMsg] = useLocalStorageState(
+    merchantId ? `inventory-insights:supplier-message:${merchantId}` : null,
+    "",
+  );
   const [sendingSupplier, setSendingSupplier] = useState(false);
   const [supplierSendResult, setSupplierSendResult] = useState<string | null>(
     null,
