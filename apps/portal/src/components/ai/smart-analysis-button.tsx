@@ -101,7 +101,7 @@ const CONTEXT_SUBTITLES: Record<AnalysisContext, string> = {
 };
 
 const ANALYSIS_CACHE_TTL_MS = 12 * 60 * 60 * 1000;
-const ANALYSIS_STORAGE_VERSION = "v3";
+const ANALYSIS_STORAGE_VERSION = "v4";
 
 function normalizeAnalysisText(text: string): string {
   return text
@@ -208,6 +208,19 @@ interface CartRecoveryResponse {
   recoveredCarts?: number;
   recoveryRate?: number;
   recoveredRevenue?: number;
+}
+
+interface PortalInventoryResponse {
+  total?: number;
+  items?: Array<{
+    id?: string;
+    name?: string;
+    stock_quantity?: number;
+    reserved_quantity?: number;
+    available_quantity?: number;
+    low_stock_threshold?: number;
+    is_low_stock?: boolean;
+  }>;
 }
 
 const SECTION_STYLES = [
@@ -357,8 +370,10 @@ function buildDashboardSystemSummary(input: {
   notifications: PortalNotificationsResponse | null;
   followups: PortalFollowupsResponse | null;
   cartRecovery: CartRecoveryResponse | null;
+  inventory: PortalInventoryResponse | null;
 }): string {
-  const { report, stats, notifications, followups, cartRecovery } = input;
+  const { report, stats, notifications, followups, cartRecovery, inventory } =
+    input;
   const ordersToday = toNumber(report?.orders?.total);
   const deliveredToday = toNumber(report?.orders?.delivered);
   const cancelledToday = toNumber(report?.orders?.cancelled);
@@ -382,6 +397,24 @@ function buildDashboardSystemSummary(input: {
   const recoveredCarts = toNumber(cartRecovery?.recoveredCarts);
   const recoveryRate = toNumber(cartRecovery?.recoveryRate);
   const recoveredRevenue = toNumber(cartRecovery?.recoveredRevenue);
+  const inventoryItems = inventory?.items || [];
+  const totalProducts = toNumber(inventory?.total || inventoryItems.length);
+  const outOfStockCount = inventoryItems.filter((item) => {
+    return toNumber(item.available_quantity) <= 0;
+  }).length;
+  const lowStockCount = inventoryItems.filter((item) => {
+    const availableQuantity = toNumber(item.available_quantity);
+    const threshold = Math.max(0, toNumber(item.low_stock_threshold) || 5);
+    return availableQuantity > 0 && availableQuantity <= threshold;
+  }).length;
+  const highestRiskInventoryItem =
+    inventoryItems.find((item) => toNumber(item.available_quantity) <= 0) ||
+    inventoryItems.find((item) => {
+      const availableQuantity = toNumber(item.available_quantity);
+      const threshold = Math.max(0, toNumber(item.low_stock_threshold) || 5);
+      return availableQuantity > 0 && availableQuantity <= threshold;
+    }) ||
+    null;
 
   const topProduct =
     report?.topProducts?.find(
@@ -403,6 +436,11 @@ function buildDashboardSystemSummary(input: {
   performanceParts.push(
     `الإيرادات ${formatMoney(revenueToday)}، وعدد المحادثات ${formatCount(conversationsToday)} مع تحويل ${formatCount(convertedToday)} إلى طلبات بمعدل ${formatPercent(conversionRateToday)}.`,
   );
+  if (newCustomersToday > 0) {
+    performanceParts.push(
+      `كما دخل ${formatCount(newCustomersToday)} عميل جديد إلى قاعدة العملاء اليوم.`,
+    );
+  }
 
   const comparisonParts: string[] = [];
   if (
@@ -424,8 +462,19 @@ function buildDashboardSystemSummary(input: {
   comparisonParts.push(
     `وخلال آخر ${formatCount(periodDays)} يوم سُجل ${formatCount(periodOrders)} طلب بإجمالي ${formatMoney(periodRevenue)}، مع ${formatCount(activeConversations)} محادثة نشطة حالياً.`,
   );
+  if (ordersToday === 0 && newCustomersToday > 0) {
+    comparisonParts.push(
+      `رغم هدوء الطلبات اليوم، دخول ${formatCount(newCustomersToday)} عميل جديد يعني أن الاهتمام موجود لكن لم يُغلق إلى شراء بعد.`,
+    );
+  }
 
   const alerts: string[] = [];
+  if (outOfStockCount > 0) {
+    alerts.push(`${formatCount(outOfStockCount)} منتج نافد`);
+  }
+  if (lowStockCount > 0) {
+    alerts.push(`${formatCount(lowStockCount)} منتج منخفض المخزون`);
+  }
   if (pendingDeliveries > 0) {
     alerts.push(`${formatCount(pendingDeliveries)} طلب قيد التوصيل`);
   }
@@ -443,14 +492,19 @@ function buildDashboardSystemSummary(input: {
   }
   const alertsText =
     alerts.length > 0
-      ? `أبرز التنبيهات الآن: ${alerts.slice(0, 3).join("، ")}.`
+      ? `أبرز التنبيهات الآن: ${alerts.slice(0, 3).join("، ")} من أصل ${formatCount(totalProducts)} منتج في المخزون.`
       : "لا توجد تنبيهات حرجة مؤكدة من البيانات الحالية.";
 
   let actionText =
     "لا يوجد إجراء عاجل ظاهر الآن، والأفضل مراقبة أول طلب أو محادثة جديدة فور دخولها.";
-  if (pendingDeliveries > 0) {
+  if (outOfStockCount > 0 && highestRiskInventoryItem?.name) {
+    actionText = `ابدأ بمراجعة المنتج ${highestRiskInventoryItem.name} لأنه ضمن العناصر الأكثر ضغطاً في المخزون، ثم حدّث البدائل أو إعادة التوريد قبل فقد مبيعات إضافية.`;
+  } else if (pendingDeliveries > 0) {
     actionText =
       "ابدأ بمتابعة الطلبات قيد التوصيل والتأكد من تحديث حالتها، لأنها أقرب نقطة تؤثر على رضا العميل والتحصيل.";
+  } else if (lowStockCount > 0) {
+    actionText =
+      "راجع المنتجات منخفضة المخزون الآن وحدد ما يجب إعادة طلبه أو إبرازه بحذر حتى لا يتحول النقص إلى نفاد كامل.";
   } else if (followupsCount > 0) {
     actionText =
       "نفّذ المتابعات المفتوحة أولاً، لأنها تمثل عملاء أو طلبات تحتاج قراراً مباشراً قبل أن تبرد.";
@@ -466,10 +520,14 @@ function buildDashboardSystemSummary(input: {
   }
 
   let opportunityText = "لا تظهر فرصة قريبة مدعومة بالأرقام حالياً.";
-  if (unconvertedConversations > 0 && topProduct) {
+  if (newCustomersToday > 0 && unconvertedConversations > 0) {
+    opportunityText = `لديك ${formatCount(newCustomersToday)} عميل جديد و${formatCount(unconvertedConversations)} محادثة لم تتحول بعد اليوم، وأقرب فرصة الآن هي متابعة هؤلاء برسالة موجهة أو عرض افتتاحي سريع لتحويل الاهتمام إلى أول طلب.`;
+  } else if (unconvertedConversations > 0 && topProduct) {
     opportunityText = `هناك ${formatCount(unconvertedConversations)} محادثة اليوم لم تتحول بعد، وأقرب فرصة هي الدفع بمنتج ${topProduct.productName} لأنه الأكثر حضوراً اليوم بعدد ${formatCount(
       toNumber(topProduct.quantity),
     )}.`;
+  } else if (outOfStockCount === 0 && lowStockCount === 0 && topProduct) {
+    opportunityText = `المخزون الحالي لا يظهر ضغطاً فورياً، ويمكن استغلال ذلك في إبراز ${topProduct.productName} كمنتج دفع رئيسي لرفع التحويل بسرعة.`;
   } else if (newCustomersToday > 0) {
     opportunityText = `تم تسجيل ${formatCount(newCustomersToday)} عميل جديد اليوم، وأفضل فرصة قريبة هي متابعته بعرض تكميلي أو رسالة ترحيب سريعة لرفع أول عملية شراء.`;
   } else if (recoveredCarts > 0 || recoveredRevenue > 0) {
@@ -544,12 +602,14 @@ export function SmartAnalysisButton({
           notificationsResult,
           followupsResult,
           cartRecoveryResult,
+          inventoryResult,
         ] = await Promise.allSettled([
           portalApi.getDailyReport(),
           portalApi.getDashboardStats(30),
           portalApi.getPortalNotifications({ unreadOnly: true }),
           portalApi.getFollowups(),
           portalApi.getCartRecoveryKpi(30),
+          portalApi.getInventory(),
         ]);
 
         if (
@@ -557,7 +617,8 @@ export function SmartAnalysisButton({
           statsResult.status === "rejected" &&
           notificationsResult.status === "rejected" &&
           followupsResult.status === "rejected" &&
-          cartRecoveryResult.status === "rejected"
+          cartRecoveryResult.status === "rejected" &&
+          inventoryResult.status === "rejected"
         ) {
           throw new Error("تعذر جلب بيانات الموجز من النظام حالياً.");
         }
@@ -578,6 +639,8 @@ export function SmartAnalysisButton({
             cartRecoveryResult.status === "fulfilled"
               ? cartRecoveryResult.value
               : null,
+          inventory:
+            inventoryResult.status === "fulfilled" ? inventoryResult.value : null,
         });
 
         setPersistedAnalysis({
