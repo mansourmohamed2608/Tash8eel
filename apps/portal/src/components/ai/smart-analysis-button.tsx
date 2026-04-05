@@ -101,7 +101,7 @@ const CONTEXT_SUBTITLES: Record<AnalysisContext, string> = {
 };
 
 const ANALYSIS_CACHE_TTL_MS = 12 * 60 * 60 * 1000;
-const ANALYSIS_STORAGE_VERSION = "v4";
+const ANALYSIS_STORAGE_VERSION = "v5";
 
 function normalizeAnalysisText(text: string): string {
   return text
@@ -118,9 +118,14 @@ interface ParsedAnalysisSection {
   body: string;
 }
 
+interface DashboardAnalysisSection extends ParsedAnalysisSection {
+  details?: string[];
+}
+
 interface PersistedAnalysisState {
   rawText: string | null;
   updatedAt: string | null;
+  dashboardSections?: DashboardAnalysisSection[] | null;
 }
 
 interface DailyDashboardReport {
@@ -227,30 +232,35 @@ const SECTION_STYLES = [
   {
     icon: Activity,
     accent: "text-blue-700",
+    bullet: "bg-blue-700",
     border: "border-blue-200 dark:border-blue-900/60",
     bg: "bg-blue-50/80 dark:bg-blue-950/20",
   },
   {
     icon: TrendingUp,
     accent: "text-emerald-700",
+    bullet: "bg-emerald-700",
     border: "border-emerald-200 dark:border-emerald-900/60",
     bg: "bg-emerald-50/80 dark:bg-emerald-950/20",
   },
   {
     icon: AlertTriangle,
     accent: "text-amber-700",
+    bullet: "bg-amber-700",
     border: "border-amber-200 dark:border-amber-900/60",
     bg: "bg-amber-50/80 dark:bg-amber-950/20",
   },
   {
     icon: PlayCircle,
     accent: "text-violet-700",
+    bullet: "bg-violet-700",
     border: "border-violet-200 dark:border-violet-900/60",
     bg: "bg-violet-50/80 dark:bg-violet-950/20",
   },
   {
     icon: Target,
     accent: "text-rose-700",
+    bullet: "bg-rose-700",
     border: "border-rose-200 dark:border-rose-900/60",
     bg: "bg-rose-50/80 dark:bg-rose-950/20",
   },
@@ -380,7 +390,7 @@ function buildDashboardSystemSummary(input: {
   followups: PortalFollowupsResponse | null;
   cartRecovery: CartRecoveryResponse | null;
   inventory: PortalInventoryResponse | null;
-}): string {
+}): { rawText: string; sections: DashboardAnalysisSection[] } {
   const { report, stats, notifications, followups, cartRecovery, inventory } =
     input;
   const ordersToday = toNumber(report?.orders?.total);
@@ -561,15 +571,125 @@ function buildDashboardSystemSummary(input: {
     opportunityText = `المنتج الأوضح في بيانات اليوم هو ${topProduct.productName}، ويمكن استخدامه كمنتج دفع أساسي في المحادثات أو الواجهة لزيادة التحويل.`;
   }
 
-  return normalizeAnalysisText(
-    [
-      `1. الأداء اليوم: ${performanceParts.join(" ")}`,
-      `2. المقارنة: ${comparisonParts.join(" ")}`,
-      `3. التنبيهات: ${alertsText}`,
-      `4. الإجراء الآن: ${actionText}`,
-      `5. فرصة قريبة: ${opportunityText}`,
-    ].join("\n"),
-  );
+  const performanceDetails = [
+    `إجمالي الطلبات اليوم: ${formatCount(ordersToday)}.`,
+    `الطلبات المسلّمة: ${formatCount(deliveredToday)}، والملغاة: ${formatCount(cancelledToday)}.`,
+    `إيرادات اليوم: ${formatMoney(revenueToday)}.`,
+    `المحادثات اليوم: ${formatCount(conversationsToday)}، والمحوّلة إلى طلبات: ${formatCount(convertedToday)}.`,
+    `العملاء الجدد اليوم: ${formatCount(newCustomersToday)}.`,
+  ];
+
+  const comparisonDetails = [
+    `تغير الطلبات عن أمس: ${formatPercent(Math.abs(orderChange))} ${orderChange > 0 ? "ارتفاع" : orderChange < 0 ? "انخفاض" : "استقرار"}.`,
+    `تغير الإيرادات عن أمس: ${formatPercent(Math.abs(revenueChange))} ${revenueChange > 0 ? "ارتفاع" : revenueChange < 0 ? "انخفاض" : "استقرار"}.`,
+    `خلال آخر ${formatCount(periodDays)} يوم: ${formatCount(periodOrders)} طلب بإجمالي ${formatMoney(periodRevenue)}.`,
+    `المحادثات النشطة حالياً: ${formatCount(activeConversations)}.`,
+  ];
+
+  const alertDetails = [
+    `إجمالي المنتجات في المخزون: ${formatCount(totalProducts)}.`,
+    `منتجات نافدة: ${formatCount(outOfStockCount)}.`,
+    `منتجات منخفضة المخزون: ${formatCount(lowStockCount)}.`,
+    `طلبات قيد التوصيل: ${formatCount(pendingDeliveries)}.`,
+    `إشعارات غير مقروءة: ${formatCount(unreadNotifications)}.`,
+    `متابعات مفتوحة: ${formatCount(followupsCount)}.`,
+  ];
+  if (deliveryFailures > 0) {
+    alertDetails.push(`حالات تعثر التوصيل: ${formatCount(deliveryFailures)}.`);
+  }
+  if (codPending > 0) {
+    alertDetails.push(`تحصيل COD المعلّق: ${formatMoney(codPending)}.`);
+  }
+  if (highestRiskInventoryLabel) {
+    alertDetails.push(`أعلى عنصر ضغط حالياً: ${highestRiskInventoryLabel}.`);
+  }
+
+  const actionDetails: string[] = [];
+  if (outOfStockCount > 0 || lowStockCount > 0) {
+    actionDetails.push(
+      `ضغط المخزون الحالي: ${formatCount(outOfStockCount)} نافد و${formatCount(lowStockCount)} منخفض المخزون.`,
+    );
+  }
+  if (pendingDeliveries > 0) {
+    actionDetails.push(
+      `يوجد ${formatCount(pendingDeliveries)} طلب قيد التوصيل يحتاج متابعة.`,
+    );
+  }
+  if (unconvertedConversations > 0) {
+    actionDetails.push(
+      `لا تزال ${formatCount(unconvertedConversations)} محادثة اليوم بدون تحويل إلى طلب.`,
+    );
+  }
+  if (actionDetails.length === 0) {
+    actionDetails.push("لا توجد إشارة تشغيلية طارئة تتفوق بوضوح على غيرها حالياً.");
+  }
+
+  const opportunityDetails: string[] = [];
+  if (newCustomersToday > 0) {
+    opportunityDetails.push(
+      `دخل اليوم ${formatCount(newCustomersToday)} عميل جديد يمكن تحويله إلى أول طلب.`,
+    );
+  }
+  if (unconvertedConversations > 0) {
+    opportunityDetails.push(
+      `هناك ${formatCount(unconvertedConversations)} محادثة ما زالت مفتوحة بدون شراء.`,
+    );
+  }
+  if (topProduct?.productName) {
+    opportunityDetails.push(
+      `المنتج الأوضح في اليوم: ${topProduct.productName}${toNumber(topProduct.quantity) > 0 ? ` بعدد ${formatCount(toNumber(topProduct.quantity))}` : ""}.`,
+    );
+  }
+  if (recoveredCarts > 0 || recoveredRevenue > 0) {
+    opportunityDetails.push(
+      `استرداد السلات خلال الفترة: ${formatCount(recoveredCarts)} سلة بقيمة ${formatMoney(recoveredRevenue)}.`,
+    );
+  }
+  if (opportunityDetails.length === 0) {
+    opportunityDetails.push("لا توجد فرصة قصيرة الأجل أوضح من بقية الإشارات الحالية.");
+  }
+
+  const sections: DashboardAnalysisSection[] = [
+    {
+      index: 1,
+      title: "الأداء اليوم",
+      body: performanceParts.join(" "),
+      details: performanceDetails,
+    },
+    {
+      index: 2,
+      title: "المقارنة",
+      body: comparisonParts.join(" "),
+      details: comparisonDetails,
+    },
+    {
+      index: 3,
+      title: "التنبيهات",
+      body: alertsText,
+      details: alertDetails,
+    },
+    {
+      index: 4,
+      title: "الإجراء الآن",
+      body: actionText,
+      details: actionDetails,
+    },
+    {
+      index: 5,
+      title: "فرصة قريبة",
+      body: opportunityText,
+      details: opportunityDetails,
+    },
+  ];
+
+  return {
+    rawText: normalizeAnalysisText(
+      sections
+        .map((section) => `${section.index}. ${section.title}: ${section.body}`)
+        .join("\n"),
+    ),
+    sections,
+  };
 }
 
 interface SmartAnalysisButtonProps {
@@ -585,6 +705,7 @@ export function SmartAnalysisButton({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isExpanded, setIsExpanded] = useState(true);
+  const [expandedSectionIds, setExpandedSectionIds] = useState<number[]>([]);
   const storageKey = merchantId
     ? `smart-analysis:${ANALYSIS_STORAGE_VERSION}:${merchantId}:${context}`
     : null;
@@ -592,6 +713,7 @@ export function SmartAnalysisButton({
     useLocalStorageState<PersistedAnalysisState>(storageKey, {
       rawText: null,
       updatedAt: null,
+      dashboardSections: null,
     });
 
   useEffect(() => {
@@ -605,6 +727,7 @@ export function SmartAnalysisButton({
       setPersistedAnalysis({
         rawText: null,
         updatedAt: null,
+        dashboardSections: null,
       });
     }
   }, [
@@ -667,9 +790,11 @@ export function SmartAnalysisButton({
         });
 
         setPersistedAnalysis({
-          rawText: dashboardSummary,
+          rawText: dashboardSummary.rawText,
           updatedAt: new Date().toISOString(),
+          dashboardSections: dashboardSummary.sections,
         });
+        setExpandedSectionIds([]);
         setIsExpanded(true);
         return;
       }
@@ -679,7 +804,9 @@ export function SmartAnalysisButton({
       setPersistedAnalysis({
         rawText: result.reply,
         updatedAt: new Date().toISOString(),
+        dashboardSections: null,
       });
+      setExpandedSectionIds([]);
       setIsExpanded(true);
     } catch (err: any) {
       setError(err?.message || "فشل في تحليل البيانات. حاول مرة أخرى.");
@@ -695,11 +822,27 @@ export function SmartAnalysisButton({
     () => (normalizedAnalysis ? parseAnalysisSections(normalizedAnalysis) : []),
     [normalizedAnalysis],
   );
-  const renderStructuredSections = parsedSections.length >= 3;
+  const structuredSections = useMemo<DashboardAnalysisSection[]>(
+    () =>
+      context === "dashboard" &&
+      Array.isArray(persistedAnalysis.dashboardSections) &&
+      persistedAnalysis.dashboardSections.length > 0
+        ? persistedAnalysis.dashboardSections
+        : parsedSections,
+    [context, parsedSections, persistedAnalysis.dashboardSections],
+  );
+  const renderStructuredSections = structuredSections.length >= 3;
   const formattedUpdatedAt = useMemo(
     () => formatAnalysisTimestamp(persistedAnalysis.updatedAt),
     [persistedAnalysis.updatedAt],
   );
+  const toggleSectionDetails = useCallback((sectionIndex: number) => {
+    setExpandedSectionIds((current) =>
+      current.includes(sectionIndex)
+        ? current.filter((value) => value !== sectionIndex)
+        : [...current, sectionIndex],
+    );
+  }, []);
 
   return (
     <div
@@ -803,9 +946,14 @@ export function SmartAnalysisButton({
             <div className="px-4 pb-4">
               {renderStructuredSections ? (
                 <div className="grid gap-3 md:grid-cols-2" dir="rtl">
-                  {parsedSections.map((section, idx) => {
+                  {structuredSections.map((section, idx) => {
                     const style = SECTION_STYLES[idx % SECTION_STYLES.length];
                     const Icon = style.icon;
+                    const hasDetails =
+                      Array.isArray(section.details) && section.details.length > 0;
+                    const isSectionExpanded = expandedSectionIds.includes(
+                      section.index,
+                    );
 
                     return (
                       <section
@@ -830,6 +978,35 @@ export function SmartAnalysisButton({
                         <p className="text-sm leading-7 text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
                           {section.body || "لا توجد تفاصيل إضافية."}
                         </p>
+                        {hasDetails && (
+                          <div className="mt-4 border-t border-white/70 pt-3 dark:border-slate-800/70">
+                            <button
+                              type="button"
+                              onClick={() => toggleSectionDetails(section.index)}
+                              className={`inline-flex items-center gap-2 rounded-full border border-current/15 bg-white/70 px-3 py-1 text-xs font-medium transition-colors hover:bg-white dark:bg-slate-950/30 dark:hover:bg-slate-950/50 ${style.accent}`}
+                            >
+                              <ChevronDown
+                                className={`h-3.5 w-3.5 transition-transform ${isSectionExpanded ? "rotate-180" : ""}`}
+                              />
+                              {isSectionExpanded ? "إخفاء التفاصيل" : "تفاصيل أكثر"}
+                            </button>
+                            {isSectionExpanded && (
+                              <ul className="mt-3 space-y-2 text-sm leading-6 text-gray-600 dark:text-gray-300">
+                                {section.details?.map((detail) => (
+                                  <li
+                                    key={`${section.index}-${detail}`}
+                                    className="flex items-start gap-2"
+                                  >
+                                    <span
+                                      className={`mt-2 h-1.5 w-1.5 shrink-0 rounded-full ${style.bullet}`}
+                                    />
+                                    <span>{detail}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                          </div>
+                        )}
                       </section>
                     );
                   })}
