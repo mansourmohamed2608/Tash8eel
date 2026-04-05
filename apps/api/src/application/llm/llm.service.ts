@@ -321,7 +321,7 @@ export class LlmService {
 
       // Update token usage
       const tokensUsed = (response as any).usage?.total_tokens || 0;
-      await this.merchantRepository.incrementTokenUsage(
+      await this.recordTokenUsageSafely(
         merchant.id,
         getTodayDate(),
         tokensUsed,
@@ -758,13 +758,34 @@ ${customerMessage}
       response;
     const validated = this.validateResponse(parsedResponse);
     const tokensUsed = (response as any).usage?.total_tokens || 0;
-    await this.merchantRepository.incrementTokenUsage(
-      merchant.id,
-      getTodayDate(),
-      tokensUsed,
-    );
+    await this.recordTokenUsageSafely(merchant.id, getTodayDate(), tokensUsed);
 
     return createLlmResult(validated, tokensUsed, true);
+  }
+
+  private async recordTokenUsageSafely(
+    merchantId: string,
+    usageDate: string,
+    tokensUsed: number,
+  ): Promise<void> {
+    if (!tokensUsed || tokensUsed <= 0) {
+      return;
+    }
+
+    try {
+      await this.merchantRepository.incrementTokenUsage(
+        merchantId,
+        usageDate,
+        tokensUsed,
+      );
+    } catch (error) {
+      logger.warn("Token usage accounting failed", {
+        merchantId,
+        usageDate,
+        tokensUsed,
+        error,
+      });
+    }
   }
 
   private buildSimpleRetryPrompt(
@@ -904,7 +925,7 @@ ${JSON.stringify(request.contextData, null, 2)}
       });
 
       const tokensUsed = response.usage?.total_tokens || 0;
-      await this.merchantRepository.incrementTokenUsage(
+      await this.recordTokenUsageSafely(
         merchant.id,
         getTodayDate(),
         tokensUsed,

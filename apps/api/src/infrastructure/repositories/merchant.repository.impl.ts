@@ -147,16 +147,55 @@ export class MerchantRepository implements IMerchantRepository {
     date: string,
     tokens: number,
   ): Promise<MerchantTokenUsage> {
-    const result = await this.pool.query(
-      `INSERT INTO merchant_token_usage (merchant_id, usage_date, tokens_used, llm_calls)
-       VALUES ($1, $2, $3, 1)
-       ON CONFLICT (merchant_id, usage_date)
-       DO UPDATE SET tokens_used = merchant_token_usage.tokens_used + $3, 
-                     llm_calls = merchant_token_usage.llm_calls + 1
-       RETURNING *`,
-      [merchantId, date, tokens],
-    );
-    return this.mapTokenUsage(result.rows[0]);
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query(
+        `SELECT pg_advisory_xact_lock(hashtext($1 || ':' || $2::text))`,
+        [merchantId, date],
+      );
+
+      const existing = await client.query(
+        `SELECT *
+         FROM merchant_token_usage
+         WHERE merchant_id = $1
+           AND usage_date = $2::date
+         ORDER BY updated_at DESC NULLS LAST, created_at DESC NULLS LAST
+         LIMIT 1
+         FOR UPDATE`,
+        [merchantId, date],
+      );
+
+      let row: Record<string, unknown>;
+      if (existing.rows.length > 0) {
+        const updated = await client.query(
+          `UPDATE merchant_token_usage
+           SET tokens_used = COALESCE(tokens_used, 0) + $2,
+               llm_calls = COALESCE(llm_calls, 0) + 1,
+               updated_at = NOW()
+           WHERE id = $1
+           RETURNING *`,
+          [existing.rows[0].id, tokens],
+        );
+        row = updated.rows[0];
+      } else {
+        const inserted = await client.query(
+          `INSERT INTO merchant_token_usage (merchant_id, usage_date, tokens_used, llm_calls)
+           VALUES ($1, $2::date, $3, 1)
+           RETURNING *`,
+          [merchantId, date, tokens],
+        );
+        row = inserted.rows[0];
+      }
+
+      await client.query("COMMIT");
+      return this.mapTokenUsage(row);
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   private mapToEntity(row: Record<string, unknown>): Merchant {

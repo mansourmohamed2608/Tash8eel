@@ -5,7 +5,7 @@ import {
   HttpException,
   HttpStatus,
 } from "@nestjs/common";
-import { Response } from "express";
+import { Request, Response } from "express";
 import { createLogger } from "../logging/logger";
 import { getCorrelationId } from "../middleware/correlation-id.middleware";
 
@@ -67,6 +67,7 @@ const sanitizePublicMessage = (rawMessage: string, status: number): string => {
 export class AllExceptionsFilter implements ExceptionFilter {
   catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
+    const request = ctx.getRequest<Request>();
     const response = ctx.getResponse<Response>();
     const correlationId = getCorrelationId();
 
@@ -89,7 +90,18 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
       message = sanitizePublicMessage(rawMessage || message, status);
       const technicalHidden = message !== rawMessage && rawMessage !== "";
-      if (technicalHidden || status >= HttpStatus.INTERNAL_SERVER_ERROR) {
+      if (
+        status === HttpStatus.UNAUTHORIZED ||
+        status === HttpStatus.FORBIDDEN
+      ) {
+        logger.warn("Authentication/authorization request rejected", {
+          correlationId,
+          status,
+          rawMessage,
+          method: request?.method,
+          path: request?.originalUrl || request?.url,
+        });
+      } else if (technicalHidden || status >= HttpStatus.INTERNAL_SERVER_ERROR) {
         details = undefined;
         logger.error("HTTP exception sanitized for client", exception, {
           correlationId,
