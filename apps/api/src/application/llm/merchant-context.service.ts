@@ -710,7 +710,7 @@ export class MerchantContextService {
       return false;
     }
     if (row.stock_quantity == null) {
-      return row.is_available !== false;
+      return true;
     }
     return Number(row.stock_quantity) > 0;
   }
