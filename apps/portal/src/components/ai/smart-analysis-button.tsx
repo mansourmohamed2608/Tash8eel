@@ -27,13 +27,25 @@ const ANALYSIS_PROMPTS: Record<AnalysisContext, string> = {
 5. توصيات عملية لزيادة المبيعات خلال الأسبوع القادم
 اكتب بالعربية بشكل مختصر ومفيد مع أرقام حقيقية. لا تستخدم ايموجي نهائيا في الرد.`,
 
-  dashboard: `أنت مستشار أعمال متخصص. بناءً على بيانات النظام الحية، أعطني تقرير يومي سريع:
-1. ملخص أداء اليوم (طلبات، إيرادات، محادثات)
-2. مقارنة مع الأسبوع الماضي
-3. تنبيهات فورية (مخزون منخفض، طلبات معلقة، إلخ)
-4. أهم 3 إجراءات يجب اتخاذها الآن
-5. فرص بيع ممكنة (عملاء لم يطلبوا منذ فترة، منتجات رائجة)
-اكتب بالعربية بشكل مختصر ومفيد مع أرقام حقيقية. لا تستخدم ايموجي نهائيا في الرد.`,
+  dashboard: `أنت مستشار تشغيل ونمو لتاجر مصري. المطلوب: موجز يومي تنفيذي قصير يصلح للعرض داخل لوحة التحكم، اعتماداً فقط على بيانات النظام الحية.
+
+قواعد إلزامية:
+1. لا تبدأ بمقدمة عامة مثل "تقرير يومي سريع" أو اسم المتجر.
+2. لا تستخدم Markdown أو ** أو عناوين مزخرفة.
+3. اكتب 5 نقاط مرقمة فقط من 1 إلى 5.
+4. استخدم هذه العناوين بالترتيب: الأداء اليوم، المقارنة، التنبيهات، الإجراء الآن، فرصة قريبة.
+5. كل نقطة تكون جملة أو جملتين كحد أقصى وبأسلوب مباشر.
+6. استخدم أرقاماً حقيقية فقط من البيانات المتاحة.
+7. إذا كانت القيمة صفر أو لا توجد بيانات، قل ذلك بوضوح ولا تخترع استنتاجات.
+8. لا تذكر أسماء عملاء أو فرص بيع محددة إلا إذا كانت مدعومة فعلاً بالبيانات الحالية.
+9. لا تستخدم ايموجي نهائيا.
+
+المطلوب داخل كل نقطة:
+1. الأداء اليوم: الطلبات، الإيرادات، المحادثات أو التحويل لو متاح.
+2. المقارنة: مقارنة قصيرة مع اليوم السابق أو الفترة السابقة إن كانت موجودة.
+3. التنبيهات: أهم تنبيه فعلي فقط أو اذكر أنه لا توجد تنبيهات مهمة.
+4. الإجراء الآن: أهم إجراء واحد واضح وقابل للتنفيذ فوراً.
+5. فرصة قريبة: فرصة واحدة فقط، وإن لم توجد فرصة واضحة قل ذلك بصراحة.`,
 
   inventory: `أنت وكيل إدارة مخزون ذكي. بناءً على بيانات المخزون الحية، قم بتحليل:
 1. ملخص حالة المخزون (إجمالي المنتجات، منخفضة، نافذة)
@@ -55,10 +67,18 @@ const ANALYSIS_PROMPTS: Record<AnalysisContext, string> = {
 const CONTEXT_TITLES: Record<AnalysisContext, string> = {
   cfo: "وكيل التحليل المالي",
   analytics: "وكيل تحليل الأداء",
-  dashboard: "وكيل التقرير اليومي",
+  dashboard: "موجز اليوم الذكي",
   inventory: "وكيل المخزون الذكي",
   operations: "وكيل العمليات الذكي",
 };
+
+function normalizeAnalysisText(text: string): string {
+  return text
+    .replace(/\*\*/g, "")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
 
 interface SmartAnalysisButtonProps {
   context: AnalysisContext;
@@ -91,6 +111,8 @@ export function SmartAnalysisButton({
       setLoading(false);
     }
   }, [context]);
+
+  const normalizedAnalysis = analysis ? normalizeAnalysisText(analysis) : null;
 
   return (
     <div
@@ -197,10 +219,10 @@ export function SmartAnalysisButton({
           {isExpanded && (
             <div className="px-4 pb-4">
               <div
-                className="bg-white dark:bg-gray-900 rounded-lg p-4 text-sm leading-relaxed text-gray-800 dark:text-gray-200 whitespace-pre-wrap"
+                className="mx-auto max-w-4xl rounded-xl border border-purple-100 bg-white p-5 text-sm leading-8 text-gray-800 shadow-sm whitespace-pre-wrap dark:border-purple-900/60 dark:bg-gray-900 dark:text-gray-200"
                 dir="rtl"
               >
-                {analysis}
+                {normalizedAnalysis}
               </div>
               <p className="mt-2 text-xs text-purple-500 dark:text-purple-400 text-center">
                 تم التحليل بواسطة الذكاء الاصطناعي • البيانات من النظام مباشرة
