@@ -101,7 +101,7 @@ const CONTEXT_SUBTITLES: Record<AnalysisContext, string> = {
 };
 
 const ANALYSIS_CACHE_TTL_MS = 12 * 60 * 60 * 1000;
-const ANALYSIS_STORAGE_VERSION = "v2";
+const ANALYSIS_STORAGE_VERSION = "v3";
 
 function normalizeAnalysisText(text: string): string {
   return text
@@ -148,6 +148,66 @@ interface DailyDashboardReport {
     quantity?: number;
     revenue?: number;
   }>;
+}
+
+interface DashboardStatsResponse {
+  period?: {
+    days?: number;
+    startDate?: string;
+    endDate?: string;
+  };
+  stats?: {
+    totalOrders?: number;
+    ordersChange?: number;
+    totalRevenue?: number;
+    revenueChange?: number;
+    activeConversations?: number;
+    conversationsChange?: number;
+    pendingDeliveries?: number;
+    deliveriesChange?: number;
+  };
+  premium?: {
+    recoveredCarts?: {
+      count?: number;
+      revenue?: number;
+    };
+    deliveryFailures?: {
+      count?: number;
+      reasons?: Array<{ reason?: string; count?: number }>;
+    };
+    financeSummary?: {
+      codPending?: number;
+      spendingAlert?: boolean;
+      grossMargin?: number;
+    };
+  };
+}
+
+interface PortalNotificationsResponse {
+  notifications?: Array<{
+    readAt?: string | null;
+    read_at?: string | null;
+    isRead?: boolean;
+  }>;
+  total?: number;
+  unreadCount?: number;
+}
+
+interface PortalFollowupsResponse {
+  followups?: Array<{
+    status?: string;
+    followup_type?: string;
+    scheduled_at?: string;
+  }>;
+}
+
+interface CartRecoveryResponse {
+  period?: {
+    days?: number;
+  };
+  recoveredCarts?: number;
+  recoveryRate?: number;
+  recoveredRevenue?: number;
 }
 
 const SECTION_STYLES = [
@@ -250,47 +310,185 @@ function formatAnalysisTimestamp(timestamp: string | null): string | null {
   }).format(date);
 }
 
-function buildDashboardReportPrompt(report: DailyDashboardReport | null): string {
-  if (!report) {
-    return ANALYSIS_PROMPTS.dashboard;
+function toNumber(value: unknown): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function formatCount(value: number): string {
+  return new Intl.NumberFormat("ar-EG", {
+    maximumFractionDigits: 0,
+  }).format(toNumber(value));
+}
+
+function formatMoney(value: number): string {
+  return `${formatCount(Math.round(toNumber(value)))} ج.م`;
+}
+
+function formatPercent(value: number): string {
+  return `${new Intl.NumberFormat("ar-EG", {
+    minimumFractionDigits: Math.abs(value) < 10 && value % 1 !== 0 ? 1 : 0,
+    maximumFractionDigits: 1,
+  }).format(toNumber(value))}%`;
+}
+
+function countUnreadNotifications(
+  payload: PortalNotificationsResponse | null,
+): number {
+  if (!payload) {
+    return 0;
   }
 
-  const topProductsSummary =
-    report.topProducts && report.topProducts.length > 0
-      ? report.topProducts
-          .slice(0, 3)
-          .map((product) => {
-            const name = product.productName || "منتج غير مسمى";
-            const quantity = product.quantity ?? 0;
-            const revenue = product.revenue ?? 0;
-            return `${name} - الكمية ${quantity} - الإيراد ${revenue}`;
-          })
-          .join("\n")
-      : "لا توجد منتجات بارزة اليوم.";
+  if (typeof payload.unreadCount === "number") {
+    return payload.unreadCount;
+  }
 
-  return `${ANALYSIS_PROMPTS.dashboard}
+  return (payload.notifications || []).filter((notification) => {
+    if (notification.isRead === true) {
+      return false;
+    }
+    return !notification.readAt && !notification.read_at;
+  }).length;
+}
 
-بيانات تقرير اليوم المؤكدة من النظام:
-- التاريخ: ${report.date || "غير متوفر"}
-- إجمالي الطلبات: ${report.orders?.total ?? 0}
-- الطلبات المسلمة: ${report.orders?.delivered ?? 0}
-- الطلبات الملغاة: ${report.orders?.cancelled ?? 0}
-- تغير الطلبات عن أمس: ${report.orders?.changeFromYesterday ?? 0}%
-- الإيرادات اليوم: ${report.revenue?.total ?? 0}
-- تغير الإيرادات عن أمس: ${report.revenue?.changeFromYesterday ?? 0}%
-- إجمالي المحادثات: ${report.conversations?.total ?? 0}
-- المحادثات المحولة لطلبات: ${report.conversations?.converted ?? 0}
-- معدل التحويل: ${report.conversations?.conversionRate ?? 0}%
-- العملاء الجدد: ${report.customers?.new ?? 0}
+function buildDashboardSystemSummary(input: {
+  report: DailyDashboardReport | null;
+  stats: DashboardStatsResponse | null;
+  notifications: PortalNotificationsResponse | null;
+  followups: PortalFollowupsResponse | null;
+  cartRecovery: CartRecoveryResponse | null;
+}): string {
+  const { report, stats, notifications, followups, cartRecovery } = input;
+  const ordersToday = toNumber(report?.orders?.total);
+  const deliveredToday = toNumber(report?.orders?.delivered);
+  const cancelledToday = toNumber(report?.orders?.cancelled);
+  const revenueToday = toNumber(report?.revenue?.total);
+  const orderChange = toNumber(report?.orders?.changeFromYesterday);
+  const revenueChange = toNumber(report?.revenue?.changeFromYesterday);
+  const conversationsToday = toNumber(report?.conversations?.total);
+  const convertedToday = toNumber(report?.conversations?.converted);
+  const conversionRateToday = toNumber(report?.conversations?.conversionRate);
+  const newCustomersToday = toNumber(report?.customers?.new);
 
-أهم المنتجات اليوم:
-${topProductsSummary}
+  const periodDays = Math.max(1, toNumber(stats?.period?.days) || 30);
+  const periodOrders = toNumber(stats?.stats?.totalOrders);
+  const periodRevenue = toNumber(stats?.stats?.totalRevenue);
+  const activeConversations = toNumber(stats?.stats?.activeConversations);
+  const pendingDeliveries = toNumber(stats?.stats?.pendingDeliveries);
+  const unreadNotifications = countUnreadNotifications(notifications);
+  const followupsCount = (followups?.followups || []).length;
+  const deliveryFailures = toNumber(stats?.premium?.deliveryFailures?.count);
+  const codPending = toNumber(stats?.premium?.financeSummary?.codPending);
+  const recoveredCarts = toNumber(cartRecovery?.recoveredCarts);
+  const recoveryRate = toNumber(cartRecovery?.recoveryRate);
+  const recoveredRevenue = toNumber(cartRecovery?.recoveredRevenue);
 
-تعليمات إضافية:
-1. اعتمد على هذه الأرقام كمرجع أساسي.
-2. كل قسم يمكن أن يحتوي حتى 3 سطور قصيرة إذا لزم.
-3. إذا كانت الأرقام ضعيفة أو صفرية، فسر ذلك بوضوح بدل الاكتفاء بجملة عامة.
-4. في "فرصة قريبة" استخدم المنتجات أو التحويل أو العملاء الجدد فقط إذا كان عندك دليل من البيانات أعلاه.`;
+  const topProduct =
+    report?.topProducts?.find(
+      (product) => (product?.productName || "").trim().length > 0,
+    ) || null;
+  const unconvertedConversations = Math.max(
+    0,
+    conversationsToday - convertedToday,
+  );
+
+  const performanceParts: string[] = [];
+  if (ordersToday > 0) {
+    performanceParts.push(
+      `تم تسجيل ${formatCount(ordersToday)} طلب اليوم، منها ${formatCount(deliveredToday)} تم تسليمه و${formatCount(cancelledToday)} تم إلغاؤه.`,
+    );
+  } else {
+    performanceParts.push("لم يتم تسجيل أي طلبات اليوم.");
+  }
+  performanceParts.push(
+    `الإيرادات ${formatMoney(revenueToday)}، وعدد المحادثات ${formatCount(conversationsToday)} مع تحويل ${formatCount(convertedToday)} إلى طلبات بمعدل ${formatPercent(conversionRateToday)}.`,
+  );
+
+  const comparisonParts: string[] = [];
+  if (
+    ordersToday === 0 &&
+    revenueToday === 0 &&
+    orderChange === 0 &&
+    revenueChange === 0
+  ) {
+    comparisonParts.push("مقارنة بأمس لا يوجد تغير فعلي في الطلبات أو الإيرادات.");
+  } else {
+    const ordersDirection =
+      orderChange > 0 ? "ارتفعت" : orderChange < 0 ? "انخفضت" : "استقرت";
+    const revenueDirection =
+      revenueChange > 0 ? "وارتفعت" : revenueChange < 0 ? "وانخفضت" : "واستقرت";
+    comparisonParts.push(
+      `مقارنة بأمس ${ordersDirection} الطلبات ${formatPercent(Math.abs(orderChange))} ${revenueDirection} الإيرادات ${formatPercent(Math.abs(revenueChange))}.`,
+    );
+  }
+  comparisonParts.push(
+    `وخلال آخر ${formatCount(periodDays)} يوم سُجل ${formatCount(periodOrders)} طلب بإجمالي ${formatMoney(periodRevenue)}، مع ${formatCount(activeConversations)} محادثة نشطة حالياً.`,
+  );
+
+  const alerts: string[] = [];
+  if (pendingDeliveries > 0) {
+    alerts.push(`${formatCount(pendingDeliveries)} طلب قيد التوصيل`);
+  }
+  if (followupsCount > 0) {
+    alerts.push(`${formatCount(followupsCount)} متابعة مفتوحة`);
+  }
+  if (unreadNotifications > 0) {
+    alerts.push(`${formatCount(unreadNotifications)} إشعار غير مقروء`);
+  }
+  if (deliveryFailures > 0) {
+    alerts.push(`${formatCount(deliveryFailures)} حالة تعثر توصيل`);
+  }
+  if (codPending > 0) {
+    alerts.push(`تحصيل COD معلق بقيمة ${formatMoney(codPending)}`);
+  }
+  const alertsText =
+    alerts.length > 0
+      ? `أبرز التنبيهات الآن: ${alerts.slice(0, 3).join("، ")}.`
+      : "لا توجد تنبيهات حرجة مؤكدة من البيانات الحالية.";
+
+  let actionText =
+    "لا يوجد إجراء عاجل ظاهر الآن، والأفضل مراقبة أول طلب أو محادثة جديدة فور دخولها.";
+  if (pendingDeliveries > 0) {
+    actionText =
+      "ابدأ بمتابعة الطلبات قيد التوصيل والتأكد من تحديث حالتها، لأنها أقرب نقطة تؤثر على رضا العميل والتحصيل.";
+  } else if (followupsCount > 0) {
+    actionText =
+      "نفّذ المتابعات المفتوحة أولاً، لأنها تمثل عملاء أو طلبات تحتاج قراراً مباشراً قبل أن تبرد.";
+  } else if (unreadNotifications > 0) {
+    actionText =
+      "راجع الإشعارات غير المقروءة وحدد ما يحتاج تصعيداً أو إجراءً تشغيلياً سريعاً.";
+  } else if (unconvertedConversations > 0) {
+    actionText =
+      "ركّز على المحادثات غير المحولة اليوم وحاول دفعها إلى طلب مكتمل بدل تركها مفتوحة.";
+  } else if (ordersToday === 0 && activeConversations > 0) {
+    actionText =
+      "راجع المحادثات النشطة الحالية لأن عدم وجود طلبات اليوم يعني أن فرصة التحويل ما زالت قائمة داخل المحادثات نفسها.";
+  }
+
+  let opportunityText = "لا تظهر فرصة قريبة مدعومة بالأرقام حالياً.";
+  if (unconvertedConversations > 0 && topProduct) {
+    opportunityText = `هناك ${formatCount(unconvertedConversations)} محادثة اليوم لم تتحول بعد، وأقرب فرصة هي الدفع بمنتج ${topProduct.productName} لأنه الأكثر حضوراً اليوم بعدد ${formatCount(
+      toNumber(topProduct.quantity),
+    )}.`;
+  } else if (newCustomersToday > 0) {
+    opportunityText = `تم تسجيل ${formatCount(newCustomersToday)} عميل جديد اليوم، وأفضل فرصة قريبة هي متابعته بعرض تكميلي أو رسالة ترحيب سريعة لرفع أول عملية شراء.`;
+  } else if (recoveredCarts > 0 || recoveredRevenue > 0) {
+    opportunityText = `استرداد السلات يحقق حالياً ${formatPercent(recoveryRate)} مع ${formatCount(recoveredCarts)} سلة مستردة بقيمة ${formatMoney(
+      recoveredRevenue,
+    )}، ويمكن تكرار نفس الأسلوب على المحادثات المتوقفة لرفع المبيعات بسرعة.`;
+  } else if (topProduct) {
+    opportunityText = `المنتج الأوضح في بيانات اليوم هو ${topProduct.productName}، ويمكن استخدامه كمنتج دفع أساسي في المحادثات أو الواجهة لزيادة التحويل.`;
+  }
+
+  return normalizeAnalysisText(
+    [
+      `1. الأداء اليوم: ${performanceParts.join(" ")}`,
+      `2. المقارنة: ${comparisonParts.join(" ")}`,
+      `3. التنبيهات: ${alertsText}`,
+      `4. الإجراء الآن: ${actionText}`,
+      `5. فرصة قريبة: ${opportunityText}`,
+    ].join("\n"),
+  );
 }
 
 interface SmartAnalysisButtonProps {
@@ -339,17 +537,58 @@ export function SmartAnalysisButton({
     setError(null);
 
     try {
-      let prompt = ANALYSIS_PROMPTS[context];
-
       if (context === "dashboard") {
-        try {
-          const report = await portalApi.getDailyReport();
-          prompt = buildDashboardReportPrompt(report);
-        } catch {
-          prompt = ANALYSIS_PROMPTS.dashboard;
+        const [
+          reportResult,
+          statsResult,
+          notificationsResult,
+          followupsResult,
+          cartRecoveryResult,
+        ] = await Promise.allSettled([
+          portalApi.getDailyReport(),
+          portalApi.getDashboardStats(30),
+          portalApi.getPortalNotifications({ unreadOnly: true }),
+          portalApi.getFollowups(),
+          portalApi.getCartRecoveryKpi(30),
+        ]);
+
+        if (
+          reportResult.status === "rejected" &&
+          statsResult.status === "rejected" &&
+          notificationsResult.status === "rejected" &&
+          followupsResult.status === "rejected" &&
+          cartRecoveryResult.status === "rejected"
+        ) {
+          throw new Error("تعذر جلب بيانات الموجز من النظام حالياً.");
         }
+
+        const dashboardSummary = buildDashboardSystemSummary({
+          report:
+            reportResult.status === "fulfilled" ? reportResult.value : null,
+          stats: statsResult.status === "fulfilled" ? statsResult.value : null,
+          notifications:
+            notificationsResult.status === "fulfilled"
+              ? notificationsResult.value
+              : null,
+          followups:
+            followupsResult.status === "fulfilled"
+              ? followupsResult.value
+              : null,
+          cartRecovery:
+            cartRecoveryResult.status === "fulfilled"
+              ? cartRecoveryResult.value
+              : null,
+        });
+
+        setPersistedAnalysis({
+          rawText: dashboardSummary,
+          updatedAt: new Date().toISOString(),
+        });
+        setIsExpanded(true);
+        return;
       }
 
+      const prompt = ANALYSIS_PROMPTS[context];
       const result = await portalApi.chatWithAssistant(prompt);
       setPersistedAnalysis({
         rawText: result.reply,
@@ -518,7 +757,9 @@ export function SmartAnalysisButton({
                 </div>
               )}
               <p className="mt-2 text-xs text-purple-500 dark:text-purple-400 text-center">
-                تم التحليل بواسطة الذكاء الاصطناعي • البيانات من النظام مباشرة
+                {context === "dashboard"
+                  ? "تم توليد هذا الموجز من بيانات النظام مباشرة"
+                  : "تم التحليل بواسطة الذكاء الاصطناعي • البيانات من النظام مباشرة"}
               </p>
             </div>
           )}
@@ -529,8 +770,9 @@ export function SmartAnalysisButton({
       {!normalizedAnalysis && !loading && !error && isPersistedAnalysisHydrated && (
         <div className="px-4 pb-4 text-center">
           <p className="text-sm text-purple-500 dark:text-purple-400">
-            اضغط "تحليل ذكي" للحصول على تحليل مبني على بيانات نشاطك الحقيقية
-            بالذكاء الاصطناعي
+            {context === "dashboard"
+              ? 'اضغط "تحليل ذكي" لتوليد موجز يومي مؤكد من بيانات النظام الحالية'
+              : 'اضغط "تحليل ذكي" للحصول على تحليل مبني على بيانات نشاطك الحقيقية بالذكاء الاصطناعي'}
           </p>
         </div>
       )}
