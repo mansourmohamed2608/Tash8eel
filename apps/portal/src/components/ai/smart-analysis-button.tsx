@@ -1,6 +1,15 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useMemo } from "react";
+import {
+  Activity,
+  AlertTriangle,
+  ChevronDown,
+  PlayCircle,
+  Sparkles,
+  Target,
+  TrendingUp,
+} from "lucide-react";
 import { portalApi } from "@/lib/client";
 
 type AnalysisContext =
@@ -75,9 +84,100 @@ const CONTEXT_TITLES: Record<AnalysisContext, string> = {
 function normalizeAnalysisText(text: string): string {
   return text
     .replace(/\*\*/g, "")
+    .replace(/\r/g, "")
     .replace(/[ \t]+\n/g, "\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
+}
+
+interface ParsedAnalysisSection {
+  index: number;
+  title: string;
+  body: string;
+}
+
+const SECTION_STYLES = [
+  {
+    icon: Activity,
+    accent: "text-blue-700",
+    border: "border-blue-200 dark:border-blue-900/60",
+    bg: "bg-blue-50/80 dark:bg-blue-950/20",
+  },
+  {
+    icon: TrendingUp,
+    accent: "text-emerald-700",
+    border: "border-emerald-200 dark:border-emerald-900/60",
+    bg: "bg-emerald-50/80 dark:bg-emerald-950/20",
+  },
+  {
+    icon: AlertTriangle,
+    accent: "text-amber-700",
+    border: "border-amber-200 dark:border-amber-900/60",
+    bg: "bg-amber-50/80 dark:bg-amber-950/20",
+  },
+  {
+    icon: PlayCircle,
+    accent: "text-violet-700",
+    border: "border-violet-200 dark:border-violet-900/60",
+    bg: "bg-violet-50/80 dark:bg-violet-950/20",
+  },
+  {
+    icon: Target,
+    accent: "text-rose-700",
+    border: "border-rose-200 dark:border-rose-900/60",
+    bg: "bg-rose-50/80 dark:bg-rose-950/20",
+  },
+] as const;
+
+function parseAnalysisSections(text: string): ParsedAnalysisSection[] {
+  const normalized = normalizeAnalysisText(text);
+  if (!normalized) {
+    return [];
+  }
+
+  const lines = normalized
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const sections: Array<{ index: number; raw: string[] }> = [];
+
+  for (const line of lines) {
+    const numberedMatch = line.match(/^(\d+)[\.\-)\u066b]\s*(.+)$/);
+    if (numberedMatch) {
+      sections.push({
+        index: Number(numberedMatch[1]),
+        raw: [numberedMatch[2].trim()],
+      });
+      continue;
+    }
+
+    if (sections.length === 0) {
+      sections.push({ index: 1, raw: [line] });
+      continue;
+    }
+
+    sections[sections.length - 1].raw.push(line);
+  }
+
+  return sections
+    .map(({ index, raw }) => {
+      const [firstLine, ...rest] = raw;
+      const inlineSplit = firstLine.match(/^([^:]+):\s*(.+)$/);
+      const title = inlineSplit ? inlineSplit[1].trim() : firstLine.trim();
+      const bodyParts = inlineSplit
+        ? [inlineSplit[2].trim(), ...rest]
+        : rest.length > 0
+          ? rest
+          : [];
+
+      return {
+        index,
+        title: title.replace(/[.:،\s]+$/g, "").trim(),
+        body: bodyParts.join("\n").trim(),
+      };
+    })
+    .filter((section) => section.title || section.body);
 }
 
 interface SmartAnalysisButtonProps {
@@ -113,35 +213,38 @@ export function SmartAnalysisButton({
   }, [context]);
 
   const normalizedAnalysis = analysis ? normalizeAnalysisText(analysis) : null;
+  const parsedSections = useMemo(
+    () => (normalizedAnalysis ? parseAnalysisSections(normalizedAnalysis) : []),
+    [normalizedAnalysis],
+  );
+  const renderStructuredDashboard =
+    context === "dashboard" && parsedSections.length >= 3;
 
   return (
     <div
-      className={`bg-gradient-to-br from-purple-50 to-blue-50 dark:from-purple-950/30 dark:to-blue-950/30 rounded-xl border border-purple-200 dark:border-purple-800 ${className}`}
+      className={`overflow-hidden rounded-2xl border border-purple-200 bg-gradient-to-br from-purple-50 via-white to-blue-50 shadow-sm dark:border-purple-800 dark:from-purple-950/30 dark:via-slate-950 dark:to-blue-950/30 ${className}`}
     >
       {/* Header with button */}
-      <div className="flex items-center justify-between p-4">
-        <div className="flex items-center gap-2">
-          <svg
-            className="h-5 w-5 text-purple-600"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={2}
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5"
-            />
-          </svg>
-          <h3 className="font-semibold text-purple-900 dark:text-purple-100">
-            {CONTEXT_TITLES[context]}
-          </h3>
+      <div className="flex items-start justify-between gap-4 p-4">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300">
+              <Sparkles className="h-4 w-4" />
+            </span>
+            <div>
+              <h3 className="font-semibold text-purple-950 dark:text-purple-50">
+                {CONTEXT_TITLES[context]}
+              </h3>
+              <p className="text-xs text-purple-700/80 dark:text-purple-300/80">
+                تحليل مباشر مبني على بيانات النظام الحالية
+              </p>
+            </div>
+          </div>
         </div>
         <button
           onClick={runAnalysis}
           disabled={loading}
-          className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 text-white rounded-lg text-sm font-medium transition-colors"
+          className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-purple-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-purple-700 disabled:bg-purple-400"
         >
           {loading ? (
             <>
@@ -199,31 +302,56 @@ export function SmartAnalysisButton({
         <div className="border-t border-purple-200 dark:border-purple-800">
           <button
             onClick={() => setIsExpanded(!isExpanded)}
-            className="w-full flex items-center justify-between px-4 py-2 text-sm text-purple-600 dark:text-purple-400 hover:bg-purple-100/50 dark:hover:bg-purple-900/30 transition-colors"
+            className="flex w-full items-center justify-between px-4 py-3 text-sm text-purple-700 transition-colors hover:bg-purple-100/50 dark:text-purple-300 dark:hover:bg-purple-900/30"
           >
             <span>{isExpanded ? "إخفاء التحليل" : "عرض التحليل"}</span>
-            <svg
-              className={`w-4 h-4 transition-transform ${isExpanded ? "rotate-180" : ""}`}
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M19 9l-7 7-7-7"
-              />
-            </svg>
+            <ChevronDown
+              className={`h-4 w-4 transition-transform ${isExpanded ? "rotate-180" : ""}`}
+            />
           </button>
           {isExpanded && (
             <div className="px-4 pb-4">
-              <div
-                className="mx-auto max-w-4xl rounded-xl border border-purple-100 bg-white p-5 text-sm leading-8 text-gray-800 shadow-sm whitespace-pre-wrap dark:border-purple-900/60 dark:bg-gray-900 dark:text-gray-200"
-                dir="rtl"
-              >
-                {normalizedAnalysis}
-              </div>
+              {renderStructuredDashboard ? (
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3" dir="rtl">
+                  {parsedSections.map((section, idx) => {
+                    const style = SECTION_STYLES[idx % SECTION_STYLES.length];
+                    const Icon = style.icon;
+
+                    return (
+                      <section
+                        key={`${section.index}-${section.title}`}
+                        className={`rounded-2xl border p-4 shadow-sm ${style.border} ${style.bg}`}
+                      >
+                        <div className="mb-3 flex items-center gap-3">
+                          <span
+                            className={`inline-flex h-9 w-9 items-center justify-center rounded-xl bg-white/80 dark:bg-slate-950/40 ${style.accent}`}
+                          >
+                            <Icon className="h-4 w-4" />
+                          </span>
+                          <div className="min-w-0">
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                              {section.index.toString().padStart(2, "0")}
+                            </p>
+                            <h4 className="font-semibold text-gray-900 dark:text-gray-100">
+                              {section.title}
+                            </h4>
+                          </div>
+                        </div>
+                        <p className="text-sm leading-7 text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                          {section.body || "لا توجد تفاصيل إضافية."}
+                        </p>
+                      </section>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div
+                  className="mx-auto max-w-4xl rounded-2xl border border-purple-100 bg-white p-5 text-sm leading-8 text-gray-800 shadow-sm whitespace-pre-wrap dark:border-purple-900/60 dark:bg-gray-900 dark:text-gray-200"
+                  dir="rtl"
+                >
+                  {normalizedAnalysis}
+                </div>
+              )}
               <p className="mt-2 text-xs text-purple-500 dark:text-purple-400 text-center">
                 تم التحليل بواسطة الذكاء الاصطناعي • البيانات من النظام مباشرة
               </p>
