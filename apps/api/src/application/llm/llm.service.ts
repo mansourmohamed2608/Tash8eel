@@ -259,12 +259,11 @@ export class LlmService {
     // Check token budget
     const budgetCheck = await this.checkTokenBudget(merchant);
     if (!budgetCheck.hasRemaining) {
-      logger.warn("Token budget exceeded", {
+      logger.warn("Token budget exceeded; continuing with AI response", {
         merchantId: merchant.id,
         remaining: budgetCheck.remaining,
       });
       this.fireBudgetExhaustedNotification(merchant.id);
-      return this.createFallbackResponse(context, "budget_exhausted");
     }
 
     try {
