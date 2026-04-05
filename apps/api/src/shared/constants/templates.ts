@@ -57,7 +57,8 @@ export const ARABIC_TEMPLATES = {
   // Errors & Fallback
   FALLBACK: "مش فاهم قصدك تماماً. ممكن توضحلي أكتر؟",
   ERROR_GENERIC: "حصل مشكلة بسيطة. ممكن تحاول تاني؟",
-  BUDGET_EXCEEDED: "عندنا ضغط شوية. ممكن تكتبلي الطلب بالتفصيل؟",
+  BUDGET_EXCEEDED:
+    "ابعت اسم المنتج أو الطلب المطلوب وأنا أساعدك خطوة بخطوة.",
 
   // Follow-up messages
   FOLLOWUP_FIRST: "أهلاً! لسه معاك السلة ({items}). عايز تكمل الطلب؟",

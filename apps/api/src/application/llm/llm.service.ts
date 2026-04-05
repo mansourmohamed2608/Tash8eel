@@ -21,6 +21,7 @@ import {
   LlmResponseValidationSchema,
   ValidatedLlmResponse,
 } from "./llm-schema";
+import { MerchantContextService } from "./merchant-context.service";
 
 const logger = createLogger("LlmService");
 
@@ -194,6 +195,7 @@ export class LlmService {
     private readonly aiMetrics: AiMetricsService,
     @Inject(forwardRef(() => NotificationsService))
     private readonly notificationsService: NotificationsService,
+    private readonly merchantContextService: MerchantContextService,
   ) {
     const apiKey = this.configService.get<string>("OPENAI_API_KEY") || "";
 
@@ -267,9 +269,30 @@ export class LlmService {
     }
 
     try {
-      const systemPrompt = this.buildSystemPrompt(merchant, catalogItems);
-      const conversationHistory = this.buildConversationHistory(recentMessages);
+      const merchantContext =
+        await this.merchantContextService.buildCustomerReplyContext({
+          merchant,
+          conversation,
+          customerMessage,
+          recentMessages,
+        });
+      const systemPrompt = this.buildSystemPrompt(merchant, merchantContext);
+      const conversationHistory = this.buildConversationHistory(
+        recentMessages,
+        customerMessage,
+      );
       const userPrompt = this.buildUserPrompt(conversation, customerMessage);
+
+      console.log("=== AI CONTEXT DEBUG ===");
+      console.log("System prompt length:", systemPrompt.length);
+      console.log("Products in context:", merchantContext.productCount);
+      console.log("KB entries in context:", merchantContext.kbCount);
+      console.log(
+        "Conversation history messages:",
+        merchantContext.historyCount,
+      );
+      console.log("Customer message:", customerMessage);
+      console.log("========================");
 
       const _aiCallStart = Date.now(); // BL-004 metric latency
       const response = await withTimeout(
@@ -330,6 +353,20 @@ export class LlmService {
         errorName: err.name,
         timeoutMs: this.timeoutMs,
       });
+      try {
+        const simplified = await this.retryWithSimplerContext(
+          context,
+          options,
+        );
+        if (simplified) {
+          return simplified;
+        }
+      } catch (retryError) {
+        logger.warn("Simpler-context retry failed", {
+          merchantId: merchant.id,
+          error: retryError,
+        });
+      }
       const is429 =
         (err as any)?.status === 429 || err.message?.includes("429");
       void this.aiMetrics.record({
@@ -392,112 +429,76 @@ export class LlmService {
 
   private buildSystemPrompt(
     merchant: Merchant,
-    catalogItems: CatalogItem[],
+    merchantContext: {
+      businessInfo: string;
+      productCatalog: string;
+      knowledgeBase: string;
+      conversationHistory: string;
+      orderContext: string;
+    },
   ): string {
-    const categorySpecificRules = this.getCategoryRules(merchant.category);
-    const catalogSummary = this.buildCatalogSummary(catalogItems);
-    const negotiationRules = this.buildNegotiationRules(
-      merchant.negotiationRules,
-    );
-    const knowledgeBaseSummary = this.buildKnowledgeBaseSummary(
-      merchant.knowledgeBase,
-    );
-    const activePromotion = merchant.negotiationRules.activePromotion;
-    const hasActivePromotion =
-      activePromotion?.enabled && activePromotion?.discountPercent > 0;
+    const businessInfoBlock = [
+      merchantContext.businessInfo,
+      "",
+      "Order context:",
+      merchantContext.orderContext,
+    ].join("\n");
 
-    return `أنت مساعد ذكي لخدمة العملاء لمتجر "${merchant.name}" (فئة: ${merchant.category}).
-تتحدث باللهجة المصرية العامية بأسلوب ${merchant.config.tone || "friendly"}.
+    return `أنت مساعد ذكي لمتجر ${merchant.name}. اسمك ${merchant.name} مساعد.
 
-# 🧠 معلومات النشاط من قاعدة المعرفة:
-${knowledgeBaseSummary || "لا توجد معلومات إضافية."}
+معلومات المتجر:
+${businessInfoBlock}
 
-# 🔴 قواعد الخصم والعروض:
-${
-  hasActivePromotion
-    ? `
-🎉 **عندنا عرض حالياً!**
-✅ العرض: ${activePromotion.description}
-✅ الخصم: ${activePromotion.discountPercent}%
-${activePromotion.validUntil ? `⏰ العرض ساري لغاية: ${activePromotion.validUntil}` : ""}
+منتجاتنا المتاحة:
+${merchantContext.productCatalog}
 
-👉 لما العميل يطلب منتجات:
-- قوله عن العرض: "عندنا عرض دلوقتي - ${activePromotion.description}"
-- طبّق الخصم تلقائياً على الطلب
-- اذكر السعر الأصلي والسعر بعد الخصم
-`
-    : `
-❌ ممنوع تماماً تعرض خصم من نفسك
-❌ ممنوع تذكر كلمة "خصم" إلا لما العميل يطلب
-✅ اعرض خصم فقط لما العميل يقول: "عايز خصم", "ممكن خصم", "غالي", "كتير"
-`
-}
-✅ أقصى خصم: ${merchant.negotiationRules.maxDiscountPercent || 10}%
+معلومات إضافية وسياسات:
+${merchantContext.knowledgeBase}
 
-# قواعد أساسية:
-1. رد دايماً بالعربي المصري
-2. اسأل سؤال واحد بس في كل رد (مش أكتر)
-3. لو العميل بيسأل عن منتج مش موجود، قوله إنه مش متوفر
-4. ${categorySpecificRules}
+تاريخ المحادثة:
+${merchantContext.conversationHistory}
 
-# ⭐ قواعد الترحيب بالاسم:
-- لما العميل يقولك اسمه (زي "أحمد", "محمد", "سارة"):
-  ✅ لازم ترد: "أهلاً يا [الاسم]! اتشرفنا بيك 😊 إزاي أقدر أساعدك؟"
-  ❌ مش ترد على طول بسؤال عن التليفون أو العنوان
-- استخدم اسم العميل في الردود اللي بعد كده
+---
 
-# الكتالوج المتاح (الأسعار الرسمية):
-${catalogSummary}
+قواعد الرد:
 
-# قواعد التوصيل:
-- رسوم التوصيل: ${merchant.deliveryRules.defaultFee || 50} جنيه
-- التوصيل المجاني: ${merchant.negotiationRules.freeDeliveryThreshold ? `للطلبات فوق ${merchant.negotiationRules.freeDeliveryThreshold} جنيه` : "غير متاح"}
-- رسوم التوصيل الأساسية: ${merchant.deliveryRules.defaultFee || 50} جنيه
+1. الهوية والأسلوب:
+   - تكلم بالعامية المصرية الطبيعية
+   - كن ودود ومباشر وسريع
+   - لا تستخدم جمل طويلة غير ضرورية
+   - لا تستخدم أي رسالة اعتذار عن ضغط أو زحمة العمل أبداً
+   - لا تكرر نفس الرد مرتين متتاليتين أبداً
 
-# ⚠️ قواعد مهمة جداً للبيانات المطلوبة:
-قبل تأكيد أي طلب، لازم تتأكد من توفر كل المعلومات دي:
-1. **اسم العميل** - لو مش معروف، اسأل "ممكن اسمك الكريم؟"
-2. **رقم التليفون** - ⚠️ رقم التليفون بيتسجل تلقائياً من الواتساب. متسألش عن الرقم إلا لو العميل قال يريد رقم مختلف.
-3. **العنوان الكامل** - لازم يشمل:
-   - المنطقة/الحي (مثل: المعادي، مدينة نصر)
-   - الشارع
-   - رقم العمارة/المبنى
-   - رقم الشقة أو الدور
-   لو العميل قال منطقة بس زي "المعادي"، اسأل: "ممكن العنوان بالتفصيل؟ الشارع ورقم العمارة والشقة"
+2. لو العميل سأل "بتبيعوا إيه" أو "عندك إيه":
+   - اعرض المنتجات الموجودة فوراً من القائمة أعلاه
+   - رتبها بشكل واضح بالأسعار
+   - مثال الرد:
+     "عندنا:
+     👕 تيشيرتات من 150 لـ 250 جنيه
+     👖 بناطيل جينز من 300 لـ 450 جنيه
+     🧢 كابات من 80 جنيه
+     إيه اللي يناسبك؟"
 
-# ⚠️ قواعد التأكيد:
-- لما العميل يقول "تمام" أو "أيوه" أو "موافق":
-  - لو كل البيانات موجودة (اسم، تليفون، عنوان كامل، منتجات) → استخدم actionType = "CONFIRM_ORDER" أو "CREATE_ORDER"
-  - لو في بيانات ناقصة → اسأل عن البيانات الناقصة واستخدم actionType = "ASK_CLARIFYING_QUESTION"
+3. لو العميل طلب منتج معين:
+   - ابحث في القائمة أعلاه فوراً
+   - لو لقيته: قوله السعر والمتاح فوراً
+   - لو مش موجود بالاسم ده: اقترح أقرب بديل من القائمة
+   - لا تقوله "ممكن تكتبلي الطلب" إلا بعد ما يختار المنتج
 
-# ⚠️ قاعدة الأسعار - مهم جداً:
-- استخدم الأسعار من الكتالوج فقط
-- لما تذكر سعر في الرد، لازم يكون نفس السعر في الكتالوج
-- احسب المجموع صح: (سعر × كمية) لكل منتج + رسوم التوصيل - الخصم (لو في)
-- مثال: تيشيرت 150 × 2 = 300 + بنطلون 350 × 1 = 350 + توصيل 50 = 700 جنيه
+4. مسار الطلب الصحيح:
+   خطوة 1: العميل يختار المنتج
+   خطوة 2: تأكد الكمية
+   خطوة 3: اسأل عن المقاس/اللون لو موجود
+   خطوة 4: اسأل عن عنوان التوصيل
+   خطوة 5: اسأل عن طريقة الدفع
+   خطوة 6: لخص الطلب وأكده
 
-# ملاحظة عن العناوين:
-- "التجمع", "مدينة نصر", "المعادي", "الزمالك", "الشيخ زايد" كلها أسماء مناطق وليست أسماء أشخاص
-- لما حد يقول "أنا في التجمع" ده يعني المنطقة مش اسمه
+5. لو العميل سأل سؤال مش في نطاق عملك:
+   - أجب ببساطة "أنا هنا بس لمساعدتك في ${merchant.name}"
 
-# تعليمات الاختيار:
-- لما العميل يقول رقم بس زي "2"، اسأله: "2 إيه بالظبط؟" عشان تتأكد من اختياره
-- لما في أكتر من لون متاح، اسأل العميل يختار لون معين
-
-# ⚠️ قواعد المنتجات والمقاسات والألوان (مهم جداً):
-- استخدم اسم المنتج بالظبط زي ما هو في الكتالوج
-- لو العميل طلب "تيشيرت أحمر" وعندك "تيشيرت قطن أبيض" و"تيشيرت قطن أسود" بس، قوله إن اللون الأحمر مش متوفر واعرض الألوان المتاحة
-- ⚠️ لكل منتج في الكتالوج له مقاسات وألوان → لازم تسأل عن كل الخيارات المتاحة:
-  - لو المنتج له مقاسات وألوان → اسأل عن الاتنين قبل التأكيد
-  - مثال: "إيه المقاس والون اللي تحبه للبنطلون الجينز؟ عندنا مقاسات 30-38 وألوان أزرق وأسود ورمادي"
-  - ❌ متأكدش الطلب لو في مقاس أو لون ناقص
-
-# 🚫 قاعدة الحظر - الرسائل خارج الموضوع (مهم جداً لتوفير الموارد):
-- أي رسالة مش متعلقة بالمنتجات أو الطلبات أو التوصيل 👉 رد قصير ومباشر وإعادة توجيه **بدون** الإجابة
-- أمثلة محظورة: "ما هي عاصمة فرنسا؟" / "احكيلي نكتة" / "ترجملي الفقرة دي" / "اكتبلي كود"
-- الرد الصح: "أنا هنا بس لخدمة طلبات المتجر! 😊 إيه إللي تحتاجه من منتجاتنا؟"
-- actionType يكون "ASK_CLARIFYING_QUESTION" دايماً في الحالة دي
-`;
+6. لا تبدأ ردك بـ "أكيد" أو "تمام" في كل رد
+7. لا تضع إيموجي كتير - واحدة أو اتنين بحد أقصى
+8. ردودك قصيرة ومباشرة - مش محاضرة`;
   }
 
   /**
@@ -660,8 +661,22 @@ ${catalogSummary}
 
   private buildConversationHistory(
     messages: Message[],
+    customerMessage?: string,
   ): OpenAI.ChatCompletionMessageParam[] {
-    return messages.slice(-10).map((msg) => ({
+    const sorted = [...messages].sort(
+      (a, b) => a.createdAt.getTime() - b.createdAt.getTime(),
+    );
+    const recent = [...sorted];
+    const lastMessage = recent[recent.length - 1];
+    if (
+      customerMessage &&
+      lastMessage &&
+      String(lastMessage.direction).toLowerCase() === "inbound" &&
+      String(lastMessage.text || "").trim() === String(customerMessage).trim()
+    ) {
+      recent.pop();
+    }
+    return recent.slice(-10).map((msg) => ({
       role: msg.direction === "inbound" ? "user" : "assistant",
       content: msg.text || "",
     })) as OpenAI.ChatCompletionMessageParam[];
@@ -703,7 +718,7 @@ ${catalogSummary}
       missingParts.push("العنوان الكامل");
     if (cartItems.length === 0) missingParts.push("المنتجات");
 
-    return `حالة المحادثة: ${conversation.state}
+    return `حالة المحادثة الحالية: ${conversation.state}
 
 ${cartSummary}
 
@@ -712,9 +727,72 @@ ${collectedInfo}
 
 المعلومات الناقصة: ${missingParts.length > 0 ? missingParts.join(", ") : "كل المعلومات متوفرة"}
 
-رسالة العميل: "${customerMessage}"
+رسالة العميل الحالية:
+${customerMessage}
 
-تعليمات: تحليل الرسالة ورد بشكل مناسب. إذا كانت هناك معلومات ناقصة ولم يطلبها العميل بعد، اسأل عنها.`;
+اعتمد على سياق المتجر والكتالوج وتاريخ المحادثة أعلاه. لو العميل ذكر المنتج بالفعل متسألوش عنه مرة تانية، وانتقل للخطوة التالية المناسبة في مسار الطلب.`;
+  }
+
+  private async retryWithSimplerContext(
+    context: LlmContext,
+    options?: LLMCallOptions,
+  ): Promise<LlmResult | null> {
+    const { merchant, conversation, catalogItems, recentMessages, customerMessage } =
+      context;
+    const lightweightCatalog = catalogItems.slice(0, 15);
+    const systemPrompt = this.buildSimpleRetryPrompt(merchant, lightweightCatalog);
+    const conversationHistory = this.buildConversationHistory(
+      recentMessages,
+      customerMessage,
+    );
+    const userPrompt = this.buildUserPrompt(conversation, customerMessage);
+
+    const response = await withTimeout(
+      this.callOpenAI(systemPrompt, conversationHistory, userPrompt, options),
+      this.timeoutMs,
+      "OpenAI retry request timed out",
+    );
+    const parsedResponse =
+      (response as any).choices?.[0]?.message?.parsed ||
+      (response as any).parsed ||
+      response;
+    const validated = this.validateResponse(parsedResponse);
+    const tokensUsed = (response as any).usage?.total_tokens || 0;
+    await this.merchantRepository.incrementTokenUsage(
+      merchant.id,
+      getTodayDate(),
+      tokensUsed,
+    );
+
+    return createLlmResult(validated, tokensUsed, true);
+  }
+
+  private buildSimpleRetryPrompt(
+    merchant: Merchant,
+    catalogItems: CatalogItem[],
+  ): string {
+    const compactCatalog = catalogItems.length
+      ? catalogItems
+          .map((item) => {
+            const name = item.nameAr || item.name || "منتج";
+            const price = item.basePrice || item.price || 0;
+            const availability = item.isAvailable === false ? "غير متوفر" : "متوفر";
+            return `- ${name}: ${price} جنيه (${availability})`;
+          })
+          .join("\n")
+      : "- لا توجد منتجات متاحة حالياً";
+
+    return `أنت مساعد ذكي لمتجر ${merchant.name}. رد بالعامية المصرية فقط.
+
+الكتالوج المختصر:
+${compactCatalog}
+
+قواعد مهمة:
+- لا تستخدم أي رسالة اعتذار عن ضغط أو زحمة العمل
+- لو العميل ذكر المنتج بالفعل، لا تسأل عن اسم المنتج مرة أخرى
+- لو المنتج موجود، اذكر السعر والتوفر فوراً
+- لو العميل اختار المنتج بالفعل، انتقل للكمية ثم المقاس/اللون ثم العنوان ثم الدفع
+- لو السؤال خارج نطاق المتجر، قل: "أنا هنا بس لمساعدتك في ${merchant.name}"`;
   }
 
   private async checkTokenBudget(
@@ -1435,6 +1513,30 @@ recentAgentActions: آخر 10 إجراءات اتخذها الوكلاء في آ
     return `تمام 👌 فهمت إنك عايز ${productHint}.\nممكن تقولي الكمية المطلوبة؟`;
   }
 
+  private extractProductHintFromHistory(
+    recentMessages: Message[],
+    catalogItems: CatalogItem[],
+  ): string | null {
+    const inboundMessages = [...recentMessages]
+      .reverse()
+      .filter(
+        (message) =>
+          String(message.direction || "").toLowerCase() === "inbound",
+      );
+
+    for (const message of inboundMessages) {
+      const hint = this.extractProductHint(
+        String(message.text || "").toLowerCase(),
+        catalogItems,
+      );
+      if (hint) {
+        return hint;
+      }
+    }
+
+    return null;
+  }
+
   private buildFallbackCatalogReply(
     catalogItems: CatalogItem[],
     merchantCategory?: MerchantCategory,
@@ -1475,7 +1577,11 @@ recentAgentActions: آخر 10 إجراءات اتخذها الوكلاء في آ
       recentMessages,
     } = context;
     const messageLower = String(customerMessage || "").toLowerCase();
-    const productHint = this.extractProductHint(messageLower, catalogItems);
+    const productHint =
+      this.extractProductHint(messageLower, catalogItems) ||
+      this.extractProductHintFromHistory(recentMessages, catalogItems) ||
+      conversation.cart.items?.[0]?.name ||
+      null;
 
     logger.warn("Using fallback response", {
       reason,

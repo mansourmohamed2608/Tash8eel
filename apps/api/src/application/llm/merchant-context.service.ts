@@ -2,6 +2,11 @@ import { Injectable, Inject } from "@nestjs/common";
 import { Pool } from "pg";
 import { DATABASE_POOL } from "../../infrastructure/database/database.module";
 import { createLogger } from "../../shared/logging/logger";
+import { Merchant } from "../../domain/entities/merchant.entity";
+import { Conversation } from "../../domain/entities/conversation.entity";
+import { Message } from "../../domain/entities/message.entity";
+import { EmbeddingService } from "./embedding.service";
+import { VectorSearchService } from "./vector-search.service";
 
 const logger = createLogger("MerchantContextService");
 
@@ -23,6 +28,47 @@ export interface MerchantContext {
   drivers?: string;
 }
 
+interface CatalogContextRow {
+  id: string;
+  merchant_id: string;
+  sku: string | null;
+  name_ar: string | null;
+  name_en: string | null;
+  description_ar: string | null;
+  category: string | null;
+  base_price: string | number | null;
+  price: string | number | null;
+  stock_quantity: string | number | null;
+  is_available: boolean | null;
+  is_active: boolean | null;
+  variants: unknown;
+}
+
+interface KnowledgeBaseEntry {
+  title: string;
+  content: string;
+  category: string;
+}
+
+export interface CustomerReplyContextParams {
+  merchant: Merchant;
+  conversation: Conversation;
+  customerMessage: string;
+  recentMessages: Message[];
+}
+
+export interface CustomerReplyContext {
+  businessInfo: string;
+  productCatalog: string;
+  knowledgeBase: string;
+  conversationHistory: string;
+  orderContext: string;
+  fullContext: string;
+  productCount: number;
+  kbCount: number;
+  historyCount: number;
+}
+
 /**
  * Shared service that builds rich cross-system context for AI prompts.
  * Each section is a concise text summary optimized for token efficiency.
@@ -30,7 +76,11 @@ export interface MerchantContext {
  */
 @Injectable()
 export class MerchantContextService {
-  constructor(@Inject(DATABASE_POOL) private readonly pool: Pool) {}
+  constructor(
+    @Inject(DATABASE_POOL) private readonly pool: Pool,
+    private readonly embeddingService: EmbeddingService,
+    private readonly vectorSearchService: VectorSearchService,
+  ) {}
 
   async buildContext(
     merchantId: string,
@@ -103,6 +153,621 @@ export class MerchantContextService {
     if (ctx.drivers) sections.push(`=== سائقي التوصيل ===\n${ctx.drivers}`);
 
     return sections.join("\n\n");
+  }
+
+  async buildCustomerReplyContext(
+    params: CustomerReplyContextParams,
+  ): Promise<CustomerReplyContext> {
+    const { merchant, conversation, customerMessage, recentMessages } = params;
+    const allCatalogRows = await this.loadAllActiveCatalogRows(merchant.id);
+    const relevantCatalogRows = await this.loadRelevantCatalogRows(
+      merchant.id,
+      customerMessage,
+      allCatalogRows,
+    );
+    const kbEntries = this.extractKnowledgeBaseEntries(merchant);
+    const relevantKbEntries = this.selectRelevantKnowledgeBaseEntries(
+      kbEntries,
+      customerMessage,
+    );
+    const historyMessages = this.prepareHistoryMessages(
+      recentMessages,
+      customerMessage,
+    );
+    const orderContext = await this.buildCustomerOrderContext(
+      merchant.id,
+      conversation,
+    );
+
+    const businessInfo = this.buildBusinessIdentitySection(merchant);
+    const productCatalog = this.buildCustomerProductCatalogSection(
+      allCatalogRows,
+      relevantCatalogRows,
+    );
+    const knowledgeBase = this.buildKnowledgeBaseSection(
+      merchant,
+      kbEntries,
+      relevantKbEntries,
+    );
+    const conversationHistory =
+      this.buildCustomerConversationHistorySection(historyMessages);
+
+    const fullContext = [
+      "SECTION A — Business Identity:",
+      businessInfo,
+      "",
+      "SECTION B — Complete Product Catalog:",
+      productCatalog,
+      "",
+      "SECTION C — Knowledge Base:",
+      knowledgeBase,
+      "",
+      "SECTION D — Conversation History:",
+      conversationHistory,
+      "",
+      "SECTION E — Order Context:",
+      orderContext,
+    ].join("\n");
+
+    return {
+      businessInfo,
+      productCatalog,
+      knowledgeBase,
+      conversationHistory,
+      orderContext,
+      fullContext,
+      productCount: allCatalogRows.length,
+      kbCount: relevantKbEntries.length,
+      historyCount: historyMessages.length,
+    };
+  }
+
+  private buildBusinessIdentitySection(merchant: Merchant): string {
+    const workingHours = this.formatWorkingHours(merchant);
+    const welcomeMessage =
+      merchant.config?.welcomeMessage?.trim() || "غير محدد";
+    const businessType =
+      merchant.knowledgeBase?.businessInfo?.category ||
+      merchant.category ||
+      "غير محدد";
+
+    return [
+      `Merchant name: ${merchant.name}`,
+      `Business type: ${businessType}`,
+      `Welcome message: ${welcomeMessage}`,
+      `Language: Arabic (Egyptian dialect)`,
+      `Working hours: ${workingHours}`,
+    ].join("\n");
+  }
+
+  private async loadAllActiveCatalogRows(
+    merchantId: string,
+  ): Promise<CatalogContextRow[]> {
+    try {
+      const result = await this.pool.query<CatalogContextRow>(
+        `SELECT
+           id,
+           merchant_id,
+           sku,
+           name_ar,
+           name_en,
+           description_ar,
+           category,
+           COALESCE(price, base_price) AS price,
+           base_price,
+           stock_quantity,
+           is_available,
+           COALESCE(is_active, true) AS is_active,
+           variants
+         FROM catalog_items
+         WHERE merchant_id = $1
+           AND COALESCE(is_active, true) = true
+         ORDER BY COALESCE(category, ''), COALESCE(name_ar, name_en, sku, id)`,
+        [merchantId],
+      );
+      return result.rows;
+    } catch (error: any) {
+      if (error?.code === "42703") {
+        const fallback = await this.pool.query<CatalogContextRow>(
+          `SELECT
+             id,
+             merchant_id,
+             sku,
+             name_ar,
+             name_en,
+             description_ar,
+             category,
+             COALESCE(price, base_price) AS price,
+             base_price,
+             NULL::numeric AS stock_quantity,
+             is_available,
+             true AS is_active,
+             variants
+           FROM catalog_items
+           WHERE merchant_id = $1
+           ORDER BY COALESCE(category, ''), COALESCE(name_ar, name_en, sku, id)`,
+          [merchantId],
+        );
+        return fallback.rows;
+      }
+      throw error;
+    }
+  }
+
+  private async loadRelevantCatalogRows(
+    merchantId: string,
+    customerMessage: string,
+    allCatalogRows: CatalogContextRow[],
+  ): Promise<CatalogContextRow[]> {
+    if (allCatalogRows.length === 0) {
+      return [];
+    }
+
+    try {
+      const queryVector = await this.embeddingService.embed(customerMessage);
+      if (!queryVector.every((value) => value === 0)) {
+        const vectorMatches = await this.vectorSearchService.semanticSearch(
+          merchantId,
+          queryVector,
+          5,
+        );
+        const byId = new Map(allCatalogRows.map((row) => [row.id, row]));
+        const matchedRows = vectorMatches
+          .map((match) => byId.get(match.id))
+          .filter((row): row is CatalogContextRow => !!row);
+        if (matchedRows.length > 0) {
+          return matchedRows;
+        }
+      }
+    } catch (error) {
+      logger.warn("Relevant catalog vector lookup failed", { error });
+    }
+
+    const scored = allCatalogRows
+      .map((row) => ({
+        row,
+        score: this.keywordScore(customerMessage, [
+          row.name_ar,
+          row.name_en,
+          row.description_ar,
+          row.category,
+          row.sku,
+        ]),
+      }))
+      .filter((entry) => entry.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 5)
+      .map((entry) => entry.row);
+
+    return scored.length > 0 ? scored : allCatalogRows.slice(0, 5);
+  }
+
+  private buildCustomerProductCatalogSection(
+    allCatalogRows: CatalogContextRow[],
+    relevantCatalogRows: CatalogContextRow[],
+  ): string {
+    if (allCatalogRows.length === 0) {
+      return "No active products available.";
+    }
+
+    const relevantIds = new Set(relevantCatalogRows.map((row) => row.id));
+    const relevantLines = relevantCatalogRows.map((row) =>
+      this.formatCatalogLine(row),
+    );
+
+    if (allCatalogRows.length <= 50) {
+      const allLines = allCatalogRows.map((row) => this.formatCatalogLine(row));
+      return [
+        `Total active products: ${allCatalogRows.length}`,
+        "Relevant products for the current customer message:",
+        ...(relevantLines.length > 0 ? relevantLines : ["- No direct product match found."]),
+        "",
+        "Full active catalog:",
+        ...allLines,
+      ].join("\n");
+    }
+
+    const grouped = new Map<string, CatalogContextRow[]>();
+    for (const row of allCatalogRows) {
+      const category = (row.category || "بدون تصنيف").trim() || "بدون تصنيف";
+      const current = grouped.get(category) || [];
+      current.push(row);
+      grouped.set(category, current);
+    }
+
+    const categoryBlocks = Array.from(grouped.entries())
+      .sort(([a], [b]) => a.localeCompare(b, "ar"))
+      .map(([category, rows]) => {
+        const names = rows.map((row) => row.name_ar || row.name_en || row.sku || row.id);
+        return `Category: ${category} (${rows.length} products)\n- ${names.join(" | ")}`;
+      });
+
+    return [
+      `Total active products: ${allCatalogRows.length}`,
+      "Relevant products for the current customer message:",
+      ...(relevantLines.length > 0 ? relevantLines : ["- No direct product match found."]),
+      "",
+      "Grouped full catalog overview:",
+      ...categoryBlocks,
+      "",
+      "Detailed relevant product cards:",
+      ...allCatalogRows
+        .filter((row) => relevantIds.has(row.id))
+        .map((row) => this.formatCatalogLine(row)),
+    ].join("\n");
+  }
+
+  private formatCatalogLine(row: CatalogContextRow): string {
+    const name = row.name_ar || row.name_en || row.sku || row.id;
+    const price = Number(row.price ?? row.base_price ?? 0);
+    const sku = row.sku || "غير متوفر";
+    const category = row.category || "بدون تصنيف";
+    const description = row.description_ar?.trim() || "لا يوجد وصف";
+    const inStock = this.isInStock(row) ? "yes" : "no";
+    const variants = this.formatVariants(row.variants);
+
+    return [
+      `- Name (Arabic): ${name}`,
+      `  Description: ${description}`,
+      `  Price: ${price} جنيه`,
+      `  SKU/code: ${sku}`,
+      `  Category: ${category}`,
+      `  In stock: ${inStock}`,
+      `  Variants: ${variants}`,
+    ].join("\n");
+  }
+
+  private extractKnowledgeBaseEntries(merchant: Merchant): KnowledgeBaseEntry[] {
+    const knowledgeBase = merchant.knowledgeBase || {};
+    const businessInfo = knowledgeBase.businessInfo || {};
+    const entries: KnowledgeBaseEntry[] = [];
+
+    const pushEntry = (title: string, content: string, category: string) => {
+      const normalized = String(content || "").trim();
+      if (!normalized) return;
+      entries.push({ title, content: normalized, category });
+    };
+
+    pushEntry("Business name", businessInfo.name || merchant.name, "business");
+    pushEntry("Business category", businessInfo.category || merchant.category, "business");
+    pushEntry("Business address", businessInfo.address, "business");
+    pushEntry("Working hours", this.formatWorkingHours(merchant), "business");
+    pushEntry(
+      "Return policy",
+      businessInfo.policies?.returnPolicy,
+      "policy",
+    );
+    pushEntry(
+      "Delivery info",
+      businessInfo.policies?.deliveryInfo,
+      "delivery",
+    );
+    pushEntry(
+      "Payment methods",
+      Array.isArray(businessInfo.policies?.paymentMethods)
+        ? businessInfo.policies.paymentMethods.join(", ")
+        : "",
+      "payment",
+    );
+    pushEntry(
+      "Delivery notes",
+      businessInfo.deliveryPricing?.notes,
+      "delivery",
+    );
+    pushEntry(
+      "Unified delivery price",
+      businessInfo.deliveryPricing?.unifiedPrice != null
+        ? String(businessInfo.deliveryPricing.unifiedPrice)
+        : "",
+      "delivery",
+    );
+
+    if (Array.isArray(businessInfo.deliveryPricing?.byCity)) {
+      for (const entry of businessInfo.deliveryPricing.byCity.slice(0, 10)) {
+        const location = entry?.area || entry?.city;
+        if (!location) continue;
+        pushEntry(
+          `Delivery price for ${location}`,
+          `${location}: ${entry.price}`,
+          "delivery",
+        );
+      }
+    }
+
+    if (Array.isArray(knowledgeBase.faqs)) {
+      for (const faq of knowledgeBase.faqs) {
+        if (!faq || faq.isActive === false) continue;
+        pushEntry(
+          `FAQ: ${faq.question || "Question"}`,
+          `Q: ${faq.question || ""}\nA: ${faq.answer || ""}`,
+          faq.category || "faq",
+        );
+      }
+    }
+
+    if (Array.isArray(knowledgeBase.offers)) {
+      for (const offer of knowledgeBase.offers) {
+        if (!offer || offer.isActive === false) continue;
+        const label = offer.nameAr || offer.name || "Offer";
+        const value =
+          offer.type === "PERCENTAGE"
+            ? `${offer.value}%`
+            : offer.type === "FREE_SHIPPING"
+              ? "شحن مجاني"
+              : offer.value != null
+                ? String(offer.value)
+                : "";
+        pushEntry(
+          `Offer: ${label}`,
+          `${label}${value ? ` - ${value}` : ""}`,
+          "offer",
+        );
+      }
+    }
+
+    if (Array.isArray(knowledgeBase.customInstructions)) {
+      for (const instruction of knowledgeBase.customInstructions) {
+        pushEntry("Custom instruction", String(instruction), "instruction");
+      }
+    }
+
+    if (typeof knowledgeBase.customInstructions === "string") {
+      pushEntry(
+        "Custom instruction",
+        knowledgeBase.customInstructions,
+        "instruction",
+      );
+    }
+
+    return entries;
+  }
+
+  private selectRelevantKnowledgeBaseEntries(
+    entries: KnowledgeBaseEntry[],
+    customerMessage: string,
+  ): KnowledgeBaseEntry[] {
+    if (entries.length === 0) {
+      return [];
+    }
+
+    const scored = entries
+      .map((entry) => ({
+        entry,
+        score: this.keywordScore(customerMessage, [
+          entry.title,
+          entry.content,
+          entry.category,
+        ]),
+      }))
+      .filter((entry) => entry.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 5)
+      .map((entry) => entry.entry);
+
+    if (scored.length > 0) {
+      return scored;
+    }
+
+    return entries.slice(0, 20);
+  }
+
+  private buildKnowledgeBaseSection(
+    merchant: Merchant,
+    allEntries: KnowledgeBaseEntry[],
+    relevantEntries: KnowledgeBaseEntry[],
+  ): string {
+    const merchantPolicies = merchant.knowledgeBase?.businessInfo?.policies || {};
+    const relevantLines = relevantEntries.map(
+      (entry) => `- [${entry.category}] ${entry.title}\n  ${entry.content}`,
+    );
+
+    return [
+      `Total knowledge entries available: ${allEntries.length}`,
+      `Return policy: ${merchantPolicies.returnPolicy || "غير محدد"}`,
+      `Delivery info: ${merchantPolicies.deliveryInfo || "غير محدد"}`,
+      `Payment methods: ${
+        Array.isArray(merchantPolicies.paymentMethods) &&
+        merchantPolicies.paymentMethods.length > 0
+          ? merchantPolicies.paymentMethods.join(", ")
+          : "غير محدد"
+      }`,
+      "Relevant knowledge for this message:",
+      ...(relevantLines.length > 0
+        ? relevantLines
+        : ["- No matching knowledge-base entry found."]),
+    ].join("\n");
+  }
+
+  private prepareHistoryMessages(
+    recentMessages: Message[],
+    customerMessage: string,
+  ): Message[] {
+    const trimmedCustomerMessage = String(customerMessage || "").trim();
+    const sorted = [...recentMessages].sort(
+      (a, b) => a.createdAt.getTime() - b.createdAt.getTime(),
+    );
+    const messages = [...sorted];
+    const lastMessage = messages[messages.length - 1];
+    if (
+      lastMessage &&
+      String(lastMessage.direction).toLowerCase() === "inbound" &&
+      String(lastMessage.text || "").trim() === trimmedCustomerMessage
+    ) {
+      messages.pop();
+    }
+    return messages.slice(-10);
+  }
+
+  private buildCustomerConversationHistorySection(messages: Message[]): string {
+    if (messages.length === 0) {
+      return "No previous conversation history.";
+    }
+
+    return messages
+      .map((message) => {
+        const speaker =
+          String(message.direction).toLowerCase() === "inbound"
+            ? "Customer"
+            : "Assistant";
+        return `${speaker}: ${String(message.text || "").trim() || "[empty]"}`;
+      })
+      .join("\n");
+  }
+
+  private async buildCustomerOrderContext(
+    merchantId: string,
+    conversation: Conversation,
+  ): Promise<string> {
+    const senderId = String(conversation.senderId || "").trim();
+    const phone = String(conversation.collectedInfo?.phone || senderId).trim();
+
+    try {
+      const result = await this.pool.query<{
+        id: string;
+        order_number: string;
+        status: string;
+        total: string;
+        items: unknown;
+        created_at: string;
+      }>(
+        `SELECT id, order_number, status, total, items, created_at
+         FROM orders
+         WHERE merchant_id = $1
+           AND (
+             customer_id = $2
+             OR ($3 <> '' AND customer_phone = $3)
+           )
+         ORDER BY created_at DESC
+         LIMIT 4`,
+        [merchantId, conversation.customerId || null, phone],
+      );
+
+      if (result.rows.length === 0) {
+        return "No pending or previous orders for this customer.";
+      }
+
+      const pendingOrder = result.rows.find(
+        (row) => !["DELIVERED", "CANCELLED"].includes(String(row.status)),
+      );
+      const previousOrders = result.rows.slice(0, 3);
+
+      const lines: string[] = [];
+      if (pendingOrder) {
+        lines.push("Pending order:");
+        lines.push(this.formatOrderLine(pendingOrder));
+      }
+
+      if (previousOrders.length > 0) {
+        lines.push("Previous orders:");
+        previousOrders.forEach((order) => {
+          lines.push(this.formatOrderLine(order));
+        });
+      }
+
+      return lines.join("\n");
+    } catch (error) {
+      logger.warn("Failed to build customer order context", { error });
+      return "Order context unavailable right now.";
+    }
+  }
+
+  private formatOrderLine(order: {
+    order_number: string;
+    status: string;
+    total: string;
+    items: unknown;
+    created_at: string;
+  }): string {
+    const items = Array.isArray(order.items)
+      ? order.items
+          .map((item: any) => `${item?.name || "منتج"} × ${item?.quantity || 1}`)
+          .join("، ")
+      : "تفاصيل المنتجات غير متاحة";
+    return `- #${order.order_number} | status: ${order.status} | total: ${Number(order.total).toLocaleString()} جنيه | items: ${items} | date: ${new Date(order.created_at).toLocaleString("en-GB")}`;
+  }
+
+  private formatVariants(rawVariants: unknown): string {
+    const variants = Array.isArray(rawVariants)
+      ? (rawVariants as Array<{ name?: string; values?: string[] }>)
+      : [];
+    if (variants.length === 0) {
+      return "none";
+    }
+
+    return variants
+      .map((variant) => {
+        const name = variant.name || "option";
+        const values = Array.isArray(variant.values)
+          ? variant.values.join(", ")
+          : "غير محدد";
+        return `${name}: ${values}`;
+      })
+      .join(" | ");
+  }
+
+  private isInStock(row: CatalogContextRow): boolean {
+    if (row.is_available === false) {
+      return false;
+    }
+    if (row.stock_quantity == null) {
+      return row.is_available !== false;
+    }
+    return Number(row.stock_quantity) > 0;
+  }
+
+  private keywordScore(query: string, values: Array<string | null | undefined>): number {
+    const tokens = this.tokenizeArabicText(query);
+    if (tokens.length === 0) {
+      return 0;
+    }
+
+    const haystack = values
+      .filter((value): value is string => !!value)
+      .join(" ")
+      .toLowerCase();
+
+    return tokens.reduce((score, token) => {
+      if (token.length < 2) {
+        return score;
+      }
+      return haystack.includes(token) ? score + 1 : score;
+    }, 0);
+  }
+
+  private tokenizeArabicText(value: string): string[] {
+    return String(value || "")
+      .toLowerCase()
+      .replace(/[؟?!.,،؛:()/\\-]/g, " ")
+      .split(/\s+/)
+      .map((token) => token.trim())
+      .filter(Boolean);
+  }
+
+  private formatWorkingHours(merchant: Merchant): string {
+    const knowledgeBaseHours = merchant.knowledgeBase?.businessInfo?.workingHours;
+    const merchantHours = merchant.workingHours as
+      | { start?: string; end?: string; open?: string; close?: string }
+      | undefined;
+    const deliveryHours = merchant.deliveryRules?.workingHours;
+
+    const open =
+      knowledgeBaseHours?.open ||
+      knowledgeBaseHours?.start ||
+      merchantHours?.open ||
+      merchantHours?.start ||
+      deliveryHours?.start;
+    const close =
+      knowledgeBaseHours?.close ||
+      knowledgeBaseHours?.end ||
+      merchantHours?.close ||
+      merchantHours?.end ||
+      deliveryHours?.end;
+
+    if (!open && !close) {
+      return "غير محدد";
+    }
+
+    return `${open || "غير محدد"} - ${close || "غير محدد"}`;
   }
 
   // ─── Orders ──────────────────────────────────────────────────

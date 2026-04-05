@@ -33,7 +33,6 @@ import { AddressDepthService } from "./address-depth.service";
 import { PaymentService } from "./payment.service";
 import { CustomerReorderService } from "./customer-reorder.service";
 import { UsageGuardService } from "./usage-guard.service";
-import { RagRetrievalService } from "./rag-retrieval.service";
 import { MessageRouterService } from "../llm/message-router.service";
 
 // Repository imports
@@ -158,7 +157,6 @@ export class InboxService {
     private readonly paymentService: PaymentService,
     private readonly customerReorderService: CustomerReorderService,
     private readonly usageGuard: UsageGuardService,
-    private readonly ragRetrieval: RagRetrievalService,
     private readonly messageRouter: MessageRouterService,
   ) {
     this.planCacheTtlSeconds = Number(
@@ -904,16 +902,11 @@ export class InboxService {
     }
     // ======== END REORDER FLOW ========
 
-    // 6. Get catalog items (RAG: semantically relevant + diverse + stock-aware)
-    //    Falls back to pg_trgm text search, then full catalog if embeddings not yet ready.
-    const catalogItems = await this.ragRetrieval.retrieveForQuery(
-      merchant.id,
-      params.text,
-      10,
-    );
-    const recentMessages = await this.messageRepo.findByConversation(
-      conversation.id,
-    );
+    // 6. Load the full active catalog and recent messages for the AI context.
+    const [catalogItems, recentMessages] = await Promise.all([
+      this.catalogRepo.findByMerchant(merchant.id),
+      this.messageRepo.findByConversation(conversation.id),
+    ]);
 
     // 7. Get LLM response
     const model =
@@ -931,7 +924,7 @@ export class InboxService {
         merchant,
         conversation,
         catalogItems,
-        recentMessages: recentMessages.slice(-20),
+        recentMessages,
         customerMessage: params.text,
       },
       llmOptions,
