@@ -79,6 +79,7 @@ import { AuditService } from "../../application/services/audit.service";
 import { StaffService } from "../../application/services/staff.service";
 import { InventoryAiService } from "../../application/llm/inventory-ai.service";
 import { ForecastEngineService } from "../../application/forecasting/forecast-engine.service";
+import { MessageDeliveryService } from "../../application/services/message-delivery.service";
 import {
   getCatalog,
   PLAN_ENTITLEMENTS,
@@ -130,6 +131,7 @@ export class MerchantPortalController {
     private readonly staffService: StaffService,
     private readonly inventoryAiService: InventoryAiService,
     private readonly forecastEngine: ForecastEngineService,
+    private readonly messageDeliveryService: MessageDeliveryService,
   ) {}
 
   /**
@@ -1583,6 +1585,7 @@ export class MerchantPortalController {
     @Body() body: { text: string },
   ): Promise<any> {
     const merchantId = this.getMerchantId(req);
+    const messageText = String(body?.text || "").trim();
     const conversation = await this.conversationRepo.findById(id);
 
     if (!conversation) {
@@ -1600,15 +1603,34 @@ export class MerchantPortalController {
       );
     }
 
+    if (!messageText) {
+      throw new BadRequestException("نص الرسالة مطلوب");
+    }
+
+    if ((conversation.channel || "whatsapp") !== "whatsapp") {
+      throw new BadRequestException(
+        "الإرسال اليدوي من البوابة مدعوم حالياً لمحادثات واتساب فقط",
+      );
+    }
+
     // Create the message
     const message = await this.messageRepo.create({
       conversationId: id,
       merchantId,
       senderId: "portal-operator",
       direction: "OUTBOUND" as any,
-      text: body.text,
+      text: messageText,
       tokensUsed: 0,
     });
+
+    await this.messageDeliveryService.queueMessage(
+      message.id,
+      merchantId,
+      id,
+      conversation.senderId,
+      messageText,
+      "meta",
+    );
 
     // Update conversation last message time
     await this.conversationRepo.update(id, {
@@ -1620,6 +1642,8 @@ export class MerchantPortalController {
       conversationId: id,
       merchantId,
       messageId: message.id,
+      queuedForDelivery: true,
+      recipientId: conversation.senderId,
     });
 
     return {
