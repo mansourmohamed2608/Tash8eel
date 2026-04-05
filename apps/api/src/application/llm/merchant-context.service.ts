@@ -262,7 +262,7 @@ export class MerchantContextService {
          FROM catalog_items
          WHERE merchant_id = $1
            AND COALESCE(is_active, true) = true
-         ORDER BY COALESCE(category, ''), COALESCE(name_ar, name_en, sku, id)`,
+         ORDER BY COALESCE(category, ''), COALESCE(name_ar, name_en, sku, id::text)`,
         [merchantId],
       );
       return result.rows;
@@ -285,7 +285,7 @@ export class MerchantContextService {
              variants
            FROM catalog_items
            WHERE merchant_id = $1
-           ORDER BY COALESCE(category, ''), COALESCE(name_ar, name_en, sku, id)`,
+           ORDER BY COALESCE(category, ''), COALESCE(name_ar, name_en, sku, id::text)`,
           [merchantId],
         );
         return fallback.rows;
