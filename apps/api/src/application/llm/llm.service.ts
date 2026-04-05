@@ -1506,7 +1506,8 @@ recentAgentActions: آخر 10 إجراءات اتخذها الوكلاء في آ
     });
 
     // Determine fallback action based on state
-    let reply = ARABIC_TEMPLATES.BUDGET_EXCEEDED;
+    let reply =
+      "تمام 🙌 قولي نوع المنتج أو الطلب اللي محتاجه وأنا أكمل معاك خطوة بخطوة.";
     const actionType = ActionType.ASK_CLARIFYING_QUESTION;
 
     if (conversation.missingSlots.length > 0) {
@@ -1524,6 +1525,8 @@ recentAgentActions: آخر 10 إجراءات اتخذها الوكلاء في آ
       } else {
         reply = questions[slot] || ARABIC_TEMPLATES.FALLBACK;
       }
+    } else if (productHint) {
+      reply = this.buildFallbackOrderProgressReply(productHint);
     } else if (this.isCatalogInquiryMessage(messageLower)) {
       reply = this.buildFallbackCatalogReply(catalogItems, merchant.category);
     } else if (this.isOrderIntentMessage(messageLower)) {
