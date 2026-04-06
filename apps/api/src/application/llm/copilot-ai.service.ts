@@ -557,7 +557,13 @@ export class CopilotAiService {
         preview: {
           type: "expense",
           summary_ar: `إضافة مصروف ${amount} جنيه`,
-          details: { amount, category: this.extractCategory(text) },
+          details: [
+            { label_ar: "المبلغ", value_ar: `${amount ?? "غير محدد"} جنيه` },
+            {
+              label_ar: "الفئة",
+              value_ar: this.extractCategory(text) || "غير محددة",
+            },
+          ],
         },
         missing_fields: amount ? [] : ["amount"],
         reply_ar: amount
@@ -597,10 +603,16 @@ export class CopilotAiService {
         preview: {
           type: "stock_update",
           summary_ar: `تحديث مخزون +${quantity}`,
-          details: {
-            productName: this.extractProductName(text),
-            quantityChange: quantity,
-          },
+          details: [
+            {
+              label_ar: "المنتج",
+              value_ar: this.extractProductName(text) || "غير محدد",
+            },
+            {
+              label_ar: "الكمية",
+              value_ar: quantity !== null ? `${quantity}` : "غير محددة",
+            },
+          ],
         },
         missing_fields: quantity ? [] : ["quantity"],
         reply_ar: quantity
@@ -678,7 +690,12 @@ export class CopilotAiService {
         preview: {
           type: "vip_tag",
           summary_ar: "إضافة علامة VIP للعميل",
-          details: { customerName: this.extractCustomerName(text) },
+          details: [
+            {
+              label_ar: "العميل",
+              value_ar: this.extractCustomerName(text) || "غير محدد",
+            },
+          ],
         },
         missing_fields: ["customerPhone"],
         reply_ar: "من العميل اللي عايز تخليه VIP؟",

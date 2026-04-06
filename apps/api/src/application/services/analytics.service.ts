@@ -90,6 +90,34 @@ export class AnalyticsService {
     @Inject(REDIS_CLIENT) private readonly redis: Redis,
   ) {}
 
+  private async getCachedValue<T>(cacheKey: string): Promise<T | null> {
+    if (!this.redis) {
+      return null;
+    }
+
+    try {
+      const cached = await this.redis.get(cacheKey);
+      return cached ? (JSON.parse(cached) as T) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private async setCachedValue(
+    cacheKey: string,
+    value: unknown,
+  ): Promise<void> {
+    if (!this.redis) {
+      return;
+    }
+
+    try {
+      await this.redis.setex(cacheKey, this.CACHE_TTL, JSON.stringify(value));
+    } catch {
+      // Cache failures should never break analytics endpoints.
+    }
+  }
+
   // ==================== DASHBOARD OVERVIEW ====================
 
   async getDashboardMetrics(
@@ -97,8 +125,8 @@ export class AnalyticsService {
     range: DateRange,
   ): Promise<DashboardMetrics> {
     const cacheKey = `analytics:dashboard:${merchantId}:${range.startDate.toISOString()}:${range.endDate.toISOString()}`;
-    const cached = await this.redis.get(cacheKey);
-    if (cached) return JSON.parse(cached);
+    const cached = await this.getCachedValue<DashboardMetrics>(cacheKey);
+    if (cached) return cached;
 
     // Calculate previous period for comparison
     const periodLength = range.endDate.getTime() - range.startDate.getTime();
@@ -167,7 +195,7 @@ export class AnalyticsService {
       avgMessagesPerConversation: conversationMetrics.avgMessages,
     };
 
-    await this.redis.setex(cacheKey, this.CACHE_TTL, JSON.stringify(metrics));
+    await this.setCachedValue(cacheKey, metrics);
     return metrics;
   }
 
@@ -178,8 +206,8 @@ export class AnalyticsService {
     range: DateRange,
   ): Promise<SalesBreakdown> {
     const cacheKey = `analytics:sales:${merchantId}:${range.startDate.toISOString()}:${range.endDate.toISOString()}`;
-    const cached = await this.redis.get(cacheKey);
-    if (cached) return JSON.parse(cached);
+    const cached = await this.getCachedValue<SalesBreakdown>(cacheKey);
+    if (cached) return cached;
 
     const [byProduct, byCategory, byHour, byDayOfWeek] = await Promise.all([
       this.getSalesByProduct(merchantId, range),
@@ -195,7 +223,7 @@ export class AnalyticsService {
       byDayOfWeek,
     };
 
-    await this.redis.setex(cacheKey, this.CACHE_TTL, JSON.stringify(breakdown));
+    await this.setCachedValue(cacheKey, breakdown);
     return breakdown;
   }
 
@@ -206,8 +234,8 @@ export class AnalyticsService {
     range: DateRange,
   ): Promise<CustomerInsights> {
     const cacheKey = `analytics:customers:${merchantId}:${range.startDate.toISOString()}:${range.endDate.toISOString()}`;
-    const cached = await this.redis.get(cacheKey);
-    if (cached) return JSON.parse(cached);
+    const cached = await this.getCachedValue<CustomerInsights>(cacheKey);
+    if (cached) return cached;
 
     const [topCustomers, segments, channels] = await Promise.all([
       this.getTopCustomers(merchantId, range),
@@ -221,7 +249,7 @@ export class AnalyticsService {
       acquisitionChannels: channels,
     };
 
-    await this.redis.setex(cacheKey, this.CACHE_TTL, JSON.stringify(insights));
+    await this.setCachedValue(cacheKey, insights);
     return insights;
   }
 
@@ -232,8 +260,8 @@ export class AnalyticsService {
     range: DateRange,
   ): Promise<ConversationAnalytics> {
     const cacheKey = `analytics:conversations:${merchantId}:${range.startDate.toISOString()}:${range.endDate.toISOString()}`;
-    const cached = await this.redis.get(cacheKey);
-    if (cached) return JSON.parse(cached);
+    const cached = await this.getCachedValue<ConversationAnalytics>(cacheKey);
+    if (cached) return cached;
 
     const [volumeByHour, topTopics, sentiment, avgResolution, handoffReasons] =
       await Promise.all([
@@ -252,7 +280,7 @@ export class AnalyticsService {
       handoffReasons,
     };
 
-    await this.redis.setex(cacheKey, this.CACHE_TTL, JSON.stringify(analytics));
+    await this.setCachedValue(cacheKey, analytics);
     return analytics;
   }
 
@@ -772,8 +800,16 @@ export class AnalyticsService {
     conversionAfterFollowup: number;
   }> {
     const cacheKey = `analytics:cart-recovery:${merchantId}:${range.startDate.toISOString()}:${range.endDate.toISOString()}`;
-    const cached = await this.redis.get(cacheKey);
-    if (cached) return JSON.parse(cached);
+    const cached = await this.getCachedValue<{
+      abandonedCarts: number;
+      recoveredCarts: number;
+      recoveryRate: number;
+      recoveredRevenue: number;
+      pendingFollowups: number;
+      sentFollowups: number;
+      conversionAfterFollowup: number;
+    }>(cacheKey);
+    if (cached) return cached;
 
     // Count abandoned cart conversations (stuck in early funnel states for > 1 hour without order)
     const abandonedResult = await this.pool.query(
@@ -846,7 +882,7 @@ export class AnalyticsService {
       conversionAfterFollowup: sent > 0 ? (recovered / sent) * 100 : 0,
     };
 
-    await this.redis.setex(cacheKey, this.CACHE_TTL, JSON.stringify(metrics));
+    await this.setCachedValue(cacheKey, metrics);
     return metrics;
   }
 

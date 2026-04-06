@@ -121,7 +121,14 @@ export type CopilotEntities = z.infer<typeof CopilotEntitiesSchema>;
 export const ActionPreviewSchema = z.object({
   type: z.string(),
   summary_ar: z.string(),
-  details: z.record(z.unknown()).nullable(),
+  details: z
+    .array(
+      z.object({
+        label_ar: z.string(),
+        value_ar: z.string(),
+      }),
+    )
+    .nullable(),
 });
 
 // ============= Main Response Schema =============
@@ -303,7 +310,18 @@ export const COPILOT_COMMAND_JSON_SCHEMA = {
         properties: {
           type: { type: "string" },
           summary_ar: { type: "string" },
-          details: { type: ["object", "null"] },
+          details: {
+            type: ["array", "null"],
+            items: {
+              type: "object",
+              properties: {
+                label_ar: { type: "string" },
+                value_ar: { type: "string" },
+              },
+              required: ["label_ar", "value_ar"],
+              additionalProperties: false,
+            },
+          },
         },
         required: ["type", "summary_ar", "details"],
         additionalProperties: false,
