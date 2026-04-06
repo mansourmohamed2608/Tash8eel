@@ -235,6 +235,10 @@ export default function AgentActivityPage() {
   }
 
   const filtered = actions;
+  const activeAgentsCount = new Set(actions.map((a) => a.agent_type)).size;
+  const unresolvedCount = actions.filter((a) => !a.merchant_ack).length;
+  const autoResolvedCount = actions.filter((a) => a.auto_resolved).length;
+  const latestAction = actions[0];
 
   return (
     <div className="space-y-6 p-6" dir="rtl">
@@ -250,6 +254,55 @@ export default function AgentActivityPage() {
         title="سجل نشاط الوكلاء"
         description="كل ما قامت به الوكلاء تلقائياً - اكتشاف المشاكل، اتخاذ الإجراءات، وتنبيهك"
       />
+
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <Card className="border-blue-200 bg-blue-50/50">
+          <CardContent className="p-4">
+            <p className="text-sm text-muted-foreground">إجمالي السجل الحالي</p>
+            <p className="mt-1 text-2xl font-bold text-blue-700">
+              {actions.length}
+            </p>
+            <p className="mt-2 text-xs text-muted-foreground">
+              هذا feed النشاط التشغيلي للوكلاء، وليس سجل قراراتهم.
+            </p>
+          </CardContent>
+        </Card>
+        <Card className="border-amber-200 bg-amber-50/50">
+          <CardContent className="p-4">
+            <p className="text-sm text-muted-foreground">غير مُطّلع عليه</p>
+            <p className="mt-1 text-2xl font-bold text-amber-700">
+              {unresolvedCount}
+            </p>
+            <p className="mt-2 text-xs text-muted-foreground">
+              عناصر ما زالت تحتاج اطلاع أو متابعة من التاجر.
+            </p>
+          </CardContent>
+        </Card>
+        <Card className="border-emerald-200 bg-emerald-50/50">
+          <CardContent className="p-4">
+            <p className="text-sm text-muted-foreground">تم حلها تلقائياً</p>
+            <p className="mt-1 text-2xl font-bold text-emerald-700">
+              {autoResolvedCount}
+            </p>
+            <p className="mt-2 text-xs text-muted-foreground">
+              تنبيهات أو إجراءات أنجزها النظام بدون تدخل يدوي.
+            </p>
+          </CardContent>
+        </Card>
+        <Card className="border-violet-200 bg-violet-50/50">
+          <CardContent className="p-4">
+            <p className="text-sm text-muted-foreground">وكلاء ظهر نشاطهم</p>
+            <p className="mt-1 text-2xl font-bold text-violet-700">
+              {activeAgentsCount}
+            </p>
+            <p className="mt-2 text-xs text-muted-foreground">
+              {latestAction
+                ? `آخر نشاط: ${timeAgo(latestAction.created_at)}`
+                : "لا يوجد نشاط مسجل بعد."}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* ─── Summary Cards ──────────────────────────── */}
       {summary && (
@@ -343,6 +396,24 @@ export default function AgentActivityPage() {
           </CardContent>
         </Card>
       )}
+
+      <Card className="border-dashed">
+        <CardContent className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="font-medium">ما الفرق بين هذه الصفحة وسجل القرارات؟</p>
+            <p className="text-sm text-muted-foreground">
+              هنا ترى ما فعله الوكلاء أو اكتشفوه عملياً. أما سجل قرارات الذكاء
+              فيعرض منطق القرار نفسه ودرجة الثقة.
+            </p>
+          </div>
+          <Link
+            href="/merchant/audit/ai-decisions"
+            className="text-sm text-primary hover:underline"
+          >
+            افتح سجل قرارات الذكاء
+          </Link>
+        </CardContent>
+      </Card>
 
       {/* ─── Filter Tabs ────────────────────────────── */}
       <Tabs defaultValue="ALL" onValueChange={setFilter}>

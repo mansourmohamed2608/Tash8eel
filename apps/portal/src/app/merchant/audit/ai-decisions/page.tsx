@@ -76,6 +76,20 @@ export default function AiAuditPage() {
 
   const decisions = data?.decisions || [];
   const stats = data?.weeklyStats || [];
+  const confidenceValues = decisions
+    .map((d: any) => Number(d.confidence))
+    .filter((n: number) => Number.isFinite(n));
+  const avgConfidence = confidenceValues.length
+    ? Math.round(
+        (confidenceValues.reduce((sum: number, n: number) => sum + n, 0) /
+          confidenceValues.length) *
+          100,
+      )
+    : 0;
+  const agentsInLog = new Set(decisions.map((d: any) => d.agent_type)).size;
+  const decisionTypes = new Set(
+    decisions.map((d: any) => d.decision_type),
+  ).size;
 
   return (
     <div className="space-y-6 animate-fadeIn">
@@ -103,6 +117,55 @@ export default function AiAuditPage() {
           </div>
         }
       />
+
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <Card className="border-purple-200 bg-purple-50/50">
+          <CardContent className="p-4">
+            <p className="text-sm text-muted-foreground">
+              إجمالي القرارات المعروضة
+            </p>
+            <p className="mt-1 text-2xl font-bold text-purple-700">
+              {decisions.length}
+            </p>
+            <p className="mt-2 text-xs text-muted-foreground">
+              هذا السجل يركز على لماذا اتُخذ القرار، لا على feed النشاط التشغيلي.
+            </p>
+          </CardContent>
+        </Card>
+        <Card className="border-blue-200 bg-blue-50/50">
+          <CardContent className="p-4">
+            <p className="text-sm text-muted-foreground">أنواع القرارات</p>
+            <p className="mt-1 text-2xl font-bold text-blue-700">
+              {decisionTypes}
+            </p>
+            <p className="mt-2 text-xs text-muted-foreground">
+              عدد الأنماط المختلفة للقرارات داخل السجل الحالي.
+            </p>
+          </CardContent>
+        </Card>
+        <Card className="border-emerald-200 bg-emerald-50/50">
+          <CardContent className="p-4">
+            <p className="text-sm text-muted-foreground">متوسط الثقة</p>
+            <p className="mt-1 text-2xl font-bold text-emerald-700">
+              {avgConfidence}%
+            </p>
+            <p className="mt-2 text-xs text-muted-foreground">
+              متوسط confidence للقرارات المعروضة حالياً بعد الفلترة.
+            </p>
+          </CardContent>
+        </Card>
+        <Card className="border-amber-200 bg-amber-50/50">
+          <CardContent className="p-4">
+            <p className="text-sm text-muted-foreground">الوكلاء المشاركون</p>
+            <p className="mt-1 text-2xl font-bold text-amber-700">
+              {agentsInLog}
+            </p>
+            <p className="mt-2 text-xs text-muted-foreground">
+              عدد الوكلاء الذين ظهرت لهم قرارات في النتائج الحالية.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
 
       <KPIGrid>
         <StatCard
@@ -145,6 +208,25 @@ export default function AiAuditPage() {
               في قاعدة البيانات.
             </p>
           )}
+        </CardContent>
+      </Card>
+
+      <Card className="border-dashed">
+        <CardContent className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="font-medium">ما الذي تراه هنا بالضبط؟</p>
+            <p className="text-sm text-muted-foreground">
+              كل صف هنا يمثل قراراً محدداً: المدخلات، القرار النهائي، سبب
+              القرار، ودرجة الثقة. إذا أردت ما حدث فعلياً على مدار اليوم فاذهب
+              إلى سجل نشاط الوكلاء.
+            </p>
+          </div>
+          <a
+            href="/merchant/agent-activity"
+            className="text-sm text-primary hover:underline"
+          >
+            افتح سجل نشاط الوكلاء
+          </a>
         </CardContent>
       </Card>
 

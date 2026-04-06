@@ -234,6 +234,11 @@ export default function AgentsPage() {
   };
 
   const enabledCount = agents.filter((a) => a.isEnabled).length;
+  const availableCount = agents.filter((a) => a.isIncludedInPlan).length;
+  const comingSoonCount = agents.filter(
+    (a) => a.status === "coming_soon",
+  ).length;
+  const categoriesCount = new Set(AI_CAPABILITIES.map((c) => c.category)).size;
 
   return (
     <div className="space-y-6">
@@ -241,6 +246,53 @@ export default function AgentsPage() {
         title="مركز الذكاء"
         description="كل أدوات الذكاء الاصطناعي التي تعمل لصالح متجرك - من بوت الواتساب إلى تحليلات المخزون"
       />
+
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <Card className="border-blue-200 bg-blue-50/50">
+          <CardContent className="p-4">
+            <p className="text-sm text-muted-foreground">الوكلاء المفعلة الآن</p>
+            <p className="mt-1 text-2xl font-bold text-blue-700">
+              {enabledCount || 0}
+            </p>
+            <p className="mt-2 text-xs text-muted-foreground">
+              هذه هي الوكلاء التي تعمل فعلياً في خطتك الحالية.
+            </p>
+          </CardContent>
+        </Card>
+        <Card className="border-emerald-200 bg-emerald-50/50">
+          <CardContent className="p-4">
+            <p className="text-sm text-muted-foreground">المتاح في الخطة</p>
+            <p className="mt-1 text-2xl font-bold text-emerald-700">
+              {availableCount}
+            </p>
+            <p className="mt-2 text-xs text-muted-foreground">
+              عدد الوكلاء أو القدرات التي يحق لك تشغيلها الآن.
+            </p>
+          </CardContent>
+        </Card>
+        <Card className="border-violet-200 bg-violet-50/50">
+          <CardContent className="p-4">
+            <p className="text-sm text-muted-foreground">مجالات الذكاء</p>
+            <p className="mt-1 text-2xl font-bold text-violet-700">
+              {categoriesCount}
+            </p>
+            <p className="mt-2 text-xs text-muted-foreground">
+              مبيعات، مالية، مخزون، مدفوعات، وتقارير تشغيلية.
+            </p>
+          </CardContent>
+        </Card>
+        <Card className="border-amber-200 bg-amber-50/50">
+          <CardContent className="p-4">
+            <p className="text-sm text-muted-foreground">قدرات قادمة</p>
+            <p className="mt-1 text-2xl font-bold text-amber-700">
+              {comingSoonCount}
+            </p>
+            <p className="mt-2 text-xs text-muted-foreground">
+              تظهر هنا القدرات التي لم تدخل الخطة أو لم تُطرح بعد.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Hero Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

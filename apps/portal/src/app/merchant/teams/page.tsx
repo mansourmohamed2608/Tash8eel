@@ -156,6 +156,18 @@ export default function AgentTeamsPage() {
     "RUNNING",
     "AGGREGATING",
   ]);
+  const availableTemplates = templates.filter(
+    (template) => template.isAvailable,
+  ).length;
+  const activeTasks = tasks.filter((task) =>
+    ACTIVE_STATUSES.has(task.status),
+  ).length;
+  const completedTasks = tasks.filter(
+    (task) => task.status === "COMPLETED",
+  ).length;
+  const partialOrFailedTasks = tasks.filter(
+    (task) => task.status === "PARTIAL" || task.status === "FAILED",
+  ).length;
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -553,6 +565,71 @@ export default function AgentTeamsPage() {
           </Button>
         }
       />
+
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <Card className="border-blue-200 bg-blue-50/50">
+          <CardContent className="p-4">
+            <p className="text-sm text-muted-foreground">القوالب المتاحة</p>
+            <p className="mt-1 text-2xl font-bold text-blue-700">
+              {availableTemplates}
+            </p>
+            <p className="mt-2 text-xs text-muted-foreground">
+              هذه هي المهام التي يمكنك تشغيلها الآن حسب خطتك ووكلائك المفعلة.
+            </p>
+          </CardContent>
+        </Card>
+        <Card className="border-amber-200 bg-amber-50/50">
+          <CardContent className="p-4">
+            <p className="text-sm text-muted-foreground">مهام قيد التنفيذ</p>
+            <p className="mt-1 text-2xl font-bold text-amber-700">
+              {activeTasks}
+            </p>
+            <p className="mt-2 text-xs text-muted-foreground">
+              المهام الجارية الآن أو التي ما زالت تجمع نتائج الوكلاء.
+            </p>
+          </CardContent>
+        </Card>
+        <Card className="border-emerald-200 bg-emerald-50/50">
+          <CardContent className="p-4">
+            <p className="text-sm text-muted-foreground">مهام مكتملة</p>
+            <p className="mt-1 text-2xl font-bold text-emerald-700">
+              {completedTasks}
+            </p>
+            <p className="mt-2 text-xs text-muted-foreground">
+              تقارير أو workflows أنهت التنفيذ بنجاح كامل.
+            </p>
+          </CardContent>
+        </Card>
+        <Card className="border-rose-200 bg-rose-50/50">
+          <CardContent className="p-4">
+            <p className="text-sm text-muted-foreground">تحتاج مراجعة</p>
+            <p className="mt-1 text-2xl font-bold text-rose-700">
+              {partialOrFailedTasks}
+            </p>
+            <p className="mt-2 text-xs text-muted-foreground">
+              مهام انتهت جزئياً أو فشلت وتحتاج متابعة سريعة.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card className="border-dashed">
+        <CardContent className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="font-medium">هذه الصفحة ليست سجل نشاط</p>
+            <p className="text-sm text-muted-foreground">
+              هنا تشغّل workflows جماعية مثل تقرير شامل أو إغلاق اليوم. كل مهمة
+              تنقسم إلى subtasks على عدة وكلاء ثم تُجمّع في تقرير واحد.
+            </p>
+          </div>
+          <a
+            href="/merchant/agent-activity"
+            className="text-sm text-primary hover:underline"
+          >
+            راجع نشاط الوكلاء
+          </a>
+        </CardContent>
+      </Card>
 
       {/* Message */}
       {message && (
