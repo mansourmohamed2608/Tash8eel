@@ -856,7 +856,7 @@ ${merchantContext.conversationHistory}
     const cartItems = conversation.cart.items || [];
     const cartSummary =
       cartItems.length > 0
-        ? `السلة الحالية:\n${cartItems.map((i: any) => `- ${i.name} × ${i.quantity} = ${i.total} جنيه`).join("\n")}\nالمجموع الفرعي: ${conversation.cart.subtotal || conversation.cart.total} جنيه${conversation.cart.discount ? `\nالخصم: ${conversation.cart.discount} جنيه` : ""}${conversation.cart.deliveryFee ? `\nالتوصيل: ${conversation.cart.deliveryFee} جنيه` : ""}\nالإجمالي: ${conversation.cart.total} جنيه`
+        ? `السلة الحالية:\n${cartItems.map((i: any) => `- ${this.sanitizeCustomerFacingProductLabel(i.name) || "المنتج ده"} × ${i.quantity} = ${i.total} جنيه`).join("\n")}\nالمجموع الفرعي: ${conversation.cart.subtotal || conversation.cart.total} جنيه${conversation.cart.discount ? `\nالخصم: ${conversation.cart.discount} جنيه` : ""}${conversation.cart.deliveryFee ? `\nالتوصيل: ${conversation.cart.deliveryFee} جنيه` : ""}\nالإجمالي: ${conversation.cart.total} جنيه`
         : "السلة فارغة";
 
     // Build collected info summary
@@ -1843,11 +1843,43 @@ ${customerMessage}
     fallback: string | null,
   ): string | null {
     if (!reference) {
-      return fallback;
+      return this.sanitizeCustomerFacingProductLabel(fallback);
     }
 
     const match = this.findCatalogItemByReference(catalogItems, reference);
-    return match?.nameAr || fallback;
+    if (match) {
+      return (
+        match.nameAr?.trim() ||
+        match.nameEn?.trim() ||
+        this.sanitizeCustomerFacingProductLabel(fallback)
+      );
+    }
+
+    return this.sanitizeCustomerFacingProductLabel(fallback);
+  }
+
+  private sanitizeCustomerFacingProductLabel(
+    label: string | null | undefined,
+  ): string | null {
+    const value = String(label || "").trim();
+    if (!value) {
+      return "المنتج ده";
+    }
+
+    if (this.looksLikeInternalSku(value)) {
+      return "المنتج ده";
+    }
+
+    return value;
+  }
+
+  private looksLikeInternalSku(value: string): boolean {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return false;
+    }
+
+    return /^[A-Z0-9]{2,}(?:-[A-Z0-9]{2,})+$/.test(trimmed);
   }
 
   private findCatalogItemByReference(
@@ -2943,6 +2975,58 @@ recentAgentActions: آخر 10 إجراءات اتخذها الوكلاء في آ
     context: LlmContext,
     currentState: ConversationState,
   ): string {
+    const persistedCartItems = Array.isArray(context.conversation.cart?.items)
+      ? context.conversation.cart.items
+      : [];
+
+    if (persistedCartItems.length > 0) {
+      const lines = persistedCartItems.map((item: any) => {
+        const name = this.resolveCustomerFacingCartItemName(
+          context.catalogItems,
+          item,
+        );
+        const quantity = Number(item?.quantity || 1);
+        const total = Number(item?.total || 0);
+        const unitPrice = Number(item?.unitPrice || 0);
+
+        if (total > 0) {
+          return `- ${name} × ${quantity} = ${total} جنيه`;
+        }
+
+        if (unitPrice > 0) {
+          return `- ${name} × ${quantity} = ${unitPrice * quantity} جنيه`;
+        }
+
+        return `- ${name} × ${quantity}`;
+      });
+
+      const subtotal = Number(
+        context.conversation.cart?.subtotal ||
+          context.conversation.cart?.total ||
+          0,
+      );
+      const discount = Number(context.conversation.cart?.discount || 0);
+      const deliveryFee = Number(context.conversation.cart?.deliveryFee || 0);
+      const total = Number(context.conversation.cart?.total || subtotal);
+
+      const summaryLines = ["في السلة حالياً:", ...lines];
+
+      if (subtotal > 0) {
+        summaryLines.push(`المجموع الفرعي: ${subtotal} جنيه`);
+      }
+      if (discount > 0) {
+        summaryLines.push(`الخصم: ${discount} جنيه`);
+      }
+      if (deliveryFee > 0) {
+        summaryLines.push(`التوصيل: ${deliveryFee} جنيه`);
+      }
+      if (total > 0) {
+        summaryLines.push(`الإجمالي الحالي: ${total} جنيه.`);
+      }
+
+      return summaryLines.join("\n");
+    }
+
     if (currentState.confirmedItems.length === 0) {
       return "سلتك فاضية، بتدور على إيه؟";
     }
@@ -2980,6 +3064,37 @@ recentAgentActions: آخر 10 إجراءات اتخذها الوكلاء في آ
     return total > 0
       ? `في السلة حالياً:\n${lines.join("\n")}\nالإجمالي الحالي: ${total} جنيه.`
       : `في السلة حالياً:\n${lines.join("\n")}`;
+  }
+
+  private resolveCustomerFacingCartItemName(
+    catalogItems: CatalogItem[],
+    cartItem: {
+      productId?: string | null;
+      name?: string | null;
+    },
+  ): string {
+    const productId = String(cartItem?.productId || "").trim();
+    if (productId) {
+      const exactMatch = catalogItems.find(
+        (item) => String(item.id || "").trim() === productId,
+      );
+      if (exactMatch) {
+        return (
+          exactMatch.nameAr?.trim() ||
+          exactMatch.nameEn?.trim() ||
+          this.sanitizeCustomerFacingProductLabel(cartItem?.name) ||
+          "المنتج ده"
+        );
+      }
+    }
+
+    return (
+      this.getCanonicalCatalogLabel(
+        catalogItems,
+        String(cartItem?.name || "").trim() || null,
+        String(cartItem?.name || "").trim() || null,
+      ) || "المنتج ده"
+    );
   }
 
   private createFallbackResponse(
