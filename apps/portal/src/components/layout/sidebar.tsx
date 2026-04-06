@@ -323,9 +323,13 @@ const merchantNavItems: NavItem[] = [
 
   // OTHER (أخيراً)
   { href: "/merchant/assistant", label: "مساعد التاجر", icon: Bot },
-  { href: "/merchant/agents", label: "الوكلاء والذكاء", icon: Cpu },
-  { href: "/merchant/agent-activity", label: "نشاط الوكلاء", icon: Brain },
-  { href: "/merchant/teams", label: "فرق الوكلاء", icon: UsersRound },
+  { href: "/merchant/agents", label: "مركز الذكاء", icon: Cpu },
+  { href: "/merchant/agent-activity", label: "سجل نشاط الوكلاء", icon: Brain },
+  {
+    href: "/merchant/teams",
+    label: "المهام الجماعية للوكلاء",
+    icon: UsersRound,
+  },
   {
     href: "/merchant/team",
     label: "الفريق",
@@ -352,7 +356,7 @@ const merchantNavItems: NavItem[] = [
   },
   {
     href: "/merchant/audit/ai-decisions",
-    label: "قرارات الذكاء الاصطناعي",
+    label: "سجل قرارات الذكاء",
     icon: Brain,
     featureKey: "audit",
     upgradeText: "ترقية لسجل التدقيق",
@@ -404,11 +408,11 @@ const MERCHANT_SECTION_CONFIG: MerchantSidebarSection[] = [
       { href: "/merchant/calls", label: "المكالمات" },
       {
         href: "/merchant/audit/ai-decisions",
-        label: "قرارات الذكاء الاصطناعي",
+        label: "سجل قرارات الذكاء",
       },
-      { href: "/merchant/agent-activity", label: "نشاط الوكلاء" },
-      { href: "/merchant/agents", label: "الوكلاء والذكاء" },
-      { href: "/merchant/teams", label: "فريق الوكلاء" },
+      { href: "/merchant/agent-activity", label: "سجل نشاط الوكلاء" },
+      { href: "/merchant/agents", label: "مركز الذكاء" },
+      { href: "/merchant/teams", label: "المهام الجماعية للوكلاء" },
     ],
   },
   {

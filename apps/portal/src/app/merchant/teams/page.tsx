@@ -508,7 +508,7 @@ export default function AgentTeamsPage() {
     return (
       <>
         <PageHeader
-          title="فرق الوكلاء"
+          title="المهام الجماعية للوكلاء"
           description="توزيع المهام على عدة وكلاء للعمل بالتوازي"
         />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
@@ -524,7 +524,7 @@ export default function AgentTeamsPage() {
     return (
       <>
         <PageHeader
-          title="فرق الوكلاء"
+          title="المهام الجماعية للوكلاء"
           description="توزيع المهام على عدة وكلاء للعمل بالتوازي"
         />
         <Card className="mt-6">
@@ -544,7 +544,7 @@ export default function AgentTeamsPage() {
   return (
     <>
       <PageHeader
-        title="فرق الوكلاء"
+        title="المهام الجماعية للوكلاء"
         description="بدلاً من أن يعمل وكيل واحد على تنفيذ المهام بشكل تسلسلي، يمكن توزيع العمل على عدة وكلاء"
         actions={
           <Button variant="outline" size="sm" onClick={fetchData}>

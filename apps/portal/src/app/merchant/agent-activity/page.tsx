@@ -217,7 +217,7 @@ export default function AgentActivityPage() {
     return (
       <div className="space-y-6 p-6" dir="rtl">
         <PageHeader
-          title="نشاط الوكلاء الذكية"
+          title="سجل نشاط الوكلاء"
           description="ما قامت به الوكلاء تلقائياً"
         />
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -247,7 +247,7 @@ export default function AgentActivityPage() {
       </Link>
 
       <PageHeader
-        title="نشاط الوكلاء الذكية"
+        title="سجل نشاط الوكلاء"
         description="كل ما قامت به الوكلاء تلقائياً - اكتشاف المشاكل، اتخاذ الإجراءات، وتنبيهك"
       />
 

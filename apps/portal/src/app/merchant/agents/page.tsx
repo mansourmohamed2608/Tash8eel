@@ -238,7 +238,7 @@ export default function AgentsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="مركز الذكاء الاصطناعي"
+        title="مركز الذكاء"
         description="كل أدوات الذكاء الاصطناعي التي تعمل لصالح متجرك - من بوت الواتساب إلى تحليلات المخزون"
       />
 
@@ -444,7 +444,7 @@ export default function AgentsPage() {
             <CardContent className="p-6 flex items-center justify-between">
               <div>
                 <h3 className="font-bold text-lg flex items-center gap-2">
-                  👥 فرق الوكلاء
+                  👥 المهام الجماعية للوكلاء
                 </h3>
                 <p className="text-muted-foreground text-sm mt-1">
                   وزّع العمل على عدة وكلاء ليعملوا معاً بالتوازي على مهام معقدة

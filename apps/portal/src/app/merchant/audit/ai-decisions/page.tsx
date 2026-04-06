@@ -69,7 +69,7 @@ export default function AiAuditPage() {
   if (loading)
     return (
       <div>
-        <PageHeader title="سجل قرارات الذكاء الاصطناعي" />
+        <PageHeader title="سجل قرارات الذكاء" />
         <DashboardSkeleton />
       </div>
     );
@@ -80,7 +80,7 @@ export default function AiAuditPage() {
   return (
     <div className="space-y-6 animate-fadeIn">
       <PageHeader
-        title="سجل قرارات الذكاء الاصطناعي"
+        title="سجل قرارات الذكاء"
         titleEn="AI Decision Audit Trail"
         description="تتبع كل قرار يتخذه الذكاء الاصطناعي مع السبب والسياق"
         actions={

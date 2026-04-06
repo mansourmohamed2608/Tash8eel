@@ -430,7 +430,7 @@ export default function MerchantAssistantPage() {
   return (
     <div className="space-y-6 animate-fadeIn">
       <PageHeader
-        title="مساعد التاجر الذكي"
+        title="مساعد التاجر"
         description="أرسل أوامر نصية أو صوتية لإدارة المصاريف، المخزون، الطلبات والمزيد"
         actions={
           <div className="flex items-center gap-2">

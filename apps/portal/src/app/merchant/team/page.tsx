@@ -292,7 +292,7 @@ const permissions = [
     label: "قاعدة المعرفة",
     actions: ["create", "read", "update", "delete"],
   },
-  { key: "agents", label: "الوكلاء والذكاء", actions: ["read", "update"] },
+  { key: "agents", label: "مركز الذكاء", actions: ["read", "update"] },
   { key: "reports", label: "التقارير", actions: ["read", "export"] },
   { key: "integrations", label: "التكاملات", actions: ["read", "update"] },
   {
