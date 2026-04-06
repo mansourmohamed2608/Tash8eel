@@ -494,7 +494,7 @@ const MERCHANT_SECTION_CONFIG: MerchantSidebarSection[] = [
       { href: "/merchant/pos-integrations", label: "POS Integrations" },
       { href: "/merchant/settings", label: "الإعدادات" },
       { href: "/merchant/import-export", label: "استيراد/تصدير" },
-      { href: "/merchant/assistant", label: "الدعم الفني" },
+      { href: "/merchant/assistant", label: "مساعد التاجر" },
     ],
   },
   {

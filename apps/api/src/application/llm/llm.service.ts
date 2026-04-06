@@ -1228,6 +1228,20 @@ ${customerMessage}
       !this.looksLikeDeliveryAddressText(context.customerMessage) &&
       asksAddress
     ) {
+      const matchedZone = this.findMatchingDeliveryZone(
+        context.customerMessage,
+        context.merchant.deliveryRules?.deliveryZones || [],
+      );
+      if (matchedZone) {
+        clearAddressAndPayment();
+        next.actionType = ActionType.ASK_CLARIFYING_QUESTION;
+        next.reply_ar = Number.isFinite(matchedZone.estimatedDays)
+          ? `التوصيل إلى ${matchedZone.zone} متاح برسوم ${matchedZone.fee} جنيه، ومدة التوصيل المتوقعة حوالي ${matchedZone.estimatedDays} يوم.`
+          : `التوصيل إلى ${matchedZone.zone} متاح برسوم ${matchedZone.fee} جنيه.`;
+        next.reasoning = "answered_delivery_zone_followup";
+        return next;
+      }
+
       clearAddressAndPayment();
       next.actionType = ActionType.ASK_CLARIFYING_QUESTION;
       next.reply_ar = "خد وقتك، لما تجهز العنوان قولي 😊";
@@ -1350,7 +1364,7 @@ ${customerMessage}
     const normalized = this.normalizeArabicText(text);
 
     if (
-      /عنوان|العنوان|محافظه|محافظة|منطقه|منطقة|شارع|عماره|عمارة|حي|لوكيشن/.test(
+      /عنوان|العنوان|شارع|عماره|عمارة|شقه|شقة|الدور|برج|فيلا|لوكيشن/.test(
         normalized,
       )
     ) {
@@ -1408,6 +1422,29 @@ ${customerMessage}
 
   private extractDeliveryAddressFromText(text: string): string | null {
     return this.looksLikeDeliveryAddressText(text) ? text.trim() : null;
+  }
+
+  private findMatchingDeliveryZone(
+    text: string,
+    zones: Array<{ zone: string; fee: number; estimatedDays?: number | null }>,
+  ): { zone: string; fee: number; estimatedDays?: number | null } | null {
+    const normalizedText = this.normalizeArabicText(text);
+    if (!normalizedText) {
+      return null;
+    }
+
+    for (const zone of zones) {
+      const normalizedZone = this.normalizeArabicText(zone.zone);
+      if (
+        normalizedZone &&
+        (normalizedText.includes(normalizedZone) ||
+          normalizedZone.includes(normalizedText))
+      ) {
+        return zone;
+      }
+    }
+
+    return null;
   }
 
   private looksLikeDeliveryAddressText(text: string): boolean {
