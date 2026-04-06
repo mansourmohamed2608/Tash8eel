@@ -1121,11 +1121,26 @@ ${customerMessage}
       previousState,
       currentState,
     );
+    const canonicalConfirmedItems = currentState.confirmedItems.map((item) => ({
+      ...item,
+      name:
+        this.getCanonicalCatalogLabel(
+          context.catalogItems,
+          item.name,
+          item.name,
+        ) || item.name,
+    }));
     const result = createLlmResult(sanitized, tokensUsed, llmUsed);
-    result.conversationState = currentState;
+    result.conversationState = {
+      ...currentState,
+      confirmedItems: canonicalConfirmedItems,
+    };
     result.cartItems = this.getNewlyConfirmedCartItems(
       previousState,
-      currentState,
+      {
+        ...currentState,
+        confirmedItems: canonicalConfirmedItems,
+      },
       context.conversation.cart.items || [],
     );
     return result;
@@ -1658,15 +1673,19 @@ ${customerMessage}
     const item = this.resolveActiveCatalogItem(context, currentState, response);
     const hint =
       item?.nameAr ||
-      currentState.confirmedItems[currentState.confirmedItems.length - 1]
-        ?.name ||
-      this.extractProductHint(
-        this.normalizeArabicText(context.customerMessage),
+      this.getCanonicalCatalogLabel(
         context.catalogItems,
-      ) ||
-      this.extractProductHintFromHistory(
-        context.recentMessages,
-        context.catalogItems,
+        currentState.confirmedItems[currentState.confirmedItems.length - 1]
+          ?.name ||
+          this.extractProductHint(
+            this.normalizeArabicText(context.customerMessage),
+            context.catalogItems,
+          ) ||
+          this.extractProductHintFromHistory(
+            context.recentMessages,
+            context.catalogItems,
+          ),
+        null,
       );
 
     if (currentState.stage === "discovery") {
@@ -1746,7 +1765,65 @@ ${customerMessage}
     let bestMatch: CatalogItem | null = null;
     let bestScore = 0;
 
-    for (const item of context.catalogItems) {
+    for (const candidate of candidates) {
+      const match = this.findCatalogItemByReference(
+        context.catalogItems,
+        candidate,
+      );
+      if (!match) continue;
+      const score = this.normalizeArabicText(
+        [
+          match.nameAr,
+          match.nameEn,
+          match.sku,
+          match.descriptionAr,
+          match.category,
+        ]
+          .filter(Boolean)
+          .join(" "),
+      ).includes(this.normalizeArabicText(candidate))
+        ? 100
+        : 10;
+      if (score > bestScore) {
+        bestScore = score;
+        bestMatch = match;
+      }
+    }
+
+    return bestMatch;
+  }
+
+  private getCanonicalCatalogLabel(
+    catalogItems: CatalogItem[],
+    reference: string | null | undefined,
+    fallback: string | null,
+  ): string | null {
+    if (!reference) {
+      return fallback;
+    }
+
+    const match = this.findCatalogItemByReference(catalogItems, reference);
+    return match?.nameAr || fallback;
+  }
+
+  private findCatalogItemByReference(
+    catalogItems: CatalogItem[],
+    reference: string | null | undefined,
+  ): CatalogItem | null {
+    if (!reference) {
+      return null;
+    }
+
+    const normalizedReference = this.normalizeArabicText(reference);
+    if (!normalizedReference) {
+      return null;
+    }
+
+    const referenceTokens = normalizedReference.split(" ").filter(Boolean);
+    let bestMatch: CatalogItem | null = null;
+    let bestScore = 0;
+
+    for (const item of catalogItems) {
       const haystack = this.normalizeArabicText(
         [
           item.nameAr,
@@ -1760,22 +1837,21 @@ ${customerMessage}
           .join(" "),
       );
 
-      for (const candidate of candidates) {
-        const normalizedCandidate = this.normalizeArabicText(candidate);
-        let score = 0;
-        if (haystack.includes(normalizedCandidate)) {
-          score += 100;
+      let score = 0;
+      if (haystack.includes(normalizedReference)) {
+        score += 100;
+      }
+
+      for (const token of referenceTokens) {
+        if (token.length < 2) continue;
+        if (haystack.includes(token)) {
+          score += token.length >= 4 ? 10 : 4;
         }
-        for (const token of normalizedCandidate.split(" ").filter(Boolean)) {
-          if (token.length < 2) continue;
-          if (haystack.includes(token)) {
-            score += token.length >= 4 ? 10 : 4;
-          }
-        }
-        if (score > bestScore) {
-          bestScore = score;
-          bestMatch = item;
-        }
+      }
+
+      if (score > bestScore) {
+        bestScore = score;
+        bestMatch = item;
       }
     }
 
@@ -2803,11 +2879,17 @@ recentAgentActions: آخر 10 إجراءات اتخذها الوكلاء في آ
     const currentState = this.extractConversationState(
       this.buildStateMessages(recentMessages, conversation, customerMessage),
     );
-    const productHint =
+    const productHint = this.getCanonicalCatalogLabel(
+      catalogItems,
       this.extractProductHint(messageLower, catalogItems) ||
-      this.extractProductHintFromHistory(recentMessages, catalogItems) ||
-      conversation.cart.items?.[0]?.name ||
-      null;
+        this.extractProductHintFromHistory(recentMessages, catalogItems) ||
+        conversation.cart.items?.[0]?.name ||
+        null,
+      this.extractProductHint(messageLower, catalogItems) ||
+        this.extractProductHintFromHistory(recentMessages, catalogItems) ||
+        conversation.cart.items?.[0]?.name ||
+        null,
+    );
     const directQuestion = this.classifyCustomerQuestion(customerMessage);
 
     logger.warn("Using fallback response", {
