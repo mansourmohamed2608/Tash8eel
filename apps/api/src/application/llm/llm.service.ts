@@ -1240,7 +1240,7 @@ ${customerMessage}
         currentState.stage === "item_confirmation") &&
       (asksAddress || asksPayment);
 
-    if (questionType && (asksAddress || asksPayment)) {
+    if (questionType) {
       const directAnswer = this.buildDirectQuestionAnswer(
         questionType,
         context,
@@ -1561,17 +1561,21 @@ ${customerMessage}
       return "color";
     }
     if (
-      /بتوصلوا فين|مناطق التوصيل|فين التوصيل|بتوصلوا لايه|بتوصلوا لاي/.test(
+      /بتوصلوا فين|مناطق التوصيل|فين التوصيل|بتوصلوا لايه|بتوصلوا لاي|الشحن فين|الدليفري فين|الديلفري فين|الديليفري فين/.test(
         normalized,
       )
     ) {
       return "delivery_areas";
     }
-    if (/التوصيل بكام|سعر التوصيل|رسوم التوصيل/.test(normalized)) {
+    if (
+      /التوصيل بكام|سعر التوصيل|رسوم التوصيل|الشحن بكام|سعر الشحن|رسوم الشحن|الدليفري بكام|الديلفري بكام|الديليفري بكام|ليه الدليفري|ليه الديلفري|ليه الديليفري|ليه التوصيل|التوصيل ليه|الدليفري ليه|الديلفري ليه|الشحن ليه|ليه الشحن/.test(
+        normalized,
+      )
+    ) {
       return "delivery_fee";
     }
     if (
-      /بياخد قد ايه|بياخد قد ايه|مدة التوصيل|امتي يوصل|امتى يوصل/.test(
+      /بياخد قد ايه|بياخد قد ايه|مدة التوصيل|امتي يوصل|امتى يوصل|الشحن بياخد قد ايه|الدليفري بياخد قد ايه|الديلفري بياخد قد ايه/.test(
         normalized,
       )
     ) {
@@ -1652,13 +1656,25 @@ ${customerMessage}
         return `التوصيل متاح للمناطق دي: ${zones.map((zone) => zone.zone).join("، ")}.`;
       }
       case "delivery_fee": {
+        const normalizedMessage = this.normalizeArabicText(
+          context.customerMessage,
+        );
+        const currentCartDeliveryFee = Number(
+          context.conversation.cart?.deliveryFee || 0,
+        );
         const zones = context.merchant.deliveryRules?.deliveryZones || [];
         if (zones.length > 0) {
           const summary = zones
             .slice(0, 4)
             .map((zone) => `${zone.zone}: ${zone.fee} جنيه`)
             .join("، ");
+          if (/ليه/.test(normalizedMessage)) {
+            return `رسوم التوصيل بتختلف حسب المنطقة. الأسعار الحالية هي: ${summary}.`;
+          }
           return `رسوم التوصيل حسب المنطقة: ${summary}.`;
+        }
+        if (/ليه/.test(normalizedMessage) && currentCartDeliveryFee > 0) {
+          return `رسوم التوصيل الحالية ${currentCartDeliveryFee} جنيه حسب تكلفة التوصيل المضافة على الطلب الحالي. لو قلتلي المنطقة أقدر أوضحها بدقة أكتر.`;
         }
         const fee =
           context.merchant.defaultDeliveryFee ??
