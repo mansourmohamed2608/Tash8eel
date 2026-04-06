@@ -287,6 +287,7 @@ export default function ConversationsPage() {
   const [newMessage, setNewMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [takingOver, setTakingOver] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const normalizeSenderDisplay = useCallback(
@@ -329,6 +330,42 @@ export default function ConversationsPage() {
       return normalizeSenderDisplay(conversation.senderId);
     },
     [normalizeSenderDisplay],
+  );
+
+  const getCustomerAvatarLetter = useCallback((conversation: Conversation) => {
+    const name =
+      conversation.customerName != null
+        ? String(conversation.customerName).trim()
+        : "";
+
+    if (!name) {
+      return null;
+    }
+
+    const firstCharacter = Array.from(name)[0] || "";
+    return /[\p{L}]/u.test(firstCharacter) ? firstCharacter : null;
+  }, []);
+
+  const getConversationPreview = useCallback(
+    (conversation: Conversation) => {
+      const latestMessage = [...(conversation.messages || [])]
+        .sort(
+          (a, b) =>
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+        )
+        .find((message) => String(message.text || "").trim().length > 0);
+
+      if (latestMessage) {
+        return latestMessage.text.trim();
+      }
+
+      if (conversation.isHumanTakeover) {
+        return "المحادثة في وضع التدخل البشري";
+      }
+
+      return `الحالة الحالية: ${getStatusLabel(getEffectiveState(conversation))}`;
+    },
+    [getEffectiveState],
   );
 
   const fetchConversations = useCallback(async () => {
@@ -403,10 +440,21 @@ export default function ConversationsPage() {
     }
   }, [filteredConversations, selectedConversation?.id]);
 
+  useEffect(() => {
+    setSendError(null);
+  }, [selectedConversation?.id]);
+
+  useEffect(() => {
+    if (sendError && newMessage.trim().length > 0) {
+      setSendError(null);
+    }
+  }, [newMessage, sendError]);
+
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !selectedConversation || sending) return;
 
     setSending(true);
+    setSendError(null);
     try {
       await merchantApi.sendMessage(
         selectedConversation.id,
@@ -418,6 +466,11 @@ export default function ConversationsPage() {
       await fetchMessages(selectedConversation.id);
     } catch (err) {
       console.error("Failed to send message:", err);
+      setSendError(
+        err instanceof Error
+          ? err.message
+          : "تعذر إرسال الرسالة الآن. حاول مرة أخرى.",
+      );
     } finally {
       setSending(false);
     }
@@ -593,10 +646,10 @@ export default function ConversationsPage() {
       </div>
 
       {/* Main Content - Split View */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 h-[calc(100vh-400px)] min-h-[500px]">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[380px_minmax(0,1fr)] 2xl:grid-cols-[440px_minmax(0,1fr)]">
         {/* Conversations List */}
-        <Card className="lg:col-span-1">
-          <CardHeader className="pb-2">
+        <Card className="overflow-hidden border-border/70 shadow-sm">
+          <CardHeader className="border-b bg-muted/20 pb-3">
             <div className="space-y-3">
               <div className="relative">
                 <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -635,7 +688,7 @@ export default function ConversationsPage() {
             </div>
           </CardHeader>
           <CardContent className="p-0">
-            <ScrollArea className="h-[calc(100vh-550px)] min-h-[350px]">
+            <ScrollArea className="h-[calc(100vh-19rem)] min-h-[34rem]">
               {filteredConversations.length === 0 ? (
                 <div className="p-6 text-center">
                   <MessageSquare className="h-12 w-12 mx-auto text-muted-foreground mb-2" />
@@ -650,12 +703,14 @@ export default function ConversationsPage() {
                       key={conv.id}
                       onClick={() => setSelectedConversation(conv)}
                       className={cn(
-                        "w-full p-4 text-right hover:bg-muted/50 transition-colors",
-                        selectedConversation?.id === conv.id && "bg-muted",
+                        "w-full px-4 py-4 text-right transition-colors",
+                        "hover:bg-muted/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+                        selectedConversation?.id === conv.id &&
+                          "bg-primary/5 ring-1 ring-inset ring-primary/15",
                       )}
                     >
                       <div className="flex items-start gap-3">
-                        <Avatar className="h-10 w-10">
+                        <Avatar className="h-11 w-11 shrink-0">
                           {conv.customerAvatarUrl && (
                             <AvatarImage
                               src={conv.customerAvatarUrl}
@@ -663,29 +718,32 @@ export default function ConversationsPage() {
                             />
                           )}
                           <AvatarFallback className="bg-primary/10 text-primary">
-                            {getDisplayName(conv).charAt(0) || (
+                            {getCustomerAvatarLetter(conv) || (
                               <User className="h-4 w-4" />
                             )}
                           </AvatarFallback>
                         </Avatar>
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between">
+                          <div className="flex items-start justify-between gap-3">
                             <div className="flex min-w-0 items-center gap-2">
                               <ConversationChannelIcon channel={conv.channel} />
-                              <p className="font-medium truncate">
+                              <p className="truncate text-sm font-medium sm:text-[15px]">
                                 {getDisplayName(conv)}
                               </p>
                             </div>
-                            <span className="text-xs text-muted-foreground">
+                            <span className="shrink-0 text-[11px] text-muted-foreground">
                               {formatRelativeTime(
                                 conv.lastMessageAt || conv.updatedAt,
                               )}
                             </span>
                           </div>
-                          <div className="flex items-center gap-2 mt-1">
+                          <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">
+                            {getConversationPreview(conv)}
+                          </p>
+                          <div className="mt-2 flex flex-wrap items-center gap-2">
                             <Badge
                               className={cn(
-                                "text-xs",
+                                "text-[11px]",
                                 getStatusColor(getEffectiveState(conv)),
                               )}
                             >
@@ -699,15 +757,15 @@ export default function ConversationsPage() {
                               </Badge>
                             )}
                           </div>
-                          <div className="flex items-center gap-2 mt-1">
-                            <p className="text-xs text-muted-foreground">
+                          <div className="mt-2 flex flex-wrap items-center gap-3">
+                            <p className="text-[11px] text-muted-foreground">
                               {typeof conv.messageCount === "number"
                                 ? conv.messageCount
                                 : "-"}{" "}
                               رسالة
                             </p>
                             <p
-                              className="text-xs text-muted-foreground"
+                              className="text-[11px] text-muted-foreground"
                               dir="ltr"
                             >
                               {normalizeSenderDisplay(
@@ -731,14 +789,14 @@ export default function ConversationsPage() {
         </Card>
 
         {/* Chat View */}
-        <Card className="lg:col-span-2 flex flex-col">
+        <Card className="flex min-h-[48rem] flex-col overflow-hidden border-border/70 shadow-sm">
           {selectedConversation ? (
             <>
               {/* Chat Header */}
-              <CardHeader className="border-b py-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <Avatar className="h-10 w-10">
+              <CardHeader className="border-b bg-muted/20 px-5 py-4">
+                <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <Avatar className="h-11 w-11">
                       {selectedConversation.customerAvatarUrl && (
                         <AvatarImage
                           src={selectedConversation.customerAvatarUrl}
@@ -746,40 +804,54 @@ export default function ConversationsPage() {
                         />
                       )}
                       <AvatarFallback className="bg-primary/10 text-primary">
-                        {getDisplayName(selectedConversation).charAt(0) || (
+                        {getCustomerAvatarLetter(selectedConversation) || (
                           <User className="h-4 w-4" />
                         )}
                       </AvatarFallback>
                     </Avatar>
-                    <div>
-                      <p className="font-medium flex items-center gap-2">
+                    <div className="min-w-0">
+                      <p className="flex items-center gap-2 font-medium">
                         <ConversationChannelIcon
                           channel={selectedConversation.channel}
                         />
-                        {getDisplayName(selectedConversation)}
+                        <span className="truncate">
+                          {getDisplayName(selectedConversation)}
+                        </span>
                       </p>
-                      <p className="text-sm text-muted-foreground" dir="ltr">
+                      <p
+                        className="mt-1 text-sm text-muted-foreground"
+                        dir="ltr"
+                      >
                         {normalizeSenderDisplay(
                           selectedConversation.customerPhone ||
                             selectedConversation.senderId,
                         )}
                       </p>
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <Badge
+                          className={cn(
+                            getStatusColor(
+                              getEffectiveState(selectedConversation),
+                            ),
+                          )}
+                        >
+                          {getStatusLabel(
+                            getEffectiveState(selectedConversation),
+                          )}
+                        </Badge>
+                        <LeadScoreBadge
+                          score={selectedConversation.leadScore}
+                        />
+                        {selectedConversation.addressConfidence !==
+                          undefined && (
+                          <AddressConfidenceBadge
+                            confidence={selectedConversation.addressConfidence}
+                          />
+                        )}
+                      </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Badge
-                      className={cn(
-                        getStatusColor(getEffectiveState(selectedConversation)),
-                      )}
-                    >
-                      {getStatusLabel(getEffectiveState(selectedConversation))}
-                    </Badge>
-                    <LeadScoreBadge score={selectedConversation.leadScore} />
-                    {selectedConversation.addressConfidence !== undefined && (
-                      <AddressConfidenceBadge
-                        confidence={selectedConversation.addressConfidence}
-                      />
-                    )}
+                  <div className="flex flex-wrap items-center gap-2 xl:justify-end">
                     {canEdit &&
                       (getEffectiveState(selectedConversation) ===
                       "HUMAN_TAKEOVER" ? (
@@ -827,8 +899,8 @@ export default function ConversationsPage() {
               </CardHeader>
 
               {/* Messages Area */}
-              <CardContent className="flex-1 p-0 overflow-hidden">
-                <ScrollArea className="h-[calc(100vh-650px)] min-h-[250px] p-4">
+              <CardContent className="flex-1 overflow-hidden bg-[linear-gradient(180deg,rgba(59,130,246,0.03),transparent_28%)] p-0">
+                <ScrollArea className="h-[calc(100vh-23rem)] min-h-[30rem] px-5 py-5">
                   {loadingMessages ? (
                     <div className="flex items-center justify-center h-full">
                       <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -838,7 +910,7 @@ export default function ConversationsPage() {
                       لا توجد رسائل
                     </div>
                   ) : (
-                    <div className="space-y-4">
+                    <div className="space-y-5">
                       {messages.map((msg) => {
                         const isOutbound =
                           msg.direction?.toString().toLowerCase() ===
@@ -853,7 +925,7 @@ export default function ConversationsPage() {
                           <div
                             key={msg.id}
                             className={cn(
-                              "flex gap-2",
+                              "flex gap-3",
                               isOutbound ? "flex-row-reverse" : "flex-row",
                             )}
                           >
@@ -874,18 +946,18 @@ export default function ConversationsPage() {
                             </Avatar>
                             <div
                               className={cn(
-                                "max-w-[70%] rounded-lg px-4 py-2",
+                                "max-w-[82%] rounded-2xl px-4 py-3 shadow-sm sm:max-w-[72%]",
                                 isOutbound
-                                  ? "bg-primary text-primary-foreground"
-                                  : "bg-muted",
+                                  ? "rounded-br-md bg-primary text-primary-foreground"
+                                  : "rounded-bl-md border border-border/60 bg-background",
                               )}
                             >
-                              <p className="text-sm whitespace-pre-wrap">
+                              <p className="text-sm whitespace-pre-wrap leading-6">
                                 {safeText || "-"}
                               </p>
                               <p
                                 className={cn(
-                                  "text-xs mt-1",
+                                  "mt-2 text-[11px]",
                                   isOutbound
                                     ? "text-primary-foreground/70"
                                     : "text-muted-foreground",
@@ -904,40 +976,59 @@ export default function ConversationsPage() {
               </CardContent>
 
               {/* Message Input */}
-              {getEffectiveState(selectedConversation) === "HUMAN_TAKEOVER" && (
-                <div className="border-t p-4">
-                  <div className="flex gap-2">
-                    <Textarea
-                      placeholder="اكتب رسالتك..."
-                      value={newMessage}
-                      onChange={(e) => setNewMessage(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && !e.shiftKey) {
-                          e.preventDefault();
-                          handleSendMessage();
-                        }
-                      }}
-                      className="min-h-[60px] resize-none"
-                    />
-                    <Button
-                      onClick={handleSendMessage}
-                      disabled={!canCreate || !newMessage.trim() || sending}
-                      className="shrink-0"
-                    >
-                      <Send className="h-4 w-4" />
-                    </Button>
+              <div className="border-t bg-background/90 px-5 py-4">
+                {getEffectiveState(selectedConversation) ===
+                "HUMAN_TAKEOVER" ? (
+                  <>
+                    {sendError && (
+                      <div className="mb-3 rounded-xl border border-destructive/20 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+                        {sendError}
+                      </div>
+                    )}
+                    <div className="flex flex-col gap-3 sm:flex-row">
+                      <Textarea
+                        placeholder="اكتب رسالتك هنا..."
+                        value={newMessage}
+                        onChange={(e) => setNewMessage(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && !e.shiftKey) {
+                            e.preventDefault();
+                            handleSendMessage();
+                          }
+                        }}
+                        className="min-h-[74px] resize-none rounded-2xl border-border/70 bg-background"
+                      />
+                      <Button
+                        onClick={handleSendMessage}
+                        disabled={!canCreate || !newMessage.trim() || sending}
+                        className="h-auto min-h-[74px] shrink-0 rounded-2xl px-5"
+                      >
+                        {sending ? (
+                          <RefreshCw className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Send className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </div>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      اضغط Enter للإرسال، أو Shift+Enter لسطر جديد
+                    </p>
+                  </>
+                ) : (
+                  <div className="rounded-2xl border border-dashed border-border/80 bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
+                    لازم تستلم المحادثة أولاً قبل ما تبعت رسالة يدوية.
                   </div>
-                  <p className="text-xs text-muted-foreground mt-2">
-                    اضغط Enter للإرسال، أو Shift+Enter لسطر جديد
-                  </p>
-                </div>
-              )}
+                )}
+              </div>
             </>
           ) : (
-            <div className="flex-1 flex items-center justify-center">
+            <div className="flex flex-1 items-center justify-center bg-muted/10">
               <div className="text-center">
-                <MessageSquare className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
-                <p className="text-muted-foreground">اختر محادثة للبدء</p>
+                <MessageSquare className="mx-auto mb-4 h-16 w-16 text-muted-foreground" />
+                <p className="font-medium text-foreground">اختر محادثة للبدء</p>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  راجع القائمة واختر المحادثة اللي محتاجة متابعة الآن.
+                </p>
               </div>
             </div>
           )}

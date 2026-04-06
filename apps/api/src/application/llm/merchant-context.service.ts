@@ -360,7 +360,9 @@ export class MerchantContextService {
       return [
         `Total active products: ${allCatalogRows.length}`,
         "Relevant products for the current customer message:",
-        ...(relevantLines.length > 0 ? relevantLines : ["- No direct product match found."]),
+        ...(relevantLines.length > 0
+          ? relevantLines
+          : ["- No direct product match found."]),
         "",
         "Full active catalog:",
         ...allLines,
@@ -378,14 +380,16 @@ export class MerchantContextService {
     const categoryBlocks = Array.from(grouped.entries())
       .sort(([a], [b]) => a.localeCompare(b, "ar"))
       .map(([category, rows]) => {
-        const names = rows.map((row) => row.name_ar || row.name_en || row.sku || row.id);
+        const names = rows.map((row) => this.getCatalogDisplayName(row));
         return `Category: ${category} (${rows.length} products)\n- ${names.join(" | ")}`;
       });
 
     return [
       `Total active products: ${allCatalogRows.length}`,
       "Relevant products for the current customer message:",
-      ...(relevantLines.length > 0 ? relevantLines : ["- No direct product match found."]),
+      ...(relevantLines.length > 0
+        ? relevantLines
+        : ["- No direct product match found."]),
       "",
       "Grouped full catalog overview:",
       ...categoryBlocks,
@@ -397,27 +401,27 @@ export class MerchantContextService {
     ].join("\n");
   }
 
+  private getCatalogDisplayName(row: CatalogContextRow): string {
+    return row.name_ar?.trim() || row.name_en?.trim() || "منتج بدون اسم";
+  }
+
   private formatCatalogLine(row: CatalogContextRow): string {
-    const name = row.name_ar || row.name_en || row.sku || row.id;
+    const name = this.getCatalogDisplayName(row);
     const price = Number(row.price ?? row.base_price ?? 0);
-    const sku = row.sku || "غير متوفر";
     const category = row.category || "بدون تصنيف";
-    const description = row.description_ar?.trim() || "لا يوجد وصف";
     const inStock = this.isInStock(row) ? "yes" : "no";
-    const variants = this.formatVariants(row.variants);
 
     return [
-      `- Name (Arabic): ${name}`,
-      `  Description: ${description}`,
+      `- Name: ${name}`,
       `  Price: ${price} جنيه`,
-      `  SKU/code: ${sku}`,
+      `  Available: ${inStock}`,
       `  Category: ${category}`,
-      `  In stock: ${inStock}`,
-      `  Variants: ${variants}`,
     ].join("\n");
   }
 
-  private extractKnowledgeBaseEntries(merchant: Merchant): KnowledgeBaseEntry[] {
+  private extractKnowledgeBaseEntries(
+    merchant: Merchant,
+  ): KnowledgeBaseEntry[] {
     const knowledgeBase = merchant.knowledgeBase || {};
     const businessInfo = knowledgeBase.businessInfo || {};
     const entries: KnowledgeBaseEntry[] = [];
@@ -429,19 +433,15 @@ export class MerchantContextService {
     };
 
     pushEntry("Business name", businessInfo.name || merchant.name, "business");
-    pushEntry("Business category", businessInfo.category || merchant.category, "business");
+    pushEntry(
+      "Business category",
+      businessInfo.category || merchant.category,
+      "business",
+    );
     pushEntry("Business address", businessInfo.address, "business");
     pushEntry("Working hours", this.formatWorkingHours(merchant), "business");
-    pushEntry(
-      "Return policy",
-      businessInfo.policies?.returnPolicy,
-      "policy",
-    );
-    pushEntry(
-      "Delivery info",
-      businessInfo.policies?.deliveryInfo,
-      "delivery",
-    );
+    pushEntry("Return policy", businessInfo.policies?.returnPolicy, "policy");
+    pushEntry("Delivery info", businessInfo.policies?.deliveryInfo, "delivery");
     pushEntry(
       "Payment methods",
       Array.isArray(businessInfo.policies?.paymentMethods)
@@ -587,7 +587,8 @@ export class MerchantContextService {
     allEntries: KnowledgeBaseEntry[],
     relevantEntries: KnowledgeBaseEntry[],
   ): string {
-    const merchantPolicies = merchant.knowledgeBase?.businessInfo?.policies || {};
+    const merchantPolicies =
+      merchant.knowledgeBase?.businessInfo?.policies || {};
     const relevantLines = relevantEntries.map(
       (entry) => `- [${entry.category}] ${entry.title}\n  ${entry.content}`,
     );
@@ -711,7 +712,9 @@ export class MerchantContextService {
   }): string {
     const items = Array.isArray(order.items)
       ? order.items
-          .map((item: any) => `${item?.name || "منتج"} × ${item?.quantity || 1}`)
+          .map(
+            (item: any) => `${item?.name || "منتج"} × ${item?.quantity || 1}`,
+          )
           .join("، ")
       : "تفاصيل المنتجات غير متاحة";
     return `- #${order.order_number} | status: ${order.status} | total: ${Number(order.total).toLocaleString()} جنيه | items: ${items} | date: ${new Date(order.created_at).toLocaleString("en-GB")}`;
@@ -746,7 +749,10 @@ export class MerchantContextService {
     return Number(row.stock_quantity) > 0;
   }
 
-  private keywordScore(query: string, values: Array<string | null | undefined>): number {
+  private keywordScore(
+    query: string,
+    values: Array<string | null | undefined>,
+  ): number {
     const tokens = this.tokenizeArabicText(query);
     if (tokens.length === 0) {
       return 0;
@@ -775,7 +781,8 @@ export class MerchantContextService {
   }
 
   private formatWorkingHours(merchant: Merchant): string {
-    const knowledgeBaseHours = merchant.knowledgeBase?.businessInfo?.workingHours;
+    const knowledgeBaseHours =
+      merchant.knowledgeBase?.businessInfo?.workingHours;
     const merchantHours = merchant.workingHours as
       | { start?: string; end?: string; open?: string; close?: string }
       | undefined;

@@ -4785,8 +4785,8 @@ export class MerchantPortalController {
   ): any {
     const info = conversation.collectedInfo as any;
     // Guard: old seed stored booleans in collected_info — only use string values
-    const rawName = info?.customer_name;
-    const rawPhone = info?.phone;
+    const rawName = info?.customerName ?? info?.customer_name;
+    const rawPhone = info?.customerPhone ?? info?.phone;
     const infoName =
       typeof rawName === "string" && rawName.length > 0 ? rawName : undefined;
     const infoPhone =

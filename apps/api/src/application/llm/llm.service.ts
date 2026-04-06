@@ -582,12 +582,18 @@ ${merchantContext.conversationHistory}
 2. لو العميل سأل "بتبيعوا إيه" أو "عندك إيه":
    - اعرض المنتجات الموجودة فوراً من القائمة أعلاه
    - رتبها بشكل واضح بالأسعار
+   - اعتبر الرسالة انتقالاً فورياً لمرحلة discovery حتى لو كان قبلها مراحل تانية
    - مثال الرد:
      "عندنا:
      👕 تيشيرتات من 150 لـ 250 جنيه
      👖 بناطيل جينز من 300 لـ 450 جنيه
      🧢 كابات من 80 جنيه
      إيه اللي يناسبك؟"
+
+2.1 لو العميل قال "عندي إيه في السلة" أو "إيه اللي في سلتي":
+   - ده سؤال عن السلة الحالية، مش عن الكتالوج
+   - اعرض المنتجات المؤكدة الموجودة في السلة بالكميات والأسعار
+   - لو السلة فاضية قل: "سلتك فاضية، بتدور على إيه؟"
 
 3. لو العميل طلب منتج معين:
    - ابحث في القائمة أعلاه فوراً
@@ -899,7 +905,7 @@ ${collectedInfo}
 رسالة العميل الحالية:
 ${customerMessage}
 
-اعتمد على سياق المتجر والكتالوج وتاريخ المحادثة أعلاه. لو العميل ذكر المنتج بالفعل متسألوش عنه مرة تانية، وانتقل للخطوة التالية المناسبة في مسار الطلب. لو المرحلة discovery أو item_confirmation فلا تطلب عنوان التوصيل أو طريقة الدفع.`;
+اعتمد على سياق المتجر والكتالوج وتاريخ المحادثة أعلاه. لو العميل ذكر المنتج بالفعل متسألوش عنه مرة تانية، وانتقل للخطوة التالية المناسبة في مسار الطلب. لو العميل قال "عندك إيه" أو "بتبيعوا إيه" فده browsing discovery وورّيه الكتالوج فوراً. لو العميل قال "عندي إيه في السلة" أو "إيه اللي في سلتي" فاعرض السلة الحالية فقط. لو المرحلة discovery أو item_confirmation فلا تطلب عنوان التوصيل أو طريقة الدفع.`;
   }
 
   private buildStateMessages(
@@ -958,6 +964,7 @@ ${customerMessage}
     let pendingItem: WorkingItem | null = null;
     let lastSuggestedProduct: string | null = null;
     let summaryShown = false;
+    let latestInboundText: string | null = null;
 
     const confirmedItems: ConversationStateItem[] = [];
 
@@ -1016,6 +1023,7 @@ ${customerMessage}
       }
 
       const detectedName = this.extractCustomerNameFromText(text);
+      latestInboundText = text;
       if (detectedName) {
         customerName = detectedName;
       }
@@ -1095,6 +1103,13 @@ ${customerMessage}
       stage = "payment";
     } else if (summaryShown || confirmedItems.length > 0) {
       stage = "confirmed";
+    }
+
+    if (
+      latestInboundText &&
+      this.isDiscoveryTriggerMessage(latestInboundText)
+    ) {
+      stage = "discovery";
     }
 
     return {
@@ -1181,10 +1196,32 @@ ${customerMessage}
       if (next.extracted_entities?.address) {
         next.extracted_entities.address = null;
       }
+      if (next.extracted_entities?.products) {
+        next.extracted_entities.products = null;
+      }
       next.missing_slots = (next.missing_slots || []).filter(
         (slot) => !slot.startsWith("address") && slot !== "payment",
       );
     };
+
+    if (this.isCartContentsInquiryMessage(context.customerMessage)) {
+      clearAddressAndPayment();
+      next.actionType = ActionType.ASK_CLARIFYING_QUESTION;
+      next.reply_ar = this.buildCartContentsReply(context, currentState);
+      next.reasoning = "answered_cart_contents";
+      return next;
+    }
+
+    if (this.isDiscoveryTriggerMessage(context.customerMessage)) {
+      clearAddressAndPayment();
+      next.actionType = ActionType.ASK_CLARIFYING_QUESTION;
+      next.reply_ar = this.buildFallbackCatalogReply(
+        context.catalogItems,
+        context.merchant.category,
+      );
+      next.reasoning = "forced_discovery_catalog";
+      return next;
+    }
 
     if (
       currentState.lastAskedFor === "address" &&
@@ -1498,6 +1535,7 @@ ${customerMessage}
   private classifyCustomerQuestion(
     text: string,
   ):
+    | "cart_contents"
     | "sizes"
     | "price"
     | "color"
@@ -1510,6 +1548,9 @@ ${customerMessage}
     | null {
     const normalized = this.normalizeArabicText(text);
 
+    if (this.isCartContentsInquiryMessage(normalized)) {
+      return "cart_contents";
+    }
     if (/مقاس كام|المقاسات|عندك مقاس|في مقاس/.test(normalized)) {
       return "sizes";
     }
@@ -1551,6 +1592,7 @@ ${customerMessage}
 
   private buildDirectQuestionAnswer(
     questionType:
+      | "cart_contents"
       | "sizes"
       | "price"
       | "color"
@@ -1567,6 +1609,8 @@ ${customerMessage}
     const item = this.resolveActiveCatalogItem(context, currentState, response);
 
     switch (questionType) {
+      case "cart_contents":
+        return this.buildCartContentsReply(context, currentState);
       case "sizes": {
         const sizes = this.getVariantValues(item, "size");
         if (!item || sizes.length === 0) {
@@ -2706,9 +2750,41 @@ recentAgentActions: آخر 10 إجراءات اتخذها الوكلاء في آ
   }
 
   private isCatalogInquiryMessage(messageLower: string): boolean {
-    return /بتبيعوا|عندكم\s*(ايه|إيه)|المنيو|menu|catalog|الاصناف|الأصناف|متاح\s*ايه|متاح\s*إيه|ايه\s*عندكم|إيه\s*عندكم/i.test(
-      messageLower,
-    );
+    return this.isDiscoveryTriggerMessage(messageLower);
+  }
+
+  private isDiscoveryTriggerMessage(text: string): boolean {
+    const normalized = this.normalizeArabicText(text);
+    if (!normalized || this.isCartContentsInquiryMessage(normalized)) {
+      return false;
+    }
+
+    return [
+      "عندك ايه",
+      "بتبيعوا ايه",
+      "ايه عندكم",
+      "عندكم ايه",
+      "المنتجات ايه",
+      "اعرض المنتجات",
+      "كتالوج",
+      "catalog",
+      "menu",
+    ].some((phrase) => normalized.includes(phrase));
+  }
+
+  private isCartContentsInquiryMessage(text: string): boolean {
+    const normalized = this.normalizeArabicText(text);
+    if (!normalized) {
+      return false;
+    }
+
+    return [
+      "عندك ايه في السله",
+      "عندي ايه في السله",
+      "ايه في سلتي",
+      "ايه اللي في سلتي",
+      "عندي ايه",
+    ].some((phrase) => normalized.includes(phrase));
   }
 
   private isOrderIntentMessage(messageLower: string): boolean {
@@ -2863,6 +2939,49 @@ recentAgentActions: آخر 10 إجراءات اتخذها الوكلاء في آ
     return `أكيد 🙌 عندنا: ${names.join("، ")}.\nتحب أساعدك تختار أنسب حاجة؟`;
   }
 
+  private buildCartContentsReply(
+    context: LlmContext,
+    currentState: ConversationState,
+  ): string {
+    if (currentState.confirmedItems.length === 0) {
+      return "سلتك فاضية، بتدور على إيه؟";
+    }
+
+    const lines = currentState.confirmedItems.map((item) => {
+      const catalogItem = this.findCatalogItemByReference(
+        context.catalogItems,
+        item.name,
+      );
+      const name =
+        catalogItem?.nameAr ||
+        this.getCanonicalCatalogLabel(
+          context.catalogItems,
+          item.name,
+          item.name,
+        ) ||
+        item.name;
+      const unitPrice = Number(catalogItem?.basePrice || 0);
+      const variantLabel = item.variant ? ` (${item.variant})` : "";
+      const total = unitPrice > 0 ? unitPrice * item.quantity : null;
+
+      return total !== null
+        ? `- ${name}${variantLabel} × ${item.quantity} = ${total} جنيه`
+        : `- ${name}${variantLabel} × ${item.quantity}`;
+    });
+
+    const total = currentState.confirmedItems.reduce((sum, item) => {
+      const catalogItem = this.findCatalogItemByReference(
+        context.catalogItems,
+        item.name,
+      );
+      return sum + Number(catalogItem?.basePrice || 0) * item.quantity;
+    }, 0);
+
+    return total > 0
+      ? `في السلة حالياً:\n${lines.join("\n")}\nالإجمالي الحالي: ${total} جنيه.`
+      : `في السلة حالياً:\n${lines.join("\n")}`;
+  }
+
   private createFallbackResponse(
     context: LlmContext,
     reason: FallbackReason = "openai_error",
@@ -2915,6 +3034,10 @@ recentAgentActions: آخر 10 إجراءات اتخذها الوكلاء في آ
           reasoning: `fallback_reason:${reason}`,
           delivery_fee: null,
         }) || reply;
+    } else if (this.isCartContentsInquiryMessage(customerMessage)) {
+      reply = this.buildCartContentsReply(context, currentState);
+    } else if (this.isCatalogInquiryMessage(messageLower)) {
+      reply = this.buildFallbackCatalogReply(catalogItems, merchant.category);
     } else if (currentState.stage === "item_confirmation") {
       reply =
         this.buildStageProgressReply(context, previousState, currentState, {
@@ -2954,8 +3077,6 @@ recentAgentActions: آخر 10 إجراءات اتخذها الوكلاء في آ
       }
     } else if (productHint) {
       reply = this.buildFallbackOrderProgressReply(productHint);
-    } else if (this.isCatalogInquiryMessage(messageLower)) {
-      reply = this.buildFallbackCatalogReply(catalogItems, merchant.category);
     } else if (this.isOrderIntentMessage(messageLower)) {
       reply = productHint
         ? this.buildFallbackOrderProgressReply(productHint)
