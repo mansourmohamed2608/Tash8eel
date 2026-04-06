@@ -8,7 +8,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { AlertBanner } from "@/components/ui/alerts";
 import {
+  BarChart3,
   Bot,
+  Boxes,
   Send,
   Sparkles,
   Trash2,
@@ -17,6 +19,9 @@ import {
   Lock,
   Mic,
   Square,
+  Receipt,
+  ShieldCheck,
+  Wand2,
 } from "lucide-react";
 import { merchantApi } from "@/lib/client";
 import { useMerchant } from "@/hooks/use-merchant";
@@ -33,6 +38,40 @@ interface ChatMessage {
   featureBlocked?: boolean;
   blockedFeatures?: string[];
   confirmed?: boolean;
+}
+
+const QUICK_COMMANDS = [
+  {
+    label: "مصاريف الشهر",
+    command: "مصاريف الشهر",
+    icon: Receipt,
+    description: "ملخص المصروفات والتوزيع الحالي",
+  },
+  {
+    label: "المنتجات الأقل مخزون",
+    command: "إيه المنتجات اللي قربت تخلص؟",
+    icon: Boxes,
+    description: "أسرع طريقة لمعرفة المخزون الحرج",
+  },
+  {
+    label: "إيرادات اليوم",
+    command: "إيرادات اليوم كام؟",
+    icon: BarChart3,
+    description: "لمحة فورية عن أداء اليوم",
+  },
+  {
+    label: "راجع إثباتات الدفع",
+    command: "افتح مراجعة إثباتات الدفع",
+    icon: ShieldCheck,
+    description: "اذهب مباشرة لمسار المدفوعات",
+  },
+] as const;
+
+function formatMessageTime(value: string) {
+  return new Date(value).toLocaleTimeString("ar-SA", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 export default function MerchantAssistantPage() {
@@ -64,6 +103,11 @@ export default function MerchantAssistantPage() {
     () => messages.filter((m) => (m.role as string) !== "system").slice(-12),
     [messages],
   );
+  const usagePercent = useMemo(() => {
+    const usage = aiStatus?.usage;
+    if (!usage?.dailyLimit) return null;
+    return Math.min(100, Math.round((usage.callsToday / usage.dailyLimit) * 100));
+  }, [aiStatus]);
 
   // Fetch AI status on mount
   useEffect(() => {
@@ -433,8 +477,8 @@ export default function MerchantAssistantPage() {
         title="مساعد التاجر"
         description="أرسل أوامر نصية أو صوتية لإدارة المصاريف، المخزون، الطلبات والمزيد"
         actions={
-          <div className="flex items-center gap-2">
-            <Badge variant="secondary" className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="secondary" className="flex items-center gap-2 px-3 py-1">
               <Sparkles className="h-4 w-4" />
               Copilot
             </Badge>
@@ -455,61 +499,115 @@ export default function MerchantAssistantPage() {
         />
       )}
 
-      {/* AI Status Banner - only shown when AI is NOT working */}
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <Card className={cn("border-dashed", aiStatus?.connected && "border-emerald-200 bg-emerald-50/50", aiStatus && !aiStatus.connected && "border-amber-200 bg-amber-50/60")}>
+          <CardContent className="flex items-center justify-between p-4">
+            <div className="space-y-1">
+              <p className="text-sm text-muted-foreground">حالة الذكاء</p>
+              <p className="text-lg font-semibold">
+                {aiStatus?.connected ? "متصل وجاهز" : "يحتاج تفعيل"}
+              </p>
+            </div>
+            <div
+              className={cn(
+                "flex h-11 w-11 items-center justify-center rounded-2xl",
+                aiStatus?.connected ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700",
+              )}
+            >
+              <Wand2 className="h-5 w-5" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="flex items-center justify-between p-4">
+            <div className="space-y-1">
+              <p className="text-sm text-muted-foreground">الرسائل الصوتية</p>
+              <p className="text-lg font-semibold">
+                {aiStatus?.voice ? "مفعلة" : "غير متاحة"}
+              </p>
+            </div>
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-50 text-blue-700">
+              <Mic className="h-5 w-5" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="flex items-center justify-between p-4">
+            <div className="space-y-1">
+              <p className="text-sm text-muted-foreground">سعة اليوم</p>
+              <p className="text-lg font-semibold">
+                {aiStatus?.usage
+                  ? `${aiStatus.usage.callsToday} / ${aiStatus.usage.dailyLimit}`
+                  : "غير متاحة"}
+              </p>
+            </div>
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-violet-50 text-violet-700">
+              <Sparkles className="h-5 w-5" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-sm text-muted-foreground">آخر حالة</p>
+            <p className="mt-1 text-sm leading-6 text-foreground">
+              {aiStatus?.message || "جاهز لاستقبال أوامرك النصية والصوتية."}
+            </p>
+            {usagePercent !== null && (
+              <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted">
+                <div
+                  className={cn(
+                    "h-full rounded-full transition-all",
+                    usagePercent >= 85 ? "bg-amber-500" : "bg-primary",
+                  )}
+                  style={{ width: `${usagePercent}%` }}
+                />
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
       {aiStatus && !aiStatus.connected && (
-        <div className="flex items-center gap-2 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-4 py-2">
-          <div className="h-2 w-2 rounded-full bg-amber-500" />
-          <span>
-            الذكاء الاصطناعي غير متاح - قم بتفعيل الخدمة أو ترقية باقتك
-          </span>
+        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-800">
+          <div className="flex-1">
+            <p className="font-semibold">الذكاء الاصطناعي غير متاح حالياً</p>
+            <p className="text-sm">
+              قم بتفعيل الخدمة أو ترقية الباقة لاستمرار استخدام مساعد التاجر.
+            </p>
+          </div>
           <a
             href="/merchant/plan"
-            className="mr-auto text-xs font-medium bg-amber-600 text-white rounded-md px-3 py-1 hover:bg-amber-700 transition-colors"
+            className="inline-flex items-center rounded-lg bg-amber-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-700"
           >
             ترقية الباقة
           </a>
         </div>
       )}
 
-      {/* Example commands - show only when conversation is fresh */}
-      {messages.length <= 1 && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-          {[
-            { label: "📊 مصاريف الشهر", cmd: "مصاريف الشهر" },
-            {
-              label: "📦 المنتجات الأقل مخزون",
-              cmd: "إيه المنتجات اللي قربت تخلص؟",
-            },
-            { label: "💰 إيرادات اليوم", cmd: "إيرادات اليوم كام؟" },
-            {
-              label: "🧾 راجع إثباتات الدفع",
-              cmd: "افتح مراجعة إثباتات الدفع",
-            },
-          ].map((ex) => (
-            <Button
-              key={ex.cmd}
-              variant="outline"
-              size="sm"
-              className="text-xs justify-start whitespace-nowrap"
-              onClick={() => {
-                setInput(ex.cmd);
-              }}
-            >
-              {ex.label}
-            </Button>
-          ))}
-        </div>
-      )}
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Bot className="h-5 w-5" />
-            المحادثة
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-4 max-h-[520px] overflow-y-auto rounded-lg border bg-muted/20 p-4">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+        <Card className="overflow-hidden">
+          <CardHeader className="border-b bg-muted/20">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2 text-xl">
+                  <Bot className="h-5 w-5" />
+                  المحادثة
+                </CardTitle>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  محادثة تنفيذية سريعة لإدارة المتجر من مكان واحد.
+                </p>
+              </div>
+              <Badge variant="outline" className="w-fit">
+                يتم حفظ المحادثة تلقائياً في هذا المتصفح
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4 p-0">
+            <div className="min-h-[62vh] max-h-[68vh] overflow-y-auto bg-gradient-to-b from-muted/10 to-background px-4 py-5 sm:px-6">
+              <div className="space-y-4">
             {messages.map((msg) => (
               <div
                 key={msg.id}
@@ -520,9 +618,9 @@ export default function MerchantAssistantPage() {
               >
                 <div
                   className={cn(
-                    "max-w-[80%] rounded-2xl px-4 py-3 text-sm shadow-sm",
+                    "max-w-[86%] rounded-2xl px-4 py-3 text-sm shadow-sm sm:max-w-[78%] xl:max-w-[72%]",
                     msg.role === "assistant"
-                      ? "bg-white text-foreground border"
+                      ? "border bg-white text-foreground"
                       : "bg-primary text-primary-foreground",
                   )}
                 >
@@ -588,13 +686,6 @@ export default function MerchantAssistantPage() {
                       </div>
                     )}
 
-                  {/* Intent badge for debugging */}
-                  {msg.intent && (
-                    <Badge variant="outline" className="mt-2 text-[10px]">
-                      {msg.intent}
-                    </Badge>
-                  )}
-
                   <span
                     className={cn(
                       "mt-2 block text-[11px]",
@@ -603,10 +694,7 @@ export default function MerchantAssistantPage() {
                         : "text-primary-100",
                     )}
                   >
-                    {new Date(msg.createdAt).toLocaleTimeString("ar-SA", {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
+                    {formatMessageTime(msg.createdAt)}
                   </span>
                 </div>
               </div>
@@ -619,57 +707,114 @@ export default function MerchantAssistantPage() {
               </div>
             )}
             <div ref={endRef} />
+              </div>
           </div>
 
-          <div className="flex gap-2">
-            <Textarea
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="اكتب أمرك هنا... مثال: مصاريف الشهر، زود المخزون 10"
-              className="min-h-[48px]"
-              disabled={isRecording}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  sendMessage();
-                }
-              }}
-            />
-            <Button
-              variant={isRecording ? "destructive" : "outline"}
-              onClick={isRecording ? stopRecording : startRecording}
-              disabled={sending}
-              className={cn(isRecording && "animate-pulse")}
-              title={isRecording ? "إيقاف التسجيل" : "تسجيل صوتي"}
-            >
-              {isRecording ? (
-                <Square className="h-4 w-4" />
-              ) : (
-                <Mic className="h-4 w-4" />
-              )}
-            </Button>
-            <Button
-              onClick={sendMessage}
-              disabled={sending || !input.trim() || isRecording}
-            >
-              <Send className="h-4 w-4" />
-              إرسال
-            </Button>
-          </div>
-          <div className="text-xs text-muted-foreground flex items-center gap-4">
-            <span>يتم حفظ المحادثة تلقائياً في هذا المتصفح.</span>
-            {isRecording && (
-              <Badge
-                variant="destructive"
-                className="text-[10px] animate-pulse"
-              >
-                <Mic className="h-3 w-3 ml-1" />
-                جاري التسجيل... {recordingTime}ث
-              </Badge>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+            <div className="border-t bg-background px-4 py-4 sm:px-6">
+              <div className="flex gap-2">
+                <Textarea
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  placeholder="اكتب أمرك هنا... مثال: مصاريف الشهر، زود المخزون 10"
+                  className="min-h-[72px] resize-none"
+                  disabled={isRecording}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      sendMessage();
+                    }
+                  }}
+                />
+                <div className="flex flex-col gap-2">
+                  <Button
+                    variant={isRecording ? "destructive" : "outline"}
+                    onClick={isRecording ? stopRecording : startRecording}
+                    disabled={sending}
+                    className={cn("h-12 w-12", isRecording && "animate-pulse")}
+                    title={isRecording ? "إيقاف التسجيل" : "تسجيل صوتي"}
+                  >
+                    {isRecording ? (
+                      <Square className="h-4 w-4" />
+                    ) : (
+                      <Mic className="h-4 w-4" />
+                    )}
+                  </Button>
+                  <Button
+                    onClick={sendMessage}
+                    disabled={sending || !input.trim() || isRecording}
+                    className="h-12 min-w-[108px]"
+                  >
+                    <Send className="ml-2 h-4 w-4" />
+                    إرسال
+                  </Button>
+                </div>
+              </div>
+              <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                <span>اضغط Enter للإرسال و Shift + Enter لسطر جديد.</span>
+                {isRecording && (
+                  <Badge
+                    variant="destructive"
+                    className="text-[10px] animate-pulse"
+                  >
+                    <Mic className="h-3 w-3 ml-1" />
+                    جاري التسجيل... {recordingTime}ث
+                  </Badge>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="space-y-4">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">أوامر جاهزة</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {QUICK_COMMANDS.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <button
+                    key={item.command}
+                    type="button"
+                    onClick={() => setInput(item.command)}
+                    className="w-full rounded-2xl border p-3 text-right transition-colors hover:border-primary/40 hover:bg-primary/5"
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                        <Icon className="h-4 w-4" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium">{item.label}</p>
+                        <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                          {item.description}
+                        </p>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">قدرات المساعد</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2 text-sm text-muted-foreground">
+              <div className="rounded-xl bg-muted/30 p-3">
+                يقرأ النصوص والأوامر التشغيلية ويرد بخطوات تنفيذية واضحة.
+              </div>
+              <div className="rounded-xl bg-muted/30 p-3">
+                يدعم الأوامر الصوتية إذا كانت الخدمة مفعلة في خطتك الحالية.
+              </div>
+              <div className="rounded-xl bg-muted/30 p-3">
+                يمكنه توجيهك إلى صفحات المدفوعات والمخزون والتقارير بدل البحث اليدوي.
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </div>
   );
 }
