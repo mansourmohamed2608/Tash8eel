@@ -10,7 +10,12 @@ import { ConfigService } from "@nestjs/config";
 import { Pool } from "pg";
 import { v4 as uuidv4 } from "uuid";
 import { DATABASE_POOL } from "../../infrastructure/database/database.module";
-import { LlmService, LlmResult, LLMCallOptions } from "../llm/llm.service";
+import {
+  LlmService,
+  LlmResult,
+  LLMCallOptions,
+  ConversationState as LlmConversationState,
+} from "../llm/llm.service";
 import { OutboxService } from "../events/outbox.service";
 import { EVENT_TYPES } from "../events/event-types";
 import { RedisService, Lock } from "../../infrastructure/redis/redis.service";
@@ -954,6 +959,7 @@ export class InboxService {
       merchant,
       conversation,
       customer,
+      params.text,
       correlationId,
     );
 
@@ -971,6 +977,11 @@ export class InboxService {
     const collectedInfo = { ...conversation.collectedInfo };
     if (llmResponse.customerName)
       collectedInfo.customerName = llmResponse.customerName;
+    if (
+      !collectedInfo.customerName &&
+      llmResponse.conversationState?.customerName
+    )
+      collectedInfo.customerName = llmResponse.conversationState.customerName;
     if (llmResponse.phone) collectedInfo.phone = llmResponse.phone;
     if (llmResponse.address) {
       // Parse address and extract Google Maps coordinates if present
@@ -979,11 +990,24 @@ export class InboxService {
         params.text,
       );
       collectedInfo.address = this.normalizeAddress(address);
+    } else if (
+      !collectedInfo.address &&
+      llmResponse.conversationState?.deliveryAddress
+    ) {
+      const address = this.parseAddressWithMaps(
+        llmResponse.conversationState.deliveryAddress,
+        params.text,
+      );
+      collectedInfo.address = this.normalizeAddress(address);
     }
 
     await this.conversationRepo.update(conversation.id, {
       cart: result.cart,
-      state: this.determineNewState(result.action, conversation.state),
+      state: this.determineNewState(
+        result.action,
+        conversation.state,
+        llmResponse.conversationState,
+      ),
       lastMessageAt: new Date(),
       collectedInfo,
       missingSlots: llmResponse.missingSlots || [],
@@ -1105,6 +1129,7 @@ export class InboxService {
     merchant: Merchant,
     conversation: Conversation,
     customer: Customer,
+    customerMessage: string,
     correlationId: string,
   ): Promise<{
     replyText: string;
@@ -1113,7 +1138,8 @@ export class InboxService {
     orderId?: string;
     orderNumber?: string;
   }> {
-    const action = llmResponse.action || ActionType.GREET;
+    const baseAction = llmResponse.action || ActionType.GREET;
+    let action = baseAction;
     let cart = conversation.cart || {
       items: [],
       total: 0,
@@ -1124,14 +1150,41 @@ export class InboxService {
     let orderId: string | undefined;
     let orderNumber: string | undefined;
     let replyText = llmResponse.reply || llmResponse.response.reply_ar;
+    let cartChanged = false;
 
     if (!String(replyText || "").trim()) {
       replyText = "تمام 🙌 اكتب طلبك بشكل أوضح شوية وأنا أساعدك فورًا.";
     }
 
+    const removalResult = this.extractCartRemovalRequest(
+      customerMessage,
+      cart.items || [],
+    );
+    if (removalResult) {
+      action = ActionType.UPDATE_CART;
+      cart = this.removeItemsFromCart(cart, removalResult.itemsToRemove);
+      cartChanged = true;
+      replyText =
+        cart.items.length > 0
+          ? `${removalResult.replyPrefix} اتشال من السلة. السلة حالياً فيها ${cart.items.map((item: any) => `${item.name} × ${item.quantity}`).join("، ")}.`
+          : `${removalResult.replyPrefix} واتفضت السلة. لو تحب نبدأ من جديد قولي على المنتج اللي يناسبك.`;
+    }
+
     // Update cart if items extracted
-    if (llmResponse.cartItems && llmResponse.cartItems.length > 0) {
+    if (
+      !removalResult &&
+      llmResponse.cartItems &&
+      llmResponse.cartItems.length > 0
+    ) {
+      this.logger.debug({
+        msg: "Applying strictly confirmed cart items from LLM state",
+        conversationId: conversation.id,
+        merchantId: merchant.id,
+        stage: llmResponse.conversationState?.stage,
+        items: llmResponse.cartItems,
+      });
       cart = await this.updateCart(cart, llmResponse.cartItems, merchant.id);
+      cartChanged = true;
     }
 
     // Apply discount if negotiated
@@ -1159,11 +1212,7 @@ export class InboxService {
     }
 
     // Publish CartUpdated event if cart changed
-    if (
-      llmResponse.cartItems?.length ||
-      llmResponse.discountPercent ||
-      llmResponse.deliveryFee
-    ) {
+    if (cartChanged || llmResponse.discountPercent || llmResponse.deliveryFee) {
       await this.outboxService.publishEvent({
         eventType: EVENT_TYPES.CART_UPDATED,
         aggregateType: "conversation",
@@ -1317,6 +1366,107 @@ export class InboxService {
     };
   }
 
+  private extractCartRemovalRequest(
+    customerMessage: string,
+    cartItems: any[],
+  ): {
+    itemsToRemove: any[];
+    replyPrefix: string;
+  } | null {
+    if (!Array.isArray(cartItems) || cartItems.length === 0) {
+      return null;
+    }
+
+    const normalizedMessage = this.normalizeCatalogSearchText(customerMessage);
+    const isRemovalIntent =
+      /(^|\s)(شيل|احذف|امسح|الغي|الغي|remove|delete)(\s|$)/.test(
+        normalizedMessage,
+      ) ||
+      /من السله|من السلة|من الكارت|من العربيه|من العربية/.test(
+        normalizedMessage,
+      );
+
+    if (!isRemovalIntent) {
+      return null;
+    }
+
+    if (/كل|السله|السلة|الكارت|العربيه|العربية/.test(normalizedMessage)) {
+      return {
+        itemsToRemove: [...cartItems],
+        replyPrefix: "تمام، شيلت كل المنتجات",
+      };
+    }
+
+    const scored = cartItems
+      .map((item: any) => {
+        const haystack = this.normalizeCatalogSearchText(
+          [item.name, item.sku, item.productId].filter(Boolean).join(" "),
+        );
+        let score = 0;
+        if (haystack && normalizedMessage.includes(haystack)) {
+          score += 100;
+        }
+
+        for (const token of haystack.split(" ").filter(Boolean)) {
+          if (token.length < 2) continue;
+          if (normalizedMessage.includes(token)) {
+            score += token.length >= 4 ? 12 : 4;
+          }
+        }
+
+        return { item, score };
+      })
+      .filter((entry) => entry.score > 0)
+      .sort((a, b) => b.score - a.score);
+
+    const matched = scored[0]?.item;
+    if (!matched) {
+      return null;
+    }
+
+    return {
+      itemsToRemove: [matched],
+      replyPrefix: `تمام، شيلت ${matched.name}`,
+    };
+  }
+
+  private removeItemsFromCart(
+    currentCart: any,
+    itemsToRemove: any[],
+  ): {
+    items: any[];
+    total: number;
+    subtotal: number;
+    discount: number;
+    deliveryFee: number;
+  } {
+    const removeKeys = new Set(
+      itemsToRemove.map((item) => String(item.productId || item.name || "")),
+    );
+
+    const filteredItems = (currentCart.items || []).filter((item: any) => {
+      const key = String(item.productId || item.name || "");
+      return !removeKeys.has(key);
+    });
+
+    const subtotal = filteredItems.reduce(
+      (sum: number, item: any) => sum + item.total,
+      0,
+    );
+
+    const discount = currentCart.discount || 0;
+    const deliveryFee =
+      filteredItems.length > 0 ? currentCart.deliveryFee || 0 : 0;
+
+    return {
+      items: filteredItems,
+      subtotal,
+      discount,
+      deliveryFee,
+      total: Math.max(0, subtotal - discount + deliveryFee),
+    };
+  }
+
   private async findBestCatalogItemMatch(
     merchantId: string,
     searchTerm: string,
@@ -1353,7 +1503,10 @@ export class InboxService {
         );
 
         let score = 0;
-        if (normalizedSearch.length > 0 && haystack.includes(normalizedSearch)) {
+        if (
+          normalizedSearch.length > 0 &&
+          haystack.includes(normalizedSearch)
+        ) {
           score += 100;
         }
 
@@ -1645,7 +1798,17 @@ export class InboxService {
   private determineNewState(
     action: ActionType,
     currentState: ConversationState,
+    llmConversationState?: LlmConversationState,
   ): ConversationState {
+    const stageBasedState = this.mapLlmStageToConversationState(
+      llmConversationState?.stage,
+      llmConversationState?.lastAskedFor,
+      currentState,
+    );
+    if (stageBasedState) {
+      return stageBasedState;
+    }
+
     switch (action) {
       case ActionType.ORDER_CONFIRMED:
       case ActionType.CREATE_ORDER:
@@ -1672,6 +1835,31 @@ export class InboxService {
         return ConversationState.NEGOTIATING;
       default:
         return currentState;
+    }
+  }
+
+  private mapLlmStageToConversationState(
+    stage: LlmConversationState["stage"] | undefined,
+    lastAskedFor: LlmConversationState["lastAskedFor"] | undefined,
+    currentState: ConversationState,
+  ): ConversationState | null {
+    switch (stage) {
+      case "discovery":
+        return currentState === ConversationState.HUMAN_TAKEOVER
+          ? currentState
+          : ConversationState.GREETING;
+      case "item_confirmation":
+        return lastAskedFor === "size"
+          ? ConversationState.COLLECTING_VARIANTS
+          : ConversationState.COLLECTING_ITEMS;
+      case "delivery":
+        return ConversationState.COLLECTING_ADDRESS;
+      case "payment":
+        return ConversationState.COLLECTING_CUSTOMER_INFO;
+      case "confirmed":
+        return ConversationState.CONFIRMING_ORDER;
+      default:
+        return null;
     }
   }
 

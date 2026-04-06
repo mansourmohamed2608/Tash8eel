@@ -9,7 +9,11 @@ import { Merchant } from "../../domain/entities/merchant.entity";
 import { Conversation } from "../../domain/entities/conversation.entity";
 import { CatalogItem } from "../../domain/entities/catalog.entity";
 import { Message } from "../../domain/entities/message.entity";
-import { ActionType, MerchantCategory } from "../../shared/constants/enums";
+import {
+  ActionType,
+  MerchantCategory,
+  MessageDirection,
+} from "../../shared/constants/enums";
 import { ARABIC_TEMPLATES } from "../../shared/constants/templates";
 import {
   withRetry,
@@ -95,6 +99,37 @@ export interface LlmResult {
   discountPercent?: number;
   deliveryFee?: number;
   missingSlots?: string[];
+  conversationState?: ConversationState;
+}
+
+export type CommerceStage =
+  | "discovery"
+  | "item_confirmation"
+  | "delivery"
+  | "payment"
+  | "confirmed";
+
+export type LastAskedFor =
+  | "products"
+  | "quantity"
+  | "size"
+  | "address"
+  | "payment"
+  | null;
+
+export interface ConversationStateItem {
+  name: string;
+  quantity: number;
+  variant?: string;
+}
+
+export interface ConversationState {
+  stage: CommerceStage;
+  confirmedItems: ConversationStateItem[];
+  lastAskedFor: LastAskedFor;
+  customerName: string | null;
+  deliveryAddress: string | null;
+  paymentMethod: string | null;
 }
 
 export interface LLMCallOptions {
@@ -120,14 +155,22 @@ export function createLlmResult(
   // Filter products to only include those with names
   const products =
     response.extracted_entities?.products?.filter((p: any) => p.name) || [];
-  const cartItems = shouldTreatExtractedProductsAsChosen(response)
-    ? products.map((p: any) => ({
-        name: p.name as string,
-        quantity: p.quantity,
-        size: p.size,
-        color: p.color,
-      }))
-    : [];
+  const cartEligibleActions = new Set<ActionType>([
+    ActionType.UPDATE_CART,
+    ActionType.CREATE_ORDER,
+    ActionType.CONFIRM_ORDER,
+    ActionType.ORDER_CONFIRMED,
+  ]);
+  const cartItems =
+    cartEligibleActions.has(response.actionType) &&
+    shouldTreatExtractedProductsAsChosen(response)
+      ? products.map((p: any) => ({
+          name: p.name as string,
+          quantity: p.quantity,
+          size: p.size,
+          color: p.color,
+        }))
+      : [];
 
   return {
     response,
@@ -311,6 +354,10 @@ export class LlmService {
     }
 
     try {
+      const previousState = this.extractConversationState(recentMessages);
+      const currentState = this.extractConversationState(
+        this.buildStateMessages(recentMessages, conversation, customerMessage),
+      );
       const merchantContext =
         await this.merchantContextService.buildCustomerReplyContext({
           merchant,
@@ -318,12 +365,20 @@ export class LlmService {
           customerMessage,
           recentMessages,
         });
-      const systemPrompt = this.buildSystemPrompt(merchant, merchantContext);
+      const systemPrompt = this.buildSystemPrompt(
+        merchant,
+        merchantContext,
+        currentState,
+      );
       const conversationHistory = this.buildConversationHistory(
         recentMessages,
         customerMessage,
       );
-      const userPrompt = this.buildUserPrompt(conversation, customerMessage);
+      const userPrompt = this.buildUserPrompt(
+        conversation,
+        customerMessage,
+        currentState,
+      );
 
       console.log("=== AI CONTEXT DEBUG ===");
       console.log("System prompt length:", systemPrompt.length);
@@ -386,7 +441,14 @@ export class LlmService {
         // Still use the response but log for monitoring
       }
 
-      return createLlmResult(validated, tokensUsed, true);
+      return this.finalizeLlmResult(
+        validated,
+        tokensUsed,
+        true,
+        context,
+        previousState,
+        currentState,
+      );
     } catch (error) {
       const err = error as Error;
       logger.error("LLM processing failed", err, {
@@ -396,10 +458,7 @@ export class LlmService {
         timeoutMs: this.timeoutMs,
       });
       try {
-        const simplified = await this.retryWithSimplerContext(
-          context,
-          options,
-        );
+        const simplified = await this.retryWithSimplerContext(context, options);
         if (simplified) {
           return simplified;
         }
@@ -478,6 +537,7 @@ export class LlmService {
       conversationHistory: string;
       orderContext: string;
     },
+    conversationState: ConversationState,
   ): string {
     const businessInfoBlock = [
       merchantContext.businessInfo,
@@ -499,6 +559,14 @@ ${merchantContext.knowledgeBase}
 
 تاريخ المحادثة:
 ${merchantContext.conversationHistory}
+
+حالة المحادثة الحالية:
+المرحلة: ${conversationState.stage}
+المنتجات المؤكدة: ${conversationState.confirmedItems.length > 0 ? conversationState.confirmedItems.map((item) => `${item.name} × ${item.quantity}${item.variant ? ` (${item.variant})` : ""}`).join("، ") : "لا يوجد"}
+آخر سؤال من المساعد: ${conversationState.lastAskedFor || "لا يوجد"}
+اسم العميل: ${conversationState.customerName || "غير معروف"}
+عنوان التوصيل: ${conversationState.deliveryAddress || "غير موجود"}
+طريقة الدفع: ${conversationState.paymentMethod || "غير محددة"}
 
 ---
 
@@ -541,7 +609,56 @@ ${merchantContext.conversationHistory}
 
 6. لا تبدأ ردك بـ "أكيد" أو "تمام" في كل رد
 7. لا تضع إيموجي كتير - واحدة أو اتنين بحد أقصى
-8. ردودك قصيرة ومباشرة - مش محاضرة`;
+8. ردودك قصيرة ومباشرة - مش محاضرة
+
+قواعد إضافية صارمة:
+
+1. لا تطلب عنوان التوصيل إلا في مرحلة التوصيل
+   (بعد تأكيد المنتج والكمية والمقاس)
+
+2. لا تضيف أي منتج للطلب إلا لو العميل صرح
+   بشكل واضح إنه عايزه
+
+3. لو العميل سأل سؤال، اجاوب السؤال الأول
+
+4. لا تطلب نفس المعلومة أكتر من مرة في نفس المحادثة
+
+5. لو قلت للعميل إن حاجة مش موجودة، اقترح بديل فوراً
+   لا تسألش عن عنوان التوصيل بعدها مباشرة
+
+6. رتيب الأسئلة دايماً:
+   أولاً: المنتج → ثانياً: الكمية → ثالثاً: المقاس/اللون
+   → رابعاً: عنوان التوصيل → خامساً: طريقة الدفع
+   → سادساً: تأكيد الطلب
+
+7. لو العميل قال 'لأ' أو 'مش عايز ده' أو 'خليها':
+   ارجع لمرحلة الاستكشاف، اسأل إيه اللي يناسبه
+
+8. لو العميل قال 'مختارانش' أو 'بفكر':
+   اقوله خد وقتك وعرض عليه منتجات تانية
+
+9. لو المرحلة discovery:
+   جاوب الأسئلة واعرض المنتجات فقط
+   لا تطلب عنوان أو دفع
+   لا تضيف أي منتج للسلة
+
+10. لو المرحلة item_confirmation:
+    أكّد المنتج والسعر أولاً
+    ثم اسأل عن الكمية
+    ثم اسأل عن المقاس/اللون لو موجود
+    لا تطلب عنوان أو دفع
+
+11. لو المرحلة delivery:
+    اطلب العنوان مرة واحدة فقط
+    ولو كنت سألته عن العنوان في آخر رسالة، انتظر الرد ولا تكرر السؤال
+
+12. لو المرحلة payment:
+    اسأل عن طريقة الدفع مرة واحدة فقط
+    وبعدها انتقل لتأكيد الطلب
+
+13. لو العميل سأل عن:
+    المقاس أو السعر أو اللون أو التوصيل أو الخصم أو الضمان
+    جاوب السؤال مباشرة قبل أي خطوة بيع تالية`;
   }
 
   /**
@@ -728,6 +845,7 @@ ${merchantContext.conversationHistory}
   private buildUserPrompt(
     conversation: Conversation,
     customerMessage: string,
+    conversationState: ConversationState,
   ): string {
     const cartItems = conversation.cart.items || [];
     const cartSummary =
@@ -761,7 +879,15 @@ ${merchantContext.conversationHistory}
       missingParts.push("العنوان الكامل");
     if (cartItems.length === 0) missingParts.push("المنتجات");
 
-    return `حالة المحادثة الحالية: ${conversation.state}
+    return `حالة المحادثة الحالية في النظام: ${conversation.state}
+
+حالة المحادثة الحالية:
+المرحلة: ${conversationState.stage}
+المنتجات المؤكدة: ${conversationState.confirmedItems.length > 0 ? conversationState.confirmedItems.map((item) => `${item.name} × ${item.quantity}${item.variant ? ` (${item.variant})` : ""}`).join("، ") : "لا يوجد"}
+آخر سؤال: ${conversationState.lastAskedFor || "لا يوجد"}
+اسم العميل: ${conversationState.customerName || "غير معروف"}
+عنوان التوصيل: ${conversationState.deliveryAddress || "غير موجود"}
+طريقة الدفع: ${conversationState.paymentMethod || "غير محددة"}
 
 ${cartSummary}
 
@@ -773,22 +899,1040 @@ ${collectedInfo}
 رسالة العميل الحالية:
 ${customerMessage}
 
-اعتمد على سياق المتجر والكتالوج وتاريخ المحادثة أعلاه. لو العميل ذكر المنتج بالفعل متسألوش عنه مرة تانية، وانتقل للخطوة التالية المناسبة في مسار الطلب.`;
+اعتمد على سياق المتجر والكتالوج وتاريخ المحادثة أعلاه. لو العميل ذكر المنتج بالفعل متسألوش عنه مرة تانية، وانتقل للخطوة التالية المناسبة في مسار الطلب. لو المرحلة discovery أو item_confirmation فلا تطلب عنوان التوصيل أو طريقة الدفع.`;
+  }
+
+  private buildStateMessages(
+    messages: Message[],
+    conversation: Conversation,
+    customerMessage: string,
+  ): Message[] {
+    const sorted = [...messages].sort(
+      (a, b) => a.createdAt.getTime() - b.createdAt.getTime(),
+    );
+    const lastMessage = sorted[sorted.length - 1];
+    if (
+      lastMessage &&
+      String(lastMessage.direction).toLowerCase() === "inbound" &&
+      String(lastMessage.text || "").trim() === String(customerMessage).trim()
+    ) {
+      return sorted;
+    }
+
+    return [
+      ...sorted,
+      {
+        id: `current-${conversation.id}`,
+        conversationId: conversation.id,
+        merchantId: conversation.merchantId,
+        channel: conversation.channel,
+        direction: MessageDirection.INBOUND,
+        senderId: conversation.senderId,
+        text: customerMessage,
+        attachments: [],
+        metadata: {},
+        llmUsed: false,
+        tokensUsed: 0,
+        createdAt: new Date(),
+      },
+    ];
+  }
+
+  extractConversationState(messages: Message[]): ConversationState {
+    type WorkingItem = {
+      name: string;
+      quantity: number | null;
+      variant: string | null;
+      variantRequested: boolean;
+      explicitlyChosen: boolean;
+    };
+
+    const recent = [...messages]
+      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+      .slice(-10);
+
+    let lastAskedFor: LastAskedFor = null;
+    let customerName: string | null = null;
+    let deliveryAddress: string | null = null;
+    let paymentMethod: string | null = null;
+    let pendingItem: WorkingItem | null = null;
+    let lastSuggestedProduct: string | null = null;
+    let summaryShown = false;
+
+    const confirmedItems: ConversationStateItem[] = [];
+
+    const pushConfirmedItem = (item: WorkingItem | null) => {
+      if (!item || !this.isPendingItemReady(item)) {
+        return;
+      }
+
+      const candidate: ConversationStateItem = {
+        name: item.name.trim(),
+        quantity: item.quantity || 1,
+        ...(item.variant ? { variant: item.variant.trim() } : {}),
+      };
+      const key = this.buildConfirmedItemKey(candidate);
+      const existingIndex = confirmedItems.findIndex(
+        (entry) => this.buildConfirmedItemKey(entry) === key,
+      );
+
+      if (existingIndex >= 0) {
+        confirmedItems[existingIndex] = candidate;
+      } else {
+        confirmedItems.push(candidate);
+      }
+    };
+
+    for (const message of recent) {
+      const text = String(message.text || "").trim();
+      if (!text) {
+        continue;
+      }
+
+      const normalized = this.normalizeArabicText(text);
+      const isInbound =
+        String(message.direction).toLowerCase() === MessageDirection.INBOUND;
+
+      if (!isInbound) {
+        lastAskedFor = this.detectAssistantRequestType(text);
+        if (lastAskedFor === "size" && pendingItem) {
+          pendingItem.variantRequested = true;
+        }
+
+        const suggestedProduct =
+          this.extractSuggestedProductFromAssistant(text);
+        if (suggestedProduct) {
+          lastSuggestedProduct = suggestedProduct;
+        }
+
+        if (
+          /ملخص\s+الطلب|كده\s+الطلب\s+جاهز|تحب\s+اكد\s+الطلب|تاكيد\s+الطلب|تأكيد\s+الطلب/.test(
+            normalized,
+          )
+        ) {
+          summaryShown = true;
+        }
+        continue;
+      }
+
+      const detectedName = this.extractCustomerNameFromText(text);
+      if (detectedName) {
+        customerName = detectedName;
+      }
+
+      const detectedAddress = this.extractDeliveryAddressFromText(text);
+      if (detectedAddress) {
+        deliveryAddress = detectedAddress;
+      }
+
+      const detectedPaymentMethod = this.extractPaymentMethodFromText(text);
+      if (detectedPaymentMethod) {
+        paymentMethod = detectedPaymentMethod;
+      }
+
+      if (this.isCancellationOrBackToBrowsing(text)) {
+        pendingItem = null;
+        lastSuggestedProduct = null;
+        confirmedItems.length = 0;
+        continue;
+      }
+
+      if (this.isThinkingMessage(text)) {
+        continue;
+      }
+
+      const explicitProduct = this.extractExplicitPurchaseProduct(text);
+      const quantity = this.extractQuantityFromText(text);
+      const variant = this.extractVariantFromText(text);
+
+      if (explicitProduct) {
+        pushConfirmedItem(pendingItem);
+        pendingItem = {
+          name: explicitProduct,
+          quantity,
+          variant,
+          variantRequested: Boolean(variant),
+          explicitlyChosen: true,
+        };
+      } else if (
+        this.isPositiveConfirmationOnly(text) &&
+        lastSuggestedProduct
+      ) {
+        pushConfirmedItem(pendingItem);
+        pendingItem = {
+          name: lastSuggestedProduct,
+          quantity,
+          variant,
+          variantRequested: Boolean(variant),
+          explicitlyChosen: true,
+        };
+      } else if (pendingItem) {
+        if (quantity !== null) {
+          pendingItem.quantity = quantity;
+        }
+
+        if (variant) {
+          pendingItem.variant = variant;
+          pendingItem.variantRequested = true;
+        }
+      }
+
+      pushConfirmedItem(pendingItem);
+      if (pendingItem && this.isPendingItemReady(pendingItem)) {
+        pendingItem = null;
+      }
+    }
+
+    let stage: CommerceStage = "discovery";
+
+    if (pendingItem) {
+      stage = "item_confirmation";
+    } else if (confirmedItems.length === 0) {
+      stage = "discovery";
+    } else if (!deliveryAddress) {
+      stage = "delivery";
+    } else if (!paymentMethod) {
+      stage = "payment";
+    } else if (summaryShown || confirmedItems.length > 0) {
+      stage = "confirmed";
+    }
+
+    return {
+      stage,
+      confirmedItems,
+      lastAskedFor,
+      customerName,
+      deliveryAddress,
+      paymentMethod,
+    };
+  }
+
+  private finalizeLlmResult(
+    response: ValidatedLlmResponse,
+    tokensUsed: number,
+    llmUsed: boolean,
+    context: LlmContext,
+    previousState: ConversationState,
+    currentState: ConversationState,
+  ): LlmResult {
+    const sanitized = this.enforceConversationRules(
+      response,
+      context,
+      previousState,
+      currentState,
+    );
+    const result = createLlmResult(sanitized, tokensUsed, llmUsed);
+    result.conversationState = currentState;
+    result.cartItems = this.getNewlyConfirmedCartItems(
+      previousState,
+      currentState,
+      context.conversation.cart.items || [],
+    );
+    return result;
+  }
+
+  private enforceConversationRules(
+    response: ValidatedLlmResponse,
+    context: LlmContext,
+    previousState: ConversationState,
+    currentState: ConversationState,
+  ): ValidatedLlmResponse {
+    const next: ValidatedLlmResponse = {
+      ...response,
+      extracted_entities: response.extracted_entities
+        ? {
+            ...response.extracted_entities,
+            products: response.extracted_entities.products
+              ? [...response.extracted_entities.products]
+              : null,
+            address: response.extracted_entities.address
+              ? { ...response.extracted_entities.address }
+              : null,
+          }
+        : null,
+      missing_slots: response.missing_slots
+        ? [...response.missing_slots]
+        : null,
+      negotiation: response.negotiation ? { ...response.negotiation } : null,
+    };
+
+    const questionType = this.classifyCustomerQuestion(context.customerMessage);
+    const asksAddress =
+      this.replyRequestsAddress(next.reply_ar) ||
+      (next.missing_slots || []).some((slot) => slot.startsWith("address"));
+    const asksPayment = this.replyRequestsPayment(next.reply_ar);
+
+    const clearAddressAndPayment = () => {
+      if (next.extracted_entities?.address) {
+        next.extracted_entities.address = null;
+      }
+      next.missing_slots = (next.missing_slots || []).filter(
+        (slot) => !slot.startsWith("address") && slot !== "payment",
+      );
+    };
+
+    if (
+      currentState.lastAskedFor === "address" &&
+      !this.looksLikeDeliveryAddressText(context.customerMessage) &&
+      asksAddress
+    ) {
+      clearAddressAndPayment();
+      next.actionType = ActionType.ASK_CLARIFYING_QUESTION;
+      next.reply_ar = "خد وقتك، لما تجهز العنوان قولي 😊";
+      next.reasoning = "wait_for_address_once";
+      return next;
+    }
+
+    const addressOrPaymentTooEarly =
+      (currentState.stage === "discovery" ||
+        currentState.stage === "item_confirmation") &&
+      (asksAddress || asksPayment);
+
+    if (questionType && (asksAddress || asksPayment)) {
+      const directAnswer = this.buildDirectQuestionAnswer(
+        questionType,
+        context,
+        currentState,
+        next,
+      );
+      if (directAnswer) {
+        clearAddressAndPayment();
+        next.actionType = ActionType.ASK_CLARIFYING_QUESTION;
+        next.reply_ar = directAnswer;
+        next.reasoning = `answered_question_first:${questionType}`;
+        return next;
+      }
+    }
+
+    if (addressOrPaymentTooEarly) {
+      const stageReply = this.buildStageProgressReply(
+        context,
+        previousState,
+        currentState,
+        next,
+      );
+      if (stageReply) {
+        clearAddressAndPayment();
+        next.actionType = ActionType.ASK_CLARIFYING_QUESTION;
+        next.reply_ar = stageReply;
+        next.reasoning = `stage_guard:${currentState.stage}`;
+        return next;
+      }
+    }
+
+    if (
+      currentState.stage !== "delivery" &&
+      this.looksLikeDeliveryAddressText(context.customerMessage) === false &&
+      next.extracted_entities?.address?.raw_text
+    ) {
+      next.extracted_entities.address = null;
+    }
+
+    return next;
+  }
+
+  private getNewlyConfirmedCartItems(
+    previousState: ConversationState,
+    currentState: ConversationState,
+    existingCartItems: Array<{
+      name?: string;
+      quantity?: number;
+      size?: string;
+    }>,
+  ): Array<{ name: string; quantity?: number; size?: string; color?: string }> {
+    const previousKeys = new Set(
+      previousState.confirmedItems.map((item) =>
+        this.buildConfirmedItemKey(item),
+      ),
+    );
+    const existingKeys = new Set(
+      existingCartItems.map((item) =>
+        this.buildConfirmedItemKey({
+          name: String(item.name || ""),
+          quantity: Number(item.quantity || 1),
+          variant: item.size,
+        }),
+      ),
+    );
+
+    return currentState.confirmedItems
+      .filter((item) => {
+        const key = this.buildConfirmedItemKey(item);
+        return !previousKeys.has(key) && !existingKeys.has(key);
+      })
+      .map((item) => ({
+        name: item.name,
+        quantity: item.quantity,
+        size: item.variant,
+      }));
+  }
+
+  private buildConfirmedItemKey(item: {
+    name: string;
+    quantity: number;
+    variant?: string;
+  }): string {
+    return [
+      this.normalizeArabicText(item.name),
+      String(item.quantity),
+      this.normalizeArabicText(item.variant || ""),
+    ].join("::");
+  }
+
+  private isPendingItemReady(item: {
+    quantity: number | null;
+    variant: string | null;
+    variantRequested: boolean;
+    explicitlyChosen: boolean;
+  }): boolean {
+    if (!item.explicitlyChosen || item.quantity === null) {
+      return false;
+    }
+    if (item.variantRequested && !item.variant) {
+      return false;
+    }
+    return true;
+  }
+
+  private detectAssistantRequestType(text: string): LastAskedFor {
+    const normalized = this.normalizeArabicText(text);
+
+    if (
+      /عنوان|العنوان|محافظه|محافظة|منطقه|منطقة|شارع|عماره|عمارة|حي|لوكيشن/.test(
+        normalized,
+      )
+    ) {
+      return "address";
+    }
+    if (
+      /طريقه الدفع|طريقة الدفع|الدفع|كاش|فيزا|اونلاين|تحويل|انستا/.test(
+        normalized,
+      )
+    ) {
+      return "payment";
+    }
+    if (/مقاس|مقاسات|لون|الوان|ألوان/.test(normalized)) {
+      return "size";
+    }
+    if (/كميه|كمية|كام قطعه|كام قطعة|تحب كام|عدد/.test(normalized)) {
+      return "quantity";
+    }
+    if (
+      /ايه المنتج|اسم المنتج|نوع المنتج|بتدور على ايه|عايز ايه/.test(normalized)
+    ) {
+      return "products";
+    }
+
+    return null;
+  }
+
+  private normalizeArabicText(value: string): string {
+    return String(value || "")
+      .toLowerCase()
+      .replace(/[أإآ]/g, "ا")
+      .replace(/ة/g, "ه")
+      .replace(/[ىي]/g, "ي")
+      .replace(/[ً-ْ]/g, "")
+      .replace(/[^\p{L}\p{N}\s]/gu, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  private extractCustomerNameFromText(text: string): string | null {
+    const match = text.match(
+      /(?:اسمي|انا\s+اسمي|معاك|انا)\s+([^\d\s][^\n]{1,40})/i,
+    );
+    return match?.[1]?.trim() || null;
+  }
+
+  private extractPaymentMethodFromText(text: string): string | null {
+    const normalized = this.normalizeArabicText(text);
+    if (/انستا|instapay/.test(normalized)) return "instapay";
+    if (/فيزا|كارت|بطاقه|بطاقة|ماستر/.test(normalized)) return "card";
+    if (/كاش|نقدا|نقدي|عند الاستلام/.test(normalized)) return "cash";
+    if (/تحويل|فودافون كاش/.test(normalized)) return "transfer";
+    return null;
+  }
+
+  private extractDeliveryAddressFromText(text: string): string | null {
+    return this.looksLikeDeliveryAddressText(text) ? text.trim() : null;
+  }
+
+  private looksLikeDeliveryAddressText(text: string): boolean {
+    const normalized = this.normalizeArabicText(text);
+    if (normalized.length < 10) {
+      return false;
+    }
+
+    return /شارع|منطقه|منطقة|مدينه|مدينة|حي|عماره|عمارة|شقه|شقة|الدور|برج|فيلا|بجوار|امام|أمام|خلف|لوكيشن|maps|goo gl/.test(
+      normalized,
+    );
+  }
+
+  private isCancellationOrBackToBrowsing(text: string): boolean {
+    const normalized = this.normalizeArabicText(text);
+    return (
+      /^لا$|^لأ$|^خلاص$/.test(normalized) ||
+      /مش عايز|مش عاوزه|خليها|سيبها|مش ده|مش هذا|لا خلاص/.test(normalized)
+    );
+  }
+
+  private isThinkingMessage(text: string): boolean {
+    const normalized = this.normalizeArabicText(text);
+    return /بفكر|محتار|مختار|لسه هشوف|مش متاكد|مش متأكد|مش عارف|هفكر/.test(
+      normalized,
+    );
+  }
+
+  private isPositiveConfirmationOnly(text: string): boolean {
+    const normalized = this.normalizeArabicText(text);
+    return /^(ايوه|ايوة|اه|أه|تمام|ماشي|موافق|اوكي|ok|yes|تمام ده|تمام دي|اه تمام)$/.test(
+      normalized,
+    );
+  }
+
+  private extractExplicitPurchaseProduct(text: string): string | null {
+    const normalized = this.normalizeArabicText(text);
+    const match = normalized.match(
+      /(?:عايز|عاوز|عاوزه|اخد|اخذ|اخد|اطلب|طلب|هطلب|هاخد|محتاج|حابب)\s+(.+)/,
+    );
+    if (!match?.[1]) {
+      return null;
+    }
+
+    const candidate = match[1]
+      .replace(
+        /^(?:قطعه|قطعة|قطعتين|حبه|حبة|واحد|واحده|واحدة|اتنين|اثنين|ثلاثه|ثلاثة|\d+)\s+/,
+        "",
+      )
+      .replace(/\s+(?:بس|لو|عشان|من فضلك|ممكن).*$/, "")
+      .trim();
+
+    return candidate.length >= 2 ? candidate : null;
+  }
+
+  private extractQuantityFromText(text: string): number | null {
+    const normalized = this.normalizeArabicText(text).replace(
+      /[٠-٩]/g,
+      (digit) => String("٠١٢٣٤٥٦٧٨٩".indexOf(digit)),
+    );
+    const digitMatch = normalized.match(/\b(\d+)\b/);
+    if (digitMatch) {
+      return Number(digitMatch[1]);
+    }
+
+    const wordMap: Record<string, number> = {
+      واحد: 1,
+      واحده: 1,
+      واحدة: 1,
+      اتنين: 2,
+      اثنين: 2,
+      تلاته: 3,
+      ثلاثة: 3,
+      اربعه: 4,
+      اربعة: 4,
+      خمسه: 5,
+      خمسة: 5,
+    };
+
+    for (const [word, value] of Object.entries(wordMap)) {
+      if (new RegExp(`\\b${word}\\b`).test(normalized)) {
+        return value;
+      }
+    }
+
+    return null;
+  }
+
+  private extractVariantFromText(text: string): string | null {
+    const sizeMatch =
+      text.match(/مقاس\s*([A-Za-z0-9\-]+)/i) ||
+      text.match(/\b(XXL|XL|L|M|S|XS)\b/i);
+    if (sizeMatch?.[1]) {
+      return `مقاس ${sizeMatch[1].toUpperCase()}`;
+    }
+
+    const colorMatch = this.normalizeArabicText(text).match(
+      /\b(اسود|ابيض|احمر|ازرق|ازرق غامق|كحلي|بيج|رمادي|اخضر|اصفر|وردي|بني)\b/,
+    );
+    if (colorMatch?.[1]) {
+      return `لون ${colorMatch[1]}`;
+    }
+
+    return null;
+  }
+
+  private extractSuggestedProductFromAssistant(text: string): string | null {
+    const normalized = this.normalizeArabicText(text);
+    const patterns = [
+      /بديل(?:\s+زي)?\s+(.+?)(?:\s+بسعر|\s+\d+\s*ج|[.!؟?]|$)/,
+      /عندنا\s+مثلا\s+(.+?)(?:\s+بسعر|\s+\d+\s*ج|[.!؟?]|$)/,
+      /ممكن\s+(?:اخد|اقدم)\s+لك\s+بديل\s+زي\s+(.+?)(?:\s+بسعر|\s+\d+\s*ج|[.!؟?]|$)/,
+    ];
+
+    for (const pattern of patterns) {
+      const match = normalized.match(pattern);
+      if (match?.[1]) {
+        return match[1].trim();
+      }
+    }
+
+    return null;
+  }
+
+  private classifyCustomerQuestion(
+    text: string,
+  ):
+    | "sizes"
+    | "price"
+    | "color"
+    | "delivery_areas"
+    | "delivery_fee"
+    | "delivery_time"
+    | "discount"
+    | "pickup"
+    | "warranty"
+    | null {
+    const normalized = this.normalizeArabicText(text);
+
+    if (/مقاس كام|المقاسات|عندك مقاس|في مقاس/.test(normalized)) {
+      return "sizes";
+    }
+    if (/بكام|السعر|سعره|سعرها|كام ده|كام دي/.test(normalized)) {
+      return "price";
+    }
+    if (/في اللون|اللون|الوان|ألوان|لون ايه|لون اي/.test(normalized)) {
+      return "color";
+    }
+    if (
+      /بتوصلوا فين|مناطق التوصيل|فين التوصيل|بتوصلوا لايه|بتوصلوا لاي/.test(
+        normalized,
+      )
+    ) {
+      return "delivery_areas";
+    }
+    if (/التوصيل بكام|سعر التوصيل|رسوم التوصيل/.test(normalized)) {
+      return "delivery_fee";
+    }
+    if (
+      /بياخد قد ايه|بياخد قد ايه|مدة التوصيل|امتي يوصل|امتى يوصل/.test(
+        normalized,
+      )
+    ) {
+      return "delivery_time";
+    }
+    if (/في خصم|في عرض|في تخفيض/.test(normalized)) {
+      return "discount";
+    }
+    if (/ممكن استلم|استلام من الفرع|pickup|استلام ذاتي/.test(normalized)) {
+      return "pickup";
+    }
+    if (/الضمان ايه|في ضمان|ضمان/.test(normalized)) {
+      return "warranty";
+    }
+
+    return null;
+  }
+
+  private buildDirectQuestionAnswer(
+    questionType:
+      | "sizes"
+      | "price"
+      | "color"
+      | "delivery_areas"
+      | "delivery_fee"
+      | "delivery_time"
+      | "discount"
+      | "pickup"
+      | "warranty",
+    context: LlmContext,
+    currentState: ConversationState,
+    response: ValidatedLlmResponse,
+  ): string | null {
+    const item = this.resolveActiveCatalogItem(context, currentState, response);
+
+    switch (questionType) {
+      case "sizes": {
+        const sizes = this.getVariantValues(item, "size");
+        if (!item || sizes.length === 0) {
+          return null;
+        }
+        return `${item.nameAr} متوفر بالمقاسات: ${sizes.join("، ")}. لو مناسبك قولي الكمية المطلوبة.`;
+      }
+      case "price":
+        if (!item) return null;
+        return `${item.nameAr} سعره ${item.basePrice} جنيه. لو مناسبك قولي الكمية المطلوبة.`;
+      case "color": {
+        if (!item) return null;
+        const colors = this.getVariantValues(item, "color");
+        if (colors.length === 0) {
+          return `${item.nameAr} مش موضح له ألوان مختلفة حالياً. لو تحب أقولك المتاح عندنا من نفس النوع.`;
+        }
+        const requestedColor = this.extractRequestedColor(
+          context.customerMessage,
+        );
+        if (requestedColor) {
+          const exists = colors.some(
+            (color) =>
+              this.normalizeArabicText(color) ===
+              this.normalizeArabicText(requestedColor),
+          );
+          return exists
+            ? `أيوه، ${item.nameAr} متوفر باللون ${requestedColor}. لو مناسبك قولي الكمية المطلوبة.`
+            : `${item.nameAr} الألوان المتاحة فيه: ${colors.join("، ")}.`;
+        }
+        return `${item.nameAr} الألوان المتاحة فيه: ${colors.join("، ")}.`;
+      }
+      case "delivery_areas": {
+        const zones = context.merchant.deliveryRules?.deliveryZones || [];
+        if (zones.length === 0) {
+          return context.merchant.city
+            ? `التوصيل متاح حالياً داخل ${context.merchant.city}.`
+            : "التوصيل متاح، ولو قلتلي المنطقة أقولك التفاصيل بدقة.";
+        }
+        return `التوصيل متاح للمناطق دي: ${zones.map((zone) => zone.zone).join("، ")}.`;
+      }
+      case "delivery_fee": {
+        const zones = context.merchant.deliveryRules?.deliveryZones || [];
+        if (zones.length > 0) {
+          const summary = zones
+            .slice(0, 4)
+            .map((zone) => `${zone.zone}: ${zone.fee} جنيه`)
+            .join("، ");
+          return `رسوم التوصيل حسب المنطقة: ${summary}.`;
+        }
+        const fee =
+          context.merchant.defaultDeliveryFee ??
+          context.merchant.deliveryRules?.defaultFee;
+        return fee
+          ? `رسوم التوصيل ${fee} جنيه.`
+          : "رسوم التوصيل بتتحدد حسب المنطقة. ابعتلي المكان وأقولك التكلفة.";
+      }
+      case "delivery_time": {
+        const zones = context.merchant.deliveryRules?.deliveryZones || [];
+        const estimated = zones
+          .map((zone) => zone.estimatedDays)
+          .filter((days) => Number.isFinite(days));
+        if (estimated.length > 0) {
+          const minDays = Math.min(...estimated);
+          const maxDays = Math.max(...estimated);
+          return minDays === maxDays
+            ? `مدة التوصيل المتوقعة حوالي ${minDays} يوم.`
+            : `مدة التوصيل المتوقعة من ${minDays} إلى ${maxDays} أيام حسب المنطقة.`;
+        }
+        return "مدة التوصيل بتتحدد حسب المنطقة، لكن غالباً بنأكدها معاك بعد العنوان.";
+      }
+      case "discount": {
+        const promotion = context.merchant.negotiationRules?.activePromotion;
+        if (promotion?.enabled && promotion.discountPercent) {
+          return `عندنا عرض شغال دلوقتي: ${promotion.description || `خصم ${promotion.discountPercent}%`}.`;
+        }
+        if (context.merchant.negotiationRules?.allowNegotiation) {
+          return "مفيش خصم ثابت معلن حالياً، لكن ممكن أشوف لك أفضل عرض متاح على الطلب لما تحدد المنتج.";
+        }
+        return "حالياً مفيش خصم متاح على المنتجات دي.";
+      }
+      case "pickup":
+        return this.buildKnowledgeBasePolicyReply(
+          context.merchant,
+          ["استلام", "pickup", "فرع"],
+          "الاستلام من الفرع مش موضح عندي حالياً. لو تحب أكملك بخيارات التوصيل.",
+        );
+      case "warranty":
+        return this.buildKnowledgeBasePolicyReply(
+          context.merchant,
+          ["ضمان", "استرجاع", "استبدال"],
+          "سياسة الضمان أو الاستبدال مش موضحة عندي حالياً. لو تحب أراجعها لك مع المتجر.",
+        );
+      default:
+        return null;
+    }
+  }
+
+  private buildStageProgressReply(
+    context: LlmContext,
+    previousState: ConversationState,
+    currentState: ConversationState,
+    response: ValidatedLlmResponse,
+  ): string | null {
+    const item = this.resolveActiveCatalogItem(context, currentState, response);
+    const hint =
+      item?.nameAr ||
+      currentState.confirmedItems[currentState.confirmedItems.length - 1]
+        ?.name ||
+      this.extractProductHint(
+        this.normalizeArabicText(context.customerMessage),
+        context.catalogItems,
+      ) ||
+      this.extractProductHintFromHistory(
+        context.recentMessages,
+        context.catalogItems,
+      );
+
+    if (currentState.stage === "discovery") {
+      if (
+        this.isCatalogInquiryMessage(
+          this.normalizeArabicText(context.customerMessage),
+        )
+      ) {
+        return this.buildFallbackCatalogReply(
+          context.catalogItems,
+          context.merchant.category,
+        );
+      }
+
+      if (item) {
+        return `${item.nameAr} متوفر بسعر ${item.basePrice} جنيه. تحب كام قطعة؟`;
+      }
+
+      return "قولّي اسم المنتج اللي يناسبك وأنا أساعدك خطوة بخطوة.";
+    }
+
+    if (currentState.stage === "item_confirmation") {
+      if (!hint) {
+        return "حددلي المنتج اللي عايزه الأول وأنا أكمل معاك بالكمية والتفاصيل.";
+      }
+
+      if (currentState.lastAskedFor === "size" || this.itemHasVariants(item)) {
+        const variantPrompt = this.buildVariantPrompt(item, hint);
+        if (variantPrompt) {
+          return variantPrompt;
+        }
+      }
+
+      return `${hint} تمام. محتاج كام قطعة؟`;
+    }
+
+    if (currentState.stage === "delivery") {
+      if (currentState.lastAskedFor === "address") {
+        return "خد وقتك، لما تجهز العنوان قولي 😊";
+      }
+      return "تمام. ابعتلي عنوان التوصيل بالتفصيل مرة واحدة وأنا أكمل معاك.";
+    }
+
+    if (currentState.stage === "payment") {
+      if (currentState.lastAskedFor === "payment") {
+        return "خد وقتك، ولما تحدد طريقة الدفع قولي وأنا أكمل الطلب.";
+      }
+      return "تمام. تحب تدفع كاش عند الاستلام ولا أونلاين؟";
+    }
+
+    return null;
+  }
+
+  private resolveActiveCatalogItem(
+    context: LlmContext,
+    currentState: ConversationState,
+    response?: ValidatedLlmResponse,
+  ): CatalogItem | null {
+    const candidates = [
+      response?.extracted_entities?.products?.[0]?.name,
+      currentState.confirmedItems[currentState.confirmedItems.length - 1]?.name,
+      context.conversation.cart.items?.[0]?.name,
+      this.extractProductHint(
+        this.normalizeArabicText(context.customerMessage),
+        context.catalogItems,
+      ),
+      this.extractProductHintFromHistory(
+        context.recentMessages,
+        context.catalogItems,
+      ),
+    ].filter((value): value is string => Boolean(value));
+
+    if (candidates.length === 0) {
+      return null;
+    }
+
+    let bestMatch: CatalogItem | null = null;
+    let bestScore = 0;
+
+    for (const item of context.catalogItems) {
+      const haystack = this.normalizeArabicText(
+        [
+          item.nameAr,
+          item.nameEn,
+          item.sku,
+          item.descriptionAr,
+          item.category,
+          ...(Array.isArray(item.tags) ? item.tags : []),
+        ]
+          .filter(Boolean)
+          .join(" "),
+      );
+
+      for (const candidate of candidates) {
+        const normalizedCandidate = this.normalizeArabicText(candidate);
+        let score = 0;
+        if (haystack.includes(normalizedCandidate)) {
+          score += 100;
+        }
+        for (const token of normalizedCandidate.split(" ").filter(Boolean)) {
+          if (token.length < 2) continue;
+          if (haystack.includes(token)) {
+            score += token.length >= 4 ? 10 : 4;
+          }
+        }
+        if (score > bestScore) {
+          bestScore = score;
+          bestMatch = item;
+        }
+      }
+    }
+
+    return bestMatch;
+  }
+
+  private getVariantValues(
+    item: CatalogItem | null,
+    variantName: string,
+  ): string[] {
+    if (!item || !Array.isArray(item.variants)) {
+      return [];
+    }
+
+    const normalizedVariantName = this.normalizeArabicText(variantName);
+    return item.variants
+      .filter((variant) => {
+        const normalizedName = this.normalizeArabicText(variant.name);
+        return normalizedVariantName === "size"
+          ? /size|مقاس/.test(normalizedName)
+          : /color|لون/.test(normalizedName);
+      })
+      .flatMap((variant) =>
+        Array.isArray(variant.values)
+          ? variant.values.filter((value) => typeof value === "string")
+          : [],
+      );
+  }
+
+  private itemHasVariants(item: CatalogItem | null): boolean {
+    return Boolean(
+      item && Array.isArray(item.variants) && item.variants.length > 0,
+    );
+  }
+
+  private buildVariantPrompt(
+    item: CatalogItem | null,
+    fallbackName: string,
+  ): string | null {
+    if (!item) {
+      return `تمام. لو فيه مقاس أو لون معين للـ ${fallbackName} قولي عليه.`;
+    }
+
+    const sizes = this.getVariantValues(item, "size");
+    const colors = this.getVariantValues(item, "color");
+    const parts: string[] = [];
+    if (sizes.length > 0) {
+      parts.push(`المقاسات المتاحة: ${sizes.join("، ")}`);
+    }
+    if (colors.length > 0) {
+      parts.push(`الألوان المتاحة: ${colors.join("، ")}`);
+    }
+
+    if (parts.length === 0) {
+      return null;
+    }
+
+    return `${item.nameAr} تمام. ${parts.join(" | ")}. اختر المناسب لك.`;
+  }
+
+  private extractRequestedColor(text: string): string | null {
+    return (
+      this.normalizeArabicText(text).match(
+        /\b(اسود|ابيض|احمر|ازرق|ازرق غامق|كحلي|بيج|رمادي|اخضر|اصفر|وردي|بني)\b/,
+      )?.[1] || null
+    );
+  }
+
+  private buildKnowledgeBasePolicyReply(
+    merchant: Merchant,
+    keywords: string[],
+    fallback: string,
+  ): string {
+    const knowledgeBase = merchant.knowledgeBase;
+    if (!knowledgeBase) {
+      return fallback;
+    }
+
+    const text = JSON.stringify(knowledgeBase);
+    const hasKeyword = keywords.some((keyword) =>
+      this.normalizeArabicText(text).includes(
+        this.normalizeArabicText(keyword),
+      ),
+    );
+
+    if (!hasKeyword) {
+      return fallback;
+    }
+
+    const faqs = Array.isArray(knowledgeBase?.faqs) ? knowledgeBase.faqs : [];
+    const faqMatch = faqs.find((faq: any) => {
+      const combined = `${faq?.question || ""} ${faq?.answer || ""}`;
+      return keywords.some((keyword) =>
+        this.normalizeArabicText(combined).includes(
+          this.normalizeArabicText(keyword),
+        ),
+      );
+    });
+
+    if (faqMatch?.answer) {
+      return String(faqMatch.answer);
+    }
+
+    const policies = knowledgeBase?.businessInfo?.policies || {};
+    for (const value of Object.values(policies)) {
+      if (typeof value === "string") {
+        return value;
+      }
+    }
+
+    return fallback;
+  }
+
+  private replyRequestsAddress(reply: string): boolean {
+    const normalized = this.normalizeArabicText(reply);
+    return /عنوان|العنوان|محافظه|محافظة|منطقه|منطقة|شارع|لوكيشن/.test(
+      normalized,
+    );
+  }
+
+  private replyRequestsPayment(reply: string): boolean {
+    const normalized = this.normalizeArabicText(reply);
+    return /طريقه الدفع|طريقة الدفع|الدفع|كاش|فيزا|اونلاين|أونلاين|تحويل/.test(
+      normalized,
+    );
   }
 
   private async retryWithSimplerContext(
     context: LlmContext,
     options?: LLMCallOptions,
   ): Promise<LlmResult | null> {
-    const { merchant, conversation, catalogItems, recentMessages, customerMessage } =
-      context;
+    const {
+      merchant,
+      conversation,
+      catalogItems,
+      recentMessages,
+      customerMessage,
+    } = context;
     const lightweightCatalog = catalogItems.slice(0, 15);
-    const systemPrompt = this.buildSimpleRetryPrompt(merchant, lightweightCatalog);
+    const previousState = this.extractConversationState(recentMessages);
+    const currentState = this.extractConversationState(
+      this.buildStateMessages(recentMessages, conversation, customerMessage),
+    );
+    const systemPrompt = this.buildSimpleRetryPrompt(
+      merchant,
+      lightweightCatalog,
+      currentState,
+    );
     const conversationHistory = this.buildConversationHistory(
       recentMessages,
       customerMessage,
     );
-    const userPrompt = this.buildUserPrompt(conversation, customerMessage);
+    const userPrompt = this.buildUserPrompt(
+      conversation,
+      customerMessage,
+      currentState,
+    );
 
     const response = await withTimeout(
       this.callOpenAI(systemPrompt, conversationHistory, userPrompt, options),
@@ -803,7 +1947,14 @@ ${customerMessage}
     const tokensUsed = (response as any).usage?.total_tokens || 0;
     await this.recordTokenUsageSafely(merchant.id, getTodayDate(), tokensUsed);
 
-    return createLlmResult(validated, tokensUsed, true);
+    return this.finalizeLlmResult(
+      validated,
+      tokensUsed,
+      true,
+      context,
+      previousState,
+      currentState,
+    );
   }
 
   private async recordTokenUsageSafely(
@@ -834,13 +1985,15 @@ ${customerMessage}
   private buildSimpleRetryPrompt(
     merchant: Merchant,
     catalogItems: CatalogItem[],
+    conversationState: ConversationState,
   ): string {
     const compactCatalog = catalogItems.length
       ? catalogItems
           .map((item) => {
             const name = item.nameAr || item.name || "منتج";
             const price = item.basePrice || item.price || 0;
-            const availability = item.isAvailable === false ? "غير متوفر" : "متوفر";
+            const availability =
+              item.isAvailable === false ? "غير متوفر" : "متوفر";
             return `- ${name}: ${price} جنيه (${availability})`;
           })
           .join("\n")
@@ -856,6 +2009,11 @@ ${compactCatalog}
 - لو العميل ذكر المنتج بالفعل، لا تسأل عن اسم المنتج مرة أخرى
 - لو المنتج موجود، اذكر السعر والتوفر فوراً
 - لو العميل اختار المنتج بالفعل، انتقل للكمية ثم المقاس/اللون ثم العنوان ثم الدفع
+- المرحلة الحالية: ${conversationState.stage}
+- آخر سؤال من المساعد: ${conversationState.lastAskedFor || "لا يوجد"}
+- المنتجات المؤكدة: ${conversationState.confirmedItems.length > 0 ? conversationState.confirmedItems.map((item) => `${item.name} × ${item.quantity}`).join("، ") : "لا يوجد"}
+- لا تطلب عنوان التوصيل إلا بعد تأكيد المنتج والكمية والمقاس
+- لو العميل سأل سؤال مباشر، جاوبه قبل أي طلب معلومات إضافية
 - لو السؤال خارج نطاق المتجر، قل: "أنا هنا بس لمساعدتك في ${merchant.name}"`;
   }
 
@@ -1247,8 +2405,8 @@ recentAgentActions: آخر 10 إجراءات اتخذها الوكلاء في آ
 
       return createLlmResult(
         {
-          actionType: ActionType.UPDATE_CART,
-          reply_ar: `تمام! ضفت ${matchedItems.map((i) => i.name).join(" و ")} للسلة. عايز حاجة تانية؟`,
+          actionType: ActionType.ASK_CLARIFYING_QUESTION,
+          reply_ar: `المتوفر عندنا ${matchedItems.map((i) => i.name).join(" و ")}. تحب كام قطعة؟`,
           confidence: 0.9,
           extracted_entities: createExtractedEntities({
             products: matchedItems.map((item) => ({
@@ -1260,7 +2418,7 @@ recentAgentActions: آخر 10 إجراءات اتخذها الوكلاء في آ
               notes: null,
             })),
           }),
-          missing_slots: ["customer_name", "address_city"],
+          missing_slots: ["quantity"],
           negotiation: null,
           reasoning: null,
           delivery_fee: null,
@@ -1641,11 +2799,16 @@ recentAgentActions: آخر 10 إجراءات اتخذها الوكلاء في آ
       recentMessages,
     } = context;
     const messageLower = String(customerMessage || "").toLowerCase();
+    const previousState = this.extractConversationState(recentMessages);
+    const currentState = this.extractConversationState(
+      this.buildStateMessages(recentMessages, conversation, customerMessage),
+    );
     const productHint =
       this.extractProductHint(messageLower, catalogItems) ||
       this.extractProductHintFromHistory(recentMessages, catalogItems) ||
       conversation.cart.items?.[0]?.name ||
       null;
+    const directQuestion = this.classifyCustomerQuestion(customerMessage);
 
     logger.warn("Using fallback response", {
       reason,
@@ -1658,7 +2821,41 @@ recentAgentActions: آخر 10 إجراءات اتخذها الوكلاء في آ
       "تمام 🙌 قولي نوع المنتج أو الطلب اللي محتاجه وأنا أكمل معاك خطوة بخطوة.";
     const actionType = ActionType.ASK_CLARIFYING_QUESTION;
 
-    if (conversation.missingSlots.length > 0) {
+    if (directQuestion) {
+      reply =
+        this.buildDirectQuestionAnswer(directQuestion, context, currentState, {
+          actionType,
+          reply_ar: "",
+          confidence: 0.5,
+          extracted_entities: null,
+          missing_slots: null,
+          negotiation: null,
+          reasoning: `fallback_reason:${reason}`,
+          delivery_fee: null,
+        }) || reply;
+    } else if (currentState.stage === "item_confirmation") {
+      reply =
+        this.buildStageProgressReply(context, previousState, currentState, {
+          actionType,
+          reply_ar: "",
+          confidence: 0.5,
+          extracted_entities: null,
+          missing_slots: null,
+          negotiation: null,
+          reasoning: `fallback_reason:${reason}`,
+          delivery_fee: null,
+        }) || reply;
+    } else if (currentState.stage === "delivery") {
+      reply =
+        currentState.lastAskedFor === "address"
+          ? "خد وقتك، لما تجهز العنوان قولي 😊"
+          : "تمام. ابعتلي عنوان التوصيل بالتفصيل مرة واحدة وأنا أكمل معاك.";
+    } else if (currentState.stage === "payment") {
+      reply =
+        currentState.lastAskedFor === "payment"
+          ? "خد وقتك، ولما تحدد طريقة الدفع قولي وأنا أكمل الطلب."
+          : "تمام. تحب تدفع كاش عند الاستلام ولا أونلاين؟";
+    } else if (conversation.missingSlots.length > 0) {
       const slot = conversation.missingSlots[0];
       const questions: Record<string, string> = {
         product: ARABIC_TEMPLATES.ASK_PRODUCT,
@@ -1718,6 +2915,7 @@ recentAgentActions: آخر 10 إجراءات اتخذها الوكلاء في آ
       },
       tokensUsed: 0,
       llmUsed: false,
+      conversationState: currentState,
     };
   }
 
