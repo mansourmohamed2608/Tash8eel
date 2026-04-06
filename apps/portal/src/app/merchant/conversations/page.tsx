@@ -646,9 +646,9 @@ export default function ConversationsPage() {
       </div>
 
       {/* Main Content - Split View */}
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[380px_minmax(0,1fr)] 2xl:grid-cols-[440px_minmax(0,1fr)]">
+      <div className="grid h-[calc(100vh-10rem)] min-h-[52rem] grid-cols-1 gap-4 xl:grid-cols-[380px_minmax(0,1fr)] 2xl:grid-cols-[440px_minmax(0,1fr)]">
         {/* Conversations List */}
-        <Card className="overflow-hidden border-border/70 shadow-sm">
+        <Card className="h-full overflow-hidden border-border/70 shadow-sm">
           <CardHeader className="border-b bg-muted/20 pb-3">
             <div className="space-y-3">
               <div className="relative">
@@ -688,7 +688,7 @@ export default function ConversationsPage() {
             </div>
           </CardHeader>
           <CardContent className="p-0">
-            <ScrollArea className="h-[calc(100vh-19rem)] min-h-[34rem]">
+            <ScrollArea className="h-[calc(100vh-16rem)] min-h-[40rem]">
               {filteredConversations.length === 0 ? (
                 <div className="p-6 text-center">
                   <MessageSquare className="h-12 w-12 mx-auto text-muted-foreground mb-2" />
@@ -789,7 +789,7 @@ export default function ConversationsPage() {
         </Card>
 
         {/* Chat View */}
-        <Card className="flex min-h-[48rem] flex-col overflow-hidden border-border/70 shadow-sm">
+        <Card className="flex h-full min-h-0 flex-col overflow-hidden border-border/70 shadow-sm">
           {selectedConversation ? (
             <>
               {/* Chat Header */}
@@ -899,8 +899,8 @@ export default function ConversationsPage() {
               </CardHeader>
 
               {/* Messages Area */}
-              <CardContent className="flex-1 overflow-hidden bg-[linear-gradient(180deg,rgba(59,130,246,0.03),transparent_28%)] p-0">
-                <ScrollArea className="h-[calc(100vh-23rem)] min-h-[30rem] px-5 py-5">
+              <CardContent className="min-h-0 flex-1 overflow-hidden bg-[linear-gradient(180deg,rgba(59,130,246,0.03),transparent_28%)] p-0">
+                <ScrollArea className="h-full px-5 py-5">
                   {loadingMessages ? (
                     <div className="flex items-center justify-center h-full">
                       <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -910,7 +910,7 @@ export default function ConversationsPage() {
                       لا توجد رسائل
                     </div>
                   ) : (
-                    <div className="space-y-5">
+                    <div className="flex min-h-full flex-col justify-end gap-5">
                       {messages.map((msg) => {
                         const isOutbound =
                           msg.direction?.toString().toLowerCase() ===
@@ -946,7 +946,7 @@ export default function ConversationsPage() {
                             </Avatar>
                             <div
                               className={cn(
-                                "max-w-[82%] rounded-2xl px-4 py-3 shadow-sm sm:max-w-[72%]",
+                                "max-w-[88%] rounded-2xl px-4 py-3 shadow-sm sm:max-w-[82%] xl:max-w-[78%]",
                                 isOutbound
                                   ? "rounded-br-md bg-primary text-primary-foreground"
                                   : "rounded-bl-md border border-border/60 bg-background",
