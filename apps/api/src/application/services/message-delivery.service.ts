@@ -50,14 +50,7 @@ export class MessageDeliveryService {
     text: string,
     provider: string = "meta",
   ): Promise<void> {
-    await this.pool.query(
-      `UPDATE messages 
-       SET delivery_status = 'QUEUED', 
-           next_retry_at = NOW(),
-           updated_at = NOW()
-       WHERE id = $1`,
-      [messageId],
-    );
+    await this.markMessageQueued(messageId);
 
     // Record event
     await this.recordMessageEvent(messageId, merchantId, "QUEUED", provider);
@@ -158,7 +151,7 @@ export class MessageDeliveryService {
        JOIN conversations c ON m.conversation_id = c.id
        WHERE m.delivery_status IN ('QUEUED', 'PENDING')
          AND COALESCE(c.channel, 'whatsapp') = 'whatsapp'
-         AND m.direction = 'outbound'
+         AND LOWER(m.direction) = 'outbound'
          AND m.provider_message_id_outbound IS NULL
          AND (m.next_retry_at IS NULL OR m.next_retry_at <= NOW())
          AND m.retry_count < m.max_retries
@@ -360,11 +353,49 @@ export class MessageDeliveryService {
     provider?: string,
     error?: string,
   ): Promise<void> {
-    await this.pool.query(
-      `INSERT INTO message_events (message_id, merchant_id, event_type, provider, error)
-       VALUES ($1, $2, $3, $4, $5)`,
-      [messageId, merchantId, eventType, provider, error],
-    );
+    try {
+      await this.pool.query(
+        `INSERT INTO message_events (message_id, merchant_id, event_type, provider, error)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [messageId, merchantId, eventType, provider, error],
+      );
+    } catch (error: any) {
+      if (error?.code === "42P01") {
+        this.logger.warn({
+          msg: "message_events table missing; skipping message event record",
+          messageId,
+          merchantId,
+          eventType,
+        });
+        return;
+      }
+      throw error;
+    }
+  }
+
+  private async markMessageQueued(messageId: string): Promise<void> {
+    try {
+      await this.pool.query(
+        `UPDATE messages 
+         SET delivery_status = 'QUEUED', 
+             next_retry_at = NOW(),
+             updated_at = NOW()
+         WHERE id = $1`,
+        [messageId],
+      );
+    } catch (error: any) {
+      if (error?.code !== "42703") {
+        throw error;
+      }
+
+      await this.pool.query(
+        `UPDATE messages 
+         SET delivery_status = 'QUEUED', 
+             next_retry_at = NOW()
+         WHERE id = $1`,
+        [messageId],
+      );
+    }
   }
 
   private async publishStatusEvent(

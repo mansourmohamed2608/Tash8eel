@@ -85,6 +85,7 @@ import {
   PLAN_ENTITLEMENTS,
   PlanType,
 } from "../../shared/entitlements";
+import { MessageDirection } from "../../shared/constants/enums";
 import { generateOrderNumber } from "../../shared/utils/helpers";
 
 /**
@@ -1618,7 +1619,7 @@ export class MerchantPortalController {
       conversationId: id,
       merchantId,
       senderId: "portal-operator",
-      direction: "OUTBOUND" as any,
+      direction: MessageDirection.OUTBOUND,
       text: messageText,
       tokensUsed: 0,
     });
