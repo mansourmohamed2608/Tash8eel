@@ -94,6 +94,7 @@ interface ProcessedNavItem extends NavItem {
 interface SectionNavItem {
   href: string;
   label?: string;
+  featureKey?: string;
 }
 
 interface MerchantSidebarSection {
