@@ -114,7 +114,7 @@ export default function CashFlowPage() {
     );
   if (error)
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 p-4 sm:p-6">
         <PageHeader title="التدفق النقدي" />
         <Card className="border-red-200 bg-red-50">
           <CardContent className="pt-6 text-red-700">{error}</CardContent>
@@ -124,6 +124,11 @@ export default function CashFlowPage() {
 
   const summary = data?.summary || {};
   const forecast = data?.forecast || [];
+  const realizedRevenue = Number(summary.realizedRevenue || 0);
+  const bookedSales = Number(summary.bookedSales || 0);
+  const pendingCollections = Number(summary.pendingCollections || 0);
+  const refundsAmount = Number(summary.refundsAmount || 0);
+  const actualNetCashFlow = Number(summary.actualNetCashFlow || 0);
   const chartData = forecast.map((f: any) => ({
     name: toAxisLabel(f.date),
     label: f.date,
@@ -133,12 +138,16 @@ export default function CashFlowPage() {
   }));
 
   return (
-    <div className="space-y-6 animate-fadeIn">
+    <div className="space-y-6 animate-fadeIn p-4 sm:p-6">
       <PageHeader
         title="التدفق النقدي"
-        description="تحليل الإيرادات والمصروفات اليومية حسب الفترة المحددة"
+        description="توقعات الإيرادات والمصروفات والتدفق النقدي للفترة المحددة"
         actions={
-          <Button variant="outline" onClick={fetchData}>
+          <Button
+            variant="outline"
+            onClick={fetchData}
+            className="w-full sm:w-auto"
+          >
             <RefreshCw className="ml-2 h-4 w-4" /> تحديث
           </Button>
         }
@@ -152,14 +161,14 @@ export default function CashFlowPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex flex-wrap items-end gap-3">
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,180px)_repeat(2,minmax(0,1fr))_auto]">
             <div className="space-y-2">
               <Label>الفترة</Label>
               <Select
                 value={String(reportingDays)}
                 onValueChange={(value) => applyDayRange(Number(value))}
               >
-                <SelectTrigger className="w-[160px]">
+                <SelectTrigger className="w-full lg:w-[160px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -187,7 +196,7 @@ export default function CashFlowPage() {
                 onChange={(e) => setEndDate(e.target.value)}
               />
             </div>
-            <Button onClick={fetchData}>
+            <Button onClick={fetchData} className="w-full md:w-auto">
               <RefreshCw className="ml-2 h-4 w-4" /> تطبيق
             </Button>
           </div>
@@ -213,17 +222,17 @@ export default function CashFlowPage() {
 
       <KPIGrid>
         <StatCard
-          title="إجمالي الإيرادات"
+          title="الإيرادات المتوقعة"
           value={formatCurrency(summary.projectedMonthlyRevenue)}
           icon={<TrendingUp className="h-5 w-5 text-green-600" />}
         />
         <StatCard
-          title="إجمالي المصروفات"
+          title="المصروفات المتوقعة"
           value={formatCurrency(summary.projectedMonthlyExpenses)}
           icon={<TrendingDown className="h-5 w-5 text-red-600" />}
         />
         <StatCard
-          title="صافي التدفق النقدي"
+          title="صافي التدفق المتوقع"
           value={formatCurrency(summary.projectedNetCashFlow)}
           icon={<DollarSign className="h-5 w-5" />}
         />
@@ -240,16 +249,54 @@ export default function CashFlowPage() {
         />
       </KPIGrid>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <Card className="border-blue-200 bg-blue-50/60">
+        <CardHeader>
+          <CardTitle>الوضع الفعلي للفترة المحددة</CardTitle>
+          <CardDescription>
+            هذه القيم فعلية من الطلبات والمدفوعات، وليست توقعات.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
+            <StatCard
+              title="الإيرادات المحققة"
+              value={formatCurrency(realizedRevenue)}
+              icon={<DollarSign className="h-5 w-5 text-green-600" />}
+            />
+            <StatCard
+              title="المبيعات المحجوزة"
+              value={formatCurrency(bookedSales)}
+              icon={<TrendingUp className="h-5 w-5 text-blue-600" />}
+            />
+            <StatCard
+              title="قيد التحصيل"
+              value={formatCurrency(pendingCollections)}
+              icon={<Activity className="h-5 w-5 text-amber-600" />}
+            />
+            <StatCard
+              title="المرتجعات"
+              value={formatCurrency(refundsAmount)}
+              icon={<TrendingDown className="h-5 w-5 text-red-600" />}
+            />
+            <StatCard
+              title="صافي التدفق الفعلي"
+              value={formatCurrency(actualNetCashFlow)}
+              icon={<DollarSign className="h-5 w-5" />}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <AreaChart
           data={chartData}
-          title="صافي التدفق اليومي"
+          title="صافي التدفق المتوقع يومياً"
           dataKey="صافي"
           color="#3b82f6"
         />
         <BarChart
           data={chartData}
-          title="الإيرادات والمصروفات اليومية"
+          title="الإيرادات والمصروفات المتوقعة يومياً"
           bars={[
             { dataKey: "إيرادات", color: "#22c55e", name: "الإيرادات" },
             { dataKey: "مصروفات", color: "#ef4444", name: "المصروفات" },
@@ -266,34 +313,63 @@ export default function CashFlowPage() {
         </CardHeader>
         <CardContent>
           <div className="max-h-96 overflow-y-auto">
-            <table className="w-full text-sm">
-              <thead className="sticky top-0 bg-white border-b">
-                <tr className="text-right">
-                  <th className="p-2">التاريخ</th>
-                  <th className="p-2">الإيرادات</th>
-                  <th className="p-2">المصروفات</th>
-                  <th className="p-2">الصافي</th>
-                </tr>
-              </thead>
-              <tbody>
-                {forecast.map((f: any, i: number) => (
-                  <tr key={i} className="border-b hover:bg-gray-50">
-                    <td className="p-2">{f.date}</td>
-                    <td className="p-2 text-green-600">
+            <div className="space-y-3 md:hidden">
+              {forecast.map((f: any, i: number) => (
+                <div key={i} className="rounded-lg border p-4 text-sm">
+                  <div className="font-medium">{f.date}</div>
+                  <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                    <div className="text-green-600">
+                      <span className="text-muted-foreground">الإيرادات:</span>{" "}
                       {formatCurrency(f.projectedRevenue)}
-                    </td>
-                    <td className="p-2 text-red-600">
+                    </div>
+                    <div className="text-red-600">
+                      <span className="text-muted-foreground">المصروفات:</span>{" "}
                       {formatCurrency(f.projectedExpenses)}
-                    </td>
-                    <td
-                      className={`p-2 font-medium ${f.netCashFlow >= 0 ? "text-green-700" : "text-red-700"}`}
+                    </div>
+                    <div
+                      className={
+                        f.netCashFlow >= 0
+                          ? "font-medium text-green-700"
+                          : "font-medium text-red-700"
+                      }
                     >
+                      <span className="text-muted-foreground">الصافي:</span>{" "}
                       {formatCurrency(f.netCashFlow)}
-                    </td>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="hidden md:block">
+              <table className="w-full text-sm">
+                <thead className="sticky top-0 border-b bg-white">
+                  <tr className="text-right">
+                    <th className="p-2">التاريخ</th>
+                    <th className="p-2">الإيرادات</th>
+                    <th className="p-2">المصروفات</th>
+                    <th className="p-2">الصافي</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {forecast.map((f: any, i: number) => (
+                    <tr key={i} className="border-b hover:bg-gray-50">
+                      <td className="p-2">{f.date}</td>
+                      <td className="p-2 text-green-600">
+                        {formatCurrency(f.projectedRevenue)}
+                      </td>
+                      <td className="p-2 text-red-600">
+                        {formatCurrency(f.projectedExpenses)}
+                      </td>
+                      <td
+                        className={`p-2 font-medium ${f.netCashFlow >= 0 ? "text-green-700" : "text-red-700"}`}
+                      >
+                        {formatCurrency(f.netCashFlow)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </CardContent>
       </Card>

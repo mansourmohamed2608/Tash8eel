@@ -5,6 +5,8 @@ import { DATABASE_POOL } from "../../infrastructure/database/database.module";
 import { NotificationsService } from "../services/notifications.service";
 import { RedisService } from "../../infrastructure/redis/redis.service";
 import { FinanceAiService } from "../llm/finance-ai.service";
+import { CommerceFactsService } from "../services/commerce-facts.service";
+import { normalizeDisplayProductName } from "../../shared/utils/product-display";
 
 interface PeriodStats {
   merchantId: string;
@@ -49,6 +51,7 @@ export class WeeklyReportScheduler {
     private readonly notificationsService: NotificationsService,
     private readonly redisService: RedisService,
     private readonly financeAiService: FinanceAiService,
+    private readonly commerceFactsService: CommerceFactsService,
   ) {}
 
   /**
@@ -186,6 +189,9 @@ export class WeeklyReportScheduler {
                   totalRevenue:
                     stats.totalRevenue *
                     (1 - stats.comparedToPrevious.revenueChange / 100),
+                  realizedRevenue:
+                    stats.totalRevenue *
+                    (1 - stats.comparedToPrevious.revenueChange / 100),
                   totalCogs: 0,
                   grossProfit: 0,
                   grossMargin: 0,
@@ -202,6 +208,7 @@ export class WeeklyReportScheduler {
                 },
                 currentPeriod: {
                   totalRevenue: stats.totalRevenue,
+                  realizedRevenue: stats.totalRevenue,
                   totalCogs: 0,
                   grossProfit: stats.totalRevenue * 0.4,
                   grossMargin: 40,
@@ -263,6 +270,21 @@ export class WeeklyReportScheduler {
     const periodLength = periodEnd.getTime() - periodStart.getTime();
     const prevPeriodEnd = periodStart;
     const prevPeriodStart = new Date(periodStart.getTime() - periodLength);
+    const currentReportEnd = new Date(periodEnd.getTime() - 1);
+    const previousReportEnd = new Date(prevPeriodEnd.getTime() - 1);
+
+    const [currentFinance, previousFinance] = await Promise.all([
+      this.commerceFactsService.buildFinanceSummary(
+        merchantId,
+        periodStart,
+        currentReportEnd,
+      ),
+      this.commerceFactsService.buildFinanceSummary(
+        merchantId,
+        prevPeriodStart,
+        previousReportEnd,
+      ),
+    ]);
 
     // Current period stats
     const conversationsResult = await this.pool.query(
@@ -278,11 +300,11 @@ export class WeeklyReportScheduler {
     const ordersResult = await this.pool.query(
       `SELECT 
         COUNT(*) as created,
-        COUNT(*) FILTER (WHERE status IN ('CONFIRMED', 'BOOKED', 'SHIPPED', 'DELIVERED')) as confirmed,
-        COALESCE(SUM(total), 0) as revenue
+        COUNT(*) FILTER (WHERE UPPER(COALESCE(status::text, '')) IN ('CONFIRMED', 'BOOKED', 'SHIPPED', 'DELIVERED')) as confirmed
        FROM orders 
        WHERE merchant_id = $1 
-         AND created_at >= $2 AND created_at < $3`,
+         AND created_at >= $2 AND created_at < $3
+         AND UPPER(COALESCE(status::text, '')) NOT IN ('DRAFT', 'FAILED')`,
       [merchantId, periodStart, periodEnd],
     );
 
@@ -296,17 +318,6 @@ export class WeeklyReportScheduler {
         periodStart.toISOString().split("T")[0],
         periodEnd.toISOString().split("T")[0],
       ],
-    );
-
-    // Previous period for comparison
-    const prevOrdersResult = await this.pool.query(
-      `SELECT 
-        COUNT(*) as created,
-        COALESCE(SUM(total), 0) as revenue
-       FROM orders 
-       WHERE merchant_id = $1 
-         AND created_at >= $2 AND created_at < $3`,
-      [merchantId, prevPeriodStart, prevPeriodEnd],
     );
 
     const prevConversationsResult = await this.pool.query(
@@ -326,6 +337,7 @@ export class WeeklyReportScheduler {
        FROM orders, jsonb_array_elements(items) as item
        WHERE merchant_id = $1 
          AND created_at >= $2 AND created_at < $3
+         AND UPPER(COALESCE(status::text, '')) NOT IN ('CANCELLED', 'DRAFT', 'FAILED', 'RETURNED')
        GROUP BY item->>'name'
        ORDER BY revenue DESC
        LIMIT 5`,
@@ -353,10 +365,11 @@ export class WeeklyReportScheduler {
       prevConversationsResult.rows[0].total,
       10,
     );
-    const currentOrders = parseInt(ordersResult.rows[0].created, 10);
-    const prevOrders = parseInt(prevOrdersResult.rows[0].created, 10);
-    const currentRevenue = parseFloat(ordersResult.rows[0].revenue);
-    const prevRevenue = parseFloat(prevOrdersResult.rows[0].revenue);
+    const currentOrders =
+      parseInt(ordersResult.rows[0].created, 10) || currentFinance.totalOrders;
+    const prevOrders = previousFinance.totalOrders;
+    const currentRevenue = currentFinance.realizedRevenue;
+    const prevRevenue = previousFinance.realizedRevenue;
     const deliveryTotal = parseInt(deliveryResult.rows[0].total, 10);
 
     return {
@@ -370,7 +383,7 @@ export class WeeklyReportScheduler {
       ordersCreated: currentOrders,
       ordersConfirmed: parseInt(ordersResult.rows[0].confirmed, 10),
       totalRevenue: currentRevenue,
-      averageOrderValue: currentOrders > 0 ? currentRevenue / currentOrders : 0,
+      averageOrderValue: currentFinance.averageOrderValue,
       tokenUsage: parseInt(tokenResult.rows[0].total, 10),
       conversionRate:
         currentConversations > 0
@@ -394,7 +407,7 @@ export class WeeklyReportScheduler {
             : 0,
       },
       topProducts: topProductsResult.rows.map((row) => ({
-        name: row.name,
+        name: normalizeDisplayProductName(row.name, row.name),
         quantity: parseInt(row.quantity, 10),
         revenue: parseFloat(row.revenue),
       })),
@@ -441,7 +454,7 @@ export class WeeklyReportScheduler {
 ━━━━━━━━━━━━━━━
 📅 ${stats.periodStart} - ${stats.periodEnd}
 
-💰 الإيرادات: ${stats.totalRevenue.toFixed(2)} ج.م
+💰 الإيرادات المحققة: ${stats.totalRevenue.toFixed(2)} ج.م
 ${changeEmoji(stats.comparedToPrevious.revenueChange)} ${stats.comparedToPrevious.revenueChange >= 0 ? "+" : ""}${stats.comparedToPrevious.revenueChange.toFixed(1)}% من الفترة السابقة
 
 🛒 الطلبات: ${stats.ordersCreated}

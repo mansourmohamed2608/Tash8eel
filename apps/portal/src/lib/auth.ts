@@ -48,7 +48,8 @@ declare module "next-auth/jwt" {
   }
 }
 
-const normalizeBaseUrl = (value?: string) => (value || "").replace(/\/+$/, "");
+const normalizeBaseUrl = (value?: string) =>
+  (value || "").trim().replace(/\/+$/, "");
 
 const API_URL =
   normalizeBaseUrl(process.env.API_BASE_URL) ||

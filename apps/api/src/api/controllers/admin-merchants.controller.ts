@@ -28,6 +28,8 @@ import { MerchantCategory } from "../../shared/constants/enums";
 import { v4 as uuidv4 } from "uuid";
 import { IsNumber, IsOptional, IsArray, IsString, Min } from "class-validator";
 import {
+  AGENT_CATALOG,
+  FEATURE_CATALOG,
   AgentType,
   FeatureType,
   PlanType,
@@ -35,6 +37,7 @@ import {
   PLAN_ENTITLEMENTS,
   resolveEntitlementDependencies,
 } from "../../shared/entitlements";
+import { resolveCashierProvisioning, toStringArray } from "./billing.helpers";
 
 // ===== DTOs =====
 
@@ -47,7 +50,7 @@ class UpdateBudgetDto {
 class UpdateEnabledAgentsDto {
   @IsArray()
   @IsString({ each: true })
-  enabledAgents!: string[];
+  enabledAgents!: AgentType[];
 }
 
 class UpdateMerchantPlanDto {
@@ -91,6 +94,22 @@ export class AdminMerchantsController {
 
   // ===== PRIVATE HELPERS =====
 
+  private getValidAgentTypes(): AgentType[] {
+    return AGENT_CATALOG.map((agent) => agent.id);
+  }
+
+  private getValidFeatureTypes(): FeatureType[] {
+    return FEATURE_CATALOG.map((feature) => feature.id);
+  }
+
+  private getFallbackEnabledAgents(plan?: string | null): AgentType[] {
+    const normalizedPlan = String(plan || "").toUpperCase() as PlanType;
+    return (
+      PLAN_ENTITLEMENTS[normalizedPlan]?.enabledAgents ||
+      PLAN_ENTITLEMENTS.STARTER.enabledAgents
+    );
+  }
+
   private async applyPlanEntitlements(
     merchantId: string,
     dto: UpdateMerchantPlanDto,
@@ -108,6 +127,26 @@ export class AdminMerchantsController {
       dto.enabledAgents || planDefaults.enabledAgents;
     let enabledFeatures: FeatureType[] =
       dto.enabledFeatures || planDefaults.enabledFeatures;
+
+    const validAgentTypes = this.getValidAgentTypes();
+    const validFeatureTypes = this.getValidFeatureTypes();
+    const invalidAgents = enabledAgents.filter(
+      (agent) => !validAgentTypes.includes(agent),
+    );
+    const invalidFeatures = enabledFeatures.filter(
+      (feature) => !validFeatureTypes.includes(feature),
+    );
+
+    if (invalidAgents.length > 0 || invalidFeatures.length > 0) {
+      return {
+        success: false,
+        error: "Invalid entitlements provided",
+        invalidAgents,
+        invalidFeatures,
+        validAgentTypes,
+        validFeatureTypes,
+      };
+    }
 
     if (dto.plan !== "CUSTOM") {
       enabledAgents = planDefaults.enabledAgents;
@@ -298,10 +337,13 @@ export class AdminMerchantsController {
       SELECT 
         m.id,
         m.name,
+        m.plan,
         m.category,
         m.is_active,
         m.daily_token_budget,
-        COALESCE(m.enabled_agents, ARRAY['OPS_AGENT', 'INVENTORY_AGENT', 'SUPPORT_AGENT']) as enabled_agents,
+        m.enabled_agents,
+        m.enabled_features,
+        m.plan_limits,
         m.created_at,
         m.updated_at,
         COALESCE(u.today_tokens, 0) as tokens_used_today
@@ -317,13 +359,29 @@ export class AdminMerchantsController {
 
     return {
       merchants: result.rows.map((row) => ({
+        ...(() => {
+          const cashierProvisioning = resolveCashierProvisioning({
+            planCode: row.plan,
+            enabledFeatures: toStringArray(row.enabled_features),
+            limits: row.plan_limits || {},
+            existingFeatures: toStringArray(row.enabled_features),
+            existingLimits: row.plan_limits || {},
+          });
+          return {
+            cashierPromoActive: cashierProvisioning.promo.active,
+            cashierPromoEndsAt: cashierProvisioning.promo.endsAt,
+            cashierEffective: cashierProvisioning.promo.effective,
+          };
+        })(),
         id: row.id,
         name: row.name,
+        plan: row.plan,
         category: row.category,
         isActive: row.is_active,
         dailyTokenBudget: row.daily_token_budget,
         tokensUsedToday: parseInt(row.tokens_used_today, 10),
-        enabledAgents: row.enabled_agents,
+        enabledAgents:
+          row.enabled_agents || this.getFallbackEnabledAgents(row.plan),
         createdAt: row.created_at,
         updatedAt: row.updated_at,
       })),
@@ -360,13 +418,22 @@ export class AdminMerchantsController {
     );
 
     const agentsResult = await this.pool.query(
-      `SELECT COALESCE(enabled_agents, ARRAY['OPS_AGENT', 'INVENTORY_AGENT', 'SUPPORT_AGENT']) as enabled_agents 
+      `SELECT plan, enabled_agents, enabled_features, plan_limits
        FROM merchants WHERE id = $1`,
       [merchantId],
     );
 
     const usage = usageResult.rows[0];
-    const enabledAgents = agentsResult.rows[0]?.enabled_agents || [];
+    const enabledAgents =
+      agentsResult.rows[0]?.enabled_agents ||
+      this.getFallbackEnabledAgents(agentsResult.rows[0]?.plan);
+    const cashierProvisioning = resolveCashierProvisioning({
+      planCode: agentsResult.rows[0]?.plan,
+      enabledFeatures: toStringArray(agentsResult.rows[0]?.enabled_features),
+      limits: agentsResult.rows[0]?.plan_limits || {},
+      existingFeatures: toStringArray(agentsResult.rows[0]?.enabled_features),
+      existingLimits: agentsResult.rows[0]?.plan_limits || {},
+    });
 
     return {
       id: merchant.id,
@@ -375,6 +442,9 @@ export class AdminMerchantsController {
       isActive: merchant.isActive,
       dailyTokenBudget: merchant.dailyTokenBudget,
       enabledAgents,
+      cashierPromoActive: cashierProvisioning.promo.active,
+      cashierPromoEndsAt: cashierProvisioning.promo.endsAt,
+      cashierEffective: cashierProvisioning.promo.effective,
       config: merchant.config,
       tokenUsage: {
         today: parseInt(usage.today, 10),
@@ -453,16 +523,7 @@ export class AdminMerchantsController {
       return { success: false, error: "Merchant not found" };
     }
 
-    const validAgentTypes = [
-      "OPS_AGENT",
-      "INVENTORY_AGENT",
-      "FINANCE_AGENT",
-      "MARKETING_AGENT",
-      "CONTENT_AGENT",
-      "SUPPORT_AGENT",
-      "SALES_AGENT",
-      "CREATIVE_AGENT",
-    ];
+    const validAgentTypes = this.getValidAgentTypes();
     const invalidAgents = dto.enabledAgents.filter(
       (a) => !validAgentTypes.includes(a),
     );
@@ -475,11 +536,13 @@ export class AdminMerchantsController {
     }
 
     const prevResult = await this.pool.query(
-      `SELECT COALESCE(enabled_agents, ARRAY['OPS_AGENT', 'INVENTORY_AGENT', 'SUPPORT_AGENT']) as enabled_agents 
+      `SELECT plan, enabled_agents
        FROM merchants WHERE id = $1`,
       [merchantId],
     );
-    const previousAgents = prevResult.rows[0]?.enabled_agents || [];
+    const previousAgents =
+      prevResult.rows[0]?.enabled_agents ||
+      this.getFallbackEnabledAgents(prevResult.rows[0]?.plan);
 
     await this.pool.query(
       `UPDATE merchants 

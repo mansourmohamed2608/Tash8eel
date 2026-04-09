@@ -113,47 +113,47 @@ export default function BranchPLPage() {
   const prof = report?.profitability;
 
   return (
-    <div className="space-y-6 print:space-y-4">
+    <div className="space-y-6 p-4 print:space-y-4 sm:p-6">
       {/* Tab nav - hidden when printing */}
-      <div className="flex gap-1 border-b pb-0 print:hidden">
+      <div className="grid grid-cols-2 gap-2 border-b pb-0 print:hidden sm:grid-cols-3 xl:grid-cols-6">
         <Link
           href={`/merchant/branches/${branchId}`}
-          className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 border-transparent text-muted-foreground hover:text-foreground"
+          className="flex items-center justify-center gap-1.5 border-b-2 border-transparent px-4 py-2 text-center text-sm font-medium text-muted-foreground hover:text-foreground"
         >
           <BarChart3 className="h-4 w-4" />
           التحليلات
         </Link>
         <Link
           href={`/merchant/branches/${branchId}/settings`}
-          className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 border-transparent text-muted-foreground hover:text-foreground"
+          className="flex items-center justify-center gap-1.5 border-b-2 border-transparent px-4 py-2 text-center text-sm font-medium text-muted-foreground hover:text-foreground"
         >
           <Settings className="h-4 w-4" />
           الإعدادات
         </Link>
         <Link
           href={`/merchant/branches/${branchId}/shifts`}
-          className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 border-transparent text-muted-foreground hover:text-foreground"
+          className="flex items-center justify-center gap-1.5 border-b-2 border-transparent px-4 py-2 text-center text-sm font-medium text-muted-foreground hover:text-foreground"
         >
           <Clock className="h-4 w-4" />
           الجلسات
         </Link>
         <Link
           href={`/merchant/branches/${branchId}/inventory`}
-          className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 border-transparent text-muted-foreground hover:text-foreground"
+          className="flex items-center justify-center gap-1.5 border-b-2 border-transparent px-4 py-2 text-center text-sm font-medium text-muted-foreground hover:text-foreground"
         >
           <Package className="h-4 w-4" />
           المخزون
         </Link>
         <Link
           href={`/merchant/branches/${branchId}/alerts`}
-          className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 border-transparent text-muted-foreground hover:text-foreground"
+          className="flex items-center justify-center gap-1.5 border-b-2 border-transparent px-4 py-2 text-center text-sm font-medium text-muted-foreground hover:text-foreground"
         >
           <Bell className="h-4 w-4" />
           التنبيهات
         </Link>
         <Link
           href={`/merchant/branches/${branchId}/pl-report`}
-          className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 border-primary text-primary"
+          className="flex items-center justify-center gap-1.5 border-b-2 border-primary px-4 py-2 text-center text-sm font-medium text-primary"
         >
           <FileText className="h-4 w-4" />
           تقرير الأرباح
@@ -164,16 +164,17 @@ export default function BranchPLPage() {
         title={`تقرير الأرباح والخسائر - ${branch?.name ?? "..."}`}
         description={`شهر: ${formatMonth(month)}`}
         actions={
-          <div className="flex gap-2 print:hidden">
+          <div className="flex w-full flex-col gap-2 print:hidden sm:w-auto sm:flex-row">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => router.push("/merchant/branches")}
+              className="w-full sm:w-auto"
             >
               <ArrowLeft className="h-4 w-4 ml-1" />
               الفروع
             </Button>
-            <div className="flex items-center gap-2">
+            <div className="flex w-full flex-col items-stretch gap-2 sm:w-auto sm:flex-row sm:items-center">
               <Label htmlFor="month" className="text-sm whitespace-nowrap">
                 الشهر:
               </Label>
@@ -182,7 +183,7 @@ export default function BranchPLPage() {
                 type="month"
                 value={month}
                 onChange={(e) => setMonth(e.target.value)}
-                className="w-36"
+                className="w-full sm:w-36"
               />
             </div>
             <Button
@@ -190,12 +191,17 @@ export default function BranchPLPage() {
               size="sm"
               onClick={fetchReport}
               disabled={loading}
+              className="w-full sm:w-auto"
             >
               <RefreshCw
                 className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
               />
             </Button>
-            <Button onClick={handlePrint} disabled={!report}>
+            <Button
+              onClick={handlePrint}
+              disabled={!report}
+              className="w-full sm:w-auto"
+            >
               <Printer className="h-4 w-4 ml-1" />
               طباعة
             </Button>
@@ -224,7 +230,7 @@ export default function BranchPLPage() {
       ) : (
         <div ref={printRef} className="space-y-6 print:space-y-4">
           {/* KPI cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <Card>
               <CardContent className="pt-4">
                 <p className="text-xs text-muted-foreground">
@@ -291,57 +297,91 @@ export default function BranchPLPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
-              <Table>
-                <TableBody>
-                  <TableRow>
-                    <TableCell className="font-medium">
-                      إجمالي الإيرادات
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {rev?.totalOrders} طلب
-                    </TableCell>
-                    <TableCell className="text-right font-semibold">
-                      {formatCurrency(rev?.grossRevenue)}
-                    </TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell className="text-muted-foreground pr-8">
-                      الخصومات
-                    </TableCell>
-                    <TableCell />
-                    <TableCell className="text-right text-red-500">
-                      ({formatCurrency(rev?.discounts)})
-                    </TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell className="text-muted-foreground pr-8">
-                      رسوم التوصيل
-                    </TableCell>
-                    <TableCell />
-                    <TableCell className="text-right">
-                      {formatCurrency(rev?.deliveryFees)}
-                    </TableCell>
-                  </TableRow>
-                  <TableRow className="bg-muted/40 font-semibold">
-                    <TableCell>صافي الإيرادات</TableCell>
-                    <TableCell />
-                    <TableCell className="text-right">
-                      {formatCurrency(rev?.netRevenue)}
-                    </TableCell>
-                  </TableRow>
-                  {rev?.cancelledOrders > 0 && (
-                    <TableRow className="text-muted-foreground text-sm">
-                      <TableCell className="pr-8">
-                        ملاحظة: {rev.cancelledOrders} طلب ملغى
+              <div className="space-y-3 p-4 md:hidden">
+                <Card className="border-none shadow-none">
+                  <CardContent className="space-y-3 p-0 text-sm">
+                    <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                      <span className="font-medium">إجمالي الإيرادات</span>
+                      <span className="font-semibold">
+                        {formatCurrency(rev?.grossRevenue)}
+                      </span>
+                    </div>
+                    <div className="flex flex-col gap-1 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+                      <span>عدد الطلبات</span>
+                      <span>{rev?.totalOrders} طلب</span>
+                    </div>
+                    <div className="flex flex-col gap-1 text-xs sm:flex-row sm:items-center sm:justify-between">
+                      <span className="text-muted-foreground">الخصومات</span>
+                      <span className="text-red-500">
+                        ({formatCurrency(rev?.discounts)})
+                      </span>
+                    </div>
+                    <div className="flex flex-col gap-1 text-xs sm:flex-row sm:items-center sm:justify-between">
+                      <span className="text-muted-foreground">
+                        رسوم التوصيل
+                      </span>
+                      <span>{formatCurrency(rev?.deliveryFees)}</span>
+                    </div>
+                    <div className="flex flex-col gap-1 rounded-md bg-muted/40 px-3 py-2 font-semibold sm:flex-row sm:items-center sm:justify-between">
+                      <span>صافي الإيرادات</span>
+                      <span>{formatCurrency(rev?.netRevenue)}</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+              <div className="hidden overflow-x-auto md:block">
+                <Table>
+                  <TableBody>
+                    <TableRow>
+                      <TableCell className="font-medium">
+                        إجمالي الإيرادات
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {rev?.totalOrders} طلب
+                      </TableCell>
+                      <TableCell className="text-right font-semibold">
+                        {formatCurrency(rev?.grossRevenue)}
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell className="text-muted-foreground pr-8">
+                        الخصومات
+                      </TableCell>
+                      <TableCell />
+                      <TableCell className="text-right text-red-500">
+                        ({formatCurrency(rev?.discounts)})
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell className="text-muted-foreground pr-8">
+                        رسوم التوصيل
                       </TableCell>
                       <TableCell />
                       <TableCell className="text-right">
-                        ({formatCurrency(rev?.cancelledRevenue)})
+                        {formatCurrency(rev?.deliveryFees)}
                       </TableCell>
                     </TableRow>
-                  )}
-                </TableBody>
-              </Table>
+                    <TableRow className="bg-muted/40 font-semibold">
+                      <TableCell>صافي الإيرادات</TableCell>
+                      <TableCell />
+                      <TableCell className="text-right">
+                        {formatCurrency(rev?.netRevenue)}
+                      </TableCell>
+                    </TableRow>
+                    {rev?.cancelledOrders > 0 && (
+                      <TableRow className="text-muted-foreground text-sm">
+                        <TableCell className="pr-8">
+                          ملاحظة: {rev.cancelledOrders} طلب ملغى
+                        </TableCell>
+                        <TableCell />
+                        <TableCell className="text-right">
+                          ({formatCurrency(rev?.cancelledRevenue)})
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
             </CardContent>
           </Card>
 
@@ -355,30 +395,50 @@ export default function BranchPLPage() {
             </CardHeader>
             <CardContent className="p-0">
               {exp?.byCategory?.length > 0 ? (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>الفئة</TableHead>
-                      <TableHead className="text-right">المبلغ</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
+                <>
+                  <div className="space-y-3 p-4 md:hidden">
                     {exp.byCategory.map((cat: any) => (
-                      <TableRow key={cat.category}>
-                        <TableCell>{cat.category || "أخرى"}</TableCell>
-                        <TableCell className="text-right">
-                          {formatCurrency(cat.total)}
-                        </TableCell>
-                      </TableRow>
+                      <Card key={cat.category}>
+                        <CardContent className="flex flex-col gap-2 p-4 text-sm sm:flex-row sm:items-center sm:justify-between">
+                          <span>{cat.category || "أخرى"}</span>
+                          <span className="font-medium">
+                            {formatCurrency(cat.total)}
+                          </span>
+                        </CardContent>
+                      </Card>
                     ))}
-                    <TableRow className="bg-muted/40 font-semibold">
-                      <TableCell>الإجمالي</TableCell>
-                      <TableCell className="text-right">
-                        {formatCurrency(exp?.totalExpenses)}
-                      </TableCell>
-                    </TableRow>
-                  </TableBody>
-                </Table>
+                    <div className="flex flex-col gap-1 rounded-md bg-muted/40 px-4 py-3 text-sm font-semibold sm:flex-row sm:items-center sm:justify-between">
+                      <span>الإجمالي</span>
+                      <span>{formatCurrency(exp?.totalExpenses)}</span>
+                    </div>
+                  </div>
+                  <div className="hidden overflow-x-auto md:block">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>الفئة</TableHead>
+                          <TableHead className="text-right">المبلغ</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {exp.byCategory.map((cat: any) => (
+                          <TableRow key={cat.category}>
+                            <TableCell>{cat.category || "أخرى"}</TableCell>
+                            <TableCell className="text-right">
+                              {formatCurrency(cat.total)}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                        <TableRow className="bg-muted/40 font-semibold">
+                          <TableCell>الإجمالي</TableCell>
+                          <TableCell className="text-right">
+                            {formatCurrency(exp?.totalExpenses)}
+                          </TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  </div>
+                </>
               ) : (
                 <p className="text-center text-muted-foreground py-6">
                   لا توجد مصاريف مسجّلة
@@ -400,58 +460,101 @@ export default function BranchPLPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
-              <Table>
-                <TableBody>
-                  <TableRow>
-                    <TableCell className="font-medium">
-                      صافي الإيرادات
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {formatCurrency(rev?.netRevenue)}
-                    </TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell className="font-medium">
-                      إجمالي المصاريف
-                    </TableCell>
-                    <TableCell className="text-right text-red-500">
-                      ({formatCurrency(exp?.totalExpenses)})
-                    </TableCell>
-                  </TableRow>
-                  <Separator />
-                  <TableRow className="bg-muted/40 font-bold text-base">
-                    <TableCell>صافي الربح</TableCell>
-                    <TableCell
-                      className={`text-right ${prof?.netProfit >= 0 ? "text-green-600" : "text-red-600"}`}
-                    >
-                      {formatCurrency(prof?.netProfit)}
-                    </TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell className="text-muted-foreground">
-                      هامش الربح
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Badge
-                        variant={prof?.margin >= 0 ? "default" : "destructive"}
-                      >
-                        {prof?.margin?.toFixed(2)}%
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
-                  {prof?.prevNetProfit != null && (
+              <div className="space-y-3 p-4 md:hidden">
+                <div className="flex flex-col gap-1 text-sm sm:flex-row sm:items-center sm:justify-between">
+                  <span className="font-medium">صافي الإيرادات</span>
+                  <span>{formatCurrency(rev?.netRevenue)}</span>
+                </div>
+                <div className="flex flex-col gap-1 text-sm sm:flex-row sm:items-center sm:justify-between">
+                  <span className="font-medium">إجمالي المصاريف</span>
+                  <span className="text-red-500">
+                    ({formatCurrency(exp?.totalExpenses)})
+                  </span>
+                </div>
+                <div className="flex flex-col gap-1 rounded-md bg-muted/40 px-3 py-2 text-base font-bold sm:flex-row sm:items-center sm:justify-between">
+                  <span>صافي الربح</span>
+                  <span
+                    className={
+                      prof?.netProfit >= 0 ? "text-green-600" : "text-red-600"
+                    }
+                  >
+                    {formatCurrency(prof?.netProfit)}
+                  </span>
+                </div>
+                <div className="flex flex-col gap-1 text-sm sm:flex-row sm:items-center sm:justify-between">
+                  <span className="text-muted-foreground">هامش الربح</span>
+                  <Badge
+                    variant={prof?.margin >= 0 ? "default" : "destructive"}
+                  >
+                    {prof?.margin?.toFixed(2)}%
+                  </Badge>
+                </div>
+                {prof?.prevNetProfit != null && (
+                  <div className="flex flex-col gap-1 text-sm sm:flex-row sm:items-center sm:justify-between">
+                    <span className="text-muted-foreground">الشهر السابق</span>
+                    <span className="text-muted-foreground">
+                      {formatCurrency(prof.prevNetProfit)}{" "}
+                      <ChangeChip value={prof?.change} />
+                    </span>
+                  </div>
+                )}
+              </div>
+              <div className="hidden overflow-x-auto md:block">
+                <Table>
+                  <TableBody>
                     <TableRow>
-                      <TableCell className="text-muted-foreground">
-                        الشهر السابق
+                      <TableCell className="font-medium">
+                        صافي الإيرادات
                       </TableCell>
-                      <TableCell className="text-right text-muted-foreground">
-                        {formatCurrency(prof.prevNetProfit)}{" "}
-                        <ChangeChip value={prof?.change} />
+                      <TableCell className="text-right">
+                        {formatCurrency(rev?.netRevenue)}
                       </TableCell>
                     </TableRow>
-                  )}
-                </TableBody>
-              </Table>
+                    <TableRow>
+                      <TableCell className="font-medium">
+                        إجمالي المصاريف
+                      </TableCell>
+                      <TableCell className="text-right text-red-500">
+                        ({formatCurrency(exp?.totalExpenses)})
+                      </TableCell>
+                    </TableRow>
+                    <Separator />
+                    <TableRow className="bg-muted/40 font-bold text-base">
+                      <TableCell>صافي الربح</TableCell>
+                      <TableCell
+                        className={`text-right ${prof?.netProfit >= 0 ? "text-green-600" : "text-red-600"}`}
+                      >
+                        {formatCurrency(prof?.netProfit)}
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell className="text-muted-foreground">
+                        هامش الربح
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Badge
+                          variant={
+                            prof?.margin >= 0 ? "default" : "destructive"
+                          }
+                        >
+                          {prof?.margin?.toFixed(2)}%
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                    {prof?.prevNetProfit != null && (
+                      <TableRow>
+                        <TableCell className="text-muted-foreground">
+                          الشهر السابق
+                        </TableCell>
+                        <TableCell className="text-right text-muted-foreground">
+                          {formatCurrency(prof.prevNetProfit)}{" "}
+                          <ChangeChip value={prof?.change} />
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
             </CardContent>
           </Card>
 

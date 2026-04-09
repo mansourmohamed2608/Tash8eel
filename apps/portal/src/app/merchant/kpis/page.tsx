@@ -93,9 +93,14 @@ interface AgentPerformanceData {
 }
 interface RevenueData {
   totalRevenue: number;
+  realizedRevenue?: number;
   previousPeriodRevenue: number;
   revenueChange: number;
   averageOrderValue: number;
+  bookedSales?: number;
+  deliveredRevenue?: number;
+  pendingCollections?: number;
+  refundsAmount?: number;
   topProducts: Array<{ name: string; revenue: number; quantity: number }>;
   revenueByDay: Array<{ date: string; revenue: number }>;
   paymentMethods: Array<{ method: string; amount: number; percentage: number }>;
@@ -166,6 +171,12 @@ export default function KpisPage() {
   );
 
   const formatPercentValue = (value: number) => `${value.toFixed(1)}%`;
+  const realizedRevenue =
+    revenue?.realizedRevenue ?? revenue?.totalRevenue ?? 0;
+  const bookedSales = revenue?.bookedSales ?? 0;
+  const deliveredRevenue = revenue?.deliveredRevenue ?? 0;
+  const pendingCollections = revenue?.pendingCollections ?? 0;
+  const refundsAmount = revenue?.refundsAmount ?? 0;
 
   const fetchAllKpis = useCallback(async () => {
     if (!apiKey) return;
@@ -371,12 +382,12 @@ export default function KpisPage() {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-4 sm:p-6">
       <PageHeader
         title="مؤشرات الأداء (KPIs)"
         description="تحليل شامل لأداء متجرك ومعدلات النجاح"
         actions={
-          <div className="flex items-center gap-3">
+          <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
             <Select
               value={period}
               onValueChange={(value) => {
@@ -384,7 +395,7 @@ export default function KpisPage() {
                 setStoredReportingDays(Number(value));
               }}
             >
-              <SelectTrigger className="w-40">
+              <SelectTrigger className="w-full sm:w-40">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -395,7 +406,12 @@ export default function KpisPage() {
                 ))}
               </SelectContent>
             </Select>
-            <Button variant="outline" onClick={fetchAllKpis} disabled={loading}>
+            <Button
+              variant="outline"
+              onClick={fetchAllKpis}
+              disabled={loading}
+              className="w-full sm:w-auto"
+            >
               <RefreshCw
                 className={cn("h-4 w-4 ml-2", loading && "animate-spin")}
               />
@@ -417,16 +433,26 @@ export default function KpisPage() {
         <LoadingSkeleton />
       ) : (
         <Tabs value={activeTab} onValueChange={handleTabChange}>
-          <TabsList className="grid w-full max-w-2xl grid-cols-5">
-            <TabsTrigger value="overview">نظرة عامة</TabsTrigger>
-            <TabsTrigger value="carts">السلات</TabsTrigger>
-            <TabsTrigger value="delivery">التوصيل</TabsTrigger>
-            <TabsTrigger value="agents">الوكلاء</TabsTrigger>
-            <TabsTrigger value="customers">العملاء</TabsTrigger>
+          <TabsList className="grid h-auto w-full grid-cols-2 gap-2 sm:grid-cols-3 xl:max-w-2xl xl:grid-cols-5">
+            <TabsTrigger value="overview" className="w-full">
+              نظرة عامة
+            </TabsTrigger>
+            <TabsTrigger value="carts" className="w-full">
+              السلات
+            </TabsTrigger>
+            <TabsTrigger value="delivery" className="w-full">
+              التوصيل
+            </TabsTrigger>
+            <TabsTrigger value="agents" className="w-full">
+              الوكلاء
+            </TabsTrigger>
+            <TabsTrigger value="customers" className="w-full">
+              العملاء
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <StatCard
                 title="معدل استرداد السلات"
                 value={formatPercentValue(recoveredCarts?.recoveryRate || 0)}
@@ -451,13 +477,65 @@ export default function KpisPage() {
               />
               <StatCard
                 title="إجمالي الإيرادات المحققة"
-                value={formatCurrency(revenue?.totalRevenue || 0, "EGP")}
+                value={formatCurrency(realizedRevenue, "EGP")}
                 trend={revenue?.revenueChange}
                 icon={DollarSign}
                 color="blue"
               />
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <DollarSign className="h-5 w-5 text-blue-600" />
+                    إجمالي المبيعات المحجوزة
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-3xl font-bold text-blue-600">
+                    {formatCurrency(bookedSales, "EGP")}
+                  </p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <CheckCircle className="h-5 w-5 text-green-600" />
+                    الإيراد من الطلبات المسلّمة
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-3xl font-bold text-green-600">
+                    {formatCurrency(deliveredRevenue, "EGP")}
+                  </p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Timer className="h-5 w-5 text-amber-600" />
+                    مبالغ قيد التحصيل
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-3xl font-bold text-amber-600">
+                    {formatCurrency(pendingCollections, "EGP")}
+                  </p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <TrendingDown className="h-5 w-5 text-red-600" />
+                    المرتجعات
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-3xl font-bold text-red-600">
+                    {formatCurrency(refundsAmount, "EGP")}
+                  </p>
+                </CardContent>
+              </Card>
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-base flex items-center gap-2">
@@ -513,7 +591,7 @@ export default function KpisPage() {
           </TabsContent>
 
           <TabsContent value="carts" className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
               <StatCard
                 title="سلات متروكة"
                 value={recoveredCarts?.totalAbandoned || 0}
@@ -549,7 +627,7 @@ export default function KpisPage() {
                     خلال {selectedPeriodSummary}
                   </p>
                 </div>
-                <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                <div className="flex flex-col items-center justify-center gap-2 text-center text-sm text-muted-foreground sm:flex-row">
                   <Timer className="h-4 w-4" />
                   متوسط وقت الاسترداد:{" "}
                   {recoveredCarts?.averageRecoveryTime || 0} ساعة
@@ -559,7 +637,7 @@ export default function KpisPage() {
           </TabsContent>
 
           <TabsContent value="delivery" className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
               <StatCard
                 title="إجمالي التوصيلات"
                 value={deliveryFailures?.totalDeliveries || 0}
@@ -589,7 +667,7 @@ export default function KpisPage() {
                   {deliveryFailures?.failuresByReason?.length ? (
                     deliveryFailures.failuresByReason.map((item, i) => (
                       <div key={i} className="space-y-2">
-                        <div className="flex justify-between text-sm">
+                        <div className="flex flex-col gap-1 text-sm sm:flex-row sm:items-center sm:justify-between">
                           <span>{item.reason}</span>
                           <span className="text-muted-foreground">
                             {item.count} ({formatPercentValue(item.percentage)})
@@ -618,7 +696,7 @@ export default function KpisPage() {
                     deliveryFailures.topFailureAreas.map((item, i) => (
                       <div
                         key={i}
-                        className="flex justify-between items-center p-3 bg-muted/50 rounded-lg"
+                        className="flex flex-col gap-2 rounded-lg bg-muted/50 p-3 sm:flex-row sm:items-center sm:justify-between"
                       >
                         <span className="font-medium">{item.area}</span>
                         <Badge variant="destructive">{item.failures} فشل</Badge>
@@ -643,7 +721,7 @@ export default function KpisPage() {
                     : "border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30"
                 }
               >
-                <CardContent className="p-4 flex items-center gap-3">
+                <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
                   <Zap
                     className={cn(
                       "h-5 w-5 shrink-0",
@@ -673,7 +751,7 @@ export default function KpisPage() {
                 </CardContent>
               </Card>
             )}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <StatCard
                 title="إجمالي المهام"
                 value={agentPerformance?.totalTasks || 0}
@@ -710,7 +788,7 @@ export default function KpisPage() {
                     agentPerformance.byAgent.map((agent, i) => (
                       <div
                         key={i}
-                        className="flex items-center justify-between p-4 bg-muted/50 rounded-lg"
+                        className="flex flex-col gap-3 rounded-lg bg-muted/50 p-4 sm:flex-row sm:items-center sm:justify-between"
                       >
                         <div className="flex items-center gap-3">
                           <div className="p-2 rounded-lg bg-purple-100 dark:bg-purple-900/30">
@@ -759,7 +837,7 @@ export default function KpisPage() {
           </TabsContent>
 
           <TabsContent value="customers" className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <StatCard
                 title="عملاء نشطون خلال الفترة"
                 value={customers?.totalCustomers || 0}
@@ -804,7 +882,7 @@ export default function KpisPage() {
                     customers.topCustomers.slice(0, 5).map((customer, i) => (
                       <div
                         key={i}
-                        className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
+                        className="flex flex-col gap-2 rounded-lg bg-muted/50 p-3 sm:flex-row sm:items-center sm:justify-between"
                       >
                         <div>
                           <p className="font-medium">{customer.name}</p>
@@ -832,7 +910,7 @@ export default function KpisPage() {
                   {customers?.customersByRegion?.length ? (
                     customers.customersByRegion.slice(0, 5).map((region, i) => (
                       <div key={i} className="space-y-2">
-                        <div className="flex justify-between text-sm">
+                        <div className="flex flex-col gap-1 text-sm sm:flex-row sm:items-center sm:justify-between">
                           <span>{region.region}</span>
                           <span className="text-muted-foreground">
                             {region.count} عميل

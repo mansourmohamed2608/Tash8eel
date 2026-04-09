@@ -115,47 +115,47 @@ export default function BranchAlertsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-4 sm:p-6">
       {/* Tab nav */}
-      <div className="flex gap-1 border-b pb-0">
+      <div className="grid grid-cols-2 gap-2 border-b pb-0 sm:grid-cols-3 xl:grid-cols-6">
         <Link
           href={`/merchant/branches/${branchId}`}
-          className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 border-transparent text-muted-foreground hover:text-foreground"
+          className="flex items-center justify-center gap-1.5 border-b-2 border-transparent px-4 py-2 text-center text-sm font-medium text-muted-foreground hover:text-foreground"
         >
           <BarChart3 className="h-4 w-4" />
           التحليلات
         </Link>
         <Link
           href={`/merchant/branches/${branchId}/settings`}
-          className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 border-transparent text-muted-foreground hover:text-foreground"
+          className="flex items-center justify-center gap-1.5 border-b-2 border-transparent px-4 py-2 text-center text-sm font-medium text-muted-foreground hover:text-foreground"
         >
           <Settings className="h-4 w-4" />
           الإعدادات
         </Link>
         <Link
           href={`/merchant/branches/${branchId}/shifts`}
-          className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 border-transparent text-muted-foreground hover:text-foreground"
+          className="flex items-center justify-center gap-1.5 border-b-2 border-transparent px-4 py-2 text-center text-sm font-medium text-muted-foreground hover:text-foreground"
         >
           <Clock className="h-4 w-4" />
           الجلسات
         </Link>
         <Link
           href={`/merchant/branches/${branchId}/inventory`}
-          className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 border-transparent text-muted-foreground hover:text-foreground"
+          className="flex items-center justify-center gap-1.5 border-b-2 border-transparent px-4 py-2 text-center text-sm font-medium text-muted-foreground hover:text-foreground"
         >
           <Package className="h-4 w-4" />
           المخزون
         </Link>
         <Link
           href={`/merchant/branches/${branchId}/alerts`}
-          className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 border-primary text-primary"
+          className="flex items-center justify-center gap-1.5 border-b-2 border-primary px-4 py-2 text-center text-sm font-medium text-primary"
         >
           <Bell className="h-4 w-4" />
           التنبيهات
         </Link>
         <Link
           href={`/merchant/branches/${branchId}/pl-report`}
-          className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 border-transparent text-muted-foreground hover:text-foreground"
+          className="flex items-center justify-center gap-1.5 border-b-2 border-transparent px-4 py-2 text-center text-sm font-medium text-muted-foreground hover:text-foreground"
         >
           <FileText className="h-4 w-4" />
           تقرير الأرباح
@@ -166,11 +166,12 @@ export default function BranchAlertsPage() {
         title="إعدادات التنبيهات الاستباقية"
         description="تكوين عتبات التنبيه لهذا الفرع"
         actions={
-          <div className="flex gap-2">
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => router.push("/merchant/branches")}
+              className="w-full sm:w-auto"
             >
               <ArrowLeft className="h-4 w-4 ml-1" />
               الفروع
@@ -180,12 +181,17 @@ export default function BranchAlertsPage() {
               size="sm"
               onClick={fetchConfig}
               disabled={loading}
+              className="w-full sm:w-auto"
             >
               <RefreshCw
                 className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
               />
             </Button>
-            <Button onClick={handleSave} disabled={saving || loading}>
+            <Button
+              onClick={handleSave}
+              disabled={saving || loading}
+              className="w-full sm:w-auto"
+            >
               <Save className="h-4 w-4 ml-1" />
               {saving ? "جارٍ الحفظ..." : "حفظ الإعدادات"}
             </Button>
@@ -198,7 +204,7 @@ export default function BranchAlertsPage() {
           جارٍ التحميل...
         </p>
       ) : (
-        <div className="space-y-4 max-w-2xl">
+        <div className="max-w-2xl space-y-4">
           {/* Master toggle */}
           <Card>
             <CardContent className="pt-4">
@@ -235,7 +241,7 @@ export default function BranchAlertsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5">
                   <Label className="flex items-center gap-1.5">
                     <Timer className="h-3.5 w-3.5" />
@@ -273,7 +279,7 @@ export default function BranchAlertsPage() {
 
               <Separator />
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5">
                   <Label className="flex items-center gap-1.5">
                     <CalendarClock className="h-3.5 w-3.5" />
@@ -315,7 +321,7 @@ export default function BranchAlertsPage() {
                   value={spikeMultiplier}
                   onChange={(e) => setSpikeMultiplier(e.target.value)}
                   placeholder="1.5"
-                  className="max-w-[200px]"
+                  className="w-full sm:max-w-[200px]"
                 />
                 <p className="text-xs text-muted-foreground">
                   تنبيه عند تجاوز الطلبات للمعدل الطبيعي بهذا المعامل (مثال: 1.5
@@ -363,8 +369,13 @@ export default function BranchAlertsPage() {
             </CardContent>
           </Card>
 
-          <div className="flex justify-end">
-            <Button onClick={handleSave} disabled={saving} size="lg">
+          <div className="flex justify-stretch sm:justify-end">
+            <Button
+              onClick={handleSave}
+              disabled={saving}
+              size="lg"
+              className="w-full sm:w-auto"
+            >
               <Save className="h-4 w-4 ml-1" />
               {saving ? "جارٍ الحفظ..." : "حفظ الإعدادات"}
             </Button>

@@ -25,6 +25,7 @@ import { OutboxService } from "../../application/events/outbox.service";
 import { Pool } from "pg";
 import { DATABASE_POOL } from "../../infrastructure/database/database.module";
 import { RedisService } from "../../infrastructure/redis/redis.service";
+import { CommerceFactsService } from "../../application/services/commerce-facts.service";
 
 type AdminServiceState = "healthy" | "degraded" | "critical";
 
@@ -52,6 +53,7 @@ export class AdminOpsController {
     private readonly dlqService: DlqService,
     private readonly outboxService: OutboxService,
     private readonly redisService: RedisService,
+    private readonly commerceFactsService: CommerceFactsService,
   ) {}
 
   // ===== METRICS =====
@@ -328,7 +330,13 @@ export class AdminOpsController {
     const aggregatesResult = await this.pool.query(
       `SELECT 
          COUNT(DISTINCT mr.merchant_id) as merchants_with_reports,
-         SUM((summary->>'totalRevenue')::numeric) as total_revenue,
+         SUM(
+           COALESCE(
+             NULLIF(summary->>'realizedRevenue', '')::numeric,
+             NULLIF(summary->>'totalRevenue', '')::numeric,
+             0
+           )
+         ) as total_revenue,
          SUM((summary->>'ordersCreated')::int) as total_orders,
          SUM((summary->>'totalConversations')::int) as total_conversations,
          AVG((summary->>'conversionRate')::numeric) as avg_conversion_rate
@@ -381,17 +389,32 @@ export class AdminOpsController {
   @ApiResponse({ status: 200, description: "Summary retrieved successfully" })
   async getPlatformSummary(@Query("days") days?: number): Promise<any> {
     const lookbackDays = days || 7;
+    const paidOrderAmountExpr = this.getPaidOrderAmountExpr("o", "paid");
 
     const result = await this.pool.query(
       `SELECT 
          m.id as merchant_id,
          m.name as merchant_name,
          COUNT(DISTINCT o.id) as orders_count,
-         COALESCE(SUM(o.total), 0) as revenue,
+         COALESCE(SUM(${paidOrderAmountExpr}), 0) as revenue,
          COUNT(DISTINCT c.id) as conversations_count,
          COUNT(DISTINCT c.id) FILTER (WHERE c.state = 'ORDER_PLACED') as converted_conversations
        FROM merchants m
-       LEFT JOIN orders o ON o.merchant_id = m.id AND o.created_at >= NOW() - $1::interval
+       LEFT JOIN orders o
+         ON o.merchant_id = m.id
+        AND o.created_at >= NOW() - $1::interval
+       LEFT JOIN (
+         SELECT
+           order_id,
+           COALESCE(
+             SUM(amount) FILTER (
+               WHERE UPPER(COALESCE(status, 'PAID')) = 'PAID'
+             ),
+             0
+           ) AS total_paid
+         FROM order_payments
+         GROUP BY order_id
+       ) paid ON paid.order_id = o.id
        LEFT JOIN conversations c ON c.merchant_id = m.id AND c.created_at >= NOW() - $1::interval
        WHERE m.is_active = true
        GROUP BY m.id, m.name
@@ -444,7 +467,454 @@ export class AdminOpsController {
     };
   }
 
+  @Get("analytics")
+  @ApiOperation({
+    summary: "Get admin analytics",
+    description:
+      "Returns platform-wide realized revenue, merchant rankings, channel breakdowns, routing metrics, and hourly activity for the admin analytics page",
+  })
+  @ApiQuery({
+    name: "period",
+    required: false,
+    enum: ["week", "month", "quarter", "year"],
+  })
+  @ApiQuery({
+    name: "startDate",
+    required: false,
+    description: "Start date (YYYY-MM-DD)",
+  })
+  @ApiQuery({
+    name: "endDate",
+    required: false,
+    description: "End date (YYYY-MM-DD)",
+  })
+  async getAdminAnalytics(
+    @Query("period") period?: "week" | "month" | "quarter" | "year",
+    @Query("startDate") startDate?: string,
+    @Query("endDate") endDate?: string,
+  ): Promise<any> {
+    const dayMap: Record<string, number> = {
+      week: 7,
+      month: 30,
+      quarter: 90,
+      year: 365,
+    };
+    const periodDays = dayMap[period || "month"] ?? 30;
+
+    const currentEnd = endDate
+      ? new Date(`${endDate}T23:59:59.999Z`)
+      : new Date();
+    const currentStart = startDate
+      ? new Date(`${startDate}T00:00:00.000Z`)
+      : (() => {
+          const d = new Date(currentEnd);
+          d.setUTCDate(d.getUTCDate() - (periodDays - 1));
+          d.setUTCHours(0, 0, 0, 0);
+          return d;
+        })();
+    const previousEnd = new Date(currentStart.getTime() - 1);
+    const previousStart = new Date(previousEnd);
+    previousStart.setUTCDate(previousStart.getUTCDate() - (periodDays - 1));
+    previousStart.setUTCHours(0, 0, 0, 0);
+
+    const paidOrderAmountExpr = this.getPaidOrderAmountExpr("o", "paid");
+    const validOrderStatusExpr = `UPPER(COALESCE(o.status::text, '')) NOT IN ('CANCELLED', 'DRAFT', 'FAILED', 'RETURNED')`;
+    const bucketExpr =
+      periodDays <= 31
+        ? `DATE_TRUNC('day', o.created_at)`
+        : periodDays <= 120
+          ? `DATE_TRUNC('week', o.created_at)`
+          : `DATE_TRUNC('month', o.created_at)`;
+
+    const [
+      currentFinance,
+      previousFinance,
+      conversationsSummary,
+      merchantActivitySummary,
+      revenueTrend,
+      ordersByCategory,
+      topMerchants,
+      routingSummary,
+      hourlyActivity,
+    ] = await Promise.all([
+      this.commerceFactsService.buildPlatformFinanceSummary(
+        currentStart,
+        currentEnd,
+      ),
+      this.commerceFactsService.buildPlatformFinanceSummary(
+        previousStart,
+        previousEnd,
+      ),
+      this.pool.query<{ current_count: string; previous_count: string }>(
+        `SELECT
+           COUNT(*) FILTER (
+             WHERE created_at >= $1 AND created_at <= $2
+           )::text AS current_count,
+           COUNT(*) FILTER (
+             WHERE created_at >= $3 AND created_at <= $4
+           )::text AS previous_count
+         FROM conversations`,
+        [currentStart, currentEnd, previousStart, previousEnd],
+      ),
+      this.pool.query<{ current_count: string; previous_count: string }>(
+        `WITH merchant_activity AS (
+           SELECT merchant_id, created_at FROM orders
+           WHERE ${validOrderStatusExpr.replaceAll("o.", "")}
+           UNION ALL
+           SELECT merchant_id, created_at FROM conversations
+         )
+         SELECT
+           COUNT(DISTINCT merchant_id) FILTER (
+             WHERE created_at >= $1 AND created_at <= $2
+           )::text AS current_count,
+           COUNT(DISTINCT merchant_id) FILTER (
+             WHERE created_at >= $3 AND created_at <= $4
+           )::text AS previous_count
+         FROM merchant_activity`,
+        [currentStart, currentEnd, previousStart, previousEnd],
+      ),
+      this.pool.query<{ bucket: string; revenue: string }>(
+        `SELECT
+           ${bucketExpr} AS bucket,
+           COALESCE(SUM(${paidOrderAmountExpr}), 0)::text AS revenue
+         FROM orders o
+         LEFT JOIN (
+           SELECT
+             order_id,
+             COALESCE(
+               SUM(amount) FILTER (
+                 WHERE UPPER(COALESCE(status, 'PAID')) = 'PAID'
+               ),
+               0
+             ) AS total_paid
+           FROM order_payments
+           GROUP BY order_id
+         ) paid ON paid.order_id = o.id
+         WHERE ${validOrderStatusExpr}
+           AND o.created_at >= $1
+           AND o.created_at <= $2
+         GROUP BY bucket
+         ORDER BY bucket ASC`,
+        [currentStart, currentEnd],
+      ),
+      this.pool.query<{ category: string; order_count: string }>(
+        `SELECT
+           COALESCE(NULLIF(TRIM(m.category), ''), 'UNCATEGORIZED') AS category,
+           COUNT(*)::text AS order_count
+         FROM orders o
+         JOIN merchants m ON m.id = o.merchant_id
+         WHERE ${validOrderStatusExpr}
+           AND o.created_at >= $1
+           AND o.created_at <= $2
+         GROUP BY COALESCE(NULLIF(TRIM(m.category), ''), 'UNCATEGORIZED')
+         ORDER BY COUNT(*) DESC, category ASC
+         LIMIT 8`,
+        [currentStart, currentEnd],
+      ),
+      this.pool.query<{
+        merchant_id: string;
+        merchant_name: string;
+        orders_count: string;
+        revenue: string;
+        conversations_count: string;
+      }>(
+        `WITH merchant_orders AS (
+           SELECT
+             o.merchant_id,
+             COUNT(*)::text AS orders_count,
+             COALESCE(SUM(${paidOrderAmountExpr}), 0)::text AS revenue
+           FROM orders o
+           LEFT JOIN (
+             SELECT
+               order_id,
+               COALESCE(
+                 SUM(amount) FILTER (
+                   WHERE UPPER(COALESCE(status, 'PAID')) = 'PAID'
+                 ),
+                 0
+               ) AS total_paid
+             FROM order_payments
+             GROUP BY order_id
+           ) paid ON paid.order_id = o.id
+           WHERE ${validOrderStatusExpr}
+             AND o.created_at >= $1
+             AND o.created_at <= $2
+           GROUP BY o.merchant_id
+         ),
+         merchant_conversations AS (
+           SELECT
+             merchant_id,
+             COUNT(*)::text AS conversations_count
+           FROM conversations
+           WHERE created_at >= $1
+             AND created_at <= $2
+           GROUP BY merchant_id
+         )
+         SELECT
+           m.id AS merchant_id,
+           m.name AS merchant_name,
+           COALESCE(mo.orders_count, '0') AS orders_count,
+           COALESCE(mo.revenue, '0') AS revenue,
+           COALESCE(mc.conversations_count, '0') AS conversations_count
+         FROM merchants m
+         JOIN merchant_orders mo ON mo.merchant_id = m.id
+         LEFT JOIN merchant_conversations mc ON mc.merchant_id = m.id
+         ORDER BY COALESCE(mo.revenue, '0')::numeric DESC, COALESCE(mo.orders_count, '0')::int DESC
+         LIMIT 10`,
+        [currentStart, currentEnd],
+      ),
+      this.pool.query<{
+        current_4o: string;
+        previous_4o: string;
+        current_mini: string;
+        previous_mini: string;
+        current_instant: string;
+        previous_instant: string;
+        current_cost: string;
+        previous_cost: string;
+      }>(
+        `SELECT
+           COUNT(*) FILTER (
+             WHERE model_used = 'gpt-4o'
+               AND created_at >= $1 AND created_at <= $2
+           )::text AS current_4o,
+           COUNT(*) FILTER (
+             WHERE model_used = 'gpt-4o'
+               AND created_at >= $3 AND created_at <= $4
+           )::text AS previous_4o,
+           COUNT(*) FILTER (
+             WHERE model_used = 'gpt-4o-mini'
+               AND created_at >= $1 AND created_at <= $2
+           )::text AS current_mini,
+           COUNT(*) FILTER (
+             WHERE model_used = 'gpt-4o-mini'
+               AND created_at >= $3 AND created_at <= $4
+           )::text AS previous_mini,
+           COUNT(*) FILTER (
+             WHERE routing_decision IN ('instant_order_status', 'instant_price', 'instant_greeting')
+               AND created_at >= $1 AND created_at <= $2
+           )::text AS current_instant,
+           COUNT(*) FILTER (
+             WHERE routing_decision IN ('instant_order_status', 'instant_price', 'instant_greeting')
+               AND created_at >= $3 AND created_at <= $4
+           )::text AS previous_instant,
+           COALESCE(SUM(estimated_cost_usd) FILTER (
+             WHERE created_at >= $1 AND created_at <= $2
+           ), 0)::text AS current_cost,
+           COALESCE(SUM(estimated_cost_usd) FILTER (
+             WHERE created_at >= $3 AND created_at <= $4
+           ), 0)::text AS previous_cost
+         FROM ai_routing_log`,
+        [currentStart, currentEnd, previousStart, previousEnd],
+      ),
+      this.pool.query<{ hour: string; conversations: string; orders: string }>(
+        `WITH hours AS (
+           SELECT generate_series(0, 23) AS hour
+         ),
+         conversation_hours AS (
+           SELECT
+             EXTRACT(HOUR FROM created_at)::int AS hour,
+             COUNT(*)::int AS conversations
+           FROM conversations
+           WHERE created_at >= $1
+             AND created_at <= $2
+           GROUP BY EXTRACT(HOUR FROM created_at)
+         ),
+         order_hours AS (
+           SELECT
+             EXTRACT(HOUR FROM created_at)::int AS hour,
+             COUNT(*)::int AS orders
+           FROM orders
+           WHERE ${validOrderStatusExpr.replaceAll("o.", "")}
+             AND created_at >= $1
+             AND created_at <= $2
+           GROUP BY EXTRACT(HOUR FROM created_at)
+         )
+         SELECT
+           h.hour::text AS hour,
+           COALESCE(ch.conversations, 0)::text AS conversations,
+           COALESCE(oh.orders, 0)::text AS orders
+         FROM hours h
+         LEFT JOIN conversation_hours ch ON ch.hour = h.hour
+         LEFT JOIN order_hours oh ON oh.hour = h.hour
+         ORDER BY h.hour ASC`,
+        [currentStart, currentEnd],
+      ),
+    ]);
+
+    const toNumber = (value: string | number | null | undefined) =>
+      Number.isFinite(Number(value)) ? Number(value) : 0;
+    const percentageChange = (current: number, previous: number) => {
+      if (previous === 0) return current > 0 ? 100 : 0;
+      return Number((((current - previous) / previous) * 100).toFixed(1));
+    };
+
+    const currentRevenue = currentFinance.realizedRevenue;
+    const previousRevenue = previousFinance.realizedRevenue;
+    const currentOrders = currentFinance.bookedOrders;
+    const previousOrders = previousFinance.bookedOrders;
+    const currentConversations = toNumber(
+      conversationsSummary.rows[0]?.current_count,
+    );
+    const previousConversations = toNumber(
+      conversationsSummary.rows[0]?.previous_count,
+    );
+    const currentActiveMerchants = toNumber(
+      merchantActivitySummary.rows[0]?.current_count,
+    );
+    const previousActiveMerchants = toNumber(
+      merchantActivitySummary.rows[0]?.previous_count,
+    );
+
+    return {
+      totalRevenue: currentRevenue,
+      realizedRevenue: currentRevenue,
+      bookedSales: currentFinance.bookedSales,
+      deliveredRevenue: currentFinance.deliveredRevenue,
+      pendingCollections: currentFinance.pendingCollections,
+      refundsAmount: currentFinance.refundsAmount,
+      netCashFlow: currentFinance.netCashFlow,
+      realizedOrders: currentFinance.realizedOrders,
+      paidCashAmount: currentFinance.paidCashAmount,
+      paidOnlineAmount: currentFinance.paidOnlineAmount,
+      pendingCod: currentFinance.pendingCod,
+      pendingOnline: currentFinance.pendingOnline,
+      revenueChange: percentageChange(currentRevenue, previousRevenue),
+      totalOrders: currentOrders,
+      ordersChange: percentageChange(currentOrders, previousOrders),
+      activeMerchants: currentActiveMerchants,
+      merchantsChange: percentageChange(
+        currentActiveMerchants,
+        previousActiveMerchants,
+      ),
+      totalConversations: currentConversations,
+      conversationsChange: percentageChange(
+        currentConversations,
+        previousConversations,
+      ),
+      revenueByMonth: revenueTrend.rows.map((row) => ({
+        name: new Date(row.bucket).toLocaleDateString("ar-EG", {
+          month: periodDays > 120 ? "short" : undefined,
+          day: periodDays <= 120 ? "numeric" : undefined,
+        }),
+        value: toNumber(row.revenue),
+      })),
+      ordersByCategory: ordersByCategory.rows.map((row, index) => ({
+        name: row.category,
+        value: toNumber(row.order_count),
+        color: [
+          "#3b82f6",
+          "#10b981",
+          "#f59e0b",
+          "#ef4444",
+          "#8b5cf6",
+          "#14b8a6",
+          "#f97316",
+          "#6366f1",
+        ][index % 8],
+      })),
+      conversionRates: hourlyActivity.rows.slice(8, 15).map((row) => {
+        const conversations = toNumber(row.conversations);
+        const orders = toNumber(row.orders);
+        return {
+          name: `${row.hour}:00`,
+          rate:
+            conversations > 0
+              ? Number(((orders / conversations) * 100).toFixed(1))
+              : 0,
+        };
+      }),
+      topMerchants: topMerchants.rows.map((row) => {
+        const merchantConversations = toNumber(row.conversations_count);
+        const merchantOrders = toNumber(row.orders_count);
+        return {
+          id: row.merchant_id,
+          name: row.merchant_name,
+          orders: merchantOrders,
+          revenue: toNumber(row.revenue),
+          conversion:
+            merchantConversations > 0
+              ? Number(
+                  ((merchantOrders / merchantConversations) * 100).toFixed(1),
+                )
+              : 0,
+        };
+      }),
+      agentPerformance: [
+        {
+          name: "ردود فورية",
+          value: toNumber(
+            routingSummary.rows[0]?.current_instant,
+          ).toLocaleString("ar-EG"),
+          change: percentageChange(
+            toNumber(routingSummary.rows[0]?.current_instant),
+            toNumber(routingSummary.rows[0]?.previous_instant),
+          ),
+        },
+        {
+          name: "استخدام GPT-4o",
+          value: toNumber(routingSummary.rows[0]?.current_4o).toLocaleString(
+            "ar-EG",
+          ),
+          change: percentageChange(
+            toNumber(routingSummary.rows[0]?.current_4o),
+            toNumber(routingSummary.rows[0]?.previous_4o),
+          ),
+        },
+        {
+          name: "استخدام GPT-4o mini",
+          value: toNumber(routingSummary.rows[0]?.current_mini).toLocaleString(
+            "ar-EG",
+          ),
+          change: percentageChange(
+            toNumber(routingSummary.rows[0]?.current_mini),
+            toNumber(routingSummary.rows[0]?.previous_mini),
+          ),
+        },
+        {
+          name: "تكلفة الذكاء",
+          value: `$${toNumber(routingSummary.rows[0]?.current_cost).toFixed(2)}`,
+          change: percentageChange(
+            toNumber(routingSummary.rows[0]?.current_cost),
+            toNumber(routingSummary.rows[0]?.previous_cost),
+          ),
+        },
+      ],
+      hourlyActivity: hourlyActivity.rows.map((row) => ({
+        name: `${String(row.hour).padStart(2, "0")}:00`,
+        conversations: toNumber(row.conversations),
+        orders: toNumber(row.orders),
+      })),
+    };
+  }
+
   // ===== PRIVATE HELPERS =====
+
+  private getOrderAmountExpr(orderAlias = "o"): string {
+    return `COALESCE(
+      NULLIF((to_jsonb(${orderAlias})->>'total'), '')::numeric,
+      NULLIF((to_jsonb(${orderAlias})->>'total_amount'), '')::numeric,
+      0
+    )`;
+  }
+
+  private getPaidOrderAmountExpr(orderAlias = "o", paidAlias = "paid"): string {
+    const orderAmountExpr = this.getOrderAmountExpr(orderAlias);
+    return `LEAST(
+      ${orderAmountExpr},
+      GREATEST(
+        COALESCE(
+          ${paidAlias}.total_paid,
+          CASE
+            WHEN UPPER(COALESCE(NULLIF(to_jsonb(${orderAlias})->>'payment_status', ''), 'PENDING')) = 'PAID'
+            THEN ${orderAmountExpr}
+            ELSE 0
+          END
+        ),
+        0
+      )
+    )`;
+  }
 
   private async getMerchantStats(): Promise<any> {
     const result = await this.pool.query(`
@@ -580,17 +1050,30 @@ export class AdminOpsController {
   }
 
   private async getOrderStats(): Promise<any> {
+    const paidOrderAmountExpr = this.getPaidOrderAmountExpr("o", "paid");
     const result = await this.pool.query(`
       SELECT 
         COUNT(*) as total,
-        COUNT(*) FILTER (WHERE status = 'pending') as pending,
-        COUNT(*) FILTER (WHERE status = 'confirmed') as confirmed,
-        COUNT(*) FILTER (WHERE status = 'shipped') as shipped,
-        COUNT(*) FILTER (WHERE status = 'delivered') as delivered,
-        COUNT(*) FILTER (WHERE status = 'cancelled') as cancelled,
-        COALESCE(SUM(total), 0) as total_revenue,
-        COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '24 hours') as today
-      FROM orders
+        COUNT(*) FILTER (WHERE LOWER(COALESCE(o.status::text, '')) = 'pending') as pending,
+        COUNT(*) FILTER (WHERE LOWER(COALESCE(o.status::text, '')) = 'confirmed') as confirmed,
+        COUNT(*) FILTER (WHERE LOWER(COALESCE(o.status::text, '')) = 'shipped') as shipped,
+        COUNT(*) FILTER (WHERE LOWER(COALESCE(o.status::text, '')) = 'delivered') as delivered,
+        COUNT(*) FILTER (WHERE LOWER(COALESCE(o.status::text, '')) = 'cancelled') as cancelled,
+        COALESCE(SUM(${paidOrderAmountExpr}), 0) as total_revenue,
+        COUNT(*) FILTER (WHERE o.created_at >= NOW() - INTERVAL '24 hours') as today
+      FROM orders o
+      LEFT JOIN (
+        SELECT
+          order_id,
+          COALESCE(
+            SUM(amount) FILTER (
+              WHERE UPPER(COALESCE(status, 'PAID')) = 'PAID'
+            ),
+            0
+          ) AS total_paid
+        FROM order_payments
+        GROUP BY order_id
+      ) paid ON paid.order_id = o.id
     `);
     const row = result.rows[0];
     return {

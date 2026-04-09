@@ -163,26 +163,26 @@ export default function BranchShiftsPage() {
   const currentPage = Math.floor(offset / LIMIT) + 1;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-4 sm:p-6">
       {/* Tab nav */}
-      <div className="flex gap-1 border-b pb-0">
+      <div className="grid grid-cols-1 gap-2 border-b pb-0 sm:grid-cols-3">
         <Link
           href={`/merchant/branches/${branchId}`}
-          className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 border-transparent text-muted-foreground hover:text-foreground"
+          className="flex items-center justify-center gap-1.5 border-b-2 border-transparent px-4 py-2 text-center text-sm font-medium text-muted-foreground hover:text-foreground"
         >
           <BarChart3 className="h-4 w-4" />
           التحليلات
         </Link>
         <Link
           href={`/merchant/branches/${branchId}/settings`}
-          className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 border-transparent text-muted-foreground hover:text-foreground"
+          className="flex items-center justify-center gap-1.5 border-b-2 border-transparent px-4 py-2 text-center text-sm font-medium text-muted-foreground hover:text-foreground"
         >
           <Settings className="h-4 w-4" />
           الإعدادات
         </Link>
         <Link
           href={`/merchant/branches/${branchId}/shifts`}
-          className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 border-primary text-primary"
+          className="flex items-center justify-center gap-1.5 border-b-2 border-primary px-4 py-2 text-center text-sm font-medium text-primary"
         >
           <Clock className="h-4 w-4" />
           الجلسات
@@ -193,11 +193,12 @@ export default function BranchShiftsPage() {
         title={`جلسات الكاشير - ${branch?.name ?? "..."}`}
         description="فتح وإغلاق جلسات الكاشير وتتبع النقد"
         actions={
-          <div className="flex gap-2">
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => router.push("/merchant/branches")}
+              className="w-full sm:w-auto"
             >
               <ArrowLeft className="h-4 w-4 ml-1" />
               الفروع
@@ -207,6 +208,7 @@ export default function BranchShiftsPage() {
               size="sm"
               onClick={fetchAll}
               disabled={loading}
+              className="w-full sm:w-auto"
             >
               <RefreshCw
                 className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
@@ -221,12 +223,17 @@ export default function BranchShiftsPage() {
                   setCloseNotes("");
                   setShowCloseDialog(true);
                 }}
+                className="w-full sm:w-auto"
               >
                 <Square className="h-4 w-4 ml-1" />
                 إغلاق الجلسة
               </Button>
             ) : (
-              <Button size="sm" onClick={() => setShowOpenDialog(true)}>
+              <Button
+                size="sm"
+                onClick={() => setShowOpenDialog(true)}
+                className="w-full sm:w-auto"
+              >
                 <Play className="h-4 w-4 ml-1" />
                 فتح جلسة
               </Button>
@@ -248,7 +255,7 @@ export default function BranchShiftsPage() {
                 منذ {formatDate(currentShift.opened_at)}
               </span>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+            <div className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2 xl:grid-cols-4">
               <div>
                 <p className="text-muted-foreground">النقد الافتتاحي</p>
                 <p className="font-semibold">
@@ -294,70 +301,150 @@ export default function BranchShiftsPage() {
               لا توجد جلسات مسجّلة بعد
             </p>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>فُتحت</TableHead>
-                  <TableHead>أُغلقت</TableHead>
-                  <TableHead>المرفتح</TableHead>
-                  <TableHead>الطلبات</TableHead>
-                  <TableHead>الإيراد</TableHead>
-                  <TableHead>النقد الافتتاحي</TableHead>
-                  <TableHead>النقد الختامي</TableHead>
-                  <TableHead>الفرق</TableHead>
-                  <TableHead>الحالة</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            <>
+              <div className="space-y-3 p-4 md:hidden">
                 {shifts.map((s) => (
-                  <TableRow key={s.id}>
-                    <TableCell className="text-sm">
-                      {formatDate(s.opened_at)}
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {s.closed_at ? formatDate(s.closed_at) : "-"}
-                    </TableCell>
-                    <TableCell>{s.opened_by_name ?? "-"}</TableCell>
-                    <TableCell>{s.total_orders ?? 0}</TableCell>
-                    <TableCell className="font-medium">
-                      {formatCurrency(s.total_revenue ?? 0)}
-                    </TableCell>
-                    <TableCell>{formatCurrency(s.opening_cash ?? 0)}</TableCell>
-                    <TableCell>
-                      {s.closing_cash != null
-                        ? formatCurrency(s.closing_cash)
-                        : "-"}
-                    </TableCell>
-                    <TableCell>{cashDiffLabel(s.cash_difference)}</TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={
-                          s.status === "OPEN"
-                            ? "default"
+                  <Card key={s.id}>
+                    <CardContent className="space-y-3 p-4 text-sm">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-medium">
+                            {s.opened_by_name ?? "-"}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            فتحت: {formatDate(s.opened_at)}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            أغلقت: {s.closed_at ? formatDate(s.closed_at) : "-"}
+                          </p>
+                        </div>
+                        <Badge
+                          variant={
+                            s.status === "OPEN"
+                              ? "default"
+                              : s.status === "CLOSED"
+                                ? "secondary"
+                                : "outline"
+                          }
+                          className={cn(
+                            "text-xs",
+                            s.status === "OPEN" && "bg-green-500 text-white",
+                          )}
+                        >
+                          {s.status === "OPEN"
+                            ? "مفتوحة"
                             : s.status === "CLOSED"
-                              ? "secondary"
-                              : "outline"
-                        }
-                        className={cn(
-                          "text-xs",
-                          s.status === "OPEN" && "bg-green-500 text-white",
-                        )}
-                      >
-                        {s.status === "OPEN"
-                          ? "مفتوحة"
-                          : s.status === "CLOSED"
-                            ? "مغلقة"
-                            : "ملغاة"}
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
+                              ? "مغلقة"
+                              : "ملغاة"}
+                        </Badge>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3 text-xs">
+                        <div>
+                          <p className="text-muted-foreground">الطلبات</p>
+                          <p className="font-medium">{s.total_orders ?? 0}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">الإيراد</p>
+                          <p className="font-medium">
+                            {formatCurrency(s.total_revenue ?? 0)}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">
+                            النقد الافتتاحي
+                          </p>
+                          <p className="font-medium">
+                            {formatCurrency(s.opening_cash ?? 0)}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">النقد الختامي</p>
+                          <p className="font-medium">
+                            {s.closing_cash != null
+                              ? formatCurrency(s.closing_cash)
+                              : "-"}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">الفرق</span>
+                        <span>{cashDiffLabel(s.cash_difference)}</span>
+                      </div>
+                    </CardContent>
+                  </Card>
                 ))}
-              </TableBody>
-            </Table>
+              </div>
+              <div className="hidden overflow-x-auto md:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>فُتحت</TableHead>
+                      <TableHead>أُغلقت</TableHead>
+                      <TableHead>المرفتح</TableHead>
+                      <TableHead>الطلبات</TableHead>
+                      <TableHead>الإيراد</TableHead>
+                      <TableHead>النقد الافتتاحي</TableHead>
+                      <TableHead>النقد الختامي</TableHead>
+                      <TableHead>الفرق</TableHead>
+                      <TableHead>الحالة</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {shifts.map((s) => (
+                      <TableRow key={s.id}>
+                        <TableCell className="text-sm">
+                          {formatDate(s.opened_at)}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {s.closed_at ? formatDate(s.closed_at) : "-"}
+                        </TableCell>
+                        <TableCell>{s.opened_by_name ?? "-"}</TableCell>
+                        <TableCell>{s.total_orders ?? 0}</TableCell>
+                        <TableCell className="font-medium">
+                          {formatCurrency(s.total_revenue ?? 0)}
+                        </TableCell>
+                        <TableCell>
+                          {formatCurrency(s.opening_cash ?? 0)}
+                        </TableCell>
+                        <TableCell>
+                          {s.closing_cash != null
+                            ? formatCurrency(s.closing_cash)
+                            : "-"}
+                        </TableCell>
+                        <TableCell>
+                          {cashDiffLabel(s.cash_difference)}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={
+                              s.status === "OPEN"
+                                ? "default"
+                                : s.status === "CLOSED"
+                                  ? "secondary"
+                                  : "outline"
+                            }
+                            className={cn(
+                              "text-xs",
+                              s.status === "OPEN" && "bg-green-500 text-white",
+                            )}
+                          >
+                            {s.status === "OPEN"
+                              ? "مفتوحة"
+                              : s.status === "CLOSED"
+                                ? "مغلقة"
+                                : "ملغاة"}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
           )}
         </CardContent>
         {totalPages > 1 && (
-          <div className="flex items-center justify-between p-4 border-t">
+          <div className="flex flex-col gap-3 border-t p-4 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-muted-foreground">
               صفحة {currentPage} من {totalPages}
             </p>
@@ -385,7 +472,7 @@ export default function BranchShiftsPage() {
 
       {/* ── Open Shift Dialog ── */}
       <Dialog open={showOpenDialog} onOpenChange={setShowOpenDialog}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>فتح جلسة كاشير جديدة</DialogTitle>
             <DialogDescription>
@@ -413,11 +500,19 @@ export default function BranchShiftsPage() {
               />
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowOpenDialog(false)}>
+          <DialogFooter className="flex-col-reverse gap-2 sm:flex-row">
+            <Button
+              variant="outline"
+              onClick={() => setShowOpenDialog(false)}
+              className="w-full sm:w-auto"
+            >
               إلغاء
             </Button>
-            <Button onClick={handleOpenShift} disabled={openingShift}>
+            <Button
+              onClick={handleOpenShift}
+              disabled={openingShift}
+              className="w-full sm:w-auto"
+            >
               {openingShift ? (
                 <Loader2 className="h-4 w-4 animate-spin ml-1" />
               ) : (
@@ -431,7 +526,7 @@ export default function BranchShiftsPage() {
 
       {/* ── Close Shift Dialog ── */}
       <Dialog open={showCloseDialog} onOpenChange={setShowCloseDialog}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>إغلاق الجلسة الحالية</DialogTitle>
             <DialogDescription>
@@ -441,13 +536,13 @@ export default function BranchShiftsPage() {
           <div className="space-y-4 py-2">
             {currentShift && (
               <div className="rounded-lg bg-muted p-3 text-sm space-y-1">
-                <div className="flex justify-between">
+                <div className="flex items-center justify-between gap-3">
                   <span className="text-muted-foreground">الطلبات</span>
                   <span className="font-medium">
                     {currentShift.running_orders ?? 0}
                   </span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex items-center justify-between gap-3">
                   <span className="text-muted-foreground">الإيراد الكلي</span>
                   <span className="font-medium">
                     {formatCurrency(currentShift.running_revenue ?? 0)}
@@ -475,14 +570,19 @@ export default function BranchShiftsPage() {
               />
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCloseDialog(false)}>
+          <DialogFooter className="flex-col-reverse gap-2 sm:flex-row">
+            <Button
+              variant="outline"
+              onClick={() => setShowCloseDialog(false)}
+              className="w-full sm:w-auto"
+            >
               إلغاء
             </Button>
             <Button
               variant="destructive"
               onClick={handleCloseShift}
               disabled={closingShift}
+              className="w-full sm:w-auto"
             >
               {closingShift ? (
                 <Loader2 className="h-4 w-4 animate-spin ml-1" />

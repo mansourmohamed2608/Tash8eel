@@ -1560,12 +1560,17 @@ export default function InventoryInsightsPage() {
   ]);
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6 p-4 sm:p-6">
       <PageHeader
         title="رؤى المخزون"
         description="تابع الاستهلاك، التكلفة، وحركة المخزون بالكامل بشكل مبسط"
         actions={
-          <Button variant="outline" onClick={fetchData} disabled={loading}>
+          <Button
+            variant="outline"
+            onClick={fetchData}
+            disabled={loading}
+            className="w-full sm:w-auto"
+          >
             <RefreshCw
               className={`h-4 w-4 ml-2 ${loading ? "animate-spin" : ""}`}
             />
@@ -1576,8 +1581,8 @@ export default function InventoryInsightsPage() {
 
       <Card>
         <CardContent className="pt-4 space-y-3">
-          <div className="flex flex-col lg:flex-row gap-3 lg:items-center">
-            <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
               <Select
                 value={periodDays.toString()}
                 onValueChange={(value) => {
@@ -1588,7 +1593,7 @@ export default function InventoryInsightsPage() {
                   setAppliedEndDate("");
                 }}
               >
-                <SelectTrigger className="w-[180px]">
+                <SelectTrigger className="w-full sm:w-[180px]">
                   <Calendar className="h-4 w-4 ml-2" />
                   <SelectValue />
                 </SelectTrigger>
@@ -1605,7 +1610,7 @@ export default function InventoryInsightsPage() {
                 value={movementSourceFilter}
                 onValueChange={setMovementSourceFilter}
               >
-                <SelectTrigger className="w-[200px]">
+                <SelectTrigger className="w-full sm:w-[200px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -1622,24 +1627,32 @@ export default function InventoryInsightsPage() {
               </Select>
             </div>
 
-            <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
               <Input
                 type="date"
                 value={draftStartDate}
                 onChange={(e) => setDraftStartDate(e.target.value)}
-                className="w-[170px]"
+                className="w-full sm:w-[170px]"
               />
               <Input
                 type="date"
                 value={draftEndDate}
                 onChange={(e) => setDraftEndDate(e.target.value)}
-                className="w-[170px]"
+                className="w-full sm:w-[170px]"
               />
-              <Button variant="outline" onClick={applyCustomDateRange}>
+              <Button
+                variant="outline"
+                onClick={applyCustomDateRange}
+                className="w-full sm:w-auto"
+              >
                 تطبيق تاريخ مخصص
               </Button>
               {(hasCustomRange || draftStartDate || draftEndDate) && (
-                <Button variant="ghost" onClick={clearCustomDateRange}>
+                <Button
+                  variant="ghost"
+                  onClick={clearCustomDateRange}
+                  className="w-full sm:w-auto"
+                >
                   مسح التاريخ المخصص
                 </Button>
               )}
@@ -1666,7 +1679,7 @@ export default function InventoryInsightsPage() {
       </Card>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Card
           className={
             criticalCount > 0 ? "border-red-300 dark:border-red-800" : ""
@@ -1779,8 +1792,11 @@ export default function InventoryInsightsPage() {
       )}
 
       <Tabs value={tab} onValueChange={setTab}>
-        <TabsList className="flex flex-wrap h-auto gap-1">
-          <TabsTrigger value="restock" className="flex items-center gap-1">
+        <TabsList className="grid h-auto w-full grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
+          <TabsTrigger
+            value="restock"
+            className="flex w-full items-center gap-1"
+          >
             <ShoppingCart className="h-4 w-4" />
             إعادة التخزين
             {criticalCount > 0 && (
@@ -1789,33 +1805,45 @@ export default function InventoryInsightsPage() {
               </Badge>
             )}
           </TabsTrigger>
-          <TabsTrigger value="substitutes" className="flex items-center gap-1">
+          <TabsTrigger
+            value="substitutes"
+            className="flex w-full items-center gap-1"
+          >
             <Repeat className="h-4 w-4" />
             البدائل المقترحة
           </TabsTrigger>
           <TabsTrigger
             value="movement-trace"
-            className="flex items-center gap-1"
+            className="flex w-full items-center gap-1"
           >
             <Package className="h-4 w-4" />
             الحركة الكاملة
           </TabsTrigger>
           <TabsTrigger
             value="location-balance"
-            className="flex items-center gap-1"
+            className="flex w-full items-center gap-1"
           >
             <MapPin className="h-4 w-4" />
             المخزون حسب الموقع
           </TabsTrigger>
-          <TabsTrigger value="order-usage" className="flex items-center gap-1">
+          <TabsTrigger
+            value="order-usage"
+            className="flex w-full items-center gap-1"
+          >
             <Package className="h-4 w-4" />
             استهلاك المخزون حسب الطلب
           </TabsTrigger>
-          <TabsTrigger value="cost-trend" className="flex items-center gap-1">
+          <TabsTrigger
+            value="cost-trend"
+            className="flex w-full items-center gap-1"
+          >
             <BarChart3 className="h-4 w-4" />
             متوسط تكلفة الشراء الشهري
           </TabsTrigger>
-          <TabsTrigger value="cost-control" className="flex items-center gap-1">
+          <TabsTrigger
+            value="cost-control"
+            className="flex w-full items-center gap-1"
+          >
             <DollarSign className="h-4 w-4" />
             تحكم التكلفة
           </TabsTrigger>
@@ -3328,7 +3356,10 @@ export default function InventoryInsightsPage() {
 
       {/* Supplier Message Dialog */}
       <Dialog open={showSupplierDialog} onOpenChange={setShowSupplierDialog}>
-        <DialogContent className="max-w-md" dir="rtl">
+        <DialogContent
+          className="max-h-[90vh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-md"
+          dir="rtl"
+        >
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <MessageSquare className="h-5 w-5 text-blue-500" />
@@ -3438,15 +3469,17 @@ ${itemsText}
             )}
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="flex-col-reverse gap-2 sm:flex-row">
             <Button
               variant="outline"
               onClick={() => setShowSupplierDialog(false)}
               disabled={sendingSupplier}
+              className="w-full sm:w-auto"
             >
               إلغاء
             </Button>
             <Button
+              className="w-full sm:w-auto"
               onClick={async () => {
                 if (!supplierPhone.trim() || !supplierMsg.trim()) {
                   setSupplierSendError("يرجى إدخال رقم المورّد ونص الرسالة");

@@ -5,6 +5,7 @@ import { DATABASE_POOL } from "../../infrastructure/database/database.module";
 import { NotificationsService } from "../services/notifications.service";
 import { RedisService } from "../../infrastructure/redis/redis.service";
 import { FinanceAiService } from "../llm/finance-ai.service";
+import { CommerceFactsService } from "../services/commerce-facts.service";
 
 interface DailyStats {
   merchantId: string;
@@ -34,6 +35,7 @@ export class DailyReportScheduler {
     private readonly notificationsService: NotificationsService,
     private readonly redisService: RedisService,
     private readonly financeAiService: FinanceAiService,
+    private readonly commerceFactsService: CommerceFactsService,
   ) {}
 
   /**
@@ -91,6 +93,7 @@ export class DailyReportScheduler {
                 merchantId: merchant.id,
                 metrics: {
                   totalRevenue: stats.totalRevenue,
+                  realizedRevenue: stats.totalRevenue,
                   totalCogs: 0,
                   grossProfit: stats.totalRevenue * 0.4,
                   grossMargin: 40,
@@ -104,6 +107,7 @@ export class DailyReportScheduler {
                 },
                 historicalAvg: {
                   totalRevenue: stats.totalRevenue,
+                  realizedRevenue: stats.totalRevenue,
                   orderCount: stats.ordersCreated,
                 },
                 periodType: "daily",
@@ -185,6 +189,13 @@ export class DailyReportScheduler {
     dateFrom: Date,
     dateTo: Date,
   ): Promise<DailyStats> {
+    const reportEnd = new Date(dateTo.getTime() - 1);
+    const financeSummary = await this.commerceFactsService.buildFinanceSummary(
+      merchantId,
+      dateFrom,
+      reportEnd,
+    );
+
     // Conversations stats
     const conversationsQuery = `
       SELECT 
@@ -201,17 +212,16 @@ export class DailyReportScheduler {
       dateTo,
     ]);
 
-    // Orders stats
+    // Order counts for operational labels; money comes from the shared finance layer.
     const ordersQuery = `
       SELECT 
         COUNT(*) as total_orders,
-        COUNT(*) FILTER (WHERE status IN ('confirmed', 'shipped', 'delivered')) as confirmed_orders,
-        COALESCE(SUM(total), 0) as total_revenue,
-        COALESCE(AVG(total), 0) as avg_order_value
+        COUNT(*) FILTER (WHERE UPPER(COALESCE(status::text, '')) IN ('CONFIRMED', 'BOOKED', 'SHIPPED', 'DELIVERED')) as confirmed_orders
       FROM orders
       WHERE merchant_id = $1
         AND created_at >= $2
         AND created_at < $3
+        AND UPPER(COALESCE(status::text, '')) NOT IN ('DRAFT', 'FAILED')
     `;
     const orderResult = await this.pool.query(ordersQuery, [
       merchantId,
@@ -234,8 +244,10 @@ export class DailyReportScheduler {
       dateTo,
     ]);
 
-    const totalConversations = parseInt(convResult.rows[0].total, 10);
-    const ordersCreated = parseInt(orderResult.rows[0].total_orders, 10);
+    const totalConversations = parseInt(convResult.rows[0].total, 10) || 0;
+    const ordersCreated =
+      parseInt(orderResult.rows[0].total_orders, 10) ||
+      financeSummary.totalOrders;
 
     const conversionRate =
       totalConversations > 0 ? (ordersCreated / totalConversations) * 100 : 0;
@@ -248,8 +260,8 @@ export class DailyReportScheduler {
       newConversations: parseInt(convResult.rows[0].new_today, 10),
       ordersCreated,
       ordersConfirmed: parseInt(orderResult.rows[0].confirmed_orders, 10),
-      totalRevenue: parseFloat(orderResult.rows[0].total_revenue),
-      averageOrderValue: parseFloat(orderResult.rows[0].avg_order_value),
+      totalRevenue: financeSummary.realizedRevenue,
+      averageOrderValue: financeSummary.averageOrderValue,
       tokenUsage: parseInt(tokenResult.rows[0].total_tokens, 10),
       conversionRate: Math.round(conversionRate * 10) / 10,
     };
@@ -298,7 +310,7 @@ export class DailyReportScheduler {
 📈 ملخص اليوم:
 • المحادثات: ${stats.totalConversations} (جديد: ${stats.newConversations})
 • الطلبات: ${stats.ordersCreated} (مؤكد: ${stats.ordersConfirmed})
-• الإيرادات: ${stats.totalRevenue.toLocaleString("ar-EG")} جنيه
+• الإيرادات المحققة: ${stats.totalRevenue.toLocaleString("ar-EG")} جنيه
 • متوسط الطلب: ${stats.averageOrderValue.toLocaleString("ar-EG")} جنيه
 • معدل التحويل: ${stats.conversionRate}%
 

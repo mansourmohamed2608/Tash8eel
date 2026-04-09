@@ -162,6 +162,7 @@ export default function BranchAnalyticsPage() {
 
   const branchName =
     branchId === "all" ? "جميع الفروع" : (branch?.name ?? "تحميل...");
+  const realizedRevenue = summary?.realizedRevenue ?? summary?.revenue ?? 0;
 
   // Chart data
   const revenueChartData = revenueByDay.map((r) => ({
@@ -181,47 +182,47 @@ export default function BranchAnalyticsPage() {
   }));
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-4 sm:p-6">
       {/* Branch sub-navigation tabs */}
-      <div className="flex gap-1 border-b pb-0">
+      <div className="grid grid-cols-2 gap-2 border-b pb-0 sm:grid-cols-3 xl:grid-cols-6">
         <Link
           href={`/merchant/branches/${branchId}`}
-          className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 border-primary text-primary"
+          className="flex items-center justify-center gap-1.5 border-b-2 border-primary px-4 py-2 text-center text-sm font-medium text-primary"
         >
           <BarChart3 className="h-4 w-4" />
           التحليلات
         </Link>
         <Link
           href={`/merchant/branches/${branchId}/settings`}
-          className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 border-transparent text-muted-foreground hover:text-foreground"
+          className="flex items-center justify-center gap-1.5 border-b-2 border-transparent px-4 py-2 text-center text-sm font-medium text-muted-foreground hover:text-foreground"
         >
           <Settings className="h-4 w-4" />
           الإعدادات
         </Link>
         <Link
           href={`/merchant/branches/${branchId}/shifts`}
-          className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 border-transparent text-muted-foreground hover:text-foreground"
+          className="flex items-center justify-center gap-1.5 border-b-2 border-transparent px-4 py-2 text-center text-sm font-medium text-muted-foreground hover:text-foreground"
         >
           <Clock className="h-4 w-4" />
           الجلسات
         </Link>
         <Link
           href={`/merchant/branches/${branchId}/inventory`}
-          className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 border-transparent text-muted-foreground hover:text-foreground"
+          className="flex items-center justify-center gap-1.5 border-b-2 border-transparent px-4 py-2 text-center text-sm font-medium text-muted-foreground hover:text-foreground"
         >
           <Package className="h-4 w-4" />
           المخزون
         </Link>
         <Link
           href={`/merchant/branches/${branchId}/alerts`}
-          className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 border-transparent text-muted-foreground hover:text-foreground"
+          className="flex items-center justify-center gap-1.5 border-b-2 border-transparent px-4 py-2 text-center text-sm font-medium text-muted-foreground hover:text-foreground"
         >
           <Bell className="h-4 w-4" />
           التنبيهات
         </Link>
         <Link
           href={`/merchant/branches/${branchId}/pl-report`}
-          className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 border-transparent text-muted-foreground hover:text-foreground"
+          className="flex items-center justify-center gap-1.5 border-b-2 border-transparent px-4 py-2 text-center text-sm font-medium text-muted-foreground hover:text-foreground"
         >
           <FileText className="h-4 w-4" />
           تقرير الأرباح
@@ -232,17 +233,18 @@ export default function BranchAnalyticsPage() {
         title={branchName}
         description={`تحليلات الأداء - آخر ${days} يوم`}
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => router.push("/merchant/branches")}
+              className="w-full sm:w-auto"
             >
               <ArrowLeft className="h-4 w-4 ml-1" />
               الفروع
             </Button>
             <Select value={days} onValueChange={setDays}>
-              <SelectTrigger className="w-28">
+              <SelectTrigger className="w-full sm:w-28">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -253,7 +255,12 @@ export default function BranchAnalyticsPage() {
                 ))}
               </SelectContent>
             </Select>
-            <Button variant="outline" size="sm" onClick={fetchAll}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={fetchAll}
+              className="w-full sm:w-auto"
+            >
               <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
             </Button>
           </div>
@@ -264,7 +271,7 @@ export default function BranchAnalyticsPage() {
       <KPIGrid>
         <StatCard
           title="الإيرادات المحققة"
-          value={formatCurrency(summary?.revenue ?? 0)}
+          value={formatCurrency(realizedRevenue)}
           change={summary?.revenueChange}
           changeLabel="مقارنة بالفترة السابقة"
           icon={<DollarSign className="h-5 w-5" />}
@@ -383,30 +390,53 @@ export default function BranchAnalyticsPage() {
                 لا توجد منتجات في هذه الفترة
               </p>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="text-right">المنتج</TableHead>
-                    <TableHead className="text-right">الكمية</TableHead>
-                    <TableHead className="text-right">الإيرادات</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+              <>
+                <div className="space-y-3 md:hidden">
                   {topProducts.slice(0, 8).map((product, i) => (
-                    <TableRow key={i}>
-                      <TableCell className="font-medium text-sm max-w-[140px] truncate">
-                        {product.name}
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {formatNumber(product.quantity)}
-                      </TableCell>
-                      <TableCell className="text-sm font-medium text-green-600">
-                        {formatCurrency(product.revenue)}
-                      </TableCell>
-                    </TableRow>
+                    <div key={i} className="rounded-lg border p-3">
+                      <p className="font-medium text-sm">{product.name}</p>
+                      <div className="mt-2 grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+                        <div>
+                          <p className="text-muted-foreground">الكمية</p>
+                          <p>{formatNumber(product.quantity)}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">الإيرادات</p>
+                          <p className="font-medium text-green-600">
+                            {formatCurrency(product.revenue)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
                   ))}
-                </TableBody>
-              </Table>
+                </div>
+                <div className="hidden md:block">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-right">المنتج</TableHead>
+                        <TableHead className="text-right">الكمية</TableHead>
+                        <TableHead className="text-right">الإيرادات</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {topProducts.slice(0, 8).map((product, i) => (
+                        <TableRow key={i}>
+                          <TableCell className="font-medium text-sm max-w-[140px] truncate">
+                            {product.name}
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {formatNumber(product.quantity)}
+                          </TableCell>
+                          <TableCell className="text-sm font-medium text-green-600">
+                            {formatCurrency(product.revenue)}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </>
             )}
           </CardContent>
         </Card>
@@ -434,7 +464,7 @@ export default function BranchAnalyticsPage() {
                   {expensesBreakdown.map((exp, i) => (
                     <div
                       key={exp.category}
-                      className="flex items-center justify-between text-sm"
+                      className="flex flex-col gap-2 text-sm sm:flex-row sm:items-center sm:justify-between"
                     >
                       <div className="flex items-center gap-2 min-w-0">
                         <div
@@ -447,7 +477,7 @@ export default function BranchAnalyticsPage() {
                           {exp.category}
                         </span>
                       </div>
-                      <div className="flex items-center gap-3 shrink-0">
+                      <div className="flex items-center gap-3 self-start shrink-0 sm:self-auto">
                         <Badge variant="outline" className="text-xs">
                           {exp.pct.toFixed(0)}%
                         </Badge>
@@ -474,7 +504,7 @@ export default function BranchAnalyticsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 gap-x-8 gap-y-3 sm:grid-cols-4 text-sm">
+            <div className="grid grid-cols-1 gap-x-8 gap-y-3 text-sm sm:grid-cols-2 xl:grid-cols-4">
               <div>
                 <p className="text-muted-foreground">طلبات مكتملة</p>
                 <p className="font-semibold text-lg">
@@ -518,7 +548,7 @@ export default function BranchAnalyticsPage() {
             <div className="space-y-4">
               {goals.map((goal) => (
                 <div key={goal.id} className="space-y-1.5">
-                  <div className="flex items-center justify-between text-sm">
+                  <div className="flex flex-col gap-1 text-sm sm:flex-row sm:items-center sm:justify-between">
                     <span className="font-medium">
                       {goal.period_type === "MONTHLY"
                         ? "هدف شهري"
@@ -535,7 +565,7 @@ export default function BranchAnalyticsPage() {
                   </div>
                   {goal.target_revenue != null && (
                     <div className="space-y-0.5">
-                      <div className="flex justify-between text-xs text-muted-foreground">
+                      <div className="flex flex-col gap-1 text-xs text-muted-foreground sm:flex-row sm:justify-between">
                         <span>الإيراد</span>
                         <span>
                           {formatCurrency(goal.actual_revenue ?? 0)} /{" "}
@@ -571,7 +601,7 @@ export default function BranchAnalyticsPage() {
                   )}
                   {goal.target_orders != null && (
                     <div className="space-y-0.5">
-                      <div className="flex justify-between text-xs text-muted-foreground">
+                      <div className="flex flex-col gap-1 text-xs text-muted-foreground sm:flex-row sm:justify-between">
                         <span>الطلبات</span>
                         <span>
                           {goal.actual_orders ?? 0} / {goal.target_orders} طلب

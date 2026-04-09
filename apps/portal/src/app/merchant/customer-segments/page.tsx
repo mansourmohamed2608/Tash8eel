@@ -407,15 +407,16 @@ export default function CustomerSegmentsPage() {
 
   // ─── Render ───────────────────────────────────────────────────
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6 p-4 sm:p-6">
       <PageHeader
         title="شرائح العملاء المخصصة"
         description="أنشئ شرائح بقواعد ذكية لاستهداف العملاء في حملاتك التسويقية"
         actions={
-          <div className="flex gap-2">
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
             <Button
               variant="outline"
               size="sm"
+              className="w-full sm:w-auto"
               onClick={fetchSegments}
               disabled={loading}
             >
@@ -425,6 +426,7 @@ export default function CustomerSegmentsPage() {
               تحديث
             </Button>
             <Button
+              className="w-full sm:w-auto"
               onClick={() => {
                 resetForm();
                 setShowDialog(true);
@@ -494,7 +496,7 @@ export default function CustomerSegmentsPage() {
       {/* ─── Search bar ──────────────────────────────────────── */}
       {segments.length > 0 && (
         <div className="flex items-center gap-2">
-          <div className="relative flex-1 max-w-sm">
+          <div className="relative w-full sm:max-w-sm">
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="بحث في الشرائح..."
@@ -524,108 +526,190 @@ export default function CustomerSegmentsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="text-right">الشريحة</TableHead>
-                  <TableHead className="text-right">القواعد</TableHead>
-                  <TableHead className="text-center">العملاء</TableHead>
-                  <TableHead className="text-center">إجراءات</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtered.length === 0 ? (
-                  <TableRow>
-                    <TableCell
-                      colSpan={4}
-                      className="text-center text-muted-foreground py-8"
-                    >
-                      لا توجد شرائح مطابقة للبحث
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filtered.map((seg, idx) => (
-                    <TableRow key={seg.id || `seg-${idx}`}>
-                      <TableCell>
-                        <div>
-                          <p className="font-medium">{seg.name || "-"}</p>
-                          {seg.description && (
-                            <p className="text-xs text-muted-foreground mt-0.5">
-                              {seg.description}
-                            </p>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-wrap gap-1">
-                          {(seg.rules || []).slice(0, 3).map((r, i) => (
-                            <Badge
-                              key={i}
-                              variant="outline"
-                              className="text-xs"
-                            >
-                              {getFieldLabel(r.field)}{" "}
-                              {getOperatorLabel(r.operator)} {r.value}
-                            </Badge>
-                          ))}
-                          {(seg.rules || []).length > 3 && (
-                            <Badge variant="outline" className="text-xs">
-                              +{seg.rules.length - 3}
-                            </Badge>
-                          )}
-                          <Badge variant="secondary" className="text-xs">
-                            {seg.match_type === "all" ? "كل" : "أي"}
-                          </Badge>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Badge variant="default">
-                          {fmt(seg.customer_count)}
+            <div className="space-y-3 md:hidden">
+              {filtered.length === 0 ? (
+                <div className="rounded-lg border py-8 text-center text-muted-foreground">
+                  لا توجد شرائح مطابقة للبحث
+                </div>
+              ) : (
+                filtered.map((seg, idx) => (
+                  <div
+                    key={seg.id || `seg-mobile-${idx}`}
+                    className="rounded-lg border p-4 space-y-3"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="font-medium">{seg.name || "-"}</p>
+                        {seg.description && (
+                          <p className="mt-0.5 text-xs text-muted-foreground">
+                            {seg.description}
+                          </p>
+                        )}
+                      </div>
+                      <Badge variant="default">{fmt(seg.customer_count)}</Badge>
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {(seg.rules || []).slice(0, 3).map((r, i) => (
+                        <Badge key={i} variant="outline" className="text-xs">
+                          {getFieldLabel(r.field)}{" "}
+                          {getOperatorLabel(r.operator)} {r.value}
                         </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center justify-center gap-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handlePreview(seg)}
-                            title="معاينة"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => openBroadcastDialog(seg)}
-                            title="إرسال رسالة للشريحة"
-                            className="text-green-600 hover:text-green-800"
-                          >
-                            <Megaphone className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => openEdit(seg)}
-                            title="تعديل"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setDeleteId(seg.id)}
-                            title="حذف"
-                            className="text-red-500 hover:text-red-700"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
+                      ))}
+                      {(seg.rules || []).length > 3 && (
+                        <Badge variant="outline" className="text-xs">
+                          +{seg.rules.length - 3}
+                        </Badge>
+                      )}
+                      <Badge variant="secondary" className="text-xs">
+                        {seg.match_type === "all" ? "كل" : "أي"}
+                      </Badge>
+                    </div>
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full sm:w-auto"
+                        onClick={() => handlePreview(seg)}
+                      >
+                        <Eye className="ml-1 h-4 w-4" />
+                        معاينة
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full text-green-600 hover:text-green-800 sm:w-auto"
+                        onClick={() => openBroadcastDialog(seg)}
+                      >
+                        <Megaphone className="ml-1 h-4 w-4" />
+                        إرسال
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full sm:w-auto"
+                        onClick={() => openEdit(seg)}
+                      >
+                        <Pencil className="ml-1 h-4 w-4" />
+                        تعديل
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full text-red-500 hover:text-red-700 sm:w-auto"
+                        onClick={() => setDeleteId(seg.id)}
+                      >
+                        <Trash2 className="ml-1 h-4 w-4" />
+                        حذف
+                      </Button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+            <div className="hidden md:block">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-right">الشريحة</TableHead>
+                    <TableHead className="text-right">القواعد</TableHead>
+                    <TableHead className="text-center">العملاء</TableHead>
+                    <TableHead className="text-center">إجراءات</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filtered.length === 0 ? (
+                    <TableRow>
+                      <TableCell
+                        colSpan={4}
+                        className="text-center text-muted-foreground py-8"
+                      >
+                        لا توجد شرائح مطابقة للبحث
                       </TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+                  ) : (
+                    filtered.map((seg, idx) => (
+                      <TableRow key={seg.id || `seg-${idx}`}>
+                        <TableCell>
+                          <div>
+                            <p className="font-medium">{seg.name || "-"}</p>
+                            {seg.description && (
+                              <p className="text-xs text-muted-foreground mt-0.5">
+                                {seg.description}
+                              </p>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-wrap gap-1">
+                            {(seg.rules || []).slice(0, 3).map((r, i) => (
+                              <Badge
+                                key={i}
+                                variant="outline"
+                                className="text-xs"
+                              >
+                                {getFieldLabel(r.field)}{" "}
+                                {getOperatorLabel(r.operator)} {r.value}
+                              </Badge>
+                            ))}
+                            {(seg.rules || []).length > 3 && (
+                              <Badge variant="outline" className="text-xs">
+                                +{seg.rules.length - 3}
+                              </Badge>
+                            )}
+                            <Badge variant="secondary" className="text-xs">
+                              {seg.match_type === "all" ? "كل" : "أي"}
+                            </Badge>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Badge variant="default">
+                            {fmt(seg.customer_count)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center justify-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handlePreview(seg)}
+                              title="معاينة"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => openBroadcastDialog(seg)}
+                              title="إرسال رسالة للشريحة"
+                              className="text-green-600 hover:text-green-800"
+                            >
+                              <Megaphone className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => openEdit(seg)}
+                              title="تعديل"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setDeleteId(seg.id)}
+                              title="حذف"
+                              className="text-red-500 hover:text-red-700"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
           </CardContent>
         </Card>
       ) : null}
@@ -643,7 +727,7 @@ export default function CustomerSegmentsPage() {
         }}
       >
         <DialogContent
-          className="max-w-2xl max-h-[90vh] overflow-y-auto"
+          className="max-h-[90vh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-2xl"
           dir="rtl"
         >
           <DialogHeader>
@@ -701,12 +785,17 @@ export default function CustomerSegmentsPage() {
 
             {/* Rules */}
             <div>
-              <div className="flex items-center justify-between mb-2">
+              <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <Label className="flex items-center gap-2">
                   <Filter className="h-4 w-4" />
                   القواعد ({rules.length})
                 </Label>
-                <Button variant="outline" size="sm" onClick={addRule}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={addRule}
+                  className="w-full sm:w-auto"
+                >
                   <Plus className="h-3 w-3 ml-1" />
                   إضافة قاعدة
                 </Button>
@@ -715,7 +804,7 @@ export default function CustomerSegmentsPage() {
                 {rules.map((rule, idx) => (
                   <div
                     key={idx}
-                    className="flex items-center gap-2 p-3 rounded-lg border bg-muted/30"
+                    className="flex flex-col gap-2 rounded-lg border bg-muted/30 p-3 sm:flex-row sm:items-center"
                   >
                     {idx > 0 && (
                       <Badge variant="secondary" className="text-xs shrink-0">
@@ -728,7 +817,7 @@ export default function CustomerSegmentsPage() {
                       value={rule.field}
                       onValueChange={(v) => updateRule(idx, "field", v)}
                     >
-                      <SelectTrigger className="w-[175px]">
+                      <SelectTrigger className="w-full sm:w-[175px]">
                         <SelectValue placeholder="الحقل" />
                       </SelectTrigger>
                       <SelectContent>
@@ -745,7 +834,7 @@ export default function CustomerSegmentsPage() {
                       value={rule.operator}
                       onValueChange={(v) => updateRule(idx, "operator", v)}
                     >
-                      <SelectTrigger className="w-[160px]">
+                      <SelectTrigger className="w-full sm:w-[160px]">
                         <SelectValue placeholder="الشرط" />
                       </SelectTrigger>
                       <SelectContent>
@@ -763,7 +852,7 @@ export default function CustomerSegmentsPage() {
                       value={rule.value}
                       onChange={(e) => updateRule(idx, "value", e.target.value)}
                       placeholder="القيمة"
-                      className="w-[110px]"
+                      className="w-full sm:w-[110px]"
                     />
 
                     {rules.length > 1 && (
@@ -784,9 +873,10 @@ export default function CustomerSegmentsPage() {
             {formError && <p className="text-sm text-red-600">{formError}</p>}
           </div>
 
-          <DialogFooter className="gap-2">
+          <DialogFooter className="gap-2 flex-col sm:flex-row">
             <Button
               variant="outline"
+              className="w-full sm:w-auto"
               onClick={() => {
                 setShowDialog(false);
                 resetForm();
@@ -795,6 +885,7 @@ export default function CustomerSegmentsPage() {
               إلغاء
             </Button>
             <Button
+              className="w-full sm:w-auto"
               onClick={handleSave}
               disabled={saving || !name.trim() || rules.every((r) => !r.value)}
             >
@@ -813,7 +904,7 @@ export default function CustomerSegmentsPage() {
         onOpenChange={() => setPreviewSegment(null)}
       >
         <DialogContent
-          className="max-w-2xl max-h-[90vh] overflow-y-auto"
+          className="max-h-[90vh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-2xl"
           dir="rtl"
         >
           <DialogHeader>
@@ -842,13 +933,18 @@ export default function CustomerSegmentsPage() {
             </div>
           ) : (
             <>
-              <div className="flex items-center justify-between bg-muted rounded-lg p-3">
+              <div className="flex flex-col gap-3 rounded-lg bg-muted p-3 sm:flex-row sm:items-center sm:justify-between">
                 <span className="text-sm font-medium">
                   <Users className="h-4 w-4 inline ml-1" />
                   {fmt(previewCount)} عميل مطابق
                 </span>
                 {previewCount > 0 && (
-                  <Button size="sm" variant="outline" asChild>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    asChild
+                    className="w-full sm:w-auto"
+                  >
                     <a href="/merchant/campaigns">
                       <Megaphone className="h-3 w-3 ml-1" />
                       استهداف في حملة
@@ -858,42 +954,80 @@ export default function CustomerSegmentsPage() {
               </div>
 
               {previewCustomers.length > 0 ? (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="text-right">العميل</TableHead>
-                      <TableHead className="text-center">الطلبات</TableHead>
-                      <TableHead className="text-center">الإنفاق</TableHead>
-                      <TableHead className="text-center">آخر طلب</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
+                <>
+                  <div className="space-y-3 md:hidden">
                     {previewCustomers.map((c, i) => (
-                      <TableRow key={i}>
-                        <TableCell>
-                          <p className="font-medium">{c.name || "-"}</p>
-                          <p
-                            className="text-xs text-muted-foreground"
-                            dir="ltr"
-                          >
-                            {c.phone || ""}
-                          </p>
-                        </TableCell>
-                        <TableCell className="text-center">
-                          {fmt(c.order_count)}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          {fmt(c.total_spent)} ج.م
-                        </TableCell>
-                        <TableCell className="text-center text-sm">
-                          {c.last_order
-                            ? new Date(c.last_order).toLocaleDateString("ar-EG")
-                            : "-"}
-                        </TableCell>
-                      </TableRow>
+                      <div key={i} className="rounded-lg border p-3 text-sm">
+                        <p className="font-medium">{c.name || "-"}</p>
+                        <p className="text-xs text-muted-foreground" dir="ltr">
+                          {c.phone || ""}
+                        </p>
+                        <div className="mt-3 grid grid-cols-2 gap-3 text-xs">
+                          <div>
+                            <p className="text-muted-foreground">الطلبات</p>
+                            <p className="font-medium">{fmt(c.order_count)}</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground">الإنفاق</p>
+                            <p className="font-medium">
+                              {fmt(c.total_spent)} ج.م
+                            </p>
+                          </div>
+                          <div className="col-span-2">
+                            <p className="text-muted-foreground">آخر طلب</p>
+                            <p className="font-medium">
+                              {c.last_order
+                                ? new Date(c.last_order).toLocaleDateString(
+                                    "ar-EG",
+                                  )
+                                : "-"}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
                     ))}
-                  </TableBody>
-                </Table>
+                  </div>
+                  <div className="hidden md:block">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="text-right">العميل</TableHead>
+                          <TableHead className="text-center">الطلبات</TableHead>
+                          <TableHead className="text-center">الإنفاق</TableHead>
+                          <TableHead className="text-center">آخر طلب</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {previewCustomers.map((c, i) => (
+                          <TableRow key={i}>
+                            <TableCell>
+                              <p className="font-medium">{c.name || "-"}</p>
+                              <p
+                                className="text-xs text-muted-foreground"
+                                dir="ltr"
+                              >
+                                {c.phone || ""}
+                              </p>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              {fmt(c.order_count)}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              {fmt(c.total_spent)} ج.م
+                            </TableCell>
+                            <TableCell className="text-center text-sm">
+                              {c.last_order
+                                ? new Date(c.last_order).toLocaleDateString(
+                                    "ar-EG",
+                                  )
+                                : "-"}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </>
               ) : (
                 <div className="text-center text-muted-foreground py-8">
                   لا يوجد عملاء مطابقون لهذه الشريحة حالياً
@@ -908,19 +1042,24 @@ export default function CustomerSegmentsPage() {
           DELETE CONFIRMATION
          ═══════════════════════════════════════════════════════════ */}
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
-        <AlertDialogContent dir="rtl">
+        <AlertDialogContent
+          className="max-h-[90vh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-md"
+          dir="rtl"
+        >
           <AlertDialogHeader>
             <AlertDialogTitle>حذف الشريحة؟</AlertDialogTitle>
             <AlertDialogDescription>
               سيتم حذف هذه الشريحة نهائياً. لن تتمكن من استعادتها.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>إلغاء</AlertDialogCancel>
+          <AlertDialogFooter className="flex-col-reverse gap-2 sm:flex-row">
+            <AlertDialogCancel className="w-full sm:w-auto">
+              إلغاء
+            </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
               disabled={deleting}
-              className="bg-red-600 hover:bg-red-700"
+              className="w-full bg-red-600 hover:bg-red-700 sm:w-auto"
             >
               {deleting && <Loader2 className="h-4 w-4 ml-2 animate-spin" />}
               حذف
@@ -941,7 +1080,10 @@ export default function CustomerSegmentsPage() {
           }
         }}
       >
-        <DialogContent className="max-w-lg" dir="rtl">
+        <DialogContent
+          className="max-h-[90vh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-lg"
+          dir="rtl"
+        >
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Megaphone className="h-5 w-5 text-green-600" />
@@ -970,12 +1112,13 @@ export default function CustomerSegmentsPage() {
                   </p>
                 )}
               </div>
-              <DialogFooter>
+              <DialogFooter className="flex-col-reverse gap-2 sm:flex-row">
                 <Button
                   onClick={() => {
                     setBroadcastSegment(null);
                     setBroadcastResult(null);
                   }}
+                  className="w-full sm:w-auto"
                 >
                   إغلاق
                 </Button>

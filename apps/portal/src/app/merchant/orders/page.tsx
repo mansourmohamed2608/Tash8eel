@@ -89,6 +89,8 @@ interface Order {
   total: number;
   status: string;
   sourceChannel?: string;
+  deliveryType?: "delivery" | "pickup" | "dine_in";
+  paymentStatus?: string;
   createdAt: string;
   updatedAt: string;
   deliveryStatus?: string;
@@ -158,6 +160,37 @@ function getSourceBadgeClass(value: unknown): string {
   if (normalized === "whatsapp")
     return "bg-emerald-100 text-emerald-700 border-emerald-200";
   return "bg-muted text-foreground border-border";
+}
+
+function getOrderDisplayStatus(order: Order): string {
+  const status = String(order.status || "")
+    .trim()
+    .toUpperCase();
+  const source = normalizeSourceChannel(order.sourceChannel);
+  const deliveryType = String(order.deliveryType || "")
+    .trim()
+    .toLowerCase();
+  const paymentStatus = String(order.paymentStatus || "")
+    .trim()
+    .toUpperCase();
+
+  if (source === "cashier") {
+    if (deliveryType === "pickup") {
+      if (status === "DELIVERED") {
+        return paymentStatus === "PAID" ? "تم الدفع والاستلام" : "تم الاستلام";
+      }
+      if (status === "CONFIRMED") return "جاهز للاستلام";
+    }
+
+    if (deliveryType === "dine_in") {
+      if (status === "DELIVERED") {
+        return paymentStatus === "PAID" ? "تم الدفع" : "مكتمل";
+      }
+      if (status === "CONFIRMED") return "قيد التجهيز";
+    }
+  }
+
+  return getStatusLabel(order.status);
 }
 
 // Heuristic cancellation-risk score based on order age + status
@@ -446,6 +479,17 @@ export default function OrdersPage() {
       sourceChannel: normalizeSourceChannel(
         order.sourceChannel || order.source_channel,
       ),
+      deliveryType: (
+        order.deliveryPreference ||
+        order.delivery_preference ||
+        ""
+      )
+        .toString()
+        .trim()
+        .toLowerCase() as "delivery" | "pickup" | "dine_in",
+      paymentStatus: String(
+        order.paymentStatus || order.payment_status || "",
+      ).trim(),
       trackingNumber: order.trackingNumber,
       createdAt: order.createdAt,
       updatedAt: order.updatedAt,
@@ -839,7 +883,7 @@ export default function OrdersPage() {
             .join(", ")
         : "لا توجد منتجات",
       order.total?.toString() || "0",
-      getStatusLabel(order.status) || order.status || "",
+      getOrderDisplayStatus(order) || order.status || "",
       new Date(order.createdAt).toLocaleDateString("ar-EG"),
     ]);
 
@@ -1003,14 +1047,22 @@ export default function OrdersPage() {
             : `إدارة ومتابعة الطلبات (${countedOrders.length} طلب)`
         }
         actions={
-          <div className="flex gap-2">
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
             {canCreate && (
-              <Button onClick={openCreateOrderDialog}>
+              <Button
+                onClick={openCreateOrderDialog}
+                className="w-full sm:w-auto"
+              >
                 <Plus className="h-4 w-4 ml-2" />
                 إنشاء طلب جديد
               </Button>
             )}
-            <Button variant="outline" size="sm" onClick={fetchOrders}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={fetchOrders}
+              className="w-full sm:w-auto"
+            >
               <RefreshCw className="h-4 w-4" />
             </Button>
             {canExport && (
@@ -1018,6 +1070,7 @@ export default function OrdersPage() {
                 variant="outline"
                 onClick={handleExportCSV}
                 disabled={filteredOrders.length === 0}
+                className="w-full sm:w-auto"
               >
                 <FileSpreadsheet className="h-4 w-4 ml-2" />
                 تصدير CSV
@@ -1136,7 +1189,7 @@ export default function OrdersPage() {
       <Card className="border-dashed bg-muted/20">
         <CardContent className="p-4 space-y-3">
           <div className="text-sm font-semibold">شرح الحالات</div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 text-xs text-muted-foreground">
+          <div className="grid grid-cols-1 gap-2 text-xs text-muted-foreground sm:grid-cols-2 xl:grid-cols-4">
             <div>
               <span className="font-medium text-foreground">مسودة:</span> طلب
               غير مكتمل ولم يبدأ تنفيذه.
@@ -1160,6 +1213,11 @@ export default function OrdersPage() {
             <div>
               <span className="font-medium text-foreground">تم التوصيل:</span>{" "}
               طلب مكتمل ومُحقق للإيراد.
+            </div>
+            <div>
+              <span className="font-medium text-foreground">الكاشير:</span>{" "}
+              طلبات الاستلام وداخل الفرع قد تظهر كـ تم الدفع أو تم الاستلام
+              بدلاً من مسار الشحن.
             </div>
             <div>
               <span className="font-medium text-foreground">ملغي:</span> طلب غير
@@ -1189,63 +1247,36 @@ export default function OrdersPage() {
         </Card>
       ) : (
         <>
-          <DataTable
-            data={paginatedOrders}
-            columns={[
-              {
-                key: "orderNumber",
-                header: "رقم الطلب",
-                render: (order) => (
-                  <span className="font-mono text-sm">{order.orderNumber}</span>
-                ),
-              },
-              { key: "customerName", header: "العميل" },
-              {
-                key: "items",
-                header: "المنتجات",
-                render: (order) =>
-                  order.items.length > 0 ? (
-                    <div className="max-w-[220px]">
-                      <div
-                        className="truncate text-sm"
-                        title={order.items.map((i) => i.name).join("، ")}
+          <div className="space-y-3 md:hidden">
+            {paginatedOrders.map((order) => {
+              const risk = getCancelRisk(order);
+              return (
+                <Card
+                  key={order.id}
+                  className="cursor-pointer"
+                  onClick={() => setSelectedOrder(order)}
+                >
+                  <CardContent className="space-y-3 p-4 text-sm">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="font-mono text-sm">{order.orderNumber}</p>
+                        <p className="font-medium">{order.customerName}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {formatRelativeTime(order.createdAt)}
+                        </p>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedOrder(order);
+                        }}
                       >
-                        {order.items
-                          .slice(0, 2)
-                          .map((i) => i.name)
-                          .join("، ")}
-                        {order.items.length > 2
-                          ? ` +${order.items.length - 2}`
-                          : ""}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {order.items.reduce(
-                          (sum, item) => sum + (item.quantity || 0),
-                          0,
-                        )}{" "}
-                        قطعة
-                      </div>
+                        <Eye className="h-4 w-4" />
+                      </Button>
                     </div>
-                  ) : (
-                    <span className="text-muted-foreground">غير محدد</span>
-                  ),
-              },
-              {
-                key: "total",
-                header: "الإجمالي",
-                render: (order) => (
-                  <span className="font-semibold">
-                    {formatCurrency(order.total)}
-                  </span>
-                ),
-              },
-              {
-                key: "status",
-                header: "الحالة",
-                render: (order) => {
-                  const risk = getCancelRisk(order);
-                  return (
-                    <div className="flex flex-col gap-1 items-start">
+                    <div className="flex flex-wrap gap-2">
                       <span
                         className={cn(
                           "inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold",
@@ -1253,12 +1284,20 @@ export default function OrdersPage() {
                         )}
                       >
                         {statusIcons[order.status]}
-                        {getStatusLabel(order.status)}
+                        {getOrderDisplayStatus(order)}
+                      </span>
+                      <span
+                        className={cn(
+                          "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold",
+                          getSourceBadgeClass(order.sourceChannel),
+                        )}
+                      >
+                        {getSourceLabel(order.sourceChannel)}
                       </span>
                       {risk && (
                         <span
                           className={cn(
-                            "text-[10px] px-1.5 py-0.5 rounded border font-medium",
+                            "rounded border px-1.5 py-0.5 text-[10px] font-medium",
                             risk.className,
                           )}
                         >
@@ -1266,51 +1305,168 @@ export default function OrdersPage() {
                         </span>
                       )}
                     </div>
-                  );
+                    <div className="space-y-1">
+                      <p className="text-xs text-muted-foreground">المنتجات</p>
+                      <p className="text-sm">
+                        {order.items.length > 0
+                          ? `${order.items
+                              .slice(0, 2)
+                              .map((i) => i.name)
+                              .join(
+                                "، ",
+                              )}${order.items.length > 2 ? ` +${order.items.length - 2}` : ""}`
+                          : "غير محدد"}
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-1 gap-3 text-xs sm:grid-cols-2">
+                      <div>
+                        <p className="text-muted-foreground">الإجمالي</p>
+                        <p className="font-semibold">
+                          {formatCurrency(order.total)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">عدد القطع</p>
+                        <p className="font-medium">
+                          {order.items.reduce(
+                            (sum, item) => sum + (item.quantity || 0),
+                            0,
+                          )}{" "}
+                          قطعة
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+          <div className="hidden md:block">
+            <DataTable
+              data={paginatedOrders}
+              columns={[
+                {
+                  key: "orderNumber",
+                  header: "رقم الطلب",
+                  render: (order) => (
+                    <span className="font-mono text-sm">
+                      {order.orderNumber}
+                    </span>
+                  ),
                 },
-              },
-              {
-                key: "source",
-                header: "المصدر",
-                render: (order) => (
-                  <span
-                    className={cn(
-                      "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold",
-                      getSourceBadgeClass(order.sourceChannel),
-                    )}
-                  >
-                    {getSourceLabel(order.sourceChannel)}
-                  </span>
-                ),
-              },
-              {
-                key: "createdAt",
-                header: "التاريخ",
-                render: (order) => (
-                  <span className="text-muted-foreground text-sm">
-                    {formatRelativeTime(order.createdAt)}
-                  </span>
-                ),
-              },
-              {
-                key: "actions",
-                header: "",
-                render: (order) => (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedOrder(order);
-                    }}
-                  >
-                    <Eye className="h-4 w-4" />
-                  </Button>
-                ),
-              },
-            ]}
-            onRowClick={setSelectedOrder}
-          />
+                { key: "customerName", header: "العميل" },
+                {
+                  key: "items",
+                  header: "المنتجات",
+                  render: (order) =>
+                    order.items.length > 0 ? (
+                      <div className="max-w-[220px]">
+                        <div
+                          className="truncate text-sm"
+                          title={order.items.map((i) => i.name).join("، ")}
+                        >
+                          {order.items
+                            .slice(0, 2)
+                            .map((i) => i.name)
+                            .join("، ")}
+                          {order.items.length > 2
+                            ? ` +${order.items.length - 2}`
+                            : ""}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {order.items.reduce(
+                            (sum, item) => sum + (item.quantity || 0),
+                            0,
+                          )}{" "}
+                          قطعة
+                        </div>
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground">غير محدد</span>
+                    ),
+                },
+                {
+                  key: "total",
+                  header: "الإجمالي",
+                  render: (order) => (
+                    <span className="font-semibold">
+                      {formatCurrency(order.total)}
+                    </span>
+                  ),
+                },
+                {
+                  key: "status",
+                  header: "الحالة",
+                  render: (order) => {
+                    const risk = getCancelRisk(order);
+                    return (
+                      <div className="flex flex-col gap-1 items-start">
+                        <span
+                          className={cn(
+                            "inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold",
+                            getStatusColor(order.status),
+                          )}
+                        >
+                          {statusIcons[order.status]}
+                          {getOrderDisplayStatus(order)}
+                        </span>
+                        {risk && (
+                          <span
+                            className={cn(
+                              "text-[10px] px-1.5 py-0.5 rounded border font-medium",
+                              risk.className,
+                            )}
+                          >
+                            {risk.label}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  },
+                },
+                {
+                  key: "source",
+                  header: "المصدر",
+                  render: (order) => (
+                    <span
+                      className={cn(
+                        "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold",
+                        getSourceBadgeClass(order.sourceChannel),
+                      )}
+                    >
+                      {getSourceLabel(order.sourceChannel)}
+                    </span>
+                  ),
+                },
+                {
+                  key: "createdAt",
+                  header: "التاريخ",
+                  render: (order) => (
+                    <span className="text-muted-foreground text-sm">
+                      {formatRelativeTime(order.createdAt)}
+                    </span>
+                  ),
+                },
+                {
+                  key: "actions",
+                  header: "",
+                  render: (order) => (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedOrder(order);
+                      }}
+                    >
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                  ),
+                },
+              ]}
+              onRowClick={setSelectedOrder}
+            />
+          </div>
 
           {totalPages > 1 && (
             <Pagination
@@ -1333,7 +1489,7 @@ export default function OrdersPage() {
           }
         }}
       >
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-h-[90vh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-3xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <ShoppingCart className="h-5 w-5" />
@@ -1345,7 +1501,7 @@ export default function OrdersPage() {
           </DialogHeader>
 
           <div className="space-y-5" dir="rtl">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <p className="text-sm font-medium">اسم العميل</p>
                 <Input
@@ -1394,8 +1550,10 @@ export default function OrdersPage() {
                           <div className="font-medium text-sm">
                             {product.name}
                           </div>
-                          <div className="text-xs text-muted-foreground flex items-center justify-between">
-                            <span dir="ltr">{product.sku || "-"}</span>
+                          <div className="flex flex-col gap-1 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+                            <span dir="ltr" className="truncate">
+                              {product.sku || "-"}
+                            </span>
                             <span>{formatCurrency(product.unitPrice)}</span>
                           </div>
                         </button>
@@ -1447,7 +1605,7 @@ export default function OrdersPage() {
                           </Button>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                           <div className="space-y-1">
                             <p className="text-xs text-muted-foreground">
                               الكمية
@@ -1539,7 +1697,7 @@ export default function OrdersPage() {
                 )}
               </div>
 
-              <div className="flex items-center justify-between rounded-md border px-3 py-2 bg-primary/5">
+              <div className="flex flex-col gap-1 rounded-md border bg-primary/5 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
                 <span className="text-sm font-medium">الإجمالي الحالي</span>
                 <span className="text-sm font-bold text-primary">
                   {formatCurrency(manualOrderTotal)}
@@ -1547,7 +1705,7 @@ export default function OrdersPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <p className="text-sm font-medium">نوع الطلب</p>
                 <Select
@@ -1608,7 +1766,7 @@ export default function OrdersPage() {
               />
             </div>
 
-            <div className="flex justify-end gap-3 pt-2 border-t">
+            <div className="flex flex-col-reverse justify-end gap-3 border-t pt-2 sm:flex-row">
               <Button
                 variant="outline"
                 onClick={() => {
@@ -1617,12 +1775,14 @@ export default function OrdersPage() {
                   resetManualOrderForm();
                 }}
                 disabled={creatingOrder}
+                className="w-full sm:w-auto"
               >
                 إلغاء
               </Button>
               <Button
                 onClick={handleCreateManualOrder}
                 disabled={creatingOrder}
+                className="w-full sm:w-auto"
               >
                 {creatingOrder ? (
                   <>
@@ -1643,7 +1803,7 @@ export default function OrdersPage() {
         open={!!selectedOrder}
         onOpenChange={() => setSelectedOrder(null)}
       >
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-h-[90vh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Package className="h-5 w-5" />
@@ -1657,7 +1817,7 @@ export default function OrdersPage() {
           {selectedOrder && (
             <div className="space-y-6">
               {/* Status + Change */}
-              <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg flex-wrap gap-3">
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-muted/50 p-4">
                 <div className="flex items-center gap-2">
                   <span
                     className={cn(
@@ -1666,7 +1826,7 @@ export default function OrdersPage() {
                     )}
                   >
                     {statusIcons[selectedOrder.status]}
-                    {getStatusLabel(selectedOrder.status)}
+                    {getOrderDisplayStatus(selectedOrder)}
                   </span>
                 </div>
                 {!isReadOnly &&
@@ -1718,7 +1878,7 @@ export default function OrdersPage() {
                       }}
                       disabled={statusUpdating}
                     >
-                      <SelectTrigger className="w-[180px]">
+                      <SelectTrigger className="w-full sm:w-[180px]">
                         <SelectValue
                           placeholder={
                             statusUpdating ? "جاري التحديث..." : "تغيير الحالة"
@@ -1746,7 +1906,7 @@ export default function OrdersPage() {
                 {selectedOrder.trackingNumber && (
                   <div className="text-sm">
                     <span className="text-muted-foreground">رقم التتبع: </span>
-                    <span className="font-mono">
+                    <span className="break-all font-mono">
                       {selectedOrder.trackingNumber}
                     </span>
                   </div>
@@ -1839,7 +1999,7 @@ export default function OrdersPage() {
                     <MapPin className="h-4 w-4 text-primary" />
                     عنوان التوصيل
                   </h4>
-                  <p className="text-sm">
+                  <p className="break-words text-sm">
                     {selectedOrder.address || "لم يتم تحديد العنوان"}
                   </p>
                 </div>
@@ -1853,58 +2013,113 @@ export default function OrdersPage() {
                 </h4>
                 {selectedOrder.items.length > 0 ? (
                   <div className="border rounded-lg overflow-hidden">
-                    <table className="w-full">
-                      <thead className="bg-muted/50">
-                        <tr>
-                          <th className="p-3 text-right text-sm font-medium">
-                            المنتج
-                          </th>
-                          <th className="p-3 text-right text-sm font-medium">
-                            الكمية
-                          </th>
-                          <th className="p-3 text-right text-sm font-medium">
-                            السعر
-                          </th>
-                          <th className="p-3 text-right text-sm font-medium">
-                            الإجمالي
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {selectedOrder.items.map((item, idx) => (
-                          <tr key={idx} className="border-t">
-                            <td className="p-3 text-sm">
-                              <span className="font-medium">{item.name}</span>
-                              {item.sku && (
-                                <span className="text-muted-foreground block text-xs font-mono">
-                                  {item.sku}
-                                </span>
-                              )}
+                    <div className="space-y-3 p-3 md:hidden">
+                      {selectedOrder.items.map((item, idx) => (
+                        <div
+                          key={idx}
+                          className="rounded-lg border bg-background p-3"
+                        >
+                          <div className="space-y-1">
+                            <p className="break-words text-sm font-medium">
+                              {item.name}
+                            </p>
+                            {item.sku && (
+                              <p className="break-all text-xs font-mono text-muted-foreground">
+                                {item.sku}
+                              </p>
+                            )}
+                          </div>
+                          <div className="mt-3 grid grid-cols-1 gap-2 text-sm sm:grid-cols-3">
+                            <div>
+                              <p className="text-xs text-muted-foreground">
+                                الكمية
+                              </p>
+                              <p className="font-medium">{item.quantity}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-muted-foreground">
+                                السعر
+                              </p>
+                              <p>{formatCurrency(item.unitPrice)}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-muted-foreground">
+                                الإجمالي
+                              </p>
+                              <p className="font-medium">
+                                {formatCurrency(
+                                  item.lineTotal ??
+                                    item.quantity * item.unitPrice,
+                                )}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                      <div className="flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2 text-sm">
+                        <span className="font-medium">الإجمالي</span>
+                        <span className="font-bold text-primary">
+                          {formatCurrency(selectedOrder.total)}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="hidden md:block">
+                      <table className="w-full">
+                        <thead className="bg-muted/50">
+                          <tr>
+                            <th className="p-3 text-right text-sm font-medium">
+                              المنتج
+                            </th>
+                            <th className="p-3 text-right text-sm font-medium">
+                              الكمية
+                            </th>
+                            <th className="p-3 text-right text-sm font-medium">
+                              السعر
+                            </th>
+                            <th className="p-3 text-right text-sm font-medium">
+                              الإجمالي
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {selectedOrder.items.map((item, idx) => (
+                            <tr key={idx} className="border-t">
+                              <td className="p-3 text-sm">
+                                <span className="font-medium">{item.name}</span>
+                                {item.sku && (
+                                  <span className="text-muted-foreground block text-xs font-mono">
+                                    {item.sku}
+                                  </span>
+                                )}
+                              </td>
+                              <td className="p-3 text-sm">{item.quantity}</td>
+                              <td className="p-3 text-sm">
+                                {formatCurrency(item.unitPrice)}
+                              </td>
+                              <td className="p-3 text-sm font-medium">
+                                {formatCurrency(
+                                  item.lineTotal ??
+                                    item.quantity * item.unitPrice,
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                        <tfoot className="bg-muted/50">
+                          <tr>
+                            <td
+                              colSpan={3}
+                              className="p-3 text-end font-medium"
+                            >
+                              الإجمالي
                             </td>
-                            <td className="p-3 text-sm">{item.quantity}</td>
-                            <td className="p-3 text-sm">
-                              {formatCurrency(item.unitPrice)}
-                            </td>
-                            <td className="p-3 text-sm font-medium">
-                              {formatCurrency(
-                                item.lineTotal ??
-                                  item.quantity * item.unitPrice,
-                              )}
+                            <td className="p-3 font-bold text-primary">
+                              {formatCurrency(selectedOrder.total)}
                             </td>
                           </tr>
-                        ))}
-                      </tbody>
-                      <tfoot className="bg-muted/50">
-                        <tr>
-                          <td colSpan={3} className="p-3 text-end font-medium">
-                            الإجمالي
-                          </td>
-                          <td className="p-3 font-bold text-primary">
-                            {formatCurrency(selectedOrder.total)}
-                          </td>
-                        </tr>
-                      </tfoot>
-                    </table>
+                        </tfoot>
+                      </table>
+                    </div>
                   </div>
                 ) : (
                   <p className="text-sm text-muted-foreground p-4 border rounded-lg">
@@ -1980,12 +2195,12 @@ export default function OrdersPage() {
               )}
 
               {/* Actions */}
-              <div className="flex gap-3 pt-4 border-t">
+              <div className="flex flex-col gap-3 border-t pt-4 sm:flex-row">
                 {canCreate && (
                   <Button
                     onClick={() => handleReorder(selectedOrder.id)}
                     disabled={reordering}
-                    className="flex-1"
+                    className="w-full flex-1"
                   >
                     {reordering ? (
                       <>
@@ -2006,6 +2221,7 @@ export default function OrdersPage() {
                     setSelectedOrder(null);
                     setReorderResult(null);
                   }}
+                  className="w-full sm:w-auto"
                 >
                   إغلاق
                 </Button>

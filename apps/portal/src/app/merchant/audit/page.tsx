@@ -225,6 +225,12 @@ const settingsSectionLabels: Record<string, string> = {
   integrations: "التكاملات",
 };
 
+const JsonPreview = ({ value }: { value: unknown }) => (
+  <pre className="mt-1 overflow-x-auto whitespace-pre-wrap break-words rounded bg-muted p-2 text-xs leading-5">
+    {JSON.stringify(value, null, 2)}
+  </pre>
+);
+
 const settingsSectionIcons: Record<string, any> = {
   business: Briefcase,
   notifications: Bell,
@@ -608,12 +614,12 @@ export default function AuditPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-4 sm:p-6">
       <PageHeader
         title="سجل التدقيق"
         description="تتبع جميع الإجراءات والتغييرات في النظام"
         actions={
-          <>
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
             <Button variant="outline" onClick={fetchAuditData}>
               <RefreshCw className="h-4 w-4" />
               تحديث
@@ -626,7 +632,7 @@ export default function AuditPage() {
               <Printer className="h-4 w-4" />
               تصدير PDF
             </Button>
-          </>
+          </div>
         }
       />
 
@@ -645,7 +651,7 @@ export default function AuditPage() {
       />
 
       {/* Summary Stats */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
@@ -707,7 +713,7 @@ export default function AuditPage() {
         </Card>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">
@@ -796,17 +802,22 @@ export default function AuditPage() {
       </Card>
 
       <Tabs defaultValue="logs">
-        <TabsList>
-          <TabsTrigger value="logs">السجلات</TabsTrigger>
-          <TabsTrigger value="summary">الملخص</TabsTrigger>
+        <TabsList className="grid h-auto w-full grid-cols-1 gap-2 sm:grid-cols-2">
+          <TabsTrigger value="logs" className="w-full">
+            السجلات
+          </TabsTrigger>
+          <TabsTrigger value="summary" className="w-full">
+            الملخص
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="logs" className="mt-4 space-y-4">
-          <div className="flex flex-wrap gap-2">
+          <div className="flex gap-2 overflow-x-auto whitespace-nowrap pb-1">
             {quickFilters.map((filter) => (
               <Button
                 key={filter.value}
                 size="sm"
+                className="shrink-0"
                 variant={
                   filters.resourceType === filter.value ? "default" : "outline"
                 }
@@ -821,7 +832,7 @@ export default function AuditPage() {
           {/* Filters */}
           <Card>
             <CardContent className="pt-6">
-              <div className="grid gap-4 md:grid-cols-8">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 <div className="relative">
                   <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -941,372 +952,568 @@ export default function AuditPage() {
           {/* Logs Table */}
           <Card>
             <CardContent className="p-0">
-              <Table className="w-full table-fixed">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="text-center w-24">الإجراء</TableHead>
-                    <TableHead className="text-right w-56">المورد</TableHead>
-                    <TableHead className="text-right w-40">المستخدم</TableHead>
-                    <TableHead className="text-center w-24">عنوان IP</TableHead>
-                    <TableHead className="text-center w-28">الوقت</TableHead>
-                    <TableHead className="text-center w-16">تفاصيل</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {paginatedLogs.map((log) => {
-                    const ResourceIcon =
-                      resourceIcons[log.resourceType] || FileText;
-                    const resourceLabel =
-                      resourceLabels[log.resourceType] ||
-                      log.resourceType ||
-                      "-";
-                    const isSettings = log.resourceType === "SETTINGS";
-                    const rawSections = Array.isArray(log.metadata?.sections)
-                      ? log.metadata.sections
-                      : log.metadata?.section
-                        ? [log.metadata.section]
-                        : [];
-                    const sectionLabels = rawSections
-                      .map(
-                        (section: string) =>
-                          settingsSectionLabels[section] || section,
-                      )
-                      .filter(Boolean);
-                    const sectionSuffix =
-                      sectionLabels.length > 0
-                        ? ` • ${sectionLabels.join("، ")}`
-                        : "";
-                    const resourceTitle = isSettings
-                      ? `إعدادات المتجر${sectionSuffix}`
-                      : log.resourceName ||
-                        (log.resourceId ? log.resourceId.slice(0, 8) : "-");
-                    const actionLabel =
-                      actionLabels[log.action] || log.action || "-";
-                    const actionColor =
-                      actionColors[log.action] || "bg-slate-500";
-                    const isSystem =
-                      !log.staffId ||
-                      log.staffId === "api" ||
-                      log.staffName === "API Key";
-                    const staffDisplayName = isSystem
-                      ? "نظام (تلقائي)"
-                      : log.staffName || "نظام";
-                    const staffSecondary = isSystem
-                      ? "API"
-                      : log.staffEmail || "-";
-                    const safeMetadata = log.metadata
-                      ? { ...log.metadata }
-                      : undefined;
-                    if (safeMetadata && "staffIdRaw" in safeMetadata) {
-                      delete (safeMetadata as any).staffIdRaw;
-                    }
-                    return (
-                      <TableRow key={log.id}>
-                        <TableCell className="text-center align-middle w-24">
-                          <Badge className={`${actionColor} text-white`}>
-                            {actionLabel}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right w-56">
-                          <div className="flex w-full items-center gap-2 text-right flex-row-reverse">
-                            <ResourceIcon className="h-4 w-4 text-muted-foreground" />
-                            <div className="max-w-[13rem]">
-                              <div className="font-medium break-words">
-                                {resourceTitle}
-                              </div>
-                              <div className="text-xs text-muted-foreground">
-                                {resourceLabel}
-                              </div>
-                              {isSettings && sectionLabels.length > 0 && (
-                                <div className="text-[10px] text-muted-foreground mt-0.5">
-                                  الأقسام: {sectionLabels.join("، ")}
-                                </div>
-                              )}
-                              {isSettings && rawSections.length > 0 && (
-                                <div className="mt-1 flex flex-wrap gap-1">
-                                  {rawSections.map((section: string) => {
-                                    const Icon =
-                                      settingsSectionIcons[section] || Settings;
-                                    const label =
-                                      settingsSectionLabels[section] || section;
-                                    return (
-                                      <Badge
-                                        key={section}
-                                        variant="outline"
-                                        className="text-[10px] flex items-center gap-1"
-                                      >
-                                        <Icon className="h-3 w-3" />
-                                        {label}
-                                      </Badge>
-                                    );
-                                  })}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-right w-40">
-                          <div className="flex w-full items-center gap-2 text-right flex-row-reverse">
-                            <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white text-xs font-bold">
-                              {isSystem ? (
-                                <Server className="h-4 w-4" />
-                              ) : (
-                                log.staffName?.charAt(0) || "?"
-                              )}
-                            </div>
-                            <div className="max-w-[9rem]">
-                              <div className="font-medium break-words">
-                                {staffDisplayName}
-                              </div>
-                              <div className="text-xs text-muted-foreground">
-                                {staffSecondary}
-                              </div>
-                              {isSystem && (
-                                <Badge
-                                  variant="outline"
-                                  className="mt-1 text-[10px] text-muted-foreground"
-                                >
-                                  النظام
-                                </Badge>
-                              )}
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-center align-middle w-24">
-                          <div className="flex items-center justify-center gap-1">
-                            <code className="text-xs bg-muted px-1 rounded">
-                              {formatIp(log.ipAddress)}
-                            </code>
-                            {isLocalIp(log.ipAddress) && (
-                              <Badge
-                                variant="outline"
-                                className="text-[10px] text-muted-foreground"
-                              >
-                                سجل محلي
-                              </Badge>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-center align-middle w-28">
-                          <div className="flex items-center justify-center gap-1 text-muted-foreground">
-                            <Clock className="h-3 w-3" />
-                            <span className="text-sm">
+              <div className="space-y-3 p-4 md:hidden">
+                {paginatedLogs.map((log) => {
+                  const ResourceIcon =
+                    resourceIcons[log.resourceType] || FileText;
+                  const resourceLabel =
+                    resourceLabels[log.resourceType] || log.resourceType || "-";
+                  const isSettings = log.resourceType === "SETTINGS";
+                  const rawSections = Array.isArray(log.metadata?.sections)
+                    ? log.metadata.sections
+                    : log.metadata?.section
+                      ? [log.metadata.section]
+                      : [];
+                  const sectionLabels = rawSections
+                    .map(
+                      (section: string) =>
+                        settingsSectionLabels[section] || section,
+                    )
+                    .filter(Boolean);
+                  const sectionSuffix =
+                    sectionLabels.length > 0
+                      ? ` • ${sectionLabels.join("، ")}`
+                      : "";
+                  const resourceTitle = isSettings
+                    ? `إعدادات المتجر${sectionSuffix}`
+                    : log.resourceName ||
+                      (log.resourceId ? log.resourceId.slice(0, 8) : "-");
+                  const actionLabel =
+                    actionLabels[log.action] || log.action || "-";
+                  const actionColor =
+                    actionColors[log.action] || "bg-slate-500";
+                  const isSystem =
+                    !log.staffId ||
+                    log.staffId === "api" ||
+                    log.staffName === "API Key";
+                  const staffDisplayName = isSystem
+                    ? "نظام (تلقائي)"
+                    : log.staffName || "نظام";
+
+                  return (
+                    <div
+                      key={log.id}
+                      className="rounded-lg border p-4 space-y-3"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 space-y-1">
+                          <div className="flex items-center gap-2">
+                            <Badge className={`${actionColor} text-white`}>
+                              {actionLabel}
+                            </Badge>
+                            <span className="text-xs text-muted-foreground">
                               {formatTimeSince(log.timestamp)}
                             </span>
                           </div>
-                        </TableCell>
-                        <TableCell className="text-center align-middle w-16">
-                          <Dialog>
-                            <DialogTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => setSelectedLog(log)}
-                              >
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                            </DialogTrigger>
-                            <DialogContent className="max-w-2xl">
-                              <DialogHeader>
-                                <DialogTitle>تفاصيل السجل</DialogTitle>
-                                <DialogDescription>
-                                  معلومات كاملة عن هذا الإجراء
-                                </DialogDescription>
-                              </DialogHeader>
-                              <div className="space-y-4">
-                                <div className="grid grid-cols-2 gap-4">
-                                  <div>
-                                    <label className="text-sm font-medium text-muted-foreground">
-                                      الإجراء
-                                    </label>
-                                    <div className="mt-1">
-                                      <Badge
-                                        className={`${actionColor} text-white`}
+                          <div className="flex items-center gap-2 text-sm">
+                            <ResourceIcon className="h-4 w-4 text-muted-foreground" />
+                            <span className="font-medium break-words">
+                              {resourceTitle}
+                            </span>
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {resourceLabel}
+                          </div>
+                        </div>
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setSelectedLog(log)}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="max-h-[90vh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-2xl">
+                            <DialogHeader>
+                              <DialogTitle>تفاصيل السجل</DialogTitle>
+                              <DialogDescription>
+                                معلومات كاملة عن هذا الإجراء
+                              </DialogDescription>
+                            </DialogHeader>
+                            <div className="space-y-3 text-sm">
+                              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                <div>
+                                  <label className="text-sm font-medium text-muted-foreground">
+                                    الإجراء
+                                  </label>
+                                  <div className="mt-1">
+                                    <Badge
+                                      className={`${actionColor} text-white`}
+                                    >
+                                      {actionLabel}
+                                    </Badge>
+                                  </div>
+                                </div>
+                                <div>
+                                  <label className="text-sm font-medium text-muted-foreground">
+                                    المورد
+                                  </label>
+                                  <p className="mt-1 break-words">
+                                    {resourceTitle}
+                                  </p>
+                                </div>
+                                <div>
+                                  <label className="text-sm font-medium text-muted-foreground">
+                                    المستخدم
+                                  </label>
+                                  <p className="mt-1 break-words">
+                                    {staffDisplayName}
+                                  </p>
+                                </div>
+                                <div>
+                                  <label className="text-sm font-medium text-muted-foreground">
+                                    الوقت
+                                  </label>
+                                  <p className="mt-1">
+                                    {formatDate(log.timestamp)}
+                                  </p>
+                                </div>
+                                <div>
+                                  <label className="text-sm font-medium text-muted-foreground">
+                                    عنوان IP
+                                  </label>
+                                  <p className="mt-1 font-mono text-xs break-all">
+                                    {formatIp(log.ipAddress)}
+                                  </p>
+                                </div>
+                                <div>
+                                  <label className="text-sm font-medium text-muted-foreground">
+                                    المصدر
+                                  </label>
+                                  <p className="mt-1 text-sm">
+                                    {isSystem ? "نظام / API" : "لوحة التحكم"}
+                                  </p>
+                                </div>
+                              </div>
+                              {log.changes && log.changes.length > 0 && (
+                                <div>
+                                  <label className="text-sm font-medium text-muted-foreground">
+                                    التغييرات
+                                  </label>
+                                  <div className="mt-2 space-y-2">
+                                    {log.changes.map((change, i) => (
+                                      <div
+                                        key={i}
+                                        className="flex flex-wrap items-center gap-2 rounded bg-muted p-2 text-sm"
                                       >
-                                        {actionLabel}
-                                      </Badge>
-                                    </div>
+                                        <span className="font-medium break-all">
+                                          {change.field}:
+                                        </span>
+                                        <span className="break-words text-red-600 line-through">
+                                          {formatChangeValue(change.from)}
+                                        </span>
+                                        <span>→</span>
+                                        <span className="break-words text-green-600">
+                                          {formatChangeValue(change.to)}
+                                        </span>
+                                      </div>
+                                    ))}
                                   </div>
-                                  <div>
-                                    <label className="text-sm font-medium text-muted-foreground">
-                                      المورد
-                                    </label>
-                                    <p className="mt-1">{resourceTitle}</p>
+                                </div>
+                              )}
+                              {log.oldValue && (
+                                <div>
+                                  <label className="text-sm font-medium text-muted-foreground">
+                                    القيمة السابقة
+                                  </label>
+                                  <JsonPreview value={log.oldValue} />
+                                </div>
+                              )}
+                              {log.newValue && (
+                                <div>
+                                  <label className="text-sm font-medium text-muted-foreground">
+                                    القيمة الجديدة
+                                  </label>
+                                  <JsonPreview value={log.newValue} />
+                                </div>
+                              )}
+                            </div>
+                          </DialogContent>
+                        </Dialog>
+                      </div>
+                      <div className="grid grid-cols-1 gap-2 text-sm text-muted-foreground">
+                        <div>المستخدم: {staffDisplayName}</div>
+                        <div>IP: {formatIp(log.ipAddress)}</div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="hidden md:block">
+                <Table className="w-full">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-center w-24">
+                        الإجراء
+                      </TableHead>
+                      <TableHead className="text-right w-56">المورد</TableHead>
+                      <TableHead className="text-right w-40">
+                        المستخدم
+                      </TableHead>
+                      <TableHead className="text-center w-24">
+                        عنوان IP
+                      </TableHead>
+                      <TableHead className="text-center w-28">الوقت</TableHead>
+                      <TableHead className="text-center w-16">تفاصيل</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {paginatedLogs.map((log) => {
+                      const ResourceIcon =
+                        resourceIcons[log.resourceType] || FileText;
+                      const resourceLabel =
+                        resourceLabels[log.resourceType] ||
+                        log.resourceType ||
+                        "-";
+                      const isSettings = log.resourceType === "SETTINGS";
+                      const rawSections = Array.isArray(log.metadata?.sections)
+                        ? log.metadata.sections
+                        : log.metadata?.section
+                          ? [log.metadata.section]
+                          : [];
+                      const sectionLabels = rawSections
+                        .map(
+                          (section: string) =>
+                            settingsSectionLabels[section] || section,
+                        )
+                        .filter(Boolean);
+                      const sectionSuffix =
+                        sectionLabels.length > 0
+                          ? ` • ${sectionLabels.join("، ")}`
+                          : "";
+                      const resourceTitle = isSettings
+                        ? `إعدادات المتجر${sectionSuffix}`
+                        : log.resourceName ||
+                          (log.resourceId ? log.resourceId.slice(0, 8) : "-");
+                      const actionLabel =
+                        actionLabels[log.action] || log.action || "-";
+                      const actionColor =
+                        actionColors[log.action] || "bg-slate-500";
+                      const isSystem =
+                        !log.staffId ||
+                        log.staffId === "api" ||
+                        log.staffName === "API Key";
+                      const staffDisplayName = isSystem
+                        ? "نظام (تلقائي)"
+                        : log.staffName || "نظام";
+                      const staffSecondary = isSystem
+                        ? "API"
+                        : log.staffEmail || "-";
+                      const safeMetadata = log.metadata
+                        ? { ...log.metadata }
+                        : undefined;
+                      if (safeMetadata && "staffIdRaw" in safeMetadata) {
+                        delete (safeMetadata as any).staffIdRaw;
+                      }
+                      return (
+                        <TableRow key={log.id}>
+                          <TableCell className="text-center align-middle w-24">
+                            <Badge className={`${actionColor} text-white`}>
+                              {actionLabel}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right w-56">
+                            <div className="flex w-full items-center gap-2 text-right flex-row-reverse">
+                              <ResourceIcon className="h-4 w-4 text-muted-foreground" />
+                              <div className="max-w-[13rem]">
+                                <div className="font-medium break-words">
+                                  {resourceTitle}
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  {resourceLabel}
+                                </div>
+                                {isSettings && sectionLabels.length > 0 && (
+                                  <div className="text-[10px] text-muted-foreground mt-0.5">
+                                    الأقسام: {sectionLabels.join("، ")}
                                   </div>
-                                  <div>
-                                    <label className="text-sm font-medium text-muted-foreground">
-                                      معرّف المورد
-                                    </label>
-                                    <p className="mt-1 font-mono text-sm">
-                                      {log.resourceId || "-"}
-                                    </p>
+                                )}
+                                {isSettings && rawSections.length > 0 && (
+                                  <div className="mt-1 flex flex-wrap gap-1">
+                                    {rawSections.map((section: string) => {
+                                      const Icon =
+                                        settingsSectionIcons[section] ||
+                                        Settings;
+                                      const label =
+                                        settingsSectionLabels[section] ||
+                                        section;
+                                      return (
+                                        <Badge
+                                          key={section}
+                                          variant="outline"
+                                          className="text-[10px] flex items-center gap-1"
+                                        >
+                                          <Icon className="h-3 w-3" />
+                                          {label}
+                                        </Badge>
+                                      );
+                                    })}
                                   </div>
-                                  <div>
-                                    <label className="text-sm font-medium text-muted-foreground">
-                                      المستخدم
-                                    </label>
-                                    <p className="mt-1">
-                                      {staffDisplayName} ({staffSecondary})
-                                    </p>
-                                  </div>
-                                  <div>
-                                    <label className="text-sm font-medium text-muted-foreground">
-                                      معرّف المستخدم
-                                    </label>
-                                    <p className="mt-1 font-mono text-sm">
-                                      {log.staffId || "-"}
-                                    </p>
-                                  </div>
-                                  <div>
-                                    <label className="text-sm font-medium text-muted-foreground">
-                                      الوقت
-                                    </label>
-                                    <p className="mt-1">
-                                      {formatDate(log.timestamp)}
-                                    </p>
-                                  </div>
-                                  <div>
-                                    <label className="text-sm font-medium text-muted-foreground">
-                                      عنوان IP
-                                    </label>
-                                    <p className="mt-1 font-mono text-sm">
-                                      {formatIp(log.ipAddress)}
-                                    </p>
-                                  </div>
-                                  <div>
-                                    <label className="text-sm font-medium text-muted-foreground">
-                                      المتصفح
-                                    </label>
-                                    <p className="mt-1 text-sm truncate">
-                                      {getBrowserLabel(log.userAgent)}
-                                    </p>
-                                    <p className="text-xs text-muted-foreground">
-                                      نظام التشغيل: {getOsLabel(log.userAgent)}
-                                    </p>
-                                  </div>
-                                  <div>
-                                    <label className="text-sm font-medium text-muted-foreground">
-                                      المصدر
-                                    </label>
-                                    <p className="mt-1 text-sm">
-                                      {isSystem ? "نظام / API" : "لوحة التحكم"}
-                                    </p>
-                                  </div>
-                                  <div>
-                                    <label className="text-sm font-medium text-muted-foreground">
-                                      معرّف الطلب
-                                    </label>
-                                    <p className="mt-1 font-mono text-sm">
-                                      {log.correlationId || "-"}
-                                    </p>
-                                  </div>
-                                  {(log.metadata?.pagePath ||
-                                    log.metadata?.pageName) && (
+                                )}
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right w-40">
+                            <div className="flex w-full items-center gap-2 text-right flex-row-reverse">
+                              <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white text-xs font-bold">
+                                {isSystem ? (
+                                  <Server className="h-4 w-4" />
+                                ) : (
+                                  log.staffName?.charAt(0) || "?"
+                                )}
+                              </div>
+                              <div className="max-w-[9rem]">
+                                <div className="font-medium break-words">
+                                  {staffDisplayName}
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  {staffSecondary}
+                                </div>
+                                {isSystem && (
+                                  <Badge
+                                    variant="outline"
+                                    className="mt-1 text-[10px] text-muted-foreground"
+                                  >
+                                    النظام
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-center align-middle w-24">
+                            <div className="flex items-center justify-center gap-1">
+                              <code className="text-xs bg-muted px-1 rounded">
+                                {formatIp(log.ipAddress)}
+                              </code>
+                              {isLocalIp(log.ipAddress) && (
+                                <Badge
+                                  variant="outline"
+                                  className="text-[10px] text-muted-foreground"
+                                >
+                                  سجل محلي
+                                </Badge>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-center align-middle w-28">
+                            <div className="flex items-center justify-center gap-1 text-muted-foreground">
+                              <Clock className="h-3 w-3" />
+                              <span className="text-sm">
+                                {formatTimeSince(log.timestamp)}
+                              </span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-center align-middle w-16">
+                            <Dialog>
+                              <DialogTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => setSelectedLog(log)}
+                                >
+                                  <Eye className="h-4 w-4" />
+                                </Button>
+                              </DialogTrigger>
+                              <DialogContent className="max-h-[90vh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-2xl">
+                                <DialogHeader>
+                                  <DialogTitle>تفاصيل السجل</DialogTitle>
+                                  <DialogDescription>
+                                    معلومات كاملة عن هذا الإجراء
+                                  </DialogDescription>
+                                </DialogHeader>
+                                <div className="space-y-4">
+                                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                                     <div>
                                       <label className="text-sm font-medium text-muted-foreground">
-                                        الصفحة
+                                        الإجراء
+                                      </label>
+                                      <div className="mt-1">
+                                        <Badge
+                                          className={`${actionColor} text-white`}
+                                        >
+                                          {actionLabel}
+                                        </Badge>
+                                      </div>
+                                    </div>
+                                    <div>
+                                      <label className="text-sm font-medium text-muted-foreground">
+                                        المورد
+                                      </label>
+                                      <p className="mt-1">{resourceTitle}</p>
+                                    </div>
+                                    <div>
+                                      <label className="text-sm font-medium text-muted-foreground">
+                                        معرّف المورد
+                                      </label>
+                                      <p className="mt-1 font-mono text-sm">
+                                        {log.resourceId || "-"}
+                                      </p>
+                                    </div>
+                                    <div>
+                                      <label className="text-sm font-medium text-muted-foreground">
+                                        المستخدم
+                                      </label>
+                                      <p className="mt-1">
+                                        {staffDisplayName} ({staffSecondary})
+                                      </p>
+                                    </div>
+                                    <div>
+                                      <label className="text-sm font-medium text-muted-foreground">
+                                        معرّف المستخدم
+                                      </label>
+                                      <p className="mt-1 font-mono text-sm">
+                                        {log.staffId || "-"}
+                                      </p>
+                                    </div>
+                                    <div>
+                                      <label className="text-sm font-medium text-muted-foreground">
+                                        الوقت
+                                      </label>
+                                      <p className="mt-1">
+                                        {formatDate(log.timestamp)}
+                                      </p>
+                                    </div>
+                                    <div>
+                                      <label className="text-sm font-medium text-muted-foreground">
+                                        عنوان IP
+                                      </label>
+                                      <p className="mt-1 font-mono text-sm">
+                                        {formatIp(log.ipAddress)}
+                                      </p>
+                                    </div>
+                                    <div>
+                                      <label className="text-sm font-medium text-muted-foreground">
+                                        المتصفح
+                                      </label>
+                                      <p className="mt-1 break-words text-sm">
+                                        {getBrowserLabel(log.userAgent)}
+                                      </p>
+                                      <p className="text-xs text-muted-foreground">
+                                        نظام التشغيل:{" "}
+                                        {getOsLabel(log.userAgent)}
+                                      </p>
+                                    </div>
+                                    <div>
+                                      <label className="text-sm font-medium text-muted-foreground">
+                                        المصدر
                                       </label>
                                       <p className="mt-1 text-sm">
-                                        {log.metadata?.pageName ||
-                                          log.metadata?.pagePath}
+                                        {isSystem
+                                          ? "نظام / API"
+                                          : "لوحة التحكم"}
                                       </p>
-                                      {log.metadata?.pagePath && (
-                                        <p className="text-xs text-muted-foreground">
+                                    </div>
+                                    <div>
+                                      <label className="text-sm font-medium text-muted-foreground">
+                                        معرّف الطلب
+                                      </label>
+                                      <p className="mt-1 font-mono text-sm">
+                                        {log.correlationId || "-"}
+                                      </p>
+                                    </div>
+                                    {(log.metadata?.pagePath ||
+                                      log.metadata?.pageName) && (
+                                      <div>
+                                        <label className="text-sm font-medium text-muted-foreground">
+                                          الصفحة
+                                        </label>
+                                        <p className="mt-1 text-sm">
+                                          {log.metadata?.pageName ||
+                                            log.metadata?.pagePath}
+                                        </p>
+                                        {log.metadata?.pagePath && (
+                                          <p className="text-xs text-muted-foreground">
+                                            {log.metadata.pagePath}
+                                          </p>
+                                        )}
+                                      </div>
+                                    )}
+                                    {log.metadata?.pagePath && (
+                                      <div>
+                                        <label className="text-sm font-medium text-muted-foreground">
+                                          صفحة النظام
+                                        </label>
+                                        <p className="mt-1 text-sm">
                                           {log.metadata.pagePath}
                                         </p>
-                                      )}
-                                    </div>
-                                  )}
-                                  {log.metadata?.pagePath && (
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  {log.changes && log.changes.length > 0 && (
                                     <div>
                                       <label className="text-sm font-medium text-muted-foreground">
-                                        صفحة النظام
+                                        التغييرات
                                       </label>
-                                      <p className="mt-1 text-sm">
-                                        {log.metadata.pagePath}
-                                      </p>
+                                      <div className="mt-2 space-y-2">
+                                        {log.changes.map((change, i) => (
+                                          <div
+                                            key={i}
+                                            className="flex flex-wrap items-center gap-2 rounded bg-muted p-2 text-sm"
+                                          >
+                                            <span className="font-medium break-all">
+                                              {change.field}:
+                                            </span>
+                                            <span className="break-words text-red-600 line-through">
+                                              {formatChangeValue(change.from)}
+                                            </span>
+                                            <span>→</span>
+                                            <span className="break-words text-green-600">
+                                              {formatChangeValue(change.to)}
+                                            </span>
+                                          </div>
+                                        ))}
+                                      </div>
                                     </div>
                                   )}
+
+                                  {log.oldValue && (
+                                    <div>
+                                      <label className="text-sm font-medium text-muted-foreground">
+                                        القيمة السابقة
+                                      </label>
+                                      <JsonPreview value={log.oldValue} />
+                                    </div>
+                                  )}
+
+                                  {log.newValue && (
+                                    <div>
+                                      <label className="text-sm font-medium text-muted-foreground">
+                                        القيمة الجديدة
+                                      </label>
+                                      <JsonPreview value={log.newValue} />
+                                    </div>
+                                  )}
+
+                                  {safeMetadata &&
+                                    Object.keys(safeMetadata).length > 0 && (
+                                      <div>
+                                        <label className="text-sm font-medium text-muted-foreground">
+                                          بيانات إضافية
+                                        </label>
+                                        <JsonPreview value={safeMetadata} />
+                                      </div>
+                                    )}
                                 </div>
-
-                                {log.changes && log.changes.length > 0 && (
-                                  <div>
-                                    <label className="text-sm font-medium text-muted-foreground">
-                                      التغييرات
-                                    </label>
-                                    <div className="mt-2 space-y-2">
-                                      {log.changes.map((change, i) => (
-                                        <div
-                                          key={i}
-                                          className="flex items-center gap-2 text-sm bg-muted p-2 rounded"
-                                        >
-                                          <span className="font-medium">
-                                            {change.field}:
-                                          </span>
-                                          <span className="text-red-600 line-through">
-                                            {formatChangeValue(change.from)}
-                                          </span>
-                                          <span>→</span>
-                                          <span className="text-green-600">
-                                            {formatChangeValue(change.to)}
-                                          </span>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  </div>
-                                )}
-
-                                {log.oldValue && (
-                                  <div>
-                                    <label className="text-sm font-medium text-muted-foreground">
-                                      القيمة السابقة
-                                    </label>
-                                    <pre className="mt-1 text-xs bg-muted p-2 rounded overflow-x-auto">
-                                      {JSON.stringify(log.oldValue, null, 2)}
-                                    </pre>
-                                  </div>
-                                )}
-
-                                {log.newValue && (
-                                  <div>
-                                    <label className="text-sm font-medium text-muted-foreground">
-                                      القيمة الجديدة
-                                    </label>
-                                    <pre className="mt-1 text-xs bg-muted p-2 rounded overflow-x-auto">
-                                      {JSON.stringify(log.newValue, null, 2)}
-                                    </pre>
-                                  </div>
-                                )}
-
-                                {safeMetadata &&
-                                  Object.keys(safeMetadata).length > 0 && (
-                                    <div>
-                                      <label className="text-sm font-medium text-muted-foreground">
-                                        بيانات إضافية
-                                      </label>
-                                      <pre className="mt-1 text-xs bg-muted p-2 rounded overflow-x-auto">
-                                        {JSON.stringify(safeMetadata, null, 2)}
-                                      </pre>
-                                    </div>
-                                  )}
-                              </div>
-                            </DialogContent>
-                          </Dialog>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
+                              </DialogContent>
+                            </Dialog>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
             </CardContent>
           </Card>
 
           {/* Pagination */}
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-muted-foreground">
               عرض {paginatedLogs.length} من {sortedLogs.length} سجل
             </p>
-            <div className="flex items-center gap-2 flex-row-reverse">
+            <div className="flex flex-wrap items-center justify-end gap-2 flex-row-reverse">
               <Button
                 variant="outline"
                 size="icon"
@@ -1316,7 +1523,7 @@ export default function AuditPage() {
               >
                 <ChevronRight className="h-4 w-4" />
               </Button>
-              <span className="text-sm min-w-[90px] text-center">
+              <span className="min-w-0 text-center text-sm">
                 صفحة {safePage} من {totalPages}
               </span>
               <Button
@@ -1333,7 +1540,7 @@ export default function AuditPage() {
         </TabsContent>
 
         <TabsContent value="summary" className="mt-4">
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             {/* By Action */}
             <Card>
               <CardHeader>
@@ -1407,7 +1614,7 @@ export default function AuditPage() {
                 <CardTitle>حسب المستخدم</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid gap-4 md:grid-cols-3">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
                   {(safeSummary?.byStaff || []).map((staff) => (
                     <div
                       key={staff.staffId}

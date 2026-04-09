@@ -19,6 +19,8 @@ import { PLAN_ENTITLEMENTS, PlanType } from "../../shared/entitlements";
 import {
   normalizeRegion,
   normalizeCycle,
+  resolveCashierProvisioning,
+  isCashierPromoEligiblePlan,
   toLimitsFromPlanRow,
   toNumberRecord,
   toStringArray,
@@ -62,6 +64,20 @@ export class BillingSubscriptionsController {
 
     const regionCode = normalizeRegion(body?.regionCode);
     const cycleMonths = normalizeCycle(body?.cycleMonths);
+    const merchantStateResult = await this.pool.query(
+      `SELECT plan, enabled_features, plan_limits, limits
+       FROM merchants
+       WHERE id = $1
+       LIMIT 1`,
+      [merchantId],
+    );
+    const merchantState = merchantStateResult.rows[0] || {};
+    const currentPlan = String(merchantState.plan || "").toUpperCase();
+    const grantCashierPromo =
+      isCashierPromoEligiblePlan(planCode) &&
+      !["STARTER", "BASIC", "GROWTH", "PRO", "ENTERPRISE"].includes(
+        currentPlan,
+      );
 
     const planResult = await this.pool.query(
       `SELECT
@@ -107,8 +123,9 @@ export class BillingSubscriptionsController {
     const enabledFeatures = entitlementsResult.rows.map((row) =>
       String(row.feature_key),
     );
-    const enabledAgents = PLAN_ENTITLEMENTS[planCode as PlanType]
-      ?.enabledAgents || ["OPS_AGENT", "INVENTORY_AGENT", "FINANCE_AGENT"];
+    const enabledAgents =
+      PLAN_ENTITLEMENTS[planCode as PlanType]?.enabledAgents ||
+      PLAN_ENTITLEMENTS.STARTER.enabledAgents;
 
     const planPrice = await this.pool.query(
       `SELECT total_price_cents, effective_monthly_cents, currency
@@ -120,6 +137,15 @@ export class BillingSubscriptionsController {
       [planRow.id, regionCode, cycleMonths],
     );
     const limits = toLimitsFromPlanRow(planRow);
+    const cashierProvisioning = resolveCashierProvisioning({
+      planCode,
+      enabledFeatures,
+      limits,
+      existingFeatures: toStringArray(merchantState.enabled_features),
+      existingLimits: merchantState.plan_limits || merchantState.limits || {},
+      grantPromo: grantCashierPromo,
+      startsAt: new Date(),
+    });
 
     const billingPlanCompat = await this.pool.query(
       `SELECT id FROM billing_plans WHERE UPPER(code) = $1 LIMIT 1`,
@@ -142,19 +168,25 @@ export class BillingSubscriptionsController {
         `INSERT INTO subscriptions (
            merchant_id, plan_id, region_code, cycle_months, status, provider, starts_at, ends_at, auto_renew, metadata
          ) VALUES (
-           $1, $2, $3, $4, 'ACTIVE', 'manual', NOW(), NOW() + ($4::text || ' month')::interval, true, '{}'::jsonb
+           $1, $2, $3, $4, 'ACTIVE', 'manual', NOW(), NOW() + ($4::text || ' month')::interval, true, $5::jsonb
          )
-         RETURNING id, status, starts_at, ends_at, plan_id, region_code, cycle_months`,
-        [merchantId, planRow.id, regionCode, cycleMonths],
+         RETURNING id, status, starts_at, ends_at, plan_id, region_code, cycle_months, metadata`,
+        [
+          merchantId,
+          planRow.id,
+          regionCode,
+          cycleMonths,
+          JSON.stringify({ cashierPromo: cashierProvisioning.promo }),
+        ],
       );
 
       await updateMerchantProvisioning(client as any, {
         merchantId,
         planCode,
         enabledAgents,
-        enabledFeatures,
-        limits,
-        dailyTokenBudget: limits.tokenBudgetDaily,
+        enabledFeatures: cashierProvisioning.enabledFeatures,
+        limits: cashierProvisioning.limits,
+        dailyTokenBudget: cashierProvisioning.limits.tokenBudgetDaily,
         isActive: true,
       });
 
@@ -184,9 +216,10 @@ export class BillingSubscriptionsController {
         plan: {
           code: planRow.code,
           name: planRow.name,
-          limits,
-          enabledFeatures,
+          limits: cashierProvisioning.limits,
+          enabledFeatures: cashierProvisioning.enabledFeatures,
           enabledAgents,
+          cashierPromo: cashierProvisioning.promo,
         },
         pricing: planPrice.rows[0]
           ? {
@@ -594,10 +627,15 @@ export class BillingSubscriptionsController {
     }
 
     const currentResult = await this.pool.query(
-      `SELECT plan FROM merchants WHERE id = $1`,
+      `SELECT plan, enabled_features, plan_limits, limits FROM merchants WHERE id = $1`,
       [merchantId],
     );
     const currentPlan = currentResult.rows[0]?.plan || "TRIAL";
+    const currentEnabledFeatures = toStringArray(
+      currentResult.rows[0]?.enabled_features,
+    );
+    const currentLimits =
+      currentResult.rows[0]?.plan_limits || currentResult.rows[0]?.limits || {};
 
     const isUpgrade =
       (planOrder[targetPlan] || 0) > (planOrder[currentPlan] || 0);
@@ -636,15 +674,27 @@ export class BillingSubscriptionsController {
       const subscriptionId = subResult.rows[0].id;
 
       const { enabledAgents, enabledFeatures } = planEntitlements;
+      const cashierProvisioning = resolveCashierProvisioning({
+        planCode: targetPlan,
+        enabledFeatures,
+        limits: planEntitlements.limits || {},
+        existingFeatures: currentEnabledFeatures,
+        existingLimits: currentLimits,
+        grantPromo:
+          isCashierPromoEligiblePlan(targetPlan) &&
+          !["STARTER", "BASIC", "GROWTH", "PRO", "ENTERPRISE"].includes(
+            String(currentPlan || "").toUpperCase(),
+          ),
+        startsAt: new Date(),
+      });
 
       await updateMerchantProvisioning(client as any, {
         merchantId,
         planCode: targetPlan,
         enabledAgents,
-        enabledFeatures,
-        limits: planEntitlements.limits || {},
-        dailyTokenBudget:
-          (planEntitlements.limits as any)?.tokenBudgetDaily || 100000,
+        enabledFeatures: cashierProvisioning.enabledFeatures,
+        limits: cashierProvisioning.limits,
+        dailyTokenBudget: cashierProvisioning.limits.tokenBudgetDaily || 100000,
         isActive: true,
       });
 
@@ -678,7 +728,8 @@ export class BillingSubscriptionsController {
         previousPlan: currentPlan,
         newPlan: targetPlan,
         enabledAgents,
-        enabledFeatures,
+        enabledFeatures: cashierProvisioning.enabledFeatures,
+        cashierPromo: cashierProvisioning.promo,
         subscriptionId,
       };
     } catch (error) {

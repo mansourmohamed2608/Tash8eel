@@ -420,7 +420,7 @@ function doPost(e) {
   }
 
   return (
-    <div className="space-y-6 animate-fadeIn">
+    <div className="space-y-6 p-4 sm:p-6 animate-fadeIn">
       <PageHeader
         title="التكاملات"
         description="ربط نظام ERP الخاص بك لمزامنة الطلبات والمدفوعات تلقائياً"
@@ -435,7 +435,7 @@ function doPost(e) {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div className="rounded-lg border bg-white p-4 space-y-2">
               <div className="flex items-center gap-2">
                 <Badge className="bg-green-500 text-white">← استقبال</Badge>
@@ -488,7 +488,7 @@ function doPost(e) {
             <label className="text-sm font-medium">
               رابط الاستقبال (Incoming Webhook)
             </label>
-            <div className="flex gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row">
               <Input readOnly value={endpointUrl} />
               <Button variant="outline" onClick={() => copyValue(endpointUrl)}>
                 <Copy className="h-4 w-4" />
@@ -498,7 +498,7 @@ function doPost(e) {
 
           <div className="space-y-2">
             <label className="text-sm font-medium">السر (Secret)</label>
-            <div className="flex gap-2 items-center">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <Input
                 readOnly
                 value={showSecret ? secret : "••••••••••••••••••"}
@@ -522,7 +522,7 @@ function doPost(e) {
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
             <Badge variant="secondary">الأحداث المستلمة: {eventsCount}</Badge>
             <Badge variant="outline">
               آخر حدث:{" "}
@@ -532,7 +532,7 @@ function doPost(e) {
             </Badge>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row">
             <Button onClick={handleTest}>
               <Send className="h-4 w-4" />
               إرسال اختبار
@@ -549,7 +549,7 @@ function doPost(e) {
             والمدفوعات بدقة.
           </CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-4 md:grid-cols-2">
+        <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div className="space-y-2">
             <label className="text-sm font-medium">رقم الطلب</label>
             <Input
@@ -745,8 +745,12 @@ function doPost(e) {
               placeholder="payment.paid_at"
             />
           </div>
-          <div className="md:col-span-2 flex justify-end">
-            <Button onClick={handleSaveMapping} disabled={savingMapping}>
+          <div className="md:col-span-2 flex flex-col gap-2 sm:flex-row sm:justify-end">
+            <Button
+              onClick={handleSaveMapping}
+              disabled={savingMapping}
+              className="w-full sm:w-auto"
+            >
               حفظ قواعد الربط
             </Button>
           </div>
@@ -761,7 +765,7 @@ function doPost(e) {
             والمدفوعات حسب المسارات التي تحددها.
           </CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-4 md:grid-cols-2">
+        <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div className="flex items-center gap-3 md:col-span-2">
             <Switch
               checked={!!pullDraft.enabled}
@@ -866,13 +870,13 @@ function doPost(e) {
               placeholder="data.payments"
             />
           </div>
-          <div className="md:col-span-2 flex items-center justify-between gap-4">
-            <div className="flex items-center gap-2">
+          <div className="md:col-span-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
               <Select
                 value={syncMode}
                 onValueChange={(value) => setSyncMode(value as any)}
               >
-                <SelectTrigger className="w-[180px]">
+                <SelectTrigger className="w-full sm:w-[180px]">
                   <SelectValue placeholder="نوع المزامنة" />
                 </SelectTrigger>
                 <SelectContent>
@@ -881,11 +885,19 @@ function doPost(e) {
                   <SelectItem value="payments">مدفوعات فقط</SelectItem>
                 </SelectContent>
               </Select>
-              <Button variant="outline" onClick={handleSyncNow}>
+              <Button
+                variant="outline"
+                onClick={handleSyncNow}
+                className="w-full sm:w-auto"
+              >
                 مزامنة الآن
               </Button>
             </div>
-            <Button onClick={handleSavePull} disabled={savingPull}>
+            <Button
+              onClick={handleSavePull}
+              disabled={savingPull}
+              className="w-full sm:w-auto"
+            >
               حفظ إعدادات السحب
             </Button>
           </div>
@@ -895,7 +907,7 @@ function doPost(e) {
       {/* ─── Google Sheets Integration ─── */}
       <Card className="border-green-200">
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="space-y-1">
               <CardTitle className="flex items-center gap-2">
                 <Sheet className="h-5 w-5 text-green-600" />
@@ -1033,7 +1045,7 @@ function doPost(e) {
                 اختر الأحداث التي تريد تسجيلها في الشيت
               </span>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-4">
               {GS_EVENTS.map((ev) => (
                 <label
                   key={ev.value}
@@ -1050,7 +1062,7 @@ function doPost(e) {
           </div>
 
           {/* Actions */}
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
             <Button
               onClick={handleGsSave}
               disabled={gsSaving}
@@ -1093,7 +1105,7 @@ function doPost(e) {
             إلى رابط الاستقبال أعلاه.
           </CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-3 md:grid-cols-2">
+        <CardContent className="grid grid-cols-1 gap-3 md:grid-cols-2">
           {[
             {
               name: "ERPNext",

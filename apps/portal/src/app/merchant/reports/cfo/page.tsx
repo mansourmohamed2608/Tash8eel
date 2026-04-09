@@ -59,6 +59,11 @@ const CFO_PERIOD_OPTIONS = REPORTING_PERIOD_OPTIONS.filter((opt) =>
 interface CFOMetrics {
   // Revenue
   totalRevenue: number;
+  realizedRevenue?: number;
+  bookedSales: number;
+  deliveredRevenue: number;
+  pendingCollections: number;
+  refundsAmount: number;
   revenueGrowth: number;
   averageOrderValue: number;
   aovGrowth: number;
@@ -330,7 +335,7 @@ export default function CFOBriefPage() {
 
       const totalOrders = toSafeInt(orders.total ?? summary.orderCount, 0);
       const realizedOrders = toSafeInt(
-        summary.orderCount ?? orders.delivered,
+        summary.realizedOrders ?? orders.delivered,
         0,
       );
       const cancelledOrders =
@@ -340,7 +345,18 @@ export default function CFOBriefPage() {
 
       const transformedMetrics: CFOMetrics = {
         // Revenue
-        totalRevenue: toSafeNumber(summary.revenue, 0),
+        totalRevenue: toSafeNumber(
+          summary.realizedRevenue ?? summary.revenue,
+          0,
+        ),
+        realizedRevenue: toSafeNumber(
+          summary.realizedRevenue ?? summary.revenue,
+          0,
+        ),
+        bookedSales: toSafeNumber(summary.bookedSales, 0),
+        deliveredRevenue: toSafeNumber(summary.deliveredRevenue, 0),
+        pendingCollections: toSafeNumber(summary.pendingCollections, 0),
+        refundsAmount: toSafeNumber(cashFlow.refundsAmount, 0),
         revenueGrowth: toSafeNumber(summary.revenueGrowth, 0),
         averageOrderValue: toSafeNumber(summary.aov, 0),
         aovGrowth: 0, // Not provided by API yet
@@ -353,7 +369,7 @@ export default function CFOBriefPage() {
         cancellationRate,
 
         // Cash Flow
-        cashInHand: toSafeNumber(cashFlow.cashInHand ?? cashFlow.profit, 0),
+        cashInHand: toSafeNumber(cashFlow.cashInHand, 0),
         pendingCOD: toSafeNumber(cashFlow.pendingCod ?? 0, 0),
         pendingOnline: toSafeNumber(cashFlow.pendingOnline ?? 0, 0),
         totalExpenses: Math.max(
@@ -466,13 +482,22 @@ export default function CFOBriefPage() {
     );
   }
 
+  const realizedRevenue = toSafeNumber(
+    metrics.realizedRevenue ?? metrics.totalRevenue,
+    0,
+  );
+  const aiBriefRevenue = toSafeNumber(
+    aiBrief?.data?.realizedRevenue ?? aiBrief?.data?.totalRevenue,
+    0,
+  );
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-4 sm:p-6">
       <PageHeader
         title="ملخص المدير المالي"
         description="نظرة شاملة على الأداء المالي والتشغيلي"
         actions={
-          <div className="flex gap-2">
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
             <Select
               value={String(periodDays)}
               onValueChange={(value) => {
@@ -481,7 +506,7 @@ export default function CFOBriefPage() {
                 setStoredReportingDays(next);
               }}
             >
-              <SelectTrigger className="w-[150px]">
+              <SelectTrigger className="w-full sm:w-[150px]">
                 <Calendar className="h-4 w-4 ml-2" />
                 <SelectValue />
               </SelectTrigger>
@@ -493,13 +518,19 @@ export default function CFOBriefPage() {
                 ))}
               </SelectContent>
             </Select>
-            <Button variant="outline" size="sm" onClick={fetchMetrics}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={fetchMetrics}
+              className="w-full sm:w-auto"
+            >
               <RefreshCw className="h-4 w-4 ml-2" />
               تحديث
             </Button>
             <Button
               variant="outline"
               size="sm"
+              className="w-full sm:w-auto"
               onClick={() => {
                 const printArea = document.getElementById("cfo-report");
                 if (!printArea) return;
@@ -520,7 +551,7 @@ export default function CFOBriefPage() {
                 );
                 w.document
                   .write(`<table><tr><th>المقياس</th><th>القيمة</th></tr>
-                <tr><td>إجمالي الإيرادات</td><td>${formatCurrency(metrics.totalRevenue)}</td></tr>
+                <tr><td>إجمالي الإيرادات المحققة</td><td>${formatCurrency(realizedRevenue)}</td></tr>
                 <tr><td>إجمالي الطلبات (كل الحالات)</td><td>${metrics.totalOrders}</td></tr>
                 <tr><td>الطلبات المحققة</td><td>${metrics.realizedOrders}</td></tr>
                 <tr><td>متوسط قيمة الطلب</td><td>${formatCurrency(metrics.averageOrderValue)}</td></tr>
@@ -560,8 +591,8 @@ export default function CFOBriefPage() {
             (الطلبات، المدفوعات، المصروفات، المخزون).
           </p>
           <p className="text-blue-700">
-            الذكاء الاصطناعي هنا مساعد تفسيري فقط في ملخصه الأسبوعي، وليس مصدر
-            أرقام التقرير المالي.
+            يستخدم هذا التقرير نفس تعريف الإيراد المحقق المستخدم في لوحة التحكم:
+            مبالغ مدفوعة ومحصلة فعلياً، وليس كل الطلبات المحجوزة.
           </p>
         </CardContent>
       </Card>
@@ -570,14 +601,14 @@ export default function CFOBriefPage() {
       <AiInsightsCard
         title="تحليلات الذكاء الاصطناعي للمدير المالي"
         insights={generateCfoInsights({
-          revenue: metrics.totalRevenue,
+          revenue: realizedRevenue,
           expenses: metrics.totalExpenses,
           profit: metrics.netCashFlow,
           orderCount: metrics.realizedOrders,
           aov: metrics.averageOrderValue,
           codPercentage:
-            metrics.pendingCOD > 0 && metrics.totalRevenue > 0
-              ? (metrics.pendingCOD / metrics.totalRevenue) * 100
+            metrics.pendingCOD > 0 && realizedRevenue > 0
+              ? (metrics.pendingCOD / realizedRevenue) * 100
               : 0,
           uniqueCustomers: metrics.totalCustomers,
         })}
@@ -611,7 +642,7 @@ export default function CFOBriefPage() {
       {/* AI-Generated Weekly CFO Brief (interpretation layer, not source of record) */}
       {aiBriefError === "quota" && !aiBrief && (
         <Card className="border-orange-200 bg-orange-50">
-          <CardContent className="p-4 flex items-center gap-3">
+          <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
             <Sparkles className="h-5 w-5 text-orange-500 shrink-0" />
             <div className="flex-1">
               <p className="text-sm font-medium text-orange-800">
@@ -624,7 +655,7 @@ export default function CFOBriefPage() {
             </div>
             <a
               href="/merchant/plan"
-              className="shrink-0 text-xs font-medium bg-orange-600 text-white rounded-md px-3 py-1.5 hover:bg-orange-700 transition-colors"
+              className="inline-flex w-full items-center justify-center rounded-md bg-orange-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-orange-700 sm:w-auto"
             >
               ترقية الباقة
             </a>
@@ -634,7 +665,7 @@ export default function CFOBriefPage() {
       {aiBrief && (
         <Card className="border-purple-200 bg-gradient-to-r from-purple-50/50 to-transparent">
           <CardHeader>
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <CardTitle className="flex items-center gap-2">
                 <Sparkles className="h-5 w-5 text-purple-600" />
                 الملخص الأسبوعي بالذكاء الاصطناعي
@@ -650,13 +681,13 @@ export default function CFOBriefPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-4 md:grid-cols-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <div className="text-center p-3 bg-white rounded-lg border">
                 <div className="text-xl font-bold text-green-600">
-                  {formatCurrency(aiBrief.data.totalRevenue ?? 0)}
+                  {formatCurrency(aiBriefRevenue)}
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  إيرادات الأسبوع
+                  الإيرادات المحققة للأسبوع
                 </div>
               </div>
               <div className="text-center p-3 bg-white rounded-lg border">
@@ -685,7 +716,7 @@ export default function CFOBriefPage() {
               </div>
             </div>
             {aiBrief.data.codPendingAmount > 0 && (
-              <div className="mt-3 flex items-center gap-2 text-sm text-yellow-700 bg-yellow-50 p-2 rounded">
+              <div className="mt-3 flex flex-col gap-2 rounded bg-yellow-50 p-2 text-sm text-yellow-700 sm:flex-row sm:items-center">
                 <AlertTriangle className="h-4 w-4" />
                 <span>
                   COD قيد التحصيل:{" "}
@@ -694,7 +725,7 @@ export default function CFOBriefPage() {
               </div>
             )}
             {aiBrief.data.refundsCount > 0 && (
-              <div className="mt-2 flex items-center gap-2 text-sm text-red-700 bg-red-50 p-2 rounded">
+              <div className="mt-2 flex flex-col gap-2 rounded bg-red-50 p-2 text-sm text-red-700 sm:flex-row sm:items-center">
                 <AlertTriangle className="h-4 w-4" />
                 <span>
                   مرتجعات: {aiBrief.data.refundsCount} (
@@ -721,10 +752,10 @@ export default function CFOBriefPage() {
       )}
 
       {/* Revenue & Orders */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard
           title="إجمالي الإيرادات المحققة"
-          value={metrics.totalRevenue}
+          value={realizedRevenue}
           change={metrics.revenueGrowth}
           icon={DollarSign}
         />
@@ -751,6 +782,29 @@ export default function CFOBriefPage() {
         />
       </div>
 
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <MetricCard
+          title="إجمالي المبيعات المحجوزة"
+          value={metrics.bookedSales}
+          icon={Wallet}
+        />
+        <MetricCard
+          title="الإيراد من الطلبات المسلّمة"
+          value={metrics.deliveredRevenue}
+          icon={Package}
+        />
+        <MetricCard
+          title="مبالغ قيد التحصيل"
+          value={metrics.pendingCollections}
+          icon={TrendingDown}
+        />
+        <MetricCard
+          title="إجمالي المرتجعات"
+          value={metrics.refundsAmount}
+          icon={AlertTriangle}
+        />
+      </div>
+
       {/* Cash Flow */}
       <Card>
         <CardHeader>
@@ -760,7 +814,7 @@ export default function CFOBriefPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-6 md:grid-cols-5">
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-5">
             <div className="text-center">
               <div className="text-2xl font-bold text-green-600">
                 {formatCurrency(metrics.cashInHand)}
@@ -791,7 +845,7 @@ export default function CFOBriefPage() {
                 إجمالي المصروفات
               </div>
             </div>
-            <div className="text-center border-r-2 border-primary pr-4">
+            <div className="border-t-2 border-primary pt-4 text-center sm:border-t-0 sm:border-r-2 sm:pt-0 sm:pr-4">
               <div className="text-2xl font-bold">
                 {formatCurrency(metrics.netCashFlow)}
               </div>
@@ -801,7 +855,7 @@ export default function CFOBriefPage() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 xl:grid-cols-2">
         {/* Top Products */}
         <Card>
           <CardHeader>
@@ -816,7 +870,7 @@ export default function CFOBriefPage() {
                 {metrics.topProducts.map((product, index) => (
                   <div
                     key={index}
-                    className="flex items-center justify-between"
+                    className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
                   >
                     <div className="flex-1">
                       <div className="font-medium">{product.name}</div>
@@ -830,7 +884,7 @@ export default function CFOBriefPage() {
                           : ""}
                       </div>
                     </div>
-                    <div className="text-right">
+                    <div className="text-start sm:text-right">
                       <div className="font-bold">
                         {formatCurrency(product.revenue)}
                       </div>
@@ -859,7 +913,7 @@ export default function CFOBriefPage() {
               <div className="space-y-4">
                 {metrics.expensesByCategory.map((expense, index) => (
                   <div key={index}>
-                    <div className="flex items-center justify-between mb-1">
+                    <div className="mb-1 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                       <span className="text-sm font-medium">
                         {expense.category}
                       </span>

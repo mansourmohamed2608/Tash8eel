@@ -6,6 +6,7 @@ import { RedisService } from "../../infrastructure/redis/redis.service";
 import { InventoryAiService } from "../llm/inventory-ai.service";
 import { FinanceAiService } from "../llm/finance-ai.service";
 import { NotificationsService } from "../services/notifications.service";
+import { CommerceFactsService } from "../services/commerce-facts.service";
 
 /**
  * Runs automation checks EVERY HOUR.
@@ -55,6 +56,7 @@ export class AutomationScheduler {
     private readonly inventoryAiService: InventoryAiService,
     private readonly financeAiService: FinanceAiService,
     private readonly notificationsService: NotificationsService,
+    private readonly commerceFactsService: CommerceFactsService,
   ) {}
 
   /** Runs every hour on the dot */
@@ -1505,69 +1507,54 @@ export class AutomationScheduler {
     let sent = 0,
       targets = 0;
     try {
-      // Build yesterday's metrics
-      const metricsResult = await this.pool.query<{
-        total_revenue: number;
-        order_count: number;
-        confirmed_orders: number;
-        avg_order_value: number;
-      }>(
-        `SELECT
-           COALESCE(SUM(total), 0)::numeric AS total_revenue,
-           COUNT(*)::int AS order_count,
-           COUNT(*) FILTER (WHERE status IN ('CONFIRMED','DELIVERED','BOOKED','SHIPPED'))::int AS confirmed_orders,
-           COALESCE(AVG(total), 0)::numeric AS avg_order_value
-         FROM orders
-         WHERE merchant_id = $1
-           AND created_at >= NOW() - INTERVAL '2 days'
-           AND created_at < NOW() - INTERVAL '1 day'`,
-        [merchant_id],
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      const yesterdayStart = new Date(todayStart);
+      yesterdayStart.setDate(yesterdayStart.getDate() - 1);
+      const historicalStart = new Date(todayStart);
+      historicalStart.setDate(historicalStart.getDate() - 30);
+      const historicalEnd = new Date(yesterdayStart.getTime() - 1);
+      const historicalDays = Math.max(
+        1,
+        Math.round(
+          (yesterdayStart.getTime() - historicalStart.getTime()) /
+            (24 * 60 * 60 * 1000),
+        ),
       );
 
-      const avgResult = await this.pool.query<{
-        avg_revenue: number;
-        avg_orders: number;
-        avg_order_value: number;
-      }>(
-        `SELECT
-           COALESCE(AVG(daily_rev), 0)::numeric AS avg_revenue,
-           COALESCE(AVG(daily_orders), 0)::numeric AS avg_orders,
-           COALESCE(AVG(avg_val), 0)::numeric AS avg_order_value
-         FROM (
-           SELECT date_trunc('day', created_at) AS d,
-                  SUM(total) AS daily_rev,
-                  COUNT(*) AS daily_orders,
-                  AVG(total) AS avg_val
-           FROM orders
-           WHERE merchant_id = $1
-             AND created_at >= NOW() - INTERVAL '30 days'
-             AND created_at < NOW() - INTERVAL '2 days'
-           GROUP BY d
-         ) sub`,
-        [merchant_id],
-      );
-
-      const m = metricsResult.rows[0];
-      const h = avgResult.rows[0];
+      const [currentSummary, historicalSummary] = await Promise.all([
+        this.commerceFactsService.buildFinanceSummary(
+          merchant_id,
+          yesterdayStart,
+          new Date(todayStart.getTime() - 1),
+        ),
+        this.commerceFactsService.buildFinanceSummary(
+          merchant_id,
+          historicalStart,
+          historicalEnd,
+        ),
+      ]);
 
       const metrics = {
-        totalRevenue: Number(m.total_revenue),
+        totalRevenue: currentSummary.realizedRevenue,
+        realizedRevenue: currentSummary.realizedRevenue,
         totalCogs: 0,
-        grossProfit: Number(m.total_revenue) * 0.4,
+        grossProfit: currentSummary.realizedRevenue * 0.4,
         grossMargin: 40,
         totalExpenses: 0,
-        netProfit: Number(m.total_revenue) * 0.25,
+        netProfit: currentSummary.realizedRevenue * 0.25,
         netMargin: 25,
         codCollected: 0,
-        codPending: 0,
-        averageOrderValue: Number(m.avg_order_value),
-        orderCount: m.order_count,
+        codPending: currentSummary.pendingCod,
+        averageOrderValue: currentSummary.averageOrderValue,
+        orderCount: currentSummary.totalOrders,
       };
 
       const historicalAvg = {
-        totalRevenue: Number(h.avg_revenue),
-        averageOrderValue: Number(h.avg_order_value),
-        orderCount: Number(h.avg_orders),
+        totalRevenue: historicalSummary.realizedRevenue / historicalDays,
+        realizedRevenue: historicalSummary.realizedRevenue / historicalDays,
+        averageOrderValue: historicalSummary.averageOrderValue,
+        orderCount: historicalSummary.totalOrders / historicalDays,
       };
 
       const aiResult = await this.financeAiService.generateAnomalyNarrative({

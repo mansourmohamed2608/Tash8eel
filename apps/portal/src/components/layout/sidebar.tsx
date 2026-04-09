@@ -119,7 +119,12 @@ const merchantNavItems: NavItem[] = [
     featureKey: "conversations",
   },
   { href: "/merchant/orders", label: "الطلبات", icon: ShoppingCart },
-  { href: "/merchant/cashier", label: "الكاشير", icon: Banknote },
+  {
+    href: "/merchant/cashier",
+    label: "الكاشير",
+    icon: Banknote,
+    featureKey: "cashier",
+  },
   { href: "/merchant/followups", label: "المتابعات", icon: ClipboardList },
   { href: "/merchant/delivery-drivers", label: "سائقي التوصيل", icon: Truck },
   { href: "/merchant/customers", label: "العملاء", icon: Users },
@@ -421,7 +426,11 @@ const MERCHANT_SECTION_CONFIG: MerchantSidebarSection[] = [
     icon: ShoppingCart,
     items: [
       { href: "/merchant/orders", label: "الطلبات" },
-      { href: "/merchant/cashier", label: "الكاشير" },
+      {
+        href: "/merchant/cashier",
+        label: "الكاشير",
+        featureKey: "cashier",
+      },
       { href: "/merchant/billing", label: "الفواتير" },
       { href: "/merchant/payments/cod", label: "تحصيل عند الاستلام" },
       { href: "/merchant/payments/proofs", label: "إثبات الدفع" },
@@ -537,6 +546,7 @@ interface SidebarProps {
     voiceNotes?: boolean;
     notifications?: boolean;
     apiAccess?: boolean;
+    cashier?: boolean;
   };
 }
 
@@ -1185,14 +1195,22 @@ export function PageHeader({
   actions,
 }: PageHeaderProps) {
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">{title}</h1>
+    <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+      <div className="min-w-0">
+        <h1 className="break-words text-xl font-bold text-foreground sm:text-2xl">
+          {title}
+        </h1>
         {description && (
-          <p className="text-sm text-muted-foreground mt-1">{description}</p>
+          <p className="mt-1 break-words text-sm text-muted-foreground">
+            {description}
+          </p>
         )}
       </div>
-      {actions && <div className="flex items-center gap-2">{actions}</div>}
+      {actions && (
+        <div className="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end md:w-auto">
+          {actions}
+        </div>
+      )}
     </div>
   );
 }

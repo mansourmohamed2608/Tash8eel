@@ -109,7 +109,7 @@ export default function RefundAnalysisPage() {
         title="تحليل الاسترجاعات"
         description="تتبع وتحليل عمليات الاسترجاع والأسباب"
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
             <Select
               value={String(periodDays)}
               onValueChange={(value) => {
@@ -118,7 +118,7 @@ export default function RefundAnalysisPage() {
                 setStoredReportingDays(next);
               }}
             >
-              <SelectTrigger className="w-[150px]">
+              <SelectTrigger className="w-full sm:w-[150px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -129,7 +129,11 @@ export default function RefundAnalysisPage() {
                 ))}
               </SelectContent>
             </Select>
-            <Button variant="outline" onClick={fetchData}>
+            <Button
+              variant="outline"
+              onClick={fetchData}
+              className="w-full sm:w-auto"
+            >
               <RefreshCw className="ml-2 h-4 w-4" /> تحديث
             </Button>
           </div>

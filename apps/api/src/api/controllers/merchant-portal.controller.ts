@@ -77,16 +77,79 @@ import {
 } from "../../application/services/notifications.service";
 import { AuditService } from "../../application/services/audit.service";
 import { StaffService } from "../../application/services/staff.service";
+import { CommerceFactsService } from "../../application/services/commerce-facts.service";
 import { InventoryAiService } from "../../application/llm/inventory-ai.service";
 import { ForecastEngineService } from "../../application/forecasting/forecast-engine.service";
 import { MessageDeliveryService } from "../../application/services/message-delivery.service";
 import {
   getCatalog,
+  getAgentCatalogEntry,
+  isAgentSubscribable,
   PLAN_ENTITLEMENTS,
   PlanType,
 } from "../../shared/entitlements";
+import { resolveCashierProvisioning } from "./billing.helpers";
 import { MessageDirection } from "../../shared/constants/enums";
 import { generateOrderNumber } from "../../shared/utils/helpers";
+
+type PortalReportedOrder = {
+  id: string;
+  orderNumber: string;
+  customerName: string;
+  customerPhone: string;
+  total: number;
+  status: string;
+  paymentMethod: string;
+  paymentStatus: string;
+  sourceChannel: string;
+  createdAt: Date | null;
+  realizedAmount: number;
+  paidCashAmount: number;
+  paidOnlineAmount: number;
+  outstandingAmount: number;
+};
+
+type PortalTopProduct = {
+  productId: string | null;
+  productName: string;
+  quantity: number;
+  revenue: number;
+};
+
+type PortalFinanceSnapshot = {
+  totalOrders: number;
+  bookedOrders: number;
+  realizedOrders: number;
+  deliveredOrders: number;
+  cancelledOrders: number;
+  uniqueCustomers: number;
+  bookedSales: number;
+  realizedRevenue: number;
+  deliveredRevenue: number;
+  pendingCollections: number;
+  pendingCod: number;
+  pendingOnline: number;
+  paidCashAmount: number;
+  paidOnlineAmount: number;
+  totalExpenses: number;
+  refundsAmount: number;
+  netCashFlow: number;
+  averageOrderValue: number;
+  topProducts: PortalTopProduct[];
+  inventory: {
+    available: boolean;
+    totalValue: number;
+    slowMovingValue: number;
+    turnoverRate: number;
+  };
+  customers: {
+    totalCount: number;
+    newCount: number;
+    repeatCount: number;
+    repeatRate: number;
+    avgLtv: number;
+  };
+};
 
 /**
  * Merchant Portal Controller
@@ -112,6 +175,7 @@ import { generateOrderNumber } from "../../shared/utils/helpers";
 export class MerchantPortalController {
   private readonly logger = new Logger(MerchantPortalController.name);
   private readonly LOCK_TTL_MS = 30000;
+  private posSchemaInitPromise: Promise<void> | null = null;
 
   constructor(
     @Inject(DATABASE_POOL) private readonly pool: Pool,
@@ -130,6 +194,7 @@ export class MerchantPortalController {
     private readonly notificationsService: NotificationsService,
     private readonly auditService: AuditService,
     private readonly staffService: StaffService,
+    private readonly commerceFactsService: CommerceFactsService,
     private readonly inventoryAiService: InventoryAiService,
     private readonly forecastEngine: ForecastEngineService,
     private readonly messageDeliveryService: MessageDeliveryService,
@@ -140,6 +205,1376 @@ export class MerchantPortalController {
    */
   private getMerchantId(req: Request): string {
     return (req as any).merchantId;
+  }
+
+  // ============== POS REGISTERS & DRAFTS ==============
+
+  @Get("pos/registers/current")
+  @RequiresFeature("ORDERS")
+  @ApiOperation({ summary: "Get current POS register session for a branch" })
+  async getCurrentPosRegister(
+    @Req() req: Request,
+    @Query("branchId") branchId?: string,
+  ): Promise<any> {
+    const merchantId = this.getMerchantId(req);
+    const normalizedBranchId = String(branchId || "").trim();
+    if (!normalizedBranchId) {
+      return { data: null };
+    }
+
+    const current = await this.getCurrentOpenRegisterSession(
+      merchantId,
+      normalizedBranchId,
+    );
+    if (!current) {
+      return { data: null };
+    }
+
+    const summary = await this.pool.query<{
+      cash_total: string;
+      total_orders: string;
+    }>(
+      `SELECT
+         COALESCE(SUM(op.amount), 0)::text as cash_total,
+         COUNT(DISTINCT o.id)::text as total_orders
+       FROM orders o
+       LEFT JOIN order_payments op
+         ON op.order_id = o.id
+        AND UPPER(COALESCE(op.status, 'PAID')) = 'PAID'
+        AND UPPER(COALESCE(op.method, '')) = 'COD'
+       WHERE o.merchant_id = $1
+         AND COALESCE(o.register_session_id::text, '') = $2
+         AND UPPER(COALESCE(o.status, '')) <> 'CANCELLED'`,
+      [merchantId, current.id],
+    );
+
+    return {
+      data: {
+        id: current.id,
+        branchId: current.branch_id,
+        shiftId: current.shift_id,
+        openingFloat: Number(current.opening_float || 0),
+        status: current.status,
+        openedAt: current.opened_at,
+        expectedCash: Number(summary.rows[0]?.cash_total || 0),
+        totalOrders: Number(summary.rows[0]?.total_orders || 0),
+      },
+    };
+  }
+
+  @Post("pos/registers/open")
+  @RequireRole("MANAGER")
+  @RequiresFeature("ORDERS")
+  @ApiOperation({ summary: "Open POS register session" })
+  async openPosRegister(
+    @Req() req: Request,
+    @Body()
+    body: {
+      branchId: string;
+      shiftId?: string;
+      openingFloat?: number;
+      notes?: string;
+    },
+  ): Promise<any> {
+    await this.ensurePosSchema();
+    const merchantId = this.getMerchantId(req);
+    const staffId = this.getSafeStaffId(req);
+    const branchContext = await this.resolvePortalOrderBranchContext(
+      merchantId,
+      {
+        branchId: body?.branchId,
+        shiftId: body?.shiftId,
+      },
+    );
+    if (!branchContext.branchId) {
+      throw new BadRequestException("branchId is required");
+    }
+
+    const existing = await this.getCurrentOpenRegisterSession(
+      merchantId,
+      branchContext.branchId,
+    );
+    if (existing) {
+      throw new ConflictException(
+        "A register session is already open for this branch",
+      );
+    }
+
+    const result = await this.pool.query<{
+      id: string;
+      branch_id: string;
+      shift_id: string | null;
+      opening_float: string;
+      status: string;
+      opened_at: Date;
+    }>(
+      `INSERT INTO pos_register_sessions (
+         merchant_id,
+         branch_id,
+         shift_id,
+         opened_by,
+         opening_float,
+         notes,
+         status
+       ) VALUES ($1, $2, $3, $4, $5, $6, 'OPEN')
+       RETURNING
+         id::text as id,
+         branch_id::text as branch_id,
+         NULLIF(shift_id::text, '') as shift_id,
+         opening_float::text as opening_float,
+         status,
+         opened_at`,
+      [
+        merchantId,
+        branchContext.branchId,
+        branchContext.shiftId,
+        staffId || null,
+        this.roundMoney(this.toFiniteNumber(body?.openingFloat, 0)),
+        String(body?.notes || "").trim() || null,
+      ],
+    );
+
+    return {
+      success: true,
+      data: {
+        id: result.rows[0].id,
+        branchId: result.rows[0].branch_id,
+        shiftId: result.rows[0].shift_id,
+        openingFloat: Number(result.rows[0].opening_float || 0),
+        status: result.rows[0].status,
+        openedAt: result.rows[0].opened_at,
+      },
+    };
+  }
+
+  @Post("pos/registers/:id/close")
+  @RequireRole("MANAGER")
+  @RequiresFeature("ORDERS")
+  @ApiOperation({ summary: "Close POS register session" })
+  async closePosRegister(
+    @Req() req: Request,
+    @Param("id") id: string,
+    @Body()
+    body: {
+      countedCash?: number;
+      notes?: string;
+    },
+  ): Promise<any> {
+    await this.ensurePosSchema();
+    const merchantId = this.getMerchantId(req);
+    const sessionResult = await this.pool.query<{
+      id: string;
+      opening_float: string;
+      status: string;
+    }>(
+      `SELECT id::text as id, opening_float::text as opening_float, status
+       FROM pos_register_sessions
+       WHERE merchant_id = $1 AND id::text = $2
+       LIMIT 1`,
+      [merchantId, id],
+    );
+    if (!sessionResult.rows.length) {
+      throw new NotFoundException("Register session not found");
+    }
+    if (sessionResult.rows[0].status !== "OPEN") {
+      throw new BadRequestException("Register session is already closed");
+    }
+
+    const summary = await this.pool.query<{ cash_total: string }>(
+      `SELECT COALESCE(SUM(op.amount), 0)::text as cash_total
+       FROM orders o
+       JOIN order_payments op ON op.order_id = o.id
+       WHERE o.merchant_id = $1
+         AND COALESCE(o.register_session_id::text, '') = $2
+         AND UPPER(COALESCE(op.status, 'PAID')) = 'PAID'
+         AND UPPER(COALESCE(op.method, '')) = 'COD'
+         AND UPPER(COALESCE(o.status, '')) <> 'CANCELLED'`,
+      [merchantId, id],
+    );
+
+    const expectedCash = this.roundMoney(
+      Number(sessionResult.rows[0].opening_float || 0) +
+        Number(summary.rows[0]?.cash_total || 0),
+    );
+    const countedCash =
+      body?.countedCash !== undefined
+        ? this.roundMoney(this.toFiniteNumber(body.countedCash, expectedCash))
+        : expectedCash;
+    const variance = this.roundMoney(countedCash - expectedCash);
+
+    await this.pool.query(
+      `UPDATE pos_register_sessions
+       SET expected_cash = $3,
+           counted_cash = $4,
+           variance = $5,
+           notes = COALESCE($6, notes),
+           status = 'CLOSED',
+           closed_at = NOW(),
+           updated_at = NOW()
+       WHERE merchant_id = $1 AND id::text = $2`,
+      [
+        merchantId,
+        id,
+        expectedCash,
+        countedCash,
+        variance,
+        String(body?.notes || "").trim() || null,
+      ],
+    );
+
+    return {
+      success: true,
+      data: {
+        id,
+        expectedCash,
+        countedCash,
+        variance,
+        status: "CLOSED",
+      },
+    };
+  }
+
+  @Get("pos/registers/:id/summary")
+  @RequiresFeature("ORDERS")
+  @ApiOperation({ summary: "Get POS register summary" })
+  async getPosRegisterSummary(
+    @Req() req: Request,
+    @Param("id") id: string,
+  ): Promise<any> {
+    await this.ensurePosSchema();
+    const merchantId = this.getMerchantId(req);
+    const session = await this.pool.query<any>(
+      `SELECT
+         id::text as id,
+         branch_id::text as branch_id,
+         NULLIF(shift_id::text, '') as shift_id,
+         opening_float::text as opening_float,
+         expected_cash::text as expected_cash,
+         counted_cash::text as counted_cash,
+         variance::text as variance,
+         status,
+         opened_at,
+         closed_at
+       FROM pos_register_sessions
+       WHERE merchant_id = $1 AND id::text = $2
+       LIMIT 1`,
+      [merchantId, id],
+    );
+    if (!session.rows.length) {
+      throw new NotFoundException("Register session not found");
+    }
+
+    const stats = await this.pool.query<{
+      orders_count: string;
+      sales_total: string;
+    }>(
+      `SELECT
+         COUNT(*)::text as orders_count,
+         COALESCE(SUM(total), 0)::text as sales_total
+       FROM orders
+       WHERE merchant_id = $1
+         AND COALESCE(register_session_id::text, '') = $2
+         AND UPPER(COALESCE(status, '')) <> 'CANCELLED'`,
+      [merchantId, id],
+    );
+
+    return {
+      data: {
+        ...session.rows[0],
+        openingFloat: Number(session.rows[0].opening_float || 0),
+        expectedCash: Number(session.rows[0].expected_cash || 0),
+        countedCash:
+          session.rows[0].counted_cash !== null
+            ? Number(session.rows[0].counted_cash || 0)
+            : null,
+        variance:
+          session.rows[0].variance !== null
+            ? Number(session.rows[0].variance || 0)
+            : null,
+        ordersCount: Number(stats.rows[0]?.orders_count || 0),
+        salesTotal: Number(stats.rows[0]?.sales_total || 0),
+      },
+    };
+  }
+
+  @Get("pos/drafts")
+  @RequiresFeature("ORDERS")
+  @ApiOperation({ summary: "List POS drafts" })
+  async listPosDrafts(
+    @Req() req: Request,
+    @Query("status") status?: string,
+    @Query("branchId") branchId?: string,
+  ): Promise<any> {
+    await this.ensurePosSchema();
+    const merchantId = this.getMerchantId(req);
+    const filters = [`merchant_id = $1`];
+    const values: any[] = [merchantId];
+
+    if (status && String(status).trim()) {
+      values.push(String(status).trim().toUpperCase());
+      filters.push(`UPPER(status) = $${values.length}`);
+    } else {
+      filters.push(`status IN ('ACTIVE', 'SUSPENDED')`);
+    }
+
+    if (branchId && String(branchId).trim()) {
+      values.push(String(branchId).trim());
+      filters.push(`branch_id::text = $${values.length}`);
+    }
+
+    const result = await this.pool.query<any>(
+      `SELECT
+         id::text as id,
+         branch_id::text as branch_id,
+         NULLIF(shift_id::text, '') as shift_id,
+         NULLIF(register_session_id::text, '') as register_session_id,
+         customer_id,
+         customer_name,
+         customer_phone,
+         service_mode,
+         NULLIF(table_id::text, '') as table_id,
+         items,
+         discount::text as discount,
+         notes,
+         payment_method,
+         payments,
+         subtotal::text as subtotal,
+         tax_total::text as tax_total,
+         delivery_fee::text as delivery_fee,
+         total::text as total,
+         status,
+         metadata,
+         checked_out_order_id,
+         created_at,
+         updated_at
+       FROM pos_drafts
+       WHERE ${filters.join(" AND ")}
+       ORDER BY updated_at DESC`,
+      values,
+    );
+
+    return {
+      drafts: result.rows.map((row) => this.mapPosDraftRow(row)),
+    };
+  }
+
+  @Post("pos/drafts")
+  @RequiresFeature("ORDERS")
+  @ApiOperation({ summary: "Create POS draft" })
+  async createPosDraft(
+    @Req() req: Request,
+    @Body()
+    body: {
+      branchId?: string;
+      shiftId?: string;
+      registerSessionId?: string;
+      customerId?: string;
+      customerName?: string;
+      customerPhone?: string;
+      serviceMode?: "delivery" | "pickup" | "dine_in";
+      tableId?: string;
+      items: Array<any>;
+      discount?: number;
+      taxTotal?: number;
+      deliveryFee?: number;
+      notes?: string;
+      paymentMethod?: "cash" | "card" | "transfer";
+      payments?: Array<{
+        method: "cash" | "card" | "transfer";
+        amount: number;
+        reference?: string;
+      }>;
+      deliveryAddress?: string;
+    },
+  ): Promise<any> {
+    await this.ensurePosSchema();
+    const merchantId = this.getMerchantId(req);
+    const staffId = this.getSafeStaffId(req);
+    const branchContext = await this.resolvePortalOrderBranchContext(
+      merchantId,
+      {
+        branchId: body?.branchId,
+        shiftId: body?.shiftId,
+      },
+    );
+    const items = this.normalizePosDraftItems(body?.items);
+    const totals = this.computeDraftTotals(
+      items,
+      body?.discount,
+      body?.taxTotal,
+      body?.deliveryFee,
+    );
+    const serviceMode = this.normalizeManualDeliveryType(
+      body?.serviceMode || "pickup",
+    );
+    const paymentMethod = body?.paymentMethod
+      ? this.normalizeManualPaymentMethod(body.paymentMethod)
+      : undefined;
+    const payments = Array.isArray(body?.payments) ? body.payments : [];
+    const tableId = String(body?.tableId || "").trim() || null;
+
+    const result = await this.pool.query<any>(
+      `INSERT INTO pos_drafts (
+         merchant_id,
+         branch_id,
+         shift_id,
+         register_session_id,
+         customer_id,
+         customer_name,
+         customer_phone,
+         service_mode,
+         table_id,
+         items,
+         discount,
+         notes,
+         payment_method,
+         payments,
+         subtotal,
+         tax_total,
+         delivery_fee,
+         total,
+         status,
+         metadata,
+         created_by
+       ) VALUES (
+         $1, $2, $3, $4, $5, $6, $7, $8, $9,
+         $10::jsonb, $11, $12, $13, $14::jsonb, $15, $16, $17, $18,
+         'ACTIVE', $19::jsonb, $20
+       )
+       RETURNING id::text as id, created_at, updated_at`,
+      [
+        merchantId,
+        branchContext.branchId,
+        branchContext.shiftId,
+        String(body?.registerSessionId || "").trim() || null,
+        String(body?.customerId || "").trim() || null,
+        String(body?.customerName || "").trim() || null,
+        this.normalizePortalOrderPhone(body?.customerPhone) || null,
+        serviceMode,
+        tableId,
+        JSON.stringify(items),
+        totals.discount,
+        String(body?.notes || "").trim() || null,
+        paymentMethod ? this.toOrderPaymentMethod(paymentMethod) : null,
+        JSON.stringify(payments),
+        totals.subtotal,
+        totals.taxTotal,
+        totals.deliveryFee,
+        totals.total,
+        JSON.stringify({
+          deliveryAddress: String(body?.deliveryAddress || "").trim() || null,
+        }),
+        staffId || null,
+      ],
+    );
+
+    if (tableId) {
+      await this.setPosTableOccupancy(
+        merchantId,
+        tableId,
+        result.rows[0].id,
+        "OCCUPIED",
+      );
+    }
+
+    return {
+      success: true,
+      draft: this.mapPosDraftRow({
+        id: result.rows[0].id,
+        branch_id: branchContext.branchId,
+        shift_id: branchContext.shiftId,
+        register_session_id:
+          String(body?.registerSessionId || "").trim() || null,
+        customer_id: String(body?.customerId || "").trim() || null,
+        customer_name: String(body?.customerName || "").trim() || "",
+        customer_phone:
+          this.normalizePortalOrderPhone(body?.customerPhone) || "",
+        service_mode: serviceMode,
+        table_id: tableId,
+        items,
+        discount: totals.discount,
+        notes: String(body?.notes || "").trim() || "",
+        payment_method: paymentMethod
+          ? this.toOrderPaymentMethod(paymentMethod)
+          : null,
+        payments,
+        subtotal: totals.subtotal,
+        tax_total: totals.taxTotal,
+        delivery_fee: totals.deliveryFee,
+        total: totals.total,
+        status: "ACTIVE",
+        metadata: {
+          deliveryAddress: String(body?.deliveryAddress || "").trim() || null,
+        },
+        checked_out_order_id: null,
+        created_at: result.rows[0].created_at,
+        updated_at: result.rows[0].updated_at,
+      }),
+    };
+  }
+
+  @Patch("pos/drafts/:id")
+  @RequiresFeature("ORDERS")
+  @ApiOperation({ summary: "Update POS draft" })
+  async updatePosDraft(
+    @Req() req: Request,
+    @Param("id") id: string,
+    @Body() body: Record<string, any>,
+  ): Promise<any> {
+    await this.ensurePosSchema();
+    const merchantId = this.getMerchantId(req);
+    const current = await this.getPosDraftById(merchantId, id);
+    const branchContext = await this.resolvePortalOrderBranchContext(
+      merchantId,
+      {
+        branchId: body?.branchId ?? current.branchId ?? undefined,
+        shiftId: body?.shiftId ?? current.shiftId ?? undefined,
+      },
+    );
+    const items = body.items
+      ? this.normalizePosDraftItems(body.items)
+      : this.normalizePosDraftItems(current.items);
+    const totals = this.computeDraftTotals(
+      items,
+      body.discount ?? current.discount,
+      body.taxTotal ?? current.taxTotal,
+      body.deliveryFee ?? current.deliveryFee,
+    );
+    const serviceMode = this.normalizeManualDeliveryType(
+      body.serviceMode ?? current.serviceMode ?? "pickup",
+    );
+    const tableId =
+      String(body.tableId ?? current.tableId ?? "").trim() || null;
+    const paymentMethodRaw =
+      body.paymentMethod ??
+      String(current.paymentMethod || "")
+        .trim()
+        .toLowerCase();
+    const paymentMethod = paymentMethodRaw
+      ? this.normalizeManualPaymentMethod(paymentMethodRaw)
+      : undefined;
+    const payments = Array.isArray(body.payments)
+      ? body.payments
+      : Array.isArray(current.payments)
+        ? current.payments
+        : [];
+    const metadata = {
+      ...this.parseConfigObject(current.metadata),
+      deliveryAddress:
+        body.deliveryAddress !== undefined
+          ? String(body.deliveryAddress || "").trim() || null
+          : this.parseConfigObject(current.metadata).deliveryAddress || null,
+    };
+
+    await this.pool.query(
+      `UPDATE pos_drafts
+       SET branch_id = $3,
+           shift_id = $4,
+           register_session_id = $5,
+           customer_id = $6,
+           customer_name = $7,
+           customer_phone = $8,
+           service_mode = $9,
+           table_id = $10,
+           items = $11::jsonb,
+           discount = $12,
+           notes = $13,
+           payment_method = $14,
+           payments = $15::jsonb,
+           subtotal = $16,
+           tax_total = $17,
+           delivery_fee = $18,
+           total = $19,
+           metadata = $20::jsonb,
+           updated_at = NOW()
+       WHERE merchant_id = $1 AND id::text = $2`,
+      [
+        merchantId,
+        id,
+        branchContext.branchId,
+        branchContext.shiftId,
+        String(
+          body.registerSessionId ?? current.registerSessionId ?? "",
+        ).trim() || null,
+        String(body.customerId ?? current.customerId ?? "").trim() || null,
+        String(body.customerName ?? current.customerName ?? "").trim() || null,
+        this.normalizePortalOrderPhone(
+          body.customerPhone ?? current.customerPhone ?? undefined,
+        ) || null,
+        serviceMode,
+        tableId,
+        JSON.stringify(items),
+        totals.discount,
+        String(body.notes ?? current.notes ?? "").trim() || null,
+        paymentMethod ? this.toOrderPaymentMethod(paymentMethod) : null,
+        JSON.stringify(payments),
+        totals.subtotal,
+        totals.taxTotal,
+        totals.deliveryFee,
+        totals.total,
+        JSON.stringify(metadata),
+      ],
+    );
+
+    if (String(current.tableId || "") !== String(tableId || "")) {
+      await this.setPosTableOccupancy(
+        merchantId,
+        current.tableId || null,
+        null,
+        "FREE",
+      );
+      if (tableId) {
+        await this.setPosTableOccupancy(merchantId, tableId, id, "OCCUPIED");
+      }
+    }
+
+    return {
+      success: true,
+      draft: await this.getPosDraftById(merchantId, id),
+    };
+  }
+
+  @Post("pos/drafts/:id/suspend")
+  @RequiresFeature("ORDERS")
+  @ApiOperation({ summary: "Suspend POS draft" })
+  async suspendPosDraft(
+    @Req() req: Request,
+    @Param("id") id: string,
+  ): Promise<any> {
+    await this.ensurePosSchema();
+    const merchantId = this.getMerchantId(req);
+    await this.getPosDraftById(merchantId, id);
+    await this.pool.query(
+      `UPDATE pos_drafts
+       SET status = 'SUSPENDED', updated_at = NOW()
+       WHERE merchant_id = $1 AND id::text = $2`,
+      [merchantId, id],
+    );
+    return { success: true };
+  }
+
+  @Post("pos/drafts/:id/resume")
+  @RequiresFeature("ORDERS")
+  @ApiOperation({ summary: "Resume POS draft" })
+  async resumePosDraft(
+    @Req() req: Request,
+    @Param("id") id: string,
+  ): Promise<any> {
+    await this.ensurePosSchema();
+    const merchantId = this.getMerchantId(req);
+    await this.getPosDraftById(merchantId, id);
+    await this.pool.query(
+      `UPDATE pos_drafts
+       SET status = 'ACTIVE', updated_at = NOW()
+       WHERE merchant_id = $1 AND id::text = $2`,
+      [merchantId, id],
+    );
+    return {
+      success: true,
+      draft: await this.getPosDraftById(merchantId, id),
+    };
+  }
+
+  @Delete("pos/drafts/:id")
+  @RequiresFeature("ORDERS")
+  @ApiOperation({ summary: "Delete POS draft" })
+  async deletePosDraft(
+    @Req() req: Request,
+    @Param("id") id: string,
+  ): Promise<any> {
+    await this.ensurePosSchema();
+    const merchantId = this.getMerchantId(req);
+    const draft = await this.getPosDraftById(merchantId, id);
+    if (draft.tableId) {
+      await this.setPosTableOccupancy(merchantId, draft.tableId, null, "FREE");
+    }
+    await this.pool.query(
+      `DELETE FROM pos_drafts WHERE merchant_id = $1 AND id::text = $2`,
+      [merchantId, id],
+    );
+    return { success: true };
+  }
+
+  @Post("pos/drafts/:id/checkout")
+  @RequiresFeature("ORDERS")
+  @ApiOperation({ summary: "Checkout POS draft into order" })
+  async checkoutPosDraft(
+    @Req() req: Request,
+    @Param("id") id: string,
+  ): Promise<any> {
+    await this.ensurePosSchema();
+    const merchantId = this.getMerchantId(req);
+    const draft = await this.getPosDraftById(merchantId, id);
+    if (draft.status === "CHECKED_OUT") {
+      throw new BadRequestException("Draft already checked out");
+    }
+
+    const metadata = this.parseConfigObject(draft.metadata);
+    const checkoutResult = await this.createManualOrder(req, {
+      customerId: draft.customerId || undefined,
+      branchId: draft.branchId || undefined,
+      shiftId: draft.shiftId || undefined,
+      registerSessionId: draft.registerSessionId || undefined,
+      tableId: draft.tableId || undefined,
+      customerName: draft.customerName || undefined,
+      customerPhone: draft.customerPhone || undefined,
+      items: Array.isArray(draft.items) ? draft.items : [],
+      serviceMode: draft.serviceMode,
+      deliveryType: draft.serviceMode,
+      deliveryAddress: metadata.deliveryAddress || undefined,
+      paymentMethod: this.normalizeManualPaymentMethod(
+        draft.paymentMethod || "cash",
+      ),
+      payments: Array.isArray(draft.payments) ? draft.payments : [],
+      discount: Number(draft.discount || 0),
+      taxTotal: Number(draft.taxTotal || 0),
+      notes: draft.notes || undefined,
+      source: "cashier",
+    });
+
+    await this.pool.query(
+      `UPDATE pos_drafts
+       SET status = 'CHECKED_OUT',
+           checked_out_order_id = $3,
+           updated_at = NOW()
+       WHERE merchant_id = $1 AND id::text = $2`,
+      [merchantId, id, checkoutResult.id],
+    );
+
+    if (draft.tableId) {
+      await this.setPosTableOccupancy(merchantId, draft.tableId, null, "FREE");
+    }
+
+    return {
+      success: true,
+      order: checkoutResult,
+      draftId: id,
+    };
+  }
+
+  @Get("pos/tables")
+  @RequiresFeature("ORDERS")
+  @ApiOperation({ summary: "List POS tables" })
+  async listPosTables(
+    @Req() req: Request,
+    @Query("branchId") branchId?: string,
+  ): Promise<any> {
+    await this.ensurePosSchema();
+    const merchantId = this.getMerchantId(req);
+    const values: any[] = [merchantId];
+    const filters = [`t.merchant_id = $1`];
+    if (branchId && String(branchId).trim()) {
+      values.push(String(branchId).trim());
+      filters.push(`t.branch_id::text = $${values.length}`);
+    }
+
+    const result = await this.pool.query<any>(
+      `SELECT
+         t.id::text as id,
+         t.branch_id::text as branch_id,
+         t.name,
+         t.area,
+         t.capacity,
+         t.status,
+         t.sort_order,
+         NULLIF(t.current_draft_id::text, '') as current_draft_id,
+         t.notes,
+         t.created_at,
+         t.updated_at,
+         d.customer_name,
+         d.total::text as current_total,
+         d.status as current_draft_status
+       FROM pos_tables t
+       LEFT JOIN pos_drafts d
+         ON d.id::text = t.current_draft_id::text
+        AND d.merchant_id = t.merchant_id
+       WHERE ${filters.join(" AND ")}
+       ORDER BY t.sort_order ASC, t.name ASC`,
+      values,
+    );
+
+    return {
+      tables: result.rows.map((row) => ({
+        id: row.id,
+        branchId: row.branch_id,
+        name: row.name,
+        area: row.area || null,
+        capacity: row.capacity !== null ? Number(row.capacity) : null,
+        status: row.status,
+        sortOrder: Number(row.sort_order || 0),
+        currentDraftId: row.current_draft_id || null,
+        notes: row.notes || "",
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+        currentDraft: row.current_draft_id
+          ? {
+              id: row.current_draft_id,
+              customerName: row.customer_name || "",
+              total: Number(row.current_total || 0),
+              status: row.current_draft_status || "",
+            }
+          : null,
+      })),
+    };
+  }
+
+  @Post("pos/tables")
+  @RequireRole("MANAGER")
+  @RequiresFeature("ORDERS")
+  @ApiOperation({ summary: "Create POS table" })
+  async createPosTable(
+    @Req() req: Request,
+    @Body()
+    body: {
+      branchId: string;
+      name: string;
+      area?: string;
+      capacity?: number;
+      sortOrder?: number;
+      notes?: string;
+    },
+  ): Promise<any> {
+    await this.ensurePosSchema();
+    const merchantId = this.getMerchantId(req);
+    const branchContext = await this.resolvePortalOrderBranchContext(
+      merchantId,
+      {
+        branchId: body?.branchId,
+      },
+    );
+    if (!branchContext.branchId) {
+      throw new BadRequestException("branchId is required");
+    }
+    const name = String(body?.name || "").trim();
+    if (!name) {
+      throw new BadRequestException("Table name is required");
+    }
+    const result = await this.pool.query<any>(
+      `INSERT INTO pos_tables (
+         merchant_id,
+         branch_id,
+         name,
+         area,
+         capacity,
+         sort_order,
+         notes
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING id::text as id, created_at, updated_at`,
+      [
+        merchantId,
+        branchContext.branchId,
+        name,
+        String(body?.area || "").trim() || null,
+        body?.capacity !== undefined ? Number(body.capacity) : null,
+        Number(body?.sortOrder || 0),
+        String(body?.notes || "").trim() || null,
+      ],
+    );
+
+    return {
+      success: true,
+      table: {
+        id: result.rows[0].id,
+        branchId: branchContext.branchId,
+        name,
+        area: String(body?.area || "").trim() || null,
+        capacity: body?.capacity !== undefined ? Number(body.capacity) : null,
+        sortOrder: Number(body?.sortOrder || 0),
+        notes: String(body?.notes || "").trim() || "",
+        status: "FREE",
+        currentDraftId: null,
+        createdAt: result.rows[0].created_at,
+        updatedAt: result.rows[0].updated_at,
+      },
+    };
+  }
+
+  @Patch("pos/tables/:id")
+  @RequireRole("MANAGER")
+  @RequiresFeature("ORDERS")
+  @ApiOperation({ summary: "Update POS table" })
+  async updatePosTable(
+    @Req() req: Request,
+    @Param("id") id: string,
+    @Body() body: Record<string, any>,
+  ): Promise<any> {
+    await this.ensurePosSchema();
+    const merchantId = this.getMerchantId(req);
+    const values: any[] = [merchantId, id];
+    const fields: string[] = [];
+    const pushField = (column: string, value: any) => {
+      values.push(value);
+      fields.push(`${column} = $${values.length}`);
+    };
+    if (body.name !== undefined)
+      pushField("name", String(body.name || "").trim());
+    if (body.area !== undefined)
+      pushField("area", String(body.area || "").trim() || null);
+    if (body.capacity !== undefined)
+      pushField(
+        "capacity",
+        body.capacity === null ? null : Number(body.capacity),
+      );
+    if (body.sortOrder !== undefined)
+      pushField("sort_order", Number(body.sortOrder));
+    if (body.notes !== undefined)
+      pushField("notes", String(body.notes || "").trim() || null);
+    if (body.status !== undefined)
+      pushField(
+        "status",
+        String(body.status || "")
+          .trim()
+          .toUpperCase() || "FREE",
+      );
+    if (!fields.length) return { success: true };
+    fields.push("updated_at = NOW()");
+    await this.pool.query(
+      `UPDATE pos_tables SET ${fields.join(", ")} WHERE merchant_id = $1 AND id::text = $2`,
+      values,
+    );
+    return { success: true };
+  }
+
+  @Post("pos/tables/:id/assign-draft")
+  @RequiresFeature("ORDERS")
+  @ApiOperation({ summary: "Assign draft to table" })
+  async assignDraftToTable(
+    @Req() req: Request,
+    @Param("id") id: string,
+    @Body() body: { draftId: string },
+  ): Promise<any> {
+    await this.ensurePosSchema();
+    const merchantId = this.getMerchantId(req);
+    const draft = await this.getPosDraftById(merchantId, body.draftId);
+    const tableResult = await this.pool.query<any>(
+      `SELECT id::text as id, branch_id::text as branch_id
+       FROM pos_tables
+       WHERE merchant_id = $1 AND id::text = $2
+       LIMIT 1`,
+      [merchantId, id],
+    );
+    if (!tableResult.rows.length) {
+      throw new NotFoundException("POS table not found");
+    }
+    if (draft.tableId && draft.tableId !== id) {
+      await this.setPosTableOccupancy(merchantId, draft.tableId, null, "FREE");
+    }
+    await this.pool.query(
+      `UPDATE pos_drafts
+       SET table_id = $3,
+           service_mode = 'dine_in',
+           updated_at = NOW()
+       WHERE merchant_id = $1 AND id::text = $2`,
+      [merchantId, body.draftId, id],
+    );
+    await this.setPosTableOccupancy(merchantId, id, body.draftId, "OCCUPIED");
+    return {
+      success: true,
+      draft: await this.getPosDraftById(merchantId, body.draftId),
+    };
+  }
+
+  @Post("pos/tables/:id/transfer")
+  @RequiresFeature("ORDERS")
+  @ApiOperation({ summary: "Transfer table draft to another table" })
+  async transferTableDraft(
+    @Req() req: Request,
+    @Param("id") id: string,
+    @Body() body: { targetTableId: string },
+  ): Promise<any> {
+    await this.ensurePosSchema();
+    const merchantId = this.getMerchantId(req);
+    const source = await this.pool.query<any>(
+      `SELECT current_draft_id::text as current_draft_id
+       FROM pos_tables
+       WHERE merchant_id = $1 AND id::text = $2
+       LIMIT 1`,
+      [merchantId, id],
+    );
+    const draftId = source.rows[0]?.current_draft_id;
+    if (!draftId) {
+      throw new BadRequestException(
+        "Source table does not have an active draft",
+      );
+    }
+    await this.assignDraftToTable(req, body.targetTableId, { draftId });
+    await this.setPosTableOccupancy(merchantId, id, null, "FREE");
+    return { success: true };
+  }
+
+  @Post("pos/tables/:id/split-draft")
+  @RequiresFeature("ORDERS")
+  @ApiOperation({ summary: "Split a table draft into a new draft" })
+  async splitTableDraft(
+    @Req() req: Request,
+    @Param("id") id: string,
+    @Body()
+    body: {
+      items: Array<{ itemIndex: number; quantity: number }>;
+      targetTableId?: string;
+    },
+  ): Promise<any> {
+    await this.ensurePosSchema();
+    const merchantId = this.getMerchantId(req);
+    const source = await this.pool.query<any>(
+      `SELECT current_draft_id::text as current_draft_id
+       FROM pos_tables
+       WHERE merchant_id = $1 AND id::text = $2
+       LIMIT 1`,
+      [merchantId, id],
+    );
+    const draftId = source.rows[0]?.current_draft_id;
+    if (!draftId) {
+      throw new BadRequestException("Table does not have an active draft");
+    }
+    const draft = await this.getPosDraftById(merchantId, draftId);
+    const sourceItems = this.normalizePosDraftItems(draft.items);
+    const nextSourceItems = sourceItems.map((item) => ({ ...item }));
+    const splitItems: typeof sourceItems = [];
+
+    for (const entry of Array.isArray(body.items) ? body.items : []) {
+      const itemIndex = Number(entry.itemIndex);
+      const quantity = Number(entry.quantity);
+      const sourceItem = nextSourceItems[itemIndex];
+      if (!sourceItem || !Number.isFinite(quantity) || quantity <= 0) {
+        throw new BadRequestException("Invalid split items payload");
+      }
+      if (quantity > sourceItem.quantity) {
+        throw new BadRequestException("Split quantity exceeds source quantity");
+      }
+      sourceItem.quantity -= quantity;
+      sourceItem.lineTotal = this.roundMoney(
+        sourceItem.quantity * sourceItem.unitPrice,
+      );
+      splitItems.push({
+        ...sourceItem,
+        quantity,
+        lineTotal: this.roundMoney(quantity * sourceItem.unitPrice),
+      });
+    }
+
+    const remainingItems = nextSourceItems.filter((item) => item.quantity > 0);
+    if (!remainingItems.length || !splitItems.length) {
+      throw new BadRequestException(
+        "Split requires remaining items and moved items",
+      );
+    }
+
+    await this.updatePosDraft(req, draftId, { items: remainingItems });
+    const created = await this.createPosDraft(req, {
+      branchId: draft.branchId || undefined,
+      shiftId: draft.shiftId || undefined,
+      registerSessionId: draft.registerSessionId || undefined,
+      customerId: draft.customerId || undefined,
+      customerName: draft.customerName || undefined,
+      customerPhone: draft.customerPhone || undefined,
+      serviceMode: "dine_in",
+      tableId: body.targetTableId || undefined,
+      items: splitItems,
+      discount: 0,
+      taxTotal: 0,
+      deliveryFee: 0,
+      notes: draft.notes || undefined,
+      payments: [],
+      deliveryAddress: null as any,
+    });
+    return {
+      success: true,
+      sourceDraft: await this.getPosDraftById(merchantId, draftId),
+      newDraft: created.draft,
+    };
+  }
+
+  @Post("pos/tables/merge-drafts")
+  @RequiresFeature("ORDERS")
+  @ApiOperation({ summary: "Merge compatible table drafts" })
+  async mergeTableDrafts(
+    @Req() req: Request,
+    @Body() body: { sourceDraftId: string; targetDraftId: string },
+  ): Promise<any> {
+    await this.ensurePosSchema();
+    const merchantId = this.getMerchantId(req);
+    const sourceDraft = await this.getPosDraftById(
+      merchantId,
+      body.sourceDraftId,
+    );
+    const targetDraft = await this.getPosDraftById(
+      merchantId,
+      body.targetDraftId,
+    );
+    const sourceItems = this.normalizePosDraftItems(sourceDraft.items);
+    const targetItems = this.normalizePosDraftItems(targetDraft.items);
+    const mergedItems = [...targetItems];
+
+    for (const item of sourceItems) {
+      const existing = mergedItems.find(
+        (candidate) =>
+          String(candidate.catalogItemId || "") ===
+            String(item.catalogItemId || "") && candidate.name === item.name,
+      );
+      if (existing) {
+        existing.quantity += item.quantity;
+        existing.lineTotal = this.roundMoney(
+          existing.quantity * existing.unitPrice,
+        );
+      } else {
+        mergedItems.push({ ...item });
+      }
+    }
+
+    await this.updatePosDraft(req, body.targetDraftId, { items: mergedItems });
+    if (sourceDraft.tableId) {
+      await this.setPosTableOccupancy(
+        merchantId,
+        sourceDraft.tableId,
+        null,
+        "FREE",
+      );
+    }
+    await this.pool.query(
+      `DELETE FROM pos_drafts WHERE merchant_id = $1 AND id::text = $2`,
+      [merchantId, body.sourceDraftId],
+    );
+    return {
+      success: true,
+      draft: await this.getPosDraftById(merchantId, body.targetDraftId),
+    };
+  }
+
+  @Get("orders/:id/payments")
+  @RequiresFeature("ORDERS")
+  @ApiOperation({ summary: "List order payments" })
+  async listOrderPayments(
+    @Req() req: Request,
+    @Param("id") id: string,
+  ): Promise<any> {
+    await this.ensurePosSchema();
+    const merchantId = this.getMerchantId(req);
+    const result = await this.pool.query<any>(
+      `SELECT
+         id::text as id,
+         method,
+         amount::text as amount,
+         reference,
+         status,
+         collected_by,
+         created_at
+       FROM order_payments
+       WHERE merchant_id = $1 AND order_id = $2
+       ORDER BY created_at ASC`,
+      [merchantId, id],
+    );
+    return {
+      payments: result.rows.map((row) => ({
+        id: row.id,
+        method: row.method,
+        amount: Number(row.amount || 0),
+        reference: row.reference || null,
+        status: row.status,
+        collectedBy: row.collected_by || null,
+        createdAt: row.created_at,
+      })),
+    };
+  }
+
+  @Post("orders/:id/refunds")
+  @RequiresFeature("ORDERS")
+  @ApiOperation({ summary: "Create POS refund / return / exchange" })
+  async createPosRefund(
+    @Req() req: Request,
+    @Param("id") id: string,
+    @Body()
+    body: {
+      items: Array<{
+        catalogItemId?: string;
+        sku?: string;
+        name?: string;
+        quantity: number;
+        unitPrice?: number;
+      }>;
+      reason?: string;
+      restock?: boolean;
+      createExchangeDraft?: boolean;
+    },
+  ): Promise<any> {
+    await this.ensurePosSchema();
+    const merchantId = this.getMerchantId(req);
+    const orderResult = await this.pool.query<any>(
+      `SELECT
+         id::text as id,
+         customer_id,
+         customer_name,
+         customer_phone,
+         branch_id::text as branch_id,
+         shift_id::text as shift_id,
+         register_session_id::text as register_session_id,
+         items
+       FROM orders
+       WHERE merchant_id = $1 AND id::text = $2
+       LIMIT 1`,
+      [merchantId, id],
+    );
+    if (!orderResult.rows.length) {
+      throw new NotFoundException("Order not found");
+    }
+
+    const orderRowsById = await this.loadOrderItemsFromTable([id]);
+    const soldItems = (
+      orderRowsById.get(id) ||
+      this.normalizeOrderItems(orderResult.rows[0].items)
+    ).map((item: any) => ({
+      catalogItemId:
+        String(item.catalogItemId || item.catalog_item_id || "").trim() ||
+        undefined,
+      sku: String(item.sku || "").trim() || undefined,
+      name: String(item.name || "منتج").trim() || "منتج",
+      quantity: Number(item.quantity || 0) || 0,
+      unitPrice: Number(item.unitPrice ?? item.unit_price ?? 0) || 0,
+    }));
+
+    const priorRefunds = await this.pool.query<any>(
+      `SELECT metadata
+       FROM refunds
+       WHERE merchant_id = $1 AND order_id = $2 AND status = 'APPROVED'`,
+      [merchantId, id],
+    );
+    const refundedByKey = new Map<string, number>();
+    for (const row of priorRefunds.rows) {
+      const metadata = this.parseConfigObject(row.metadata);
+      const items = Array.isArray(metadata.items) ? metadata.items : [];
+      for (const item of items) {
+        const key = `${String(item.catalogItemId || "")}|${String(item.sku || "")}|${String(item.name || "")}`;
+        refundedByKey.set(
+          key,
+          (refundedByKey.get(key) || 0) + Number(item.quantity || 0),
+        );
+      }
+    }
+
+    const refundItems = (Array.isArray(body?.items) ? body.items : []).map(
+      (requested) => {
+        const requestedQty = Number(requested.quantity || 0);
+        if (!Number.isFinite(requestedQty) || requestedQty <= 0) {
+          throw new BadRequestException("Refund quantity must be positive");
+        }
+        const match = soldItems.find(
+          (item) =>
+            (requested.catalogItemId &&
+              item.catalogItemId === String(requested.catalogItemId).trim()) ||
+            (requested.sku && item.sku === String(requested.sku).trim()) ||
+            (requested.name && item.name === String(requested.name).trim()),
+        );
+        if (!match) {
+          throw new BadRequestException(
+            "Refund item does not exist on the order",
+          );
+        }
+        const key = `${String(match.catalogItemId || "")}|${String(match.sku || "")}|${String(match.name || "")}`;
+        const alreadyRefunded = refundedByKey.get(key) || 0;
+        if (alreadyRefunded + requestedQty > match.quantity) {
+          throw new BadRequestException(
+            "Refund quantity exceeds sold quantity",
+          );
+        }
+        return {
+          catalogItemId: match.catalogItemId,
+          sku: match.sku,
+          name: match.name,
+          quantity: requestedQty,
+          unitPrice:
+            Number(requested.unitPrice ?? match.unitPrice ?? 0) ||
+            match.unitPrice,
+        };
+      },
+    );
+
+    if (!refundItems.length) {
+      throw new BadRequestException("Refund items are required");
+    }
+
+    const refundAmount = this.roundMoney(
+      refundItems.reduce(
+        (sum, item) => sum + item.quantity * item.unitPrice,
+        0,
+      ),
+    );
+    const inserted = await this.pool.query<any>(
+      `INSERT INTO refunds (
+         merchant_id,
+         order_id,
+         amount,
+         reason,
+         status,
+         metadata
+       ) VALUES ($1, $2, $3, $4, 'APPROVED', $5::jsonb)
+       RETURNING id::text as id, created_at`,
+      [
+        merchantId,
+        id,
+        refundAmount,
+        String(body?.reason || "").trim() || "POS_REFUND",
+        JSON.stringify({
+          items: refundItems,
+          restock: body?.restock !== false,
+          createExchangeDraft: body?.createExchangeDraft === true,
+          source: "pos_refund",
+        }),
+      ],
+    );
+
+    if (body?.restock !== false) {
+      await this.handleStockForSpecifiedItems(
+        merchantId,
+        refundItems.map((item) => ({
+          catalog_item_id: item.catalogItemId,
+          sku: item.sku,
+          quantity: item.quantity,
+        })),
+        "RESTORE",
+      );
+    }
+
+    let exchangeDraft: any = null;
+    if (body?.createExchangeDraft) {
+      exchangeDraft = (
+        await this.createPosDraft(req, {
+          branchId: orderResult.rows[0].branch_id || undefined,
+          shiftId: orderResult.rows[0].shift_id || undefined,
+          registerSessionId:
+            orderResult.rows[0].register_session_id || undefined,
+          customerId: orderResult.rows[0].customer_id || undefined,
+          customerName: orderResult.rows[0].customer_name || undefined,
+          customerPhone: orderResult.rows[0].customer_phone || undefined,
+          serviceMode: "pickup",
+          items: refundItems.map((item) => ({
+            catalogItemId: item.catalogItemId,
+            sku: item.sku,
+            name: item.name,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+          })),
+          discount: 0,
+          taxTotal: 0,
+          deliveryFee: 0,
+          notes: `استبدال للطلب ${id}`,
+          payments: [],
+          deliveryAddress: null as any,
+        })
+      ).draft;
+    }
+
+    return {
+      success: true,
+      refund: {
+        id: inserted.rows[0].id,
+        orderId: id,
+        amount: refundAmount,
+        items: refundItems,
+        reason: String(body?.reason || "").trim() || "POS_REFUND",
+        createdAt: inserted.rows[0].created_at,
+      },
+      exchangeDraft,
+    };
   }
 
   private getSafeStaffId(req: Request): string | undefined {
@@ -265,6 +1700,389 @@ export class MerchantPortalController {
     return byOrderId;
   }
 
+  private async loadPortalReportedOrders(
+    merchantId: string,
+    startDate: Date,
+    endDate: Date,
+  ): Promise<PortalReportedOrder[]> {
+    const result = await this.pool.query<{
+      id: string;
+      order_data: Record<string, any>;
+      paid_amount: string;
+      payment_rows: string;
+      cash_paid: string;
+      online_paid: string;
+    }>(
+      `SELECT
+         o.id::text as id,
+         to_jsonb(o) as order_data,
+         COALESCE(pay.paid_amount, 0)::text as paid_amount,
+         COALESCE(pay.payment_rows, 0)::text as payment_rows,
+         COALESCE(pay.cash_paid, 0)::text as cash_paid,
+         COALESCE(pay.online_paid, 0)::text as online_paid
+       FROM orders o
+       LEFT JOIN (
+         SELECT
+           order_id::text as order_id,
+           COALESCE(SUM(amount) FILTER (
+             WHERE UPPER(COALESCE(status, 'PAID')) = 'PAID'
+           ), 0) as paid_amount,
+           COUNT(*)::int as payment_rows,
+           COALESCE(SUM(amount) FILTER (
+             WHERE UPPER(COALESCE(status, 'PAID')) = 'PAID'
+               AND UPPER(COALESCE(method, '')) = 'COD'
+           ), 0) as cash_paid,
+           COALESCE(SUM(amount) FILTER (
+             WHERE UPPER(COALESCE(status, 'PAID')) = 'PAID'
+               AND UPPER(COALESCE(method, '')) IN ('CARD', 'BANK_TRANSFER')
+           ), 0) as online_paid
+         FROM order_payments
+         WHERE merchant_id = $1
+         GROUP BY order_id::text
+       ) pay ON pay.order_id = o.id::text
+       WHERE o.merchant_id = $1
+         AND o.created_at >= $2
+         AND o.created_at <= $3
+       ORDER BY o.created_at DESC`,
+      [merchantId, startDate, endDate],
+    );
+
+    return result.rows.map((row) => {
+      const order = row.order_data || {};
+      const total = this.roundMoney(Number(order.total || 0));
+      const status = String(order.status || "");
+      const paymentMethod = String(
+        order.payment_method || order.paymentMethod || "",
+      );
+      const paymentStatus = String(
+        order.payment_status || order.paymentStatus || "",
+      ).toUpperCase();
+      const paymentRows = Number(row.payment_rows || 0);
+      const paidAmountFromRows = this.roundMoney(Number(row.paid_amount || 0));
+      const realizedAmount =
+        paymentRows > 0
+          ? Math.min(total, paidAmountFromRows)
+          : paymentStatus === "PAID" &&
+              !this.isPortalDraftOrder(status) &&
+              !this.isPortalCancelledOrder(status)
+            ? total
+            : 0;
+      const paidCashAmount =
+        paymentRows > 0
+          ? this.roundMoney(Number(row.cash_paid || 0))
+          : this.humanizeOrderPaymentMethod(paymentMethod) === "نقدي" &&
+              realizedAmount > 0
+            ? realizedAmount
+            : 0;
+      const paidOnlineAmount =
+        paymentRows > 0
+          ? this.roundMoney(Number(row.online_paid || 0))
+          : ["CARD", "BANK_TRANSFER"].includes(
+                String(paymentMethod || "")
+                  .trim()
+                  .toUpperCase(),
+              ) && realizedAmount > 0
+            ? realizedAmount
+            : 0;
+      const outstandingAmount =
+        !this.isPortalDraftOrder(status) && !this.isPortalCancelledOrder(status)
+          ? this.roundMoney(Math.max(0, total - realizedAmount))
+          : 0;
+
+      return {
+        id: row.id,
+        orderNumber: String(order.order_number || order.orderNumber || row.id),
+        customerName:
+          String(order.customer_name || order.customerName || "عميل").trim() ||
+          "عميل",
+        customerPhone: String(
+          order.customer_phone || order.customerPhone || "",
+        ).trim(),
+        total,
+        status,
+        paymentMethod,
+        paymentStatus,
+        sourceChannel: String(
+          order.source_channel || order.sourceChannel || "whatsapp",
+        ).trim(),
+        createdAt: this.toValidDate(order.created_at || order.createdAt),
+        realizedAmount,
+        paidCashAmount,
+        paidOnlineAmount,
+        outstandingAmount,
+      };
+    });
+  }
+
+  private async getPortalTopProducts(
+    merchantId: string,
+    startDate: Date,
+    endDate: Date,
+  ): Promise<PortalTopProduct[]> {
+    try {
+      const rows = await this.pool.query<{
+        product_id: string | null;
+        product_name: string | null;
+        quantity: string;
+        revenue: string;
+      }>(
+        `SELECT
+           COALESCE(NULLIF(oi.catalog_item_id::text, ''), NULLIF(to_jsonb(oi)->>'catalog_item_id', '')) as product_id,
+           COALESCE(
+             NULLIF(ci.name_ar, ''),
+             NULLIF(ci.name_en, ''),
+             NULLIF(to_jsonb(oi)->>'name', ''),
+             NULLIF(to_jsonb(oi)->>'product_name', ''),
+             NULLIF(to_jsonb(oi)->>'title', ''),
+             NULLIF(to_jsonb(oi)->>'sku', ''),
+             'منتج'
+           ) as product_name,
+           COALESCE(SUM(COALESCE(oi.quantity, 0)), 0)::text as quantity,
+           COALESCE(SUM(COALESCE(oi.total_price, oi.quantity * oi.unit_price, 0)), 0)::text as revenue
+         FROM order_items oi
+         JOIN orders o ON o.id = oi.order_id
+         LEFT JOIN catalog_items ci
+           ON ci.id = oi.catalog_item_id
+          AND ci.merchant_id = o.merchant_id
+         WHERE o.merchant_id = $1
+           AND o.created_at >= $2
+           AND o.created_at <= $3
+           AND UPPER(COALESCE(o.status, '')) NOT IN ('DRAFT', 'CANCELLED', 'RETURNED', 'FAILED')
+         GROUP BY
+           COALESCE(NULLIF(oi.catalog_item_id::text, ''), NULLIF(to_jsonb(oi)->>'catalog_item_id', '')),
+           COALESCE(
+             NULLIF(ci.name_ar, ''),
+             NULLIF(ci.name_en, ''),
+             NULLIF(to_jsonb(oi)->>'name', ''),
+             NULLIF(to_jsonb(oi)->>'product_name', ''),
+             NULLIF(to_jsonb(oi)->>'title', ''),
+             NULLIF(to_jsonb(oi)->>'sku', ''),
+             'منتج'
+           )
+         ORDER BY COALESCE(SUM(COALESCE(oi.total_price, oi.quantity * oi.unit_price, 0)), 0) DESC
+         LIMIT 5`,
+        [merchantId, startDate, endDate],
+      );
+
+      return rows.rows.map((row) => ({
+        productId: row.product_id || null,
+        productName: this.pickHumanReadableName(
+          row.product_name,
+          row.product_id,
+        ),
+        quantity: Number(row.quantity || 0),
+        revenue: Number(row.revenue || 0),
+      }));
+    } catch (error: any) {
+      if (String(error?.code || "") !== "42P01") {
+        throw error;
+      }
+      return [];
+    }
+  }
+
+  private async getPortalInventoryFinanceSummary(merchantId: string) {
+    try {
+      const result = await this.pool.query<{
+        total_value: string;
+        slow_value: string;
+        sold_units: string;
+        on_hand_units: string;
+      }>(
+        `WITH sold AS (
+           SELECT COALESCE(SUM(oi.quantity), 0) as sold_units
+           FROM order_items oi
+           JOIN orders o ON o.id = oi.order_id
+           WHERE o.merchant_id = $1
+             AND o.created_at >= CURRENT_DATE - INTERVAL '30 days'
+             AND UPPER(COALESCE(o.status, '')) NOT IN ('DRAFT', 'CANCELLED', 'RETURNED', 'FAILED')
+         ),
+         inventory_totals AS (
+           SELECT
+             COALESCE(SUM(iv.quantity_on_hand * COALESCE(iv.cost_price, ii.cost_price, 0)), 0) as total_value,
+             COALESCE(SUM(CASE WHEN COALESCE(iv.quantity_on_hand, 0) > 0 AND COALESCE(ii.is_slow_moving, false) = true THEN iv.quantity_on_hand * COALESCE(iv.cost_price, ii.cost_price, 0) ELSE 0 END), 0) as slow_value,
+             COALESCE(SUM(iv.quantity_on_hand), 0) as on_hand_units
+           FROM inventory_items ii
+           LEFT JOIN inventory_variants iv
+             ON iv.inventory_item_id = ii.id
+            AND iv.merchant_id = ii.merchant_id
+            AND COALESCE(iv.is_active, true) = true
+           WHERE ii.merchant_id = $1
+         )
+         SELECT
+           inventory_totals.total_value::text as total_value,
+           inventory_totals.slow_value::text as slow_value,
+           sold.sold_units::text as sold_units,
+           inventory_totals.on_hand_units::text as on_hand_units
+         FROM inventory_totals
+         CROSS JOIN sold`,
+        [merchantId],
+      );
+      const row = result.rows[0];
+      const onHandUnits = Number(row?.on_hand_units || 0);
+      const soldUnits = Number(row?.sold_units || 0);
+      return {
+        available: true,
+        totalValue: this.roundMoney(Number(row?.total_value || 0)),
+        slowMovingValue: this.roundMoney(Number(row?.slow_value || 0)),
+        turnoverRate:
+          onHandUnits > 0
+            ? Math.round((soldUnits / onHandUnits) * 100 * 10) / 10
+            : 0,
+      };
+    } catch {
+      return {
+        available: false,
+        totalValue: 0,
+        slowMovingValue: 0,
+        turnoverRate: 0,
+      };
+    }
+  }
+
+  private async getPortalCustomerFinanceSummary(
+    merchantId: string,
+    startDate: Date,
+    endDate: Date,
+    orders: PortalReportedOrder[],
+  ) {
+    const customerKeys = new Set<string>();
+    const repeatCustomerKeys = new Set<string>();
+    const orderCountByCustomer = new Map<string, number>();
+    let totalLtv = 0;
+
+    for (const order of orders) {
+      const key = order.customerPhone || order.customerName || order.id;
+      if (!key || this.isPortalDraftOrder(order.status)) continue;
+      customerKeys.add(key);
+      orderCountByCustomer.set(key, (orderCountByCustomer.get(key) || 0) + 1);
+      totalLtv += order.realizedAmount;
+    }
+
+    for (const [key, count] of orderCountByCustomer.entries()) {
+      if (count > 1) {
+        repeatCustomerKeys.add(key);
+      }
+    }
+
+    const totalCount = customerKeys.size;
+    const repeatCount = repeatCustomerKeys.size;
+    let newCount = 0;
+    try {
+      const result = await this.pool.query<{ count: string }>(
+        `SELECT COUNT(*)::text as count
+         FROM customers
+         WHERE merchant_id = $1
+           AND created_at >= $2
+           AND created_at <= $3`,
+        [merchantId, startDate, endDate],
+      );
+      newCount = Number(result.rows[0]?.count || 0);
+    } catch {
+      newCount = 0;
+    }
+
+    return {
+      totalCount,
+      newCount,
+      repeatCount,
+      repeatRate:
+        totalCount > 0
+          ? Math.round((repeatCount / totalCount) * 100 * 10) / 10
+          : 0,
+      avgLtv: totalCount > 0 ? this.roundMoney(totalLtv / totalCount) : 0,
+    };
+  }
+
+  private async getPortalExpensesTotal(
+    merchantId: string,
+    startDate: Date,
+    endDate: Date,
+  ): Promise<number> {
+    try {
+      const result = await this.pool.query<{ total: string }>(
+        `SELECT COALESCE(SUM(amount), 0)::text as total
+         FROM expenses e
+         WHERE e.merchant_id = $1
+           AND COALESCE(NULLIF(to_jsonb(e)->>'expense_date', '')::timestamp, e.created_at) >= $2
+           AND COALESCE(NULLIF(to_jsonb(e)->>'expense_date', '')::timestamp, e.created_at) <= $3`,
+        [merchantId, startDate, endDate],
+      );
+      return this.roundMoney(Number(result.rows[0]?.total || 0));
+    } catch {
+      return 0;
+    }
+  }
+
+  private async getPortalRefundsTotal(
+    merchantId: string,
+    startDate: Date,
+    endDate: Date,
+  ): Promise<number> {
+    try {
+      const result = await this.pool.query<{ total: string }>(
+        `SELECT COALESCE(SUM(amount), 0)::text as total
+         FROM refunds
+         WHERE merchant_id = $1
+           AND created_at >= $2
+           AND created_at <= $3
+           AND UPPER(COALESCE(status, 'APPROVED')) = 'APPROVED'`,
+        [merchantId, startDate, endDate],
+      );
+      return this.roundMoney(Number(result.rows[0]?.total || 0));
+    } catch {
+      return 0;
+    }
+  }
+
+  private async buildPortalFinanceSnapshot(
+    merchantId: string,
+    startDate: Date,
+    endDate: Date,
+  ): Promise<PortalFinanceSnapshot> {
+    const [orders, topProducts, inventory, summary] = await Promise.all([
+      this.loadPortalReportedOrders(merchantId, startDate, endDate),
+      this.getPortalTopProducts(merchantId, startDate, endDate),
+      this.getPortalInventoryFinanceSummary(merchantId),
+      this.commerceFactsService.buildFinanceSummary(
+        merchantId,
+        startDate,
+        endDate,
+      ),
+    ]);
+
+    const customers = await this.getPortalCustomerFinanceSummary(
+      merchantId,
+      startDate,
+      endDate,
+      orders,
+    );
+
+    return {
+      totalOrders: summary.totalOrders,
+      bookedOrders: summary.bookedOrders,
+      realizedOrders: summary.realizedOrders,
+      deliveredOrders: summary.deliveredOrders,
+      cancelledOrders: summary.cancelledOrders,
+      uniqueCustomers: summary.uniqueCustomers,
+      bookedSales: summary.bookedSales,
+      realizedRevenue: summary.realizedRevenue,
+      deliveredRevenue: summary.deliveredRevenue,
+      pendingCollections: summary.pendingCollections,
+      pendingCod: summary.pendingCod,
+      pendingOnline: summary.pendingOnline,
+      paidCashAmount: summary.paidCashAmount,
+      paidOnlineAmount: summary.paidOnlineAmount,
+      totalExpenses: summary.totalExpenses,
+      refundsAmount: summary.refundsAmount,
+      netCashFlow: summary.netCashFlow,
+      averageOrderValue: summary.averageOrderValue,
+      topProducts,
+      inventory,
+      customers,
+    };
+  }
+
   private normalizeManualDeliveryType(
     value: unknown,
   ): "delivery" | "pickup" | "dine_in" {
@@ -305,6 +2123,832 @@ export class MerchantPortalController {
     return "BANK_TRANSFER";
   }
 
+  private parseConfigObject(value: unknown): Record<string, any> {
+    if (!value) return {};
+    if (typeof value === "string") {
+      try {
+        const parsed = JSON.parse(value);
+        return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+          ? parsed
+          : {};
+      } catch {
+        return {};
+      }
+    }
+    return typeof value === "object" && !Array.isArray(value)
+      ? (value as Record<string, any>)
+      : {};
+  }
+
+  private normalizePortalOrderStatus(status: unknown): string {
+    return String(status || "")
+      .trim()
+      .toUpperCase();
+  }
+
+  private isPortalDraftOrder(status: unknown): boolean {
+    return this.normalizePortalOrderStatus(status) === "DRAFT";
+  }
+
+  private isPortalCancelledOrder(status: unknown): boolean {
+    return ["CANCELLED", "RETURNED", "FAILED"].includes(
+      this.normalizePortalOrderStatus(status),
+    );
+  }
+
+  private isPortalCompletedOrder(status: unknown): boolean {
+    return ["DELIVERED", "COMPLETED"].includes(
+      this.normalizePortalOrderStatus(status),
+    );
+  }
+
+  private isPortalInProgressOrder(status: unknown): boolean {
+    return ["BOOKED", "SHIPPED", "OUT_FOR_DELIVERY"].includes(
+      this.normalizePortalOrderStatus(status),
+    );
+  }
+
+  private toValidDate(value: unknown): Date | null {
+    if (!value) return null;
+    const parsed = new Date(String(value));
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  private humanizeOrderPaymentMethod(value: unknown): string {
+    const normalized = String(value || "")
+      .trim()
+      .toUpperCase();
+    if (normalized === "BANK_TRANSFER") return "تحويل";
+    if (normalized === "CARD") return "بطاقة";
+    if (normalized === "COD") return "نقدي";
+    if (normalized === "MIXED") return "مختلط";
+    return normalized || "غير محدد";
+  }
+
+  private pickHumanReadableName(...values: unknown[]): string {
+    for (const value of values) {
+      const text = String(value || "").trim();
+      if (!text) continue;
+      if (/^[A-Z0-9-]{3,}$/i.test(text)) continue;
+      return text;
+    }
+    for (const value of values) {
+      const text = String(value || "").trim();
+      if (text) return text;
+    }
+    return "منتج";
+  }
+
+  private roundPercent(current: number, previous: number): number {
+    if (previous === 0) return current > 0 ? 100 : 0;
+    return Math.round(((current - previous) / previous) * 100 * 10) / 10;
+  }
+
+  private buildDefaultPosSettings(category?: unknown) {
+    const normalizedCategory = String(category || "GENERIC")
+      .trim()
+      .toUpperCase();
+    const isFood = normalizedCategory === "FOOD";
+
+    return {
+      enabled: true,
+      mode: isFood ? "restaurant" : "retail",
+      tablesEnabled: isFood,
+      suspendedSalesEnabled: true,
+      splitPaymentsEnabled: true,
+      returnsEnabled: true,
+      requireActiveRegisterSession: false,
+      defaultServiceMode: isFood ? "dine_in" : "pickup",
+      thermalReceiptWidth: "80mm",
+    } as const;
+  }
+
+  private normalizePosMode(value: unknown): "retail" | "restaurant" | "hybrid" {
+    const normalized = String(value || "")
+      .trim()
+      .toLowerCase();
+    if (normalized === "restaurant" || normalized === "hybrid") {
+      return normalized;
+    }
+    return "retail";
+  }
+
+  private normalizeThermalReceiptWidth(value: unknown): "58mm" | "80mm" | "a4" {
+    const normalized = String(value || "")
+      .trim()
+      .toLowerCase();
+    if (normalized === "58mm" || normalized === "a4") {
+      return normalized;
+    }
+    return "80mm";
+  }
+
+  private getMerchantPosSettings(merchant: any) {
+    const defaults = this.buildDefaultPosSettings(merchant?.category);
+    const config = this.parseConfigObject((merchant as any)?.config);
+    const pos = this.parseConfigObject(config.pos);
+
+    return {
+      enabled:
+        typeof pos.enabled === "boolean" ? pos.enabled : defaults.enabled,
+      mode: this.normalizePosMode(pos.mode || defaults.mode),
+      tablesEnabled:
+        typeof pos.tablesEnabled === "boolean"
+          ? pos.tablesEnabled
+          : defaults.tablesEnabled,
+      suspendedSalesEnabled:
+        typeof pos.suspendedSalesEnabled === "boolean"
+          ? pos.suspendedSalesEnabled
+          : defaults.suspendedSalesEnabled,
+      splitPaymentsEnabled:
+        typeof pos.splitPaymentsEnabled === "boolean"
+          ? pos.splitPaymentsEnabled
+          : defaults.splitPaymentsEnabled,
+      returnsEnabled:
+        typeof pos.returnsEnabled === "boolean"
+          ? pos.returnsEnabled
+          : defaults.returnsEnabled,
+      requireActiveRegisterSession:
+        typeof pos.requireActiveRegisterSession === "boolean"
+          ? pos.requireActiveRegisterSession
+          : defaults.requireActiveRegisterSession,
+      defaultServiceMode: this.normalizeManualDeliveryType(
+        pos.defaultServiceMode || defaults.defaultServiceMode,
+      ),
+      thermalReceiptWidth: this.normalizeThermalReceiptWidth(
+        pos.thermalReceiptWidth || defaults.thermalReceiptWidth,
+      ),
+    };
+  }
+
+  private async updateMerchantPosSettings(
+    merchantId: string,
+    merchant: any,
+    patch: Record<string, unknown>,
+  ): Promise<void> {
+    await this.ensurePosSchema();
+
+    const currentConfig = this.parseConfigObject((merchant as any)?.config);
+    const currentPos = this.getMerchantPosSettings(merchant);
+    const mergedPos = {
+      ...currentPos,
+      ...patch,
+    };
+    mergedPos.mode = this.normalizePosMode(mergedPos.mode);
+    mergedPos.defaultServiceMode = this.normalizeManualDeliveryType(
+      mergedPos.defaultServiceMode,
+    );
+    mergedPos.thermalReceiptWidth = this.normalizeThermalReceiptWidth(
+      mergedPos.thermalReceiptWidth,
+    );
+
+    const nextConfig = {
+      ...currentConfig,
+      pos: mergedPos,
+    };
+
+    await this.pool.query(
+      `UPDATE merchants
+       SET config = $1::jsonb,
+           updated_at = NOW()
+       WHERE id = $2`,
+      [JSON.stringify(nextConfig), merchantId],
+    );
+  }
+
+  private async ensurePosSchema(): Promise<void> {
+    if (!this.posSchemaInitPromise) {
+      this.posSchemaInitPromise = this.ensurePosSchemaInternal().catch(
+        (error) => {
+          this.posSchemaInitPromise = null;
+          throw error;
+        },
+      );
+    }
+    await this.posSchemaInitPromise;
+  }
+
+  private async ensurePosSchemaInternal(): Promise<void> {
+    await this.pool.query(`
+      ALTER TABLE merchants
+      ADD COLUMN IF NOT EXISTS config JSONB DEFAULT '{}'::jsonb;
+
+      ALTER TABLE orders
+      ADD COLUMN IF NOT EXISTS branch_id UUID,
+      ADD COLUMN IF NOT EXISTS shift_id UUID,
+      ADD COLUMN IF NOT EXISTS register_session_id UUID,
+      ADD COLUMN IF NOT EXISTS table_id UUID,
+      ADD COLUMN IF NOT EXISTS tax_total DECIMAL(12,2) DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS source_channel VARCHAR(50),
+      ADD COLUMN IF NOT EXISTS stock_deducted BOOLEAN DEFAULT false,
+      ADD COLUMN IF NOT EXISTS customer_name VARCHAR(255),
+      ADD COLUMN IF NOT EXISTS customer_phone VARCHAR(255),
+      ADD COLUMN IF NOT EXISTS delivery_address JSONB,
+      ADD COLUMN IF NOT EXISTS delivery_notes TEXT,
+      ADD COLUMN IF NOT EXISTS delivery_preference VARCHAR(50);
+
+      CREATE TABLE IF NOT EXISTS pos_register_sessions (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        merchant_id VARCHAR(255) NOT NULL REFERENCES merchants(id) ON DELETE CASCADE,
+        branch_id UUID NOT NULL,
+        shift_id UUID,
+        opened_by VARCHAR(255),
+        opening_float DECIMAL(12,2) NOT NULL DEFAULT 0,
+        expected_cash DECIMAL(12,2) NOT NULL DEFAULT 0,
+        counted_cash DECIMAL(12,2),
+        variance DECIMAL(12,2),
+        status VARCHAR(20) NOT NULL DEFAULT 'OPEN',
+        notes TEXT,
+        opened_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        closed_at TIMESTAMP,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS pos_drafts (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        merchant_id VARCHAR(255) NOT NULL REFERENCES merchants(id) ON DELETE CASCADE,
+        branch_id UUID,
+        shift_id UUID,
+        register_session_id UUID,
+        customer_id VARCHAR(255),
+        customer_name VARCHAR(255),
+        customer_phone VARCHAR(255),
+        service_mode VARCHAR(20) NOT NULL DEFAULT 'pickup',
+        table_id UUID,
+        items JSONB NOT NULL DEFAULT '[]'::jsonb,
+        discount DECIMAL(12,2) NOT NULL DEFAULT 0,
+        notes TEXT,
+        payment_method VARCHAR(50),
+        payments JSONB NOT NULL DEFAULT '[]'::jsonb,
+        subtotal DECIMAL(12,2) NOT NULL DEFAULT 0,
+        tax_total DECIMAL(12,2) NOT NULL DEFAULT 0,
+        delivery_fee DECIMAL(12,2) NOT NULL DEFAULT 0,
+        total DECIMAL(12,2) NOT NULL DEFAULT 0,
+        status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
+        metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+        created_by VARCHAR(255),
+        checked_out_order_id VARCHAR(255),
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS order_payments (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        merchant_id VARCHAR(255) NOT NULL REFERENCES merchants(id) ON DELETE CASCADE,
+        order_id VARCHAR(255) NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+        method VARCHAR(50) NOT NULL,
+        amount DECIMAL(12,2) NOT NULL DEFAULT 0,
+        reference TEXT,
+        status VARCHAR(20) NOT NULL DEFAULT 'PAID',
+        collected_by VARCHAR(255),
+        metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS pos_tables (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        merchant_id VARCHAR(255) NOT NULL REFERENCES merchants(id) ON DELETE CASCADE,
+        branch_id UUID NOT NULL,
+        name VARCHAR(255) NOT NULL,
+        area VARCHAR(255),
+        capacity INTEGER,
+        status VARCHAR(20) NOT NULL DEFAULT 'FREE',
+        sort_order INTEGER NOT NULL DEFAULT 0,
+        current_draft_id UUID,
+        notes TEXT,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS refunds (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        merchant_id VARCHAR(255) NOT NULL REFERENCES merchants(id) ON DELETE CASCADE,
+        order_id VARCHAR(255),
+        amount DECIMAL(12,2) NOT NULL DEFAULT 0,
+        reason TEXT,
+        status VARCHAR(20) NOT NULL DEFAULT 'APPROVED',
+        metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_pos_register_sessions_merchant_branch_status
+        ON pos_register_sessions(merchant_id, branch_id, status);
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_pos_register_sessions_open_branch
+        ON pos_register_sessions(merchant_id, branch_id)
+        WHERE status = 'OPEN';
+      CREATE INDEX IF NOT EXISTS idx_pos_drafts_merchant_status
+        ON pos_drafts(merchant_id, status, updated_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_pos_drafts_branch
+        ON pos_drafts(merchant_id, branch_id, status);
+      CREATE INDEX IF NOT EXISTS idx_order_payments_order
+        ON order_payments(order_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_pos_tables_branch
+        ON pos_tables(merchant_id, branch_id, status, sort_order, name);
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_pos_tables_name
+        ON pos_tables(merchant_id, branch_id, name);
+      CREATE INDEX IF NOT EXISTS idx_refunds_merchant_order
+        ON refunds(merchant_id, order_id, created_at DESC);
+    `);
+  }
+
+  private roundMoney(value: number): number {
+    return Number(Number.isFinite(value) ? value.toFixed(2) : "0");
+  }
+
+  private normalizePosPayments(
+    rawPayments: unknown,
+    fallbackPaymentMethod: "cash" | "card" | "transfer",
+    requiredTotal: number,
+  ): Array<{
+    method: "cash" | "card" | "transfer";
+    amount: number;
+    reference?: string;
+    status: "PAID" | "PENDING";
+  }> {
+    const paymentsSource =
+      Array.isArray(rawPayments) && rawPayments.length > 0
+        ? rawPayments
+        : [
+            {
+              method: fallbackPaymentMethod,
+              amount: requiredTotal,
+            },
+          ];
+
+    const normalized: Array<{
+      method: "cash" | "card" | "transfer";
+      amount: number;
+      reference?: string;
+      status: "PAID" | "PENDING";
+    }> = paymentsSource.map((payment, index) => {
+      const method = this.normalizeManualPaymentMethod(
+        (payment as any)?.method || fallbackPaymentMethod,
+      );
+      const amount = this.roundMoney(Number((payment as any)?.amount || 0));
+      if (!Number.isFinite(amount) || amount < 0) {
+        throw new BadRequestException(
+          `payments[${index}].amount must be a non-negative number`,
+        );
+      }
+      return {
+        method,
+        amount,
+        reference:
+          String((payment as any)?.reference || "").trim() || undefined,
+        status: amount > 0 ? "PAID" : "PENDING",
+      };
+    });
+
+    if (normalized.length === 0) {
+      throw new BadRequestException("At least one payment entry is required");
+    }
+
+    return normalized;
+  }
+
+  private summarizePosPayments(
+    payments: Array<{
+      method: "cash" | "card" | "transfer";
+      amount: number;
+    }>,
+    requiredTotal: number,
+  ): {
+    orderPaymentMethod: "COD" | "CARD" | "BANK_TRANSFER" | "MIXED";
+    orderPaymentStatus: "PAID" | "PARTIALLY_PAID" | "PENDING";
+    totalPaid: number;
+  } {
+    const totalPaid = this.roundMoney(
+      payments.reduce((sum, payment) => sum + payment.amount, 0),
+    );
+    const paymentMethods = Array.from(
+      new Set(
+        payments.map((payment) => this.toOrderPaymentMethod(payment.method)),
+      ),
+    );
+    const orderPaymentMethod =
+      paymentMethods.length > 1
+        ? "MIXED"
+        : paymentMethods[0] || this.toOrderPaymentMethod("cash");
+
+    const orderPaymentStatus =
+      totalPaid >= requiredTotal - 0.009
+        ? "PAID"
+        : totalPaid > 0
+          ? "PARTIALLY_PAID"
+          : "PENDING";
+
+    return { orderPaymentMethod, orderPaymentStatus, totalPaid };
+  }
+
+  private async getCurrentOpenRegisterSession(
+    merchantId: string,
+    branchId: string,
+  ): Promise<{
+    id: string;
+    branch_id: string;
+    shift_id: string | null;
+    opening_float: string | null;
+    status: string;
+    opened_at: Date | null;
+  } | null> {
+    await this.ensurePosSchema();
+    const result = await this.pool.query<{
+      id: string;
+      branch_id: string;
+      shift_id: string | null;
+      opening_float: string | null;
+      status: string;
+      opened_at: Date | null;
+    }>(
+      `SELECT
+         id::text as id,
+         branch_id::text as branch_id,
+         NULLIF(shift_id::text, '') as shift_id,
+         opening_float::text as opening_float,
+         status,
+         opened_at
+       FROM pos_register_sessions
+       WHERE merchant_id = $1
+         AND branch_id::text = $2
+         AND status = 'OPEN'
+       ORDER BY opened_at DESC
+       LIMIT 1`,
+      [merchantId, branchId],
+    );
+    return result.rows[0] || null;
+  }
+
+  private async resolveRegisterSessionForCheckout(
+    merchantId: string,
+    branchId: string | null,
+    registerSessionId: string | undefined,
+    requireOpenRegister: boolean,
+  ): Promise<string | null> {
+    await this.ensurePosSchema();
+
+    if (registerSessionId) {
+      const result = await this.pool.query<{
+        id: string;
+        branch_id: string;
+        status: string;
+      }>(
+        `SELECT id::text as id, branch_id::text as branch_id, status
+         FROM pos_register_sessions
+         WHERE merchant_id = $1 AND id::text = $2
+         LIMIT 1`,
+        [merchantId, registerSessionId],
+      );
+      if (!result.rows.length) {
+        throw new NotFoundException("Register session not found");
+      }
+      const session = result.rows[0];
+      if (session.status !== "OPEN") {
+        throw new BadRequestException("Register session is not open");
+      }
+      if (branchId && session.branch_id !== branchId) {
+        throw new BadRequestException(
+          "Register session does not belong to the selected branch",
+        );
+      }
+      return session.id;
+    }
+
+    if (!branchId) {
+      if (requireOpenRegister) {
+        throw new BadRequestException(
+          "branchId is required when an active register session is required",
+        );
+      }
+      return null;
+    }
+
+    const current = await this.getCurrentOpenRegisterSession(
+      merchantId,
+      branchId,
+    );
+    if (!current && requireOpenRegister) {
+      throw new BadRequestException("An open register session is required");
+    }
+
+    return current?.id || null;
+  }
+
+  private async insertOrderPayments(
+    orderId: string,
+    merchantId: string,
+    payments: Array<{
+      method: "cash" | "card" | "transfer";
+      amount: number;
+      reference?: string;
+      status: "PAID" | "PENDING";
+    }>,
+    staffId?: string,
+  ): Promise<void> {
+    await this.ensurePosSchema();
+    for (const payment of payments) {
+      await this.pool.query(
+        `INSERT INTO order_payments (
+           merchant_id,
+           order_id,
+           method,
+           amount,
+           reference,
+           status,
+           collected_by,
+           metadata
+         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb)`,
+        [
+          merchantId,
+          orderId,
+          this.toOrderPaymentMethod(payment.method),
+          payment.amount,
+          payment.reference || null,
+          payment.status,
+          staffId || null,
+          JSON.stringify({ source: "cashier" }),
+        ],
+      );
+    }
+  }
+
+  private normalizePosDraftItems(rawItems: unknown): Array<{
+    catalogItemId?: string;
+    sku?: string;
+    name: string;
+    quantity: number;
+    unitPrice: number;
+    notes?: string;
+    lineTotal: number;
+  }> {
+    const items = Array.isArray(rawItems) ? rawItems : [];
+    if (items.length === 0) {
+      throw new BadRequestException("items must include at least one item");
+    }
+
+    return items.map((item, index) => {
+      const catalogItemId = String((item as any)?.catalogItemId || "").trim();
+      const sku = String((item as any)?.sku || "").trim();
+      const name = String((item as any)?.name || "").trim();
+      const quantity = Number((item as any)?.quantity);
+      const unitPrice = Number((item as any)?.unitPrice);
+
+      if (!catalogItemId && !name) {
+        throw new BadRequestException(
+          `items[${index}] must include catalogItemId or name`,
+        );
+      }
+      if (!Number.isFinite(quantity) || quantity <= 0) {
+        throw new BadRequestException(
+          `items[${index}].quantity must be a positive number`,
+        );
+      }
+      if (!Number.isFinite(unitPrice) || unitPrice < 0) {
+        throw new BadRequestException(
+          `items[${index}].unitPrice must be a non-negative number`,
+        );
+      }
+
+      return {
+        catalogItemId: catalogItemId || undefined,
+        sku: sku || undefined,
+        name: name || "منتج",
+        quantity,
+        unitPrice: this.roundMoney(unitPrice),
+        notes: String((item as any)?.notes || "").trim() || undefined,
+        lineTotal: this.roundMoney(quantity * unitPrice),
+      };
+    });
+  }
+
+  private computeDraftTotals(
+    items: Array<{ lineTotal: number }>,
+    discount: unknown,
+    taxTotal: unknown,
+    deliveryFee: unknown,
+  ) {
+    const subtotal = this.roundMoney(
+      items.reduce((sum, item) => sum + item.lineTotal, 0),
+    );
+    const safeDiscount = this.roundMoney(
+      Math.max(0, Math.min(this.toFiniteNumber(discount, 0), subtotal)),
+    );
+    const safeTax = this.roundMoney(
+      Math.max(0, this.toFiniteNumber(taxTotal, 0)),
+    );
+    const safeDeliveryFee = this.roundMoney(
+      Math.max(0, this.toFiniteNumber(deliveryFee, 0)),
+    );
+    const total = this.roundMoney(
+      subtotal - safeDiscount + safeTax + safeDeliveryFee,
+    );
+    return {
+      subtotal,
+      discount: safeDiscount,
+      taxTotal: safeTax,
+      deliveryFee: safeDeliveryFee,
+      total,
+    };
+  }
+
+  private mapPosDraftRow(row: any) {
+    const metadata = this.parseConfigObject(row?.metadata);
+    return {
+      id: String(row?.id || "").trim(),
+      branchId: row?.branch_id || null,
+      shiftId: row?.shift_id || null,
+      registerSessionId: row?.register_session_id || null,
+      customerId: row?.customer_id || null,
+      customerName: String(row?.customer_name || "").trim(),
+      customerPhone: String(row?.customer_phone || "").trim(),
+      serviceMode: this.normalizeManualDeliveryType(
+        row?.service_mode || "pickup",
+      ),
+      tableId: row?.table_id || null,
+      items: Array.isArray(row?.items) ? row.items : [],
+      discount: Number(row?.discount || 0),
+      notes: String(row?.notes || "").trim(),
+      paymentMethod:
+        String(row?.payment_method || "")
+          .trim()
+          .toUpperCase() === "CARD"
+          ? "card"
+          : String(row?.payment_method || "")
+                .trim()
+                .toUpperCase() === "BANK_TRANSFER"
+            ? "transfer"
+            : String(row?.payment_method || "")
+                  .trim()
+                  .toUpperCase() === "COD"
+              ? "cash"
+              : null,
+      payments: Array.isArray(row?.payments) ? row.payments : [],
+      subtotal: Number(row?.subtotal || 0),
+      taxTotal: Number(row?.tax_total || 0),
+      deliveryFee: Number(row?.delivery_fee || 0),
+      total: Number(row?.total || 0),
+      status: String(row?.status || "").trim() || "ACTIVE",
+      metadata,
+      checkedOutOrderId: row?.checked_out_order_id || null,
+      createdAt: row?.created_at || null,
+      updatedAt: row?.updated_at || null,
+    };
+  }
+
+  private async getPosDraftById(merchantId: string, draftId: string) {
+    await this.ensurePosSchema();
+    const result = await this.pool.query<any>(
+      `SELECT
+         id::text as id,
+         merchant_id,
+         branch_id::text as branch_id,
+         NULLIF(shift_id::text, '') as shift_id,
+         NULLIF(register_session_id::text, '') as register_session_id,
+         customer_id,
+         customer_name,
+         customer_phone,
+         service_mode,
+         NULLIF(table_id::text, '') as table_id,
+         items,
+         discount,
+         notes,
+         payment_method,
+         payments,
+         subtotal,
+         tax_total,
+         delivery_fee,
+         total,
+         status,
+         metadata,
+         created_by,
+         checked_out_order_id,
+         created_at,
+         updated_at
+       FROM pos_drafts
+       WHERE merchant_id = $1 AND id::text = $2
+       LIMIT 1`,
+      [merchantId, draftId],
+    );
+    if (!result.rows.length) {
+      throw new NotFoundException("POS draft not found");
+    }
+    return this.mapPosDraftRow(result.rows[0]);
+  }
+
+  private async setPosTableOccupancy(
+    merchantId: string,
+    tableId: string | null,
+    draftId: string | null,
+    status: "FREE" | "OCCUPIED" | "RESERVED" | "CLEANING",
+  ): Promise<void> {
+    if (!tableId) return;
+    await this.ensurePosSchema();
+    await this.pool.query(
+      `UPDATE pos_tables
+       SET current_draft_id = $3,
+           status = $4,
+           updated_at = NOW()
+       WHERE merchant_id = $1 AND id::text = $2`,
+      [merchantId, tableId, draftId, status],
+    );
+  }
+
+  private async handleStockForSpecifiedItems(
+    merchantId: string,
+    items: Array<{
+      catalog_item_id?: string;
+      sku?: string;
+      quantity: number;
+    }>,
+    operation: "DEDUCT" | "RESTORE",
+  ): Promise<number> {
+    let affected = 0;
+
+    for (const lineItem of items) {
+      if (lineItem.quantity <= 0) continue;
+
+      let catalogItemId = lineItem.catalog_item_id;
+      if (!catalogItemId && lineItem.sku) {
+        const lookup = await this.pool.query<{ id: string }>(
+          `SELECT id::text as id
+           FROM catalog_items
+           WHERE merchant_id = $1 AND sku = $2
+           LIMIT 1`,
+          [merchantId, lineItem.sku],
+        );
+        catalogItemId = lookup.rows[0]?.id;
+      }
+
+      let hasRecipe = false;
+      if (catalogItemId) {
+        const recipeCheck = await this.pool.query<{ has_recipe: boolean }>(
+          `SELECT has_recipe
+           FROM catalog_items
+           WHERE id = $1 AND merchant_id = $2`,
+          [catalogItemId, merchantId],
+        );
+        hasRecipe = recipeCheck.rows[0]?.has_recipe === true;
+      }
+
+      if (hasRecipe && catalogItemId) {
+        const recipe = await this.pool.query(
+          `SELECT ingredient_inventory_item_id, ingredient_name, quantity_required, unit, waste_factor
+           FROM item_recipes
+           WHERE catalog_item_id = $1 AND merchant_id = $2 AND is_optional = false
+           ORDER BY sort_order`,
+          [catalogItemId, merchantId],
+        );
+
+        for (const ing of recipe.rows) {
+          const totalQty =
+            parseFloat(ing.quantity_required) *
+            lineItem.quantity *
+            (parseFloat(ing.waste_factor) || 1);
+
+          if (ing.ingredient_inventory_item_id) {
+            const updateSql =
+              operation === "DEDUCT"
+                ? `UPDATE inventory_variants
+                   SET quantity_on_hand = GREATEST(0, quantity_on_hand - $1),
+                       updated_at = NOW()
+                   WHERE inventory_item_id = $2 AND merchant_id = $3 AND is_active = true`
+                : `UPDATE inventory_variants
+                   SET quantity_on_hand = quantity_on_hand + $1,
+                       updated_at = NOW()
+                   WHERE inventory_item_id = $2 AND merchant_id = $3 AND is_active = true`;
+            await this.pool.query(updateSql, [
+              Math.ceil(totalQty),
+              ing.ingredient_inventory_item_id,
+              merchantId,
+            ]);
+          }
+          affected++;
+        }
+        continue;
+      }
+
+      if (catalogItemId) {
+        await this.pool.query(
+          operation === "DEDUCT"
+            ? `UPDATE catalog_items
+               SET stock_quantity = GREATEST(0, COALESCE(stock_quantity, 0) - $1),
+                   updated_at = NOW()
+               WHERE id = $2 AND merchant_id = $3`
+            : `UPDATE catalog_items
+               SET stock_quantity = COALESCE(stock_quantity, 0) + $1,
+                   updated_at = NOW()
+               WHERE id = $2 AND merchant_id = $3`,
+          [lineItem.quantity, catalogItemId, merchantId],
+        );
+        affected++;
+      }
+    }
+
+    return affected;
+  }
+
   private async createUniquePortalOrderNumber(
     merchantId: string,
   ): Promise<string> {
@@ -328,6 +2972,7 @@ export class MerchantPortalController {
     merchantId: string,
     customerName: string,
     customerPhone: string,
+    customerId?: string | null,
   ): Promise<string> {
     const conversationId = `manual-${Date.now().toString(36)}-${Math.random()
       .toString(36)
@@ -337,6 +2982,7 @@ export class MerchantPortalController {
       `INSERT INTO conversations (
          id,
          merchant_id,
+         customer_id,
          sender_id,
          state,
          collected_info,
@@ -345,9 +2991,10 @@ export class MerchantPortalController {
        ) VALUES (
          $1,
          $2,
+         $3,
          'manual-portal',
          'ORDER_PLACED',
-         $3,
+         $4,
          NOW(),
          NOW()
        )
@@ -355,6 +3002,7 @@ export class MerchantPortalController {
       [
         conversationId,
         merchantId,
+        customerId || null,
         JSON.stringify({
           customerName,
           phone: customerPhone,
@@ -364,6 +3012,351 @@ export class MerchantPortalController {
     );
 
     return conversationId;
+  }
+
+  private normalizePortalOrderPhone(raw: unknown): string | null {
+    const phone = String(raw || "").trim();
+    if (!phone || phone === "0000000000") {
+      return null;
+    }
+    return phone;
+  }
+
+  private normalizePortalOrderCustomerName(raw: unknown): string | null {
+    const name = String(raw || "").trim();
+    if (!name || name === "عميل نقدي") {
+      return null;
+    }
+    return name;
+  }
+
+  private async updatePortalOrderCustomer(
+    merchantId: string,
+    customerId: string,
+    patch: { name?: string | null; phone?: string | null },
+  ): Promise<{ id: string; name: string | null; phone: string | null }> {
+    const updates: string[] = [];
+    const values: Array<string | null> = [];
+
+    if (patch.name) {
+      updates.push(`name = $${values.length + 1}`);
+      values.push(patch.name);
+    }
+
+    if (patch.phone) {
+      updates.push(`phone = $${values.length + 1}`);
+      values.push(patch.phone);
+    }
+
+    if (updates.length > 0) {
+      values.push(customerId, merchantId);
+      await this.pool.query(
+        `UPDATE customers
+         SET ${updates.join(", ")}, updated_at = NOW(), last_interaction_at = NOW()
+         WHERE id::text = $${values.length - 1} AND merchant_id = $${values.length}`,
+        values,
+      );
+    }
+
+    const refreshed = await this.pool.query<{
+      id: string;
+      name: string | null;
+      phone: string | null;
+    }>(
+      `SELECT
+         id::text as id,
+         NULLIF(TRIM(COALESCE(name, '')), '') as name,
+         NULLIF(TRIM(COALESCE(phone, '')), '') as phone
+       FROM customers
+       WHERE merchant_id = $1 AND id::text = $2
+       LIMIT 1`,
+      [merchantId, customerId],
+    );
+
+    return (
+      refreshed.rows[0] || {
+        id: customerId,
+        name: patch.name || null,
+        phone: patch.phone || null,
+      }
+    );
+  }
+
+  private async resolvePortalOrderCustomer(
+    merchantId: string,
+    input: {
+      customerId?: string;
+      customerName?: string | null;
+      customerPhone?: string | null;
+    },
+  ): Promise<{ id: string; name: string | null; phone: string | null } | null> {
+    const requestedCustomerId = String(input.customerId || "").trim();
+    const normalizedName = this.normalizePortalOrderCustomerName(
+      input.customerName,
+    );
+    const normalizedPhone = this.normalizePortalOrderPhone(input.customerPhone);
+    const phoneDigits = normalizedPhone
+      ? normalizedPhone.replace(/[^0-9]+/g, "")
+      : "";
+
+    if (requestedCustomerId) {
+      const byId = await this.pool.query<{
+        id: string;
+        name: string | null;
+        phone: string | null;
+      }>(
+        `SELECT
+           id::text as id,
+           NULLIF(TRIM(COALESCE(name, '')), '') as name,
+           NULLIF(TRIM(COALESCE(phone, '')), '') as phone
+         FROM customers
+         WHERE merchant_id = $1 AND id::text = $2
+         LIMIT 1`,
+        [merchantId, requestedCustomerId],
+      );
+
+      if (byId.rows.length > 0) {
+        const customer = byId.rows[0];
+        return this.updatePortalOrderCustomer(merchantId, customer.id, {
+          name: !customer.name && normalizedName ? normalizedName : null,
+          phone: !customer.phone && normalizedPhone ? normalizedPhone : null,
+        });
+      }
+    }
+
+    if (!normalizedPhone) {
+      return null;
+    }
+
+    const byPhone = await this.pool.query<{
+      id: string;
+      name: string | null;
+      phone: string | null;
+    }>(
+      `SELECT
+         id::text as id,
+         NULLIF(TRIM(COALESCE(name, '')), '') as name,
+         NULLIF(TRIM(COALESCE(phone, '')), '') as phone
+       FROM customers
+       WHERE merchant_id = $1
+         AND (
+           phone = $2
+           OR regexp_replace(COALESCE(phone, ''), '[^0-9]+', '', 'g') = $3
+         )
+       ORDER BY updated_at DESC NULLS LAST, created_at DESC
+       LIMIT 1`,
+      [merchantId, normalizedPhone, phoneDigits],
+    );
+
+    if (byPhone.rows.length > 0) {
+      const customer = byPhone.rows[0];
+      return this.updatePortalOrderCustomer(merchantId, customer.id, {
+        name: !customer.name && normalizedName ? normalizedName : null,
+        phone: customer.phone ? null : normalizedPhone,
+      });
+    }
+
+    const inserted = await this.pool.query<{
+      id: string;
+      name: string | null;
+      phone: string | null;
+    }>(
+      `INSERT INTO customers (
+         merchant_id,
+         sender_id,
+         phone,
+         name,
+         preferences,
+         last_interaction_at
+       ) VALUES (
+         $1,
+         $2,
+         $3,
+         $4,
+         '{}'::jsonb,
+         NOW()
+       )
+       ON CONFLICT (merchant_id, sender_id)
+       DO UPDATE SET
+         phone = COALESCE(customers.phone, EXCLUDED.phone),
+         name = COALESCE(NULLIF(customers.name, ''), EXCLUDED.name),
+         updated_at = NOW(),
+         last_interaction_at = NOW()
+       RETURNING
+         id::text as id,
+         NULLIF(TRIM(COALESCE(name, '')), '') as name,
+         NULLIF(TRIM(COALESCE(phone, '')), '') as phone`,
+      [merchantId, normalizedPhone, normalizedPhone, normalizedName],
+    );
+
+    return inserted.rows[0] || null;
+  }
+
+  private async resolvePortalOrderBranchContext(
+    merchantId: string,
+    input: { branchId?: string; shiftId?: string },
+  ): Promise<{ branchId: string | null; shiftId: string | null }> {
+    const branchId = String(input.branchId || "").trim();
+    const shiftId = String(input.shiftId || "").trim();
+
+    if (!branchId && !shiftId) {
+      return { branchId: null, shiftId: null };
+    }
+
+    if (branchId) {
+      const branchCheck = await this.pool.query<{ id: string }>(
+        `SELECT id::text as id
+         FROM merchant_branches
+         WHERE merchant_id = $1 AND id::text = $2
+         LIMIT 1`,
+        [merchantId, branchId],
+      );
+      if (!branchCheck.rows.length) {
+        throw new NotFoundException("Branch not found");
+      }
+    }
+
+    if (!shiftId) {
+      return { branchId, shiftId: null };
+    }
+
+    const shiftCheck = await this.pool.query<{
+      id: string;
+      branch_id: string;
+    }>(
+      `SELECT
+         id::text as id,
+         branch_id::text as branch_id
+       FROM branch_shifts
+       WHERE merchant_id = $1 AND id::text = $2
+       LIMIT 1`,
+      [merchantId, shiftId],
+    );
+
+    if (!shiftCheck.rows.length) {
+      throw new NotFoundException("Shift not found");
+    }
+
+    const shift = shiftCheck.rows[0];
+    if (branchId && shift.branch_id !== branchId) {
+      throw new BadRequestException(
+        "Shift does not belong to the selected branch",
+      );
+    }
+
+    return {
+      branchId: branchId || shift.branch_id || null,
+      shiftId: shift.id,
+    };
+  }
+
+  private async insertOrderItemsCompat(
+    orderId: string,
+    merchantId: string,
+    items: Array<{
+      catalogItemId?: string;
+      sku?: string;
+      name: string;
+      quantity: number;
+      unitPrice: number;
+      notes?: string;
+      lineTotal: number;
+    }>,
+  ): Promise<void> {
+    for (const item of items) {
+      try {
+        await this.pool.query(
+          `INSERT INTO order_items (
+             order_id,
+             catalog_item_id,
+             name,
+             sku,
+             quantity,
+             unit_price,
+             total_price,
+             notes,
+             metadata
+           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+          [
+            orderId,
+            item.catalogItemId || null,
+            item.name,
+            item.sku || null,
+            item.quantity,
+            item.unitPrice,
+            item.lineTotal,
+            item.notes || null,
+            JSON.stringify({ source: "portal_manual_order" }),
+          ],
+        );
+        continue;
+      } catch (error: any) {
+        const code = String(error?.code || "");
+        if (code === "42P01") {
+          this.logger.warn(
+            "order_items table is missing; skipping line inserts",
+          );
+          return;
+        }
+        if (code !== "42703") {
+          throw error;
+        }
+      }
+
+      try {
+        await this.pool.query(
+          `INSERT INTO order_items (
+             order_id,
+             catalog_item_id,
+             name,
+             sku,
+             quantity,
+             unit_price,
+             total_price
+           ) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+          [
+            orderId,
+            item.catalogItemId || null,
+            item.name,
+            item.sku || null,
+            item.quantity,
+            item.unitPrice,
+            item.lineTotal,
+          ],
+        );
+        continue;
+      } catch (error: any) {
+        const code = String(error?.code || "");
+        if (code === "42P01") {
+          this.logger.warn(
+            "order_items table is missing; skipping line inserts",
+          );
+          return;
+        }
+        if (code !== "42703") {
+          throw error;
+        }
+      }
+
+      await this.pool.query(
+        `INSERT INTO order_items (
+           order_id,
+           merchant_id,
+           product_name,
+           quantity,
+           unit_price,
+           total_price
+         ) VALUES ($1, $2, $3, $4, $5, $6)`,
+        [
+          orderId,
+          merchantId,
+          item.name,
+          item.quantity,
+          item.unitPrice,
+          item.lineTotal,
+        ],
+      );
+    }
   }
 
   private toFiniteNumber(value: unknown, fallback = 0): number {
@@ -978,80 +3971,26 @@ export class MerchantPortalController {
     };
 
     const toOrderDate = (order: {
-      created_at?: Date | string | null;
+      createdAt?: Date | string | null;
     }): Date | null => {
-      const raw = order?.created_at;
+      const raw = order?.createdAt;
       if (!raw) return null;
       const parsed = new Date(raw);
       return Number.isNaN(parsed.getTime()) ? null : parsed;
     };
 
-    const normalizeStatus = (status: string | null | undefined) =>
-      String(status || "")
-        .trim()
-        .toUpperCase();
-    const isDraftStatus = (status: string) =>
-      normalizeStatus(status) === "DRAFT";
-    const isCancelledStatus = (status: string) =>
-      ["CANCELLED", "RETURNED", "FAILED"].includes(normalizeStatus(status));
-    const isCompletedStatus = (status: string) =>
-      ["DELIVERED", "COMPLETED"].includes(normalizeStatus(status));
-    const isInProgressStatus = (status: string) =>
-      ["BOOKED", "SHIPPED", "OUT_FOR_DELIVERY"].includes(
-        normalizeStatus(status),
-      );
-    const isPendingStatus = (status: string) =>
-      !isDraftStatus(status) &&
-      !isCancelledStatus(status) &&
-      !isCompletedStatus(status) &&
-      !isInProgressStatus(status);
-
-    const percentChange = (current: number, previous: number): number => {
-      if (previous === 0) return current > 0 ? 100 : 0;
-      return ((current - previous) / previous) * 100;
-    };
-
     const pad2 = (value: number) => String(value).padStart(2, "0");
     const dateKey = (value: Date): string =>
       `${value.getFullYear()}-${pad2(value.getMonth() + 1)}-${pad2(value.getDate())}`;
-
-    const ordersResult = await this.pool.query<{
-      id: string;
-      order_data: Record<string, any>;
-    }>(
-      `SELECT
-         o.id::text as id,
-         to_jsonb(o) as order_data
-       FROM orders o
-       WHERE o.merchant_id = $1
-         AND o.created_at >= $2
-         AND o.created_at <= $3
-       ORDER BY o.created_at DESC`,
-      [merchantId, previousPeriodStart, periodEnd],
-    );
-
-    const allOrders = ordersResult.rows.map((row) => {
-      const o = row.order_data || {};
-      const numericTotal = Number(o.total);
-      return {
-        id: row.id,
-        orderNumber: String(o.order_number || o.orderNumber || row.id),
-        customerName: String(o.customer_name || o.customerName || "عميل"),
-        total: Number.isFinite(numericTotal) ? numericTotal : 0,
-        status: String(o.status || ""),
-        created_at: (o.created_at || o.createdAt || null) as
-          | Date
-          | string
-          | null,
-        paymentMethod: String(o.payment_method || o.paymentMethod || ""),
-        paymentStatus: String(o.payment_status || o.paymentStatus || ""),
-        deliveryFailureReason:
-          o.delivery_failure_reason || o.deliveryFailureReason || null,
-        cancelReason: o.cancel_reason || o.cancelReason || null,
-        cancellationReason:
-          o.cancellation_reason || o.cancellationReason || null,
-      };
-    });
+    const [allOrders, currentSnapshot, previousSnapshot] = await Promise.all([
+      this.loadPortalReportedOrders(merchantId, previousPeriodStart, periodEnd),
+      this.buildPortalFinanceSnapshot(merchantId, periodStart, periodEnd),
+      this.buildPortalFinanceSnapshot(
+        merchantId,
+        previousPeriodStart,
+        previousPeriodEnd,
+      ),
+    ]);
 
     // Fetch conversations for activity stat
     const allConversations = await this.pool.query(
@@ -1069,25 +4008,15 @@ export class MerchantPortalController {
     const previousOrders = allOrders.filter((o: any) =>
       isWithinRange(toOrderDate(o), previousPeriodStart, previousPeriodEnd),
     );
-
     const countedCurrent = currentOrders.filter(
-      (o: any) => !isDraftStatus(o.status),
+      (o: PortalReportedOrder) => !this.isPortalDraftOrder(o.status),
     );
-    const countedPrevious = previousOrders.filter(
-      (o: any) => !isDraftStatus(o.status),
-    );
-
-    const totalOrders = countedCurrent.length;
-    const previousTotalOrders = countedPrevious.length;
-    const ordersChange = percentChange(totalOrders, previousTotalOrders);
-
-    const currentRevenue = countedCurrent
-      .filter((o: any) => isCompletedStatus(o.status))
-      .reduce((sum: number, o: any) => sum + Number(o.total || 0), 0);
-    const previousRevenue = countedPrevious
-      .filter((o: any) => isCompletedStatus(o.status))
-      .reduce((sum: number, o: any) => sum + Number(o.total || 0), 0);
-    const revenueChange = percentChange(currentRevenue, previousRevenue);
+    const totalOrders = currentSnapshot.totalOrders;
+    const previousTotalOrders = previousSnapshot.totalOrders;
+    const ordersChange = this.roundPercent(totalOrders, previousTotalOrders);
+    const currentRevenue = currentSnapshot.realizedRevenue;
+    const previousRevenue = previousSnapshot.realizedRevenue;
+    const revenueChange = this.roundPercent(currentRevenue, previousRevenue);
 
     const activeConversations = allConversations.rows.filter((c: any) => {
       const state = String(c.state || "").toUpperCase();
@@ -1109,18 +4038,20 @@ export class MerchantPortalController {
         );
       },
     ).length;
-    const conversationsChange = percentChange(
+    const conversationsChange = this.roundPercent(
       activeConversations,
       previousActiveConversations,
     );
 
-    const pendingDeliveries = countedCurrent.filter((o: any) =>
-      isInProgressStatus(o.status),
+    const pendingDeliveries = countedCurrent.filter((o: PortalReportedOrder) =>
+      this.isPortalInProgressOrder(o.status),
     ).length;
-    const previousPendingDeliveries = countedPrevious.filter((o: any) =>
-      isInProgressStatus(o.status),
+    const previousPendingDeliveries = previousOrders.filter(
+      (o: PortalReportedOrder) =>
+        !this.isPortalDraftOrder(o.status) &&
+        this.isPortalInProgressOrder(o.status),
     ).length;
-    const deliveriesChange = percentChange(
+    const deliveriesChange = this.roundPercent(
       pendingDeliveries,
       previousPendingDeliveries,
     );
@@ -1144,17 +4075,17 @@ export class MerchantPortalController {
       });
     }
 
-    countedCurrent.forEach((o: any) => {
+    countedCurrent.forEach((o: PortalReportedOrder) => {
       const createdAt = toOrderDate(o);
       if (!createdAt) return;
       const key = dateKey(createdAt);
       const bucket = byDay.get(key);
       if (!bucket) return;
 
-      if (isCompletedStatus(o.status)) {
-        bucket.revenue += Number(o.total || 0);
+      if (this.isPortalCompletedOrder(o.status)) {
+        bucket.revenue += Number(o.realizedAmount || 0);
         bucket.completed += 1;
-      } else if (isCancelledStatus(o.status)) {
+      } else if (this.isPortalCancelledOrder(o.status)) {
         bucket.cancelled += 1;
       } else {
         bucket.pending += 1;
@@ -1174,15 +4105,15 @@ export class MerchantPortalController {
     }));
 
     const distribution = {
-      completed: countedCurrent.filter((o: any) => isCompletedStatus(o.status))
-        .length,
-      inDelivery: countedCurrent.filter((o: any) =>
-        isInProgressStatus(o.status),
+      completed: currentSnapshot.deliveredOrders,
+      inDelivery: pendingDeliveries,
+      pending: countedCurrent.filter(
+        (o: PortalReportedOrder) =>
+          !this.isPortalCancelledOrder(o.status) &&
+          !this.isPortalCompletedOrder(o.status) &&
+          !this.isPortalInProgressOrder(o.status),
       ).length,
-      pending: countedCurrent.filter((o: any) => isPendingStatus(o.status))
-        .length,
-      cancelled: countedCurrent.filter((o: any) => isCancelledStatus(o.status))
-        .length,
+      cancelled: currentSnapshot.cancelledOrders,
     };
     const statusDistribution = [
       { name: "مكتمل", value: distribution.completed, color: "#22c55e" },
@@ -1198,7 +4129,7 @@ export class MerchantPortalController {
         return bDate - aDate;
       })
       .slice(0, 5)
-      .map((o: any) => ({
+      .map((o: PortalReportedOrder) => ({
         id: o.orderNumber || o.id,
         customer: o.customerName || "عميل",
         total: Number(o.total || 0),
@@ -1230,20 +4161,12 @@ export class MerchantPortalController {
       // optional table in some environments
     }
 
-    const cancelledOrders = countedCurrent.filter((o: any) =>
-      isCancelledStatus(o.status),
+    const cancelledOrders = countedCurrent.filter((o: PortalReportedOrder) =>
+      this.isPortalCancelledOrder(o.status),
     );
     const failureReasonCounts = new Map<string, number>();
-    cancelledOrders.forEach((order: any) => {
-      const rawReason =
-        order?.deliveryFailureReason ||
-        order?.delivery_failure_reason ||
-        order?.cancelReason ||
-        order?.cancel_reason ||
-        order?.cancellationReason ||
-        order?.cancellation_reason ||
-        "غير محدد";
-      const reason = String(rawReason || "غير محدد");
+    cancelledOrders.forEach((order: PortalReportedOrder) => {
+      const reason = "غير محدد";
       failureReasonCounts.set(
         reason,
         (failureReasonCounts.get(reason) || 0) + 1,
@@ -1254,36 +4177,14 @@ export class MerchantPortalController {
       .sort((a, b) => b.count - a.count)
       .slice(0, 5);
 
-    let expensesTotal = 0;
-    try {
-      const expensesResult = await this.pool.query<{ total: string }>(
-        `SELECT COALESCE(SUM(amount), 0)::text as total
-         FROM expenses e
-         WHERE e.merchant_id = $1
-           AND COALESCE(NULLIF(to_jsonb(e)->>'expense_date', '')::timestamp, e.created_at) >= $2
-           AND COALESCE(NULLIF(to_jsonb(e)->>'expense_date', '')::timestamp, e.created_at) <= $3`,
-        [merchantId, periodStart, periodEnd],
-      );
-      expensesTotal = Number(expensesResult.rows[0]?.total || 0);
-    } catch {
-      // optional table in some environments
-    }
-
-    const codPending = countedCurrent
-      .filter(
-        (o: any) =>
-          String(o.paymentMethod || o.payment_method || "").toUpperCase() ===
-          "COD",
-      )
-      .filter(
-        (o: any) =>
-          String(o.paymentStatus || o.payment_status || "").toUpperCase() !==
-          "PAID",
-      )
-      .filter((o: any) => !isCancelledStatus(o.status))
-      .reduce((sum: number, o: any) => sum + Number(o.total || 0), 0);
-
-    const profitEstimate = currentRevenue - expensesTotal;
+    const expensesTotal = currentSnapshot.totalExpenses;
+    const refundsAmount = currentSnapshot.refundsAmount;
+    const codPending = currentSnapshot.pendingCod;
+    const pendingCollections = currentSnapshot.pendingCollections;
+    const pendingOnline = currentSnapshot.pendingOnline;
+    const deliveredRevenue = currentSnapshot.deliveredRevenue;
+    const bookedSales = currentSnapshot.bookedSales;
+    const profitEstimate = currentSnapshot.netCashFlow;
     const grossMargin =
       currentRevenue > 0 ? (profitEstimate / currentRevenue) * 100 : 0;
 
@@ -1297,6 +4198,10 @@ export class MerchantPortalController {
         totalOrders,
         ordersChange: Math.round(ordersChange * 10) / 10,
         totalRevenue: Math.round(currentRevenue * 100) / 100,
+        realizedRevenue: Math.round(currentRevenue * 100) / 100,
+        bookedSales: Math.round(bookedSales * 100) / 100,
+        deliveredRevenue: Math.round(deliveredRevenue * 100) / 100,
+        pendingCollections: Math.round(pendingCollections * 100) / 100,
         revenueChange: Math.round(revenueChange * 10) / 10,
         activeConversations,
         conversationsChange: Math.round(conversationsChange * 10) / 10,
@@ -1316,6 +4221,11 @@ export class MerchantPortalController {
         financeSummary: {
           profitEstimate: Math.round(profitEstimate * 100) / 100,
           codPending: Math.round(codPending * 100) / 100,
+          pendingCollections: Math.round(pendingCollections * 100) / 100,
+          pendingOnline: Math.round(pendingOnline * 100) / 100,
+          bookedSales: Math.round(bookedSales * 100) / 100,
+          deliveredRevenue: Math.round(deliveredRevenue * 100) / 100,
+          refundsAmount: Math.round(refundsAmount * 100) / 100,
           spendingAlert: expensesTotal > currentRevenue && expensesTotal > 0,
           grossMargin: Math.round(grossMargin * 10) / 10,
         },
@@ -1677,6 +4587,10 @@ export class MerchantPortalController {
         "source",
       ],
       properties: {
+        branchId: { type: "string" },
+        shiftId: { type: "string" },
+        registerSessionId: { type: "string" },
+        tableId: { type: "string" },
         customerName: { type: "string" },
         customerPhone: { type: "string" },
         items: {
@@ -1702,6 +4616,25 @@ export class MerchantPortalController {
           type: "string",
           enum: ["cash", "card", "transfer"],
         },
+        payments: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              method: {
+                type: "string",
+                enum: ["cash", "card", "transfer"],
+              },
+              amount: { type: "number" },
+              reference: { type: "string" },
+            },
+          },
+        },
+        serviceMode: {
+          type: "string",
+          enum: ["delivery", "pickup", "dine_in"],
+        },
+        taxTotal: { type: "number" },
         notes: { type: "string" },
         source: {
           type: "string",
@@ -1714,8 +4647,13 @@ export class MerchantPortalController {
     @Req() req: Request,
     @Body()
     body: {
-      customerName: string;
-      customerPhone: string;
+      customerId?: string;
+      branchId?: string;
+      shiftId?: string;
+      registerSessionId?: string;
+      tableId?: string;
+      customerName?: string;
+      customerPhone?: string;
       items: Array<{
         catalogItemId?: string;
         sku?: string;
@@ -1724,24 +4662,24 @@ export class MerchantPortalController {
         unitPrice: number;
         notes?: string;
       }>;
+      payments?: Array<{
+        method: "cash" | "card" | "transfer";
+        amount: number;
+        reference?: string;
+      }>;
+      serviceMode?: "delivery" | "pickup" | "dine_in";
       deliveryType: "delivery" | "pickup" | "dine_in";
       deliveryAddress?: string;
       paymentMethod: "cash" | "card" | "transfer";
+      discount?: number;
+      taxTotal?: number;
       notes?: string;
       source: "manual" | "manual_button" | "cashier" | "calls";
     },
   ): Promise<any> {
+    await this.ensurePosSchema();
     const merchantId = this.getMerchantId(req);
-    const customerName = String(body?.customerName || "").trim();
-    const customerPhone = String(body?.customerPhone || "").trim();
-
-    if (!customerName) {
-      throw new BadRequestException("customerName is required");
-    }
-    if (!customerPhone) {
-      throw new BadRequestException("customerPhone is required");
-    }
-
+    const staffId = this.getSafeStaffId(req);
     const source = String(body?.source || "")
       .trim()
       .toLowerCase();
@@ -1755,16 +4693,57 @@ export class MerchantPortalController {
 
     const sourceChannel = source === "manual" ? "manual_button" : source;
 
-    const deliveryType = this.normalizeManualDeliveryType(body?.deliveryType);
+    const deliveryType = this.normalizeManualDeliveryType(
+      body?.serviceMode || body?.deliveryType,
+    );
     const paymentMethod = this.normalizeManualPaymentMethod(
       body?.paymentMethod,
     );
-    const paymentMethodDb = this.toOrderPaymentMethod(paymentMethod);
+    const branchContext = await this.resolvePortalOrderBranchContext(
+      merchantId,
+      {
+        branchId: body?.branchId,
+        shiftId: body?.shiftId,
+      },
+    );
+    const merchant = await this.merchantRepo.findById(merchantId);
+    const posSettings = this.getMerchantPosSettings(merchant);
+    const registerSessionId =
+      source === "cashier"
+        ? await this.resolveRegisterSessionForCheckout(
+            merchantId,
+            branchContext.branchId,
+            String(body?.registerSessionId || "").trim() || undefined,
+            posSettings.requireActiveRegisterSession,
+          )
+        : null;
     const deliveryAddressText = String(body?.deliveryAddress || "").trim();
     if (deliveryType === "delivery" && !deliveryAddressText) {
       throw new BadRequestException(
         "deliveryAddress is required when deliveryType is 'delivery'",
       );
+    }
+
+    const resolvedCustomer = await this.resolvePortalOrderCustomer(merchantId, {
+      customerId: String(body?.customerId || "").trim() || undefined,
+      customerName: body?.customerName,
+      customerPhone: body?.customerPhone,
+    });
+
+    const customerName =
+      resolvedCustomer?.name ||
+      String(body?.customerName || "").trim() ||
+      (source === "cashier" ? "عميل نقدي" : "");
+    const customerPhone =
+      resolvedCustomer?.phone ||
+      this.normalizePortalOrderPhone(body?.customerPhone) ||
+      "";
+
+    if (!customerName) {
+      throw new BadRequestException("customerName is required");
+    }
+    if (!customerPhone && source !== "cashier") {
+      throw new BadRequestException("customerPhone is required");
     }
 
     const rawItems = Array.isArray(body?.items) ? body.items : [];
@@ -1815,10 +4794,47 @@ export class MerchantPortalController {
     const subtotal = Number(
       normalizedItems.reduce((sum, item) => sum + item.lineTotal, 0).toFixed(2),
     );
+    const discount = Number(
+      Math.max(
+        0,
+        Math.min(this.toFiniteNumber(body?.discount, 0), subtotal),
+      ).toFixed(2),
+    );
+    const taxTotal = Number(
+      Math.max(0, this.toFiniteNumber(body?.taxTotal, 0)).toFixed(2),
+    );
     const deliveryFee = 0;
-    const total = Number((subtotal + deliveryFee).toFixed(2));
+    const total = Number(
+      (subtotal - discount + taxTotal + deliveryFee).toFixed(2),
+    );
+    const normalizedPayments = this.normalizePosPayments(
+      body?.payments,
+      paymentMethod,
+      total,
+    );
+    const paymentSummary =
+      source === "cashier"
+        ? this.summarizePosPayments(normalizedPayments, total)
+        : {
+            orderPaymentMethod: this.toOrderPaymentMethod(paymentMethod),
+            orderPaymentStatus: "PENDING" as const,
+            totalPaid: 0,
+          };
+    if (source === "cashier" && paymentSummary.totalPaid < total - 0.009) {
+      throw new BadRequestException(
+        "Collected payment total must cover the full order amount",
+      );
+    }
+    const initialOrderStatus =
+      source === "cashier"
+        ? deliveryType === "delivery"
+          ? "CONFIRMED"
+          : "DELIVERED"
+        : "DRAFT";
+    const initialPaymentStatus = paymentSummary.orderPaymentStatus;
     const orderNumber = await this.createUniquePortalOrderNumber(merchantId);
     const orderNotes = String(body?.notes || "").trim() || null;
+    const tableId = String(body?.tableId || "").trim() || null;
 
     const deliveryAddressPayload =
       deliveryType === "delivery"
@@ -1841,11 +4857,16 @@ export class MerchantPortalController {
            merchant_id,
            conversation_id,
            customer_id,
+           branch_id,
+           shift_id,
+           register_session_id,
+           table_id,
            order_number,
            status,
            items,
            subtotal,
            discount,
+           tax_total,
            delivery_fee,
            total,
            customer_name,
@@ -1860,12 +4881,9 @@ export class MerchantPortalController {
          ) VALUES (
            $1,
            $2,
-           NULL,
            $3,
-           'DRAFT',
            $4,
            $5,
-           0,
            $6,
            $7,
            $8,
@@ -1874,27 +4892,44 @@ export class MerchantPortalController {
            $11,
            $12,
            $13,
-           'PENDING',
            $14,
-           NOW()
+           $15,
+           $16,
+           $17,
+           $18,
+           $19,
+           $20,
+           $21,
+           $22,
+           $23,
+            NOW()
          )
          RETURNING id::text as id, order_number, status::text as status, total::text as total, created_at, updated_at`,
         [
           merchantId,
           conversationId,
+          resolvedCustomer?.id || null,
+          branchContext.branchId,
+          branchContext.shiftId,
+          registerSessionId,
+          tableId,
           orderNumber,
+          initialOrderStatus,
           JSON.stringify(normalizedItems),
           subtotal,
+          discount,
+          taxTotal,
           deliveryFee,
           total,
           customerName,
-          customerPhone,
+          customerPhone || null,
           deliveryAddressPayload
             ? JSON.stringify(deliveryAddressPayload)
             : null,
           orderNotes,
           deliveryType.toUpperCase(),
-          paymentMethodDb,
+          paymentSummary.orderPaymentMethod,
+          initialPaymentStatus,
           sourceChannel,
         ],
       );
@@ -1911,6 +4946,7 @@ export class MerchantPortalController {
             merchantId,
             customerName,
             customerPhone,
+            resolvedCustomer?.id || null,
           );
         created = await insertOrder(fallbackConversationId);
       } else {
@@ -1919,18 +4955,57 @@ export class MerchantPortalController {
     }
 
     const row = created.rows[0];
+    await this.insertOrderItemsCompat(row.id, merchantId, normalizedItems);
+    await this.insertOrderPayments(
+      row.id,
+      merchantId,
+      normalizedPayments,
+      staffId,
+    );
+
+    if (source === "cashier") {
+      try {
+        const deducted = await this.handleStockForOrder(
+          row.id,
+          merchantId,
+          "DEDUCT",
+        );
+        await this.pool.query(
+          `UPDATE orders SET stock_deducted = true WHERE id = $1`,
+          [row.id],
+        );
+        this.logger.log(
+          `[STOCK] Frozen stock for cashier order ${row.id} (${deducted} items deducted)`,
+        );
+      } catch (stockErr) {
+        this.logger.error(
+          `[STOCK] Failed to freeze stock for cashier order ${row.id}: ${stockErr}`,
+        );
+      }
+    }
 
     return {
       id: row.id,
       orderNumber: row.order_number,
       status: row.status,
+      customerId: resolvedCustomer?.id || null,
+      subtotal,
+      discount,
       total: Number(row.total || 0),
       customerName,
       customerPhone,
       items: normalizedItems,
       deliveryType,
+      registerSessionId,
+      tableId,
       deliveryAddress: deliveryAddressText || null,
-      paymentMethod,
+      paymentMethod:
+        paymentSummary.orderPaymentMethod === "MIXED" ? "mixed" : paymentMethod,
+      paymentStatus: initialPaymentStatus,
+      branchId: branchContext.branchId,
+      shiftId: branchContext.shiftId,
+      taxTotal,
+      payments: normalizedPayments,
       notes: orderNotes,
       source: sourceChannel,
       createdAt: row.created_at,
@@ -2040,6 +5115,7 @@ export class MerchantPortalController {
         o.delivery_address,
         o.delivery_notes,
         o.delivery_preference,
+        COALESCE(o.payment_status, 'PENDING') as payment_status,
         o.created_at,
         o.updated_at,
         COALESCE(NULLIF(to_jsonb(o)->>'source_channel', ''), 'whatsapp') as source_channel
@@ -2069,6 +5145,7 @@ export class MerchantPortalController {
       delivery_address: unknown;
       delivery_notes: string | null;
       delivery_preference: string | null;
+      payment_status: string | null;
       created_at: Date;
       updated_at: Date;
       source_channel: string | null;
@@ -2091,6 +5168,7 @@ export class MerchantPortalController {
       deliveryAddress: order.delivery_address,
       deliveryNotes: order.delivery_notes || undefined,
       deliveryPreference: order.delivery_preference || undefined,
+      paymentStatus: order.payment_status || undefined,
       createdAt: order.created_at,
       updatedAt: order.updated_at,
     }));
@@ -3150,16 +6228,32 @@ export class MerchantPortalController {
       PLAN_ENTITLEMENTS[String(plan).toUpperCase() as PlanType];
 
     // Default entitlements if not set
-    const enabledAgents = planAgents ||
+    const enabledAgents =
+      planAgents ||
       merchantAgents ||
-      planEntitlements?.enabledAgents || ["OPS_AGENT"];
-    const enabledFeatures = planFeatures ||
+      planEntitlements?.enabledAgents ||
+      PLAN_ENTITLEMENTS.STARTER.enabledAgents;
+    const baseEnabledFeatures =
+      planFeatures ||
       merchantFeatures ||
-      planEntitlements?.enabledFeatures || [
-        "CONVERSATIONS",
-        "ORDERS",
-        "CATALOG",
-      ];
+      planEntitlements?.enabledFeatures ||
+      PLAN_ENTITLEMENTS.STARTER.enabledFeatures;
+    const merchantPlanLimits = parseJsonObject(merchantData.plan_limits);
+    const merchantLimits =
+      Object.keys(merchantPlanLimits).length > 0
+        ? merchantPlanLimits
+        : parseJsonObject(merchantData.limits);
+    const cashierProvisioning = resolveCashierProvisioning({
+      planCode: subscription?.plan_code || merchantData.plan,
+      enabledFeatures: baseEnabledFeatures,
+      limits:
+        (subscription?.limits && typeof subscription.limits === "object"
+          ? subscription.limits
+          : merchantLimits) || {},
+      existingFeatures: merchantFeatures || [],
+      existingLimits: merchantLimits,
+    });
+    const enabledFeatures = cashierProvisioning.enabledFeatures;
 
     const config = parseJsonObject(merchantData.config);
     const createdAtValue = merchantData.created_at || merchantData.createdAt;
@@ -3197,6 +6291,14 @@ export class MerchantPortalController {
         voiceNotes: enabledFeatures.includes("VOICE_NOTES"),
         notifications: enabledFeatures.includes("NOTIFICATIONS"),
         apiAccess: enabledFeatures.includes("API_ACCESS"),
+        cashier: enabledFeatures.includes("CASHIER_POS"),
+      },
+      billing: {
+        cashierPromoEligible: cashierProvisioning.promo.eligible,
+        cashierPromoActive: cashierProvisioning.promo.active,
+        cashierPromoStartsAt: cashierProvisioning.promo.startsAt,
+        cashierPromoEndsAt: cashierProvisioning.promo.endsAt,
+        cashierEffective: cashierProvisioning.promo.effective,
       },
     };
   }
@@ -3612,12 +6714,15 @@ export class MerchantPortalController {
 
     const merchant = result.rows[0];
     const currentPlan = merchant?.plan || "STARTER";
-    const enabledAgents = merchant?.enabled_agents || ["OPS_AGENT"];
-    const enabledFeatures = merchant?.enabled_features || [
-      "CONVERSATIONS",
-      "ORDERS",
-      "CATALOG",
-    ];
+    const subscriptions =
+      await this.agentSubscriptionService.getMerchantSubscriptions(merchantId);
+    const enabledAgents = subscriptions
+      .filter((subscription) => subscription.isEnabled)
+      .map((subscription) => subscription.agentType);
+    const enabledFeatures =
+      merchant?.enabled_features ||
+      PLAN_ENTITLEMENTS[currentPlan as PlanType]?.enabledFeatures ||
+      PLAN_ENTITLEMENTS.STARTER.enabledFeatures;
 
     // Get the full catalog
     const catalog = getCatalog();
@@ -3625,7 +6730,14 @@ export class MerchantPortalController {
     // Enrich with merchant-specific status
     const enrichedAgents = catalog.agents.map((agent) => ({
       ...agent,
-      isEnabled: enabledAgents.includes(agent.id),
+      isEnabled: subscriptions.some(
+        (subscription) =>
+          subscription.agentType === agent.id && subscription.isEnabled,
+      ),
+      config:
+        subscriptions.find(
+          (subscription) => subscription.agentType === agent.id,
+        )?.config || null,
       isIncludedInPlan:
         PLAN_ENTITLEMENTS[currentPlan as PlanType]?.enabledAgents?.includes(
           agent.id,
@@ -3676,14 +6788,21 @@ export class MerchantPortalController {
         enabledAt: sub.enabledAt,
         disabledAt: sub.disabledAt,
         isRequired: sub.agentType === "OPS_AGENT",
-        isAvailable: [
-          "OPS_AGENT",
-          "INVENTORY_AGENT",
-          "FINANCE_AGENT",
-          "MARKETING_AGENT",
-          "SUPPORT_AGENT",
-          "CONTENT_AGENT",
-        ].includes(sub.agentType),
+        status: getAgentCatalogEntry(sub.agentType)?.status || "coming_soon",
+        implemented: getAgentCatalogEntry(sub.agentType)?.implemented ?? false,
+        sellable: getAgentCatalogEntry(sub.agentType)?.sellable ?? false,
+        comingSoon: getAgentCatalogEntry(sub.agentType)?.comingSoon ?? false,
+        beta: getAgentCatalogEntry(sub.agentType)?.beta ?? false,
+        routeVisibility:
+          getAgentCatalogEntry(sub.agentType)?.routeVisibility || "hidden",
+        entrypoints: getAgentCatalogEntry(sub.agentType)?.entrypoints || [],
+        requiredFeatures:
+          getAgentCatalogEntry(sub.agentType)?.requiredFeatures || [],
+        isAvailable:
+          (getAgentCatalogEntry(sub.agentType)?.routeVisibility || "hidden") !==
+          "hidden",
+        subscriptionEnabled:
+          getAgentCatalogEntry(sub.agentType)?.subscriptionEnabled ?? false,
       })),
     };
   }
@@ -3696,7 +6815,16 @@ export class MerchantPortalController {
   })
   @ApiParam({
     name: "agentType",
-    enum: ["OPERATIONS", "INVENTORY", "FINANCE", "MARKETING"],
+    enum: [
+      "OPS_AGENT",
+      "INVENTORY_AGENT",
+      "FINANCE_AGENT",
+      "MARKETING_AGENT",
+      "SUPPORT_AGENT",
+      "CONTENT_AGENT",
+      "SALES_AGENT",
+      "CREATIVE_AGENT",
+    ],
   })
   @ApiBody({
     schema: {
@@ -3722,10 +6850,12 @@ export class MerchantPortalController {
       throw new BadRequestException(`Invalid agent type: ${agentType}`);
     }
 
-    // Only OPERATIONS and INVENTORY are currently available
-    if (!["OPERATIONS", "INVENTORY"].includes(agentType)) {
+    if (!isAgentSubscribable(agentType as AgentType)) {
+      const capability = getAgentCatalogEntry(agentType as AgentType);
       throw new BadRequestException(
-        `Agent ${agentType} is not yet available. Coming soon!`,
+        capability?.comingSoon
+          ? `Agent ${agentType} is not yet available. Coming soon!`
+          : `Agent ${agentType} is not subscribable in the current product capability registry.`,
       );
     }
 
@@ -3904,6 +7034,8 @@ export class MerchantPortalController {
       throw new NotFoundException("Merchant not found");
     }
 
+    const pos = this.getMerchantPosSettings(merchant);
+
     return {
       business: {
         name: merchant.name,
@@ -3943,6 +7075,7 @@ export class MerchantPortalController {
         bankIban: (merchant as any).payoutBankIban || null,
         preferredMethod: (merchant as any).payoutPreferredMethod || "INSTAPAY",
       },
+      pos,
     };
   }
 
@@ -3999,6 +7132,26 @@ export class MerchantPortalController {
             },
           },
         },
+        pos: {
+          type: "object",
+          properties: {
+            enabled: { type: "boolean" },
+            mode: { type: "string", enum: ["retail", "restaurant", "hybrid"] },
+            tablesEnabled: { type: "boolean" },
+            suspendedSalesEnabled: { type: "boolean" },
+            splitPaymentsEnabled: { type: "boolean" },
+            returnsEnabled: { type: "boolean" },
+            requireActiveRegisterSession: { type: "boolean" },
+            defaultServiceMode: {
+              type: "string",
+              enum: ["delivery", "pickup", "dine_in"],
+            },
+            thermalReceiptWidth: {
+              type: "string",
+              enum: ["58mm", "80mm", "a4"],
+            },
+          },
+        },
       },
     },
   })
@@ -4031,9 +7184,21 @@ export class MerchantPortalController {
         bankIban?: string | null;
         preferredMethod?: "INSTAPAY" | "VODAFONE_CASH" | "BANK_TRANSFER";
       };
+      pos?: {
+        enabled?: boolean;
+        mode?: "retail" | "restaurant" | "hybrid";
+        tablesEnabled?: boolean;
+        suspendedSalesEnabled?: boolean;
+        splitPaymentsEnabled?: boolean;
+        returnsEnabled?: boolean;
+        requireActiveRegisterSession?: boolean;
+        defaultServiceMode?: "delivery" | "pickup" | "dine_in";
+        thermalReceiptWidth?: "58mm" | "80mm" | "a4";
+      };
     },
   ): Promise<any> {
     const merchantId = this.getMerchantId(req);
+    const merchant = await this.merchantRepo.findById(merchantId);
 
     const updateEntries: Array<{ column: string; value: any }> = [];
 
@@ -4147,6 +7312,10 @@ export class MerchantPortalController {
       });
     }
 
+    if (body.pos) {
+      await this.updateMerchantPosSettings(merchantId, merchant, body.pos);
+    }
+
     const runUpdate = async (
       entries: Array<{ column: string; value: any }>,
     ) => {
@@ -4187,6 +7356,7 @@ export class MerchantPortalController {
     if (body.notifications) sections.push("notifications");
     if (body.preferences) sections.push("preferences");
     if (body.payout) sections.push("payout");
+    if (body.pos) sections.push("pos");
     if (sections.length > 0) {
       await this.auditService.logFromRequest(
         req,
@@ -4751,31 +7921,11 @@ export class MerchantPortalController {
   }
 
   private getAgentName(type: AgentType): string {
-    const names: Record<AgentType, string> = {
-      OPS_AGENT: "وكيل العمليات",
-      INVENTORY_AGENT: "وكيل المخزون",
-      FINANCE_AGENT: "وكيل المالية",
-      MARKETING_AGENT: "وكيل التسويق",
-      SUPPORT_AGENT: "وكيل الدعم",
-      CONTENT_AGENT: "وكيل المحتوى",
-      SALES_AGENT: "وكيل المبيعات",
-      CREATIVE_AGENT: "وكيل الإبداع",
-    };
-    return names[type];
+    return getAgentCatalogEntry(type)?.nameAr || type;
   }
 
   private getAgentDescription(type: AgentType): string {
-    const descriptions: Record<AgentType, string> = {
-      OPS_AGENT: "إدارة المحادثات والطلبات والتوصيل والمتابعات",
-      INVENTORY_AGENT: "تتبع المخزون وتنبيهات النقص وحجز المنتجات",
-      FINANCE_AGENT: "تقارير الأرباح اليومية وتنبيهات الإنفاق",
-      MARKETING_AGENT: "العروض التلقائية وتقسيم العملاء",
-      SUPPORT_AGENT: "الرد على استفسارات العملاء والتصعيد",
-      CONTENT_AGENT: "إنشاء أوصاف المنتجات والترجمة",
-      SALES_AGENT: "إدارة خط أنابيب المبيعات والعملاء المحتملين",
-      CREATIVE_AGENT: "تصميم الصور والفيديو",
-    };
-    return descriptions[type];
+    return getAgentCatalogEntry(type)?.descriptionAr || type;
   }
 
   private mapConversationToDto(
@@ -7058,28 +10208,10 @@ export class MerchantPortalController {
     nextDay.setDate(nextDay.getDate() + 1);
     const prevDay = new Date(reportDate);
     prevDay.setDate(prevDay.getDate() - 1);
-
-    // Today's orders
-    const todayOrders = await this.pool.query(
-      `SELECT 
-         COUNT(*) as total,
-         COUNT(*) FILTER (WHERE status = 'DELIVERED') as delivered,
-         COUNT(*) FILTER (WHERE status = 'CANCELLED') as cancelled,
-         COALESCE(SUM(total) FILTER (WHERE status NOT IN ('CANCELLED')), 0) as revenue
-       FROM orders 
-       WHERE merchant_id = $1 AND created_at >= $2 AND created_at < $3`,
-      [merchantId, reportDate, nextDay],
-    );
-
-    // Yesterday's orders for comparison
-    const yesterdayOrders = await this.pool.query(
-      `SELECT 
-         COUNT(*) as total,
-         COALESCE(SUM(total) FILTER (WHERE status NOT IN ('CANCELLED')), 0) as revenue
-       FROM orders 
-       WHERE merchant_id = $1 AND created_at >= $2 AND created_at < $3`,
-      [merchantId, prevDay, reportDate],
-    );
+    const [todaySnapshot, yesterdaySnapshot] = await Promise.all([
+      this.buildPortalFinanceSnapshot(merchantId, reportDate, nextDay),
+      this.buildPortalFinanceSnapshot(merchantId, prevDay, reportDate),
+    ]);
 
     // Today's conversations
     const todayConversations = await this.pool.query(
@@ -7098,38 +10230,22 @@ export class MerchantPortalController {
       [merchantId, reportDate, nextDay],
     );
 
-    // Top products today
-    const topProducts = await this.pool.query(
-      `SELECT 
-         item->>'productId' as product_id,
-         item->>'productName' as product_name,
-         SUM((item->>'quantity')::int) as quantity,
-         SUM((item->>'price')::numeric * (item->>'quantity')::int) as revenue
-       FROM orders, jsonb_array_elements(items) as item
-       WHERE merchant_id = $1 AND created_at >= $2 AND created_at < $3
-         AND status NOT IN ('CANCELLED')
-       GROUP BY item->>'productId', item->>'productName'
-       ORDER BY quantity DESC
-       LIMIT 5`,
-      [merchantId, reportDate, nextDay],
-    );
-
-    const today = todayOrders.rows[0];
-    const yesterday = yesterdayOrders.rows[0];
     const convs = todayConversations.rows[0];
 
     // Calculate changes
     const orderChange =
-      parseInt(yesterday.total) > 0
-        ? ((parseInt(today.total) - parseInt(yesterday.total)) /
-            parseInt(yesterday.total)) *
-          100
+      todaySnapshot.totalOrders > 0 || yesterdaySnapshot.totalOrders > 0
+        ? this.roundPercent(
+            todaySnapshot.totalOrders,
+            yesterdaySnapshot.totalOrders,
+          )
         : 0;
     const revenueChange =
-      parseFloat(yesterday.revenue) > 0
-        ? ((parseFloat(today.revenue) - parseFloat(yesterday.revenue)) /
-            parseFloat(yesterday.revenue)) *
-          100
+      todaySnapshot.realizedRevenue > 0 || yesterdaySnapshot.realizedRevenue > 0
+        ? this.roundPercent(
+            todaySnapshot.realizedRevenue,
+            yesterdaySnapshot.realizedRevenue,
+          )
         : 0;
 
     const conversionRate =
@@ -7140,13 +10256,17 @@ export class MerchantPortalController {
     return {
       date: reportDate.toISOString().split("T")[0],
       orders: {
-        total: parseInt(today.total),
-        delivered: parseInt(today.delivered),
-        cancelled: parseInt(today.cancelled),
+        total: todaySnapshot.totalOrders,
+        delivered: todaySnapshot.deliveredOrders,
+        cancelled: todaySnapshot.cancelledOrders,
         changeFromYesterday: Math.round(orderChange * 10) / 10,
       },
       revenue: {
-        total: parseFloat(today.revenue),
+        total: todaySnapshot.realizedRevenue,
+        bookedSales: todaySnapshot.bookedSales,
+        deliveredRevenue: todaySnapshot.deliveredRevenue,
+        pendingCollections: todaySnapshot.pendingCollections,
+        refundsAmount: todaySnapshot.refundsAmount,
         changeFromYesterday: Math.round(revenueChange * 10) / 10,
       },
       conversations: {
@@ -7157,11 +10277,11 @@ export class MerchantPortalController {
       customers: {
         new: parseInt(newCustomers.rows[0].count),
       },
-      topProducts: topProducts.rows.map((p) => ({
-        productId: p.product_id,
-        productName: p.product_name,
-        quantity: parseInt(p.quantity),
-        revenue: parseFloat(p.revenue),
+      topProducts: todaySnapshot.topProducts.map((product) => ({
+        productId: product.productId,
+        productName: product.productName,
+        quantity: product.quantity,
+        revenue: product.revenue,
       })),
     };
   }
@@ -9969,180 +13089,154 @@ export class MerchantPortalController {
     @Query("period") period?: string,
   ): Promise<any> {
     const merchantId = this.getMerchantId(req);
-
-    // Calculate date range
-    let dateFilter = "AND o.created_at >= CURRENT_DATE - INTERVAL '30 days'";
-    let previousDateFilter =
-      "AND o.created_at >= CURRENT_DATE - INTERVAL '60 days' AND o.created_at < CURRENT_DATE - INTERVAL '30 days'";
-
-    if (period === "today") {
-      dateFilter = "AND o.created_at >= CURRENT_DATE";
-      previousDateFilter =
-        "AND o.created_at >= CURRENT_DATE - INTERVAL '1 day' AND o.created_at < CURRENT_DATE";
-    } else if (period === "week") {
-      dateFilter = "AND o.created_at >= CURRENT_DATE - INTERVAL '7 days'";
-      previousDateFilter =
-        "AND o.created_at >= CURRENT_DATE - INTERVAL '14 days' AND o.created_at < CURRENT_DATE - INTERVAL '7 days'";
-    } else if (period === "quarter") {
-      dateFilter = "AND o.created_at >= CURRENT_DATE - INTERVAL '90 days'";
-      previousDateFilter =
-        "AND o.created_at >= CURRENT_DATE - INTERVAL '180 days' AND o.created_at < CURRENT_DATE - INTERVAL '90 days'";
-    }
-
-    // Current period revenue and orders
-    const currentResult = await this.pool.query(
-      `SELECT 
-        COUNT(*) as order_count,
-        COALESCE(SUM(total), 0) as revenue,
-        COALESCE(AVG(total), 0) as aov,
-        COUNT(DISTINCT customer_phone) as unique_customers,
-        COUNT(*) FILTER (WHERE status = 'DELIVERED') as delivered,
-        COUNT(*) FILTER (WHERE status = 'CANCELLED') as cancelled
-       FROM orders o
-       WHERE merchant_id = $1 ${dateFilter}`,
-      [merchantId],
+    const periodKey =
+      period === "today" || period === "week" || period === "quarter"
+        ? period
+        : "month";
+    const periodDays = {
+      today: 1,
+      week: 7,
+      month: 30,
+      quarter: 90,
+    }[periodKey];
+    const periodEnd = new Date();
+    periodEnd.setHours(23, 59, 59, 999);
+    const periodStart = new Date(periodEnd);
+    periodStart.setDate(periodStart.getDate() - (periodDays - 1));
+    periodStart.setHours(0, 0, 0, 0);
+    const previousPeriodEnd = new Date(periodStart.getTime() - 1);
+    const previousPeriodStart = new Date(previousPeriodEnd);
+    previousPeriodStart.setDate(
+      previousPeriodStart.getDate() - (periodDays - 1),
     );
+    previousPeriodStart.setHours(0, 0, 0, 0);
 
-    // Previous period for comparison
-    const previousResult = await this.pool.query(
-      `SELECT 
-        COUNT(*) as order_count,
-        COALESCE(SUM(total), 0) as revenue
-       FROM orders o
-       WHERE merchant_id = $1 ${previousDateFilter}`,
-      [merchantId],
+    const [currentSnapshot, previousSnapshot] = await Promise.all([
+      this.buildPortalFinanceSnapshot(merchantId, periodStart, periodEnd),
+      this.buildPortalFinanceSnapshot(
+        merchantId,
+        previousPeriodStart,
+        previousPeriodEnd,
+      ),
+    ]);
+
+    const revenueGrowth = this.roundPercent(
+      currentSnapshot.realizedRevenue,
+      previousSnapshot.realizedRevenue,
     );
-
-    const current = currentResult.rows[0];
-    const previous = previousResult.rows[0];
-
-    // Calculate growth
-    const revenueGrowth =
-      previous.revenue > 0
-        ? (
-            ((current.revenue - previous.revenue) / previous.revenue) *
-            100
-          ).toFixed(1)
-        : 0;
-    const orderGrowth =
-      previous.order_count > 0
-        ? (
-            ((current.order_count - previous.order_count) /
-              previous.order_count) *
-            100
-          ).toFixed(1)
-        : 0;
-
-    // Get expenses for the period
-    const expensesResult = await this.pool.query(
-      `SELECT 
-        COALESCE(SUM(amount), 0) as total_expenses,
-        COUNT(*) as expense_count
-       FROM expenses
-       WHERE merchant_id = $1 
-         AND expense_date >= CURRENT_DATE - INTERVAL '${period === "today" ? "1" : period === "week" ? "7" : period === "quarter" ? "90" : "30"} days'`,
-      [merchantId],
+    const orderGrowth = this.roundPercent(
+      currentSnapshot.realizedOrders,
+      previousSnapshot.realizedOrders,
     );
-
-    const expenses = expensesResult.rows[0];
 
     // Get expense breakdown by category
     const categoryResult = await this.pool.query(
       `SELECT category, COALESCE(SUM(amount), 0) as amount
        FROM expenses
        WHERE merchant_id = $1 
-         AND expense_date >= CURRENT_DATE - INTERVAL '${period === "today" ? "1" : period === "week" ? "7" : period === "quarter" ? "90" : "30"} days'
+         AND COALESCE(NULLIF(to_jsonb(expenses)->>'expense_date', '')::timestamp, created_at) >= $2
+         AND COALESCE(NULLIF(to_jsonb(expenses)->>'expense_date', '')::timestamp, created_at) <= $3
        GROUP BY category
        ORDER BY amount DESC
        LIMIT 5`,
-      [merchantId],
+      [merchantId, periodStart, periodEnd],
     );
-
-    // Get top products
-    const productsResult = await this.pool.query(
-      `SELECT 
-        COALESCE(oi.name, 'Unknown') as name,
-        COUNT(*) as quantity,
-        COALESCE(SUM(oi.quantity * oi.unit_price), 0) as revenue
-       FROM order_items oi
-       JOIN orders o ON oi.order_id = o.id
-       WHERE o.merchant_id = $1 ${dateFilter.replace("o.", "o.")}
-       GROUP BY oi.name
-       ORDER BY revenue DESC
-       LIMIT 5`,
-      [merchantId],
-    );
-
-    // Calculate profit (revenue - expenses)
-    const profit =
-      parseFloat(current.revenue) - parseFloat(expenses.total_expenses);
+    const realizedRevenue = currentSnapshot.realizedRevenue;
+    const bookedSales = currentSnapshot.bookedSales;
+    const deliveredRevenue = currentSnapshot.deliveredRevenue;
+    const refundsAmount = currentSnapshot.refundsAmount;
+    const totalExpenses = currentSnapshot.totalExpenses;
+    const profit = currentSnapshot.netCashFlow;
     const profitMargin =
-      current.revenue > 0
-        ? ((profit / parseFloat(current.revenue)) * 100).toFixed(1)
+      realizedRevenue > 0 ? (profit / realizedRevenue) * 100 : 0;
+    const deliveryRate =
+      currentSnapshot.totalOrders > 0
+        ? (currentSnapshot.deliveredOrders / currentSnapshot.totalOrders) * 100
         : 0;
 
     // Alerts
     const alerts: Array<{ type: string; message: string; severity: string }> =
       [];
 
-    if (parseFloat(revenueGrowth as string) < -10) {
+    if (revenueGrowth < -10) {
       alerts.push({
         type: "revenue_drop",
         message: "انخفاض الإيرادات بأكثر من 10%",
         severity: "warning",
       });
     }
-    if (current.cancelled > current.order_count * 0.1) {
+    if (
+      currentSnapshot.totalOrders > 0 &&
+      currentSnapshot.cancelledOrders / currentSnapshot.totalOrders > 0.1
+    ) {
       alerts.push({
         type: "high_cancellation",
         message: "معدل إلغاء مرتفع (أكثر من 10%)",
         severity: "warning",
       });
     }
-    if (parseFloat(profitMargin as string) < 10) {
+    if (profitMargin < 10 && realizedRevenue > 0) {
       alerts.push({
         type: "low_margin",
         message: "هامش الربح منخفض (أقل من 10%)",
         severity: "warning",
       });
     }
+    if (currentSnapshot.pendingCollections > 0) {
+      alerts.push({
+        type: "pending_collections",
+        message: `هناك مبالغ قيد التحصيل بقيمة ${this.roundMoney(
+          currentSnapshot.pendingCollections,
+        ).toLocaleString("en-US")} تحتاج متابعة`,
+        severity: "info",
+      });
+    }
 
     return {
-      period: period || "month",
+      period: periodKey,
       generatedAt: new Date().toISOString(),
       summary: {
-        revenue: parseFloat(current.revenue),
-        revenueGrowth: parseFloat(revenueGrowth as string),
-        orderCount: parseInt(current.order_count),
-        orderGrowth: parseFloat(orderGrowth as string),
-        aov: parseFloat(current.aov),
-        uniqueCustomers: parseInt(current.unique_customers),
+        revenue: realizedRevenue,
+        realizedRevenue,
+        bookedSales,
+        deliveredRevenue,
+        pendingCollections: currentSnapshot.pendingCollections,
+        revenueGrowth,
+        orderCount: currentSnapshot.totalOrders,
+        realizedOrders: currentSnapshot.realizedOrders,
+        orderGrowth,
+        aov: currentSnapshot.averageOrderValue,
+        uniqueCustomers: currentSnapshot.uniqueCustomers,
       },
       orders: {
-        total: parseInt(current.order_count),
-        delivered: parseInt(current.delivered),
-        cancelled: parseInt(current.cancelled),
+        total: currentSnapshot.totalOrders,
+        delivered: currentSnapshot.deliveredOrders,
+        cancelled: currentSnapshot.cancelledOrders,
         returned: 0,
-        deliveryRate:
-          current.order_count > 0
-            ? ((current.delivered / current.order_count) * 100).toFixed(1)
-            : 0,
+        deliveryRate: Math.round(deliveryRate * 10) / 10,
       },
       cashFlow: {
-        revenue: parseFloat(current.revenue),
-        expenses: parseFloat(expenses.total_expenses),
+        revenue: realizedRevenue,
+        expenses: totalExpenses,
         profit,
-        profitMargin: parseFloat(profitMargin as string),
+        profitMargin: Math.round(profitMargin * 10) / 10,
+        cashInHand: currentSnapshot.paidCashAmount,
+        pendingCod: currentSnapshot.pendingCod,
+        pendingOnline: currentSnapshot.pendingOnline,
+        refundsAmount,
+        netCashFlow: currentSnapshot.netCashFlow,
       },
       expenseBreakdown: categoryResult.rows.map((row) => ({
         category: row.category,
         amount: parseFloat(row.amount),
       })),
-      topProducts: productsResult.rows.map((row) => ({
-        name: row.name,
-        quantity: parseInt(row.quantity),
-        revenue: parseFloat(row.revenue),
+      topProducts: currentSnapshot.topProducts.map((row) => ({
+        name: row.productName,
+        quantity: row.quantity,
+        revenue: row.revenue,
       })),
+      inventory: currentSnapshot.inventory,
+      customers: currentSnapshot.customers,
       alerts,
     };
   }

@@ -21,6 +21,7 @@ export type FeatureType =
   | "CONVERSATIONS" // Basic chat with customers
   | "ORDERS" // Order management
   | "CATALOG" // Product catalog
+  | "CASHIER_POS" // Cashier / POS
   | "INVENTORY" // Stock tracking
   | "PAYMENTS" // Payment proof verification
   | "VISION_OCR" // Internal — payment proof scanning only; metered via paymentProofScansPerMonth limit
@@ -68,6 +69,7 @@ export const FEATURE_DEPENDENCIES: Record<FeatureType, FeatureType[]> = {
   CONVERSATIONS: [], // Core - no dependencies
   ORDERS: ["CONVERSATIONS"], // Requires conversations
   CATALOG: [], // Core - no dependencies
+  CASHIER_POS: ["ORDERS"], // Requires orders flow
   INVENTORY: ["CATALOG"], // Requires catalog
   PAYMENTS: ["ORDERS"], // Requires orders
   VISION_OCR: [], // Standalone (storage handled separately)
@@ -92,7 +94,6 @@ export const FEATURE_DEPENDENCIES: Record<FeatureType, FeatureType[]> = {
 // Which agent handles which feature
 export const FEATURE_AGENT_MAP: Partial<Record<FeatureType, AgentType>> = {
   INVENTORY: "INVENTORY_AGENT",
-  PAYMENTS: "FINANCE_AGENT",
   VISION_OCR: "OPS_AGENT",
   VOICE_NOTES: "OPS_AGENT",
   WEBHOOKS: "OPS_AGENT",
@@ -101,9 +102,7 @@ export const FEATURE_AGENT_MAP: Partial<Record<FeatureType, AgentType>> = {
   AUDIT_LOGS: "OPS_AGENT",
   API_ACCESS: "OPS_AGENT",
   COPILOT_CHAT: "OPS_AGENT",
-  REPORTS: "FINANCE_AGENT",
   LOYALTY: "OPS_AGENT", // Implemented standalone, no longer gated on MARKETING_AGENT
-  KPI_DASHBOARD: "FINANCE_AGENT",
 };
 
 // ============= Entitlements Interface =============
@@ -119,11 +118,16 @@ export type PlanType =
   | "BASIC"
   | "GROWTH"
   | "PRO"
+  | "CHAT_ONLY"
   | "ENTERPRISE"
   | "CUSTOM";
 
 // ============= Plan Limits =============
 export interface PlanLimits {
+  totalMessagesPerDay?: number;
+  totalMessagesPerMonth?: number;
+  aiRepliesPerDay?: number;
+  aiRepliesPerMonth?: number;
   messagesPerMonth: number; // -1 = unlimited
   whatsappNumbers: number; // -1 = unlimited
   teamMembers: number; // -1 = unlimited
@@ -164,26 +168,27 @@ export interface PlanLimits {
 // • Target gross margin:             50-80% on plans (msg costs ≈ 0, AI is main cost)
 // ─────────────────────────────────────────────────────────────────────
 export const FEATURE_PRICES_EGP: Record<FeatureType, number> = {
-  CONVERSATIONS: 99, // IMPLEMENTED — Meta webhooks + session state + infra share
-  ORDERS: 79, // IMPLEMENTED — DB + processing pipeline + infra
-  CATALOG: 49, // IMPLEMENTED — image storage + search indexing
-  INVENTORY: 149, // IMPLEMENTED — stock tracking + AI predictions + DB
-  PAYMENTS: 129, // IMPLEMENTED — payment proof verification + OCR-assisted review
+  CONVERSATIONS: 149,
+  ORDERS: 99,
+  CATALOG: 79,
+  CASHIER_POS: 399,
+  INVENTORY: 249,
+  PAYMENTS: 199,
   VISION_OCR: 0, // Internal — included in PAYMENTS; metered by paymentProofScansPerMonth limit (not a standalone purchasable feature)
-  VOICE_NOTES: 69, // IMPLEMENTED — Whisper transcription + storage
-  REPORTS: 99, // IMPLEMENTED — analytics + AI summarization
-  WEBHOOKS: 49, // IMPLEMENTED — external integrations + rate limiting
-  TEAM: 79, // IMPLEMENTED — multi-user + RBAC + session management
-  LOYALTY: 149, // IMPLEMENTED — loyalty tiers + promotions + points system
-  NOTIFICATIONS: 39, // IMPLEMENTED — push + email + WhatsApp notifications
-  AUDIT_LOGS: 49, // IMPLEMENTED — security audit trail + storage
-  KPI_DASHBOARD: 79, // IMPLEMENTED — analytics compute + visualization
-  API_ACCESS: 99, // IMPLEMENTED — API keys + rate limiting + docs
+  VOICE_NOTES: 99,
+  REPORTS: 149,
+  WEBHOOKS: 99,
+  TEAM: 149,
+  LOYALTY: 249,
+  NOTIFICATIONS: 79,
+  AUDIT_LOGS: 99,
+  KPI_DASHBOARD: 149,
+  API_ACCESS: 199,
   COPILOT_CHAT: 0, // Included in all plans, metered by quota
   CUSTOM_INTEGRATIONS: 0, // Enterprise custom pricing
   SLA: 0, // Enterprise custom pricing
-  AUTOMATIONS: 249, // Automation engine add-on
-  FORECASTING: 349, // Forecasting platform add-on (Holt-Winters + safety stock engine)
+  AUTOMATIONS: 399,
+  FORECASTING: 599,
   VOICE_CALLING: 0, // Enterprise — custom pricing via voice packs
 };
 
@@ -192,9 +197,9 @@ export const FEATURE_PRICES_EGP: Record<FeatureType, number> = {
 // Each agent = AI pipeline + system hosting + dashboard + DB.
 // Cost = AI compute + infra share (~40 EGP) + platform fee.
 export const AGENT_PRICES_EGP: Record<AgentType, number> = {
-  OPS_AGENT: 299, // IMPLEMENTED — WA routing + order AI + catalog. Cost: ~150 EGP
-  INVENTORY_AGENT: 199, // IMPLEMENTED — stock AI + predictions + alerts. Cost: ~100 EGP
-  FINANCE_AGENT: 349, // IMPLEMENTED — OCR + reports + payment automation. Cost: ~200 EGP
+  OPS_AGENT: 349,
+  INVENTORY_AGENT: 249,
+  FINANCE_AGENT: 399,
   MARKETING_AGENT: 0, // STUB — coming_soon, not sellable yet
   SUPPORT_AGENT: 0, // STUB — coming_soon, not sellable yet
   CONTENT_AGENT: 0, // STUB — coming_soon, not sellable yet
@@ -221,29 +226,29 @@ export const AGENT_PRICES_EGP: Record<AgentType, number> = {
 // not this constant. This constant describes named upgrade tiers for plan AI limits;
 // usage_packs are one-time top-up add-ons. Values here are for reference / UI labelling only.
 export const AI_USAGE_TIERS = {
-  BASIC: {
-    aiCallsPerDay: 300,
-    tokenBudgetDaily: 150_000,
-    price: 0,
-    label: "أساسي — ~75 محادثة/يوم",
+  AI_PLUS_100_PER_DAY: {
+    aiCallsPerDay: 100,
+    tokenBudgetDaily: 0,
+    price: 249,
+    label: "+100 رد ذكاء اصطناعي / يوم",
   },
-  STANDARD: {
+  AI_PLUS_250_PER_DAY: {
+    aiCallsPerDay: 250,
+    tokenBudgetDaily: 0,
+    price: 549,
+    label: "+250 رد ذكاء اصطناعي / يوم",
+  },
+  AI_PLUS_500_PER_DAY: {
     aiCallsPerDay: 500,
-    tokenBudgetDaily: 300_000,
-    price: 129,
-    label: "قياسي — ~125 محادثة/يوم",
+    tokenBudgetDaily: 0,
+    price: 999,
+    label: "+500 رد ذكاء اصطناعي / يوم",
   },
-  PROFESSIONAL: {
-    aiCallsPerDay: 1_500,
-    tokenBudgetDaily: 800_000,
-    price: 349,
-    label: "احترافي — ~375 محادثة/يوم",
-  },
-  UNLIMITED: {
-    aiCallsPerDay: -1,
-    tokenBudgetDaily: -1,
-    price: 699,
-    label: "بلا حدود",
+  AI_PLUS_1000_PER_DAY: {
+    aiCallsPerDay: 1000,
+    tokenBudgetDaily: 0,
+    price: 1799,
+    label: "+1000 رد ذكاء اصطناعي / يوم",
   },
 } as const;
 
@@ -258,27 +263,26 @@ export const AI_USAGE_TIERS = {
 // NOTE: Actual billing is DB-driven via usage_packs table, not this constant.
 // This constant is for reference / seeding only.
 export const MESSAGE_TIERS = {
-  STARTER: {
-    messagesPerMonth: 10_000,
-    price: 0,
-    label: "10,000 رسالة — ~33 محادثة/يوم",
+  MESSAGES_PLUS_25K_MONTH: {
+    messagesPerMonth: 25_000,
+    price: 149,
+    label: "+25,000 رسالة / شهر",
   },
-  BASIC: {
-    messagesPerMonth: 15_000,
-    price: 99,
-    label: "15,000 رسالة — ~50 محادثة/يوم",
-  },
-  STANDARD: {
+  MESSAGES_PLUS_50K_MONTH: {
     messagesPerMonth: 50_000,
-    price: 399,
-    label: "50,000 رسالة — ~167 محادثة/يوم",
+    price: 299,
+    label: "+50,000 رسالة / شهر",
   },
-  PROFESSIONAL: {
-    messagesPerMonth: 150_000,
-    price: 699,
-    label: "150,000 رسالة — ~500 محادثة/يوم",
+  MESSAGES_PLUS_100K_MONTH: {
+    messagesPerMonth: 100_000,
+    price: 549,
+    label: "+100,000 رسالة / شهر",
   },
-  ENTERPRISE: { messagesPerMonth: -1, price: 1_299, label: "بلا حدود" },
+  MESSAGES_PLUS_250K_MONTH: {
+    messagesPerMonth: 250_000,
+    price: 1199,
+    label: "+250,000 رسالة / شهر",
+  },
 } as const;
 
 // ============= Default Plans =============
@@ -313,6 +317,7 @@ export const PLAN_ENTITLEMENTS: Record<
       "CONVERSATIONS",
       "ORDERS",
       "CATALOG",
+      "CASHIER_POS",
       "INVENTORY",
       "REPORTS",
       "NOTIFICATIONS",
@@ -321,6 +326,10 @@ export const PLAN_ENTITLEMENTS: Record<
       "COPILOT_CHAT",
     ],
     limits: {
+      totalMessagesPerDay: 20,
+      totalMessagesPerMonth: 50,
+      aiRepliesPerDay: 10,
+      aiRepliesPerMonth: 25,
       messagesPerMonth: 50,
       whatsappNumbers: 1,
       teamMembers: 1,
@@ -345,6 +354,8 @@ export const PLAN_ENTITLEMENTS: Record<
       "CONVERSATIONS",
       "ORDERS",
       "CATALOG",
+      "CASHIER_POS",
+      "INVENTORY",
       "PAYMENTS",
       "REPORTS",
       "NOTIFICATIONS",
@@ -353,11 +364,15 @@ export const PLAN_ENTITLEMENTS: Record<
       "COPILOT_CHAT",
     ],
     limits: {
-      messagesPerMonth: 5_000,
+      totalMessagesPerDay: 480,
+      totalMessagesPerMonth: 14_400,
+      aiRepliesPerDay: 240,
+      aiRepliesPerMonth: 7_200,
+      messagesPerMonth: 14_400,
       whatsappNumbers: 1,
       teamMembers: 1,
       tokenBudgetDaily: 50_000,
-      aiCallsPerDay: 100,
+      aiCallsPerDay: 240,
       paidTemplatesPerMonth: 5,
       paymentProofScansPerMonth: 25,
       voiceMinutesPerMonth: 20,
@@ -376,6 +391,7 @@ export const PLAN_ENTITLEMENTS: Record<
       "CONVERSATIONS",
       "ORDERS",
       "CATALOG",
+      "CASHIER_POS",
       "INVENTORY",
       "REPORTS",
       "NOTIFICATIONS",
@@ -386,16 +402,20 @@ export const PLAN_ENTITLEMENTS: Record<
       "COPILOT_CHAT",
     ],
     limits: {
-      messagesPerMonth: 15_000,
+      totalMessagesPerDay: 1_200,
+      totalMessagesPerMonth: 36_000,
+      aiRepliesPerDay: 600,
+      aiRepliesPerMonth: 18_000,
+      messagesPerMonth: 36_000,
       whatsappNumbers: 1,
       teamMembers: 1,
       tokenBudgetDaily: 200_000,
-      aiCallsPerDay: 200,
+      aiCallsPerDay: 600,
       paidTemplatesPerMonth: 15,
       paymentProofScansPerMonth: 50,
       voiceMinutesPerMonth: 30,
       mapsLookupsPerMonth: 200,
-      posConnections: 0,
+      posConnections: 1,
       branches: 1,
     },
     price: 2_200,
@@ -409,6 +429,7 @@ export const PLAN_ENTITLEMENTS: Record<
       "CONVERSATIONS",
       "ORDERS",
       "CATALOG",
+      "CASHIER_POS",
       "INVENTORY",
       "REPORTS",
       "NOTIFICATIONS",
@@ -422,17 +443,21 @@ export const PLAN_ENTITLEMENTS: Record<
       "VOICE_NOTES",
     ],
     limits: {
-      messagesPerMonth: 30_000,
+      totalMessagesPerDay: 2_400,
+      totalMessagesPerMonth: 72_000,
+      aiRepliesPerDay: 1_200,
+      aiRepliesPerMonth: 36_000,
+      messagesPerMonth: 72_000,
       whatsappNumbers: 2,
-      teamMembers: 2,
+      teamMembers: 5,
       tokenBudgetDaily: 400_000,
-      aiCallsPerDay: 500,
+      aiCallsPerDay: 1_200,
       paidTemplatesPerMonth: 30,
       paymentProofScansPerMonth: 150,
       voiceMinutesPerMonth: 60,
       mapsLookupsPerMonth: 700,
-      posConnections: 1,
-      branches: 1,
+      posConnections: 2,
+      branches: 2,
       automations: 10,
       autoRunsPerDay: 5,
     },
@@ -463,7 +488,11 @@ export const PLAN_ENTITLEMENTS: Record<
       "FORECASTING",
     ],
     limits: {
-      messagesPerMonth: 100_000,
+      totalMessagesPerDay: 5_000,
+      totalMessagesPerMonth: 150_000,
+      aiRepliesPerDay: 2_500,
+      aiRepliesPerMonth: 75_000,
+      messagesPerMonth: 150_000,
       whatsappNumbers: 3,
       teamMembers: 5,
       tokenBudgetDaily: 1_000_000,
@@ -472,8 +501,8 @@ export const PLAN_ENTITLEMENTS: Record<
       paymentProofScansPerMonth: 400,
       voiceMinutesPerMonth: 120,
       mapsLookupsPerMonth: 2000,
-      posConnections: 3,
-      branches: 2,
+      posConnections: 5,
+      branches: 5,
       retentionDays: 90,
       automations: 50,
       autoRunsPerDay: 20,
@@ -483,6 +512,29 @@ export const PLAN_ENTITLEMENTS: Record<
   },
   // ENTERPRISE — max scale (21,500 EGP/mo)
   // Everything in Pro + voice calling + custom integrations + SLA.
+  CHAT_ONLY: {
+    enabledAgents: [],
+    enabledFeatures: ["CONVERSATIONS"],
+    limits: {
+      totalMessagesPerDay: 960,
+      totalMessagesPerMonth: 28_800,
+      aiRepliesPerDay: 480,
+      aiRepliesPerMonth: 14_400,
+      messagesPerMonth: 28_800,
+      whatsappNumbers: 1,
+      teamMembers: 1,
+      tokenBudgetDaily: 100_000,
+      aiCallsPerDay: 480,
+      paidTemplatesPerMonth: 10,
+      paymentProofScansPerMonth: 0,
+      voiceMinutesPerMonth: 0,
+      mapsLookupsPerMonth: 0,
+      posConnections: 0,
+      branches: 0,
+    },
+    price: 1_000,
+    currency: "EGP",
+  },
   ENTERPRISE: {
     enabledAgents: ["OPS_AGENT", "INVENTORY_AGENT", "FINANCE_AGENT"],
     enabledFeatures: [
@@ -508,7 +560,11 @@ export const PLAN_ENTITLEMENTS: Record<
       "VOICE_CALLING",
     ],
     limits: {
-      messagesPerMonth: 250_000,
+      totalMessagesPerDay: 10_000,
+      totalMessagesPerMonth: 300_000,
+      aiRepliesPerDay: 5_000,
+      aiRepliesPerMonth: 150_000,
+      messagesPerMonth: 300_000,
       whatsappNumbers: 5,
       teamMembers: 10,
       tokenBudgetDaily: 1_750_000,
@@ -532,6 +588,10 @@ export const PLAN_ENTITLEMENTS: Record<
     enabledAgents: ["OPS_AGENT"], // Base - customized per merchant
     enabledFeatures: ["CONVERSATIONS", "ORDERS", "CATALOG"],
     limits: {
+      totalMessagesPerDay: -1,
+      totalMessagesPerMonth: -1,
+      aiRepliesPerDay: -1,
+      aiRepliesPerMonth: -1,
       messagesPerMonth: -1,
       whatsappNumbers: -1,
       teamMembers: -1,
@@ -760,6 +820,7 @@ export function getFeatureDisplayName(feature: FeatureType): string {
     WEBHOOKS: "POS Integrations",
     TEAM: "Team Management",
     LOYALTY: "Loyalty Program",
+    CASHIER_POS: "Cashier/POS",
     NOTIFICATIONS: "Notifications",
     AUDIT_LOGS: "Audit Logs",
     KPI_DASHBOARD: "KPI Dashboard",
@@ -790,6 +851,14 @@ export interface AgentCatalogEntry {
   color: string;
   dependencies: AgentType[];
   features: FeatureType[];
+  implemented: boolean;
+  sellable: boolean;
+  comingSoon: boolean;
+  beta: boolean;
+  subscriptionEnabled: boolean;
+  routeVisibility: "visible" | "hidden" | "internal";
+  requiredFeatures: FeatureType[];
+  entrypoints: string[];
 }
 
 export interface FeatureCatalogEntry {
@@ -815,6 +884,18 @@ export const AGENT_CATALOG: AgentCatalogEntry[] = [
     color: "from-blue-500 to-blue-600",
     dependencies: [],
     features: ["CONVERSATIONS", "ORDERS", "CATALOG"],
+    implemented: true,
+    sellable: true,
+    comingSoon: false,
+    beta: false,
+    subscriptionEnabled: true,
+    routeVisibility: "visible",
+    requiredFeatures: ["CONVERSATIONS", "ORDERS", "CATALOG"],
+    entrypoints: [
+      "/merchant/conversations",
+      "/merchant/orders",
+      "/merchant/assistant",
+    ],
   },
   {
     id: "INVENTORY_AGENT",
@@ -826,6 +907,18 @@ export const AGENT_CATALOG: AgentCatalogEntry[] = [
     color: "from-green-500 to-green-600",
     dependencies: ["OPS_AGENT"],
     features: ["INVENTORY"],
+    implemented: true,
+    sellable: true,
+    comingSoon: false,
+    beta: false,
+    subscriptionEnabled: true,
+    routeVisibility: "visible",
+    requiredFeatures: ["INVENTORY"],
+    entrypoints: [
+      "/merchant/inventory",
+      "/merchant/inventory-insights",
+      "/merchant/forecast",
+    ],
   },
   {
     id: "FINANCE_AGENT",
@@ -837,6 +930,18 @@ export const AGENT_CATALOG: AgentCatalogEntry[] = [
     color: "from-purple-500 to-purple-600",
     dependencies: ["OPS_AGENT"],
     features: ["REPORTS", "KPI_DASHBOARD", "PAYMENTS"],
+    implemented: true,
+    sellable: true,
+    comingSoon: false,
+    beta: false,
+    subscriptionEnabled: true,
+    routeVisibility: "visible",
+    requiredFeatures: ["REPORTS", "KPI_DASHBOARD", "PAYMENTS"],
+    entrypoints: [
+      "/merchant/reports/cfo",
+      "/merchant/kpis",
+      "/merchant/payments",
+    ],
   },
   {
     id: "SUPPORT_AGENT",
@@ -849,6 +954,14 @@ export const AGENT_CATALOG: AgentCatalogEntry[] = [
     color: "from-cyan-500 to-cyan-600",
     dependencies: ["OPS_AGENT"],
     features: ["CONVERSATIONS"],
+    implemented: false,
+    sellable: false,
+    comingSoon: true,
+    beta: false,
+    subscriptionEnabled: false,
+    routeVisibility: "visible",
+    requiredFeatures: ["CONVERSATIONS"],
+    entrypoints: ["/merchant/conversations", "/merchant/agents"],
   },
   {
     id: "MARKETING_AGENT",
@@ -861,6 +974,18 @@ export const AGENT_CATALOG: AgentCatalogEntry[] = [
     color: "from-pink-500 to-pink-600",
     dependencies: ["OPS_AGENT"],
     features: ["LOYALTY"],
+    implemented: false,
+    sellable: false,
+    comingSoon: true,
+    beta: false,
+    subscriptionEnabled: false,
+    routeVisibility: "visible",
+    requiredFeatures: ["LOYALTY"],
+    entrypoints: [
+      "/merchant/campaigns",
+      "/merchant/loyalty",
+      "/merchant/agents",
+    ],
   },
   {
     id: "CONTENT_AGENT",
@@ -873,6 +998,14 @@ export const AGENT_CATALOG: AgentCatalogEntry[] = [
     color: "from-orange-500 to-orange-600",
     dependencies: [],
     features: [],
+    implemented: false,
+    sellable: false,
+    comingSoon: true,
+    beta: false,
+    subscriptionEnabled: false,
+    routeVisibility: "visible",
+    requiredFeatures: [],
+    entrypoints: ["/merchant/agents"],
   },
   {
     id: "SALES_AGENT",
@@ -885,6 +1018,14 @@ export const AGENT_CATALOG: AgentCatalogEntry[] = [
     color: "from-rose-500 to-rose-600",
     dependencies: ["OPS_AGENT"],
     features: [],
+    implemented: false,
+    sellable: false,
+    comingSoon: true,
+    beta: false,
+    subscriptionEnabled: false,
+    routeVisibility: "visible",
+    requiredFeatures: ["CONVERSATIONS", "ORDERS"],
+    entrypoints: ["/merchant/agents", "/merchant/customers"],
   },
   {
     id: "CREATIVE_AGENT",
@@ -897,6 +1038,14 @@ export const AGENT_CATALOG: AgentCatalogEntry[] = [
     color: "from-fuchsia-500 to-fuchsia-600",
     dependencies: ["CONTENT_AGENT"],
     features: [],
+    implemented: false,
+    sellable: false,
+    comingSoon: true,
+    beta: false,
+    subscriptionEnabled: false,
+    routeVisibility: "visible",
+    requiredFeatures: [],
+    entrypoints: ["/merchant/agents"],
   },
 ];
 
@@ -929,6 +1078,15 @@ export const FEATURE_CATALOG: FeatureCatalogEntry[] = [
     dependencies: [],
   },
   {
+    id: "CASHIER_POS",
+    nameAr: "الكاشير / POS",
+    nameEn: "Cashier / POS",
+    descriptionAr: "تشغيل الكاشير ونقاط البيع",
+    descriptionEn: "Cashier and POS operations",
+    status: "available",
+    dependencies: ["ORDERS"],
+  },
+  {
     id: "INVENTORY",
     nameAr: "المخزون",
     nameEn: "Inventory",
@@ -945,7 +1103,6 @@ export const FEATURE_CATALOG: FeatureCatalogEntry[] = [
     descriptionAr: "التحقق من إثباتات الدفع",
     descriptionEn: "Payment proof verification",
     status: "available",
-    requiredAgent: "FINANCE_AGENT",
     dependencies: ["ORDERS"],
   },
   // VISION_OCR is internal — not shown in UI. Payment proof scanning is part of PAYMENTS feature.
@@ -966,7 +1123,6 @@ export const FEATURE_CATALOG: FeatureCatalogEntry[] = [
     descriptionAr: "تقارير وتحليلات",
     descriptionEn: "Analytics and reports",
     status: "available",
-    requiredAgent: "FINANCE_AGENT",
     dependencies: ["ORDERS"],
   },
   {
@@ -1021,7 +1177,6 @@ export const FEATURE_CATALOG: FeatureCatalogEntry[] = [
     descriptionAr: "مؤشرات الأداء الرئيسية",
     descriptionEn: "Key performance indicators",
     status: "available",
-    requiredAgent: "FINANCE_AGENT",
     dependencies: ["ORDERS"],
   },
   {
@@ -1033,6 +1188,51 @@ export const FEATURE_CATALOG: FeatureCatalogEntry[] = [
     status: "available",
     dependencies: [],
   },
+  {
+    id: "AUTOMATIONS",
+    nameAr: "الأتمتة",
+    nameEn: "Automations",
+    descriptionAr: "تنفيذ الأتمتة التجارية والتشغيلية",
+    descriptionEn: "Operational and commerce automations",
+    status: "available",
+    dependencies: ["ORDERS"],
+  },
+  {
+    id: "FORECASTING",
+    nameAr: "التنبؤات",
+    nameEn: "Forecasting",
+    descriptionAr: "التنبؤات التشغيلية والمالية",
+    descriptionEn: "Operational and finance forecasting",
+    status: "available",
+    dependencies: ["INVENTORY", "ORDERS"],
+  },
+  {
+    id: "CUSTOM_INTEGRATIONS",
+    nameAr: "تكاملات مخصصة",
+    nameEn: "Custom Integrations",
+    descriptionAr: "تكاملات خاصة لخطط المؤسسات",
+    descriptionEn: "Custom enterprise integrations",
+    status: "available",
+    dependencies: [],
+  },
+  {
+    id: "SLA",
+    nameAr: "اتفاقية مستوى الخدمة",
+    nameEn: "SLA",
+    descriptionAr: "أولوية دعم للمؤسسات",
+    descriptionEn: "Priority enterprise support",
+    status: "available",
+    dependencies: [],
+  },
+  {
+    id: "VOICE_CALLING",
+    nameAr: "تفعيل المكالمات الصوتية",
+    nameEn: "Voice Calling",
+    descriptionAr: "تفعيل المكالمات الذكية للمؤسسات",
+    descriptionEn: "Enterprise voice calling enablement",
+    status: "available",
+    dependencies: ["CONVERSATIONS"],
+  },
 ];
 
 export const PLAN_CATALOG = Object.entries(PLAN_ENTITLEMENTS).map(
@@ -1041,6 +1241,559 @@ export const PLAN_CATALOG = Object.entries(PLAN_ENTITLEMENTS).map(
     ...plan,
   }),
 );
+
+export interface PublicPricingPlan {
+  id: PlanType;
+  nameAr: string;
+  nameEn: string;
+  monthlyPriceEgp: number | null;
+  isFullPlatformPlan: boolean;
+  bestFor: string;
+  mainValue: string;
+  includedFeatures: string[];
+  excludedFeatures: string[];
+  includedAgents: AgentType[];
+  totalMessagesPerDay: number;
+  totalMessagesPerMonth: number;
+  aiRepliesPerDay: number;
+  aiRepliesPerMonth: number;
+  includedBranches: number;
+  includedPosConnections: number;
+  cashierPromoEligible: boolean;
+  upsellPriority: string[];
+  notes: string[];
+}
+
+export interface PublicPricingCatalogItem {
+  code: string;
+  nameAr: string;
+  descriptionAr: string;
+  monthlyPriceEgp: number;
+}
+
+export interface EnterprisePricingFloor {
+  code: string;
+  nameAr: string;
+  descriptionAr: string;
+  priceEgp: number;
+  billingType: "monthly" | "one_time";
+}
+
+export const LIVE_PURCHASABLE_AGENTS: AgentType[] = [
+  "OPS_AGENT",
+  "INVENTORY_AGENT",
+  "FINANCE_AGENT",
+];
+
+export const PUBLIC_PRICING_PLANS: PublicPricingPlan[] = [
+  {
+    id: "STARTER",
+    nameAr: "Starter",
+    nameEn: "Starter",
+    monthlyPriceEgp: 999,
+    isFullPlatformPlan: true,
+    bestFor: "البداية مع تشغيل أساسي ومحادثات مبيعات",
+    mainValue: "منصة كاملة للدخول: محادثات + طلبات + كتالوج + دفع أساسي",
+    includedFeatures: [
+      "OMNICHANNEL_INBOX",
+      "WHATSAPP_META",
+      "MESSENGER_INSTAGRAM",
+      "AI_CUSTOMER_REPLIES",
+      "ORDERS",
+      "QUOTES_FOLLOW_UP",
+      "PUBLIC_TRACKING",
+      "CATALOG",
+      "PAYMENTS",
+      "BASIC_COD",
+      "REPORTS_BASIC",
+      "NOTIFICATIONS",
+      "WEBHOOKS",
+      "VOICE_NOTES_TRANSCRIPTION",
+      "INVENTORY_BASIC",
+      "FINANCE_BASIC",
+      "CRM_BASIC",
+    ],
+    excludedFeatures: [
+      "CASHIER_POS_PERMANENT",
+      "TEAM_RBAC",
+      "LOYALTY",
+      "AUTOMATIONS",
+      "KPI_DASHBOARD",
+      "AUDIT_LOGS",
+      "FORECASTING",
+      "API_ACCESS",
+    ],
+    includedAgents: ["OPS_AGENT"],
+    totalMessagesPerDay: 480,
+    totalMessagesPerMonth: 14_400,
+    aiRepliesPerDay: 240,
+    aiRepliesPerMonth: 7_200,
+    includedBranches: 1,
+    includedPosConnections: 0,
+    cashierPromoEligible: true,
+    upsellPriority: ["cashier_pos", "inventory", "api_access", "messages"],
+    notes: ["الكاشير مجاني لأول 30 يوم فقط للاشتراكات المدفوعة الجديدة"],
+  },
+  {
+    id: "BASIC",
+    nameAr: "Basic",
+    nameEn: "Basic",
+    monthlyPriceEgp: 2200,
+    isFullPlatformPlan: true,
+    bestFor: "تشغيل يومي فعلي مع مخزون ومدفوعات وربط API",
+    mainValue: "يشمل الكاشير الدائم والمخزون الكامل ووكيلي المخزون والمالية",
+    includedFeatures: [
+      "EVERYTHING_IN_STARTER",
+      "CASHIER_POS",
+      "REGISTER_SESSIONS",
+      "SUSPENDED_DRAFT_SALES",
+      "INVENTORY_FULL",
+      "SUPPLIERS",
+      "FINANCE_BASIC_PLUS",
+      "API_ACCESS",
+      "CRM",
+    ],
+    excludedFeatures: [
+      "TEAM_RBAC",
+      "LOYALTY",
+      "AUTOMATIONS",
+      "KPI_DASHBOARD",
+      "AUDIT_LOGS",
+      "FORECASTING",
+    ],
+    includedAgents: ["OPS_AGENT", "INVENTORY_AGENT", "FINANCE_AGENT"],
+    totalMessagesPerDay: 1_200,
+    totalMessagesPerMonth: 36_000,
+    aiRepliesPerDay: 600,
+    aiRepliesPerMonth: 18_000,
+    includedBranches: 1,
+    includedPosConnections: 1,
+    cashierPromoEligible: true,
+    upsellPriority: ["team_rbac", "loyalty", "automations", "forecasting"],
+    notes: ["الكاشير دائم ضمن الخطة بعد فترة العرض الترويجي"],
+  },
+  {
+    id: "GROWTH",
+    nameAr: "Growth",
+    nameEn: "Growth",
+    monthlyPriceEgp: 4800,
+    isFullPlatformPlan: true,
+    bestFor: "الفرق النامية التي تحتاج تشغيل فريق وأتمتة وولاء",
+    mainValue: "يشمل الفريق والولاء والشرائح والعمل التلقائي عبر فروع متعددة",
+    includedFeatures: [
+      "EVERYTHING_IN_BASIC",
+      "TEAM_RBAC",
+      "LOYALTY",
+      "CUSTOMER_SEGMENTS",
+      "CAMPAIGN_SURFACES",
+      "AUTOMATIONS",
+    ],
+    excludedFeatures: ["KPI_DASHBOARD", "AUDIT_LOGS", "FORECASTING"],
+    includedAgents: ["OPS_AGENT", "INVENTORY_AGENT", "FINANCE_AGENT"],
+    totalMessagesPerDay: 2_400,
+    totalMessagesPerMonth: 72_000,
+    aiRepliesPerDay: 1_200,
+    aiRepliesPerMonth: 36_000,
+    includedBranches: 2,
+    includedPosConnections: 2,
+    cashierPromoEligible: true,
+    upsellPriority: ["kpi_dashboard", "audit_logs", "forecasting"],
+    notes: [],
+  },
+  {
+    id: "PRO",
+    nameAr: "Pro",
+    nameEn: "Pro",
+    monthlyPriceEgp: 10000,
+    isFullPlatformPlan: true,
+    bestFor: "تشغيل احترافي مع تقارير مالية ومخزنية متقدمة",
+    mainValue: "يشمل KPI وسجل التدقيق والتنبؤات وتقارير CFO",
+    includedFeatures: [
+      "EVERYTHING_IN_GROWTH",
+      "KPI_DASHBOARD",
+      "AUDIT_LOGS",
+      "FORECASTING",
+      "ADVANCED_REPORTS",
+      "CFO_REPORTING",
+      "CASH_FLOW_TAX_ACCOUNTANT_EXPORTS",
+      "INVENTORY_INSIGHTS",
+    ],
+    excludedFeatures: [],
+    includedAgents: ["OPS_AGENT", "INVENTORY_AGENT", "FINANCE_AGENT"],
+    totalMessagesPerDay: 5_000,
+    totalMessagesPerMonth: 150_000,
+    aiRepliesPerDay: 2_500,
+    aiRepliesPerMonth: 75_000,
+    includedBranches: 5,
+    includedPosConnections: 5,
+    cashierPromoEligible: true,
+    upsellPriority: [
+      "custom_integrations",
+      "sla_business_hours",
+      "voice_calling_enablement",
+    ],
+    notes: [],
+  },
+  {
+    id: "ENTERPRISE",
+    nameAr: "Enterprise",
+    nameEn: "Enterprise",
+    monthlyPriceEgp: 21500,
+    isFullPlatformPlan: true,
+    bestFor: "المؤسسات التي تحتاج تكاملات مخصصة وضمانات تشغيلية",
+    mainValue: "يشمل تكاملات مخصصة وSLA وأهلية تفعيل المكالمات الصوتية",
+    includedFeatures: [
+      "EVERYTHING_IN_PRO",
+      "CUSTOM_INTEGRATIONS",
+      "SLA_ELIGIBLE",
+      "VOICE_CALLING_ENABLEMENT_ELIGIBLE",
+      "ENTERPRISE_LIMIT_OVERRIDES",
+      "CUSTOM_BRANCH_POS_STRUCTURE",
+    ],
+    excludedFeatures: [],
+    includedAgents: ["OPS_AGENT", "INVENTORY_AGENT", "FINANCE_AGENT"],
+    totalMessagesPerDay: 10_000,
+    totalMessagesPerMonth: 300_000,
+    aiRepliesPerDay: 5_000,
+    aiRepliesPerMonth: 150_000,
+    includedBranches: -1,
+    includedPosConnections: -1,
+    cashierPromoEligible: true,
+    upsellPriority: [
+      "custom_bundle_minimum_with_integration_or_voice",
+      "sla_priority",
+    ],
+    notes: ["الهيكل النهائي للفروع ونقاط البيع يتم حسب الاتفاق"],
+  },
+  {
+    id: "CHAT_ONLY",
+    nameAr: "Chat Only",
+    nameEn: "Chat Only",
+    monthlyPriceEgp: 1000,
+    isFullPlatformPlan: false,
+    bestFor: "فرق البيع والمحادثات التي لا تحتاج منصة تشغيل كاملة",
+    mainValue: "سعة محادثات أعلى من Starter لكن بدون وحدات التشغيل الأوسع",
+    includedFeatures: [
+      "WHATSAPP_META",
+      "MESSENGER_INSTAGRAM",
+      "AI_CUSTOMER_REPLIES",
+      "CHAT_HISTORY",
+      "BASIC_ROUTING_TAGGING",
+    ],
+    excludedFeatures: [
+      "INVENTORY",
+      "FINANCE",
+      "CASHIER_POS",
+      "BRANCHES",
+      "OPERATIONS_MODULES",
+      "ADVANCED_REPORTS",
+      "LOYALTY",
+      "AUTOMATIONS",
+    ],
+    includedAgents: [],
+    totalMessagesPerDay: 960,
+    totalMessagesPerMonth: 28_800,
+    aiRepliesPerDay: 480,
+    aiRepliesPerMonth: 14_400,
+    includedBranches: 0,
+    includedPosConnections: 0,
+    cashierPromoEligible: false,
+    upsellPriority: ["starter", "messages", "ai_replies"],
+    notes: ["هذه ليست خطة منصة كاملة"],
+  },
+];
+
+export const FEATURE_ADDON_CATALOG: PublicPricingCatalogItem[] = [
+  {
+    code: "conversations",
+    nameAr: "المحادثات",
+    descriptionAr: "إضافة طبقة المحادثات",
+    monthlyPriceEgp: 149,
+  },
+  {
+    code: "orders",
+    nameAr: "الطلبات",
+    descriptionAr: "إضافة إدارة الطلبات",
+    monthlyPriceEgp: 99,
+  },
+  {
+    code: "catalog",
+    nameAr: "الكتالوج",
+    descriptionAr: "إضافة إدارة الكتالوج",
+    monthlyPriceEgp: 79,
+  },
+  {
+    code: "inventory",
+    nameAr: "المخزون",
+    descriptionAr: "إضافة المخزون الكامل",
+    monthlyPriceEgp: 249,
+  },
+  {
+    code: "payments",
+    nameAr: "المدفوعات",
+    descriptionAr: "إضافة المدفوعات وإثباتات الدفع",
+    monthlyPriceEgp: 199,
+  },
+  {
+    code: "voice_notes",
+    nameAr: "الرسائل الصوتية",
+    descriptionAr: "إضافة النسخ الصوتي",
+    monthlyPriceEgp: 99,
+  },
+  {
+    code: "reports",
+    nameAr: "التقارير",
+    descriptionAr: "إضافة التقارير",
+    monthlyPriceEgp: 149,
+  },
+  {
+    code: "webhooks",
+    nameAr: "الويب هوكس",
+    descriptionAr: "إضافة الويب هوكس",
+    monthlyPriceEgp: 99,
+  },
+  {
+    code: "team_rbac",
+    nameAr: "الفريق والصلاحيات",
+    descriptionAr: "إضافة الفريق وRBAC",
+    monthlyPriceEgp: 149,
+  },
+  {
+    code: "loyalty",
+    nameAr: "الولاء",
+    descriptionAr: "إضافة برنامج الولاء",
+    monthlyPriceEgp: 249,
+  },
+  {
+    code: "notifications",
+    nameAr: "الإشعارات",
+    descriptionAr: "إضافة الإشعارات",
+    monthlyPriceEgp: 79,
+  },
+  {
+    code: "audit_logs",
+    nameAr: "سجل التدقيق",
+    descriptionAr: "إضافة سجل التدقيق",
+    monthlyPriceEgp: 99,
+  },
+  {
+    code: "kpi_dashboard",
+    nameAr: "لوحة KPI",
+    descriptionAr: "إضافة لوحة المؤشرات",
+    monthlyPriceEgp: 149,
+  },
+  {
+    code: "api_access",
+    nameAr: "وصول API",
+    descriptionAr: "إضافة وصول API",
+    monthlyPriceEgp: 199,
+  },
+  {
+    code: "automations",
+    nameAr: "الأتمتة",
+    descriptionAr: "إضافة الأتمتة",
+    monthlyPriceEgp: 399,
+  },
+  {
+    code: "forecasting",
+    nameAr: "التنبؤات",
+    descriptionAr: "إضافة التنبؤات",
+    monthlyPriceEgp: 599,
+  },
+  {
+    code: "cashier_pos",
+    nameAr: "الكاشير / POS",
+    descriptionAr: "إضافة الكاشير الدائم",
+    monthlyPriceEgp: 399,
+  },
+  {
+    code: "branch_pack_plus_1",
+    nameAr: "+1 فرع",
+    descriptionAr: "حزمة فرع إضافي واحد",
+    monthlyPriceEgp: 299,
+  },
+  {
+    code: "pos_connection_plus_1",
+    nameAr: "+1 نقطة بيع",
+    descriptionAr: "حزمة نقطة بيع إضافية",
+    monthlyPriceEgp: 299,
+  },
+];
+
+export const LIVE_AGENT_ADDON_CATALOG: PublicPricingCatalogItem[] =
+  LIVE_PURCHASABLE_AGENTS.map((agentId) => ({
+    code: agentId.toLowerCase(),
+    nameAr:
+      getAgentCatalogEntry(agentId)?.nameAr || getAgentDisplayName(agentId),
+    descriptionAr: getAgentCatalogEntry(agentId)?.descriptionAr || agentId,
+    monthlyPriceEgp: AGENT_PRICES_EGP[agentId],
+  }));
+
+export const USAGE_PACK_CATALOG: PublicPricingCatalogItem[] = [
+  {
+    code: "ai_plus_100_per_day",
+    nameAr: "+100 رد ذكاء اصطناعي / يوم",
+    descriptionAr: "رفع سعة الردود الذكية اليومية",
+    monthlyPriceEgp: 249,
+  },
+  {
+    code: "ai_plus_250_per_day",
+    nameAr: "+250 رد ذكاء اصطناعي / يوم",
+    descriptionAr: "رفع سعة الردود الذكية اليومية",
+    monthlyPriceEgp: 549,
+  },
+  {
+    code: "ai_plus_500_per_day",
+    nameAr: "+500 رد ذكاء اصطناعي / يوم",
+    descriptionAr: "رفع سعة الردود الذكية اليومية",
+    monthlyPriceEgp: 999,
+  },
+  {
+    code: "ai_plus_1000_per_day",
+    nameAr: "+1000 رد ذكاء اصطناعي / يوم",
+    descriptionAr: "رفع سعة الردود الذكية اليومية",
+    monthlyPriceEgp: 1799,
+  },
+  {
+    code: "messages_plus_25k_month",
+    nameAr: "+25,000 رسالة / شهر",
+    descriptionAr: "زيادة سعة الرسائل الشهرية",
+    monthlyPriceEgp: 149,
+  },
+  {
+    code: "messages_plus_50k_month",
+    nameAr: "+50,000 رسالة / شهر",
+    descriptionAr: "زيادة سعة الرسائل الشهرية",
+    monthlyPriceEgp: 299,
+  },
+  {
+    code: "messages_plus_100k_month",
+    nameAr: "+100,000 رسالة / شهر",
+    descriptionAr: "زيادة سعة الرسائل الشهرية",
+    monthlyPriceEgp: 549,
+  },
+  {
+    code: "messages_plus_250k_month",
+    nameAr: "+250,000 رسالة / شهر",
+    descriptionAr: "زيادة سعة الرسائل الشهرية",
+    monthlyPriceEgp: 1199,
+  },
+  {
+    code: "proof_scans_plus_50",
+    nameAr: "+50 فحص إثبات دفع",
+    descriptionAr: "زيادة فحوصات إثباتات الدفع",
+    monthlyPriceEgp: 149,
+  },
+  {
+    code: "proof_scans_plus_100",
+    nameAr: "+100 فحص إثبات دفع",
+    descriptionAr: "زيادة فحوصات إثباتات الدفع",
+    monthlyPriceEgp: 249,
+  },
+  {
+    code: "proof_scans_plus_250",
+    nameAr: "+250 فحص إثبات دفع",
+    descriptionAr: "زيادة فحوصات إثباتات الدفع",
+    monthlyPriceEgp: 549,
+  },
+  {
+    code: "transcription_minutes_plus_100",
+    nameAr: "+100 دقيقة تفريغ",
+    descriptionAr: "زيادة دقائق التفريغ الصوتي",
+    monthlyPriceEgp: 149,
+  },
+  {
+    code: "transcription_minutes_plus_250",
+    nameAr: "+250 دقيقة تفريغ",
+    descriptionAr: "زيادة دقائق التفريغ الصوتي",
+    monthlyPriceEgp: 349,
+  },
+  {
+    code: "transcription_minutes_plus_500",
+    nameAr: "+500 دقيقة تفريغ",
+    descriptionAr: "زيادة دقائق التفريغ الصوتي",
+    monthlyPriceEgp: 699,
+  },
+];
+
+export const ENTERPRISE_PRICING_FLOORS: EnterprisePricingFloor[] = [
+  {
+    code: "custom_integration_setup_from",
+    nameAr: "إعداد تكامل مخصص",
+    descriptionAr: "يبدأ من",
+    priceEgp: 15000,
+    billingType: "one_time",
+  },
+  {
+    code: "custom_integration_maintenance_from",
+    nameAr: "صيانة تكامل مخصص",
+    descriptionAr: "يبدأ من",
+    priceEgp: 3000,
+    billingType: "monthly",
+  },
+  {
+    code: "sla_business_hours",
+    nameAr: "SLA ساعات العمل",
+    descriptionAr: "دعم أعمال",
+    priceEgp: 1500,
+    billingType: "monthly",
+  },
+  {
+    code: "sla_priority",
+    nameAr: "SLA أولوية",
+    descriptionAr: "أولوية دعم",
+    priceEgp: 4000,
+    billingType: "monthly",
+  },
+  {
+    code: "sla_24_7_enterprise",
+    nameAr: "SLA مؤسسي 24/7",
+    descriptionAr: "دعم 24/7",
+    priceEgp: 8500,
+    billingType: "monthly",
+  },
+  {
+    code: "voice_calling_enablement",
+    nameAr: "تفعيل المكالمات الصوتية",
+    descriptionAr: "يبدأ من",
+    priceEgp: 4000,
+    billingType: "monthly",
+  },
+  {
+    code: "custom_bundle_minimum_no_bespoke_dev",
+    nameAr: "حد أدنى لباندل مخصص",
+    descriptionAr: "بدون تطوير خاص",
+    priceEgp: 12000,
+    billingType: "monthly",
+  },
+  {
+    code: "custom_bundle_minimum_with_integration_or_voice",
+    nameAr: "حد أدنى لباندل مخصص مع تكامل/صوت",
+    descriptionAr: "مع تكامل أو صوت",
+    priceEgp: 18000,
+    billingType: "monthly",
+  },
+];
+
+export const PUBLIC_PRICING_NOTES = [
+  "الرسائل = إجمالي الرسائل المعالجة داخل المنصة: رسائل العميل الواردة + ردود الذكاء الاصطناعي الصادرة.",
+  "رسوم قوالب واتساب المدفوعة تُحاسب بشكل منفصل كتكلفة تمرير.",
+  "دقائق المكالمات تُحاسب بشكل منفصل عند التفعيل.",
+  "الكاشير مجاني لأول 30 يوم للاشتراكات المدفوعة الجديدة على الخطط الكاملة فقط.",
+  "الوكلاء القابلون للشراء حالياً هم فقط: Ops Agent وInventory Agent وFinance Agent.",
+];
+
+export function getPublicPricingCatalog() {
+  return {
+    currency: "EGP" as const,
+    plans: PUBLIC_PRICING_PLANS,
+    featureAddOns: FEATURE_ADDON_CATALOG,
+    liveAgentAddOns: LIVE_AGENT_ADDON_CATALOG,
+    usagePacks: USAGE_PACK_CATALOG,
+    enterprise: ENTERPRISE_PRICING_FLOORS,
+    notes: PUBLIC_PRICING_NOTES,
+  };
+}
 
 /**
  * Get the full catalog for UI rendering
@@ -1054,4 +1807,14 @@ export function getCatalog() {
     featureDependencies: FEATURE_DEPENDENCIES,
     featureAgentMap: FEATURE_AGENT_MAP,
   };
+}
+
+export function getAgentCatalogEntry(
+  agentType: AgentType,
+): AgentCatalogEntry | undefined {
+  return AGENT_CATALOG.find((agent) => agent.id === agentType);
+}
+
+export function isAgentSubscribable(agentType: AgentType): boolean {
+  return getAgentCatalogEntry(agentType)?.subscriptionEnabled ?? false;
 }

@@ -359,12 +359,17 @@ export default function CustomersPage() {
   }
 
   return (
-    <div className="space-y-6 animate-fadeIn">
+    <div className="space-y-6 animate-fadeIn p-4 sm:p-6">
       <PageHeader
         title="إدارة العملاء"
         description="تحليل وتقسيم العملاء حسب قيمتهم"
         actions={
-          <Button variant="outline" size="sm" onClick={fetchCustomers}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={fetchCustomers}
+            className="w-full sm:w-auto"
+          >
             <RefreshCw className="h-4 w-4" />
           </Button>
         }
@@ -396,7 +401,7 @@ export default function CustomersPage() {
 
       {/* Segment Summary Cards */}
       {segmentSummary && (
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
           {Object.entries(segmentConfig).map(([key, config]) => {
             const data = segmentSummary[key as keyof SegmentSummary];
             const Icon = config.icon;
@@ -451,7 +456,7 @@ export default function CustomersPage() {
               />
             </div>
             <Select value={segmentFilter} onValueChange={setSegmentFilter}>
-              <SelectTrigger className="w-40">
+              <SelectTrigger className="w-full sm:w-40">
                 <SelectValue placeholder="كل الشرائح" />
               </SelectTrigger>
               <SelectContent>
@@ -470,123 +475,211 @@ export default function CustomersPage() {
       {/* Customers Table */}
       <Card>
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="text-right">العميل</TableHead>
-                <TableHead className="text-right">الشريحة</TableHead>
-                <TableHead className="text-right">الولاء</TableHead>
-                <TableHead className="text-right">الطلبات</TableHead>
-                <TableHead className="text-right">الإنفاق</TableHead>
-                <TableHead className="text-right">آخر طلب</TableHead>
-                <TableHead className="text-right">الإجراءات</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredCustomers.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={7} className="text-center py-12">
-                    <Users className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                    <p className="text-muted-foreground">لا يوجد عملاء</p>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                filteredCustomers.map((customer) => {
+          {filteredCustomers.length === 0 ? (
+            <div className="py-12 text-center">
+              <Users className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
+              <p className="text-muted-foreground">لا يوجد عملاء</p>
+            </div>
+          ) : (
+            <>
+              <div className="space-y-3 p-4 md:hidden">
+                {filteredCustomers.map((customer) => {
                   const config = segmentConfig[customer.segment];
                   const Icon = config.icon;
                   return (
-                    <TableRow
+                    <Card
                       key={customer.customerId}
-                      className="cursor-pointer hover:bg-muted/50"
+                      className="cursor-pointer"
+                      onClick={() => setSelectedCustomer(customer)}
                     >
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                      <CardContent className="space-y-3 p-4 text-sm">
+                        <div className="flex items-start gap-3">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
                             <span className="text-lg font-bold text-primary">
                               {customer.name.charAt(0)}
                             </span>
                           </div>
-                          <div>
+                          <div className="min-w-0 flex-1">
                             <p className="font-medium">{customer.name}</p>
                             <p
-                              className="text-sm text-muted-foreground flex items-center gap-1"
+                              className="flex items-center gap-1 text-xs text-muted-foreground"
                               dir="ltr"
                             >
                               <Phone className="h-3 w-3" />
                               {customer.phone}
                             </p>
                           </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedCustomer(customer);
+                            }}
+                          >
+                            عرض
+                          </Button>
                         </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={cn(config.color, "text-white")}>
-                          <Icon className="h-3 w-3 ml-1" />
-                          {config.label}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {customer.loyaltyTier ? (
-                          <div className="space-y-1">
+                        <div className="flex flex-wrap gap-2">
+                          <Badge className={cn(config.color, "text-white")}>
+                            <Icon className="ml-1 h-3 w-3" />
+                            {config.label}
+                          </Badge>
+                          {customer.loyaltyTier ? (
                             <Badge variant="outline">
-                              <Crown className="h-3 w-3 ml-1" />
+                              <Crown className="ml-1 h-3 w-3" />
                               {customer.loyaltyTier}
                             </Badge>
-                            <div className="text-xs text-muted-foreground">
-                              {(customer.loyaltyPoints || 0).toLocaleString(
-                                "ar-SA",
-                              )}{" "}
-                              نقطة
-                            </div>
+                          ) : (
+                            <Badge variant="outline">غير مسجل</Badge>
+                          )}
+                        </div>
+                        <div className="grid grid-cols-2 gap-3 text-xs">
+                          <div>
+                            <p className="text-muted-foreground">الطلبات</p>
+                            <p className="font-medium">{customer.orderCount}</p>
                           </div>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">
-                            غير مسجل
-                          </span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1">
-                          <ShoppingBag className="h-4 w-4 text-muted-foreground" />
-                          <span>{customer.orderCount}</span>
+                          <div>
+                            <p className="text-muted-foreground">الإنفاق</p>
+                            <p className="font-medium">
+                              {formatCurrency(customer.totalSpent)}
+                            </p>
+                          </div>
+                          <div className="col-span-2">
+                            <p className="text-muted-foreground">آخر طلب</p>
+                            <p className="font-medium">
+                              {customer.lastOrder
+                                ? formatRelativeTime(customer.lastOrder)
+                                : "-"}
+                            </p>
+                            {(customer.daysSinceLastOrder ?? 0) > 60 && (
+                              <Badge
+                                variant="outline"
+                                className="mt-1 border-red-200 text-xs text-red-500"
+                              >
+                                <AlertTriangle className="ml-1 h-3 w-3" />
+                                {customer.daysSinceLastOrder} يوم
+                              </Badge>
+                            )}
+                          </div>
                         </div>
-                      </TableCell>
-                      <TableCell className="font-medium">
-                        {formatCurrency(customer.totalSpent)}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1 text-muted-foreground">
-                          <Calendar className="h-4 w-4" />
-                          <span>
-                            {customer.lastOrder
-                              ? formatRelativeTime(customer.lastOrder)
-                              : "-"}
-                          </span>
-                        </div>
-                        {(customer.daysSinceLastOrder ?? 0) > 60 && (
-                          <Badge
-                            variant="outline"
-                            className="text-xs text-red-500 border-red-200 mt-1"
-                          >
-                            <AlertTriangle className="h-3 w-3 ml-1" />
-                            {customer.daysSinceLastOrder} يوم
-                          </Badge>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setSelectedCustomer(customer)}
-                        >
-                          عرض التفاصيل
-                        </Button>
-                      </TableCell>
-                    </TableRow>
+                      </CardContent>
+                    </Card>
                   );
-                })
-              )}
-            </TableBody>
-          </Table>
+                })}
+              </div>
+              <div className="hidden overflow-x-auto md:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-right">العميل</TableHead>
+                      <TableHead className="text-right">الشريحة</TableHead>
+                      <TableHead className="text-right">الولاء</TableHead>
+                      <TableHead className="text-right">الطلبات</TableHead>
+                      <TableHead className="text-right">الإنفاق</TableHead>
+                      <TableHead className="text-right">آخر طلب</TableHead>
+                      <TableHead className="text-right">الإجراءات</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredCustomers.map((customer) => {
+                      const config = segmentConfig[customer.segment];
+                      const Icon = config.icon;
+                      return (
+                        <TableRow
+                          key={customer.customerId}
+                          className="cursor-pointer hover:bg-muted/50"
+                        >
+                          <TableCell>
+                            <div className="flex items-center gap-3">
+                              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+                                <span className="text-lg font-bold text-primary">
+                                  {customer.name.charAt(0)}
+                                </span>
+                              </div>
+                              <div>
+                                <p className="font-medium">{customer.name}</p>
+                                <p
+                                  className="flex items-center gap-1 text-sm text-muted-foreground"
+                                  dir="ltr"
+                                >
+                                  <Phone className="h-3 w-3" />
+                                  {customer.phone}
+                                </p>
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge className={cn(config.color, "text-white")}>
+                              <Icon className="ml-1 h-3 w-3" />
+                              {config.label}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            {customer.loyaltyTier ? (
+                              <div className="space-y-1">
+                                <Badge variant="outline">
+                                  <Crown className="ml-1 h-3 w-3" />
+                                  {customer.loyaltyTier}
+                                </Badge>
+                                <div className="text-xs text-muted-foreground">
+                                  {(customer.loyaltyPoints || 0).toLocaleString(
+                                    "ar-SA",
+                                  )}{" "}
+                                  نقطة
+                                </div>
+                              </div>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">
+                                غير مسجل
+                              </span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1">
+                              <ShoppingBag className="h-4 w-4 text-muted-foreground" />
+                              <span>{customer.orderCount}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="font-medium">
+                            {formatCurrency(customer.totalSpent)}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1 text-muted-foreground">
+                              <Calendar className="h-4 w-4" />
+                              <span>
+                                {customer.lastOrder
+                                  ? formatRelativeTime(customer.lastOrder)
+                                  : "-"}
+                              </span>
+                            </div>
+                            {(customer.daysSinceLastOrder ?? 0) > 60 && (
+                              <Badge
+                                variant="outline"
+                                className="mt-1 border-red-200 text-xs text-red-500"
+                              >
+                                <AlertTriangle className="ml-1 h-3 w-3" />
+                                {customer.daysSinceLastOrder} يوم
+                              </Badge>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setSelectedCustomer(customer)}
+                            >
+                              عرض التفاصيل
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
 
@@ -595,7 +688,7 @@ export default function CustomersPage() {
         open={!!selectedCustomer}
         onOpenChange={() => setSelectedCustomer(null)}
       >
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-h-[90vh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-3xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
@@ -622,15 +715,21 @@ export default function CustomersPage() {
             </div>
           ) : customerInsights ? (
             <Tabs defaultValue="overview" className="mt-4">
-              <TabsList className="grid grid-cols-3 w-full">
-                <TabsTrigger value="overview">نظرة عامة</TabsTrigger>
-                <TabsTrigger value="orders">الطلبات</TabsTrigger>
-                <TabsTrigger value="insights">التحليلات</TabsTrigger>
+              <TabsList className="grid h-auto w-full grid-cols-1 gap-2 sm:grid-cols-3">
+                <TabsTrigger value="overview" className="w-full">
+                  نظرة عامة
+                </TabsTrigger>
+                <TabsTrigger value="orders" className="w-full">
+                  الطلبات
+                </TabsTrigger>
+                <TabsTrigger value="insights" className="w-full">
+                  التحليلات
+                </TabsTrigger>
               </TabsList>
 
               <TabsContent value="overview" className="space-y-4 mt-4">
                 {/* Quick Stats */}
-                <div className="grid grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
                   <Card>
                     <CardContent className="p-4 text-center">
                       <ShoppingBag className="h-6 w-6 mx-auto text-primary mb-2" />
@@ -691,9 +790,11 @@ export default function CustomersPage() {
                           (product, idx) => (
                             <div
                               key={idx}
-                              className="flex items-center justify-between p-2 bg-muted/50 rounded"
+                              className="flex flex-col gap-2 rounded bg-muted/50 p-2 sm:flex-row sm:items-center sm:justify-between"
                             >
-                              <span>{product.product_name}</span>
+                              <span className="break-words">
+                                {product.product_name}
+                              </span>
                               <Badge variant="secondary">
                                 {product.total_quantity} قطعة
                               </Badge>
@@ -719,7 +820,7 @@ export default function CustomersPage() {
                           (activity, idx) => (
                             <div
                               key={idx}
-                              className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
+                              className="flex flex-col gap-3 rounded-lg bg-muted/50 p-3 sm:flex-row sm:items-center sm:justify-between"
                             >
                               <div className="flex items-center gap-3">
                                 <div className="p-2 bg-primary/10 rounded">
@@ -734,7 +835,7 @@ export default function CustomersPage() {
                                   </p>
                                 </div>
                               </div>
-                              <div className="text-end">
+                              <div className="text-start sm:text-end">
                                 <p className="font-bold">
                                   {formatCurrency(activity.value)}
                                 </p>
@@ -758,7 +859,7 @@ export default function CustomersPage() {
 
               <TabsContent value="insights" className="space-y-4 mt-4">
                 {/* Segment & Risk */}
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <Card>
                     <CardContent className="p-4">
                       <p className="text-sm text-muted-foreground mb-2">
@@ -857,7 +958,7 @@ export default function CustomersPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="grid grid-cols-4 gap-4 text-center">
+                    <div className="grid grid-cols-2 gap-4 text-center sm:grid-cols-4">
                       <div>
                         <p className="text-2xl font-bold">
                           {customerInsights.conversationStats.total}
@@ -889,7 +990,7 @@ export default function CustomersPage() {
                 </Card>
 
                 {/* Actions */}
-                <div className="flex gap-2">
+                <div className="flex flex-col gap-2 sm:flex-row">
                   <Button
                     className="flex-1"
                     onClick={() => {

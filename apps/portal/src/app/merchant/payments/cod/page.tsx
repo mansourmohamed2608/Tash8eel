@@ -740,20 +740,26 @@ export default function CODReconciliationPage() {
         title="تسوية الدفع عند الاستلام"
         description="متابعة وتسوية مبالغ COD من شركات الشحن"
         actions={
-          <div className="flex gap-2">
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
             <Button
               variant="outline"
               size="sm"
               onClick={() => setImportDialogOpen(true)}
+              className="w-full sm:w-auto"
             >
               <Upload className="h-4 w-4 ml-2" />
               استيراد كشف
             </Button>
-            <Button variant="outline" size="sm" onClick={fetchOrders}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={fetchOrders}
+              className="w-full sm:w-auto"
+            >
               <RefreshCw className="h-4 w-4 ml-2" />
               تحديث
             </Button>
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" className="w-full sm:w-auto">
               <Download className="h-4 w-4 ml-2" />
               تصدير
             </Button>
@@ -775,7 +781,7 @@ export default function CODReconciliationPage() {
 
       {/* Summary Cards */}
       {summary && (
-        <div className="grid gap-4 md:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
@@ -850,13 +856,13 @@ export default function CODReconciliationPage() {
       {/* Filters and Actions */}
       <Card>
         <CardContent className="pt-6">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex gap-4">
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-4 lg:flex-row lg:flex-wrap lg:items-center">
               <Select
                 value={selectedPartner}
                 onValueChange={setSelectedPartner}
               >
-                <SelectTrigger className="w-[180px]">
+                <SelectTrigger className="w-full sm:w-[180px]">
                   <Truck className="h-4 w-4 ml-2" />
                   <SelectValue placeholder="شركة الشحن" />
                 </SelectTrigger>
@@ -872,7 +878,7 @@ export default function CODReconciliationPage() {
 
               {branches.length > 0 && (
                 <Select value={branchFilter} onValueChange={setBranchFilter}>
-                  <SelectTrigger className="w-[170px]">
+                  <SelectTrigger className="w-full sm:w-[170px]">
                     <SelectValue placeholder="الفرع" />
                   </SelectTrigger>
                   <SelectContent>
@@ -887,7 +893,7 @@ export default function CODReconciliationPage() {
               )}
 
               <Select value={periodDays} onValueChange={setPeriodDays}>
-                <SelectTrigger className="w-[170px]">
+                <SelectTrigger className="w-full sm:w-[170px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -901,20 +907,20 @@ export default function CODReconciliationPage() {
 
               <Input
                 type="date"
-                className="w-[170px]"
+                className="w-full sm:w-[170px]"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
                 placeholder="من تاريخ"
               />
               <Input
                 type="date"
-                className="w-[170px]"
+                className="w-full sm:w-[170px]"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
                 placeholder="إلى تاريخ"
               />
               {(startDate && !endDate) || (!startDate && endDate) ? (
-                <span className="text-xs text-muted-foreground self-center">
+                <span className="text-xs text-muted-foreground lg:self-center">
                   أدخل تاريخ البداية والنهاية معًا لتفعيل المدى المخصص
                 </span>
               ) : null}
@@ -934,7 +940,7 @@ export default function CODReconciliationPage() {
             </div>
 
             {selectedOrders.length > 0 && (
-              <div className="flex gap-2">
+              <div className="flex flex-col gap-2 sm:flex-row">
                 <Button
                   size="sm"
                   onClick={() => setReconcileDialogOpen(true)}
@@ -959,24 +965,24 @@ export default function CODReconciliationPage() {
 
       {/* Orders Table with Tabs */}
       <Tabs value={activeTab} onValueChange={handleTabChange}>
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="pending" className="gap-2">
+        <TabsList className="grid h-auto w-full grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-5">
+          <TabsTrigger value="pending" className="w-full gap-2">
             <Clock className="h-4 w-4" />
             قيد الانتظار
           </TabsTrigger>
-          <TabsTrigger value="collected" className="gap-2">
+          <TabsTrigger value="collected" className="w-full gap-2">
             <Banknote className="h-4 w-4" />
             تم التحصيل
           </TabsTrigger>
-          <TabsTrigger value="reconciled" className="gap-2">
+          <TabsTrigger value="reconciled" className="w-full gap-2">
             <CheckCircle2 className="h-4 w-4" />
             تمت التسوية
           </TabsTrigger>
-          <TabsTrigger value="disputed" className="gap-2">
+          <TabsTrigger value="disputed" className="w-full gap-2">
             <AlertTriangle className="h-4 w-4" />
             متنازع عليه
           </TabsTrigger>
-          <TabsTrigger value="reminders" className="gap-2">
+          <TabsTrigger value="reminders" className="w-full gap-2">
             <Bell className="h-4 w-4" />
             التذكيرات
           </TabsTrigger>
@@ -999,7 +1005,97 @@ export default function CODReconciliationPage() {
                     لا توجد طلبات في هذه الفئة
                   </div>
                 ) : (
-                  <DataTable columns={columns} data={filteredOrders} />
+                  <>
+                    <div className="space-y-3 md:hidden">
+                      {filteredOrders.map((order) => {
+                        const config =
+                          STATUS_CONFIG[
+                            order.status as keyof typeof STATUS_CONFIG
+                          ];
+                        const Icon = config.icon;
+                        const partner = deliveryPartners.find(
+                          (p) => p.id === order.deliveryPartner,
+                        );
+                        const isSelected = selectedOrders.includes(order.id);
+                        return (
+                          <div
+                            key={order.id}
+                            className="space-y-4 rounded-lg border p-4"
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    type="checkbox"
+                                    checked={isSelected}
+                                    onChange={(e) => {
+                                      if (e.target.checked) {
+                                        setSelectedOrders([
+                                          ...selectedOrders,
+                                          order.id,
+                                        ]);
+                                      } else {
+                                        setSelectedOrders(
+                                          selectedOrders.filter(
+                                            (id) => id !== order.id,
+                                          ),
+                                        );
+                                      }
+                                    }}
+                                    className="rounded border-gray-300"
+                                  />
+                                  <p className="font-mono text-sm font-medium">
+                                    {order.orderNumber}
+                                  </p>
+                                </div>
+                                <p className="text-sm">{order.customerName}</p>
+                              </div>
+                              <Badge
+                                className={cn(
+                                  "font-normal gap-1",
+                                  config.color,
+                                )}
+                              >
+                                <Icon className="h-3 w-3" />
+                                {config.label}
+                              </Badge>
+                            </div>
+                            <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+                              <div>
+                                <p className="text-muted-foreground">
+                                  شركة الشحن
+                                </p>
+                                <p>
+                                  {partner?.name ||
+                                    order.deliveryPartnerName ||
+                                    "أخرى"}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-muted-foreground">المبلغ</p>
+                                <p className="font-semibold">
+                                  {formatCurrency(order.codAmount)}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-muted-foreground">
+                                  تاريخ التسليم
+                                </p>
+                                <p>
+                                  {new Date(
+                                    order.deliveryDate,
+                                  ).toLocaleDateString("ar-EG")}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div className="hidden md:block">
+                      <DataTable columns={columns} data={filteredOrders} />
+                    </div>
+                  </>
                 )}
               </CardContent>
             </Card>
@@ -1018,14 +1114,14 @@ export default function CODReconciliationPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex items-end gap-4">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
                     <div className="space-y-2">
                       <Label>أيام التأخير</Label>
                       <Select
                         value={daysPastDueInput}
                         onValueChange={setDaysPastDueInput}
                       >
-                        <SelectTrigger className="w-[180px]">
+                        <SelectTrigger className="w-full sm:w-[180px]">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -1040,7 +1136,7 @@ export default function CODReconciliationPage() {
                     <Button
                       onClick={handleScheduleReminders}
                       disabled={schedulingReminders}
-                      className="gap-2"
+                      className="gap-2 w-full sm:w-auto"
                     >
                       <Send className="h-4 w-4" />
                       {schedulingReminders
@@ -1051,7 +1147,7 @@ export default function CODReconciliationPage() {
                       variant="outline"
                       onClick={fetchReminders}
                       disabled={remindersLoading}
-                      className="gap-2"
+                      className="gap-2 w-full sm:w-auto"
                     >
                       <RefreshCw
                         className={cn(
@@ -1087,55 +1183,60 @@ export default function CODReconciliationPage() {
                       </p>
                     </div>
                   ) : (
-                    <div className="rounded-md border overflow-hidden">
-                      <table className="w-full text-sm" dir="rtl">
-                        <thead className="bg-muted/50">
-                          <tr>
-                            <th className="p-3 text-right font-medium">
-                              رقم الطلب
-                            </th>
-                            <th className="p-3 text-right font-medium">
-                              العميل
-                            </th>
-                            <th className="p-3 text-right font-medium">
-                              المبلغ
-                            </th>
-                            <th className="p-3 text-right font-medium">
-                              أيام التأخير
-                            </th>
-                            <th className="p-3 text-right font-medium">
-                              نوع التذكير
-                            </th>
-                            <th className="p-3 text-right font-medium">
-                              الحالة
-                            </th>
-                            <th className="p-3 text-right font-medium">
-                              تاريخ الجدولة
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {reminders.map((reminder) => (
-                            <tr
-                              key={reminder.id}
-                              className="border-t hover:bg-muted/30"
-                            >
-                              <td className="p-3 font-mono text-xs">
-                                {reminder.orderNumber}
-                              </td>
-                              <td className="p-3">{reminder.customerName}</td>
-                              <td className="p-3 font-medium">
-                                {formatCurrency(reminder.codAmount)}
-                              </td>
-                              <td className="p-3">
+                    <>
+                      <div className="space-y-3 md:hidden">
+                        {reminders.map((reminder) => (
+                          <div
+                            key={reminder.id}
+                            className="space-y-3 rounded-lg border p-4"
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <p className="font-mono text-sm font-medium">
+                                  {reminder.orderNumber}
+                                </p>
+                                <p className="text-sm">
+                                  {reminder.customerName}
+                                </p>
+                              </div>
+                              <Badge
+                                className={cn(
+                                  reminder.status === "pending" &&
+                                    "bg-gray-100 text-gray-800",
+                                  reminder.status === "sent" &&
+                                    "bg-green-100 text-green-800",
+                                  reminder.status === "acknowledged" &&
+                                    "bg-blue-100 text-blue-800",
+                                )}
+                              >
+                                {reminder.status === "pending" && "في الانتظار"}
+                                {reminder.status === "sent" && "تم الإرسال"}
+                                {reminder.status === "acknowledged" &&
+                                  "تم الاستلام"}
+                              </Badge>
+                            </div>
+                            <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+                              <div>
+                                <p className="text-muted-foreground">المبلغ</p>
+                                <p className="font-medium">
+                                  {formatCurrency(reminder.codAmount)}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-muted-foreground">
+                                  أيام التأخير
+                                </p>
                                 <Badge
                                   variant="outline"
                                   className="bg-orange-50 text-orange-700"
                                 >
                                   {reminder.daysPastDue} يوم
                                 </Badge>
-                              </td>
-                              <td className="p-3">
+                              </div>
+                              <div>
+                                <p className="text-muted-foreground">
+                                  نوع التذكير
+                                </p>
                                 <Badge
                                   className={cn(
                                     reminder.reminderType ===
@@ -1155,35 +1256,120 @@ export default function CODReconciliationPage() {
                                   {reminder.reminderType === "final_notice" &&
                                     "إشعار نهائي"}
                                 </Badge>
-                              </td>
-                              <td className="p-3">
-                                <Badge
-                                  className={cn(
-                                    reminder.status === "pending" &&
-                                      "bg-gray-100 text-gray-800",
-                                    reminder.status === "sent" &&
-                                      "bg-green-100 text-green-800",
-                                    reminder.status === "acknowledged" &&
-                                      "bg-blue-100 text-blue-800",
-                                  )}
-                                >
-                                  {reminder.status === "pending" &&
-                                    "في الانتظار"}
-                                  {reminder.status === "sent" && "تم الإرسال"}
-                                  {reminder.status === "acknowledged" &&
-                                    "تم الاستلام"}
-                                </Badge>
-                              </td>
-                              <td className="p-3 text-muted-foreground text-xs">
-                                {new Date(
-                                  reminder.scheduledAt,
-                                ).toLocaleDateString("ar-EG")}
-                              </td>
+                              </div>
+                              <div>
+                                <p className="text-muted-foreground">
+                                  تاريخ الجدولة
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  {new Date(
+                                    reminder.scheduledAt,
+                                  ).toLocaleDateString("ar-EG")}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="hidden overflow-hidden rounded-md border md:block">
+                        <table className="w-full text-sm" dir="rtl">
+                          <thead className="bg-muted/50">
+                            <tr>
+                              <th className="p-3 text-right font-medium">
+                                رقم الطلب
+                              </th>
+                              <th className="p-3 text-right font-medium">
+                                العميل
+                              </th>
+                              <th className="p-3 text-right font-medium">
+                                المبلغ
+                              </th>
+                              <th className="p-3 text-right font-medium">
+                                أيام التأخير
+                              </th>
+                              <th className="p-3 text-right font-medium">
+                                نوع التذكير
+                              </th>
+                              <th className="p-3 text-right font-medium">
+                                الحالة
+                              </th>
+                              <th className="p-3 text-right font-medium">
+                                تاريخ الجدولة
+                              </th>
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
+                          </thead>
+                          <tbody>
+                            {reminders.map((reminder) => (
+                              <tr
+                                key={reminder.id}
+                                className="border-t hover:bg-muted/30"
+                              >
+                                <td className="p-3 font-mono text-xs">
+                                  {reminder.orderNumber}
+                                </td>
+                                <td className="p-3">{reminder.customerName}</td>
+                                <td className="p-3 font-medium">
+                                  {formatCurrency(reminder.codAmount)}
+                                </td>
+                                <td className="p-3">
+                                  <Badge
+                                    variant="outline"
+                                    className="bg-orange-50 text-orange-700"
+                                  >
+                                    {reminder.daysPastDue} يوم
+                                  </Badge>
+                                </td>
+                                <td className="p-3">
+                                  <Badge
+                                    className={cn(
+                                      reminder.reminderType ===
+                                        "first_reminder" &&
+                                        "bg-blue-100 text-blue-800",
+                                      reminder.reminderType ===
+                                        "second_reminder" &&
+                                        "bg-yellow-100 text-yellow-800",
+                                      reminder.reminderType ===
+                                        "final_notice" &&
+                                        "bg-red-100 text-red-800",
+                                    )}
+                                  >
+                                    {reminder.reminderType ===
+                                      "first_reminder" && "تذكير أول"}
+                                    {reminder.reminderType ===
+                                      "second_reminder" && "تذكير ثاني"}
+                                    {reminder.reminderType === "final_notice" &&
+                                      "إشعار نهائي"}
+                                  </Badge>
+                                </td>
+                                <td className="p-3">
+                                  <Badge
+                                    className={cn(
+                                      reminder.status === "pending" &&
+                                        "bg-gray-100 text-gray-800",
+                                      reminder.status === "sent" &&
+                                        "bg-green-100 text-green-800",
+                                      reminder.status === "acknowledged" &&
+                                        "bg-blue-100 text-blue-800",
+                                    )}
+                                  >
+                                    {reminder.status === "pending" &&
+                                      "في الانتظار"}
+                                    {reminder.status === "sent" && "تم الإرسال"}
+                                    {reminder.status === "acknowledged" &&
+                                      "تم الاستلام"}
+                                  </Badge>
+                                </td>
+                                <td className="p-3 text-muted-foreground text-xs">
+                                  {new Date(
+                                    reminder.scheduledAt,
+                                  ).toLocaleDateString("ar-EG")}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </>
                   )}
                 </CardContent>
               </Card>
@@ -1194,7 +1380,7 @@ export default function CODReconciliationPage() {
 
       {/* Reconcile Dialog */}
       <Dialog open={reconcileDialogOpen} onOpenChange={setReconcileDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>تسوية الطلبات</DialogTitle>
             <DialogDescription>
@@ -1226,14 +1412,19 @@ export default function CODReconciliationPage() {
               />
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="flex-col gap-2 sm:flex-row">
             <Button
               variant="outline"
               onClick={() => setReconcileDialogOpen(false)}
+              className="w-full sm:w-auto"
             >
               إلغاء
             </Button>
-            <Button onClick={handleReconcile} disabled={submitting}>
+            <Button
+              onClick={handleReconcile}
+              disabled={submitting}
+              className="w-full sm:w-auto"
+            >
               {submitting ? "جاري التسوية..." : "تأكيد التسوية"}
             </Button>
           </DialogFooter>
@@ -1242,7 +1433,7 @@ export default function CODReconciliationPage() {
 
       {/* Dispute Dialog */}
       <Dialog open={disputeDialogOpen} onOpenChange={setDisputeDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>تسجيل اعتراض</DialogTitle>
             <DialogDescription>
@@ -1264,10 +1455,11 @@ export default function CODReconciliationPage() {
               />
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="flex-col gap-2 sm:flex-row">
             <Button
               variant="outline"
               onClick={() => setDisputeDialogOpen(false)}
+              className="w-full sm:w-auto"
             >
               إلغاء
             </Button>
@@ -1275,6 +1467,7 @@ export default function CODReconciliationPage() {
               variant="destructive"
               onClick={handleDispute}
               disabled={submitting || !disputeNotes}
+              className="w-full sm:w-auto"
             >
               {submitting ? "جاري التسجيل..." : "تسجيل الاعتراض"}
             </Button>
@@ -1284,7 +1477,7 @@ export default function CODReconciliationPage() {
 
       {/* CSV Import Dialog */}
       <Dialog open={importDialogOpen} onOpenChange={setImportDialogOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-h-[90vh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <FileSpreadsheet className="h-5 w-5" />
@@ -1334,7 +1527,7 @@ export default function CODReconciliationPage() {
             ) : (
               <>
                 {/* Preview Section */}
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2">
                     <FileText className="h-4 w-4 text-muted-foreground" />
                     <span className="text-sm font-medium">
@@ -1348,7 +1541,7 @@ export default function CODReconciliationPage() {
 
                 {/* Summary Stats */}
                 {importSummary && (
-                  <div className="grid grid-cols-4 gap-2">
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                     <div className="bg-muted rounded p-3 text-center">
                       <div className="text-lg font-bold">
                         {importSummary.total}
@@ -1385,7 +1578,40 @@ export default function CODReconciliationPage() {
                 )}
 
                 {/* Preview Table */}
-                <div className="border rounded-lg max-h-64 overflow-auto">
+                <div className="space-y-3 md:hidden">
+                  {importedRows.slice(0, 10).map((row, idx) => (
+                    <div key={idx} className="space-y-2 rounded-lg border p-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <p className="font-mono text-xs">{row.orderNumber}</p>
+                        {row.matched ? (
+                          <Badge className="bg-green-100 text-green-800">
+                            ✓ متطابق
+                          </Badge>
+                        ) : (
+                          <Badge className="bg-yellow-100 text-yellow-800">
+                            ؟ غير متطابق
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
+                        <div>
+                          <p className="text-muted-foreground">المبلغ</p>
+                          <p>{formatCurrency(row.amount)}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">التاريخ</p>
+                          <p className="text-muted-foreground">{row.date}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {importedRows.length > 10 && (
+                    <div className="rounded-lg border border-dashed p-3 text-center text-sm text-muted-foreground">
+                      ... و {importedRows.length - 10} صف آخر
+                    </div>
+                  )}
+                </div>
+                <div className="hidden max-h-64 overflow-auto rounded-lg border md:block">
                   <table className="w-full text-sm">
                     <thead className="bg-muted sticky top-0">
                       <tr>
@@ -1435,19 +1661,21 @@ export default function CODReconciliationPage() {
             )}
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="flex-col gap-2 sm:flex-row">
             <Button
               variant="outline"
               onClick={() => {
                 setImportDialogOpen(false);
                 clearImport();
               }}
+              className="w-full sm:w-auto"
             >
               إلغاء
             </Button>
             <Button
               onClick={handleImportConfirm}
               disabled={importing || importedRows.length === 0}
+              className="w-full sm:w-auto"
             >
               {importing
                 ? "جاري الاستيراد..."

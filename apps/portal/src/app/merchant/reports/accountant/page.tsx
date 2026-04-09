@@ -252,7 +252,7 @@ export default function AccountantPackPage() {
               value={String(reportingDays)}
               onValueChange={(value) => applyDayRange(Number(value))}
             >
-              <SelectTrigger className="w-48">
+              <SelectTrigger className="w-full sm:w-48">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -394,12 +394,17 @@ export default function AccountantPackPage() {
       {result && (
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <CardTitle className="flex items-center gap-2">
                 <CheckCircle2 className="h-5 w-5 text-green-500" />
                 تم إنشاء الحزمة بنجاح
               </CardTitle>
-              <Button onClick={handleDownloadAll} variant="default" size="sm">
+              <Button
+                onClick={handleDownloadAll}
+                variant="default"
+                size="sm"
+                className="w-full sm:w-auto"
+              >
                 <Download className="h-4 w-4 ml-2" />
                 تحميل الكل CSV
               </Button>
@@ -410,7 +415,7 @@ export default function AccountantPackPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               {Object.entries(result.sections || {}).map(
                 ([key, section]: [string, any]) => {
                   const opt = INCLUDE_OPTIONS.find(
@@ -422,7 +427,7 @@ export default function AccountantPackPage() {
                   return (
                     <div
                       key={key}
-                      className="flex items-start justify-between p-4 rounded-lg border"
+                      className="flex flex-col gap-4 rounded-lg border p-4 sm:flex-row sm:items-start sm:justify-between"
                     >
                       <div className="flex items-center gap-3">
                         {opt?.icon && (
@@ -450,6 +455,7 @@ export default function AccountantPackPage() {
                       <Button
                         variant="outline"
                         size="sm"
+                        className="w-full sm:w-auto"
                         disabled={!section.data?.length}
                         onClick={() =>
                           downloadCSV(

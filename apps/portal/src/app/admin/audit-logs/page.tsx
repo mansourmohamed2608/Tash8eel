@@ -189,18 +189,23 @@ export default function AuditLogsPage() {
         title="سجل النشاط"
         description="تتبع جميع الأحداث والتغييرات في النظام"
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
             <Button
               variant="outline"
               onClick={handleRefresh}
               disabled={refreshing}
+              className="w-full sm:w-auto"
             >
               <RefreshCw
                 className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
               />
               تحديث
             </Button>
-            <Button variant="outline" onClick={handleExport}>
+            <Button
+              variant="outline"
+              onClick={handleExport}
+              className="w-full sm:w-auto"
+            >
               <Download className="h-4 w-4" />
               تصدير CSV
             </Button>
@@ -314,7 +319,62 @@ export default function AuditLogsPage() {
             />
           ) : (
             <>
-              <div className="overflow-x-auto">
+              <div className="divide-y md:hidden">
+                {paginatedLogs.map((log) => (
+                  <div key={log.id} className="space-y-4 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="space-y-1">
+                        <div>
+                          <Badge
+                            className={cn(
+                              "text-xs",
+                              getActionColor(log.action),
+                            )}
+                          >
+                            {actionLabels[log.action] || log.action}
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {formatRelativeTime(log.timestamp)}
+                        </p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setSelectedLog(log)}
+                      >
+                        <Eye className="ml-2 h-4 w-4" />
+                        التفاصيل
+                      </Button>
+                    </div>
+                    <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+                      <div>
+                        <p className="text-muted-foreground">المنفذ</p>
+                        <p className="font-medium">{log.actor.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {log.actor.type === "admin"
+                            ? "مدير"
+                            : log.actor.type === "merchant"
+                              ? "تاجر"
+                              : "نظام"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">الهدف</p>
+                        <p>{log.target.name || log.target.id}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {log.target.type}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">عنوان IP</p>
+                        <p className="font-mono text-xs">{log.ipAddress}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="hidden overflow-x-auto md:block">
                 <table className="w-full">
                   <thead className="bg-muted/50 border-b">
                     <tr>
@@ -429,13 +489,13 @@ export default function AuditLogsPage() {
 
       {/* Log Details Dialog */}
       <Dialog open={!!selectedLog} onOpenChange={() => setSelectedLog(null)}>
-        <DialogContent className="sm:max-w-2xl">
+        <DialogContent className="max-h-[90vh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>تفاصيل السجل</DialogTitle>
           </DialogHeader>
           {selectedLog && (
             <div className="space-y-4 py-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <p className="text-sm text-muted-foreground">الحدث</p>
                   <Badge
@@ -457,7 +517,7 @@ export default function AuditLogsPage() {
 
               <div className="p-4 rounded-lg bg-muted/50 space-y-3">
                 <h4 className="font-medium">المنفذ</h4>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
                     <p className="text-sm text-muted-foreground">الاسم</p>
                     <p className="font-medium">{selectedLog.actor.name}</p>
@@ -477,7 +537,7 @@ export default function AuditLogsPage() {
 
               <div className="p-4 rounded-lg bg-muted/50 space-y-3">
                 <h4 className="font-medium">الهدف</h4>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
                     <p className="text-sm text-muted-foreground">النوع</p>
                     <p className="font-medium">{selectedLog.target.type}</p>
@@ -499,15 +559,17 @@ export default function AuditLogsPage() {
 
               <div className="p-4 rounded-lg bg-muted/50 space-y-3">
                 <h4 className="font-medium">معلومات الجلسة</h4>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
                     <p className="text-sm text-muted-foreground">عنوان IP</p>
-                    <p className="font-mono text-sm">{selectedLog.ipAddress}</p>
+                    <p className="font-mono text-sm break-all">
+                      {selectedLog.ipAddress}
+                    </p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">User Agent</p>
                     <p
-                      className="text-sm truncate"
+                      className="text-sm break-words"
                       title={selectedLog.userAgent}
                     >
                       {selectedLog.userAgent}
@@ -521,7 +583,7 @@ export default function AuditLogsPage() {
                   التفاصيل (Payload)
                 </p>
                 <pre
-                  className="p-3 rounded-lg bg-muted text-sm overflow-x-auto"
+                  className="overflow-x-auto whitespace-pre-wrap break-all rounded-lg bg-muted p-3 text-sm"
                   dir="ltr"
                 >
                   {JSON.stringify(selectedLog.details, null, 2)}
@@ -529,8 +591,12 @@ export default function AuditLogsPage() {
               </div>
             </div>
           )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setSelectedLog(null)}>
+          <DialogFooter className="flex-col-reverse gap-2 sm:flex-row">
+            <Button
+              variant="outline"
+              onClick={() => setSelectedLog(null)}
+              className="w-full sm:w-auto"
+            >
               إغلاق
             </Button>
           </DialogFooter>

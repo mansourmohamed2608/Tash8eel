@@ -167,7 +167,7 @@ export class AnalyticsController {
       }).format(val || 0);
     const formatNumber = (val: number) =>
       new Intl.NumberFormat("ar-EG").format(val || 0);
-    const stats = data.stats || {};
+    const stats = data.stats || data || {};
 
     return `<!DOCTYPE html>
 <html dir="rtl" lang="ar">

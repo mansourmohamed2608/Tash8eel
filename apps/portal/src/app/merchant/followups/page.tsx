@@ -221,7 +221,7 @@ export default function FollowupsPage() {
   };
 
   return (
-    <div className="space-y-6 animate-fadeIn">
+    <div className="space-y-6 animate-fadeIn p-4 sm:p-6">
       <PageHeader
         title="المتابعات"
         description="متابعة الطلبات التي تحتاج إجراء"
@@ -251,7 +251,7 @@ export default function FollowupsPage() {
       />
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         {Object.entries(FOLLOWUP_CONFIG).map(([key, config]) => {
           const count = followups.filter((f) => f.followup_type === key).length;
           const Icon = config.icon;
@@ -343,77 +343,72 @@ export default function FollowupsPage() {
               </p>
             </div>
           ) : (
-            <div className="rounded-md border overflow-hidden">
-              <table className="w-full text-sm" dir="rtl">
-                <thead className="bg-muted/50">
-                  <tr>
-                    <th className="p-3 text-right font-medium">رقم الطلب</th>
-                    <th className="p-3 text-right font-medium">العميل</th>
-                    <th className="p-3 text-right font-medium">المبلغ</th>
-                    <th className="p-3 text-right font-medium">الحالة</th>
-                    <th className="p-3 text-right font-medium">نوع المتابعة</th>
-                    <th className="p-3 text-right font-medium">
-                      موعد المتابعة
-                    </th>
-                    <th className="p-3 text-right font-medium">إجراء</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredFollowups.map((followup) => {
-                    const config =
-                      FOLLOWUP_CONFIG[followup.followup_type] ||
-                      FOLLOWUP_CONFIG.general;
-                    const Icon = config.icon;
-                    return (
-                      <tr
-                        key={followup.id}
-                        className="border-t hover:bg-muted/30"
-                      >
-                        <td className="p-3 font-mono text-xs">
-                          {followup.order_number}
-                        </td>
-                        <td className="p-3">
-                          <div>
-                            <p className="font-medium">
-                              {followup.customer_name}
-                            </p>
-                            <p
-                              className="text-xs text-muted-foreground"
-                              dir="ltr"
-                            >
-                              {followup.customer_phone}
-                            </p>
-                          </div>
-                        </td>
-                        <td className="p-3 font-medium">
-                          {formatCurrency(Number(followup.total) || 0)}
-                        </td>
-                        <td className="p-3">
-                          <Badge variant="outline">
-                            {FOLLOWUP_STATUS_LABELS[followup.status] ||
-                              followup.status ||
-                              "متابعة"}
-                          </Badge>
-                          {followup.payment_method === "COD" && (
-                            <Badge variant="outline" className="ml-1 text-xs">
-                              COD
+            <>
+              <div className="space-y-3 md:hidden">
+                {filteredFollowups.map((followup) => {
+                  const config =
+                    FOLLOWUP_CONFIG[followup.followup_type] ||
+                    FOLLOWUP_CONFIG.general;
+                  const Icon = config.icon;
+                  return (
+                    <div key={followup.id} className="rounded-lg border p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="font-mono text-xs">
+                            {followup.order_number}
+                          </p>
+                          <p className="mt-1 font-medium">
+                            {followup.customer_name}
+                          </p>
+                          <p
+                            className="text-xs text-muted-foreground"
+                            dir="ltr"
+                          >
+                            {followup.customer_phone}
+                          </p>
+                        </div>
+                        <Badge className={cn(config.color, "gap-1")}>
+                          <Icon className="h-3 w-3" />
+                          {config.label}
+                        </Badge>
+                      </div>
+                      <div className="mt-4 grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+                        <div>
+                          <p className="text-xs text-muted-foreground">
+                            المبلغ
+                          </p>
+                          <p className="font-medium">
+                            {formatCurrency(Number(followup.total) || 0)}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">
+                            الحالة
+                          </p>
+                          <div className="mt-1 flex flex-wrap gap-1">
+                            <Badge variant="outline">
+                              {FOLLOWUP_STATUS_LABELS[followup.status] ||
+                                followup.status ||
+                                "متابعة"}
                             </Badge>
-                          )}
-                        </td>
-                        <td className="p-3">
-                          <Badge className={cn(config.color, "gap-1")}>
-                            <Icon className="h-3 w-3" />
-                            {config.label}
-                          </Badge>
-                        </td>
-                        <td className="p-3 text-muted-foreground text-xs">
-                          <div className="flex flex-col gap-1">
-                            <div className="flex items-center gap-1">
+                            {followup.payment_method === "COD" && (
+                              <Badge variant="outline" className="text-xs">
+                                COD
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                        <div className="sm:col-span-2">
+                          <p className="text-xs text-muted-foreground">
+                            موعد المتابعة
+                          </p>
+                          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                            <span className="flex items-center gap-1">
                               <Clock className="h-3 w-3" />
                               {formatRelativeTime(
                                 followup.scheduled_at || followup.updated_at,
                               )}
-                            </div>
+                            </span>
                             {followup.is_due === false && (
                               <Badge
                                 variant="outline"
@@ -423,45 +418,162 @@ export default function FollowupsPage() {
                               </Badge>
                             )}
                           </div>
-                        </td>
-                        <td className="p-3">
-                          <div className="flex gap-1">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="gap-1"
-                              onClick={() =>
-                                handleWhatsApp(
-                                  followup.customer_phone,
-                                  followup.followup_type,
-                                  followup.order_number,
-                                )
-                              }
-                              disabled={!followup.customer_phone}
-                            >
-                              <MessageSquare className="h-3 w-3" />
-                              واتساب
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="gap-1 text-green-600 hover:text-green-700 hover:bg-green-50"
-                              onClick={() =>
-                                void handleMarkComplete(followup.id)
-                              }
-                              disabled={completingId === followup.id}
-                            >
-                              <CheckCircle2 className="h-3 w-3" />
-                              {completingId === followup.id ? "..." : "تم"}
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                        </div>
+                      </div>
+                      <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-1 w-full sm:w-auto"
+                          onClick={() =>
+                            handleWhatsApp(
+                              followup.customer_phone,
+                              followup.followup_type,
+                              followup.order_number,
+                            )
+                          }
+                          disabled={!followup.customer_phone}
+                        >
+                          <MessageSquare className="h-3 w-3" />
+                          واتساب
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="gap-1 w-full text-green-600 hover:bg-green-50 hover:text-green-700 sm:w-auto"
+                          onClick={() => void handleMarkComplete(followup.id)}
+                          disabled={completingId === followup.id}
+                        >
+                          <CheckCircle2 className="h-3 w-3" />
+                          {completingId === followup.id ? "..." : "تم"}
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="hidden rounded-md border overflow-hidden md:block">
+                <table className="w-full text-sm" dir="rtl">
+                  <thead className="bg-muted/50">
+                    <tr>
+                      <th className="p-3 text-right font-medium">رقم الطلب</th>
+                      <th className="p-3 text-right font-medium">العميل</th>
+                      <th className="p-3 text-right font-medium">المبلغ</th>
+                      <th className="p-3 text-right font-medium">الحالة</th>
+                      <th className="p-3 text-right font-medium">
+                        نوع المتابعة
+                      </th>
+                      <th className="p-3 text-right font-medium">
+                        موعد المتابعة
+                      </th>
+                      <th className="p-3 text-right font-medium">إجراء</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredFollowups.map((followup) => {
+                      const config =
+                        FOLLOWUP_CONFIG[followup.followup_type] ||
+                        FOLLOWUP_CONFIG.general;
+                      const Icon = config.icon;
+                      return (
+                        <tr
+                          key={followup.id}
+                          className="border-t hover:bg-muted/30"
+                        >
+                          <td className="p-3 font-mono text-xs">
+                            {followup.order_number}
+                          </td>
+                          <td className="p-3">
+                            <div>
+                              <p className="font-medium">
+                                {followup.customer_name}
+                              </p>
+                              <p
+                                className="text-xs text-muted-foreground"
+                                dir="ltr"
+                              >
+                                {followup.customer_phone}
+                              </p>
+                            </div>
+                          </td>
+                          <td className="p-3 font-medium">
+                            {formatCurrency(Number(followup.total) || 0)}
+                          </td>
+                          <td className="p-3">
+                            <Badge variant="outline">
+                              {FOLLOWUP_STATUS_LABELS[followup.status] ||
+                                followup.status ||
+                                "متابعة"}
+                            </Badge>
+                            {followup.payment_method === "COD" && (
+                              <Badge variant="outline" className="ml-1 text-xs">
+                                COD
+                              </Badge>
+                            )}
+                          </td>
+                          <td className="p-3">
+                            <Badge className={cn(config.color, "gap-1")}>
+                              <Icon className="h-3 w-3" />
+                              {config.label}
+                            </Badge>
+                          </td>
+                          <td className="p-3 text-muted-foreground text-xs">
+                            <div className="flex flex-col gap-1">
+                              <div className="flex items-center gap-1">
+                                <Clock className="h-3 w-3" />
+                                {formatRelativeTime(
+                                  followup.scheduled_at || followup.updated_at,
+                                )}
+                              </div>
+                              {followup.is_due === false && (
+                                <Badge
+                                  variant="outline"
+                                  className="w-fit text-[10px]"
+                                >
+                                  مجدولة
+                                </Badge>
+                              )}
+                            </div>
+                          </td>
+                          <td className="p-3">
+                            <div className="flex gap-1">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="gap-1"
+                                onClick={() =>
+                                  handleWhatsApp(
+                                    followup.customer_phone,
+                                    followup.followup_type,
+                                    followup.order_number,
+                                  )
+                                }
+                                disabled={!followup.customer_phone}
+                              >
+                                <MessageSquare className="h-3 w-3" />
+                                واتساب
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="gap-1 text-green-600 hover:text-green-700 hover:bg-green-50"
+                                onClick={() =>
+                                  void handleMarkComplete(followup.id)
+                                }
+                                disabled={completingId === followup.id}
+                              >
+                                <CheckCircle2 className="h-3 w-3" />
+                                {completingId === followup.id ? "..." : "تم"}
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>

@@ -88,9 +88,9 @@ export default function BranchComparisonPage() {
         title="مقارنة الفروع"
         description="مقارنة الأداء المالي بين جميع الفروع"
         actions={
-          <div className="flex gap-2">
+          <div className="flex w-full flex-wrap gap-2 md:w-auto md:justify-end">
             <Select value={days} onValueChange={setDays}>
-              <SelectTrigger className="w-28">
+              <SelectTrigger className="w-full md:w-28">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -129,8 +129,8 @@ export default function BranchComparisonPage() {
               .sort((a, b) => (b.revenue ?? 0) - (a.revenue ?? 0))
               .map((b, i) => (
                 <div key={b.branchId} className="space-y-1">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="font-medium">{b.name}</span>
+                  <div className="flex flex-col gap-1 text-sm sm:flex-row sm:items-center sm:justify-between">
+                    <span className="break-words font-medium">{b.name}</span>
                     <span className="font-semibold">
                       {formatCurrency(b.revenue ?? 0)}
                     </span>
@@ -166,52 +166,24 @@ export default function BranchComparisonPage() {
               لا توجد بيانات للمقارنة بعد
             </p>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>الفرع</TableHead>
-                  <TableHead className="text-left">الإيراد</TableHead>
-                  <TableHead className="text-left">الطلبات</TableHead>
-                  <TableHead className="text-left">متوسط الطلب</TableHead>
-                  <TableHead className="text-left">المصاريف</TableHead>
-                  <TableHead className="text-left">صافي الربح</TableHead>
-                  <TableHead className="text-left">هامش الربح</TableHead>
-                  <TableHead className="text-left">% من الإجمالي</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            <>
+              <div className="space-y-3 md:hidden">
                 {[...branches]
                   .sort((a, b) => (b.revenue ?? 0) - (a.revenue ?? 0))
                   .map((b) => (
-                    <TableRow key={b.branchId}>
-                      <TableCell className="font-medium">
-                        {b.name}
-                        {!b.isActive && (
-                          <Badge variant="secondary" className="mr-1 text-xs">
-                            غير نشط
-                          </Badge>
-                        )}
-                      </TableCell>
-                      <TableCell>{formatCurrency(b.revenue ?? 0)}</TableCell>
-                      <TableCell>{formatNumber(b.orders ?? 0)}</TableCell>
-                      <TableCell>{formatCurrency(b.aov ?? 0)}</TableCell>
-                      <TableCell>{formatCurrency(b.expenses ?? 0)}</TableCell>
-                      <TableCell
-                        className={cn(
-                          "font-semibold",
-                          (b.netProfit ?? 0) >= 0
-                            ? "text-green-600"
-                            : "text-red-500",
-                        )}
-                      >
-                        {(b.netProfit ?? 0) >= 0 ? (
-                          <TrendingUp className="h-3.5 w-3.5 inline ml-1 text-green-500" />
-                        ) : (
-                          <TrendingDown className="h-3.5 w-3.5 inline ml-1 text-red-500" />
-                        )}
-                        {formatCurrency(b.netProfit ?? 0)}
-                      </TableCell>
-                      <TableCell>
+                    <div
+                      key={b.branchId}
+                      className="border-b p-4 last:border-b-0"
+                    >
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                          <p className="break-words font-medium">{b.name}</p>
+                          {!b.isActive && (
+                            <Badge variant="secondary" className="mt-1 text-xs">
+                              غير نشط
+                            </Badge>
+                          )}
+                        </div>
                         <Badge
                           variant={
                             (b.margin ?? 0) >= 20
@@ -224,24 +196,145 @@ export default function BranchComparisonPage() {
                         >
                           {(b.margin ?? 0).toFixed(1)}%
                         </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <div className="h-1.5 w-16 bg-muted rounded-full overflow-hidden">
-                            <div
-                              className="h-full bg-primary rounded-full"
-                              style={{ width: `${b.revenuePct ?? 0}%` }}
-                            />
-                          </div>
-                          <span className="text-xs text-muted-foreground">
-                            {(b.revenuePct ?? 0).toFixed(0)}%
-                          </span>
+                      </div>
+                      <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                        <div>
+                          <p className="text-xs text-muted-foreground">
+                            الإيراد
+                          </p>
+                          <p className="font-semibold">
+                            {formatCurrency(b.revenue ?? 0)}
+                          </p>
                         </div>
-                      </TableCell>
-                    </TableRow>
+                        <div>
+                          <p className="text-xs text-muted-foreground">
+                            الطلبات
+                          </p>
+                          <p className="font-semibold">
+                            {formatNumber(b.orders ?? 0)}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">
+                            متوسط الطلب
+                          </p>
+                          <p className="font-semibold">
+                            {formatCurrency(b.aov ?? 0)}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">
+                            المصاريف
+                          </p>
+                          <p className="font-semibold">
+                            {formatCurrency(b.expenses ?? 0)}
+                          </p>
+                        </div>
+                        <div className="col-span-2">
+                          <p className="text-xs text-muted-foreground">
+                            صافي الربح
+                          </p>
+                          <p
+                            className={cn(
+                              "font-semibold",
+                              (b.netProfit ?? 0) >= 0
+                                ? "text-green-600"
+                                : "text-red-500",
+                            )}
+                          >
+                            {formatCurrency(b.netProfit ?? 0)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
                   ))}
-              </TableBody>
-            </Table>
+              </div>
+              <div className="hidden md:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>الفرع</TableHead>
+                      <TableHead className="text-left">الإيراد</TableHead>
+                      <TableHead className="text-left">الطلبات</TableHead>
+                      <TableHead className="text-left">متوسط الطلب</TableHead>
+                      <TableHead className="text-left">المصاريف</TableHead>
+                      <TableHead className="text-left">صافي الربح</TableHead>
+                      <TableHead className="text-left">هامش الربح</TableHead>
+                      <TableHead className="text-left">% من الإجمالي</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {[...branches]
+                      .sort((a, b) => (b.revenue ?? 0) - (a.revenue ?? 0))
+                      .map((b) => (
+                        <TableRow key={b.branchId}>
+                          <TableCell className="font-medium">
+                            {b.name}
+                            {!b.isActive && (
+                              <Badge
+                                variant="secondary"
+                                className="mr-1 text-xs"
+                              >
+                                غير نشط
+                              </Badge>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {formatCurrency(b.revenue ?? 0)}
+                          </TableCell>
+                          <TableCell>{formatNumber(b.orders ?? 0)}</TableCell>
+                          <TableCell>{formatCurrency(b.aov ?? 0)}</TableCell>
+                          <TableCell>
+                            {formatCurrency(b.expenses ?? 0)}
+                          </TableCell>
+                          <TableCell
+                            className={cn(
+                              "font-semibold",
+                              (b.netProfit ?? 0) >= 0
+                                ? "text-green-600"
+                                : "text-red-500",
+                            )}
+                          >
+                            {(b.netProfit ?? 0) >= 0 ? (
+                              <TrendingUp className="inline h-3.5 w-3.5 text-green-500 ml-1" />
+                            ) : (
+                              <TrendingDown className="inline h-3.5 w-3.5 text-red-500 ml-1" />
+                            )}
+                            {formatCurrency(b.netProfit ?? 0)}
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              variant={
+                                (b.margin ?? 0) >= 20
+                                  ? "default"
+                                  : (b.margin ?? 0) >= 0
+                                    ? "secondary"
+                                    : "destructive"
+                              }
+                              className="text-xs"
+                            >
+                              {(b.margin ?? 0).toFixed(1)}%
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <div className="h-1.5 w-16 overflow-hidden rounded-full bg-muted">
+                                <div
+                                  className="h-full rounded-full bg-primary"
+                                  style={{ width: `${b.revenuePct ?? 0}%` }}
+                                />
+                              </div>
+                              <span className="text-xs text-muted-foreground">
+                                {(b.revenuePct ?? 0).toFixed(0)}%
+                              </span>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>

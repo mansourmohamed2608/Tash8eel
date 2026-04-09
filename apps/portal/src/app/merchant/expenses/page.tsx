@@ -537,13 +537,22 @@ export default function ExpensesPage() {
         title="المصروفات"
         description="إدارة وتتبع مصروفات العمل"
         actions={
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={fetchExpenses}>
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={fetchExpenses}
+              className="w-full sm:w-auto"
+            >
               <RefreshCw className="h-4 w-4 ml-2" />
               تحديث
             </Button>
             {canCreate && (
-              <Button size="sm" onClick={openAddDialog}>
+              <Button
+                size="sm"
+                onClick={openAddDialog}
+                className="w-full sm:w-auto"
+              >
                 <Plus className="h-4 w-4 ml-2" />
                 إضافة مصروف
               </Button>
@@ -607,8 +616,8 @@ export default function ExpensesPage() {
       {/* Filters */}
       <Card>
         <CardContent className="pt-6">
-          <div className="flex gap-4 flex-wrap">
-            <div className="flex items-center gap-2">
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
               <Calendar className="h-4 w-4 text-muted-foreground" />
               <Select
                 value={periodType}
@@ -616,7 +625,7 @@ export default function ExpensesPage() {
                   setPeriodType(v)
                 }
               >
-                <SelectTrigger className="w-[120px]">
+                <SelectTrigger className="w-full sm:w-[120px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -627,7 +636,7 @@ export default function ExpensesPage() {
               </Select>
               {periodType === "month" && (
                 <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-                  <SelectTrigger className="w-[200px]">
+                  <SelectTrigger className="w-full sm:w-[200px]">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -641,7 +650,7 @@ export default function ExpensesPage() {
               )}
               {periodType === "year" && (
                 <Select value={selectedYear} onValueChange={setSelectedYear}>
-                  <SelectTrigger className="w-[120px]">
+                  <SelectTrigger className="w-full sm:w-[120px]">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -654,10 +663,10 @@ export default function ExpensesPage() {
                 </Select>
               )}
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <Filter className="h-4 w-4 text-muted-foreground" />
               <Select value={filterCategory} onValueChange={setFilterCategory}>
-                <SelectTrigger className="w-[150px]">
+                <SelectTrigger className="w-full sm:w-[150px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -692,26 +701,106 @@ export default function ExpensesPage() {
               لا توجد مصروفات مسجلة لهذه الفترة
             </div>
           ) : (
-            <DataTable columns={columns} data={expenses} />
+            <>
+              <div className="space-y-3 md:hidden">
+                {expenses.map((expense) => {
+                  const normalizedCategory = normalizeCategoryKey(
+                    expense.category,
+                  );
+                  return (
+                    <div
+                      key={expense.id}
+                      className="space-y-3 rounded-lg border p-4"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="space-y-1">
+                          <div>
+                            <Badge
+                              className={cn(
+                                "font-normal",
+                                CATEGORY_COLORS[normalizedCategory] ||
+                                  CATEGORY_COLORS.other,
+                              )}
+                            >
+                              {getCategoryDisplayName(expense.category)}
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            {new Date(expense.expenseDate).toLocaleDateString(
+                              "ar-EG",
+                            )}
+                          </p>
+                        </div>
+                        <p className="font-semibold text-red-600">
+                          - {formatCurrency(expense.amount)}
+                        </p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-sm">
+                          {expense.description || "بدون وصف"}
+                        </p>
+                        {expense.isRecurring && (
+                          <Badge variant="outline">متكرر</Badge>
+                        )}
+                      </div>
+                      {(canCreate || canDelete) && (
+                        <div className="flex flex-col gap-2 sm:flex-row">
+                          {canCreate && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="w-full sm:w-auto"
+                              onClick={() => openEditDialog(expense)}
+                            >
+                              <Pencil className="ml-2 h-4 w-4 text-blue-500" />
+                              تعديل
+                            </Button>
+                          )}
+                          {canDelete && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="w-full text-red-600 sm:w-auto"
+                              onClick={() => setDeleteTarget(expense)}
+                            >
+                              <Trash2 className="ml-2 h-4 w-4 text-red-500" />
+                              حذف
+                            </Button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="hidden md:block">
+                <DataTable columns={columns} data={expenses} />
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
 
       {/* ── Add Dialog ── */}
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="max-h-[90vh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>إضافة مصروف جديد</DialogTitle>
             <DialogDescription>أدخل تفاصيل المصروف الجديد</DialogDescription>
           </DialogHeader>
           {renderFormFields()}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+          <DialogFooter className="flex-col-reverse gap-2 sm:flex-row">
+            <Button
+              variant="outline"
+              onClick={() => setIsAddDialogOpen(false)}
+              className="w-full sm:w-auto"
+            >
               إلغاء
             </Button>
             <Button
               onClick={handleAddExpense}
               disabled={!isFormValid || submitting}
+              className="w-full sm:w-auto"
             >
               {submitting ? "جاري الإضافة..." : "إضافة"}
             </Button>
@@ -721,22 +810,24 @@ export default function ExpensesPage() {
 
       {/* ── Edit Dialog ── */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="max-h-[90vh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>تعديل المصروف</DialogTitle>
             <DialogDescription>عدّل تفاصيل المصروف</DialogDescription>
           </DialogHeader>
           {renderFormFields()}
-          <DialogFooter>
+          <DialogFooter className="flex-col-reverse gap-2 sm:flex-row">
             <Button
               variant="outline"
               onClick={() => setIsEditDialogOpen(false)}
+              className="w-full sm:w-auto"
             >
               إلغاء
             </Button>
             <Button
               onClick={handleUpdateExpense}
               disabled={!isFormValid || submitting}
+              className="w-full sm:w-auto"
             >
               {submitting ? "جاري الحفظ..." : "حفظ التعديلات"}
             </Button>
@@ -749,7 +840,7 @@ export default function ExpensesPage() {
         open={!!deleteTarget}
         onOpenChange={(open) => !open && setDeleteTarget(null)}
       >
-        <AlertDialogContent>
+        <AlertDialogContent className="max-h-[90vh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-md">
           <AlertDialogHeader>
             <AlertDialogTitle>حذف المصروف</AlertDialogTitle>
             <AlertDialogDescription>
@@ -765,10 +856,12 @@ export default function ExpensesPage() {
               </span>
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>إلغاء</AlertDialogCancel>
+          <AlertDialogFooter className="flex-col-reverse gap-2 sm:flex-row">
+            <AlertDialogCancel className="w-full sm:w-auto">
+              إلغاء
+            </AlertDialogCancel>
             <AlertDialogAction
-              className="bg-red-600 hover:bg-red-700 text-white"
+              className="w-full bg-red-600 text-white hover:bg-red-700 sm:w-auto"
               onClick={handleDeleteExpense}
             >
               حذف

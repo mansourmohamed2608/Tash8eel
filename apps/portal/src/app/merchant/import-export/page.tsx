@@ -620,7 +620,11 @@ export default function BulkOperationsPage() {
         title="استيراد وتصدير البيانات"
         description="إدارة البيانات بالجملة عبر ملفات CSV"
         actions={
-          <Button variant="outline" onClick={fetchOperations}>
+          <Button
+            variant="outline"
+            onClick={fetchOperations}
+            className="w-full sm:w-auto"
+          >
             <RefreshCw className="h-4 w-4" />
             تحديث
           </Button>
@@ -639,20 +643,32 @@ export default function BulkOperationsPage() {
       />
 
       <Tabs value={activeTab} onValueChange={handleTabChange}>
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="products" className="flex items-center gap-2">
+        <TabsList className="grid h-auto w-full grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
+          <TabsTrigger
+            value="products"
+            className="flex w-full items-center gap-2"
+          >
             <Package className="h-4 w-4" />
             المنتجات
           </TabsTrigger>
-          <TabsTrigger value="customers" className="flex items-center gap-2">
+          <TabsTrigger
+            value="customers"
+            className="flex w-full items-center gap-2"
+          >
             <Users className="h-4 w-4" />
             العملاء
           </TabsTrigger>
-          <TabsTrigger value="inventory" className="flex items-center gap-2">
+          <TabsTrigger
+            value="inventory"
+            className="flex w-full items-center gap-2"
+          >
             <FileSpreadsheet className="h-4 w-4" />
             المخزون
           </TabsTrigger>
-          <TabsTrigger value="ingredients" className="flex items-center gap-2">
+          <TabsTrigger
+            value="ingredients"
+            className="flex w-full items-center gap-2"
+          >
             <UtensilsCrossed className="h-4 w-4" />
             المكونات
           </TabsTrigger>
@@ -661,7 +677,7 @@ export default function BulkOperationsPage() {
         {["products", "customers", "inventory", "ingredients"].map((tab) => (
           <TabsContent key={tab} value={tab} className="mt-6 space-y-6">
             {/* Action Cards */}
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4 lg:grid-cols-2">
               {/* Import Card */}
               <Card>
                 <CardHeader>
@@ -698,10 +714,12 @@ export default function BulkOperationsPage() {
                     />
                   </div>
                   {selectedFile && (
-                    <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
-                      <div className="flex items-center gap-2">
+                    <div className="flex flex-col gap-3 rounded-lg bg-muted p-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="flex min-w-0 items-center gap-2">
                         <FileSpreadsheet className="h-5 w-5 text-green-500" />
-                        <span className="text-sm">{selectedFile.name}</span>
+                        <span className="truncate text-sm">
+                          {selectedFile.name}
+                        </span>
                       </div>
                       <Button
                         variant="ghost"
@@ -719,7 +737,7 @@ export default function BulkOperationsPage() {
                         استيراد
                       </Button>
                     </DialogTrigger>
-                    <DialogContent>
+                    <DialogContent className="max-h-[90vh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-lg">
                       <DialogHeader>
                         <DialogTitle>خيارات الاستيراد</DialogTitle>
                         <DialogDescription>
@@ -727,7 +745,7 @@ export default function BulkOperationsPage() {
                         </DialogDescription>
                       </DialogHeader>
                       <div className="space-y-4 py-4">
-                        <div className="flex items-center justify-between">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                           <div>
                             <Label>تحديث السجلات الموجودة</Label>
                             <p className="text-sm text-muted-foreground">
@@ -744,7 +762,7 @@ export default function BulkOperationsPage() {
                             }
                           />
                         </div>
-                        <div className="flex items-center justify-between">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                           <div>
                             <Label>تشغيل تجريبي</Label>
                             <p className="text-sm text-muted-foreground">
@@ -758,7 +776,7 @@ export default function BulkOperationsPage() {
                             }
                           />
                         </div>
-                        <div className="flex items-center justify-between">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                           <div>
                             <Label>تخطي الأخطاء</Label>
                             <p className="text-sm text-muted-foreground">
@@ -776,14 +794,19 @@ export default function BulkOperationsPage() {
                           />
                         </div>
                       </div>
-                      <div className="flex justify-end gap-2">
+                      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
                         <Button
                           variant="outline"
                           onClick={() => setIsImportOpen(false)}
+                          className="w-full sm:w-auto"
                         >
                           إلغاء
                         </Button>
-                        <Button onClick={handleImport} disabled={!canImport}>
+                        <Button
+                          onClick={handleImport}
+                          disabled={!canImport}
+                          className="w-full sm:w-auto"
+                        >
                           بدء الاستيراد
                         </Button>
                       </div>
@@ -861,36 +884,69 @@ export default function BulkOperationsPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>اسم الحقل (إنجليزي)</TableHead>
-                      <TableHead>اسم الحقل (عربي)</TableHead>
-                      <TableHead>الوصف</TableHead>
-                      <TableHead>مطلوب</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {getFieldsForType().map((field: any) => (
-                      <TableRow key={field.key}>
-                        <TableCell className="font-mono text-sm">
-                          {field.key}
-                        </TableCell>
-                        <TableCell className="font-mono text-sm">
-                          {field.keyAr}
-                        </TableCell>
-                        <TableCell>{field.label}</TableCell>
-                        <TableCell>
+                <div className="space-y-3 md:hidden">
+                  {getFieldsForType().map((field: any) => (
+                    <div key={field.key} className="rounded-lg border p-3">
+                      <div className="flex flex-col gap-2">
+                        <div>
+                          <p className="text-xs text-muted-foreground">
+                            اسم الحقل (إنجليزي)
+                          </p>
+                          <p className="font-mono text-sm">{field.key}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">
+                            اسم الحقل (عربي)
+                          </p>
+                          <p className="font-mono text-sm">{field.keyAr}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">الوصف</p>
+                          <p className="text-sm">{field.label}</p>
+                        </div>
+                        <div>
                           {field.required ? (
                             <Badge className="bg-red-500">مطلوب</Badge>
                           ) : (
                             <Badge variant="outline">اختياري</Badge>
                           )}
-                        </TableCell>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="hidden md:block">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>اسم الحقل (إنجليزي)</TableHead>
+                        <TableHead>اسم الحقل (عربي)</TableHead>
+                        <TableHead>الوصف</TableHead>
+                        <TableHead>مطلوب</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {getFieldsForType().map((field: any) => (
+                        <TableRow key={field.key}>
+                          <TableCell className="font-mono text-sm">
+                            {field.key}
+                          </TableCell>
+                          <TableCell className="font-mono text-sm">
+                            {field.keyAr}
+                          </TableCell>
+                          <TableCell>{field.label}</TableCell>
+                          <TableCell>
+                            {field.required ? (
+                              <Badge className="bg-red-500">مطلوب</Badge>
+                            ) : (
+                              <Badge variant="outline">اختياري</Badge>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
                 <div className="mt-4">
                   {canImport && (
                     <Button
@@ -916,48 +972,31 @@ export default function BulkOperationsPage() {
           <CardDescription>آخر عمليات الاستيراد والتصدير</CardDescription>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>النوع</TableHead>
-                <TableHead>المورد</TableHead>
-                <TableHead>الملف</TableHead>
-                <TableHead>الحالة</TableHead>
-                <TableHead>التقدم</TableHead>
-                <TableHead>النتيجة</TableHead>
-                <TableHead>الوقت</TableHead>
-                <TableHead className="text-end">إجراءات</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {operations.length === 0 ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={8}
-                    className="text-center py-8 text-muted-foreground"
-                  >
-                    لا توجد عمليات بعد
-                  </TableCell>
-                </TableRow>
-              ) : (
-                operations.map((op) => {
-                  const progress = op.totalRecords
-                    ? Math.round((op.processedRecords / op.totalRecords) * 100)
-                    : 0;
-                  const resourceLabel =
-                    op.resourceType?.toUpperCase() === "PRODUCTS" ||
-                    op.resourceType === "products"
-                      ? "المنتجات"
-                      : op.resourceType?.toUpperCase() === "CUSTOMERS" ||
-                          op.resourceType === "customers"
-                        ? "العملاء"
-                        : op.resourceType?.toUpperCase() === "INGREDIENTS" ||
-                            op.resourceType === "ingredients"
-                          ? "المكونات"
-                          : "المخزون";
-                  return (
-                    <TableRow key={op.id}>
-                      <TableCell>
+          <div className="space-y-3 md:hidden">
+            {operations.length === 0 ? (
+              <div className="rounded-lg border p-6 text-center text-muted-foreground">
+                لا توجد عمليات بعد
+              </div>
+            ) : (
+              operations.map((op) => {
+                const progress = op.totalRecords
+                  ? Math.round((op.processedRecords / op.totalRecords) * 100)
+                  : 0;
+                const resourceLabel =
+                  op.resourceType?.toUpperCase() === "PRODUCTS" ||
+                  op.resourceType === "products"
+                    ? "المنتجات"
+                    : op.resourceType?.toUpperCase() === "CUSTOMERS" ||
+                        op.resourceType === "customers"
+                      ? "العملاء"
+                      : op.resourceType?.toUpperCase() === "INGREDIENTS" ||
+                          op.resourceType === "ingredients"
+                        ? "المكونات"
+                        : "المخزون";
+                return (
+                  <div key={op.id} className="rounded-lg border p-3">
+                    <div className="flex flex-col gap-3">
+                      <div className="flex flex-wrap items-center gap-2">
                         {op.operationType === "IMPORT" ? (
                           <Badge variant="outline" className="bg-green-50">
                             <FileUp className="w-3 h-3 mr-1" />
@@ -969,146 +1008,336 @@ export default function BulkOperationsPage() {
                             تصدير
                           </Badge>
                         )}
-                      </TableCell>
-                      <TableCell>{resourceLabel}</TableCell>
-                      <TableCell className="font-mono text-sm">
-                        {op.fileUrl ? "CSV" : "-"}
-                      </TableCell>
-                      <TableCell>
-                        {getStatusBadge(op.status)}
+                        <span className="text-sm">{resourceLabel}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {formatTime(op.createdAt)}
+                        </span>
+                      </div>
+                      <div className="space-y-1">
+                        <div>{getStatusBadge(op.status)}</div>
                         {op.status === "FAILED" && op.failureReason && (
                           <p
-                            className="text-[11px] text-red-500 mt-1 max-w-[180px] truncate"
+                            className="text-[11px] text-red-500"
                             title={op.failureReason}
                           >
                             {op.failureReason}
                           </p>
                         )}
-                      </TableCell>
-                      <TableCell>
-                        <div className="w-24">
-                          <Progress value={progress} className="h-2" />
-                          <span className="text-xs text-muted-foreground">
-                            {progress}%
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="text-sm">
-                          <span className="text-green-600">
-                            {op.successCount} ✓
-                          </span>
-                          {op.errorCount > 0 && (
-                            <>
-                              <span className="text-muted-foreground"> / </span>
-                              <span className="text-red-600">
-                                {op.errorCount} ✗
-                              </span>
-                            </>
-                          )}
-                        </div>
-                        {/* Inline error summary */}
-                        {op.errors && op.errors.length > 0 && (
-                          <div className="mt-1 space-y-0.5">
-                            {op.errors.slice(0, 2).map((err, i) => (
-                              <p
-                                key={i}
-                                className="text-[11px] text-red-500 truncate max-w-[200px]"
-                                title={`صف ${err.row}: ${err.field ? err.field + " - " : ""}${err.message || err.error || ""}`}
-                              >
-                                صف {err.row}:{" "}
-                                {err.field ? `${err.field} - ` : ""}
-                                {err.message || err.error || ""}
-                              </p>
-                            ))}
-                            {op.errors.length > 2 && (
-                              <p className="text-[11px] text-muted-foreground">
-                                +{op.errors.length - 2} أخطاء أخرى...
-                              </p>
-                            )}
-                          </div>
+                      </div>
+                      <div>
+                        <Progress value={progress} className="h-2" />
+                        <span className="text-xs text-muted-foreground">
+                          {progress}%
+                        </span>
+                      </div>
+                      <div className="text-sm">
+                        <span className="text-green-600">
+                          {op.successCount} ✓
+                        </span>
+                        {op.errorCount > 0 && (
+                          <>
+                            <span className="text-muted-foreground"> / </span>
+                            <span className="text-red-600">
+                              {op.errorCount} ✗
+                            </span>
+                          </>
                         )}
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {formatTime(op.createdAt)}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex gap-1">
-                          {op.status === "COMPLETED" &&
-                            op.operationType === "EXPORT" &&
-                            op.resultUrl && (
-                              <Button variant="ghost" size="icon">
-                                <Download className="h-4 w-4" />
-                              </Button>
-                            )}
-                          {op.errors && op.errors.length > 0 && (
-                            <Dialog>
-                              <DialogTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => setSelectedOperation(op)}
-                                >
-                                  <AlertCircle className="h-4 w-4 text-red-500" />
-                                </Button>
-                              </DialogTrigger>
-                              <DialogContent className="max-w-2xl">
-                                <DialogHeader>
-                                  <DialogTitle>
-                                    الأخطاء ({op.errors.length})
-                                  </DialogTitle>
-                                  <DialogDescription>
-                                    الأخطاء التي حدثت أثناء المعالجة
-                                  </DialogDescription>
-                                </DialogHeader>
-                                <div className="max-h-96 overflow-y-auto">
-                                  <Table>
-                                    <TableHeader>
-                                      <TableRow>
-                                        <TableHead>الصف</TableHead>
-                                        <TableHead>الحقل</TableHead>
-                                        <TableHead>الخطأ</TableHead>
-                                      </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                      {op.errors.map((error, i) => (
-                                        <TableRow key={i}>
-                                          <TableCell className="font-mono">
-                                            {error.row}
-                                          </TableCell>
-                                          <TableCell className="font-mono">
-                                            {error.field || "-"}
-                                          </TableCell>
-                                          <TableCell className="text-red-600">
-                                            {error.message ||
-                                              error.error ||
-                                              "خطأ غير محدد"}
-                                          </TableCell>
-                                        </TableRow>
-                                      ))}
-                                    </TableBody>
-                                  </Table>
-                                </div>
-                              </DialogContent>
-                            </Dialog>
-                          )}
-                          {op.status === "PROCESSING" && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleCancel(op.id)}
-                            >
-                              <Pause className="h-4 w-4" />
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {op.status === "COMPLETED" &&
+                          op.operationType === "EXPORT" &&
+                          op.resultUrl && (
+                            <Button variant="ghost" size="sm">
+                              <Download className="h-4 w-4" />
                             </Button>
                           )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
-              )}
-            </TableBody>
-          </Table>
+                        {op.errors && op.errors.length > 0 && (
+                          <Dialog>
+                            <DialogTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setSelectedOperation(op)}
+                              >
+                                <AlertCircle className="h-4 w-4 text-red-500" />
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent className="max-h-[90vh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-2xl">
+                              <DialogHeader>
+                                <DialogTitle>
+                                  الأخطاء ({op.errors.length})
+                                </DialogTitle>
+                                <DialogDescription>
+                                  الأخطاء التي حدثت أثناء المعالجة
+                                </DialogDescription>
+                              </DialogHeader>
+                              <div className="max-h-96 space-y-2 overflow-y-auto md:hidden">
+                                {op.errors.map((error, i) => (
+                                  <div
+                                    key={i}
+                                    className="rounded-lg border p-3"
+                                  >
+                                    <p className="text-xs text-muted-foreground">
+                                      الصف
+                                    </p>
+                                    <p className="font-mono text-sm">
+                                      {error.row}
+                                    </p>
+                                    <p className="mt-2 text-xs text-muted-foreground">
+                                      الحقل
+                                    </p>
+                                    <p className="font-mono text-sm">
+                                      {error.field || "-"}
+                                    </p>
+                                    <p className="mt-2 text-xs text-muted-foreground">
+                                      الخطأ
+                                    </p>
+                                    <p className="text-sm text-red-600">
+                                      {error.message ||
+                                        error.error ||
+                                        "خطأ غير محدد"}
+                                    </p>
+                                  </div>
+                                ))}
+                              </div>
+                              <div className="hidden max-h-96 overflow-y-auto md:block">
+                                <Table>
+                                  <TableHeader>
+                                    <TableRow>
+                                      <TableHead>الصف</TableHead>
+                                      <TableHead>الحقل</TableHead>
+                                      <TableHead>الخطأ</TableHead>
+                                    </TableRow>
+                                  </TableHeader>
+                                  <TableBody>
+                                    {op.errors.map((error, i) => (
+                                      <TableRow key={i}>
+                                        <TableCell className="font-mono">
+                                          {error.row}
+                                        </TableCell>
+                                        <TableCell className="font-mono">
+                                          {error.field || "-"}
+                                        </TableCell>
+                                        <TableCell className="text-red-600">
+                                          {error.message ||
+                                            error.error ||
+                                            "خطأ غير محدد"}
+                                        </TableCell>
+                                      </TableRow>
+                                    ))}
+                                  </TableBody>
+                                </Table>
+                              </div>
+                            </DialogContent>
+                          </Dialog>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+          <div className="hidden md:block">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>النوع</TableHead>
+                  <TableHead>المورد</TableHead>
+                  <TableHead>الملف</TableHead>
+                  <TableHead>الحالة</TableHead>
+                  <TableHead>التقدم</TableHead>
+                  <TableHead>النتيجة</TableHead>
+                  <TableHead>الوقت</TableHead>
+                  <TableHead className="text-end">إجراءات</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {operations.length === 0 ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={8}
+                      className="text-center py-8 text-muted-foreground"
+                    >
+                      لا توجد عمليات بعد
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  operations.map((op) => {
+                    const progress = op.totalRecords
+                      ? Math.round(
+                          (op.processedRecords / op.totalRecords) * 100,
+                        )
+                      : 0;
+                    const resourceLabel =
+                      op.resourceType?.toUpperCase() === "PRODUCTS" ||
+                      op.resourceType === "products"
+                        ? "المنتجات"
+                        : op.resourceType?.toUpperCase() === "CUSTOMERS" ||
+                            op.resourceType === "customers"
+                          ? "العملاء"
+                          : op.resourceType?.toUpperCase() === "INGREDIENTS" ||
+                              op.resourceType === "ingredients"
+                            ? "المكونات"
+                            : "المخزون";
+                    return (
+                      <TableRow key={op.id}>
+                        <TableCell>
+                          {op.operationType === "IMPORT" ? (
+                            <Badge variant="outline" className="bg-green-50">
+                              <FileUp className="w-3 h-3 mr-1" />
+                              استيراد
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="bg-blue-50">
+                              <FileDown className="w-3 h-3 mr-1" />
+                              تصدير
+                            </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell>{resourceLabel}</TableCell>
+                        <TableCell className="font-mono text-sm">
+                          {op.fileUrl ? "CSV" : "-"}
+                        </TableCell>
+                        <TableCell>
+                          {getStatusBadge(op.status)}
+                          {op.status === "FAILED" && op.failureReason && (
+                            <p
+                              className="text-[11px] text-red-500 mt-1 max-w-[180px] truncate"
+                              title={op.failureReason}
+                            >
+                              {op.failureReason}
+                            </p>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <div className="w-24">
+                            <Progress value={progress} className="h-2" />
+                            <span className="text-xs text-muted-foreground">
+                              {progress}%
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="text-sm">
+                            <span className="text-green-600">
+                              {op.successCount} ✓
+                            </span>
+                            {op.errorCount > 0 && (
+                              <>
+                                <span className="text-muted-foreground">
+                                  {" "}
+                                  /{" "}
+                                </span>
+                                <span className="text-red-600">
+                                  {op.errorCount} ✗
+                                </span>
+                              </>
+                            )}
+                          </div>
+                          {/* Inline error summary */}
+                          {op.errors && op.errors.length > 0 && (
+                            <div className="mt-1 space-y-0.5">
+                              {op.errors.slice(0, 2).map((err, i) => (
+                                <p
+                                  key={i}
+                                  className="text-[11px] text-red-500 truncate max-w-[200px]"
+                                  title={`صف ${err.row}: ${err.field ? err.field + " - " : ""}${err.message || err.error || ""}`}
+                                >
+                                  صف {err.row}:{" "}
+                                  {err.field ? `${err.field} - ` : ""}
+                                  {err.message || err.error || ""}
+                                </p>
+                              ))}
+                              {op.errors.length > 2 && (
+                                <p className="text-[11px] text-muted-foreground">
+                                  +{op.errors.length - 2} أخطاء أخرى...
+                                </p>
+                              )}
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {formatTime(op.createdAt)}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-1">
+                            {op.status === "COMPLETED" &&
+                              op.operationType === "EXPORT" &&
+                              op.resultUrl && (
+                                <Button variant="ghost" size="icon">
+                                  <Download className="h-4 w-4" />
+                                </Button>
+                              )}
+                            {op.errors && op.errors.length > 0 && (
+                              <Dialog>
+                                <DialogTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => setSelectedOperation(op)}
+                                  >
+                                    <AlertCircle className="h-4 w-4 text-red-500" />
+                                  </Button>
+                                </DialogTrigger>
+                                <DialogContent className="max-h-[90vh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-2xl">
+                                  <DialogHeader>
+                                    <DialogTitle>
+                                      الأخطاء ({op.errors.length})
+                                    </DialogTitle>
+                                    <DialogDescription>
+                                      الأخطاء التي حدثت أثناء المعالجة
+                                    </DialogDescription>
+                                  </DialogHeader>
+                                  <div className="max-h-[70vh] overflow-auto">
+                                    <Table>
+                                      <TableHeader>
+                                        <TableRow>
+                                          <TableHead>الصف</TableHead>
+                                          <TableHead>الحقل</TableHead>
+                                          <TableHead>الخطأ</TableHead>
+                                        </TableRow>
+                                      </TableHeader>
+                                      <TableBody>
+                                        {op.errors.map((error, i) => (
+                                          <TableRow key={i}>
+                                            <TableCell className="font-mono">
+                                              {error.row}
+                                            </TableCell>
+                                            <TableCell className="font-mono">
+                                              {error.field || "-"}
+                                            </TableCell>
+                                            <TableCell className="text-red-600">
+                                              {error.message ||
+                                                error.error ||
+                                                "خطأ غير محدد"}
+                                            </TableCell>
+                                          </TableRow>
+                                        ))}
+                                      </TableBody>
+                                    </Table>
+                                  </div>
+                                </DialogContent>
+                              </Dialog>
+                            )}
+                            {op.status === "PROCESSING" && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleCancel(op.id)}
+                              >
+                                <Pause className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
 

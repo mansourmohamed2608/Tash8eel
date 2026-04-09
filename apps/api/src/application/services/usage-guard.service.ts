@@ -16,6 +16,10 @@ export type UsageMetricKey =
 export type UsagePeriodType = "DAILY" | "MONTHLY";
 
 export interface UsageLimitsSnapshot {
+  totalMessagesPerDay: number;
+  totalMessagesPerMonth: number;
+  aiRepliesPerDay: number;
+  aiRepliesPerMonth: number;
   messagesPerMonth: number;
   aiCallsPerDay: number;
   tokenBudgetDaily: number;
@@ -36,7 +40,26 @@ export interface UsageCheckResult {
   allowed: boolean;
 }
 
+export interface MessagingQuotaStatus {
+  totalMessagesDay: UsageCheckResult & {
+    warningLevel: "normal" | "warning" | "critical";
+  };
+  totalMessagesMonth: UsageCheckResult & {
+    warningLevel: "normal" | "warning" | "critical";
+  };
+  aiRepliesDay: UsageCheckResult & {
+    warningLevel: "normal" | "warning" | "critical";
+  };
+  aiRepliesMonth: UsageCheckResult & {
+    warningLevel: "normal" | "warning" | "critical";
+  };
+}
+
 const DEFAULT_LIMITS: UsageLimitsSnapshot = {
+  totalMessagesPerDay: 480,
+  totalMessagesPerMonth: 14400,
+  aiRepliesPerDay: 240,
+  aiRepliesPerMonth: 7200,
   messagesPerMonth: 15000,
   aiCallsPerDay: 500,
   tokenBudgetDaily: 200000,
@@ -88,6 +111,111 @@ export class UsageGuardService {
     }
 
     return { ...DEFAULT_LIMITS };
+  }
+
+  async getMessagingQuotaStatus(
+    merchantId: string,
+  ): Promise<MessagingQuotaStatus> {
+    const limits = await this.getEffectiveLimits(merchantId);
+    const { startDate: dayStart, endDate: dayEnd } =
+      this.getPeriodWindow("DAILY");
+    const { startDate: monthStart, endDate: monthEnd } =
+      this.getPeriodWindow("MONTHLY");
+
+    const [
+      totalMessagesDayUsed,
+      totalMessagesMonthUsed,
+      aiRepliesDayUsed,
+      aiRepliesMonthUsed,
+    ] = await Promise.all([
+      this.countMessages(merchantId, dayStart, dayEnd, false),
+      this.countMessages(merchantId, monthStart, monthEnd, false),
+      this.countMessages(merchantId, dayStart, dayEnd, true),
+      this.countMessages(merchantId, monthStart, monthEnd, true),
+    ]);
+
+    return {
+      totalMessagesDay: this.buildUsageCheckResult(
+        "MESSAGES",
+        "DAILY",
+        dayStart,
+        dayEnd,
+        totalMessagesDayUsed,
+        limits.totalMessagesPerDay,
+      ),
+      totalMessagesMonth: this.buildUsageCheckResult(
+        "MESSAGES",
+        "MONTHLY",
+        monthStart,
+        monthEnd,
+        totalMessagesMonthUsed,
+        limits.totalMessagesPerMonth,
+      ),
+      aiRepliesDay: this.buildUsageCheckResult(
+        "AI_CALLS",
+        "DAILY",
+        dayStart,
+        dayEnd,
+        aiRepliesDayUsed,
+        limits.aiRepliesPerDay,
+      ),
+      aiRepliesMonth: this.buildUsageCheckResult(
+        "AI_CALLS",
+        "MONTHLY",
+        monthStart,
+        monthEnd,
+        aiRepliesMonthUsed,
+        limits.aiRepliesPerMonth,
+      ),
+    };
+  }
+
+  async checkCustomerAiReplyQuota(merchantId: string): Promise<{
+    allowed: boolean;
+    blockingMetric:
+      | "total_messages_per_day"
+      | "total_messages_per_month"
+      | "ai_replies_per_day"
+      | "ai_replies_per_month"
+      | null;
+    status: MessagingQuotaStatus;
+  }> {
+    const status = await this.getMessagingQuotaStatus(merchantId);
+
+    if (!status.totalMessagesDay.allowed) {
+      return {
+        allowed: false,
+        blockingMetric: "total_messages_per_day",
+        status,
+      };
+    }
+    if (!status.totalMessagesMonth.allowed) {
+      return {
+        allowed: false,
+        blockingMetric: "total_messages_per_month",
+        status,
+      };
+    }
+    if (!status.aiRepliesDay.allowed) {
+      return {
+        allowed: false,
+        blockingMetric: "ai_replies_per_day",
+        status,
+      };
+    }
+    if (!status.aiRepliesMonth.allowed) {
+      return {
+        allowed: false,
+        blockingMetric: "ai_replies_per_month",
+        status,
+      };
+    }
+
+    return {
+      allowed: true,
+      blockingMetric: null,
+      status,
+    };
   }
 
   async checkLimit(
@@ -647,13 +775,7 @@ export class UsageGuardService {
     try {
       const result = await this.pool.query(
         `SELECT
-           pl.messages_per_month,
-           pl.ai_calls_per_day,
-           pl.token_budget_daily,
-           pl.paid_templates_per_month,
-           pl.payment_proof_scans_per_month,
-           pl.voice_minutes_per_month,
-           pl.maps_lookups_per_month
+           to_jsonb(pl) as limits_json
          FROM subscriptions s
          JOIN plan_limits pl ON pl.plan_id = s.plan_id
          WHERE s.merchant_id = $1
@@ -666,21 +788,7 @@ export class UsageGuardService {
       const row = result.rows[0];
       if (!row) return null;
 
-      return this.mergeLimits({
-        messagesPerMonth:
-          this.toFiniteNumber(row.messages_per_month) ?? undefined,
-        aiCallsPerDay: this.toFiniteNumber(row.ai_calls_per_day) ?? undefined,
-        tokenBudgetDaily:
-          this.toFiniteNumber(row.token_budget_daily) ?? undefined,
-        paidTemplatesPerMonth:
-          this.toFiniteNumber(row.paid_templates_per_month) ?? undefined,
-        paymentProofScansPerMonth:
-          this.toFiniteNumber(row.payment_proof_scans_per_month) ?? undefined,
-        voiceMinutesPerMonth:
-          this.toFiniteNumber(row.voice_minutes_per_month) ?? undefined,
-        mapsLookupsPerMonth:
-          this.toFiniteNumber(row.maps_lookups_per_month) ?? undefined,
-      });
+      return this.mergeLimits(this.parseLimitsObject(row.limits_json));
     } catch (error) {
       this.logger.debug(
         `Failed reading limits from subscriptions: ${(error as Error).message}`,
@@ -953,6 +1061,30 @@ export class UsageGuardService {
         : raw;
 
     return {
+      totalMessagesPerDay:
+        this.toFiniteNumber(
+          value.totalMessagesPerDay ??
+            value.total_messages_per_day ??
+            value.messages_per_day,
+        ) ?? undefined,
+      totalMessagesPerMonth:
+        this.toFiniteNumber(
+          value.totalMessagesPerMonth ??
+            value.total_messages_per_month ??
+            value.messagesPerMonth ??
+            value.messages_per_month,
+        ) ?? undefined,
+      aiRepliesPerDay:
+        this.toFiniteNumber(
+          value.aiRepliesPerDay ??
+            value.ai_replies_per_day ??
+            value.aiCallsPerDay ??
+            value.ai_calls_per_day,
+        ) ?? undefined,
+      aiRepliesPerMonth:
+        this.toFiniteNumber(
+          value.aiRepliesPerMonth ?? value.ai_replies_per_month,
+        ) ?? undefined,
       messagesPerMonth:
         this.toFiniteNumber(
           value.messagesPerMonth ?? value.messages_per_month,
@@ -988,11 +1120,27 @@ export class UsageGuardService {
     partial: Partial<UsageLimitsSnapshot> | null,
   ): UsageLimitsSnapshot {
     return {
+      totalMessagesPerDay:
+        this.toFiniteNumber(partial?.totalMessagesPerDay) ??
+        DEFAULT_LIMITS.totalMessagesPerDay,
+      totalMessagesPerMonth:
+        this.toFiniteNumber(partial?.totalMessagesPerMonth) ??
+        this.toFiniteNumber(partial?.messagesPerMonth) ??
+        DEFAULT_LIMITS.totalMessagesPerMonth,
+      aiRepliesPerDay:
+        this.toFiniteNumber(partial?.aiRepliesPerDay) ??
+        this.toFiniteNumber(partial?.aiCallsPerDay) ??
+        DEFAULT_LIMITS.aiRepliesPerDay,
+      aiRepliesPerMonth:
+        this.toFiniteNumber(partial?.aiRepliesPerMonth) ??
+        DEFAULT_LIMITS.aiRepliesPerMonth,
       messagesPerMonth:
         this.toFiniteNumber(partial?.messagesPerMonth) ??
+        this.toFiniteNumber(partial?.totalMessagesPerMonth) ??
         DEFAULT_LIMITS.messagesPerMonth,
       aiCallsPerDay:
         this.toFiniteNumber(partial?.aiCallsPerDay) ??
+        this.toFiniteNumber(partial?.aiRepliesPerDay) ??
         DEFAULT_LIMITS.aiCallsPerDay,
       tokenBudgetDaily:
         this.toFiniteNumber(partial?.tokenBudgetDaily) ??
@@ -1010,6 +1158,68 @@ export class UsageGuardService {
         this.toFiniteNumber(partial?.mapsLookupsPerMonth) ??
         DEFAULT_LIMITS.mapsLookupsPerMonth,
     };
+  }
+
+  private buildUsageCheckResult(
+    metric: UsageMetricKey,
+    periodType: UsagePeriodType,
+    startDate: Date,
+    endDate: Date,
+    used: number,
+    limit: number,
+  ): UsageCheckResult & { warningLevel: "normal" | "warning" | "critical" } {
+    const remaining = limit === -1 ? -1 : Math.max(0, limit - used);
+    const allowed = limit === -1 || used < limit;
+
+    return {
+      metric,
+      periodType,
+      periodStart: this.toDateOnly(startDate),
+      periodEnd: this.toDateOnly(endDate),
+      used,
+      limit,
+      remaining,
+      allowed,
+      warningLevel: this.getWarningLevel(used, limit),
+    };
+  }
+
+  private getWarningLevel(
+    used: number,
+    limit: number,
+  ): "normal" | "warning" | "critical" {
+    if (limit <= 0 || limit === -1) return "normal";
+    const ratio = used / limit;
+    if (ratio >= 0.85) return "critical";
+    if (ratio >= 0.7) return "warning";
+    return "normal";
+  }
+
+  private async countMessages(
+    merchantId: string,
+    startDate: Date,
+    endDate: Date,
+    aiRepliesOnly: boolean,
+  ): Promise<number> {
+    const nextBoundary =
+      endDate.getUTCHours() === 23 && endDate.getUTCMinutes() === 59
+        ? new Date(endDate.getTime() + 1)
+        : endDate;
+
+    try {
+      const result = await this.pool.query<{ used: string | number }>(
+        `SELECT COUNT(*)::numeric AS used
+         FROM messages
+         WHERE merchant_id = $1
+           AND created_at >= $2
+           AND created_at < $3
+           ${aiRepliesOnly ? "AND direction = 'outbound' AND COALESCE(llm_used, false) = true" : ""}`,
+        [merchantId, startDate, nextBoundary],
+      );
+      return this.toFiniteNumber(result.rows[0]?.used) || 0;
+    } catch {
+      return 0;
+    }
   }
 
   private toDateOnly(value: Date): string {

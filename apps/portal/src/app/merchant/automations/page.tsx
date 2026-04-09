@@ -669,7 +669,7 @@ export default function AutomationsPage() {
 
   if (loading) {
     return (
-      <div dir="rtl" className="space-y-4">
+      <div dir="rtl" className="space-y-4 p-4 sm:p-6">
         <PageHeader
           title="مركز الأتمتة"
           description="أتمتة الرسائل والتنبيهات التلقائية"
@@ -683,7 +683,7 @@ export default function AutomationsPage() {
   }
 
   return (
-    <div dir="rtl" className="space-y-6">
+    <div dir="rtl" className="space-y-6 p-4 sm:p-6">
       <PageHeader
         title="مركز الأتمتة"
         description="فعّل وعطّل التدفقات التلقائية لرسائل واتساب وأدرها من مكان واحد"
@@ -694,6 +694,7 @@ export default function AutomationsPage() {
         <Button
           variant="outline"
           size="icon"
+          className="w-full sm:w-10"
           onClick={loadData}
           disabled={loading}
         >
@@ -711,7 +712,7 @@ export default function AutomationsPage() {
       )}
 
       {/* Summary strip */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
         <Card className="text-center">
           <CardContent className="pt-4 pb-3">
             <p className="text-2xl font-bold text-green-600">
@@ -790,7 +791,7 @@ export default function AutomationsPage() {
               <CardContent className="pt-0 space-y-3">
                 {/* Last run info */}
                 {lastLog && (
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <div className="flex flex-col gap-1 text-xs text-muted-foreground sm:flex-row sm:flex-wrap sm:items-center">
                     <Clock className="w-3.5 h-3.5" />
                     آخر تشغيل:{" "}
                     {new Date(lastLog.run_at).toLocaleString("ar-SA", {
@@ -881,16 +882,18 @@ export default function AutomationsPage() {
                       </p>
                     </div>
 
-                    <div className="flex justify-end gap-2">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
                       <Button
                         variant="ghost"
                         size="sm"
+                        className="w-full sm:w-auto"
                         onClick={() => setExpandedType(null)}
                       >
                         إلغاء
                       </Button>
                       <Button
                         size="sm"
+                        className="w-full sm:w-auto"
                         onClick={() => handleSaveConfig(automation.type)}
                         disabled={savingType === automation.type}
                       >
@@ -915,62 +918,119 @@ export default function AutomationsPage() {
             <CardTitle className="text-sm">سجل التشغيل الأخير</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm text-right">
-                <thead>
-                  <tr className="border-b text-muted-foreground text-xs">
-                    <th className="pb-2 pr-0">النوع</th>
-                    <th className="pb-2">الحالة</th>
-                    <th className="pb-2">أُرسل</th>
-                    <th className="pb-2">المستهدفون</th>
-                    <th className="pb-2">التاريخ</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {logs.slice(0, 15).map((log, i) => {
-                    const aut = automations.find(
-                      (a) => a.type === log.automation_type,
-                    );
-                    return (
-                      <tr key={i} className="border-b last:border-0">
-                        <td className="py-2 pr-0 font-medium">
-                          {aut?.label ?? log.automation_type}
-                        </td>
-                        <td className="py-2">
-                          {log.status === "success" ? (
-                            <Badge
-                              variant="outline"
-                              className="text-green-700 border-green-300"
-                            >
-                              <CheckCircle className="w-3 h-3 ml-1" />
-                              نجح
-                            </Badge>
-                          ) : (
-                            <Badge
-                              variant="outline"
-                              className="text-red-700 border-red-300"
-                            >
-                              <XCircle className="w-3 h-3 ml-1" />
-                              خطأ
-                            </Badge>
-                          )}
-                        </td>
-                        <td className="py-2">{log.messages_sent}</td>
-                        <td className="py-2">{log.targets_found}</td>
-                        <td className="py-2 text-muted-foreground text-xs">
-                          {new Date(log.run_at).toLocaleString("ar-SA", {
-                            day: "numeric",
-                            month: "short",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+            <>
+              <div className="space-y-3 md:hidden">
+                {logs.slice(0, 15).map((log, i) => {
+                  const aut = automations.find(
+                    (a) => a.type === log.automation_type,
+                  );
+                  return (
+                    <div key={i} className="rounded-lg border p-3 space-y-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="font-medium">
+                            {aut?.label ?? log.automation_type}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {new Date(log.run_at).toLocaleString("ar-SA", {
+                              day: "numeric",
+                              month: "short",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </p>
+                        </div>
+                        {log.status === "success" ? (
+                          <Badge
+                            variant="outline"
+                            className="text-green-700 border-green-300"
+                          >
+                            <CheckCircle className="w-3 h-3 ml-1" />
+                            نجح
+                          </Badge>
+                        ) : (
+                          <Badge
+                            variant="outline"
+                            className="text-red-700 border-red-300"
+                          >
+                            <XCircle className="w-3 h-3 ml-1" />
+                            خطأ
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-2 gap-3 text-sm">
+                        <div>
+                          <p className="text-xs text-muted-foreground">أُرسل</p>
+                          <p className="font-medium">{log.messages_sent}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">
+                            المستهدفون
+                          </p>
+                          <p className="font-medium">{log.targets_found}</p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="hidden overflow-x-auto md:block">
+                <table className="w-full text-sm text-right">
+                  <thead>
+                    <tr className="border-b text-muted-foreground text-xs">
+                      <th className="pb-2 pr-0">النوع</th>
+                      <th className="pb-2">الحالة</th>
+                      <th className="pb-2">أُرسل</th>
+                      <th className="pb-2">المستهدفون</th>
+                      <th className="pb-2">التاريخ</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {logs.slice(0, 15).map((log, i) => {
+                      const aut = automations.find(
+                        (a) => a.type === log.automation_type,
+                      );
+                      return (
+                        <tr key={i} className="border-b last:border-0">
+                          <td className="py-2 pr-0 font-medium">
+                            {aut?.label ?? log.automation_type}
+                          </td>
+                          <td className="py-2">
+                            {log.status === "success" ? (
+                              <Badge
+                                variant="outline"
+                                className="text-green-700 border-green-300"
+                              >
+                                <CheckCircle className="w-3 h-3 ml-1" />
+                                نجح
+                              </Badge>
+                            ) : (
+                              <Badge
+                                variant="outline"
+                                className="text-red-700 border-red-300"
+                              >
+                                <XCircle className="w-3 h-3 ml-1" />
+                                خطأ
+                              </Badge>
+                            )}
+                          </td>
+                          <td className="py-2">{log.messages_sent}</td>
+                          <td className="py-2">{log.targets_found}</td>
+                          <td className="py-2 text-muted-foreground text-xs">
+                            {new Date(log.run_at).toLocaleString("ar-SA", {
+                              day: "numeric",
+                              month: "short",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>
           </CardContent>
         </Card>
       )}

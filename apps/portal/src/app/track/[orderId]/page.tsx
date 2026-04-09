@@ -2,7 +2,15 @@
 
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
-import { CheckCircle2, Clock, Package, Truck, AlertCircle, Search, Loader2 } from "lucide-react";
+import {
+  CheckCircle2,
+  Clock,
+  Package,
+  Truck,
+  AlertCircle,
+  Search,
+  Loader2,
+} from "lucide-react";
 
 const STATUS_ICONS: Record<string, typeof CheckCircle2> = {
   DELIVERED: CheckCircle2,
@@ -72,7 +80,9 @@ export default function TrackOrderPage() {
     setOrder(null);
     setSubmitted(true);
     try {
-      const res = await fetch(`/api/v1/public/orders/${encodeURIComponent(num.trim().toUpperCase())}`);
+      const res = await fetch(
+        `/api/v1/public/orders/${encodeURIComponent(num.trim().toUpperCase())}`,
+      );
       if (res.status === 404) {
         setError("لم يتم العثور على الطلب. تحقق من رقم الطلب وحاول مجدداً.");
         return;
@@ -131,7 +141,7 @@ export default function TrackOrderPage() {
       {/* Search Box */}
       <div className="max-w-2xl mx-auto px-4 -mt-5">
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-5">
-          <div className="flex gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row">
             <input
               type="text"
               value={searchInput}
@@ -152,7 +162,7 @@ export default function TrackOrderPage() {
                 fetchOrder(searchInput);
               }}
               disabled={loading || !searchInput.trim()}
-              className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-xl px-5 py-3 font-medium transition-colors flex items-center gap-2"
+              className="flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 font-medium text-white transition-colors hover:bg-indigo-700 disabled:opacity-50 sm:w-auto"
             >
               {loading ? (
                 <Loader2 className="h-5 w-5 animate-spin" />
@@ -182,7 +192,10 @@ export default function TrackOrderPage() {
             <div className="h-3 bg-gray-100 dark:bg-gray-700 rounded-full w-1/2 mx-auto" />
             <div className="flex justify-center gap-2 mt-4">
               {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="h-6 w-16 bg-gray-100 dark:bg-gray-700 rounded-full" />
+                <div
+                  key={i}
+                  className="h-6 w-16 bg-gray-100 dark:bg-gray-700 rounded-full"
+                />
               ))}
             </div>
           </div>
@@ -197,8 +210,8 @@ export default function TrackOrderPage() {
                 order.isCancelled
                   ? "bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800"
                   : order.isDelivered
-                  ? "bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800"
-                  : "bg-white dark:bg-gray-800"
+                    ? "bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800"
+                    : "bg-white dark:bg-gray-800"
               }`}
             >
               {(() => {
@@ -206,8 +219,8 @@ export default function TrackOrderPage() {
                 const iconColor = order.isCancelled
                   ? "text-red-500"
                   : order.isDelivered
-                  ? "text-green-500"
-                  : "text-indigo-500";
+                    ? "text-green-500"
+                    : "text-indigo-500";
                 return (
                   <Icon className={`h-14 w-14 mx-auto mb-3 ${iconColor}`} />
                 );
@@ -215,7 +228,10 @@ export default function TrackOrderPage() {
               <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">
                 طلب رقم
               </p>
-              <p className="text-xl font-bold font-mono text-gray-800 dark:text-gray-100 mb-2" dir="ltr">
+              <p
+                className="text-xl font-bold font-mono text-gray-800 dark:text-gray-100 mb-2"
+                dir="ltr"
+              >
                 {order.orderNumber}
               </p>
               <span
@@ -223,8 +239,8 @@ export default function TrackOrderPage() {
                   order.isCancelled
                     ? "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300"
                     : order.isDelivered
-                    ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300"
-                    : "bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300"
+                      ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300"
+                      : "bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300"
                 }`}
               >
                 {order.statusLabel}
@@ -242,7 +258,10 @@ export default function TrackOrderPage() {
                 </h2>
                 <div className="relative">
                   {order.timeline.map((step, idx) => (
-                    <div key={step.status} className="flex items-start gap-3 mb-4">
+                    <div
+                      key={step.status}
+                      className="flex items-start gap-3 mb-4"
+                    >
                       {/* Line */}
                       <div className="flex flex-col items-center">
                         <div
@@ -250,8 +269,8 @@ export default function TrackOrderPage() {
                             step.active
                               ? "bg-indigo-600 text-white ring-4 ring-indigo-100 dark:ring-indigo-900"
                               : step.completed
-                              ? "bg-green-500 text-white"
-                              : "bg-gray-100 dark:bg-gray-700 text-gray-400"
+                                ? "bg-green-500 text-white"
+                                : "bg-gray-100 dark:bg-gray-700 text-gray-400"
                           }`}
                         >
                           {step.completed && !step.active ? (
@@ -263,7 +282,9 @@ export default function TrackOrderPage() {
                         {idx < order.timeline.length - 1 && (
                           <div
                             className={`w-0.5 h-6 mt-1 ${
-                              step.completed ? "bg-green-400" : "bg-gray-200 dark:bg-gray-700"
+                              step.completed
+                                ? "bg-green-400"
+                                : "bg-gray-200 dark:bg-gray-700"
                             }`}
                           />
                         )}
@@ -275,8 +296,8 @@ export default function TrackOrderPage() {
                             step.active
                               ? "text-indigo-600 dark:text-indigo-400"
                               : step.completed
-                              ? "text-gray-700 dark:text-gray-300"
-                              : "text-gray-400"
+                                ? "text-gray-700 dark:text-gray-300"
+                                : "text-gray-400"
                           }`}
                         >
                           {step.label}
@@ -297,21 +318,26 @@ export default function TrackOrderPage() {
                 </h2>
                 <div className="space-y-2 text-sm">
                   {order.tracking.courier && (
-                    <div className="flex justify-between">
+                    <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                       <span className="text-gray-500">شركة الشحن</span>
-                      <span className="font-medium">{order.tracking.courier}</span>
+                      <span className="font-medium">
+                        {order.tracking.courier}
+                      </span>
                     </div>
                   )}
                   {order.tracking.trackingId && (
-                    <div className="flex justify-between">
+                    <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                       <span className="text-gray-500">رقم التتبع</span>
-                      <span className="font-mono font-medium text-indigo-600" dir="ltr">
+                      <span
+                        className="break-all font-mono font-medium text-indigo-600"
+                        dir="ltr"
+                      >
                         {order.tracking.trackingId}
                       </span>
                     </div>
                   )}
                   {order.tracking.estimatedDelivery && (
-                    <div className="flex justify-between">
+                    <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                       <span className="text-gray-500">التوصيل المتوقع</span>
                       <span className="font-medium">
                         {formatDate(order.tracking.estimatedDelivery)}
@@ -331,23 +357,32 @@ export default function TrackOrderPage() {
                 </h2>
                 <div className="divide-y divide-gray-100 dark:divide-gray-700">
                   {order.items.map((item, idx) => (
-                    <div key={idx} className="py-2.5 flex items-start justify-between gap-2">
+                    <div
+                      key={idx}
+                      className="flex flex-col gap-2 py-2.5 sm:flex-row sm:items-start sm:justify-between"
+                    >
                       <div>
                         <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
                           {item.name}
                         </p>
                         <p className="text-xs text-gray-400">
-                          {item.quantity} × {formatPrice(item.unitPrice, order.currency)}
+                          {item.quantity} ×{" "}
+                          {formatPrice(item.unitPrice, order.currency)}
                         </p>
                       </div>
-                      <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 shrink-0">
-                        {formatPrice(item.totalPrice || item.unitPrice * item.quantity, order.currency)}
+                      <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 sm:shrink-0">
+                        {formatPrice(
+                          item.totalPrice || item.unitPrice * item.quantity,
+                          order.currency,
+                        )}
                       </p>
                     </div>
                   ))}
                 </div>
-                <div className="border-t border-gray-200 dark:border-gray-700 mt-2 pt-3 flex justify-between">
-                  <span className="font-semibold text-gray-700 dark:text-gray-300">الإجمالي</span>
+                <div className="mt-2 flex flex-col gap-1 border-t border-gray-200 pt-3 dark:border-gray-700 sm:flex-row sm:items-center sm:justify-between">
+                  <span className="font-semibold text-gray-700 dark:text-gray-300">
+                    الإجمالي
+                  </span>
                   <span className="font-bold text-gray-900 dark:text-white">
                     {formatPrice(order.totalPrice, order.currency)}
                   </span>
@@ -375,7 +410,9 @@ export default function TrackOrderPage() {
           <div className="text-center py-12 text-gray-400">
             <Package className="h-16 w-16 mx-auto mb-4 opacity-20" />
             <p className="text-base">أدخل رقم طلبك في مربع البحث أعلاه</p>
-            <p className="text-sm mt-1">رقم الطلب يظهر في رسالة تأكيد الطلب على واتساب</p>
+            <p className="text-sm mt-1">
+              رقم الطلب يظهر في رسالة تأكيد الطلب على واتساب
+            </p>
           </div>
         )}
       </div>

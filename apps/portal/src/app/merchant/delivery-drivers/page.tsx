@@ -273,7 +273,7 @@ export default function DeliveryDriversPage() {
     submitLabel: string;
   }) => (
     <div className="space-y-4 py-4">
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label>الاسم *</Label>
           <Input
@@ -292,7 +292,7 @@ export default function DeliveryDriversPage() {
           />
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label>رقم واتساب (اختياري)</Label>
           <Input
@@ -330,7 +330,7 @@ export default function DeliveryDriversPage() {
           onChange={(e) => setForm({ ...form, notes: e.target.value })}
         />
       </div>
-      <div className="flex justify-end gap-2 pt-2">
+      <div className="flex flex-col gap-2 pt-2 sm:flex-row sm:justify-end">
         <Button
           variant="outline"
           onClick={() => {
@@ -349,12 +349,12 @@ export default function DeliveryDriversPage() {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-4 sm:p-6">
       <PageHeader
         title="سائقي التوصيل"
         description="إدارة سائقي التوصيل وإشعارات واتساب التلقائية"
         actions={
-          <>
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
             <Button
               variant="outline"
               onClick={async () => {
@@ -377,7 +377,7 @@ export default function DeliveryDriversPage() {
                 }
               }}
               disabled={sendingReminders || drivers.length === 0}
-              className="text-green-700 border-green-300 hover:bg-green-50"
+              className="w-full border-green-300 text-green-700 hover:bg-green-50 sm:w-auto"
             >
               {sendingReminders ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -401,12 +401,12 @@ export default function DeliveryDriversPage() {
               <UserPlus className="h-4 w-4" />
               إضافة سائق
             </Button>
-          </>
+          </div>
         }
       />
 
       {/* Stats */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
@@ -458,8 +458,8 @@ export default function DeliveryDriversPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-3">
               <Settings2 className="h-4 w-4 text-muted-foreground" />
               <div>
                 <p className="text-sm font-medium">
@@ -495,8 +495,8 @@ export default function DeliveryDriversPage() {
               }}
             />
           </div>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-3">
               <Bell className="h-4 w-4 text-muted-foreground" />
               <div>
                 <p className="text-sm font-medium">إشعار العميل عند التعيين</p>
@@ -599,131 +599,235 @@ export default function DeliveryDriversPage() {
               </Button>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <Table className="table-fixed w-full">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[22%] text-right">السائق</TableHead>
-                    <TableHead className="w-[18%] text-right">الهاتف</TableHead>
-                    <TableHead className="w-[18%] text-right">واتساب</TableHead>
-                    <TableHead className="w-[16%] text-right">
-                      المركبة
-                    </TableHead>
-                    <TableHead className="w-[13%] text-right">الحالة</TableHead>
-                    <TableHead className="w-[13%] text-left">إجراءات</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {drivers.map((driver) => {
-                    const VehicleIcon =
-                      vehicleIcons[driver.vehicle_type] || Truck;
-                    return (
-                      <TableRow key={driver.id}>
-                        <TableCell className="w-[22%]">
-                          <div className="flex items-center gap-3">
-                            <div className="h-10 w-10 rounded-full bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center text-white font-bold flex-shrink-0">
-                              {driver.name.charAt(0)}
+            <>
+              <div className="space-y-3 md:hidden">
+                {drivers.map((driver) => {
+                  const VehicleIcon =
+                    vehicleIcons[driver.vehicle_type] || Truck;
+                  return (
+                    <div
+                      key={driver.id}
+                      className="rounded-lg border p-4 space-y-3"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex min-w-0 items-center gap-3">
+                          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-orange-500 to-red-500 font-bold text-white">
+                            {driver.name.charAt(0)}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="font-medium break-words">
+                              {driver.name}
                             </div>
-                            <div className="min-w-0">
-                              <div className="font-medium truncate">
-                                {driver.name}
+                            {driver.notes && (
+                              <div className="text-xs text-muted-foreground break-words">
+                                {driver.notes}
                               </div>
-                              {driver.notes && (
-                                <div className="text-xs text-muted-foreground truncate">
-                                  {driver.notes}
+                            )}
+                          </div>
+                        </div>
+                        <Badge
+                          variant={
+                            driver.status === "ACTIVE" ? "default" : "secondary"
+                          }
+                          className={
+                            driver.status === "ACTIVE" ? "bg-green-500" : ""
+                          }
+                        >
+                          {driver.status === "ACTIVE" ? "نشط" : "غير نشط"}
+                        </Badge>
+                      </div>
+                      <div className="space-y-2 text-sm text-muted-foreground">
+                        <div className="flex items-center gap-2" dir="ltr">
+                          <Phone className="h-4 w-4 flex-shrink-0" />
+                          <span className="truncate">{driver.phone}</span>
+                        </div>
+                        <div className="flex items-center gap-2" dir="ltr">
+                          <MessageSquare className="h-4 w-4 flex-shrink-0 text-green-500" />
+                          <span className="truncate">
+                            {driver.whatsapp_number || driver.phone}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <VehicleIcon className="h-4 w-4 flex-shrink-0" />
+                          <span>
+                            {vehicleLabels[driver.vehicle_type] ||
+                              driver.vehicle_type}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex flex-col gap-2 sm:flex-row">
+                        <Button
+                          variant="outline"
+                          onClick={() => openEdit(driver)}
+                        >
+                          <Edit className="h-4 w-4" />
+                          تعديل
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => handleStatusToggle(driver)}
+                        >
+                          {driver.status === "ACTIVE" ? (
+                            <>
+                              <Ban className="h-4 w-4" />
+                              إيقاف
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle className="h-4 w-4" />
+                              تفعيل
+                            </>
+                          )}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="text-red-600 hover:text-red-700"
+                          onClick={() => handleDelete(driver)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          حذف
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="hidden overflow-x-auto md:block">
+                <Table className="w-full">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[22%] text-right">
+                        السائق
+                      </TableHead>
+                      <TableHead className="w-[18%] text-right">
+                        الهاتف
+                      </TableHead>
+                      <TableHead className="w-[18%] text-right">
+                        واتساب
+                      </TableHead>
+                      <TableHead className="w-[16%] text-right">
+                        المركبة
+                      </TableHead>
+                      <TableHead className="w-[13%] text-right">
+                        الحالة
+                      </TableHead>
+                      <TableHead className="w-[13%] text-left">
+                        إجراءات
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {drivers.map((driver) => {
+                      const VehicleIcon =
+                        vehicleIcons[driver.vehicle_type] || Truck;
+                      return (
+                        <TableRow key={driver.id}>
+                          <TableCell className="w-[22%]">
+                            <div className="flex items-center gap-3">
+                              <div className="h-10 w-10 rounded-full bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center text-white font-bold flex-shrink-0">
+                                {driver.name.charAt(0)}
+                              </div>
+                              <div className="min-w-0">
+                                <div className="font-medium truncate">
+                                  {driver.name}
                                 </div>
-                              )}
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell className="w-[18%]">
-                          <span
-                            className="inline-flex items-center gap-1 text-sm"
-                            dir="ltr"
-                          >
-                            <Phone className="h-3 w-3 flex-shrink-0" />
-                            <span className="truncate">{driver.phone}</span>
-                          </span>
-                        </TableCell>
-                        <TableCell className="w-[18%]">
-                          <span
-                            className="inline-flex items-center gap-1 text-sm"
-                            dir="ltr"
-                          >
-                            <MessageSquare className="h-3 w-3 text-green-500 flex-shrink-0" />
-                            <span className="truncate">
-                              {driver.whatsapp_number || driver.phone}
-                            </span>
-                          </span>
-                        </TableCell>
-                        <TableCell className="w-[16%]">
-                          <div className="flex items-center gap-1">
-                            <VehicleIcon className="h-4 w-4 flex-shrink-0" />
-                            <span className="text-sm">
-                              {vehicleLabels[driver.vehicle_type] ||
-                                driver.vehicle_type}
-                            </span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="w-[13%]">
-                          <Badge
-                            variant={
-                              driver.status === "ACTIVE"
-                                ? "default"
-                                : "secondary"
-                            }
-                            className={
-                              driver.status === "ACTIVE" ? "bg-green-500" : ""
-                            }
-                          >
-                            {driver.status === "ACTIVE" ? "نشط" : "غير نشط"}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="w-[13%] text-left">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon">
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem
-                                onClick={() => openEdit(driver)}
-                              >
-                                <Edit className="h-4 w-4" />
-                                تعديل
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => handleStatusToggle(driver)}
-                              >
-                                {driver.status === "ACTIVE" ? (
-                                  <>
-                                    <Ban className="h-4 w-4" />
-                                    إيقاف
-                                  </>
-                                ) : (
-                                  <>
-                                    <CheckCircle className="h-4 w-4" />
-                                    تفعيل
-                                  </>
+                                {driver.notes && (
+                                  <div className="text-xs text-muted-foreground truncate">
+                                    {driver.notes}
+                                  </div>
                                 )}
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                className="text-red-600"
-                                onClick={() => handleDelete(driver)}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                                حذف
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell className="w-[18%]">
+                            <span
+                              className="inline-flex items-center gap-1 text-sm"
+                              dir="ltr"
+                            >
+                              <Phone className="h-3 w-3 flex-shrink-0" />
+                              <span className="truncate">{driver.phone}</span>
+                            </span>
+                          </TableCell>
+                          <TableCell className="w-[18%]">
+                            <span
+                              className="inline-flex items-center gap-1 text-sm"
+                              dir="ltr"
+                            >
+                              <MessageSquare className="h-3 w-3 text-green-500 flex-shrink-0" />
+                              <span className="truncate">
+                                {driver.whatsapp_number || driver.phone}
+                              </span>
+                            </span>
+                          </TableCell>
+                          <TableCell className="w-[16%]">
+                            <div className="flex items-center gap-1">
+                              <VehicleIcon className="h-4 w-4 flex-shrink-0" />
+                              <span className="text-sm">
+                                {vehicleLabels[driver.vehicle_type] ||
+                                  driver.vehicle_type}
+                              </span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="w-[13%]">
+                            <Badge
+                              variant={
+                                driver.status === "ACTIVE"
+                                  ? "default"
+                                  : "secondary"
+                              }
+                              className={
+                                driver.status === "ACTIVE" ? "bg-green-500" : ""
+                              }
+                            >
+                              {driver.status === "ACTIVE" ? "نشط" : "غير نشط"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="w-[13%] text-left">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem
+                                  onClick={() => openEdit(driver)}
+                                >
+                                  <Edit className="h-4 w-4" />
+                                  تعديل
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => handleStatusToggle(driver)}
+                                >
+                                  {driver.status === "ACTIVE" ? (
+                                    <>
+                                      <Ban className="h-4 w-4" />
+                                      إيقاف
+                                    </>
+                                  ) : (
+                                    <>
+                                      <CheckCircle className="h-4 w-4" />
+                                      تفعيل
+                                    </>
+                                  )}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  className="text-red-600"
+                                  onClick={() => handleDelete(driver)}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                  حذف
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
@@ -737,7 +841,7 @@ export default function DeliveryDriversPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <div className="text-center p-4 bg-muted/30 rounded-lg">
               <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center mx-auto mb-2">
                 <MapPin className="h-5 w-5 text-blue-600" />
@@ -771,7 +875,7 @@ export default function DeliveryDriversPage() {
 
       {/* Add Dialog */}
       <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>إضافة سائق جديد</DialogTitle>
             <DialogDescription>
@@ -784,7 +888,7 @@ export default function DeliveryDriversPage() {
 
       {/* Edit Dialog */}
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>تعديل بيانات السائق</DialogTitle>
             <DialogDescription>

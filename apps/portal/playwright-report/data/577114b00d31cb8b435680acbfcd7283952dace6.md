@@ -1,0 +1,46 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+    - generic [ref=e3]:
+        - generic [ref=e4]:
+            - img [ref=e6]
+            - heading "تسجيل الدخول" [level=3] [ref=e11]
+            - paragraph [ref=e12]: أدخل بياناتك للوصول إلى لوحة التحكم
+        - generic [ref=e13]:
+            - generic [ref=e14]:
+                - generic [ref=e15]:
+                    - img [ref=e16]
+                    - generic [ref=e18]: البريد الإلكتروني أو كلمة المرور غير صحيحة
+                - generic [ref=e19]:
+                    - text: رقم المتجر
+                    - textbox "رقم المتجر" [ref=e20]:
+                        - /placeholder: "مثال: demo-merchant"
+                        - text: demo-merchant
+                - generic [ref=e21]:
+                    - text: البريد الإلكتروني
+                    - textbox "البريد الإلكتروني" [ref=e22]:
+                        - /placeholder: example@email.com :مثال
+                        - text: demo@tash8eel.com
+                - generic [ref=e23]:
+                    - text: كلمة المرور
+                    - generic [ref=e24]:
+                        - textbox "كلمة المرور" [ref=e25]:
+                            - /placeholder: أدخل كلمة المرور
+                            - text: demo123
+                        - button [ref=e26] [cursor=pointer]:
+                            - img [ref=e27]
+                - link "نسيت كلمة المرور؟" [ref=e31] [cursor=pointer]:
+                    - /url: /forgot-password
+                - button "تسجيل الدخول" [ref=e32] [cursor=pointer]
+                - generic [ref=e33]:
+                    - text: ليس لديك حساب؟
+                    - link "تواصل معنا" [ref=e34] [cursor=pointer]:
+                        - /url: /signup
+            - generic [ref=e35]:
+                - paragraph [ref=e36]: "بيانات تجريبية (اضغط للملء التلقائي):"
+                - 'button "المتجر: demo-merchant · البريد: demo@tash8eel.com · كلمة المرور: demo123" [ref=e37] [cursor=pointer]'
+    - button "Open Next.js Dev Tools" [ref=e43] [cursor=pointer]:
+        - img [ref=e44]
+    - alert [ref=e47]
+```

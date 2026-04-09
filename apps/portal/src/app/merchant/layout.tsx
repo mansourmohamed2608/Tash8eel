@@ -31,7 +31,8 @@ const FEATURE_GATES: Array<{
     | "team"
     | "webhooks"
     | "apiAccess"
-    | "audit";
+    | "audit"
+    | "cashier";
   title: string;
   description: string;
 }> = [
@@ -58,6 +59,12 @@ const FEATURE_GATES: Array<{
     featureKey: "payments",
     title: "المدفوعات غير مفعّلة",
     description: "ترقية لقبول المدفوعات وإدارة إثباتات الدفع.",
+  },
+  {
+    prefix: "/merchant/cashier",
+    featureKey: "cashier",
+    title: "الكاشير غير مفعّل",
+    description: "ترقية أو تفعيل إضافة الكاشير للوصول إلى شاشة نقطة البيع.",
   },
   {
     prefix: "/merchant/notifications",
@@ -88,6 +95,18 @@ const FEATURE_GATES: Array<{
     featureKey: "loyalty",
     title: "برنامج الولاء غير مفعّل",
     description: "ترقية لتفعيل برنامج الولاء ومكافآت العملاء.",
+  },
+  {
+    prefix: "/merchant/campaigns",
+    featureKey: "loyalty",
+    title: "الحملات غير مفعّلة",
+    description: "الحملات وشرائح العملاء متاحة من Growth فأعلى.",
+  },
+  {
+    prefix: "/merchant/customer-segments",
+    featureKey: "loyalty",
+    title: "شرائح العملاء غير مفعّلة",
+    description: "الحملات وشرائح العملاء متاحة من Growth فأعلى.",
   },
   {
     prefix: "/merchant/reports",
@@ -126,36 +145,32 @@ const AGENT_GATES: Array<{
   agentKey: string;
   title: string;
   description: string;
-}> = [
-  {
-    prefix: "/merchant/loyalty",
-    agentKey: "MARKETING_AGENT",
-    title: "برنامج الولاء غير مفعّل",
-    description: "برنامج الولاء يتطلب تفعيل وكيل التسويق ضمن خطتك.",
-  },
-  {
-    prefix: "/merchant/campaigns",
-    agentKey: "MARKETING_AGENT",
-    title: "وكيل التسويق غير مفعّل",
-    description: "هذه الصفحة ضمن إضافات التسويق. قم بالترقية لتفعيلها.",
-  },
-  {
-    prefix: "/merchant/customer-segments",
-    agentKey: "MARKETING_AGENT",
-    title: "شرائح العملاء غير مفعّلة",
-    description: "شرائح العملاء تتطلب تفعيل وكيل التسويق ضمن خطتك.",
-  },
-];
+}> = [];
 
 // ─── Pages that are removed or not yet launched - always redirect to dashboard ───
 const BLOCKED_ROUTES = [
   "/merchant/integrations", // ERP integrations - removed (POS integrations is the single hub)
-  "/merchant/campaigns", // Marketing Agent - coming soon
-  "/merchant/customer-segments", // Marketing Agent - coming soon
   "/merchant/webhooks", // Replaced by POS integrations
   "/merchant/vision", // General OCR removed (payment-proof workflow only)
-  "/merchant/pricing", // Old pricing page - replaced by /merchant/plan
   "/merchant/ocr-review", // OCR review - internal/not launched yet
+];
+
+const CHAT_ONLY_BLOCKED_ROUTES = [
+  "/merchant/orders",
+  "/merchant/cashier",
+  "/merchant/branches",
+  "/merchant/team",
+  "/merchant/inventory",
+  "/merchant/payments",
+  "/merchant/reports",
+  "/merchant/analytics",
+  "/merchant/kpis",
+  "/merchant/forecast",
+  "/merchant/loyalty",
+  "/merchant/campaigns",
+  "/merchant/customer-segments",
+  "/merchant/pos-integrations",
+  "/merchant/tables",
 ];
 
 function AuthGuard({ children }: { children: React.ReactNode }) {
@@ -396,6 +411,15 @@ function MerchantLayoutContent({ children }: { children: React.ReactNode }) {
     !!merchant &&
     !merchant.enabledAgents?.includes(agentGate.agentKey);
   const isEntitlementBlocked = isFeatureBlocked || isAgentBlocked;
+  const isChatOnlyPlan =
+    String(merchant?.plan || "").toLowerCase() === "chat_only";
+  const isChatOnlyRouteBlocked =
+    !isLoading &&
+    isChatOnlyPlan &&
+    !!pathname &&
+    CHAT_ONLY_BLOCKED_ROUTES.some(
+      (route) => pathname === route || pathname.startsWith(route + "/"),
+    );
 
   useEffect(() => {
     if (pathname) {
@@ -408,6 +432,14 @@ function MerchantLayoutContent({ children }: { children: React.ReactNode }) {
       router.replace(`/merchant/plan?blocked=${encodeURIComponent(pathname)}`);
     }
   }, [isEntitlementBlocked, pathname, router]);
+
+  useEffect(() => {
+    if (isChatOnlyRouteBlocked && pathname) {
+      router.replace(
+        `/merchant/pricing?blocked=${encodeURIComponent(pathname)}`,
+      );
+    }
+  }, [isChatOnlyRouteBlocked, pathname, router]);
 
   const triggerRealtimeRefresh = useCallback(() => {
     if (!pathname || pathname === "/merchant/change-password") return;
@@ -518,6 +550,20 @@ function MerchantLayoutContent({ children }: { children: React.ReactNode }) {
               <p className="text-sm text-muted-foreground">
                 جاري التحقق من الصلاحيات المتاحة لحسابك...
               </p>
+            </div>
+          ) : isChatOnlyRouteBlocked ? (
+            <div className="mx-auto flex max-w-2xl flex-col items-center gap-4 rounded-xl border bg-card p-8 text-center shadow-sm">
+              <Lock className="h-6 w-6 text-muted-foreground" />
+              <p className="text-sm text-muted-foreground">
+                خطة Chat Only مخصصة للمحادثات فقط. للوصول إلى التشغيل والمخزون
+                والمالية، اختر خطة منصة كاملة.
+              </p>
+              <Link
+                href="/merchant/pricing"
+                className={buttonVariants({ variant: "default" })}
+              >
+                عرض الخطط
+              </Link>
             </div>
           ) : isEntitlementBlocked ? (
             <div className="mx-auto flex max-w-2xl flex-col items-center gap-4 rounded-xl border bg-card p-8 text-center shadow-sm">

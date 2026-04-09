@@ -346,7 +346,7 @@ export default function WinbackCampaignsPage() {
   ];
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6 p-4 sm:p-6">
       <PageHeader
         title="الحملات التسويقية"
         description="إنشاء وإدارة حملات استعادة العملاء والتسويق الذكي"
@@ -358,6 +358,7 @@ export default function WinbackCampaignsPage() {
               setError(null);
             }}
             disabled={!waReady}
+            className="w-full sm:w-auto"
           >
             <Send className="h-4 w-4 ml-2" />
             إنشاء حملة جديدة
@@ -412,7 +413,7 @@ export default function WinbackCampaignsPage() {
       )}
 
       {/* Campaign Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
@@ -480,7 +481,7 @@ export default function WinbackCampaignsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="flex gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row">
             <Input
               placeholder="مثال: استرجاع العملاء الخاملين بخصم..."
               value={aiAudienceGoal}
@@ -491,7 +492,7 @@ export default function WinbackCampaignsPage() {
             <Button
               onClick={handleAiAudienceSuggest}
               disabled={aiAudienceLoading || !aiAudienceGoal.trim()}
-              className="shrink-0"
+              className="w-full shrink-0 sm:w-auto"
             >
               {aiAudienceLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -612,7 +613,10 @@ export default function WinbackCampaignsPage() {
 
       {/* Create Campaign Dialog */}
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
-        <DialogContent className="max-w-md" dir="rtl">
+        <DialogContent
+          className="max-h-[90vh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-md"
+          dir="rtl"
+        >
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <UserMinus className="h-5 w-5 text-orange-500" />
@@ -722,15 +726,20 @@ export default function WinbackCampaignsPage() {
             )}
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="flex-col gap-2 sm:flex-row">
             <Button
               variant="outline"
               onClick={() => setShowCreate(false)}
               disabled={sending}
+              className="w-full sm:w-auto"
             >
               إلغاء
             </Button>
-            <Button onClick={() => setConfirmSend(true)} disabled={sending}>
+            <Button
+              onClick={() => setConfirmSend(true)}
+              disabled={sending}
+              className="w-full sm:w-auto"
+            >
               {sending ? (
                 <>
                   <Loader2 className="h-4 w-4 ml-2 animate-spin" />
@@ -749,7 +758,7 @@ export default function WinbackCampaignsPage() {
 
       {/* Confirm Send */}
       <AlertDialog open={confirmSend} onOpenChange={setConfirmSend}>
-        <AlertDialogContent>
+        <AlertDialogContent className="max-h-[90vh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-lg">
           <AlertDialogHeader>
             <AlertDialogTitle>تأكيد إرسال حملة الاستعادة</AlertDialogTitle>
             <AlertDialogDescription className="space-y-2">
@@ -762,11 +771,14 @@ export default function WinbackCampaignsPage() {
               </span>
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={sending}>إلغاء</AlertDialogCancel>
+          <AlertDialogFooter className="flex-col-reverse gap-2 sm:flex-row">
+            <AlertDialogCancel disabled={sending} className="w-full sm:w-auto">
+              إلغاء
+            </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleCreateCampaign}
               disabled={sending}
+              className="w-full sm:w-auto"
             >
               {sending ? "جاري الإرسال..." : "تأكيد الإرسال"}
             </AlertDialogAction>
@@ -776,7 +788,10 @@ export default function WinbackCampaignsPage() {
 
       {/* Seasonal Campaign Dialog */}
       <Dialog open={showSeasonal} onOpenChange={setShowSeasonal}>
-        <DialogContent className="max-w-lg" dir="rtl">
+        <DialogContent
+          className="max-h-[90vh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-lg"
+          dir="rtl"
+        >
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-green-500" />
@@ -838,7 +853,7 @@ export default function WinbackCampaignsPage() {
                 <MessageSquare className="h-4 w-4" />
                 نص الرسالة
               </Label>
-              <div className="flex gap-2 mb-1">
+              <div className="mb-1 flex flex-col gap-2 sm:flex-row">
                 <Button
                   type="button"
                   variant="outline"
@@ -860,7 +875,7 @@ export default function WinbackCampaignsPage() {
                     } catch {}
                     setGeneratingSeasonalMsg(false);
                   }}
-                  className="text-purple-700 border-purple-300 hover:bg-purple-50"
+                  className="w-full text-purple-700 border-purple-300 hover:bg-purple-50 sm:w-auto"
                 >
                   {generatingSeasonalMsg ? (
                     <Loader2 className="h-3 w-3 animate-spin ml-1" />
@@ -896,17 +911,19 @@ export default function WinbackCampaignsPage() {
             )}
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="flex-col gap-2 sm:flex-row">
             <Button
               variant="outline"
               onClick={() => setShowSeasonal(false)}
               disabled={sendingSeasonal}
+              className="w-full sm:w-auto"
             >
               إلغاء
             </Button>
             <Button
               onClick={handleSeasonalCampaign}
               disabled={sendingSeasonal || !seasonalMsg.trim()}
+              className="w-full sm:w-auto"
             >
               {sendingSeasonal ? (
                 <>
@@ -926,7 +943,10 @@ export default function WinbackCampaignsPage() {
 
       {/* Re-engagement Campaign Dialog */}
       <Dialog open={showReengagement} onOpenChange={setShowReengagement}>
-        <DialogContent className="max-w-lg" dir="rtl">
+        <DialogContent
+          className="max-h-[90vh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-lg"
+          dir="rtl"
+        >
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Zap className="h-5 w-5 text-blue-500" />
@@ -1031,17 +1051,19 @@ export default function WinbackCampaignsPage() {
             )}
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="flex-col gap-2 sm:flex-row">
             <Button
               variant="outline"
               onClick={() => setShowReengagement(false)}
               disabled={sendingReengagement}
+              className="w-full sm:w-auto"
             >
               إلغاء
             </Button>
             <Button
               onClick={handleReengagementCampaign}
               disabled={sendingReengagement || !reengageMsg.trim()}
+              className="w-full sm:w-auto"
             >
               {sendingReengagement ? (
                 <>

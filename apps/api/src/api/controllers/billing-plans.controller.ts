@@ -20,6 +20,9 @@ import {
 import {
   applyCanonicalPlanData,
   planOrder,
+  resolveCashierProvisioning,
+  toStringArray,
+  isCashierPromoEligiblePlan,
   updateMerchantProvisioning,
 } from "./billing.helpers";
 import { PLAN_ENTITLEMENTS } from "../../shared/entitlements";
@@ -94,10 +97,13 @@ export class BillingPlansController {
       ),
     );
     const limits = await this.usageGuardService.getEffectiveLimits(merchantId);
+    const messaging =
+      await this.usageGuardService.getMessagingQuotaStatus(merchantId);
 
     return {
       merchantId,
       limits,
+      messaging,
       metrics: checks.reduce<Record<string, any>>((acc, row) => {
         acc[row.metric] = row;
         return acc;
@@ -134,6 +140,14 @@ export class BillingPlansController {
   @ApiOperation({ summary: "Get merchant billing summary" })
   async getSummary(@Req() req: any) {
     const merchantId = req?.merchantId;
+    const merchantStateResult = await this.pool.query(
+      `SELECT plan, enabled_features, plan_limits, limits
+       FROM merchants
+       WHERE id = $1
+       LIMIT 1`,
+      [merchantId],
+    );
+    const merchantState = merchantStateResult.rows[0] || {};
     const result = await this.pool.query(
       `SELECT ms.*, bp.code as plan_code, bp.name as plan_name, bp.price_cents, bp.currency, bp.billing_period, bp.features, bp.agents, bp.limits
        FROM merchant_subscriptions ms
@@ -157,7 +171,43 @@ export class BillingPlansController {
       };
     }
 
-    const subscription = applyCanonicalPlanData(result.rows[0]);
+    const decorateSubscription = (rawSubscription: Record<string, any>) => {
+      const normalized = applyCanonicalPlanData(rawSubscription);
+      const cashierProvisioning = resolveCashierProvisioning({
+        planCode: normalized.plan_code || merchantState.plan,
+        enabledFeatures: toStringArray(
+          normalized.features || merchantState.enabled_features,
+        ),
+        limits:
+          normalized.limits ||
+          merchantState.plan_limits ||
+          merchantState.limits ||
+          {},
+        existingFeatures: toStringArray(merchantState.enabled_features),
+        existingLimits: merchantState.plan_limits || merchantState.limits || {},
+      });
+
+      return {
+        // Preserve all subscription data from database
+        id: rawSubscription.id,
+        status: rawSubscription.status,
+        provider: rawSubscription.provider,
+        plan_code: normalized.plan_code,
+        current_period_end: rawSubscription.current_period_end,
+        ...normalized,
+        features: cashierProvisioning.enabledFeatures,
+        limits: cashierProvisioning.limits,
+        cashierPromoEligible: cashierProvisioning.promo.eligible,
+        cashierPromoActive: cashierProvisioning.promo.active,
+        cashierPromoStartsAt: cashierProvisioning.promo.startsAt,
+        cashierPromoEndsAt: cashierProvisioning.promo.endsAt,
+        cashierIncludedByPlan: cashierProvisioning.promo.includedByPlan,
+        cashierEnabledByPromo: cashierProvisioning.promo.enabledByPromo,
+        cashierEffective: cashierProvisioning.promo.effective,
+      };
+    };
+
+    const subscription = decorateSubscription(result.rows[0]);
 
     // Auto-activate PENDING subscriptions (manual payment provider)
     if (
@@ -174,7 +224,7 @@ export class BillingPlansController {
           [subscription.id],
         );
         const refreshedSub = refreshed.rows[0]
-          ? applyCanonicalPlanData(refreshed.rows[0])
+          ? decorateSubscription(refreshed.rows[0])
           : subscription;
         return { status: "OK", subscription: refreshedSub };
       } catch (err) {
@@ -316,6 +366,27 @@ export class BillingPlansController {
     if (!planEntitlements) return;
 
     const { enabledAgents, enabledFeatures, limits } = planEntitlements;
+    const merchantStateResult = await this.pool.query(
+      `SELECT plan, enabled_features, plan_limits, limits
+       FROM merchants
+       WHERE id = $1
+       LIMIT 1`,
+      [merchantId],
+    );
+    const merchantState = merchantStateResult.rows[0] || {};
+    const cashierProvisioning = resolveCashierProvisioning({
+      planCode,
+      enabledFeatures,
+      limits: limits || {},
+      existingFeatures: toStringArray(merchantState.enabled_features),
+      existingLimits: merchantState.plan_limits || merchantState.limits || {},
+      grantPromo:
+        isCashierPromoEligiblePlan(planCode) &&
+        !["STARTER", "BASIC", "GROWTH", "PRO", "ENTERPRISE"].includes(
+          String(merchantState.plan || "").toUpperCase(),
+        ),
+      startsAt: subscription.current_period_start || new Date(),
+    });
 
     const client = await this.pool.connect();
     try {
@@ -339,9 +410,9 @@ export class BillingPlansController {
         merchantId,
         planCode,
         enabledAgents,
-        enabledFeatures,
-        limits: limits || {},
-        dailyTokenBudget: (limits as any)?.tokenBudgetDaily || 100000,
+        enabledFeatures: cashierProvisioning.enabledFeatures,
+        limits: cashierProvisioning.limits,
+        dailyTokenBudget: cashierProvisioning.limits.tokenBudgetDaily || 100000,
         isActive: true,
       });
       for (const agentType of enabledAgents) {

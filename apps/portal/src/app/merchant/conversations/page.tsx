@@ -577,12 +577,17 @@ export default function ConversationsPage() {
   }
 
   return (
-    <div className="space-y-6 animate-fadeIn">
+    <div className="space-y-6 animate-fadeIn p-4 sm:p-6">
       <PageHeader
         title="المحادثات"
         description="إدارة ومتابعة محادثات العملاء"
         actions={
-          <Button variant="outline" size="sm" onClick={fetchConversations}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={fetchConversations}
+            className="w-full sm:w-auto"
+          >
             <RefreshCw className="h-4 w-4" />
           </Button>
         }
@@ -598,7 +603,7 @@ export default function ConversationsPage() {
       />
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Card>
           <CardContent className="p-4 flex items-center gap-3">
             <div className="p-2 bg-primary/10 rounded-lg">
@@ -646,7 +651,7 @@ export default function ConversationsPage() {
       </div>
 
       {/* Main Content - Split View */}
-      <div className="grid h-[calc(100vh-10rem)] min-h-[52rem] grid-cols-1 gap-4 xl:grid-cols-[380px_minmax(0,1fr)] 2xl:grid-cols-[440px_minmax(0,1fr)]">
+      <div className="grid min-h-0 grid-cols-1 gap-4 xl:h-[calc(100vh-10rem)] xl:min-h-[52rem] xl:grid-cols-[380px_minmax(0,1fr)] 2xl:grid-cols-[440px_minmax(0,1fr)]">
         {/* Conversations List */}
         <Card className="h-full overflow-hidden border-border/70 shadow-sm">
           <CardHeader className="border-b bg-muted/20 pb-3">
@@ -688,7 +693,7 @@ export default function ConversationsPage() {
             </div>
           </CardHeader>
           <CardContent className="p-0">
-            <ScrollArea className="h-[calc(100vh-16rem)] min-h-[40rem]">
+            <ScrollArea className="h-[min(42vh,28rem)] sm:h-[min(46vh,32rem)] xl:h-[calc(100vh-16rem)] xl:min-h-[40rem]">
               {filteredConversations.length === 0 ? (
                 <div className="p-6 text-center">
                   <MessageSquare className="h-12 w-12 mx-auto text-muted-foreground mb-2" />
@@ -789,7 +794,7 @@ export default function ConversationsPage() {
         </Card>
 
         {/* Chat View */}
-        <Card className="flex h-full min-h-0 flex-col overflow-hidden border-border/70 shadow-sm">
+        <Card className="flex min-h-[28rem] flex-col overflow-hidden border-border/70 shadow-sm xl:h-full xl:min-h-0">
           {selectedConversation ? (
             <>
               {/* Chat Header */}

@@ -39,6 +39,7 @@ import {
 import { DATABASE_POOL } from "../../infrastructure/database/database.module";
 import { MerchantId } from "../../shared/decorators/merchant-id.decorator";
 import { ZodValidationPipe } from "../../shared/pipes/zod-validation.pipe";
+import { CommerceFactsService } from "../../application/services/commerce-facts.service";
 import {
   TaxReportSchema,
   CashFlowForecastQuerySchema,
@@ -173,7 +174,10 @@ class FifoCOGSDto {
 export class FinanceReportsController {
   private readonly logger = new Logger(FinanceReportsController.name);
 
-  constructor(@Inject(DATABASE_POOL) private readonly pool: Pool) {}
+  constructor(
+    @Inject(DATABASE_POOL) private readonly pool: Pool,
+    private readonly commerceFactsService: CommerceFactsService,
+  ) {}
 
   // Read order amount safely across schemas that may use either `total` or `total_amount`.
   private orderAmountExpr(alias: string): string {
@@ -181,6 +185,24 @@ export class FinanceReportsController {
       NULLIF((to_jsonb(${alias})->>'total'), '')::numeric,
       NULLIF((to_jsonb(${alias})->>'total_amount'), '')::numeric,
       0
+    )`;
+  }
+
+  private paidOrderAmountExpr(orderAlias: string, paidAlias = "paid"): string {
+    const orderAmountExpr = this.orderAmountExpr(orderAlias);
+    return `LEAST(
+      ${orderAmountExpr},
+      GREATEST(
+        COALESCE(
+          ${paidAlias}.total_paid,
+          CASE
+            WHEN UPPER(COALESCE(NULLIF(to_jsonb(${orderAlias})->>'payment_status', ''), 'PENDING')) = 'PAID'
+            THEN ${orderAmountExpr}
+            ELSE 0
+          END
+        ),
+        0
+      )
     )`;
   }
 
@@ -568,18 +590,35 @@ export class FinanceReportsController {
       1,
       Math.floor((endDate.getTime() - startDate.getTime()) / 86400000) + 1,
     );
-    const orderAmountExpr = this.orderAmountExpr("o");
+    const paidOrderAmountExpr = this.paidOrderAmountExpr("o");
     const expenseDateExpr = this.expenseDateExpr("e");
+    const financeSummary = await this.commerceFactsService.buildFinanceSummary(
+      merchantId,
+      startDate,
+      new Date(endDate.getTime() + 24 * 60 * 60 * 1000 - 1),
+    );
     const cashFlow = await this.pool.query(
       `WITH days AS (
          SELECT generate_series($2::date, $3::date, interval '1 day')::date AS day
        ),
        revenue_by_day AS (
          SELECT DATE(o.created_at) AS day,
-                COALESCE(SUM(${orderAmountExpr}), 0) AS revenue
+                COALESCE(SUM(${paidOrderAmountExpr}), 0) AS revenue
          FROM orders o
+         LEFT JOIN (
+           SELECT
+             order_id,
+             COALESCE(
+               SUM(amount) FILTER (
+                 WHERE UPPER(COALESCE(status, 'PAID')) = 'PAID'
+               ),
+               0
+             ) AS total_paid
+           FROM order_payments
+           GROUP BY order_id
+         ) paid ON paid.order_id = o.id
          WHERE o.merchant_id = $1
-           AND o.status::text IN ('DELIVERED', 'COMPLETED')
+           AND o.status::text NOT IN ('CANCELLED', 'DRAFT', 'FAILED', 'RETURNED')
            AND o.created_at >= $2::date
            AND o.created_at < ($3::date + interval '1 day')
          GROUP BY DATE(o.created_at)
@@ -649,6 +688,11 @@ export class FinanceReportsController {
         projectedNetCashFlow,
         confidenceLevel,
         daysWithActivity,
+        realizedRevenue: financeSummary.realizedRevenue,
+        bookedSales: financeSummary.bookedSales,
+        pendingCollections: financeSummary.pendingCollections,
+        refundsAmount: financeSummary.refundsAmount,
+        actualNetCashFlow: financeSummary.netCashFlow,
       },
     };
   }
@@ -663,18 +707,30 @@ export class FinanceReportsController {
     const days = Number.isNaN(rawDays)
       ? 30
       : Math.min(Math.max(rawDays, 1), 365);
-    const orderAmountExpr = this.orderAmountExpr("o");
+    const paidOrderAmountExpr = this.paidOrderAmountExpr("o");
     const orderDiscountExpr = this.orderDiscountExpr("o");
 
     const comparison = await this.pool.query(
       `SELECT CASE WHEN ${orderDiscountExpr} > 0 THEN 'DISCOUNTED' ELSE 'FULL_PRICE' END as category,
               COUNT(*) as order_count,
-              COALESCE(SUM(${orderAmountExpr}), 0) as revenue,
-              COALESCE(AVG(${orderAmountExpr}), 0) as avg_order_value,
+              COALESCE(SUM(${paidOrderAmountExpr}), 0) as revenue,
+              COALESCE(AVG(${paidOrderAmountExpr}), 0) as avg_order_value,
               COALESCE(SUM(${orderDiscountExpr}), 0) as total_discount
        FROM orders o
+       LEFT JOIN (
+         SELECT
+           order_id,
+           COALESCE(
+             SUM(amount) FILTER (
+               WHERE UPPER(COALESCE(status, 'PAID')) = 'PAID'
+             ),
+             0
+           ) AS total_paid
+         FROM order_payments
+         GROUP BY order_id
+       ) paid ON paid.order_id = o.id
        WHERE o.merchant_id = $1
-         AND o.status::text IN ('DELIVERED', 'COMPLETED')
+         AND o.status::text NOT IN ('CANCELLED', 'DRAFT', 'FAILED', 'RETURNED')
          AND o.created_at >= NOW() - (($2 || ' days')::interval)
        GROUP BY CASE WHEN ${orderDiscountExpr} > 0 THEN 'DISCOUNTED' ELSE 'FULL_PRICE' END`,
       [merchantId, days.toString()],
@@ -683,12 +739,24 @@ export class FinanceReportsController {
     const byCode = await this.pool.query(
       `SELECT COALESCE(NULLIF(to_jsonb(o)->>'discount_code', ''), 'NO_CODE') as discount_code,
               COUNT(*) as order_count,
-              SUM(${orderAmountExpr}) as revenue,
+              SUM(${paidOrderAmountExpr}) as revenue,
               SUM(${orderDiscountExpr}) as total_discount,
               COUNT(DISTINCT COALESCE(NULLIF(to_jsonb(o)->>'customer_phone', ''), NULLIF(to_jsonb(o)->>'phone', ''), 'UNKNOWN')) as unique_customers
        FROM orders o
+       LEFT JOIN (
+         SELECT
+           order_id,
+           COALESCE(
+             SUM(amount) FILTER (
+               WHERE UPPER(COALESCE(status, 'PAID')) = 'PAID'
+             ),
+             0
+           ) AS total_paid
+         FROM order_payments
+         GROUP BY order_id
+       ) paid ON paid.order_id = o.id
        WHERE o.merchant_id = $1
-         AND o.status::text IN ('DELIVERED', 'COMPLETED')
+         AND o.status::text NOT IN ('CANCELLED', 'DRAFT', 'FAILED', 'RETURNED')
          AND o.created_at >= NOW() - (($2 || ' days')::interval)
          AND ${orderDiscountExpr} > 0
        GROUP BY COALESCE(NULLIF(to_jsonb(o)->>'discount_code', ''), 'NO_CODE')
@@ -703,6 +771,15 @@ export class FinanceReportsController {
     const fullPriceRow = comparison.rows.find(
       (r: any) => r.category === "FULL_PRICE",
     );
+    const endDate = new Date();
+    const startDate = new Date(endDate);
+    startDate.setUTCDate(startDate.getUTCDate() - (days - 1));
+    startDate.setUTCHours(0, 0, 0, 0);
+    const financeSummary = await this.commerceFactsService.buildFinanceSummary(
+      merchantId,
+      startDate,
+      endDate,
+    );
 
     return {
       period: `${days} days`,
@@ -712,12 +789,12 @@ export class FinanceReportsController {
         totalDiscount:
           Math.round(parseFloat(discountedRow?.total_discount || "0") * 100) /
           100,
-        totalRevenue:
-          Math.round(
-            (parseFloat(discountedRow?.revenue || "0") +
-              parseFloat(fullPriceRow?.revenue || "0")) *
-              100,
-          ) / 100,
+        totalRevenue: financeSummary.realizedRevenue,
+        realizedRevenue: financeSummary.realizedRevenue,
+        bookedSales: financeSummary.bookedSales,
+        deliveredRevenue: financeSummary.deliveredRevenue,
+        pendingCollections: financeSummary.pendingCollections,
+        refundsAmount: financeSummary.refundsAmount,
       },
       avgOrderValue: {
         discounted:
@@ -747,25 +824,31 @@ export class FinanceReportsController {
     const days = Number.isNaN(rawDays)
       ? 30
       : Math.min(Math.max(rawDays, 1), 365);
-    const orderAmountExpr = this.orderAmountExpr("o");
+    const paidOrderAmountExpr = this.paidOrderAmountExpr("o");
 
     const result = await this.pool.query(
       `SELECT COALESCE(NULLIF(to_jsonb(o)->>'source_channel', ''), 'WHATSAPP') as channel,
               COUNT(*) as order_count,
-              SUM(${orderAmountExpr}) as revenue,
-              AVG(${orderAmountExpr}) as avg_order_value,
+              SUM(${paidOrderAmountExpr}) as revenue,
+              AVG(${paidOrderAmountExpr}) as avg_order_value,
               COUNT(DISTINCT COALESCE(NULLIF(to_jsonb(o)->>'customer_phone', ''), NULLIF(to_jsonb(o)->>'phone', ''), 'UNKNOWN')) as unique_customers,
-              SUM(
-                CASE
-                  WHEN COALESCE(NULLIF(to_jsonb(o)->>'payment_status', ''), '') = 'PAID'
-                  THEN ${orderAmountExpr}
-                  ELSE 0
-                END
-              ) as collected_revenue
+              SUM(${paidOrderAmountExpr}) as collected_revenue
        FROM orders o
+       LEFT JOIN (
+         SELECT
+           order_id,
+           COALESCE(
+             SUM(amount) FILTER (
+               WHERE UPPER(COALESCE(status, 'PAID')) = 'PAID'
+             ),
+             0
+           ) AS total_paid
+         FROM order_payments
+         GROUP BY order_id
+       ) paid ON paid.order_id = o.id
        WHERE o.merchant_id = $1
          AND o.created_at >= NOW() - (($2 || ' days')::interval)
-         AND o.status::text NOT IN ('CANCELLED', 'DRAFT')
+         AND o.status::text NOT IN ('CANCELLED', 'DRAFT', 'FAILED', 'RETURNED')
        GROUP BY COALESCE(NULLIF(to_jsonb(o)->>'source_channel', ''), 'WHATSAPP')
        ORDER BY revenue DESC`,
       [merchantId, days.toString()],
@@ -774,6 +857,15 @@ export class FinanceReportsController {
     const totalRevenue = result.rows.reduce(
       (s: number, r: any) => s + parseFloat(r.revenue || "0"),
       0,
+    );
+    const endDate = new Date();
+    const startDate = new Date(endDate);
+    startDate.setUTCDate(startDate.getUTCDate() - (days - 1));
+    startDate.setUTCHours(0, 0, 0, 0);
+    const financeSummary = await this.commerceFactsService.buildFinanceSummary(
+      merchantId,
+      startDate,
+      endDate,
     );
 
     return {
@@ -792,6 +884,9 @@ export class FinanceReportsController {
           Math.round(parseFloat(r.collected_revenue) * 100) / 100,
       })),
       totalRevenue: Math.round(totalRevenue * 100) / 100,
+      realizedRevenue: financeSummary.realizedRevenue,
+      bookedSales: financeSummary.bookedSales,
+      pendingCollections: financeSummary.pendingCollections,
     };
   }
 
@@ -823,22 +918,25 @@ export class FinanceReportsController {
       [merchantId, days.toString()],
     );
 
-    const ordersCount = await this.pool.query(
-      `SELECT COUNT(*) as total_orders
-       FROM orders o
-       WHERE o.merchant_id = $1
-         AND o.created_at >= NOW() - (($2 || ' days')::interval)
-         AND o.status::text IN ('DELIVERED', 'COMPLETED')`,
-      [merchantId, days.toString()],
+    const endDate = new Date();
+    const startDate = new Date(endDate);
+    startDate.setUTCDate(startDate.getUTCDate() - (days - 1));
+    startDate.setUTCHours(0, 0, 0, 0);
+    const financeSummary = await this.commerceFactsService.buildFinanceSummary(
+      merchantId,
+      startDate,
+      endDate,
     );
-
-    const totalOrders = parseInt(ordersCount.rows[0].total_orders);
+    const totalOrders = financeSummary.totalOrders;
     const totalRefunded = parseFloat(summary.rows[0].total_refunded);
     const approvedRefunds = parseInt(summary.rows[0].approved_refunds);
 
     return {
       period: `${days} days`,
       summary: {
+        totalOrders,
+        realizedRevenue: financeSummary.realizedRevenue,
+        bookedSales: financeSummary.bookedSales,
         approvedRefunds,
         pendingRefunds: parseInt(summary.rows[0].pending_refunds),
         totalRefunded: Math.round(totalRefunded * 100) / 100,

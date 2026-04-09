@@ -138,6 +138,10 @@ interface DailyDashboardReport {
   };
   revenue?: {
     total?: number;
+    bookedSales?: number;
+    deliveredRevenue?: number;
+    pendingCollections?: number;
+    refundsAmount?: number;
     changeFromYesterday?: number;
   };
   conversations?: {
@@ -165,6 +169,10 @@ interface DashboardStatsResponse {
     totalOrders?: number;
     ordersChange?: number;
     totalRevenue?: number;
+    realizedRevenue?: number;
+    bookedSales?: number;
+    deliveredRevenue?: number;
+    pendingCollections?: number;
     revenueChange?: number;
     activeConversations?: number;
     conversationsChange?: number;
@@ -182,6 +190,11 @@ interface DashboardStatsResponse {
     };
     financeSummary?: {
       codPending?: number;
+      pendingCollections?: number;
+      pendingOnline?: number;
+      bookedSales?: number;
+      deliveredRevenue?: number;
+      refundsAmount?: number;
       spendingAlert?: boolean;
       grossMargin?: number;
     };
@@ -406,7 +419,22 @@ function buildDashboardSystemSummary(input: {
 
   const periodDays = Math.max(1, toNumber(stats?.period?.days) || 30);
   const periodOrders = toNumber(stats?.stats?.totalOrders);
-  const periodRevenue = toNumber(stats?.stats?.totalRevenue);
+  const periodRealizedRevenue = toNumber(
+    stats?.stats?.realizedRevenue ?? stats?.stats?.totalRevenue,
+  );
+  const periodBookedSales = toNumber(
+    stats?.stats?.bookedSales ?? report?.revenue?.bookedSales,
+  );
+  const periodDeliveredRevenue = toNumber(
+    stats?.stats?.deliveredRevenue ??
+      stats?.premium?.financeSummary?.deliveredRevenue ??
+      report?.revenue?.deliveredRevenue,
+  );
+  const periodPendingCollections = toNumber(
+    stats?.stats?.pendingCollections ??
+      stats?.premium?.financeSummary?.pendingCollections ??
+      report?.revenue?.pendingCollections,
+  );
   const activeConversations = toNumber(stats?.stats?.activeConversations);
   const pendingDeliveries = toNumber(stats?.stats?.pendingDeliveries);
   const unreadNotifications = countUnreadNotifications(notifications);
@@ -441,8 +469,8 @@ function buildDashboardSystemSummary(input: {
     : null;
 
   const topProduct =
-    report?.topProducts?.find(
-      (product) => (product?.productName || "").trim().length > 0,
+    report?.topProducts?.find((product) =>
+      isHumanReadableProductName(product?.productName),
     ) || null;
   const unconvertedConversations = Math.max(
     0,
@@ -459,11 +487,16 @@ function buildDashboardSystemSummary(input: {
   }
   if (conversationsToday > 0 && convertedToday === 0) {
     performanceParts.push(
-      `الإيرادات ${formatMoney(revenueToday)}، وتم تسجيل ${formatCount(conversationsToday)} محادثات اليوم لكن لم يتحول أي منها إلى طلب حتى الآن.`,
+      `الإيرادات المحققة اليوم ${formatMoney(revenueToday)}، مع ${formatMoney(periodPendingCollections)} ما زال قيد التحصيل، وتم تسجيل ${formatCount(conversationsToday)} محادثات اليوم لكن لم يتحول أي منها إلى طلب حتى الآن.`,
     );
   } else {
     performanceParts.push(
-      `الإيرادات ${formatMoney(revenueToday)}، وعدد المحادثات ${formatCount(conversationsToday)} مع تحويل ${formatCount(convertedToday)} إلى طلبات بمعدل ${formatPercent(conversionRateToday)}.`,
+      `الإيرادات المحققة اليوم ${formatMoney(revenueToday)}، وعدد المحادثات ${formatCount(conversationsToday)} مع تحويل ${formatCount(convertedToday)} إلى طلبات بمعدل ${formatPercent(conversionRateToday)}.`,
+    );
+  }
+  if (periodBookedSales > revenueToday) {
+    performanceParts.push(
+      `إجمالي المبيعات المحجوزة خلال الفترة الحالية هو ${formatMoney(periodBookedSales)} مقابل ${formatMoney(periodRealizedRevenue)} فقط كإيراد محقق.`,
     );
   }
   if (newCustomersToday > 0) {
@@ -479,7 +512,9 @@ function buildDashboardSystemSummary(input: {
     orderChange === 0 &&
     revenueChange === 0
   ) {
-    comparisonParts.push("مقارنة بأمس لا يوجد تغير فعلي في الطلبات أو الإيرادات.");
+    comparisonParts.push(
+      "مقارنة بأمس لا يوجد تغير فعلي في الطلبات أو الإيرادات.",
+    );
   } else {
     const ordersDirection =
       orderChange > 0 ? "ارتفعت" : orderChange < 0 ? "انخفضت" : "استقرت";
@@ -490,8 +525,13 @@ function buildDashboardSystemSummary(input: {
     );
   }
   comparisonParts.push(
-    `وخلال آخر ${formatCount(periodDays)} يوم سُجل ${formatCount(periodOrders)} طلب بإجمالي ${formatMoney(periodRevenue)}، مع ${formatCount(activeConversations)} محادثة نشطة حالياً.`,
+    `وخلال آخر ${formatCount(periodDays)} يوم سُجل ${formatCount(periodOrders)} طلب، بإجمالي مبيعات محجوزة ${formatMoney(periodBookedSales)} وإيراد محقق ${formatMoney(periodRealizedRevenue)}، مع ${formatCount(activeConversations)} محادثة نشطة حالياً.`,
   );
+  if (periodPendingCollections > 0) {
+    comparisonParts.push(
+      `يوجد أيضاً ${formatMoney(periodPendingCollections)} مبالغ لم تُحصّل بعد، وهو ما يفسّر الفارق بين الطلبات المسجلة والنقد المحقق.`,
+    );
+  }
   if (ordersToday === 0 && newCustomersToday > 0) {
     comparisonParts.push(
       `رغم هدوء الطلبات اليوم، دخول ${formatCount(newCustomersToday)} عميل جديد يعني أن الاهتمام موجود لكن لم يُغلق إلى شراء بعد.`,
@@ -519,6 +559,11 @@ function buildDashboardSystemSummary(input: {
   }
   if (codPending > 0) {
     alerts.push(`تحصيل COD معلق بقيمة ${formatMoney(codPending)}`);
+  }
+  if (periodPendingCollections > 0 && codPending <= 0) {
+    alerts.push(
+      `مبالغ قيد التحصيل بقيمة ${formatMoney(periodPendingCollections)}`,
+    );
   }
   const alertsText =
     alerts.length > 0
@@ -574,15 +619,18 @@ function buildDashboardSystemSummary(input: {
   const performanceDetails = [
     `إجمالي الطلبات اليوم: ${formatCount(ordersToday)}.`,
     `الطلبات المسلّمة: ${formatCount(deliveredToday)}، والملغاة: ${formatCount(cancelledToday)}.`,
-    `إيرادات اليوم: ${formatMoney(revenueToday)}.`,
+    `إيرادات اليوم المحققة: ${formatMoney(revenueToday)}.`,
+    `المبيعات المحجوزة في الفترة: ${formatMoney(periodBookedSales)}.`,
+    `الإيراد المسلّم في الفترة: ${formatMoney(periodDeliveredRevenue)}.`,
+    `المبالغ قيد التحصيل: ${formatMoney(periodPendingCollections)}.`,
     `المحادثات اليوم: ${formatCount(conversationsToday)}، والمحوّلة إلى طلبات: ${formatCount(convertedToday)}.`,
     `العملاء الجدد اليوم: ${formatCount(newCustomersToday)}.`,
   ];
 
   const comparisonDetails = [
     `تغير الطلبات عن أمس: ${formatPercent(Math.abs(orderChange))} ${orderChange > 0 ? "ارتفاع" : orderChange < 0 ? "انخفاض" : "استقرار"}.`,
-    `تغير الإيرادات عن أمس: ${formatPercent(Math.abs(revenueChange))} ${revenueChange > 0 ? "ارتفاع" : revenueChange < 0 ? "انخفاض" : "استقرار"}.`,
-    `خلال آخر ${formatCount(periodDays)} يوم: ${formatCount(periodOrders)} طلب بإجمالي ${formatMoney(periodRevenue)}.`,
+    `تغير الإيرادات المحققة عن أمس: ${formatPercent(Math.abs(revenueChange))} ${revenueChange > 0 ? "ارتفاع" : revenueChange < 0 ? "انخفاض" : "استقرار"}.`,
+    `خلال آخر ${formatCount(periodDays)} يوم: ${formatCount(periodOrders)} طلب بمبيعات محجوزة ${formatMoney(periodBookedSales)} وإيراد محقق ${formatMoney(periodRealizedRevenue)}.`,
     `المحادثات النشطة حالياً: ${formatCount(activeConversations)}.`,
   ];
 
@@ -621,7 +669,9 @@ function buildDashboardSystemSummary(input: {
     );
   }
   if (actionDetails.length === 0) {
-    actionDetails.push("لا توجد إشارة تشغيلية طارئة تتفوق بوضوح على غيرها حالياً.");
+    actionDetails.push(
+      "لا توجد إشارة تشغيلية طارئة تتفوق بوضوح على غيرها حالياً.",
+    );
   }
 
   const opportunityDetails: string[] = [];
@@ -646,7 +696,9 @@ function buildDashboardSystemSummary(input: {
     );
   }
   if (opportunityDetails.length === 0) {
-    opportunityDetails.push("لا توجد فرصة قصيرة الأجل أوضح من بقية الإشارات الحالية.");
+    opportunityDetails.push(
+      "لا توجد فرصة قصيرة الأجل أوضح من بقية الإشارات الحالية.",
+    );
   }
 
   const sections: DashboardAnalysisSection[] = [
@@ -721,8 +773,7 @@ export function SmartAnalysisButton({
       return;
     }
 
-    const ageMs =
-      Date.now() - new Date(persistedAnalysis.updatedAt).getTime();
+    const ageMs = Date.now() - new Date(persistedAnalysis.updatedAt).getTime();
     if (ageMs > ANALYSIS_CACHE_TTL_MS) {
       setPersistedAnalysis({
         rawText: null,
@@ -786,7 +837,9 @@ export function SmartAnalysisButton({
               ? cartRecoveryResult.value
               : null,
           inventory:
-            inventoryResult.status === "fulfilled" ? inventoryResult.value : null,
+            inventoryResult.status === "fulfilled"
+              ? inventoryResult.value
+              : null,
         });
 
         setPersistedAnalysis({
@@ -950,7 +1003,8 @@ export function SmartAnalysisButton({
                     const style = SECTION_STYLES[idx % SECTION_STYLES.length];
                     const Icon = style.icon;
                     const hasDetails =
-                      Array.isArray(section.details) && section.details.length > 0;
+                      Array.isArray(section.details) &&
+                      section.details.length > 0;
                     const isSectionExpanded = expandedSectionIds.includes(
                       section.index,
                     );
@@ -982,13 +1036,17 @@ export function SmartAnalysisButton({
                           <div className="mt-4 border-t border-white/70 pt-3 dark:border-slate-800/70">
                             <button
                               type="button"
-                              onClick={() => toggleSectionDetails(section.index)}
+                              onClick={() =>
+                                toggleSectionDetails(section.index)
+                              }
                               className={`inline-flex items-center gap-2 rounded-full border border-current/15 bg-white/70 px-3 py-1 text-xs font-medium transition-colors hover:bg-white dark:bg-slate-950/30 dark:hover:bg-slate-950/50 ${style.accent}`}
                             >
                               <ChevronDown
                                 className={`h-3.5 w-3.5 transition-transform ${isSectionExpanded ? "rotate-180" : ""}`}
                               />
-                              {isSectionExpanded ? "إخفاء التفاصيل" : "تفاصيل أكثر"}
+                              {isSectionExpanded
+                                ? "إخفاء التفاصيل"
+                                : "تفاصيل أكثر"}
                             </button>
                             {isSectionExpanded && (
                               <ul className="mt-3 space-y-2 text-sm leading-6 text-gray-600 dark:text-gray-300">
@@ -1030,15 +1088,18 @@ export function SmartAnalysisButton({
       )}
 
       {/* Empty state hint */}
-      {!normalizedAnalysis && !loading && !error && isPersistedAnalysisHydrated && (
-        <div className="px-4 pb-4 text-center">
-          <p className="text-sm text-purple-500 dark:text-purple-400">
-            {context === "dashboard"
-              ? 'اضغط "تحليل ذكي" لتوليد موجز يومي مؤكد من بيانات النظام الحالية'
-              : 'اضغط "تحليل ذكي" للحصول على تحليل مبني على بيانات نشاطك الحقيقية بالذكاء الاصطناعي'}
-          </p>
-        </div>
-      )}
+      {!normalizedAnalysis &&
+        !loading &&
+        !error &&
+        isPersistedAnalysisHydrated && (
+          <div className="px-4 pb-4 text-center">
+            <p className="text-sm text-purple-500 dark:text-purple-400">
+              {context === "dashboard"
+                ? 'اضغط "تحليل ذكي" لتوليد موجز يومي مؤكد من بيانات النظام الحالية'
+                : 'اضغط "تحليل ذكي" للحصول على تحليل مبني على بيانات نشاطك الحقيقية بالذكاء الاصطناعي'}
+            </p>
+          </div>
+        )}
     </div>
   );
 }

@@ -518,23 +518,23 @@ export default function AgentTeamsPage() {
 
   if (loading) {
     return (
-      <>
+      <div className="p-4 sm:p-6">
         <PageHeader
           title="المهام الجماعية للوكلاء"
           description="توزيع المهام على عدة وكلاء للعمل بالتوازي"
         />
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+        <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
           {[1, 2, 3, 4].map((i) => (
             <CardSkeleton key={i} />
           ))}
         </div>
-      </>
+      </div>
     );
   }
 
   if (error) {
     return (
-      <>
+      <div className="p-4 sm:p-6">
         <PageHeader
           title="المهام الجماعية للوكلاء"
           description="توزيع المهام على عدة وكلاء للعمل بالتوازي"
@@ -543,23 +543,32 @@ export default function AgentTeamsPage() {
           <CardContent className="p-8 text-center">
             <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
             <p className="text-lg font-medium text-foreground">{error}</p>
-            <Button onClick={fetchData} variant="outline" className="mt-4">
+            <Button
+              onClick={fetchData}
+              variant="outline"
+              className="mt-4 w-full sm:w-auto"
+            >
               <RefreshCw className="h-4 w-4 ml-2" />
               إعادة المحاولة
             </Button>
           </CardContent>
         </Card>
-      </>
+      </div>
     );
   }
 
   return (
-    <>
+    <div className="space-y-6 p-4 sm:p-6">
       <PageHeader
         title="المهام الجماعية للوكلاء"
         description="بدلاً من أن يعمل وكيل واحد على تنفيذ المهام بشكل تسلسلي، يمكن توزيع العمل على عدة وكلاء"
         actions={
-          <Button variant="outline" size="sm" onClick={fetchData}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={fetchData}
+            className="w-full sm:w-auto"
+          >
             <RefreshCw className="h-4 w-4 ml-2" />
             تحديث
           </Button>
@@ -640,7 +649,7 @@ export default function AgentTeamsPage() {
               : "border-destructive/50 bg-red-50 dark:bg-red-950/20"
           }
         >
-          <CardContent className="p-4 flex items-center gap-3">
+          <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
             {message.type === "success" ? (
               <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400 shrink-0" />
             ) : (
@@ -675,7 +684,7 @@ export default function AgentTeamsPage() {
           <Rocket className="h-5 w-5 text-primary" />
           المهام الجماعية المتاحة
         </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           {templates.map((template) => (
             <Card
               key={template.id}
@@ -686,8 +695,8 @@ export default function AgentTeamsPage() {
               }
             >
               <CardContent className="p-5">
-                <div className="flex justify-between items-start mb-3">
-                  <div>
+                <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
                     <h3 className="font-bold text-foreground text-lg">
                       {template.nameAr}
                     </h3>
@@ -829,7 +838,7 @@ export default function AgentTeamsPage() {
                   className="hover:border-primary/30 transition-colors"
                 >
                   <CardContent className="p-4">
-                    <div className="flex justify-between items-center mb-3">
+                    <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div className="flex items-center gap-3">
                         <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center">
                           <StatusIcon className="h-5 w-5 text-muted-foreground" />
@@ -852,7 +861,9 @@ export default function AgentTeamsPage() {
                           </p>
                         </div>
                       </div>
-                      <Badge variant={config.variant}>{config.label}</Badge>
+                      <Badge variant={config.variant} className="w-fit">
+                        {config.label}
+                      </Badge>
                     </div>
 
                     {/* Progress bar */}
@@ -861,7 +872,7 @@ export default function AgentTeamsPage() {
                         value={progressPercent}
                         className="h-2 flex-1"
                       />
-                      <span className="text-sm text-muted-foreground tabular-nums min-w-[60px] text-start">
+                      <span className="min-w-[52px] text-start text-sm tabular-nums text-muted-foreground sm:min-w-[60px]">
                         {completedSubtasks}/{totalSubtasks}
                       </span>
                     </div>
@@ -937,7 +948,7 @@ export default function AgentTeamsPage() {
                           size="sm"
                           onClick={() => openTaskDetails(task)}
                           disabled={detailsLoadingTaskId === task.id}
-                          className="gap-1.5"
+                          className="w-full gap-1.5 sm:w-auto"
                         >
                           {detailsLoadingTaskId === task.id ? (
                             <>
@@ -974,7 +985,7 @@ export default function AgentTeamsPage() {
         open={!!selectedTaskDetails || !!detailsError}
         onOpenChange={closeTaskDetailsDialog}
       >
-        <DialogContent className="max-w-4xl max-h-[85vh] overflow-hidden">
+        <DialogContent className="max-h-[90vh] max-w-[calc(100vw-2rem)] overflow-hidden sm:max-w-4xl">
           <DialogHeader>
             <DialogTitle>
               {selectedTaskDetails?.titleAr || "تفاصيل التقرير"}
@@ -1125,6 +1136,6 @@ export default function AgentTeamsPage() {
           </div>
         </DialogContent>
       </Dialog>
-    </>
+    </div>
   );
 }

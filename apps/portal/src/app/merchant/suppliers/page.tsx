@@ -555,27 +555,28 @@ export default function SuppliersPage() {
   };
 
   return (
-    <div dir="rtl" className="space-y-6">
+    <div dir="rtl" className="space-y-6 p-4 sm:p-6">
       <PageHeader
         title="إدارة الموردين"
         description="أضف موردّيك وفعّل التنبيهات التلقائية عند انخفاض المخزون"
       />
 
       {/* Toolbar */}
-      <div className="flex items-center gap-3 flex-wrap">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
         <Input
           placeholder="بحث باسم المورّد..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="max-w-xs"
+          className="w-full sm:max-w-xs"
         />
-        <Button onClick={openCreate} className="mr-auto">
+        <Button onClick={openCreate} className="w-full sm:mr-auto sm:w-auto">
           <Plus className="w-4 h-4 ml-1" />
           إضافة مورّد
         </Button>
         <Button
           variant="outline"
           onClick={() => openSupplierLookup("internal")}
+          className="w-full sm:w-auto"
         >
           <Search className="w-4 h-4 ml-1" />
           ابحث في مورديك
@@ -583,6 +584,7 @@ export default function SuppliersPage() {
         <Button
           variant="outline"
           onClick={() => openSupplierLookup("external")}
+          className="w-full sm:w-auto"
         >
           <Sparkles className="w-4 h-4 ml-1 text-purple-500" />
           اكتشف موردين جدد
@@ -592,6 +594,7 @@ export default function SuppliersPage() {
           size="icon"
           onClick={loadSuppliers}
           disabled={loading}
+          className="w-full sm:w-10"
         >
           <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
         </Button>
@@ -601,7 +604,7 @@ export default function SuppliersPage() {
       {autoSuggestions.length > 0 && (
         <Card className="border-purple-200 bg-purple-50/50">
           <CardContent className="pt-4 pb-3">
-            <div className="flex items-center justify-between gap-2">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-2 text-purple-800">
                 <Sparkles className="w-4 h-4 shrink-0" />
                 <span className="font-medium text-sm">
@@ -612,7 +615,7 @@ export default function SuppliersPage() {
               <Button
                 size="sm"
                 variant="outline"
-                className="border-purple-300 text-purple-700 hover:bg-purple-100"
+                className="w-full border-purple-300 text-purple-700 hover:bg-purple-100 sm:w-auto"
                 onClick={() => {
                   openSupplierLookup("external", autoSuggestions.slice(0, 8));
                 }}
@@ -873,7 +876,10 @@ export default function SuppliersPage() {
 
       {/* ── Create / Edit Dialog ────────────────────────────────────────────── */}
       <Dialog open={showForm} onOpenChange={setShowForm}>
-        <DialogContent className="max-w-lg" dir="rtl">
+        <DialogContent
+          className="max-h-[90vh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-lg"
+          dir="rtl"
+        >
           <DialogHeader>
             <DialogTitle>
               {editing ? "تعديل المورّد" : "إضافة مورّد جديد"}
@@ -911,7 +917,7 @@ export default function SuppliersPage() {
             </div>
 
             {/* Phones */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
                 <Label>رقم الهاتف</Label>
                 <Input
@@ -951,7 +957,7 @@ export default function SuppliersPage() {
             </div>
 
             {/* Lead time + payment */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
                 <Label>مدة التوريد (أيام)</Label>
                 <Input
@@ -1038,11 +1044,19 @@ export default function SuppliersPage() {
             </div>
           </div>
 
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="ghost" onClick={() => setShowForm(false)}>
+          <div className="flex flex-col justify-end gap-2 pt-2 sm:flex-row">
+            <Button
+              variant="ghost"
+              onClick={() => setShowForm(false)}
+              className="w-full sm:w-auto"
+            >
               إلغاء
             </Button>
-            <Button onClick={handleSave} disabled={saving}>
+            <Button
+              onClick={handleSave}
+              disabled={saving}
+              className="w-full sm:w-auto"
+            >
               {saving && <Loader2 className="w-4 h-4 ml-2 animate-spin" />}
               {editing ? "حفظ التغييرات" : "إضافة المورّد"}
             </Button>
@@ -1052,7 +1066,10 @@ export default function SuppliersPage() {
 
       {/* ── Send Message Dialog ──────────────────────────────────────────────── */}
       <Dialog open={!!msgTarget} onOpenChange={(o) => !o && setMsgTarget(null)}>
-        <DialogContent dir="rtl">
+        <DialogContent
+          dir="rtl"
+          className="max-w-[calc(100vw-2rem)] sm:max-w-lg"
+        >
           <DialogHeader>
             <DialogTitle>إرسال رسالة واتساب</DialogTitle>
             <DialogDescription>
@@ -1071,13 +1088,18 @@ export default function SuppliersPage() {
               placeholder="اكتب رسالتك هنا..."
             />
           </div>
-          <div className="flex justify-end gap-2">
-            <Button variant="ghost" onClick={() => setMsgTarget(null)}>
+          <div className="flex flex-col justify-end gap-2 sm:flex-row">
+            <Button
+              variant="ghost"
+              onClick={() => setMsgTarget(null)}
+              className="w-full sm:w-auto"
+            >
               إلغاء
             </Button>
             <Button
               onClick={handleSendMessage}
               disabled={sending || !msgText.trim()}
+              className="w-full sm:w-auto"
             >
               {sending ? (
                 <Loader2 className="w-4 h-4 ml-2 animate-spin" />
@@ -1095,7 +1117,10 @@ export default function SuppliersPage() {
         open={!!deleteTarget}
         onOpenChange={(o) => !o && setDeleteTarget(null)}
       >
-        <AlertDialogContent dir="rtl">
+        <AlertDialogContent
+          className="max-h-[90vh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-md"
+          dir="rtl"
+        >
           <AlertDialogHeader>
             <AlertDialogTitle>حذف المورّد</AlertDialogTitle>
             <AlertDialogDescription>
@@ -1103,12 +1128,14 @@ export default function SuppliersPage() {
               التراجع عن هذه العملية.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>إلغاء</AlertDialogCancel>
+          <AlertDialogFooter className="flex-col-reverse gap-2 sm:flex-row">
+            <AlertDialogCancel className="w-full sm:w-auto">
+              إلغاء
+            </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
               disabled={deleting}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="w-full bg-destructive text-destructive-foreground hover:bg-destructive/90 sm:w-auto"
             >
               {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : "حذف"}
             </AlertDialogAction>
@@ -1118,7 +1145,10 @@ export default function SuppliersPage() {
 
       {/* ── Discover Suppliers Dialog ─────────────────────────────────────── */}
       <Dialog open={showDiscover} onOpenChange={setShowDiscover}>
-        <DialogContent className="max-w-2xl" dir="rtl">
+        <DialogContent
+          className="max-h-[90vh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-2xl"
+          dir="rtl"
+        >
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               {discoverMode === "internal" ? (
@@ -1137,10 +1167,11 @@ export default function SuppliersPage() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="flex gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row">
             <Button
               type="button"
               variant={discoverMode === "internal" ? "default" : "outline"}
+              className="w-full sm:w-auto"
               onClick={() => {
                 setDiscoverMode("internal");
                 setDiscoverResults([]);
@@ -1154,6 +1185,7 @@ export default function SuppliersPage() {
             <Button
               type="button"
               variant={discoverMode === "external" ? "default" : "outline"}
+              className="w-full sm:w-auto"
               onClick={() => {
                 setDiscoverMode("external");
                 setDiscoverResults([]);
@@ -1222,7 +1254,7 @@ export default function SuppliersPage() {
             </div>
           )}
 
-          <div className="flex gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row">
             <Input
               value={discoverQuery}
               onChange={(e) => setDiscoverQuery(e.target.value)}
@@ -1237,6 +1269,7 @@ export default function SuppliersPage() {
             <Button
               onClick={handleDiscover}
               disabled={discovering || !discoverQuery.trim()}
+              className="w-full sm:w-auto"
             >
               {discovering ? (
                 <Loader2 className="w-4 h-4 animate-spin" />

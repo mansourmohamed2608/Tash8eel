@@ -3,6 +3,7 @@ import { Pool } from "pg";
 import { DATABASE_POOL } from "../../infrastructure/database/database.module";
 import { Redis } from "ioredis";
 import { REDIS_CLIENT } from "../../infrastructure/redis/redis.module";
+import { CommerceFactsService } from "./commerce-facts.service";
 
 export interface DateRange {
   startDate: Date;
@@ -13,6 +14,17 @@ export interface DashboardMetrics {
   // Overview
   totalOrders: number;
   totalRevenue: number;
+  realizedRevenue?: number;
+  bookedSales?: number;
+  deliveredRevenue?: number;
+  pendingCollections?: number;
+  refundsAmount?: number;
+  netCashFlow?: number;
+  realizedOrders?: number;
+  paidCashAmount?: number;
+  paidOnlineAmount?: number;
+  pendingCod?: number;
+  pendingOnline?: number;
   averageOrderValue: number;
   conversionRate: number;
 
@@ -88,6 +100,7 @@ export class AnalyticsService {
   constructor(
     @Inject(DATABASE_POOL) private readonly pool: Pool,
     @Inject(REDIS_CLIENT) private readonly redis: Redis,
+    private readonly commerceFactsService: CommerceFactsService,
   ) {}
 
   private async getCachedValue<T>(cacheKey: string): Promise<T | null> {
@@ -134,12 +147,17 @@ export class AnalyticsService {
     const prevEndDate = new Date(range.startDate.getTime());
 
     // Current period metrics
-    const [currentOrders, prevOrders] = await Promise.all([
-      this.getOrderMetrics(merchantId, range),
-      this.getOrderMetrics(merchantId, {
-        startDate: prevStartDate,
-        endDate: prevEndDate,
-      }),
+    const [currentFinance, previousFinance] = await Promise.all([
+      this.commerceFactsService.buildFinanceSummary(
+        merchantId,
+        range.startDate,
+        range.endDate,
+      ),
+      this.commerceFactsService.buildFinanceSummary(
+        merchantId,
+        prevStartDate,
+        prevEndDate,
+      ),
     ]);
 
     // Customer metrics
@@ -153,28 +171,44 @@ export class AnalyticsService {
 
     const metrics: DashboardMetrics = {
       // Orders
-      totalOrders: currentOrders.count,
-      totalRevenue: currentOrders.revenue,
+      totalOrders: currentFinance.bookedOrders,
+      totalRevenue: currentFinance.realizedRevenue,
+      realizedRevenue: currentFinance.realizedRevenue,
+      bookedSales: currentFinance.bookedSales,
+      deliveredRevenue: currentFinance.deliveredRevenue,
+      pendingCollections: currentFinance.pendingCollections,
+      refundsAmount: currentFinance.refundsAmount,
+      netCashFlow: currentFinance.netCashFlow,
+      realizedOrders: currentFinance.realizedOrders,
+      paidCashAmount: currentFinance.paidCashAmount,
+      paidOnlineAmount: currentFinance.paidOnlineAmount,
+      pendingCod: currentFinance.pendingCod,
+      pendingOnline: currentFinance.pendingOnline,
       averageOrderValue:
-        currentOrders.count > 0
-          ? currentOrders.revenue / currentOrders.count
+        currentFinance.realizedOrders && currentFinance.realizedOrders > 0
+          ? currentFinance.realizedRevenue / currentFinance.realizedOrders
           : 0,
       conversionRate:
         conversationMetrics.total > 0
-          ? (currentOrders.count / conversationMetrics.total) * 100
+          ? (currentFinance.bookedOrders / conversationMetrics.total) * 100
           : 0,
 
       // Changes
-      ordersChange: this.calculateChange(currentOrders.count, prevOrders.count),
+      ordersChange: this.calculateChange(
+        currentFinance.bookedOrders,
+        previousFinance.bookedOrders,
+      ),
       revenueChange: this.calculateChange(
-        currentOrders.revenue,
-        prevOrders.revenue,
+        currentFinance.realizedRevenue,
+        previousFinance.realizedRevenue,
       ),
       aovChange: this.calculateChange(
-        currentOrders.count > 0
-          ? currentOrders.revenue / currentOrders.count
+        currentFinance.realizedOrders && currentFinance.realizedOrders > 0
+          ? currentFinance.realizedRevenue / currentFinance.realizedOrders
           : 0,
-        prevOrders.count > 0 ? prevOrders.revenue / prevOrders.count : 0,
+        previousFinance.realizedOrders && previousFinance.realizedOrders > 0
+          ? previousFinance.realizedRevenue / previousFinance.realizedOrders
+          : 0,
       ),
       conversionChange: 0, // Complex calculation
 
@@ -296,7 +330,7 @@ export class AnalyticsService {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const [active, pending, todayStats, onlineStaff] = await Promise.all([
+    const [active, pending, todaySummary, onlineStaff] = await Promise.all([
       this.pool.query(
         `SELECT COUNT(*) FROM conversations 
          WHERE merchant_id = $1 AND status = 'active' AND updated_at > NOW() - INTERVAL '30 minutes'`,
@@ -306,10 +340,10 @@ export class AnalyticsService {
         `SELECT COUNT(*) FROM orders WHERE merchant_id = $1 AND status = 'PENDING'`,
         [merchantId],
       ),
-      this.pool.query(
-        `SELECT COUNT(*) as count, COALESCE(SUM(total), 0) as revenue
-         FROM orders WHERE merchant_id = $1 AND created_at >= $2`,
-        [merchantId, today],
+      this.commerceFactsService.buildFinanceSummary(
+        merchantId,
+        today,
+        new Date(),
       ),
       this.pool.query(
         `SELECT COUNT(*) FROM merchant_staff WHERE merchant_id = $1 AND status = 'ACTIVE'`,
@@ -320,8 +354,8 @@ export class AnalyticsService {
     return {
       activeConversations: parseInt(active.rows[0].count),
       pendingOrders: parseInt(pending.rows[0].count),
-      todayOrders: parseInt(todayStats.rows[0].count),
-      todayRevenue: parseFloat(todayStats.rows[0].revenue),
+      todayOrders: todaySummary.bookedOrders,
+      todayRevenue: todaySummary.realizedRevenue,
       onlineStaff: parseInt(onlineStaff.rows[0].count),
     };
   }

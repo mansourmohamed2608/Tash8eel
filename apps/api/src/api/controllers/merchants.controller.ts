@@ -401,7 +401,7 @@ export class MerchantsController {
   @ApiOperation({
     summary: "Send daily report to merchant via WhatsApp",
     description:
-      "Triggers a daily report generation and sends it to the merchant's WhatsApp. The report includes conversations, orders, revenue, and token usage for yesterday.",
+      "Triggers a daily report generation and sends it to the merchant's WhatsApp. The report includes conversations, orders, realized revenue, and token usage for yesterday.",
   })
   @ApiParam({ name: "id", description: "Merchant ID" })
   @ApiResponse({ status: 200, description: "Report sent successfully" })
@@ -413,6 +413,7 @@ export class MerchantsController {
       totalConversations: number;
       ordersCreated: number;
       totalRevenue: number;
+      realizedRevenue?: number;
       conversionRate: number;
       tokenUsage: number;
     };
@@ -443,6 +444,7 @@ export class MerchantsController {
         totalConversations: stats.totalConversations,
         ordersCreated: stats.ordersCreated,
         totalRevenue: stats.totalRevenue,
+        realizedRevenue: stats.totalRevenue,
         conversionRate: stats.conversionRate,
         tokenUsage: stats.tokenUsage,
       },

@@ -22,8 +22,13 @@ import {
   MESSAGE_TIERS,
   AGENT_CATALOG,
   FEATURE_CATALOG,
+  getPublicPricingCatalog,
 } from "../../shared/entitlements";
-import { applyCanonicalPlanData } from "./billing.helpers";
+import {
+  applyCanonicalPlanData,
+  CASHIER_PROMO_DAYS,
+  isCashierPromoEligiblePlan,
+} from "./billing.helpers";
 
 @ApiTags("Billing")
 @Controller("v1/portal/billing")
@@ -75,20 +80,36 @@ export class BillingCheckoutController {
   @Get("pricing")
   @ApiOperation({ summary: "Get full pricing data for the pricing calculator" })
   async getPricing() {
-    const plans = Object.entries(PLAN_ENTITLEMENTS)
-      .filter(([key]) => key !== "CUSTOM")
-      .map(([key, plan]) => ({
-        id: key,
-        price: plan.price ?? null,
-        currency: plan.currency || "EGP",
-        trialDays: (plan as any).trialDays || null,
-        agents: plan.enabledAgents,
-        features: plan.enabledFeatures,
-        limits: plan.limits,
-      }));
+    const catalog = getPublicPricingCatalog();
+    const plans = catalog.plans.map((plan) => ({
+      id: plan.id,
+      nameAr: plan.nameAr,
+      nameEn: plan.nameEn,
+      price: plan.monthlyPriceEgp,
+      currency: catalog.currency,
+      agents: plan.includedAgents,
+      features: plan.includedFeatures,
+      excludedFeatures: plan.excludedFeatures,
+      limits: {
+        totalMessagesPerDay: plan.totalMessagesPerDay,
+        totalMessagesPerMonth: plan.totalMessagesPerMonth,
+        aiRepliesPerDay: plan.aiRepliesPerDay,
+        aiRepliesPerMonth: plan.aiRepliesPerMonth,
+        branches: plan.includedBranches,
+        posConnections: plan.includedPosConnections,
+      },
+      isFullPlatformPlan: plan.isFullPlatformPlan,
+      bestFor: plan.bestFor,
+      mainValue: plan.mainValue,
+      cashierPromoEligible: plan.cashierPromoEligible,
+      upsellPriority: plan.upsellPriority,
+      notes: plan.notes,
+    }));
 
     return {
+      currency: catalog.currency,
       plans,
+      catalog,
       featurePrices: FEATURE_PRICES_EGP,
       agentPrices: AGENT_PRICES_EGP,
       aiUsageTiers: AI_USAGE_TIERS,
@@ -102,6 +123,14 @@ export class BillingCheckoutController {
         price: AGENT_PRICES_EGP[a.id as keyof typeof AGENT_PRICES_EGP],
         dependencies: a.dependencies,
         features: a.features,
+        implemented: a.implemented,
+        sellable: a.sellable,
+        comingSoon: a.comingSoon,
+        beta: a.beta,
+        subscriptionEnabled: a.subscriptionEnabled,
+        routeVisibility: a.routeVisibility,
+        requiredFeatures: a.requiredFeatures,
+        entrypoints: a.entrypoints,
       })),
       features: FEATURE_CATALOG.map((f) => ({
         id: f.id,
@@ -112,6 +141,10 @@ export class BillingCheckoutController {
         price: FEATURE_PRICES_EGP[f.id as keyof typeof FEATURE_PRICES_EGP],
         requiredAgent: (f as any).requiredAgent || null,
         dependencies: f.dependencies,
+        sellable:
+          f.status !== "coming_soon" &&
+          (FEATURE_PRICES_EGP[f.id as keyof typeof FEATURE_PRICES_EGP] ?? 0) >
+            0,
       })),
     };
   }
@@ -130,22 +163,20 @@ export class BillingCheckoutController {
       messageTier?: string;
     },
   ) {
-    const {
-      agents = [],
-      features = [],
-      aiTier = "BASIC",
-      messageTier = "STARTER",
-    } = body;
+    const { agents = [], features = [], aiTier, messageTier } = body;
 
     let totalMonthly = 0;
     const breakdown: Array<{ item: string; nameAr: string; price: number }> =
       [];
 
     for (const agentId of agents) {
+      const catalog = AGENT_CATALOG.find((a) => a.id === agentId);
+      if (!catalog?.sellable || !catalog.subscriptionEnabled) {
+        continue;
+      }
       const price = AGENT_PRICES_EGP[agentId as keyof typeof AGENT_PRICES_EGP];
       if (price !== undefined) {
         totalMonthly += price;
-        const catalog = AGENT_CATALOG.find((a) => a.id === agentId);
         breakdown.push({
           item: agentId,
           nameAr: catalog?.nameAr || agentId,
@@ -164,11 +195,20 @@ export class BillingCheckoutController {
 
     for (const featureId of features) {
       if (agentIncludedFeatures.has(featureId)) continue;
+      const catalog = FEATURE_CATALOG.find((f) => f.id === featureId);
+      const featurePrice =
+        FEATURE_PRICES_EGP[featureId as keyof typeof FEATURE_PRICES_EGP];
+      if (
+        !catalog ||
+        catalog.status === "coming_soon" ||
+        (featurePrice ?? 0) <= 0
+      ) {
+        continue;
+      }
       const price =
         FEATURE_PRICES_EGP[featureId as keyof typeof FEATURE_PRICES_EGP];
       if (price !== undefined) {
         totalMonthly += price;
-        const catalog = FEATURE_CATALOG.find((f) => f.id === featureId);
         breakdown.push({
           item: featureId,
           nameAr: catalog?.nameAr || featureId,
@@ -177,10 +217,10 @@ export class BillingCheckoutController {
       }
     }
 
-    const aiTierData =
-      AI_USAGE_TIERS[aiTier as keyof typeof AI_USAGE_TIERS] ||
-      AI_USAGE_TIERS.BASIC;
-    if (aiTierData.price > 0) {
+    const aiTierData = aiTier
+      ? AI_USAGE_TIERS[aiTier as keyof typeof AI_USAGE_TIERS]
+      : undefined;
+    if (aiTierData && aiTierData.price > 0) {
       totalMonthly += aiTierData.price;
       breakdown.push({
         item: `AI_${aiTier}`,
@@ -189,10 +229,10 @@ export class BillingCheckoutController {
       });
     }
 
-    const msgTierData =
-      MESSAGE_TIERS[messageTier as keyof typeof MESSAGE_TIERS] ||
-      MESSAGE_TIERS.STARTER;
-    if (msgTierData.price > 0) {
+    const msgTierData = messageTier
+      ? MESSAGE_TIERS[messageTier as keyof typeof MESSAGE_TIERS]
+      : undefined;
+    if (msgTierData && msgTierData.price > 0) {
       totalMonthly += msgTierData.price;
       breakdown.push({
         item: `MSG_${messageTier}`,
@@ -227,8 +267,8 @@ export class BillingCheckoutController {
       totalMonthly,
       currency: "EGP",
       breakdown,
-      aiTier: { ...aiTierData, id: aiTier },
-      messageTier: { ...msgTierData, id: messageTier },
+      aiTier: aiTierData ? { ...aiTierData, id: aiTier } : null,
+      messageTier: msgTierData ? { ...msgTierData, id: messageTier } : null,
       recommendedPlan,
       recommendedPlanPrice,
       savingsVsCustom: recommendedPlanPrice
@@ -273,6 +313,28 @@ export class BillingCheckoutController {
     }
 
     const plan = applyCanonicalPlanData(planResult.rows[0]);
+    const merchantStateResult = await this.pool.query(
+      `SELECT plan FROM merchants WHERE id = $1 LIMIT 1`,
+      [merchantId],
+    );
+    const currentPlan = String(
+      merchantStateResult.rows[0]?.plan || "",
+    ).toUpperCase();
+    const cashierPromoPreview =
+      isCashierPromoEligiblePlan(body.planCode) &&
+      !["STARTER", "BASIC", "GROWTH", "PRO", "ENTERPRISE"].includes(currentPlan)
+        ? {
+            eligible: true,
+            activeOnPurchase: true,
+            durationDays: CASHIER_PROMO_DAYS,
+            note: "الكاشير مجاني لأول 30 يوم على الاشتراك المدفوع الجديد.",
+          }
+        : {
+            eligible: isCashierPromoEligiblePlan(body.planCode),
+            activeOnPurchase: false,
+            durationDays: CASHIER_PROMO_DAYS,
+            note: null,
+          };
 
     const existingSubResult = await this.pool.query(
       `SELECT id, status
@@ -299,12 +361,14 @@ export class BillingCheckoutController {
           status: "ACTIVE",
           message: "هذه الباقة مفعّلة بالفعل على حسابك.",
           subscriptionId: existingSub.id,
+          cashierPromoPreview,
         };
       }
       return {
         status: "PENDING",
         message: "يوجد طلب اشتراك قيد المراجعة بالفعل لنفس الباقة.",
         subscriptionId: existingSub.id,
+        cashierPromoPreview,
       };
     }
 
@@ -359,6 +423,7 @@ export class BillingCheckoutController {
       message:
         "تم إنشاء طلب الاشتراك. سيقوم فريق المبيعات بالتواصل لإتمام التفعيل.",
       subscriptionId: subscription.id,
+      cashierPromoPreview,
     };
   }
 }

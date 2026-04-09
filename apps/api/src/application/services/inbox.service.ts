@@ -176,6 +176,8 @@ export class InboxService {
     "عذراً، مش قادرين نسمع الرسالة الصوتية. ممكن تكتب الطلب بدل منها؟";
   private readonly MESSAGE_LIMIT_EXCEEDED_AR =
     "عذراً، تم الوصول للحد الأقصى من الرسائل الشهرية لهذا التاجر. يرجى التواصل مع التاجر مباشرة أو المحاولة لاحقاً.";
+  private readonly AI_REPLY_LIMIT_EXCEEDED_AR =
+    "عذراً، تم الوصول إلى حد الردود الذكية أو الرسائل المعالجة ضمن الخطة الحالية. يمكن للتاجر الترقية أو شراء سعة إضافية للمتابعة.";
   private readonly REORDER_CONFIRM_KEYWORDS = [
     "تمام",
     "أكد",
@@ -299,6 +301,26 @@ export class InboxService {
         error: (error as Error).message,
       });
       return { allowed: true, used: 0, limit: -1 };
+    }
+  }
+
+  private async checkAiReplyLimit(merchantId: string): Promise<{
+    allowed: boolean;
+    blockingMetric:
+      | "total_messages_per_day"
+      | "total_messages_per_month"
+      | "ai_replies_per_day"
+      | "ai_replies_per_month"
+      | null;
+  }> {
+    try {
+      return this.usageGuard.checkCustomerAiReplyQuota(merchantId);
+    } catch (error) {
+      this.logger.error({
+        message: "Error checking AI reply limit",
+        error: (error as Error).message,
+      });
+      return { allowed: true, blockingMetric: null };
     }
   }
 
@@ -924,6 +946,31 @@ export class InboxService {
       model,
       maxTokens: merchantPlan.name === "starter" ? 300 : 1000,
     };
+    const aiReplyQuota = await this.checkAiReplyLimit(params.merchantId);
+    if (!aiReplyQuota.allowed) {
+      await this.recordRoutingDecision({
+        merchantId: params.merchantId,
+        planName: merchantPlan.name,
+        messageType: effectiveMessageType,
+        routingDecision: "ai_reply_quota_blocked",
+        modelUsed: undefined,
+        complexityScore: this.messageRouter.scoreComplexity(params.text ?? ""),
+        estimatedCostUsd: 0,
+      });
+
+      return {
+        conversationId: conversation.id,
+        replyText: this.AI_REPLY_LIMIT_EXCEEDED_AR,
+        action: ActionType.GREET,
+        cart: conversation.cart || {
+          items: [],
+          total: 0,
+          subtotal: 0,
+          discount: 0,
+          deliveryFee: 0,
+        },
+      };
+    }
     const llmResponse = await this.llmService.processMessage(
       {
         merchant,

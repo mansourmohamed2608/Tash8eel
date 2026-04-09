@@ -85,6 +85,7 @@ export type MarginAlert = z.infer<typeof MarginAlertSchema>;
 
 export interface FinanceMetrics {
   totalRevenue: number;
+  realizedRevenue?: number;
   totalCogs: number;
   grossProfit: number;
   grossMargin: number;
@@ -146,6 +147,10 @@ export class FinanceAiService {
   }
 
   // ============= DETERMINISTIC CALCULATIONS =============
+
+  private resolveRevenue(metrics: FinanceMetrics): number {
+    return Number(metrics.realizedRevenue ?? metrics.totalRevenue ?? 0);
+  }
 
   /**
    * Calculate profit metrics (purely deterministic)
@@ -292,7 +297,9 @@ export class FinanceAiService {
     hasAlert: boolean;
     alert?: MarginAlert;
   } {
-    if (metrics.totalExpenses > metrics.totalRevenue) {
+    const revenue = this.resolveRevenue(metrics);
+
+    if (metrics.totalExpenses > revenue) {
       return {
         hasAlert: true,
         alert: {
@@ -300,8 +307,8 @@ export class FinanceAiService {
           severity: "critical",
           titleAr: "⚠️ المصاريف تتجاوز الإيرادات!",
           titleEn: "⚠️ Expenses exceed revenue!",
-          messageAr: `المصاريف (${metrics.totalExpenses} ج.م) أعلى من الإيرادات (${metrics.totalRevenue} ج.م) - صافي خسارة: ${(metrics.totalExpenses - metrics.totalRevenue).toFixed(0)} ج.م`,
-          messageEn: `Expenses (${metrics.totalExpenses} EGP) exceed revenue (${metrics.totalRevenue} EGP) - Net loss: ${(metrics.totalExpenses - metrics.totalRevenue).toFixed(0)} EGP`,
+          messageAr: `المصاريف (${metrics.totalExpenses} ج.م) أعلى من الإيرادات المحققة (${revenue} ج.م) - صافي خسارة: ${(metrics.totalExpenses - revenue).toFixed(0)} ج.م`,
+          messageEn: `Expenses (${metrics.totalExpenses} EGP) exceed realized revenue (${revenue} EGP) - Net loss: ${(metrics.totalExpenses - revenue).toFixed(0)} EGP`,
           affectedProducts: [],
           suggestedAction: "Immediate expense review required",
         },
@@ -309,7 +316,7 @@ export class FinanceAiService {
     }
 
     // Warning if expenses are > 80% of revenue
-    if (metrics.totalExpenses > metrics.totalRevenue * 0.8) {
+    if (revenue > 0 && metrics.totalExpenses > revenue * 0.8) {
       return {
         hasAlert: true,
         alert: {
@@ -317,8 +324,8 @@ export class FinanceAiService {
           severity: "warning",
           titleAr: "نسبة المصاريف مرتفعة",
           titleEn: "High expense ratio",
-          messageAr: `المصاريف تمثل ${((metrics.totalExpenses / metrics.totalRevenue) * 100).toFixed(0)}% من الإيرادات`,
-          messageEn: `Expenses are ${((metrics.totalExpenses / metrics.totalRevenue) * 100).toFixed(0)}% of revenue`,
+          messageAr: `المصاريف تمثل ${((metrics.totalExpenses / revenue) * 100).toFixed(0)}% من الإيرادات المحققة`,
+          messageEn: `Expenses are ${((metrics.totalExpenses / revenue) * 100).toFixed(0)}% of realized revenue`,
           affectedProducts: [],
           suggestedAction: "Review major expense categories",
         },
@@ -350,6 +357,7 @@ export class FinanceAiService {
 
     try {
       const { metrics, historicalAvg, periodType } = request;
+      const realizedRevenue = this.resolveRevenue(metrics);
 
       // Calculate deviations
       const deviations: Record<string, number> = {};
@@ -363,7 +371,7 @@ export class FinanceAiService {
       const prompt = `أنت محلل مالي مصري متخصص في التجارة الإلكترونية الصغيرة والمتوسطة. حلل هذه البيانات المالية وأعطني تقرير عن أي شذوذ أو أنماط مقلقة.
 
 === البيانات الحالية (${periodType}) ===
-- الإيرادات: ${metrics.totalRevenue} ج.م
+- الإيرادات المحققة: ${realizedRevenue} ج.م
 - التكلفة: ${metrics.totalCogs} ج.م
 - هامش الربح الإجمالي: ${metrics.grossMargin}%
 - المصاريف: ${metrics.totalExpenses} ج.م
@@ -454,12 +462,14 @@ ${JSON.stringify(deviations, null, 2)}
     try {
       const { comparison, topProducts, topExpenses } = request;
       const { previousPeriod, currentPeriod, periodType } = comparison;
+      const previousRevenue = this.resolveRevenue(previousPeriod);
+      const currentRevenue = this.resolveRevenue(currentPeriod);
 
       const prompt = `أنت مدير مالي مصري متخصص في التجارة الإلكترونية. اكتب ملخص تنفيذي مفيد وعملي للتاجر بناءً على هذه البيانات.
 
 === مقارنة الفترات (${periodType}) ===
 الفترة السابقة → الحالية:
-- الإيرادات: ${previousPeriod.totalRevenue} → ${currentPeriod.totalRevenue} ج.م
+- الإيرادات المحققة: ${previousRevenue} → ${currentRevenue} ج.م
 - صافي الربح: ${previousPeriod.netProfit} → ${currentPeriod.netProfit} ج.م
 - هامش الربح: ${previousPeriod.netMargin}% → ${currentPeriod.netMargin}%
 - عدد الطلبات: ${previousPeriod.orderCount} → ${currentPeriod.orderCount}

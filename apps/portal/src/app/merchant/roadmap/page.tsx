@@ -54,6 +54,13 @@ interface RoadmapFeature {
   eta?: string;
   color: string;
   agentType?: string;
+  implemented?: boolean;
+  sellable?: boolean;
+  comingSoon?: boolean;
+  subscriptionEnabled?: boolean;
+  routeVisibility?: "visible" | "hidden" | "internal";
+  entrypoints?: string[];
+  requiredFeatures?: string[];
 }
 
 const ROADMAP_FEATURES: RoadmapFeature[] = [
@@ -249,6 +256,14 @@ export default function RoadmapPage() {
       eta?: string;
       nameAr?: string;
       descriptionAr?: string;
+      implemented: boolean;
+      sellable: boolean;
+      comingSoon: boolean;
+      beta: boolean;
+      subscriptionEnabled: boolean;
+      routeVisibility: "visible" | "hidden" | "internal";
+      requiredFeatures: string[];
+      entrypoints: string[];
     }>;
   } | null>(null);
 
@@ -269,6 +284,13 @@ export default function RoadmapPage() {
           // Optionally use API names if available
           nameAr: apiAgent.nameAr || feature.nameAr,
           descriptionAr: apiAgent.descriptionAr || feature.descriptionAr,
+          implemented: apiAgent.implemented,
+          sellable: apiAgent.sellable,
+          comingSoon: apiAgent.comingSoon,
+          subscriptionEnabled: apiAgent.subscriptionEnabled,
+          routeVisibility: apiAgent.routeVisibility,
+          entrypoints: apiAgent.entrypoints,
+          requiredFeatures: apiAgent.requiredFeatures,
         };
       }
       return feature;
@@ -364,8 +386,28 @@ export default function RoadmapPage() {
     }
   };
 
+  const getCapabilityBadge = (feature: RoadmapFeature) => {
+    if (!feature.agentType) return null;
+
+    if (feature.implemented === false) {
+      return <Badge variant="secondary">قيد التنفيذ</Badge>;
+    }
+
+    if (feature.sellable === false) {
+      return <Badge variant="outline">غير جاهز للبيع</Badge>;
+    }
+
+    if (feature.subscriptionEnabled === false) {
+      return <Badge variant="outline">غير قابل للاشتراك الآن</Badge>;
+    }
+
+    return (
+      <Badge className="bg-emerald-100 text-emerald-800">جاهز للبيع</Badge>
+    );
+  };
+
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6 p-4 sm:p-6">
       <PageHeader
         title="خارطة الطريق"
         description="الميزات والوكلاء القادمة - سجّل للوصول المبكر"
@@ -457,8 +499,40 @@ export default function RoadmapPage() {
                   </div>
                 )}
 
+                {feature.agentType ? (
+                  <div className="space-y-2 rounded-lg border bg-muted/40 p-3 text-sm">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-muted-foreground">
+                        حالة المنتج:
+                      </span>
+                      {getCapabilityBadge(feature)}
+                    </div>
+                    {feature.implemented === false ? (
+                      <p className="text-muted-foreground">
+                        هذا الوكيل ما زال في مرحلة التنفيذ ولم يصل بعد إلى مسار
+                        تشغيلي مكتمل داخل المنصة.
+                      </p>
+                    ) : feature.sellable === false ? (
+                      <p className="text-muted-foreground">
+                        هذا الوكيل ظاهر في خارطة الطريق لكن لم يتم اعتماده
+                        تجارياً كاشتراك مباشر بعد.
+                      </p>
+                    ) : feature.subscriptionEnabled === false ? (
+                      <p className="text-muted-foreground">
+                        الوكيل مطبّق، لكن التفعيل الذاتي من البوابة غير متاح
+                        حالياً لهذا المسار.
+                      </p>
+                    ) : (
+                      <p className="text-muted-foreground">
+                        هذا الوكيل يملك مساراً تشغيلياً وقابلية اشتراك مباشرة من
+                        البوابة.
+                      </p>
+                    )}
+                  </div>
+                ) : null}
+
                 {/* Actions */}
-                <div className="flex items-center justify-between pt-2 border-t">
+                <div className="flex flex-col gap-3 border-t pt-2 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex items-center gap-2">
                     {loading[feature.id] ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -477,6 +551,7 @@ export default function RoadmapPage() {
                   <Button
                     size="sm"
                     variant="outline"
+                    className="w-full sm:w-auto"
                     onClick={() => handleWaitlist(feature)}
                     disabled={feature.status === "available"}
                   >
@@ -508,9 +583,9 @@ export default function RoadmapPage() {
             <div>
               <h3 className="font-semibold">ملاحظة مهمة</h3>
               <p className="text-sm text-muted-foreground mt-1">
-                الميزات المعروضة هنا قيد التطوير ولم يتم تفعيلها بعد. التسجيل في
-                قائمة الانتظار لا يضمن الوصول المبكر وقد يختلف الشكل النهائي
-                للميزات عن المعروض.
+                الحالات المعروضة هنا تختلف بين ميزات قيد التنفيذ وميزات تجريبية
+                وميزات غير جاهزة للبيع بعد. التسجيل في قائمة الانتظار لا يضمن
+                الوصول المبكر وقد يختلف الشكل النهائي للميزات عن المعروض.
               </p>
             </div>
           </div>
@@ -519,7 +594,7 @@ export default function RoadmapPage() {
 
       {/* Waitlist Dialog */}
       <Dialog open={showWaitlistDialog} onOpenChange={setShowWaitlistDialog}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>انضم لقائمة الانتظار</DialogTitle>
             <DialogDescription>
@@ -550,15 +625,20 @@ export default function RoadmapPage() {
               </div>
             )}
           </div>
-          <DialogFooter>
+          <DialogFooter className="flex-col gap-2 sm:flex-row">
             <Button
               variant="outline"
+              className="w-full sm:w-auto"
               onClick={() => setShowWaitlistDialog(false)}
               disabled={submitting}
             >
               إلغاء
             </Button>
-            <Button onClick={submitWaitlist} disabled={!email || submitting}>
+            <Button
+              className="w-full sm:w-auto"
+              onClick={submitWaitlist}
+              disabled={!email || submitting}
+            >
               {submitting ? (
                 <>
                   <Loader2 className="h-4 w-4 ml-2 animate-spin" />

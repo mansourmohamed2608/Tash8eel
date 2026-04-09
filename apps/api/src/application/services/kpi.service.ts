@@ -1,6 +1,8 @@
 import { Injectable, Logger, Inject } from "@nestjs/common";
 import { Pool } from "pg";
 import { DATABASE_POOL } from "../../infrastructure/database/database.module";
+import { CommerceFactsService } from "./commerce-facts.service";
+import { normalizeDisplayProductName } from "../../shared/utils/product-display";
 
 export interface RecoveredCartStats {
   totalAbandoned: number;
@@ -43,10 +45,15 @@ export interface AgentPerformanceStats {
 
 export interface RevenueKpis {
   totalRevenue: number;
+  realizedRevenue?: number;
   previousPeriodRevenue: number;
   revenueChange: number;
   averageOrderValue: number;
   averageOrderValueChange?: number;
+  bookedSales?: number;
+  deliveredRevenue?: number;
+  pendingCollections?: number;
+  refundsAmount?: number;
   discountsGiven?: number;
   deliveryFeesCollected?: number;
   topProducts: Array<{ name: string; revenue: number; quantity: number }>;
@@ -75,7 +82,10 @@ export interface CustomerKpis {
 export class KpiService {
   private readonly logger = new Logger(KpiService.name);
 
-  constructor(@Inject(DATABASE_POOL) private readonly pool: Pool) {}
+  constructor(
+    @Inject(DATABASE_POOL) private readonly pool: Pool,
+    private readonly commerceFactsService: CommerceFactsService,
+  ) {}
 
   private orderAmountExpr(alias: string): string {
     return `COALESCE(
@@ -201,6 +211,33 @@ export class KpiService {
 
   private getRealizedOrderStatusSql(alias = "o"): string {
     return `UPPER(COALESCE(${alias}.status::text, '')) IN ('DELIVERED', 'COMPLETED')`;
+  }
+
+  private getPaidOrderAmountExpr(orderAlias = "o", paidAlias = "paid"): string {
+    const amountExpr = this.orderAmountExpr(orderAlias);
+    return `LEAST(
+      ${amountExpr},
+      GREATEST(
+        COALESCE(
+          ${paidAlias}.total_paid,
+          CASE
+            WHEN UPPER(
+              COALESCE(
+                NULLIF(to_jsonb(${orderAlias})->>'payment_status', ''),
+                'PENDING'
+              )
+            ) = 'PAID'
+            THEN ${amountExpr}
+            ELSE 0
+          END
+        ),
+        0
+      )
+    )`;
+  }
+
+  private normalizeProductName(name?: string | null): string {
+    return normalizeDisplayProductName(name, "منتج");
   }
 
   private resolveKpiDays(days: number): number {
@@ -786,10 +823,15 @@ export class KpiService {
   ): Promise<RevenueKpis> {
     const fallback: RevenueKpis = {
       totalRevenue: 0,
+      realizedRevenue: 0,
       previousPeriodRevenue: 0,
       revenueChange: 0,
       averageOrderValue: 0,
       averageOrderValueChange: 0,
+      bookedSales: 0,
+      deliveredRevenue: 0,
+      pendingCollections: 0,
+      refundsAmount: 0,
       discountsGiven: 0,
       deliveryFeesCollected: 0,
       topProducts: [],
@@ -805,21 +847,48 @@ export class KpiService {
       const amountExpr = this.orderAmountExpr("o");
       const discountExpr = this.orderDiscountExpr("o");
       const deliveryFeeExpr = this.orderDeliveryFeeExpr("o");
+      const paidAmountExpr = this.getPaidOrderAmountExpr("o", "paid");
 
       // Current period revenue
       const currentResult = await this.pool.query(
         `
-        SELECT 
-          COALESCE(SUM(${amountExpr}), 0) as revenue,
-          COUNT(*) as orders,
-          COALESCE(AVG(${amountExpr}), 0) as avg_order,
-          COALESCE(SUM(${discountExpr}), 0) as discounts,
-          COALESCE(SUM(${deliveryFeeExpr}), 0) as delivery_fees
-        FROM orders o
-        WHERE o.merchant_id = $1 
-          AND o.created_at >= $2 
-          AND o.created_at <= $3
-          AND ${this.getRealizedOrderStatusSql("o")}
+        WITH order_finance AS (
+          SELECT
+            ${amountExpr} AS order_total,
+            ${discountExpr} AS discount_total,
+            ${deliveryFeeExpr} AS delivery_fee_total,
+            ${paidAmountExpr} AS realized_amount,
+            GREATEST(${amountExpr} - ${paidAmountExpr}, 0) AS outstanding_amount,
+            CASE WHEN ${this.getValidOrderStatusSql("o")} THEN 1 ELSE 0 END AS is_valid_order,
+            CASE WHEN ${this.getRealizedOrderStatusSql("o")} THEN 1 ELSE 0 END AS is_delivered_order
+          FROM orders o
+          LEFT JOIN (
+            SELECT
+              order_id,
+              COALESCE(
+                SUM(amount) FILTER (
+                  WHERE UPPER(COALESCE(status, 'PAID')) = 'PAID'
+                ),
+                0
+              ) AS total_paid
+            FROM order_payments
+            WHERE merchant_id = $1
+            GROUP BY order_id
+          ) paid ON paid.order_id = o.id
+          WHERE o.merchant_id = $1
+            AND o.created_at >= $2
+            AND o.created_at <= $3
+        )
+        SELECT
+          COALESCE(SUM(realized_amount), 0) as revenue,
+          COUNT(*) FILTER (WHERE realized_amount > 0) as orders,
+          COALESCE(AVG(NULLIF(realized_amount, 0)), 0) as avg_order,
+          COALESCE(SUM(discount_total) FILTER (WHERE is_valid_order = 1), 0) as discounts,
+          COALESCE(SUM(delivery_fee_total) FILTER (WHERE realized_amount > 0), 0) as delivery_fees,
+          COALESCE(SUM(order_total) FILTER (WHERE is_valid_order = 1), 0) as booked_sales,
+          COALESCE(SUM(order_total) FILTER (WHERE is_delivered_order = 1), 0) as delivered_revenue,
+          COALESCE(SUM(outstanding_amount) FILTER (WHERE is_valid_order = 1), 0) as pending_collections
+        FROM order_finance
       `,
         [merchantId, startDate, endDate],
       );
@@ -827,14 +896,31 @@ export class KpiService {
       // Previous period for comparison
       const prevResult = await this.pool.query(
         `
-        SELECT 
-          COALESCE(SUM(${amountExpr}), 0) as revenue,
-          COALESCE(AVG(${amountExpr}), 0) as avg_order
-        FROM orders o
-        WHERE o.merchant_id = $1 
-          AND o.created_at >= $2 
-          AND o.created_at < $3
-          AND ${this.getRealizedOrderStatusSql("o")}
+        WITH order_finance AS (
+          SELECT
+            ${paidAmountExpr} AS realized_amount
+          FROM orders o
+          LEFT JOIN (
+            SELECT
+              order_id,
+              COALESCE(
+                SUM(amount) FILTER (
+                  WHERE UPPER(COALESCE(status, 'PAID')) = 'PAID'
+                ),
+                0
+              ) AS total_paid
+            FROM order_payments
+            WHERE merchant_id = $1
+            GROUP BY order_id
+          ) paid ON paid.order_id = o.id
+          WHERE o.merchant_id = $1
+            AND o.created_at >= $2
+            AND o.created_at < $3
+        )
+        SELECT
+          COALESCE(SUM(realized_amount), 0) as revenue,
+          COALESCE(AVG(NULLIF(realized_amount, 0)), 0) as avg_order
+        FROM order_finance
       `,
         [merchantId, previousStartDate, previousEndDate],
       );
@@ -842,21 +928,50 @@ export class KpiService {
       // Top products
       const topProductsResult = await this.pool.query(
         `
-        SELECT 
-          COALESCE(NULLIF(item->>'name', ''), NULLIF(item->>'productName', ''), 'منتج') as name,
+        SELECT
+          COALESCE(
+            NULLIF(ci.name_ar, ''),
+            NULLIF(ci.name_en, ''),
+            NULLIF(item->>'name', ''),
+            NULLIF(item->>'productName', ''),
+            'منتج'
+          ) as name,
           SUM(
             COALESCE(NULLIF(item->>'price', '')::decimal, NULLIF(item->>'unitPrice', '')::decimal, 0)
             *
             COALESCE(NULLIF(item->>'quantity', '')::int, NULLIF(item->>'qty', '')::int, 1)
           ) as revenue,
           SUM(COALESCE(NULLIF(item->>'quantity', '')::int, NULLIF(item->>'qty', '')::int, 1)) as quantity
-        FROM orders o,
-             jsonb_array_elements(o.items) as item
+        FROM orders o
+        CROSS JOIN LATERAL jsonb_array_elements(o.items) as item
+        LEFT JOIN (
+          SELECT
+            order_id,
+            COALESCE(
+              SUM(amount) FILTER (
+                WHERE UPPER(COALESCE(status, 'PAID')) = 'PAID'
+              ),
+              0
+            ) AS total_paid
+          FROM order_payments
+          WHERE merchant_id = $1
+          GROUP BY order_id
+        ) paid ON paid.order_id = o.id
+        LEFT JOIN catalog_items ci
+          ON ci.merchant_id = o.merchant_id
+         AND ci.id::text = COALESCE(
+           NULLIF(item->>'productId', ''),
+           NULLIF(item->>'itemId', ''),
+           NULLIF(item->>'catalogItemId', '')
+         )
         WHERE o.merchant_id = $1 
           AND o.created_at >= $2
           AND o.created_at <= $3
-          AND ${this.getRealizedOrderStatusSql("o")}
-        GROUP BY COALESCE(NULLIF(item->>'name', ''), NULLIF(item->>'productName', ''), 'منتج')
+          AND (
+            ${paidAmountExpr} > 0
+            OR ${this.getRealizedOrderStatusSql("o")}
+          )
+        GROUP BY 1
         ORDER BY revenue DESC
         LIMIT 10
       `,
@@ -866,16 +981,32 @@ export class KpiService {
       // Revenue by payment method
       const paymentMethodResult = await this.pool.query(
         `
-        SELECT 
-          COALESCE(NULLIF(to_jsonb(o)->>'payment_method', ''), 'COD') as method,
-          COALESCE(SUM(${amountExpr}), 0) as amount,
+        SELECT
+          method,
+          COALESCE(SUM(amount), 0) as amount,
           COUNT(*) as count
-        FROM orders o
-        WHERE o.merchant_id = $1 
-          AND o.created_at >= $2
-          AND o.created_at <= $3
-          AND ${this.getRealizedOrderStatusSql("o")}
-        GROUP BY COALESCE(NULLIF(to_jsonb(o)->>'payment_method', ''), 'COD')
+        FROM (
+          SELECT
+            COALESCE(NULLIF(op.method, ''), NULLIF(to_jsonb(o)->>'payment_method', ''), 'COD') as method,
+            CASE
+              WHEN op.id IS NOT NULL
+                   AND UPPER(COALESCE(op.status, 'PAID')) = 'PAID'
+              THEN op.amount
+              WHEN op.id IS NULL
+                   AND UPPER(COALESCE(NULLIF(to_jsonb(o)->>'payment_status', ''), 'PENDING')) = 'PAID'
+              THEN ${amountExpr}
+              ELSE 0
+            END as amount
+          FROM orders o
+          LEFT JOIN order_payments op
+            ON op.order_id = o.id
+           AND op.merchant_id = o.merchant_id
+          WHERE o.merchant_id = $1
+            AND o.created_at >= $2
+            AND o.created_at <= $3
+        ) payments
+        WHERE amount > 0
+        GROUP BY method
       `,
         [merchantId, startDate, endDate],
       );
@@ -907,6 +1038,19 @@ export class KpiService {
             0
           ) as cod_at_risk
         FROM orders o
+        LEFT JOIN (
+          SELECT
+            order_id,
+            COALESCE(
+              SUM(amount) FILTER (
+                WHERE UPPER(COALESCE(status, 'PAID')) = 'PAID'
+              ),
+              0
+            ) AS total_paid
+          FROM order_payments
+          WHERE merchant_id = $1
+          GROUP BY order_id
+        ) paid ON paid.order_id = o.id
         WHERE o.merchant_id = $1
           AND o.created_at >= $2
           AND o.created_at <= $3
@@ -915,21 +1059,51 @@ export class KpiService {
         [merchantId, startDate, endDate],
       );
 
-      const currentRevenue = parseFloat(currentResult.rows[0]?.revenue || "0");
-      const prevRevenue = parseFloat(prevResult.rows[0]?.revenue || "0");
-      const currentAvg = parseFloat(currentResult.rows[0]?.avg_order || "0");
-      const prevAvg = parseFloat(prevResult.rows[0]?.avg_order || "0");
+      const [currentSnapshot, previousSnapshot] = await Promise.all([
+        this.commerceFactsService.buildFinanceSummary(
+          merchantId,
+          startDate,
+          endDate,
+        ),
+        this.commerceFactsService.buildFinanceSummary(
+          merchantId,
+          previousStartDate,
+          previousEndDate,
+        ),
+      ]);
+
+      const currentRevenue = currentSnapshot.realizedRevenue;
+      const prevRevenue = previousSnapshot.realizedRevenue;
+      const currentAvg =
+        currentSnapshot.averageOrderValue ||
+        parseFloat(currentResult.rows[0]?.avg_order || "0");
+      const prevAvg =
+        previousSnapshot.averageOrderValue ||
+        parseFloat(prevResult.rows[0]?.avg_order || "0");
 
       const revenueByDayResult = await this.pool.query(
         `
-        SELECT 
+        SELECT
           DATE(o.created_at) as date,
-          COALESCE(SUM(${amountExpr}), 0) as revenue
+          COALESCE(SUM(${paidAmountExpr}), 0) as revenue
         FROM orders o
+        LEFT JOIN (
+          SELECT
+            order_id,
+            COALESCE(
+              SUM(amount) FILTER (
+                WHERE UPPER(COALESCE(status, 'PAID')) = 'PAID'
+              ),
+              0
+            ) AS total_paid
+          FROM order_payments
+          WHERE merchant_id = $1
+          GROUP BY order_id
+        ) paid ON paid.order_id = o.id
         WHERE o.merchant_id = $1 
           AND o.created_at >= $2
           AND o.created_at <= $3
-          AND ${this.getRealizedOrderStatusSql("o")}
+          AND ${paidAmountExpr} > 0
         GROUP BY DATE(o.created_at)
         ORDER BY date ASC
       `,
@@ -938,6 +1112,7 @@ export class KpiService {
 
       return {
         totalRevenue: currentRevenue,
+        realizedRevenue: currentRevenue,
         previousPeriodRevenue: prevRevenue,
         revenueChange:
           prevRevenue > 0
@@ -946,12 +1121,16 @@ export class KpiService {
         averageOrderValue: currentAvg,
         averageOrderValueChange:
           prevAvg > 0 ? ((currentAvg - prevAvg) / prevAvg) * 100 : 0,
+        bookedSales: currentSnapshot.bookedSales,
+        deliveredRevenue: currentSnapshot.deliveredRevenue,
+        pendingCollections: currentSnapshot.pendingCollections,
+        refundsAmount: currentSnapshot.refundsAmount,
         discountsGiven: parseFloat(currentResult.rows[0]?.discounts || "0"),
         deliveryFeesCollected: parseFloat(
           currentResult.rows[0]?.delivery_fees || "0",
         ),
         topProducts: topProductsResult.rows.map((r) => ({
-          name: r.name,
+          name: this.normalizeProductName(r.name),
           revenue: parseFloat(r.revenue),
           quantity: parseInt(r.quantity, 10),
         })),

@@ -51,6 +51,10 @@ interface ReportsData {
     totalOrders: number;
     ordersChange: number;
     totalRevenue: number;
+    realizedRevenue?: number;
+    bookedSales?: number;
+    deliveredRevenue?: number;
+    pendingCollections?: number;
     revenueChange: number;
     activeConversations: number;
     conversationsChange: number;
@@ -138,8 +142,10 @@ function buildReportHtml(data: ReportsData, period: number): string {
     <div class="meta">تاريخ الإنشاء: ${new Date().toLocaleString("ar-EG")}</div>
   </div>
   <div class="grid">
-    <div class="card"><div class="k">إجمالي الإيرادات المحققة</div><div class="v">${formatMoney(data.stats.totalRevenue)}</div></div>
+    <div class="card"><div class="k">إجمالي الإيرادات المحققة</div><div class="v">${formatMoney(data.stats.realizedRevenue ?? data.stats.totalRevenue)}</div></div>
     <div class="card"><div class="k">إجمالي الطلبات</div><div class="v">${formatNum(data.stats.totalOrders)}</div></div>
+    <div class="card"><div class="k">إجمالي المبيعات المحجوزة</div><div class="v">${formatMoney(data.stats.bookedSales || 0)}</div></div>
+    <div class="card"><div class="k">مبالغ قيد التحصيل</div><div class="v">${formatMoney(data.stats.pendingCollections || 0)}</div></div>
     <div class="card"><div class="k">المحادثات النشطة</div><div class="v">${formatNum(data.stats.activeConversations)}</div></div>
     <div class="card"><div class="k">التوصيلات المعلقة</div><div class="v">${formatNum(data.stats.pendingDeliveries)}</div></div>
   </div>
@@ -290,10 +296,13 @@ export default function ReportsPage() {
   const handleShareWhatsApp = useCallback(() => {
     if (!dashboardData) return;
     const { stats } = dashboardData;
+    const realizedRevenue = stats.realizedRevenue ?? stats.totalRevenue;
     const text = encodeURIComponent(
       `📊 ملخص الأداء - ${selectedPeriodSummary}\n\n` +
         `📦 الطلبات: ${stats.totalOrders}\n` +
-        `💰 الإيرادات: ${formatCurrency(stats.totalRevenue)}\n` +
+        `💰 الإيرادات المحققة: ${formatCurrency(realizedRevenue)}\n` +
+        `🧾 المبيعات المحجوزة: ${formatCurrency(stats.bookedSales || 0)}\n` +
+        `⏳ قيد التحصيل: ${formatCurrency(stats.pendingCollections || 0)}\n` +
         `💬 المحادثات: ${stats.activeConversations}\n` +
         `🚚 التوصيلات المعلقة: ${stats.pendingDeliveries}\n\n` +
         `تم إنشاؤه بواسطة تسهيل`,
@@ -312,7 +321,7 @@ export default function ReportsPage() {
 
   if (error) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 p-4 sm:p-6">
         <PageHeader title="التقارير" />
         <Card className="border-red-200 bg-red-50">
           <CardContent className="flex items-center gap-3 p-6">
@@ -324,7 +333,7 @@ export default function ReportsPage() {
             <Button
               variant="outline"
               onClick={handleRefresh}
-              className="mr-auto"
+              className="mr-0 w-full sm:mr-auto sm:w-auto"
             >
               إعادة المحاولة
             </Button>
@@ -336,7 +345,7 @@ export default function ReportsPage() {
 
   if (!dashboardData) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 p-4 sm:p-6">
         <PageHeader title="التقارير" />
         <Card className="border-yellow-200 bg-yellow-50">
           <CardContent className="flex items-center gap-3 p-6">
@@ -350,6 +359,10 @@ export default function ReportsPage() {
 
   const { stats, revenueByDay, ordersByDay, statusDistribution } =
     dashboardData;
+  const realizedRevenue = stats.realizedRevenue ?? stats.totalRevenue;
+  const bookedSales = stats.bookedSales ?? 0;
+  const deliveredRevenue = stats.deliveredRevenue ?? 0;
+  const pendingCollections = stats.pendingCollections ?? 0;
 
   const totalOrdersInStatus = statusDistribution.reduce(
     (sum, s) => sum + s.value,
@@ -360,7 +373,7 @@ export default function ReportsPage() {
 
   // Revenue is realized; compute AOV against realized orders to avoid mixed definitions.
   const avgOrderValue =
-    completedOrders > 0 ? Math.round(stats.totalRevenue / completedOrders) : 0;
+    completedOrders > 0 ? Math.round(realizedRevenue / completedOrders) : 0;
 
   // Find max revenue day
   const maxRevenueDay = revenueByDay.reduce(
@@ -383,16 +396,17 @@ export default function ReportsPage() {
       : 0;
 
   return (
-    <div className="space-y-6 animate-fadeIn">
+    <div className="space-y-6 animate-fadeIn p-4 sm:p-6">
       <PageHeader
         title="التقارير"
         description="تحليل أداء متجرك ومؤشرات النجاح"
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap">
             <Button
               variant="outline"
               onClick={handleRefresh}
               disabled={refreshing}
+              className="w-full sm:w-auto"
             >
               <RefreshCw
                 className={cn("h-4 w-4", refreshing && "animate-spin")}
@@ -407,7 +421,7 @@ export default function ReportsPage() {
                 setStoredReportingDays(next);
               }}
             >
-              <SelectTrigger className="w-40">
+              <SelectTrigger className="w-full sm:w-40">
                 <Calendar className="h-4 w-4 ml-2" />
                 <SelectValue />
               </SelectTrigger>
@@ -420,13 +434,21 @@ export default function ReportsPage() {
               </SelectContent>
             </Select>
             {canExport && (
-              <Button variant="outline" onClick={handleExportPDF}>
+              <Button
+                variant="outline"
+                onClick={handleExportPDF}
+                className="w-full sm:w-auto"
+              >
                 <FileText className="h-4 w-4" />
                 تصدير
               </Button>
             )}
             {canExport && (
-              <Button variant="outline" onClick={handleShareWhatsApp}>
+              <Button
+                variant="outline"
+                onClick={handleShareWhatsApp}
+                className="w-full sm:w-auto"
+              >
                 <MessageCircle className="h-4 w-4" />
                 WhatsApp
               </Button>
@@ -439,10 +461,10 @@ export default function ReportsPage() {
       <AiInsightsCard
         title="تحليلات التقارير"
         insights={generateReportsInsights({
-          totalRevenue: stats.totalRevenue,
+          totalRevenue: realizedRevenue,
           totalOrders: stats.totalOrders,
           avgOrderValue:
-            completedOrders > 0 ? stats.totalRevenue / completedOrders : 0,
+            completedOrders > 0 ? realizedRevenue / completedOrders : 0,
         })}
         loading={loading}
       />
@@ -451,7 +473,7 @@ export default function ReportsPage() {
       <KPIGrid>
         <StatCard
           title="إجمالي الإيرادات المحققة"
-          value={formatCurrency(stats.totalRevenue)}
+          value={formatCurrency(realizedRevenue)}
           change={stats.revenueChange}
           changeLabel="من الفترة السابقة"
           icon={<TrendingUp className="h-5 w-5" />}
@@ -479,12 +501,49 @@ export default function ReportsPage() {
         />
       </KPIGrid>
 
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <Card>
+          <CardContent className="p-6">
+            <p className="text-sm text-muted-foreground">
+              إجمالي المبيعات المحجوزة
+            </p>
+            <p className="mt-2 text-2xl font-bold">
+              {formatCurrency(bookedSales)}
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-6">
+            <p className="text-sm text-muted-foreground">
+              الإيراد من الطلبات المسلّمة
+            </p>
+            <p className="mt-2 text-2xl font-bold">
+              {formatCurrency(deliveredRevenue)}
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-6">
+            <p className="text-sm text-muted-foreground">مبالغ قيد التحصيل</p>
+            <p className="mt-2 text-2xl font-bold">
+              {formatCurrency(pendingCollections)}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
       {/* Tabs for different reports */}
       <Tabs defaultValue="sales" className="space-y-6">
-        <TabsList>
-          <TabsTrigger value="sales">المبيعات</TabsTrigger>
-          <TabsTrigger value="products">المنتجات</TabsTrigger>
-          <TabsTrigger value="conversion">التحويل</TabsTrigger>
+        <TabsList className="grid h-auto w-full grid-cols-1 gap-2 sm:grid-cols-3">
+          <TabsTrigger value="sales" className="w-full">
+            المبيعات
+          </TabsTrigger>
+          <TabsTrigger value="products" className="w-full">
+            المنتجات
+          </TabsTrigger>
+          <TabsTrigger value="conversion" className="w-full">
+            التحويل
+          </TabsTrigger>
         </TabsList>
 
         {/* Sales Tab */}
@@ -511,7 +570,7 @@ export default function ReportsPage() {
               <CardTitle className="text-base">ملخص الفترة</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4">
                 <div>
                   <p className="text-sm text-muted-foreground">
                     متوسط قيمة الطلب
@@ -560,19 +619,43 @@ export default function ReportsPage() {
               </CardHeader>
               <CardContent className="p-0">
                 {popularProducts.length > 0 ? (
-                  <DataTable
-                    data={popularProducts}
-                    columns={[
-                      { key: "rank", header: "#" },
-                      { key: "name", header: "المنتج" },
-                      { key: "totalQuantity", header: "الكمية" },
-                      {
-                        key: "totalRevenue",
-                        header: "الإيرادات",
-                        render: (item) => formatCurrency(item.totalRevenue),
-                      },
-                    ]}
-                  />
+                  <>
+                    <div className="space-y-4 p-6 md:hidden">
+                      {popularProducts.map((product) => (
+                        <div key={product.id} className="rounded-lg border p-4">
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <div className="text-sm text-muted-foreground">
+                                #{product.rank}
+                              </div>
+                              <div className="font-medium">{product.name}</div>
+                            </div>
+                            <div className="text-sm font-semibold">
+                              {formatCurrency(product.totalRevenue)}
+                            </div>
+                          </div>
+                          <div className="mt-3 text-sm text-muted-foreground">
+                            الكمية: {formatNumber(product.totalQuantity)}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="hidden md:block">
+                      <DataTable
+                        data={popularProducts}
+                        columns={[
+                          { key: "rank", header: "#" },
+                          { key: "name", header: "المنتج" },
+                          { key: "totalQuantity", header: "الكمية" },
+                          {
+                            key: "totalRevenue",
+                            header: "الإيرادات",
+                            render: (item) => formatCurrency(item.totalRevenue),
+                          },
+                        ]}
+                      />
+                    </div>
+                  </>
                 ) : (
                   <div className="p-6 text-center text-muted-foreground">
                     لا توجد بيانات منتجات متاحة
@@ -587,7 +670,7 @@ export default function ReportsPage() {
         <TabsContent value="conversion" className="space-y-6">
           {conversionData ? (
             <>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
                 <Card>
                   <CardContent className="p-6 text-center">
                     <p className="text-4xl font-bold text-primary-600">
@@ -626,7 +709,7 @@ export default function ReportsPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                       <span>إجمالي المحادثات</span>
                       <span className="font-bold">
                         {conversionData.funnel.totalConversations}
@@ -639,7 +722,7 @@ export default function ReportsPage() {
                       />
                     </div>
 
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                       <span>أضافوا للسلة</span>
                       <span className="font-bold">
                         {conversionData.funnel.addedToCart}
@@ -652,7 +735,7 @@ export default function ReportsPage() {
                       />
                     </div>
 
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                       <span>بدأوا الدفع</span>
                       <span className="font-bold">
                         {conversionData.funnel.startedCheckout}
@@ -667,7 +750,7 @@ export default function ReportsPage() {
                       />
                     </div>
 
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                       <span>أكملوا الطلب</span>
                       <span className="font-bold">
                         {conversionData.funnel.completedOrder}
@@ -702,7 +785,7 @@ export default function ReportsPage() {
       {waTrend && (
         <Card>
           <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <CardTitle className="text-base flex items-center gap-2">
                 <MessageCircle className="h-5 w-5 text-green-500" />
                 معدل تسليم واتساب (14 يوم)
@@ -723,7 +806,7 @@ export default function ReportsPage() {
           </CardHeader>
           <CardContent className="pt-0">
             <AreaChart data={waTrend.trend} title="" color="#22c55e" />
-            <div className="flex items-center gap-6 mt-2 text-xs text-muted-foreground">
+            <div className="mt-2 flex flex-col gap-2 text-xs text-muted-foreground sm:flex-row sm:flex-wrap sm:items-center sm:gap-6">
               <span>
                 إجمالي المرسل:{" "}
                 {waTrend.trend
@@ -747,60 +830,11 @@ export default function ReportsPage() {
         </Card>
       )}
 
-      {/* WhatsApp Delivery Trend */}
-      {waTrend && (
-        <Card>
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base flex items-center gap-2">
-                <MessageCircle className="h-5 w-5 text-green-500" />
-                معدل تسليم واتساب (14 يوم)
-              </CardTitle>
-              <span
-                className={cn(
-                  "text-sm font-bold px-2 py-0.5 rounded",
-                  waTrend.overallRate >= 90
-                    ? "bg-green-100 text-green-700"
-                    : waTrend.overallRate >= 70
-                      ? "bg-amber-100 text-amber-700"
-                      : "bg-red-100 text-red-700",
-                )}
-              >
-                {waTrend.overallRate}%
-              </span>
-            </div>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <AreaChart data={waTrend.trend} title="" color="#22c55e" />
-            <div className="flex items-center gap-6 mt-2 text-xs text-muted-foreground">
-              <span>
-                إجمالي المرسل:{" "}
-                {waTrend.trend
-                  .reduce((s, r) => s + r.value, 0)
-                  .toLocaleString("ar-EG")}
-              </span>
-              <span>
-                مسلَّم:{" "}
-                {waTrend.trend
-                  .reduce((s, r) => s + r.delivered, 0)
-                  .toLocaleString("ar-EG")}
-              </span>
-              <span>
-                فشل:{" "}
-                {waTrend.trend
-                  .reduce((s, r) => s + r.failed, 0)
-                  .toLocaleString("ar-EG")}
-              </span>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
       {/* Quick Links to Sub-Reports */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <a href="/merchant/reports/cfo">
           <Card className="hover:border-primary/40 transition-colors cursor-pointer">
-            <CardContent className="flex items-center gap-4 p-6">
+            <CardContent className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center">
               <div className="p-3 bg-blue-100 rounded-lg">
                 <FileText className="h-6 w-6 text-blue-600" />
               </div>
@@ -815,7 +849,7 @@ export default function ReportsPage() {
         </a>
         <a href="/merchant/reports/accountant">
           <Card className="hover:border-primary/40 transition-colors cursor-pointer">
-            <CardContent className="flex items-center gap-4 p-6">
+            <CardContent className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center">
               <div className="p-3 bg-green-100 rounded-lg">
                 <FileText className="h-6 w-6 text-green-600" />
               </div>

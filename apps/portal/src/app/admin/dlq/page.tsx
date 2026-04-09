@@ -75,6 +75,15 @@ const statusColors: Record<string, string> = {
   dead: "bg-red-100 text-red-800",
 };
 
+const JsonPayloadPreview = ({ value }: { value: unknown }) => (
+  <pre
+    className="overflow-x-auto whitespace-pre-wrap break-words rounded-lg bg-muted p-3 text-sm leading-6"
+    dir="ltr"
+  >
+    {JSON.stringify(value, null, 2)}
+  </pre>
+);
+
 export default function DlqPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -190,11 +199,12 @@ export default function DlqPage() {
         title="إدارة DLQ"
         description="مراقبة وإعادة معالجة الأحداث الفاشلة"
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
             <Button
               variant="outline"
               onClick={handleRefresh}
               disabled={refreshing}
+              className="w-full sm:w-auto"
             >
               <RefreshCw
                 className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
@@ -204,6 +214,7 @@ export default function DlqPage() {
             <Button
               onClick={handleReplayAll}
               disabled={pendingCount === 0 && deadCount === 0}
+              className="w-full sm:w-auto"
             >
               <RotateCcw className="h-4 w-4" />
               إعادة معالجة الكل ({pendingCount + deadCount})
@@ -326,7 +337,87 @@ export default function DlqPage() {
             />
           ) : (
             <>
-              <div className="overflow-x-auto">
+              <div className="divide-y md:hidden">
+                {paginatedEvents.map((event) => (
+                  <div key={event.id} className="space-y-4 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="space-y-1">
+                        <p className="font-mono text-sm font-medium">
+                          {event.eventType}
+                        </p>
+                        <p className="font-mono text-xs text-muted-foreground">
+                          {event.aggregateId}
+                        </p>
+                      </div>
+                      <Badge
+                        className={cn("text-xs", statusColors[event.status])}
+                      >
+                        {statusLabels[event.status]}
+                      </Badge>
+                    </div>
+                    <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+                      <div>
+                        <p className="text-muted-foreground">التاجر</p>
+                        <p>{event.merchantName}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">المحاولات</p>
+                        <p>
+                          {event.retryCount} / {event.maxRetries}
+                        </p>
+                      </div>
+                      <div className="sm:col-span-2">
+                        <p className="text-muted-foreground">سبب الفشل</p>
+                        <p className="text-sm text-red-600">
+                          {event.failReason}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">الوقت</p>
+                        <p>{formatRelativeTime(event.failedAt)}</p>
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full sm:w-auto"
+                        onClick={() => setSelectedEvent(event)}
+                      >
+                        <Eye className="ml-2 h-4 w-4" />
+                        عرض
+                      </Button>
+                      {event.status !== "resolved" && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full sm:w-auto"
+                          onClick={() => handleReplay(event.id)}
+                          disabled={replaying === event.id}
+                        >
+                          <Play
+                            className={cn(
+                              "ml-2 h-4 w-4",
+                              replaying === event.id && "animate-pulse",
+                            )}
+                          />
+                          إعادة المعالجة
+                        </Button>
+                      )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full text-red-600 sm:w-auto"
+                        onClick={() => handleDelete(event.id)}
+                      >
+                        <Trash2 className="ml-2 h-4 w-4 text-red-500" />
+                        حذف
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="hidden overflow-x-auto md:block">
                 <table className="w-full">
                   <thead className="bg-muted/50 border-b">
                     <tr>
@@ -454,20 +545,22 @@ export default function DlqPage() {
         open={!!selectedEvent}
         onOpenChange={() => setSelectedEvent(null)}
       >
-        <DialogContent className="sm:max-w-2xl">
+        <DialogContent className="max-h-[90vh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>تفاصيل الحدث</DialogTitle>
           </DialogHeader>
           {selectedEvent && (
             <div className="space-y-4 py-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <p className="text-sm text-muted-foreground">نوع الحدث</p>
-                  <p className="font-mono text-sm">{selectedEvent.eventType}</p>
+                  <p className="break-all font-mono text-sm">
+                    {selectedEvent.eventType}
+                  </p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">معرف الكيان</p>
-                  <p className="font-mono text-sm">
+                  <p className="break-all font-mono text-sm">
                     {selectedEvent.aggregateId}
                   </p>
                 </div>
@@ -503,7 +596,7 @@ export default function DlqPage() {
               <div>
                 <p className="text-sm text-muted-foreground mb-2">سبب الفشل</p>
                 <div className="p-3 rounded-lg bg-red-50 border border-red-200">
-                  <p className="text-sm text-red-700">
+                  <p className="break-words text-sm text-red-700">
                     {selectedEvent.failReason}
                   </p>
                 </div>
@@ -513,21 +606,23 @@ export default function DlqPage() {
                 <p className="text-sm text-muted-foreground mb-2">
                   البيانات (Payload)
                 </p>
-                <pre
-                  className="p-3 rounded-lg bg-muted text-sm overflow-x-auto"
-                  dir="ltr"
-                >
-                  {JSON.stringify(selectedEvent.payload, null, 2)}
-                </pre>
+                <JsonPayloadPreview value={selectedEvent.payload} />
               </div>
             </div>
           )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setSelectedEvent(null)}>
+          <DialogFooter className="flex-col-reverse gap-2 sm:flex-row">
+            <Button
+              variant="outline"
+              onClick={() => setSelectedEvent(null)}
+              className="w-full sm:w-auto"
+            >
               إغلاق
             </Button>
             {selectedEvent && selectedEvent.status !== "resolved" && (
-              <Button onClick={() => handleReplay(selectedEvent.id)}>
+              <Button
+                onClick={() => handleReplay(selectedEvent.id)}
+                className="w-full sm:w-auto"
+              >
                 <Play className="h-4 w-4" />
                 إعادة المعالجة
               </Button>

@@ -191,7 +191,7 @@ export default function AdminOffersPage() {
         title="عروض الاشتراك"
         description="إدارة العروض والخصومات الخاصة بالاشتراكات"
         actions={
-          <Button onClick={openCreate}>
+          <Button onClick={openCreate} className="w-full sm:w-auto">
             <Plus className="h-4 w-4 ml-2" />
             إضافة عرض
           </Button>
@@ -211,7 +211,7 @@ export default function AdminOffersPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
           {offers.map((offer) => {
             const isActive = offer.is_active !== false;
             const discountLabel =
@@ -258,11 +258,12 @@ export default function AdminOffersPage() {
                   <div className="text-xs text-muted-foreground">
                     الخطة: {offer.applies_to_plan || "جميع الخطط"}
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => openEdit(offer)}
+                      className="w-full sm:w-auto"
                     >
                       <Edit className="h-4 w-4 ml-1" />
                       تعديل
@@ -272,6 +273,7 @@ export default function AdminOffersPage() {
                         variant="ghost"
                         size="sm"
                         onClick={() => handleDisable(offer.id)}
+                        className="w-full sm:w-auto"
                       >
                         <Trash2 className="h-4 w-4 ml-1" />
                         إيقاف
@@ -286,13 +288,13 @@ export default function AdminOffersPage() {
       )}
 
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-h-[90vh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>
               {form.id ? "تعديل عرض" : "إضافة عرض جديد"}
             </DialogTitle>
           </DialogHeader>
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label>اسم العرض (AR)</Label>
               <Input
@@ -428,11 +430,19 @@ export default function AdminOffersPage() {
               />
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDialog(false)}>
+          <DialogFooter className="flex-col gap-2 sm:flex-row">
+            <Button
+              variant="outline"
+              onClick={() => setShowDialog(false)}
+              className="w-full sm:w-auto"
+            >
               إلغاء
             </Button>
-            <Button onClick={handleSave} disabled={saving}>
+            <Button
+              onClick={handleSave}
+              disabled={saving}
+              className="w-full sm:w-auto"
+            >
               {saving ? "جاري الحفظ..." : "حفظ"}
             </Button>
           </DialogFooter>

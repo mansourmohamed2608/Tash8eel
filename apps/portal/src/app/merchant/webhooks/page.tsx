@@ -408,7 +408,7 @@ export default function WebhooksPage() {
       : "100";
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-4 sm:p-6">
       {loading ? (
         <div className="flex items-center justify-center py-20">
           <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
@@ -432,19 +432,23 @@ export default function WebhooksPage() {
             title="تكاملات نقاط البيع"
             description="إدارة تكاملات POS وإشعارات الأحداث"
             actions={
-              <>
-                <Button variant="outline" onClick={fetchWebhooks}>
+              <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+                <Button
+                  variant="outline"
+                  onClick={fetchWebhooks}
+                  className="w-full sm:w-auto"
+                >
                   <RefreshCw className="h-4 w-4" />
                   تحديث
                 </Button>
                 <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
                   <DialogTrigger asChild>
-                    <Button>
+                    <Button className="w-full sm:w-auto">
                       <Plus className="h-4 w-4" />
                       إنشاء تكامل POS
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="max-w-2xl">
+                  <DialogContent className="max-h-[90vh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-2xl">
                     <DialogHeader>
                       <DialogTitle>إنشاء تكامل POS جديد</DialogTitle>
                       <DialogDescription>
@@ -482,7 +486,7 @@ export default function WebhooksPage() {
                             <p className="text-sm font-medium text-muted-foreground">
                               {category.name}
                             </p>
-                            <div className="grid grid-cols-2 gap-2">
+                            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                               {category.events.map((event) => (
                                 <div
                                   key={event.key}
@@ -508,10 +512,11 @@ export default function WebhooksPage() {
                         ))}
                       </div>
                     </div>
-                    <div className="flex justify-end gap-2">
+                    <div className="flex flex-col justify-end gap-2 sm:flex-row">
                       <Button
                         variant="outline"
                         onClick={() => setIsCreateOpen(false)}
+                        className="w-full sm:w-auto"
                       >
                         إلغاء
                       </Button>
@@ -519,13 +524,18 @@ export default function WebhooksPage() {
                         variant="secondary"
                         onClick={handleTestUrl}
                         disabled={testing || !form.url}
+                        className="w-full sm:w-auto"
                       >
                         {testing ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
                         ) : null}
                         اختبار الرابط
                       </Button>
-                      <Button onClick={handleCreate} disabled={saving}>
+                      <Button
+                        onClick={handleCreate}
+                        disabled={saving}
+                        className="w-full sm:w-auto"
+                      >
                         {saving ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
                         ) : null}
@@ -542,12 +552,12 @@ export default function WebhooksPage() {
                     )}
                   </DialogContent>
                 </Dialog>
-              </>
+              </div>
             }
           />
 
           {/* Stats Cards */}
-          <div className="grid gap-4 md:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">
@@ -607,9 +617,13 @@ export default function WebhooksPage() {
           </div>
 
           <Tabs defaultValue="webhooks">
-            <TabsList>
-              <TabsTrigger value="webhooks">تكاملات نقاط البيع</TabsTrigger>
-              <TabsTrigger value="deliveries">سجل الإرسال</TabsTrigger>
+            <TabsList className="grid h-auto w-full grid-cols-1 gap-2 sm:grid-cols-2">
+              <TabsTrigger value="webhooks" className="w-full">
+                تكاملات نقاط البيع
+              </TabsTrigger>
+              <TabsTrigger value="deliveries" className="w-full">
+                سجل الإرسال
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="webhooks" className="mt-4">
@@ -627,19 +641,19 @@ export default function WebhooksPage() {
                         key={webhook.id}
                         className="border rounded-lg p-4 space-y-3"
                       >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                          <div className="flex min-w-0 items-center gap-3">
                             <div
                               className={`h-3 w-3 rounded-full ${webhook.isActive ? "bg-green-500" : "bg-gray-300"}`}
                             />
-                            <div>
+                            <div className="min-w-0">
                               <h3 className="font-semibold">{webhook.name}</h3>
-                              <p className="text-sm text-muted-foreground font-mono">
+                              <p className="break-all text-sm font-mono text-muted-foreground">
                                 {webhook.url}
                               </p>
                             </div>
                           </div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 self-end sm:self-auto">
                             <Switch
                               checked={webhook.isActive}
                               onCheckedChange={() =>
@@ -697,10 +711,10 @@ export default function WebhooksPage() {
                           ))}
                         </div>
 
-                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                          <div className="flex items-center gap-1">
+                        <div className="flex flex-col gap-2 text-sm text-muted-foreground sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
+                          <div className="flex flex-wrap items-center gap-1">
                             <span>مفتاح التوقيع:</span>
-                            <code className="bg-muted px-1 rounded text-xs font-mono">
+                            <code className="max-w-full break-all rounded bg-muted px-1 text-xs font-mono">
                               {showSecret[webhook.id]
                                 ? webhook.secret
                                 : "••••••••••••••••••••"}
@@ -733,7 +747,7 @@ export default function WebhooksPage() {
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-6 text-sm border-t pt-3">
+                        <div className="flex flex-col gap-3 border-t pt-3 text-sm sm:flex-row sm:flex-wrap sm:items-center sm:gap-6">
                           <div className="flex items-center gap-2">
                             <CheckCircle className="h-4 w-4 text-green-500" />
                             <span>
@@ -767,67 +781,137 @@ export default function WebhooksPage() {
                   <CardDescription>آخر محاولات إرسال تكامل POS</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>الحدث</TableHead>
-                        <TableHead>التكامل</TableHead>
-                        <TableHead>الحالة</TableHead>
-                        <TableHead>كود الاستجابة</TableHead>
-                        <TableHead>المحاولة</TableHead>
-                        <TableHead>المدة</TableHead>
-                        <TableHead>الوقت</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {deliveries.map((delivery) => {
-                        const webhook = webhooks.find(
-                          (w) => w.id === delivery.webhookId,
-                        );
-                        return (
-                          <TableRow key={delivery.id}>
-                            <TableCell>
+                  <div className="space-y-3 md:hidden">
+                    {deliveries.map((delivery) => {
+                      const webhook = webhooks.find(
+                        (w) => w.id === delivery.webhookId,
+                      );
+                      return (
+                        <div
+                          key={delivery.id}
+                          className="space-y-3 rounded-lg border p-4"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
                               <Badge variant="outline">{delivery.event}</Badge>
-                            </TableCell>
-                            <TableCell>{webhook?.name || "-"}</TableCell>
-                            <TableCell>
-                              {getStatusBadge(delivery.status)}
-                            </TableCell>
-                            <TableCell>
-                              {delivery.statusCode ? (
-                                <span
-                                  className={
-                                    delivery.statusCode < 400
-                                      ? "text-green-600"
-                                      : "text-red-600"
-                                  }
-                                >
-                                  {delivery.statusCode}
-                                </span>
-                              ) : (
-                                "-"
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              {delivery.attemptNumber}/{delivery.maxAttempts}
-                            </TableCell>
-                            <TableCell>
-                              {delivery.duration
-                                ? `${delivery.duration}ms`
-                                : "-"}
-                            </TableCell>
-                            <TableCell>
-                              {delivery.deliveredAt
-                                ? formatTime(delivery.deliveredAt)
-                                : delivery.nextRetryAt
-                                  ? `إعادة ${formatTime(delivery.nextRetryAt)}`
+                              <p className="mt-1 text-sm font-medium">
+                                {webhook?.name || "-"}
+                              </p>
+                            </div>
+                            {getStatusBadge(delivery.status)}
+                          </div>
+                          <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+                            <div>
+                              <p className="text-muted-foreground">
+                                كود الاستجابة
+                              </p>
+                              <p
+                                className={
+                                  delivery.statusCode &&
+                                  delivery.statusCode < 400
+                                    ? "text-green-600"
+                                    : delivery.statusCode
+                                      ? "text-red-600"
+                                      : ""
+                                }
+                              >
+                                {delivery.statusCode || "-"}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-muted-foreground">المحاولة</p>
+                              <p>
+                                {delivery.attemptNumber}/{delivery.maxAttempts}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-muted-foreground">المدة</p>
+                              <p>
+                                {delivery.duration
+                                  ? `${delivery.duration}ms`
                                   : "-"}
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-muted-foreground">الوقت</p>
+                              <p>
+                                {delivery.deliveredAt
+                                  ? formatTime(delivery.deliveredAt)
+                                  : delivery.nextRetryAt
+                                    ? `إعادة ${formatTime(delivery.nextRetryAt)}`
+                                    : "-"}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="hidden md:block">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>الحدث</TableHead>
+                          <TableHead>التكامل</TableHead>
+                          <TableHead>الحالة</TableHead>
+                          <TableHead>كود الاستجابة</TableHead>
+                          <TableHead>المحاولة</TableHead>
+                          <TableHead>المدة</TableHead>
+                          <TableHead>الوقت</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {deliveries.map((delivery) => {
+                          const webhook = webhooks.find(
+                            (w) => w.id === delivery.webhookId,
+                          );
+                          return (
+                            <TableRow key={delivery.id}>
+                              <TableCell>
+                                <Badge variant="outline">
+                                  {delivery.event}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>{webhook?.name || "-"}</TableCell>
+                              <TableCell>
+                                {getStatusBadge(delivery.status)}
+                              </TableCell>
+                              <TableCell>
+                                {delivery.statusCode ? (
+                                  <span
+                                    className={
+                                      delivery.statusCode < 400
+                                        ? "text-green-600"
+                                        : "text-red-600"
+                                    }
+                                  >
+                                    {delivery.statusCode}
+                                  </span>
+                                ) : (
+                                  "-"
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                {delivery.attemptNumber}/{delivery.maxAttempts}
+                              </TableCell>
+                              <TableCell>
+                                {delivery.duration
+                                  ? `${delivery.duration}ms`
+                                  : "-"}
+                              </TableCell>
+                              <TableCell>
+                                {delivery.deliveredAt
+                                  ? formatTime(delivery.deliveredAt)
+                                  : delivery.nextRetryAt
+                                    ? `إعادة ${formatTime(delivery.nextRetryAt)}`
+                                    : "-"}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
                 </CardContent>
               </Card>
             </TabsContent>

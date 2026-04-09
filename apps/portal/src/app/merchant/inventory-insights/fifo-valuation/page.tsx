@@ -62,12 +62,16 @@ export default function FifoValuationPage() {
     );
   if (error) {
     return (
-      <div className="space-y-6 animate-fadeIn">
+      <div className="space-y-6 animate-fadeIn p-4 sm:p-6">
         <PageHeader
           title="تقييم المخزون (الوارد أولاً صادر أولاً)"
           description="تقييم المخزون بطريقة FIFO أو تقدير متوسط التكلفة عند غياب طبقات التكلفة"
           actions={
-            <Button variant="outline" onClick={fetchData}>
+            <Button
+              variant="outline"
+              onClick={fetchData}
+              className="w-full sm:w-auto"
+            >
               <RefreshCw className="ml-2 h-4 w-4" /> تحديث
             </Button>
           }
@@ -110,12 +114,16 @@ export default function FifoValuationPage() {
   };
 
   return (
-    <div className="space-y-6 animate-fadeIn">
+    <div className="space-y-6 animate-fadeIn p-4 sm:p-6">
       <PageHeader
         title="تقييم المخزون (الوارد أولاً صادر أولاً)"
         description="تقييم المخزون بطريقة FIFO أو تقدير متوسط التكلفة عند غياب طبقات التكلفة"
         actions={
-          <Button variant="outline" onClick={fetchData}>
+          <Button
+            variant="outline"
+            onClick={fetchData}
+            className="w-full sm:w-auto"
+          >
             <RefreshCw className="ml-2 h-4 w-4" /> تحديث
           </Button>
         }
@@ -175,51 +183,61 @@ export default function FifoValuationPage() {
               لا توجد طبقات تكلفة مسجلة. ابدأ باستلام دفعات مع تتبع التكلفة.
             </p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50 border-b">
-                  <tr className="text-right">
-                    <th className="p-3">الصنف</th>
-                    <th className="p-3">رمز الصنف (SKU)</th>
-                    <th className="p-3">الفئة</th>
-                    <th className="p-3">الكمية</th>
-                    <th className="p-3">متوسط التكلفة</th>
-                    <th className="p-3">سعر البيع</th>
-                    <th className="p-3">قيمة التكلفة</th>
-                    <th className="p-3">الهامش</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {items.map((item: any) => {
-                    const margin =
-                      item.retailPrice > 0
-                        ? Math.round(
-                            ((item.retailPrice - item.weightedAvgCost) /
-                              item.retailPrice) *
-                              100,
-                          )
-                        : 0;
-                    return (
-                      <tr
-                        key={`${item.id}-${item.sku}`}
-                        className="border-b hover:bg-gray-50"
-                      >
-                        <td className="p-3 font-medium">{item.name}</td>
-                        <td className="p-3">
+            <>
+              <div className="space-y-3 md:hidden">
+                {items.map((item: any) => {
+                  const margin =
+                    item.retailPrice > 0
+                      ? Math.round(
+                          ((item.retailPrice - item.weightedAvgCost) /
+                            item.retailPrice) *
+                            100,
+                        )
+                      : 0;
+                  return (
+                    <Card key={`${item.id}-${item.sku}`}>
+                      <CardContent className="space-y-3 p-4 text-sm">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="font-medium">{item.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {item.category || "-"}
+                            </p>
+                          </div>
                           <Badge variant="outline">{item.sku}</Badge>
-                        </td>
-                        <td className="p-3">{item.category}</td>
-                        <td className="p-3">{item.quantity}</td>
-                        <td className="p-3">
-                          {formatCurrency(item.weightedAvgCost)}
-                        </td>
-                        <td className="p-3">
-                          {formatCurrency(item.retailPrice)}
-                        </td>
-                        <td className="p-3 font-medium">
-                          {formatCurrency(item.costValue)}
-                        </td>
-                        <td className="p-3">
+                        </div>
+                        <div className="grid grid-cols-2 gap-3 text-xs">
+                          <div>
+                            <p className="text-muted-foreground">الكمية</p>
+                            <p className="font-medium">{item.quantity}</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground">
+                              متوسط التكلفة
+                            </p>
+                            <p className="font-medium">
+                              {formatCurrency(item.weightedAvgCost)}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground">سعر البيع</p>
+                            <p className="font-medium">
+                              {formatCurrency(item.retailPrice)}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground">
+                              قيمة التكلفة
+                            </p>
+                            <p className="font-semibold">
+                              {formatCurrency(item.costValue)}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-muted-foreground">
+                            الهامش
+                          </span>
                           <Badge
                             variant={
                               margin > 30
@@ -231,13 +249,76 @@ export default function FifoValuationPage() {
                           >
                             {margin}%
                           </Badge>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+              <div className="hidden overflow-x-auto md:block">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 border-b">
+                    <tr className="text-right">
+                      <th className="p-3">الصنف</th>
+                      <th className="p-3">رمز الصنف (SKU)</th>
+                      <th className="p-3">الفئة</th>
+                      <th className="p-3">الكمية</th>
+                      <th className="p-3">متوسط التكلفة</th>
+                      <th className="p-3">سعر البيع</th>
+                      <th className="p-3">قيمة التكلفة</th>
+                      <th className="p-3">الهامش</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {items.map((item: any) => {
+                      const margin =
+                        item.retailPrice > 0
+                          ? Math.round(
+                              ((item.retailPrice - item.weightedAvgCost) /
+                                item.retailPrice) *
+                                100,
+                            )
+                          : 0;
+                      return (
+                        <tr
+                          key={`${item.id}-${item.sku}`}
+                          className="border-b hover:bg-gray-50"
+                        >
+                          <td className="p-3 font-medium">{item.name}</td>
+                          <td className="p-3">
+                            <Badge variant="outline">{item.sku}</Badge>
+                          </td>
+                          <td className="p-3">{item.category}</td>
+                          <td className="p-3">{item.quantity}</td>
+                          <td className="p-3">
+                            {formatCurrency(item.weightedAvgCost)}
+                          </td>
+                          <td className="p-3">
+                            {formatCurrency(item.retailPrice)}
+                          </td>
+                          <td className="p-3 font-medium">
+                            {formatCurrency(item.costValue)}
+                          </td>
+                          <td className="p-3">
+                            <Badge
+                              variant={
+                                margin > 30
+                                  ? "default"
+                                  : margin > 10
+                                    ? "secondary"
+                                    : "destructive"
+                              }
+                            >
+                              {margin}%
+                            </Badge>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>

@@ -40,6 +40,25 @@ import { cn, formatCurrency, formatNumber } from "@/lib/utils";
 import portalApi from "@/lib/client";
 import { useToast } from "@/hooks/use-toast";
 
+const WHAT_IF_STORAGE_KEY = "forecast-what-if:last-success";
+
+function getDefaultWhatIfParams(
+  type: "demand" | "cashflow" | "campaign" | "pricing",
+) {
+  switch (type) {
+    case "pricing":
+      return { priceDeltaPct: 10 };
+    case "demand":
+      return { newLeadTimeDays: 5 };
+    case "cashflow":
+      return { extraRevenue: 0, extraExpense: 0 };
+    case "campaign":
+      return { discountPct: 15, campaignCost: 0 };
+    default:
+      return {};
+  }
+}
+
 // ─── Urgency badge helper ─────────────────────────────────────────────────────
 const UrgencyBadge = ({ urgency }: { urgency: string }) => {
   const map: Record<string, { label: string; cls: string }> = {
@@ -124,7 +143,7 @@ export default function ForecastPage() {
   });
   const [whatIfResult, setWhatIfResult] = useState<any>(null);
   const [runningWhatIf, setRunningWhatIf] = useState(false);
-  const [whatIfError, setWhatIfError] = useState(false);
+  const [whatIfError, setWhatIfError] = useState<string | null>(null);
 
   // Load data
   const moduleNotice = (key: string, text: string) =>
@@ -214,6 +233,32 @@ export default function ForecastPage() {
   }, [loadAll]);
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = window.localStorage.getItem(WHAT_IF_STORAGE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== "object") return;
+      if (
+        parsed.type === "demand" ||
+        parsed.type === "cashflow" ||
+        parsed.type === "campaign" ||
+        parsed.type === "pricing"
+      ) {
+        setWhatIfType(parsed.type);
+      }
+      if (parsed.params && typeof parsed.params === "object") {
+        setWhatIfParams(parsed.params);
+      }
+      if (parsed.result && typeof parsed.result === "object") {
+        setWhatIfResult(parsed.result);
+      }
+    } catch {
+      // Ignore malformed persisted scenario state
+    }
+  }, []);
+
+  useEffect(() => {
     const tab = searchParams.get("tab");
     if (
       tab === "demand" ||
@@ -299,7 +344,7 @@ export default function ForecastPage() {
     }
 
     setRunningWhatIf(true);
-    setWhatIfError(false);
+    setWhatIfError(null);
     try {
       const params =
         whatIfType === "demand"
@@ -316,11 +361,26 @@ export default function ForecastPage() {
         params,
       });
       setWhatIfResult(res);
-    } catch {
-      setWhatIfError(true);
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(
+          WHAT_IF_STORAGE_KEY,
+          JSON.stringify({
+            type: whatIfType,
+            params,
+            result: res,
+            updatedAt: new Date().toISOString(),
+          }),
+        );
+      }
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "تعذّر تشغيل السيناريو حالياً. راجع المدخلات وحاول مرة أخرى.";
+      setWhatIfError(message);
       toast({
         title: "خطأ",
-        description: "تعذّر تشغيل السيناريو",
+        description: message,
         variant: "destructive",
       });
     } finally {
@@ -358,12 +418,17 @@ export default function ForecastPage() {
   ];
 
   return (
-    <div className="space-y-6 p-6" dir="rtl">
+    <div className="space-y-6 p-4 sm:p-6" dir="rtl">
       <PageHeader
         title="منصة التنبؤات الذكية"
         description="تحليلات متقدمة وتوقعات مدعومة بالذكاء الاصطناعي"
         actions={
-          <Button variant="outline" size="sm" onClick={loadAll}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={loadAll}
+            className="w-full sm:w-auto"
+          >
             <RefreshCw className="w-4 h-4 ml-2" />
             تحديث
           </Button>
@@ -372,7 +437,7 @@ export default function ForecastPage() {
 
       {/* Summary row */}
       {demandData?.summary && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {[
             {
               label: "حرج",
@@ -415,32 +480,32 @@ export default function ForecastPage() {
       )}
 
       <Tabs value={activeTab} onValueChange={handleTabChange}>
-        <TabsList className="grid grid-cols-4 md:grid-cols-7 w-full mb-4">
-          <TabsTrigger value="demand">
+        <TabsList className="mb-4 grid h-auto w-full grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-7">
+          <TabsTrigger value="demand" className="w-full">
             <TrendingUp className="w-4 h-4 ml-1" />
             الطلب
           </TabsTrigger>
-          <TabsTrigger value="replenishment">
+          <TabsTrigger value="replenishment" className="w-full">
             <PackageX className="w-4 h-4 ml-1" />
             التوريد
           </TabsTrigger>
-          <TabsTrigger value="cashflow">
+          <TabsTrigger value="cashflow" className="w-full">
             <DollarSign className="w-4 h-4 ml-1" />
             التدفقات
           </TabsTrigger>
-          <TabsTrigger value="churn">
+          <TabsTrigger value="churn" className="w-full">
             <Users className="w-4 h-4 ml-1" />
             الاضطراب
           </TabsTrigger>
-          <TabsTrigger value="workforce">
+          <TabsTrigger value="workforce" className="w-full">
             <Activity className="w-4 h-4 ml-1" />
             العمالة
           </TabsTrigger>
-          <TabsTrigger value="whatif">
+          <TabsTrigger value="whatif" className="w-full">
             <Brain className="w-4 h-4 ml-1" />
             ماذا لو
           </TabsTrigger>
-          <TabsTrigger value="metrics">
+          <TabsTrigger value="metrics" className="w-full">
             <BarChart3 className="w-4 h-4 ml-1" />
             الدقة
           </TabsTrigger>
@@ -452,7 +517,7 @@ export default function ForecastPage() {
             "demand",
             "بيانات التنبؤ بالطلب غير متاحة حالياً. حاول التحديث بعد قليل.",
           )}
-          <div className="flex gap-3 flex-wrap items-center">
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
             <Select
               value={demandFilter}
               onValueChange={(v) => {
@@ -460,7 +525,7 @@ export default function ForecastPage() {
                 loadDemand(v);
               }}
             >
-              <SelectTrigger className="w-40">
+              <SelectTrigger className="w-full sm:w-40">
                 <SelectValue placeholder="الأولوية" />
               </SelectTrigger>
               <SelectContent>
@@ -506,7 +571,7 @@ export default function ForecastPage() {
                     height={200}
                   />
                 )}
-                <div className="grid grid-cols-3 gap-4 mt-4 text-center">
+                <div className="mt-4 grid grid-cols-1 gap-4 text-center sm:grid-cols-3">
                   {[
                     { label: "توقع 7 أيام", value: productHistory.forecast7d },
                     { label: "توقع 14 يوم", value: productHistory.forecast14d },
@@ -520,7 +585,7 @@ export default function ForecastPage() {
                     </div>
                   ))}
                 </div>
-                <div className="flex items-center gap-4 mt-3 text-sm text-gray-500">
+                <div className="mt-3 flex flex-col gap-2 text-sm text-gray-500 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
                   <span>دقة النموذج:</span>
                   <ConfidenceBar value={productHistory.confidence} />
                   <span>MAPE: {productHistory.mape7d}%</span>
@@ -530,100 +595,196 @@ export default function ForecastPage() {
           )}
 
           {/* Product table */}
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b bg-gray-50 text-gray-600">
-                  <th className="px-3 py-2 text-right">المنتج</th>
-                  <th className="px-3 py-2 text-center">المخزون</th>
-                  <th className="px-3 py-2 text-center">أيام للنفاد</th>
-                  <th className="px-3 py-2 text-center">7 أيام</th>
-                  <th className="px-3 py-2 text-center">30 يوم</th>
-                  <th className="px-3 py-2 text-center">الاتجاه</th>
-                  <th className="px-3 py-2 text-center">الأولوية</th>
-                  <th className="px-3 py-2 text-center">الثقة</th>
-                  <th className="px-3 py-2" />
-                </tr>
-              </thead>
-              <tbody>
+          {!demandData?.items?.length ? (
+            <div className="py-12 text-center text-gray-400">
+              لا توجد بيانات - قم بتشغيل أول دورة تنبؤ أولاً
+            </div>
+          ) : (
+            <>
+              <div className="space-y-3 md:hidden">
                 {(demandData?.items ?? []).map((item: any) => (
-                  <tr
+                  <Card
                     key={item.productId}
-                    className="border-b hover:bg-gray-50 cursor-pointer"
+                    className="cursor-pointer border-0 shadow-sm"
                     onClick={() => loadProductHistory(item.productId)}
                   >
-                    <td className="px-3 py-2 font-medium max-w-[180px] truncate">
-                      {item.productName}
-                    </td>
-                    <td className="px-3 py-2 text-center">
-                      {formatNumber(item.currentStock)}
-                    </td>
-                    <td className="px-3 py-2 text-center">
-                      {item.daysUntilStockout !== null ? (
-                        <span
-                          className={cn(
-                            item.daysUntilStockout <= 7
-                              ? "text-red-600 font-semibold"
-                              : "",
-                          )}
-                        >
-                          {item.daysUntilStockout} يوم
-                        </span>
-                      ) : (
-                        "-"
-                      )}
-                    </td>
-                    <td className="px-3 py-2 text-center">
-                      {formatNumber(item.forecast7d)}
-                    </td>
-                    <td className="px-3 py-2 text-center">
-                      {formatNumber(item.forecast30d)}
-                    </td>
-                    <td className="px-3 py-2 text-center">
-                      <span
-                        className={cn(
-                          "flex items-center justify-center gap-1 text-xs",
-                          item.trendPct >= 10
-                            ? "text-green-600"
-                            : item.trendPct <= -10
-                              ? "text-red-600"
-                              : "text-gray-500",
-                        )}
+                    <CardContent className="space-y-4 p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate font-medium">
+                            {item.productName}
+                          </p>
+                          <p className="mt-1 text-xs text-gray-500">
+                            المخزون الحالي: {formatNumber(item.currentStock)}
+                          </p>
+                        </div>
+                        <UrgencyBadge urgency={item.urgency} />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3 text-sm">
+                        <div>
+                          <p className="text-gray-500">أيام للنفاد</p>
+                          <p
+                            className={cn(
+                              "font-medium",
+                              item.daysUntilStockout !== null &&
+                                item.daysUntilStockout <= 7
+                                ? "text-red-600"
+                                : "",
+                            )}
+                          >
+                            {item.daysUntilStockout !== null
+                              ? `${item.daysUntilStockout} يوم`
+                              : "-"}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-gray-500">توقع 7 أيام</p>
+                          <p className="font-medium">
+                            {formatNumber(item.forecast7d)}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-gray-500">توقع 30 يوم</p>
+                          <p className="font-medium">
+                            {formatNumber(item.forecast30d)}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-gray-500">الاتجاه</p>
+                          <span
+                            className={cn(
+                              "flex items-center gap-1 text-xs",
+                              item.trendPct >= 10
+                                ? "text-green-600"
+                                : item.trendPct <= -10
+                                  ? "text-red-600"
+                                  : "text-gray-500",
+                            )}
+                          >
+                            {item.trendPct >= 10 ? (
+                              <TrendingUp className="h-3 w-3" />
+                            ) : item.trendPct <= -10 ? (
+                              <TrendingDown className="h-3 w-3" />
+                            ) : null}
+                            {item.trendPct > 0 ? "+" : ""}
+                            {item.trendPct}%
+                          </span>
+                        </div>
+                      </div>
+
+                      <div>
+                        <p className="mb-1 text-xs text-gray-500">الثقة</p>
+                        <ConfidenceBar value={item.confidence} />
+                      </div>
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          loadProductHistory(item.productId);
+                        }}
                       >
-                        {item.trendPct >= 10 ? (
-                          <TrendingUp className="w-3 h-3" />
-                        ) : item.trendPct <= -10 ? (
-                          <TrendingDown className="w-3 h-3" />
-                        ) : null}
-                        {item.trendPct > 0 ? "+" : ""}
-                        {item.trendPct}%
-                      </span>
-                    </td>
-                    <td className="px-3 py-2 text-center">
-                      <UrgencyBadge urgency={item.urgency} />
-                    </td>
-                    <td className="px-3 py-2">
-                      <ConfidenceBar value={item.confidence} />
-                    </td>
-                    <td
-                      className="px-3 py-2 text-center text-xs text-blue-600 hover:underline"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        loadProductHistory(item.productId);
-                      }}
-                    >
-                      تفاصيل
-                    </td>
-                  </tr>
+                        تفاصيل
+                      </Button>
+                    </CardContent>
+                  </Card>
                 ))}
-              </tbody>
-            </table>
-            {!demandData?.items?.length && (
-              <div className="text-center py-12 text-gray-400">
-                لا توجد بيانات - قم بتشغيل أول دورة تنبؤ أولاً
               </div>
-            )}
-          </div>
+
+              <div className="hidden overflow-x-auto md:block">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b bg-gray-50 text-gray-600">
+                      <th className="px-3 py-2 text-right">المنتج</th>
+                      <th className="px-3 py-2 text-center">المخزون</th>
+                      <th className="px-3 py-2 text-center">أيام للنفاد</th>
+                      <th className="px-3 py-2 text-center">7 أيام</th>
+                      <th className="px-3 py-2 text-center">30 يوم</th>
+                      <th className="px-3 py-2 text-center">الاتجاه</th>
+                      <th className="px-3 py-2 text-center">الأولوية</th>
+                      <th className="px-3 py-2 text-center">الثقة</th>
+                      <th className="px-3 py-2" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(demandData?.items ?? []).map((item: any) => (
+                      <tr
+                        key={item.productId}
+                        className="cursor-pointer border-b hover:bg-gray-50"
+                        onClick={() => loadProductHistory(item.productId)}
+                      >
+                        <td className="max-w-[180px] truncate px-3 py-2 font-medium">
+                          {item.productName}
+                        </td>
+                        <td className="px-3 py-2 text-center">
+                          {formatNumber(item.currentStock)}
+                        </td>
+                        <td className="px-3 py-2 text-center">
+                          {item.daysUntilStockout !== null ? (
+                            <span
+                              className={cn(
+                                item.daysUntilStockout <= 7
+                                  ? "font-semibold text-red-600"
+                                  : "",
+                              )}
+                            >
+                              {item.daysUntilStockout} يوم
+                            </span>
+                          ) : (
+                            "-"
+                          )}
+                        </td>
+                        <td className="px-3 py-2 text-center">
+                          {formatNumber(item.forecast7d)}
+                        </td>
+                        <td className="px-3 py-2 text-center">
+                          {formatNumber(item.forecast30d)}
+                        </td>
+                        <td className="px-3 py-2 text-center">
+                          <span
+                            className={cn(
+                              "flex items-center justify-center gap-1 text-xs",
+                              item.trendPct >= 10
+                                ? "text-green-600"
+                                : item.trendPct <= -10
+                                  ? "text-red-600"
+                                  : "text-gray-500",
+                            )}
+                          >
+                            {item.trendPct >= 10 ? (
+                              <TrendingUp className="h-3 w-3" />
+                            ) : item.trendPct <= -10 ? (
+                              <TrendingDown className="h-3 w-3" />
+                            ) : null}
+                            {item.trendPct > 0 ? "+" : ""}
+                            {item.trendPct}%
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 text-center">
+                          <UrgencyBadge urgency={item.urgency} />
+                        </td>
+                        <td className="px-3 py-2">
+                          <ConfidenceBar value={item.confidence} />
+                        </td>
+                        <td
+                          className="px-3 py-2 text-center text-xs text-blue-600 hover:underline"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            loadProductHistory(item.productId);
+                          }}
+                        >
+                          تفاصيل
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
         </TabsContent>
 
         {/* ─── REPLENISHMENT TAB ─────────────────────────────────────────── */}
@@ -640,7 +801,7 @@ export default function ForecastPage() {
             <div className="space-y-3">
               {(replenishment?.items ?? []).map((item: any) => (
                 <Card key={item.id} className="border-0 shadow-sm">
-                  <CardContent className="p-4 flex items-center justify-between gap-4">
+                  <CardContent className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex-1">
                       <p className="font-medium">
                         {item.product_name ?? item.product_id}
@@ -669,13 +830,14 @@ export default function ForecastPage() {
                         )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
                       <UrgencyBadge urgency={item.urgency} />
                       <Button
                         size="sm"
                         variant="outline"
                         disabled={approvingId === item.id}
                         onClick={() => handleApprove(item.id)}
+                        className="w-full sm:w-auto"
                       >
                         <CheckSquare className="w-4 h-4 ml-1 text-green-600" />
                         موافقة
@@ -693,7 +855,7 @@ export default function ForecastPage() {
           {moduleNotice("cashflow", "توقع التدفق النقدي غير متاح حالياً.")}
           {cashflow && (
             <>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 {[
                   {
                     label: "الرصيد الحالي (تقريبي)",
@@ -854,7 +1016,7 @@ export default function ForecastPage() {
           {moduleNotice("workforce", "توقع عبء العمل غير متاح مؤقتاً.")}
           {workforce && (
             <>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                 <Card className="border-0 shadow-sm">
                   <CardHeader>
                     <CardTitle className="text-sm">
@@ -892,7 +1054,7 @@ export default function ForecastPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-7 gap-2">
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
                     {(workforce.nextSevenDays ?? []).map((d: any) => (
                       <div
                         key={d.date}
@@ -925,7 +1087,7 @@ export default function ForecastPage() {
           {whatIfError && (
             <Card className="border border-amber-200 bg-amber-50 shadow-none">
               <CardContent className="p-3 text-sm text-amber-800">
-                تعذّر تشغيل السيناريو حالياً. راجع المدخلات وحاول مرة أخرى.
+                {whatIfError}
               </CardContent>
             </Card>
           )}
@@ -951,8 +1113,14 @@ export default function ForecastPage() {
                       size="sm"
                       variant={whatIfType === opt.v ? "default" : "outline"}
                       onClick={() => {
-                        setWhatIfType(opt.v as any);
-                        setWhatIfParams({});
+                        const nextType = opt.v as
+                          | "demand"
+                          | "cashflow"
+                          | "campaign"
+                          | "pricing";
+                        setWhatIfType(nextType);
+                        setWhatIfParams(getDefaultWhatIfParams(nextType));
+                        setWhatIfError(null);
                         setWhatIfResult(null);
                       }}
                     >
@@ -1000,7 +1168,7 @@ export default function ForecastPage() {
                         setWhatIfParams({ ...whatIfParams, productId: value })
                       }
                     >
-                      <SelectTrigger className="w-full md:w-[320px] mt-2">
+                      <SelectTrigger className="mt-2 w-full md:w-[320px]">
                         <SelectValue placeholder="اختر منتجاً" />
                       </SelectTrigger>
                       <SelectContent>
@@ -1026,13 +1194,13 @@ export default function ForecastPage() {
                         newLeadTimeDays: parseInt(e.target.value) || 5,
                       })
                     }
-                    className="w-32"
+                    className="w-full sm:w-32"
                   />
                 </div>
               )}
 
               {whatIfType === "cashflow" && (
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
                     <Label className="text-sm">إيرادات إضافية يومية</Label>
                     <Input
@@ -1063,7 +1231,7 @@ export default function ForecastPage() {
               )}
 
               {whatIfType === "campaign" && (
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
                     <Label className="text-sm">نسبة الخصم %</Label>
                     <Input
@@ -1098,7 +1266,7 @@ export default function ForecastPage() {
               <Button
                 onClick={runWhatIf}
                 disabled={runningWhatIf}
-                className="gap-2"
+                className="w-full gap-2 sm:w-auto"
               >
                 <Play className="w-4 h-4" />
                 {runningWhatIf ? "جاري التحليل..." : "تشغيل السيناريو"}
@@ -1117,7 +1285,7 @@ export default function ForecastPage() {
                   <p className="font-semibold text-sm mb-3">
                     {whatIfResult.scenarioType}
                   </p>
-                  <div className="grid grid-cols-3 gap-4 text-center">
+                  <div className="grid grid-cols-1 gap-4 text-center sm:grid-cols-3">
                     <div>
                       <p className="text-lg font-bold">
                         {formatNumber(whatIfResult.baselineValue)}
@@ -1166,7 +1334,7 @@ export default function ForecastPage() {
         <TabsContent value="metrics" className="space-y-4">
           {moduleNotice("metrics", "مقاييس دقة النموذج غير متاحة حالياً.")}
           {metrics?.latest && (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
               {[
                 {
                   label: "MAPE",
@@ -1195,7 +1363,7 @@ export default function ForecastPage() {
               ].map((m) => (
                 <Card key={m.label} className="border-0 shadow-sm">
                   <CardContent className="p-4">
-                    <div className="flex items-center justify-between mb-1">
+                    <div className="mb-1 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                       <span className="text-xs text-gray-500 font-mono">
                         {m.label}
                       </span>

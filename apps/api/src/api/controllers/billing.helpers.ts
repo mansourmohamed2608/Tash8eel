@@ -10,12 +10,23 @@ import { UsageMetricKey } from "../../application/services/usage-guard.service";
 export const planOrder: Record<string, number> = {
   TRIAL: 0,
   STARTER: 1,
-  BASIC: 2,
-  GROWTH: 3,
-  PRO: 4,
-  ENTERPRISE: 5,
-  CUSTOM: 6,
+  CHAT_ONLY: 2,
+  BASIC: 3,
+  GROWTH: 4,
+  PRO: 5,
+  ENTERPRISE: 6,
+  CUSTOM: 7,
 };
+
+export const CASHIER_PROMO_DAYS = 30;
+const CASHIER_PROMO_ELIGIBLE_PLANS = new Set<PlanType>([
+  "STARTER",
+  "BASIC",
+  "GROWTH",
+  "PRO",
+  "ENTERPRISE",
+]);
+const CASHIER_FEATURE = "CASHIER_POS";
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Plan code normalisation
@@ -28,8 +39,144 @@ export function normalizePlanCode(value: unknown): PlanType | null {
   if (raw === "ENTERPRISES") return "ENTERPRISE";
   if (raw === "FREE") return "STARTER";
   if (raw === "GROW") return "GROWTH";
+  if (raw === "CHAT-ONLY" || raw === "CHATONLY") return "CHAT_ONLY";
   if (raw in PLAN_ENTITLEMENTS) return raw as PlanType;
   return null;
+}
+
+const parseDate = (value: unknown): Date | null => {
+  if (!value) return null;
+  const parsed = new Date(String(value));
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const uniqueUpper = (values: unknown[]): string[] =>
+  Array.from(
+    new Set(
+      values
+        .map((value) =>
+          String(value || "")
+            .trim()
+            .toUpperCase(),
+        )
+        .filter(Boolean),
+    ),
+  );
+
+export function isCashierPromoEligiblePlan(value: unknown): boolean {
+  const normalized = normalizePlanCode(value);
+  return normalized ? CASHIER_PROMO_ELIGIBLE_PLANS.has(normalized) : false;
+}
+
+export interface CashierProvisioningResult {
+  enabledFeatures: string[];
+  limits: Record<string, any>;
+  promo: {
+    eligible: boolean;
+    active: boolean;
+    startsAt: string | null;
+    endsAt: string | null;
+    includedByPlan: boolean;
+    explicitlyEnabled: boolean;
+    enabledByPromo: boolean;
+    effective: boolean;
+  };
+}
+
+export function resolveCashierProvisioning(params: {
+  planCode: unknown;
+  enabledFeatures: string[];
+  limits?: Record<string, any> | null;
+  existingFeatures?: unknown;
+  existingLimits?: Record<string, any> | null;
+  startsAt?: Date | string | null;
+  now?: Date | string | null;
+  grantPromo?: boolean;
+}): CashierProvisioningResult {
+  const normalizedPlan = normalizePlanCode(params.planCode);
+  const baseFeatures = uniqueUpper(params.enabledFeatures || []);
+  const existingLimits =
+    params.existingLimits && typeof params.existingLimits === "object"
+      ? { ...params.existingLimits }
+      : {};
+  const limits =
+    params.limits && typeof params.limits === "object"
+      ? { ...params.limits }
+      : {};
+
+  const cashierIncludedByPlan =
+    normalizedPlan != null
+      ? PLAN_ENTITLEMENTS[normalizedPlan]?.enabledFeatures.includes(
+          CASHIER_FEATURE as any,
+        ) || false
+      : false;
+  const previousCashierFromPromo = Boolean(
+    existingLimits.cashierEnabledByPromo,
+  );
+  const persistedExplicitCashier = Boolean(
+    existingLimits.cashierExplicitlyEnabled,
+  );
+  const requestedCashier =
+    baseFeatures.includes(CASHIER_FEATURE) || persistedExplicitCashier;
+  const cashierExplicitlyEnabled =
+    requestedCashier && !cashierIncludedByPlan && !previousCashierFromPromo;
+
+  const eligible = isCashierPromoEligiblePlan(normalizedPlan);
+  const now = parseDate(params.now) || new Date();
+  const forcedStartsAt = parseDate(params.startsAt);
+  const persistedStartsAt = parseDate(existingLimits.cashierPromoStartsAt);
+  const persistedEndsAt = parseDate(existingLimits.cashierPromoEndsAt);
+
+  const startsAt =
+    params.grantPromo && eligible ? forcedStartsAt || now : persistedStartsAt;
+  const endsAt =
+    params.grantPromo && eligible
+      ? new Date(
+          (forcedStartsAt || now).getTime() + CASHIER_PROMO_DAYS * 86400000,
+        )
+      : persistedEndsAt;
+
+  const cashierPromoActive =
+    eligible &&
+    !!startsAt &&
+    !!endsAt &&
+    startsAt.getTime() <= now.getTime() &&
+    now.getTime() < endsAt.getTime();
+  const cashierEnabledByPromo =
+    cashierPromoActive && !cashierIncludedByPlan && !cashierExplicitlyEnabled;
+  const cashierEffective =
+    cashierIncludedByPlan || cashierExplicitlyEnabled || cashierEnabledByPromo;
+
+  const enabledFeatures = new Set(baseFeatures);
+  if (cashierEffective) {
+    enabledFeatures.add(CASHIER_FEATURE);
+  } else if (!cashierIncludedByPlan && !cashierExplicitlyEnabled) {
+    enabledFeatures.delete(CASHIER_FEATURE);
+  }
+
+  limits.cashierPromoEligible = eligible;
+  limits.cashierPromoActive = cashierPromoActive;
+  limits.cashierPromoStartsAt = startsAt ? startsAt.toISOString() : null;
+  limits.cashierPromoEndsAt = endsAt ? endsAt.toISOString() : null;
+  limits.cashierIncludedByPlan = cashierIncludedByPlan;
+  limits.cashierExplicitlyEnabled = cashierExplicitlyEnabled;
+  limits.cashierEnabledByPromo = cashierEnabledByPromo;
+  limits.cashierEffective = cashierEffective;
+
+  return {
+    enabledFeatures: Array.from(enabledFeatures),
+    limits,
+    promo: {
+      eligible,
+      active: cashierPromoActive,
+      startsAt: limits.cashierPromoStartsAt,
+      endsAt: limits.cashierPromoEndsAt,
+      includedByPlan: cashierIncludedByPlan,
+      explicitlyEnabled: cashierExplicitlyEnabled,
+      enabledByPromo: cashierEnabledByPromo,
+      effective: cashierEffective,
+    },
+  };
 }
 
 export function applyCanonicalPlanData<T extends Record<string, any>>(

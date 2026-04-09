@@ -202,23 +202,27 @@ export default function MerchantsPage() {
   }
 
   return (
-    <div className="space-y-6 animate-fadeIn">
+    <div className="space-y-6 animate-fadeIn p-4 sm:p-6">
       <PageHeader
         title="إدارة التجار"
         description="إنشاء وتعديل وإدارة حسابات التجار"
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
             <Button
               variant="outline"
               onClick={handleRefresh}
               disabled={refreshing}
+              className="w-full sm:w-auto"
             >
               <RefreshCw
                 className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
               />
               تحديث
             </Button>
-            <Button onClick={() => setShowCreateDialog(true)}>
+            <Button
+              onClick={() => setShowCreateDialog(true)}
+              className="w-full sm:w-auto"
+            >
               <Plus className="h-4 w-4" />
               تاجر جديد
             </Button>
@@ -230,7 +234,7 @@ export default function MerchantsPage() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card>
           <CardContent className="p-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">إجمالي التجار</p>
                 <p className="text-2xl font-bold">{merchants.length}</p>
@@ -241,7 +245,7 @@ export default function MerchantsPage() {
         </Card>
         <Card>
           <CardContent className="p-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">نشط</p>
                 <p className="text-2xl font-bold text-green-600">
@@ -254,7 +258,7 @@ export default function MerchantsPage() {
         </Card>
         <Card>
           <CardContent className="p-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">معطل</p>
                 <p className="text-2xl font-bold text-red-600">
@@ -318,7 +322,102 @@ export default function MerchantsPage() {
             />
           ) : (
             <>
-              <div className="overflow-x-auto">
+              <div className="divide-y md:hidden">
+                {paginatedMerchants.map((merchant) => (
+                  <div key={merchant.id} className="space-y-4 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-100">
+                          <Store className="h-5 w-5 text-primary-600" />
+                        </div>
+                        <div>
+                          <p className="font-medium">{merchant.tradeName}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {formatDate(merchant.createdAt)}
+                          </p>
+                        </div>
+                      </div>
+                      <Badge
+                        className={cn(
+                          merchant.isActive
+                            ? "bg-green-100 text-green-800"
+                            : "bg-red-100 text-red-800",
+                        )}
+                      >
+                        {merchant.isActive ? "نشط" : "معطل"}
+                      </Badge>
+                    </div>
+                    <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+                      <div>
+                        <p className="text-muted-foreground">التواصل</p>
+                        <p dir="ltr">{merchant.whatsappNumber}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {merchant.email}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">الفئة</p>
+                        <Badge variant="outline">
+                          {categoryLabels[merchant.category]}
+                        </Badge>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">
+                          الميزانية اليومية
+                        </p>
+                        <p>{formatCurrency(merchant.dailyBudget)}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">النشاط</p>
+                        <p>{merchant.ordersCount} طلب</p>
+                        <p className="text-xs text-muted-foreground">
+                          {merchant.conversationsCount} محادثة
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full sm:w-auto"
+                        onClick={() => setSelectedMerchant(merchant)}
+                      >
+                        <Eye className="ml-2 h-4 w-4" />
+                        عرض
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full sm:w-auto"
+                        onClick={() => handleToggleStatus(merchant)}
+                      >
+                        <Power
+                          className={cn(
+                            "ml-2 h-4 w-4",
+                            merchant.isActive
+                              ? "text-green-600"
+                              : "text-red-600",
+                          )}
+                        />
+                        {merchant.isActive ? "تعطيل" : "تفعيل"}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full text-red-600 sm:w-auto"
+                        onClick={() => {
+                          setMerchantToDelete(merchant);
+                          setShowDeleteDialog(true);
+                        }}
+                      >
+                        <Trash2 className="ml-2 h-4 w-4 text-red-500" />
+                        حذف
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="hidden overflow-x-auto md:block">
                 <table className="w-full">
                   <thead className="bg-muted/50 border-b">
                     <tr>
@@ -463,7 +562,7 @@ export default function MerchantsPage() {
 
       {/* Create Merchant Dialog */}
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="max-h-[90vh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>إضافة تاجر جديد</DialogTitle>
             <DialogDescription>أدخل بيانات التاجر الجديد</DialogDescription>
@@ -540,14 +639,19 @@ export default function MerchantsPage() {
               />
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="flex-col-reverse gap-2 sm:flex-row">
             <Button
               variant="outline"
               onClick={() => setShowCreateDialog(false)}
+              className="w-full sm:w-auto"
             >
               إلغاء
             </Button>
-            <Button onClick={handleCreate} disabled={saving}>
+            <Button
+              onClick={handleCreate}
+              disabled={saving}
+              className="w-full sm:w-auto"
+            >
               {saving && <Loader2 className="h-4 w-4 animate-spin" />}
               إنشاء
             </Button>
@@ -560,7 +664,7 @@ export default function MerchantsPage() {
         open={!!selectedMerchant}
         onOpenChange={() => setSelectedMerchant(null)}
       >
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="max-h-[90vh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>تفاصيل التاجر</DialogTitle>
           </DialogHeader>
@@ -585,7 +689,7 @@ export default function MerchantsPage() {
                   </Badge>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <p className="text-sm text-muted-foreground">رقم WhatsApp</p>
                   <p className="font-medium" dir="ltr">
@@ -637,11 +741,15 @@ export default function MerchantsPage() {
               </div>
             </div>
           )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setSelectedMerchant(null)}>
+          <DialogFooter className="flex-col-reverse gap-2 sm:flex-row">
+            <Button
+              variant="outline"
+              onClick={() => setSelectedMerchant(null)}
+              className="w-full sm:w-auto"
+            >
               إغلاق
             </Button>
-            <Button>
+            <Button className="w-full sm:w-auto">
               <Edit className="h-4 w-4" />
               تعديل
             </Button>
@@ -651,7 +759,7 @@ export default function MerchantsPage() {
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="max-h-[90vh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-md">
           <DialogHeader>
             <DialogTitle>تأكيد الحذف</DialogTitle>
             <DialogDescription>
@@ -659,14 +767,19 @@ export default function MerchantsPage() {
               الإجراء لا يمكن التراجع عنه.
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter>
+          <DialogFooter className="flex-col-reverse gap-2 sm:flex-row">
             <Button
               variant="outline"
               onClick={() => setShowDeleteDialog(false)}
+              className="w-full sm:w-auto"
             >
               إلغاء
             </Button>
-            <Button variant="destructive" onClick={handleDelete}>
+            <Button
+              variant="destructive"
+              onClick={handleDelete}
+              className="w-full sm:w-auto"
+            >
               حذف
             </Button>
           </DialogFooter>

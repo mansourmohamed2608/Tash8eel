@@ -116,7 +116,7 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="space-y-6 animate-fadeIn">
+    <div className="space-y-6 animate-fadeIn p-4 sm:p-6">
       <PageHeader
         title="لوحة تحكم النظام"
         description="مراقبة صحة النظام والمقاييس الرئيسية"
@@ -125,6 +125,7 @@ export default function AdminDashboard() {
             variant="outline"
             onClick={handleRefresh}
             disabled={refreshing}
+            className="w-full sm:w-auto"
           >
             <RefreshCw
               className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
@@ -162,8 +163,7 @@ export default function AdminDashboard() {
         <StatCard
           title="طلبات اليوم"
           value={metrics.ordersToday}
-          change={12.5}
-          changeLabel="من أمس"
+          changeLabel={`إجمالي ${formatNumber(metrics.totalOrders)}`}
           icon={<ShoppingCart className="h-5 w-5" />}
         />
         <StatCard
@@ -180,7 +180,7 @@ export default function AdminDashboard() {
         />
       </KPIGrid>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* System Services Health */}
         <Card className="lg:col-span-1">
           <CardHeader>
@@ -199,7 +199,7 @@ export default function AdminDashboard() {
                 systemServices.map((service) => (
                   <div
                     key={service.name}
-                    className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
+                    className="flex flex-col gap-2 rounded-lg bg-muted/50 p-3 sm:flex-row sm:items-center sm:justify-between"
                   >
                     <div className="flex items-center gap-3">
                       <div
@@ -237,7 +237,7 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Merchant Distribution */}
         <PieChart
           data={merchantDistribution}
@@ -247,12 +247,12 @@ export default function AdminDashboard() {
 
         {/* Recent DLQ Events */}
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
+          <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <CardTitle className="flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-yellow-500" />
               أحداث DLQ الأخيرة
             </CardTitle>
-            <Button variant="ghost" size="sm">
+            <Button variant="ghost" size="sm" className="w-full sm:w-auto">
               <Link href="/admin/dlq">عرض الكل</Link>
             </Button>
           </CardHeader>
@@ -266,7 +266,7 @@ export default function AdminDashboard() {
                 recentDlq.map((event) => (
                   <div
                     key={event.id}
-                    className="flex items-center justify-between p-3 rounded-lg border"
+                    className="flex flex-col gap-2 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between"
                   >
                     <div>
                       <p className="text-sm font-medium">{event.type}</p>

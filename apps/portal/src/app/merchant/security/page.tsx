@@ -324,15 +324,17 @@ export default function SecurityPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-4 sm:p-6">
       <PageHeader
         title="الأمان والخصوصية"
         description="إدارة الجلسات النشطة وإعدادات الأمان"
         actions={
-          <Button variant="outline" size="sm" onClick={fetchSecurityData}>
-            <RefreshCw className="h-4 w-4 ml-2" />
-            تحديث
-          </Button>
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+            <Button variant="outline" size="sm" onClick={fetchSecurityData}>
+              <RefreshCw className="h-4 w-4 ml-2" />
+              تحديث
+            </Button>
+          </div>
         }
       />
 
@@ -348,16 +350,16 @@ export default function SecurityPage() {
       />
 
       <Tabs value={activeTab} onValueChange={handleTabChange}>
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="sessions" className="gap-2">
+        <TabsList className="grid h-auto w-full grid-cols-1 gap-2 sm:grid-cols-3">
+          <TabsTrigger value="sessions" className="w-full gap-2">
             <Laptop className="h-4 w-4" />
             الجلسات النشطة
           </TabsTrigger>
-          <TabsTrigger value="settings" className="gap-2">
+          <TabsTrigger value="settings" className="w-full gap-2">
             <Shield className="h-4 w-4" />
             إعدادات الأمان
           </TabsTrigger>
-          <TabsTrigger value="audit" className="gap-2">
+          <TabsTrigger value="audit" className="w-full gap-2">
             <History className="h-4 w-4" />
             سجل النشاط
           </TabsTrigger>
@@ -366,7 +368,7 @@ export default function SecurityPage() {
         {/* Sessions Tab */}
         <TabsContent value="sessions" className="space-y-4">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
+            <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <CardTitle>الأجهزة المتصلة</CardTitle>
                 <CardDescription>
@@ -376,12 +378,16 @@ export default function SecurityPage() {
               {sessions.length > 1 && (
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
-                    <Button variant="destructive" size="sm">
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      className="w-full sm:w-auto"
+                    >
                       <LogOut className="h-4 w-4 ml-2" />
                       إنهاء جميع الجلسات
                     </Button>
                   </AlertDialogTrigger>
-                  <AlertDialogContent>
+                  <AlertDialogContent className="max-h-[90vh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-lg">
                     <AlertDialogHeader>
                       <AlertDialogTitle>إنهاء جميع الجلسات؟</AlertDialogTitle>
                       <AlertDialogDescription>
@@ -389,9 +395,14 @@ export default function SecurityPage() {
                         تسجيل الدخول مرة أخرى على تلك الأجهزة.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>إلغاء</AlertDialogCancel>
-                      <AlertDialogAction onClick={handleRevokeAllSessions}>
+                    <AlertDialogFooter className="flex-col-reverse gap-2 sm:flex-row">
+                      <AlertDialogCancel className="w-full sm:w-auto">
+                        إلغاء
+                      </AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={handleRevokeAllSessions}
+                        className="w-full sm:w-auto"
+                      >
                         إنهاء الجلسات
                       </AlertDialogAction>
                     </AlertDialogFooter>
@@ -419,11 +430,11 @@ export default function SecurityPage() {
                     <div
                       key={session.id}
                       className={cn(
-                        "flex items-center justify-between p-4 rounded-lg border",
+                        "flex flex-col gap-4 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between",
                         session.isCurrent && "bg-primary/5 border-primary",
                       )}
                     >
-                      <div className="flex items-center gap-4">
+                      <div className="flex items-start gap-4">
                         <div
                           className={cn(
                             "p-2 rounded-full",
@@ -465,7 +476,7 @@ export default function SecurityPage() {
                           variant="ghost"
                           size="sm"
                           onClick={() => handleRevokeSession(session.id)}
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          className="w-full text-red-600 hover:bg-red-50 hover:text-red-700 sm:w-auto"
                         >
                           <LogOut className="h-4 w-4 ml-1" />
                           إنهاء
@@ -490,7 +501,7 @@ export default function SecurityPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="text-sm">
                     آخر تغيير:{" "}
@@ -509,7 +520,7 @@ export default function SecurityPage() {
                   <DialogTrigger asChild>
                     <Button variant="outline">تغيير كلمة المرور</Button>
                   </DialogTrigger>
-                  <DialogContent>
+                  <DialogContent className="max-h-[90vh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-lg">
                     <DialogHeader>
                       <DialogTitle>تغيير كلمة المرور</DialogTitle>
                       <DialogDescription>
@@ -616,7 +627,7 @@ export default function SecurityPage() {
                         </p>
                       )}
                     </div>
-                    <DialogFooter>
+                    <DialogFooter className="flex-col gap-2 sm:flex-row">
                       <Button
                         variant="outline"
                         onClick={() => setChangePasswordOpen(false)}
@@ -648,7 +659,7 @@ export default function SecurityPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">
                     هذه الميزة قيد التطوير وستكون متاحة قريباً لإضافة طبقة حماية
@@ -690,9 +701,9 @@ export default function SecurityPage() {
                 {auditLogs.map((log) => (
                   <div
                     key={log.id}
-                    className="flex items-start justify-between p-3 rounded-lg border"
+                    className="flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-start sm:justify-between"
                   >
-                    <div className="flex items-start gap-3">
+                    <div className="flex min-w-0 items-start gap-3">
                       <div
                         className={cn(
                           "mt-0.5 p-1 rounded-full",
@@ -707,17 +718,17 @@ export default function SecurityPage() {
                           <AlertTriangle className="h-4 w-4 text-red-600" />
                         )}
                       </div>
-                      <div>
+                      <div className="min-w-0">
                         <div className="font-medium">{log.action}</div>
-                        <div className="text-sm text-muted-foreground">
+                        <div className="text-sm text-muted-foreground break-words">
                           {log.details}
                         </div>
-                        <div className="text-xs text-muted-foreground mt-1">
+                        <div className="mt-1 text-xs text-muted-foreground break-all">
                           {log.ip} • {log.userAgent}
                         </div>
                       </div>
                     </div>
-                    <div className="text-xs text-muted-foreground whitespace-nowrap">
+                    <div className="text-xs text-muted-foreground sm:whitespace-nowrap">
                       {formatTimeAgo(log.createdAt)}
                     </div>
                   </div>

@@ -255,7 +255,7 @@ export default function ForecastPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[50vh]">
+      <div className="flex min-h-[50vh] items-center justify-center px-4 sm:px-6">
         <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
       </div>
     );
@@ -263,7 +263,7 @@ export default function ForecastPage() {
 
   if (error) {
     return (
-      <div dir="rtl" className="w-full space-y-6">
+      <div dir="rtl" className="w-full space-y-6 p-4 sm:p-6">
         <PageHeader
           title="توقعات الطلب"
           description="تحليل ذكي للمخزون والطلب"
@@ -286,7 +286,7 @@ export default function ForecastPage() {
   }
 
   return (
-    <div dir="rtl" className="w-full space-y-6">
+    <div dir="rtl" className="w-full space-y-6 p-4 sm:p-6">
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <PageHeader
@@ -323,7 +323,7 @@ export default function ForecastPage() {
 
       {/* ── Summary strip ──────────────────────────────────────────────── */}
       {items.length > 0 && (
-        <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-8 gap-3">
           <Card className="bg-slate-50 border-slate-200 md:col-span-2">
             <CardContent className="py-3 px-4 text-center">
               <p className="text-2xl font-bold text-slate-700">
@@ -412,7 +412,7 @@ export default function ForecastPage() {
       {/* ── Filter & search bar ─────────────────────────────────────────── */}
       <Card className="border-dashed">
         <CardContent className="py-4 space-y-3">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
             <div className="relative lg:col-span-2">
               <Search className="w-4 h-4 text-muted-foreground absolute top-1/2 -translate-y-1/2 right-3" />
               <Input
@@ -434,10 +434,10 @@ export default function ForecastPage() {
               )}
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 rounded-md border px-3 py-2 bg-muted/30">
+            <div className="flex flex-col gap-2 rounded-md border bg-muted/30 px-3 py-2 sm:flex-row sm:flex-wrap sm:items-center">
               <ArrowUpDown className="w-4 h-4 text-muted-foreground" />
               <span className="text-xs text-muted-foreground">ترتيب:</span>
-              <div className="flex gap-1 flex-wrap">
+              <div className="flex flex-wrap gap-1">
                 {(
                   [
                     ["urgency", "الأولوية"],
@@ -451,7 +451,7 @@ export default function ForecastPage() {
                     type="button"
                     size="sm"
                     variant={sortBy === value ? "default" : "ghost"}
-                    className="h-7"
+                    className="h-7 w-full sm:w-auto"
                     onClick={() => setSortBy(value)}
                   >
                     {label}
@@ -591,7 +591,7 @@ export default function ForecastPage() {
                       </p>
                     )}
 
-                    <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-2 text-xs">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-7 gap-2 text-xs">
                       <div className="rounded-md border bg-background/75 px-2.5 py-2">
                         <p className="text-muted-foreground">المخزون الحالي</p>
                         <p className="font-medium mt-0.5 flex items-center gap-1">

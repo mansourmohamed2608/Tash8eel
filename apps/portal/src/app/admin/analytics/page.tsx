@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DashboardSkeleton } from "@/components/ui/skeleton";
 import { AreaChart, BarChart, PieChart } from "@/components/charts";
 import { StatCard, KPIGrid } from "@/components/ui/stat-card";
+import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -33,6 +34,7 @@ import { portalApi } from "@/lib/client";
 
 interface PlatformStats {
   totalRevenue: number;
+  realizedRevenue?: number;
   revenueChange: number;
   totalOrders: number;
   ordersChange: number;
@@ -63,6 +65,7 @@ export default function AnalyticsPage() {
 
   const [platformStats, setPlatformStats] = useState<PlatformStats>({
     totalRevenue: 0,
+    realizedRevenue: 0,
     revenueChange: 0,
     totalOrders: 0,
     ordersChange: 0,
@@ -85,13 +88,25 @@ export default function AnalyticsPage() {
   const [hourlyActivity, setHourlyActivity] = useState<
     { name: string; conversations: number; orders: number }[]
   >([]);
+  const peakHours = hourlyActivity
+    .map((entry) => ({
+      ...entry,
+      totalActivity: (entry.conversations || 0) + (entry.orders || 0),
+    }))
+    .filter((entry) => entry.totalActivity > 0)
+    .sort((a, b) => b.totalActivity - a.totalActivity)
+    .slice(0, 6);
+  const realizedPlatformRevenue =
+    platformStats.realizedRevenue ?? platformStats.totalRevenue;
 
   const fetchAnalytics = useCallback(async () => {
     try {
       const data = await portalApi.getAdminAnalytics({ period });
+      const realizedRevenue = data.realizedRevenue || data.totalRevenue || 0;
 
       setPlatformStats({
-        totalRevenue: data.totalRevenue || 0,
+        totalRevenue: realizedRevenue,
+        realizedRevenue,
         revenueChange: data.revenueChange || 0,
         totalOrders: data.totalOrders || 0,
         ordersChange: data.ordersChange || 0,
@@ -142,9 +157,9 @@ export default function AnalyticsPage() {
         title="تحليلات المنصة"
         description="إحصائيات شاملة عن أداء المنصة والتجار"
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex w-full flex-wrap items-center gap-2 md:w-auto md:justify-end">
             <Select value={period} onValueChange={setPeriod}>
-              <SelectTrigger className="w-36">
+              <SelectTrigger className="w-full md:w-36">
                 <Calendar className="h-4 w-4 ml-2" />
                 <SelectValue />
               </SelectTrigger>
@@ -176,8 +191,8 @@ export default function AnalyticsPage() {
       {/* Platform KPIs */}
       <KPIGrid>
         <StatCard
-          title="إجمالي الإيرادات"
-          value={formatCurrency(platformStats.totalRevenue)}
+          title="إجمالي الإيرادات المحققة"
+          value={formatCurrency(realizedPlatformRevenue)}
           change={platformStats.revenueChange}
           changeLabel="من الفترة السابقة"
           icon={<TrendingUp className="h-5 w-5" />}
@@ -206,11 +221,19 @@ export default function AnalyticsPage() {
       </KPIGrid>
 
       <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList>
-          <TabsTrigger value="overview">نظرة عامة</TabsTrigger>
-          <TabsTrigger value="merchants">التجار</TabsTrigger>
-          <TabsTrigger value="agent">أداء الوكيل</TabsTrigger>
-          <TabsTrigger value="activity">النشاط</TabsTrigger>
+        <TabsList className="grid h-auto w-full grid-cols-2 gap-2 lg:grid-cols-4">
+          <TabsTrigger value="overview" className="w-full">
+            نظرة عامة
+          </TabsTrigger>
+          <TabsTrigger value="merchants" className="w-full">
+            التجار
+          </TabsTrigger>
+          <TabsTrigger value="agent" className="w-full">
+            أداء الوكيل
+          </TabsTrigger>
+          <TabsTrigger value="activity" className="w-full">
+            النشاط
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
@@ -218,7 +241,7 @@ export default function AnalyticsPage() {
             {/* Revenue Trend */}
             <AreaChart
               data={revenueByMonth}
-              title="اتجاه الإيرادات"
+              title="اتجاه الإيرادات المحققة"
               dataKey="value"
               color="#3b82f6"
               height={300}
@@ -253,69 +276,101 @@ export default function AnalyticsPage() {
                   لا توجد بيانات
                 </p>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-muted/50 border-b">
-                      <tr>
-                        <th className="text-right p-4 font-medium text-sm">
-                          #
-                        </th>
-                        <th className="text-right p-4 font-medium text-sm">
-                          التاجر
-                        </th>
-                        <th className="text-right p-4 font-medium text-sm">
-                          الطلبات
-                        </th>
-                        <th className="text-right p-4 font-medium text-sm">
-                          الإيرادات
-                        </th>
-                        <th className="text-right p-4 font-medium text-sm">
-                          معدل التحويل
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y">
-                      {topMerchants.map((merchant, index) => (
-                        <tr key={merchant.id} className="hover:bg-muted/30">
-                          <td className="p-4">
-                            <span
-                              className={cn(
-                                "w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold",
-                                index === 0
-                                  ? "bg-yellow-100 text-yellow-700"
-                                  : index === 1
-                                    ? "bg-gray-100 text-gray-700"
-                                    : index === 2
-                                      ? "bg-orange-100 text-orange-700"
-                                      : "bg-muted text-muted-foreground",
-                              )}
-                            >
-                              {index + 1}
-                            </span>
-                          </td>
-                          <td className="p-4 font-medium">{merchant.name}</td>
-                          <td className="p-4">{merchant.orders}</td>
-                          <td className="p-4">
-                            {formatCurrency(merchant.revenue)}
-                          </td>
-                          <td className="p-4">
-                            <div className="flex items-center gap-2">
-                              <div className="flex-1 bg-muted rounded-full h-2 max-w-24">
-                                <div
-                                  className="bg-primary-600 h-2 rounded-full"
-                                  style={{ width: `${merchant.conversion}%` }}
-                                />
-                              </div>
-                              <span className="text-sm">
-                                {merchant.conversion}%
-                              </span>
-                            </div>
-                          </td>
+                <>
+                  <div className="space-y-3 md:hidden">
+                    {topMerchants.map((merchant, index) => (
+                      <div
+                        key={merchant.id}
+                        className="rounded-xl border bg-muted/20 p-3"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="font-medium">{merchant.name}</p>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              {merchant.orders} طلب •{" "}
+                              {formatCurrency(merchant.revenue)}
+                            </p>
+                          </div>
+                          <Badge variant="outline">#{index + 1}</Badge>
+                        </div>
+                        <div className="mt-3 flex items-center gap-2">
+                          <div className="h-2 flex-1 rounded-full bg-muted">
+                            <div
+                              className="h-2 rounded-full bg-primary-600"
+                              style={{ width: `${merchant.conversion}%` }}
+                            />
+                          </div>
+                          <span className="text-xs">
+                            {merchant.conversion}%
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="hidden overflow-x-auto md:block">
+                    <table className="w-full">
+                      <thead className="bg-muted/50 border-b">
+                        <tr>
+                          <th className="text-right p-4 font-medium text-sm">
+                            #
+                          </th>
+                          <th className="text-right p-4 font-medium text-sm">
+                            التاجر
+                          </th>
+                          <th className="text-right p-4 font-medium text-sm">
+                            الطلبات
+                          </th>
+                          <th className="text-right p-4 font-medium text-sm">
+                            الإيرادات
+                          </th>
+                          <th className="text-right p-4 font-medium text-sm">
+                            معدل التحويل
+                          </th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody className="divide-y">
+                        {topMerchants.map((merchant, index) => (
+                          <tr key={merchant.id} className="hover:bg-muted/30">
+                            <td className="p-4">
+                              <span
+                                className={cn(
+                                  "w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold",
+                                  index === 0
+                                    ? "bg-yellow-100 text-yellow-700"
+                                    : index === 1
+                                      ? "bg-gray-100 text-gray-700"
+                                      : index === 2
+                                        ? "bg-orange-100 text-orange-700"
+                                        : "bg-muted text-muted-foreground",
+                                )}
+                              >
+                                {index + 1}
+                              </span>
+                            </td>
+                            <td className="p-4 font-medium">{merchant.name}</td>
+                            <td className="p-4">{merchant.orders}</td>
+                            <td className="p-4">
+                              {formatCurrency(merchant.revenue)}
+                            </td>
+                            <td className="p-4">
+                              <div className="flex items-center gap-2">
+                                <div className="flex-1 bg-muted rounded-full h-2 max-w-24">
+                                  <div
+                                    className="bg-primary-600 h-2 rounded-full"
+                                    style={{ width: `${merchant.conversion}%` }}
+                                  />
+                                </div>
+                                <span className="text-sm">
+                                  {merchant.conversion}%
+                                </span>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
               )}
             </CardContent>
           </Card>
@@ -336,7 +391,7 @@ export default function AnalyticsPage() {
               agentPerformance.map((metric) => (
                 <Card key={metric.name}>
                   <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                       <div>
                         <p className="text-sm text-muted-foreground">
                           {metric.name}
@@ -361,61 +416,69 @@ export default function AnalyticsPage() {
             )}
           </div>
 
-          {/* Agent Capabilities */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Zap className="h-5 w-5" />
-                قدرات الوكيل الذكي
+                ملخص تشغيل الوكيل
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div className="space-y-3">
-                  <h4 className="font-medium">معدل النجاح حسب المهمة</h4>
-                  {[
-                    { task: "جمع بيانات الطلب", rate: 96 },
-                    { task: "التفاوض على السعر", rate: 88 },
-                    { task: "التعامل مع الشكاوى", rate: 82 },
-                    { task: "البيع المتقاطع", rate: 45 },
-                  ].map((item) => (
-                    <div key={item.task} className="space-y-1">
-                      <div className="flex justify-between text-sm">
-                        <span>{item.task}</span>
-                        <span>{item.rate}%</span>
+                  <h4 className="font-medium">مؤشرات حية من سجل الذكاء</h4>
+                  {agentPerformance.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      لا توجد بيانات تشغيل كافية في الفترة الحالية.
+                    </p>
+                  ) : (
+                    agentPerformance.map((metric) => (
+                      <div
+                        key={metric.name}
+                        className="flex flex-col gap-2 rounded-lg bg-muted/50 p-3 sm:flex-row sm:items-center sm:justify-between"
+                      >
+                        <span className="text-sm">{metric.name}</span>
+                        <div className="text-right sm:text-left">
+                          <p className="font-medium">{metric.value}</p>
+                          <p
+                            className={cn(
+                              "text-xs",
+                              metric.change >= 0
+                                ? "text-green-600"
+                                : "text-red-600",
+                            )}
+                          >
+                            {metric.change >= 0 ? "+" : ""}
+                            {metric.change}%
+                          </p>
+                        </div>
                       </div>
-                      <div className="bg-muted rounded-full h-2">
-                        <div
-                          className={cn(
-                            "h-2 rounded-full",
-                            item.rate >= 90
-                              ? "bg-green-500"
-                              : item.rate >= 70
-                                ? "bg-blue-500"
-                                : item.rate >= 50
-                                  ? "bg-yellow-500"
-                                  : "bg-red-500",
-                          )}
-                          style={{ width: `${item.rate}%` }}
-                        />
-                      </div>
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </div>
                 <div className="space-y-3">
-                  <h4 className="font-medium">توزيع أسباب التحويل للبشر</h4>
-                  {[
-                    { reason: "طلب العميل", count: 45 },
-                    { reason: "مشكلة معقدة", count: 32 },
-                    { reason: "شكوى", count: 18 },
-                    { reason: "استفسار خاص", count: 12 },
-                  ].map((item) => (
+                  <h4 className="font-medium">ملاحظات تشغيلية</h4>
+                  <div className="space-y-2 rounded-lg border bg-muted/20 p-3 text-sm">
+                    <p>
+                      هذه الصفحة تعتمد الآن على بيانات تشغيل فعلية من الطلبات،
+                      المحادثات، وسجل التوجيه الذكي بدلاً من أمثلة ثابتة.
+                    </p>
+                    <p className="text-muted-foreground">
+                      أي تغير في الإيرادات أو النشاط هنا يجب أن يطابق بقية صفحات
+                      النظام للفترة نفسها.
+                    </p>
+                  </div>
+                  {agentPerformance.slice(0, 2).map((metric) => (
                     <div
-                      key={item.reason}
-                      className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
+                      key={`${metric.name}-note`}
+                      className="rounded-lg border bg-background p-3 text-sm"
                     >
-                      <span className="text-sm">{item.reason}</span>
-                      <span className="font-medium">{item.count}</span>
+                      <p className="font-medium">{metric.name}</p>
+                      <p className="mt-1 text-muted-foreground">
+                        القيمة الحالية {metric.value} مع تغير{" "}
+                        {metric.change >= 0 ? "إيجابي" : "سلبي"} قدره{" "}
+                        {Math.abs(metric.change)}%.
+                      </p>
                     </div>
                   ))}
                 </div>
@@ -436,62 +499,36 @@ export default function AnalyticsPage() {
             height={300}
           />
 
-          {/* Activity Heatmap would go here */}
           <Card>
             <CardHeader>
-              <CardTitle>أوقات الذروة</CardTitle>
+              <CardTitle>أكثر الساعات نشاطاً</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-7 gap-2">
-                {[
-                  "السبت",
-                  "الأحد",
-                  "الإثنين",
-                  "الثلاثاء",
-                  "الأربعاء",
-                  "الخميس",
-                  "الجمعة",
-                ].map((day) => (
-                  <div key={day} className="text-center">
-                    <p className="text-xs text-muted-foreground mb-2">{day}</p>
-                    <div className="space-y-1">
-                      {[9, 12, 15, 18, 21].map((hour) => {
-                        const intensity = Math.random();
-                        return (
-                          <div
-                            key={hour}
-                            className={cn(
-                              "h-6 rounded text-xs flex items-center justify-center",
-                              intensity > 0.7
-                                ? "bg-primary-600 text-white"
-                                : intensity > 0.4
-                                  ? "bg-primary-300 text-primary-800"
-                                  : "bg-primary-100 text-primary-600",
-                            )}
-                            title={`${hour}:00`}
-                          >
-                            {hour}
-                          </div>
-                        );
-                      })}
+              {peakHours.length === 0 ? (
+                <p className="py-4 text-center text-sm text-muted-foreground">
+                  لا توجد بيانات نشاط كافية في الفترة الحالية.
+                </p>
+              ) : (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {peakHours.map((entry) => (
+                    <div
+                      key={entry.name}
+                      className="rounded-lg border bg-muted/20 p-3"
+                    >
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <p className="font-medium">{entry.name}</p>
+                        <Badge variant="outline">
+                          {entry.totalActivity.toLocaleString("ar-EG")}
+                        </Badge>
+                      </div>
+                      <div className="mt-3 space-y-1 text-sm text-muted-foreground">
+                        <p>المحادثات: {entry.conversations}</p>
+                        <p>الطلبات: {entry.orders}</p>
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-              <div className="flex items-center justify-center gap-4 mt-4 text-xs text-muted-foreground">
-                <div className="flex items-center gap-1">
-                  <div className="w-3 h-3 rounded bg-primary-100" />
-                  منخفض
+                  ))}
                 </div>
-                <div className="flex items-center gap-1">
-                  <div className="w-3 h-3 rounded bg-primary-300" />
-                  متوسط
-                </div>
-                <div className="flex items-center gap-1">
-                  <div className="w-3 h-3 rounded bg-primary-600" />
-                  مرتفع
-                </div>
-              </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

@@ -446,15 +446,15 @@ export default function NotificationsPage() {
 
   if (loading && notifications.length === 0) {
     return (
-      <div className="flex items-center justify-center h-96">
+      <div className="flex h-96 items-center justify-center px-4 sm:px-6">
         <RefreshCw className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="container mx-auto space-y-6 p-4 sm:p-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <PageHeader
           title="مركز الإشعارات"
           titleEn="Notifications Center"
@@ -489,8 +489,8 @@ export default function NotificationsPage() {
       )}
 
       <Tabs value={activeTab} onValueChange={handleTabChange}>
-        <TabsList>
-          <TabsTrigger value="all" className="flex items-center gap-2">
+        <TabsList className="grid h-auto w-full grid-cols-1 gap-2 sm:grid-cols-3">
+          <TabsTrigger value="all" className="flex w-full items-center gap-2">
             <Bell className="w-4 h-4" />
             الإشعارات
             {unreadCount > 0 && (
@@ -499,11 +499,17 @@ export default function NotificationsPage() {
               </Badge>
             )}
           </TabsTrigger>
-          <TabsTrigger value="settings" className="flex items-center gap-2">
+          <TabsTrigger
+            value="settings"
+            className="flex w-full items-center gap-2"
+          >
             <Settings className="w-4 h-4" />
             الإعدادات
           </TabsTrigger>
-          <TabsTrigger value="broadcast" className="flex items-center gap-2">
+          <TabsTrigger
+            value="broadcast"
+            className="flex w-full items-center gap-2"
+          >
             <MessageSquare className="w-4 h-4" />
             البث الجماعي
           </TabsTrigger>
@@ -511,8 +517,8 @@ export default function NotificationsPage() {
 
         {/* Notifications Tab */}
         <TabsContent value="all" className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-wrap items-center gap-4">
               <Button
                 variant="outline"
                 size="sm"
@@ -530,7 +536,12 @@ export default function NotificationsPage() {
               </span>
             </div>
             {unreadCount > 0 && (
-              <Button variant="ghost" size="sm" onClick={handleMarkAllAsRead}>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full sm:w-auto"
+                onClick={handleMarkAllAsRead}
+              >
                 <CheckCheck className="w-4 h-4" />
                 قراءة الكل
               </Button>
@@ -547,14 +558,14 @@ export default function NotificationsPage() {
                     className={`transition-all ${!notification.isRead ? "border-primary bg-primary/5" : ""}`}
                   >
                     <CardContent className="p-4">
-                      <div className="flex items-start gap-4">
+                      <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
                         <div
                           className={`p-2 rounded-full ${getPriorityColor(notification.priority)}`}
                         >
                           <Icon className="w-5 h-5" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
+                          <div className="mb-1 flex flex-wrap items-center gap-2">
                             <h4
                               className={`font-semibold ${!notification.isRead ? "text-primary" : ""}`}
                             >
@@ -573,7 +584,7 @@ export default function NotificationsPage() {
                           <p className="text-sm text-muted-foreground mb-2">
                             {notification.messageAr}
                           </p>
-                          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                          <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
                             <span className="flex items-center gap-1">
                               <Clock className="w-3 h-3" />
                               {formatDistanceToNow(
@@ -595,7 +606,7 @@ export default function NotificationsPage() {
                             )}
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 self-end sm:self-auto">
                           {!notification.isRead && (
                             <Button
                               variant="ghost"
@@ -679,7 +690,7 @@ export default function NotificationsPage() {
               <CardDescription>اختر كيف تريد تلقي الإشعارات</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-3">
                   <Bell className="w-5 h-5 text-muted-foreground" />
                   <div>
@@ -692,7 +703,7 @@ export default function NotificationsPage() {
                 <Badge>دائماً مفعل</Badge>
               </div>
 
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-3">
                   <Mail className="w-5 h-5 text-muted-foreground" />
                   <div>
@@ -711,7 +722,7 @@ export default function NotificationsPage() {
               </div>
 
               {draftPreferences?.emailEnabled && (
-                <div className="ml-8">
+                <div className="sm:ml-8">
                   <Label>البريد الإلكتروني</Label>
                   <Input
                     type="email"
@@ -725,7 +736,7 @@ export default function NotificationsPage() {
                 </div>
               )}
 
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-3">
                   <MessageSquare className="w-5 h-5 text-muted-foreground" />
                   <div>
@@ -744,7 +755,7 @@ export default function NotificationsPage() {
               </div>
 
               {draftPreferences?.whatsappEnabled && (
-                <div className="ml-8">
+                <div className="sm:ml-8">
                   <Label>رقم واتساب</Label>
                   <Input
                     type="tel"
@@ -768,7 +779,7 @@ export default function NotificationsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label>من</Label>
                   <Input
@@ -843,17 +854,19 @@ export default function NotificationsPage() {
                   <AlertCircle className="w-4 h-4" />
                   <span>لديك تغييرات غير محفوظة في إشعارات التشغيل</span>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
                   <Button
                     variant="outline"
                     onClick={handleResetMerchantSettings}
                     disabled={savingMerchantSettings}
+                    className="w-full sm:w-auto"
                   >
                     إعادة الضبط
                   </Button>
                   <Button
                     onClick={handleSaveMerchantSettings}
                     disabled={savingMerchantSettings}
+                    className="w-full sm:w-auto"
                   >
                     {savingMerchantSettings ? "جارٍ الحفظ" : "حفظ التغييرات"}
                   </Button>
@@ -876,7 +889,7 @@ export default function NotificationsPage() {
                 </div>
               ) : (
                 <>
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between">
                     <div className="space-y-0.5">
                       <Label>تقارير WhatsApp</Label>
                       <p className="text-xs text-muted-foreground">
@@ -896,7 +909,7 @@ export default function NotificationsPage() {
                   {draftMerchantNotificationSettings.whatsappReportsEnabled && (
                     <div className="space-y-2">
                       <Label>فترات التقارير</Label>
-                      <div className="grid grid-cols-3 gap-2">
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                         {reportPeriodOptions.map((option) => {
                           const enabled =
                             draftMerchantNotificationSettings.reportPeriodsEnabled.includes(
@@ -931,7 +944,7 @@ export default function NotificationsPage() {
                     </div>
                   )}
 
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between">
                     <div className="space-y-0.5">
                       <Label>تذكير بالدفعات</Label>
                       <p className="text-xs text-muted-foreground">
@@ -950,7 +963,7 @@ export default function NotificationsPage() {
                     />
                   </div>
 
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between">
                     <div className="space-y-0.5">
                       <Label>تنبيهات المخزون المنخفض</Label>
                       <p className="text-xs text-muted-foreground">

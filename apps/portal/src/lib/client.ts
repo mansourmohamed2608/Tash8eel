@@ -1,4 +1,4 @@
-const normalizeBaseUrl = (value: string) => value.replace(/\/+$/, "");
+const normalizeBaseUrl = (value: string) => value.trim().replace(/\/+$/, "");
 
 const getApiBaseUrl = () => {
   if (typeof window !== "undefined") {
@@ -270,6 +270,14 @@ export const merchantApi = {
         voiceNotes: boolean;
         notifications: boolean;
         apiAccess: boolean;
+        cashier: boolean;
+      };
+      billing?: {
+        cashierPromoEligible: boolean;
+        cashierPromoActive: boolean;
+        cashierPromoStartsAt: string | null;
+        cashierPromoEndsAt: string | null;
+        cashierEffective: boolean;
       };
     }>("/v1/portal/me", { apiKey });
   },
@@ -290,6 +298,10 @@ export const merchantApi = {
         totalOrders: number;
         ordersChange: number;
         totalRevenue: number;
+        realizedRevenue?: number;
+        bookedSales?: number;
+        deliveredRevenue?: number;
+        pendingCollections?: number;
         revenueChange: number;
         activeConversations: number;
         conversationsChange: number;
@@ -320,6 +332,11 @@ export const merchantApi = {
         financeSummary: {
           profitEstimate: number;
           codPending: number;
+          pendingCollections?: number;
+          pendingOnline?: number;
+          bookedSales?: number;
+          deliveredRevenue?: number;
+          refundsAmount?: number;
           spendingAlert: boolean;
           grossMargin: number;
         };
@@ -384,6 +401,17 @@ export const merchantApi = {
         bankIban: string | null;
         preferredPayoutMethod: string | null;
       };
+      pos?: {
+        enabled: boolean;
+        mode: "retail" | "restaurant" | "hybrid";
+        tablesEnabled: boolean;
+        suspendedSalesEnabled: boolean;
+        splitPaymentsEnabled: boolean;
+        returnsEnabled: boolean;
+        requireActiveRegisterSession: boolean;
+        defaultServiceMode: "pickup" | "delivery" | "dine_in";
+        thermalReceiptWidth: "58mm" | "80mm" | "a4";
+      };
     }>("/v1/portal/settings", { apiKey });
   },
 
@@ -410,6 +438,17 @@ export const merchantApi = {
         bankAccountNumber?: string | null;
         bankIban?: string | null;
         preferredPayoutMethod?: string | null;
+      };
+      pos?: {
+        enabled?: boolean;
+        mode?: "retail" | "restaurant" | "hybrid";
+        tablesEnabled?: boolean;
+        suspendedSalesEnabled?: boolean;
+        splitPaymentsEnabled?: boolean;
+        returnsEnabled?: boolean;
+        requireActiveRegisterSession?: boolean;
+        defaultServiceMode?: "pickup" | "delivery" | "dine_in";
+        thermalReceiptWidth?: "58mm" | "80mm" | "a4";
       };
     },
   ) {
@@ -506,18 +545,32 @@ export const merchantApi = {
     merchantId: string,
     apiKey: string,
     payload: {
-      customerName: string;
-      customerPhone: string;
+      customerId?: string;
+      branchId?: string;
+      shiftId?: string;
+      registerSessionId?: string;
+      tableId?: string;
+      customerName?: string;
+      customerPhone?: string;
       items: Array<{
         catalogItemId?: string;
+        sku?: string;
         name?: string;
         quantity: number;
         unitPrice: number;
         notes?: string;
       }>;
+      payments?: Array<{
+        method: "cash" | "card" | "transfer";
+        amount: number;
+        reference?: string;
+      }>;
+      serviceMode?: "delivery" | "pickup" | "dine_in";
       deliveryType: "delivery" | "pickup" | "dine_in";
       deliveryAddress?: string;
       paymentMethod: "cash" | "card" | "transfer";
+      discount?: number;
+      taxTotal?: number;
       notes?: string;
       source: "manual" | "manual_button" | "cashier" | "calls";
     },
@@ -527,6 +580,246 @@ export const merchantApi = {
       apiKey,
       body: JSON.stringify(payload),
     });
+  },
+
+  async getCurrentPosRegister(apiKey: string, branchId: string) {
+    const params = new URLSearchParams();
+    if (branchId) params.set("branchId", branchId);
+    return apiFetch<{ data: any }>(
+      `/v1/portal/pos/registers/current?${params.toString()}`,
+      { apiKey },
+    );
+  },
+
+  async openPosRegister(
+    apiKey: string,
+    payload: {
+      branchId: string;
+      shiftId?: string;
+      openingFloat?: number;
+      notes?: string;
+    },
+  ) {
+    return apiFetch<{ success: boolean; data: any }>(
+      "/v1/portal/pos/registers/open",
+      {
+        method: "POST",
+        apiKey,
+        body: JSON.stringify(payload),
+      },
+    );
+  },
+
+  async closePosRegister(
+    apiKey: string,
+    registerId: string,
+    payload: {
+      countedCash?: number;
+      notes?: string;
+    },
+  ) {
+    return apiFetch<{ success: boolean; data: any }>(
+      `/v1/portal/pos/registers/${registerId}/close`,
+      {
+        method: "POST",
+        apiKey,
+        body: JSON.stringify(payload),
+      },
+    );
+  },
+
+  async getPosRegisterSummary(apiKey: string, registerId: string) {
+    return apiFetch<{ data: any }>(
+      `/v1/portal/pos/registers/${registerId}/summary`,
+      { apiKey },
+    );
+  },
+
+  async listPosDrafts(
+    apiKey: string,
+    filters?: { status?: string; branchId?: string },
+  ) {
+    const params = new URLSearchParams();
+    if (filters?.status) params.set("status", filters.status);
+    if (filters?.branchId) params.set("branchId", filters.branchId);
+    const suffix = params.toString();
+    return apiFetch<{ drafts: any[] }>(
+      `/v1/portal/pos/drafts${suffix ? `?${suffix}` : ""}`,
+      { apiKey },
+    );
+  },
+
+  async createPosDraft(apiKey: string, payload: Record<string, any>) {
+    return apiFetch<{ success: boolean; draft: any }>("/v1/portal/pos/drafts", {
+      method: "POST",
+      apiKey,
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async updatePosDraft(
+    apiKey: string,
+    draftId: string,
+    payload: Record<string, any>,
+  ) {
+    return apiFetch<{ success: boolean; draft: any }>(
+      `/v1/portal/pos/drafts/${draftId}`,
+      {
+        method: "PATCH",
+        apiKey,
+        body: JSON.stringify(payload),
+      },
+    );
+  },
+
+  async suspendPosDraft(apiKey: string, draftId: string) {
+    return apiFetch<{ success: boolean }>(
+      `/v1/portal/pos/drafts/${draftId}/suspend`,
+      { method: "POST", apiKey },
+    );
+  },
+
+  async resumePosDraft(apiKey: string, draftId: string) {
+    return apiFetch<{ success: boolean; draft: any }>(
+      `/v1/portal/pos/drafts/${draftId}/resume`,
+      { method: "POST", apiKey },
+    );
+  },
+
+  async deletePosDraft(apiKey: string, draftId: string) {
+    return apiFetch<{ success: boolean }>(`/v1/portal/pos/drafts/${draftId}`, {
+      method: "DELETE",
+      apiKey,
+    });
+  },
+
+  async checkoutPosDraft(apiKey: string, draftId: string) {
+    return apiFetch<{ success: boolean; order: any; draftId: string }>(
+      `/v1/portal/pos/drafts/${draftId}/checkout`,
+      { method: "POST", apiKey },
+    );
+  },
+
+  async listPosTables(apiKey: string, branchId?: string) {
+    const params = new URLSearchParams();
+    if (branchId) params.set("branchId", branchId);
+    return apiFetch<{ tables: any[] }>(
+      `/v1/portal/pos/tables${params.toString() ? `?${params.toString()}` : ""}`,
+      { apiKey },
+    );
+  },
+
+  async createPosTable(apiKey: string, payload: Record<string, any>) {
+    return apiFetch<{ success: boolean; table: any }>("/v1/portal/pos/tables", {
+      method: "POST",
+      apiKey,
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async updatePosTable(
+    apiKey: string,
+    tableId: string,
+    payload: Record<string, any>,
+  ) {
+    return apiFetch<{ success: boolean }>(`/v1/portal/pos/tables/${tableId}`, {
+      method: "PATCH",
+      apiKey,
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async assignDraftToTable(apiKey: string, tableId: string, draftId: string) {
+    return apiFetch<{ success: boolean; draft: any }>(
+      `/v1/portal/pos/tables/${tableId}/assign-draft`,
+      {
+        method: "POST",
+        apiKey,
+        body: JSON.stringify({ draftId }),
+      },
+    );
+  },
+
+  async transferTableDraft(
+    apiKey: string,
+    tableId: string,
+    targetTableId: string,
+  ) {
+    return apiFetch<{ success: boolean }>(
+      `/v1/portal/pos/tables/${tableId}/transfer`,
+      {
+        method: "POST",
+        apiKey,
+        body: JSON.stringify({ targetTableId }),
+      },
+    );
+  },
+
+  async splitTableDraft(
+    apiKey: string,
+    tableId: string,
+    payload: {
+      items: Array<{ itemIndex: number; quantity: number }>;
+      targetTableId?: string;
+    },
+  ) {
+    return apiFetch<{ success: boolean; sourceDraft: any; newDraft: any }>(
+      `/v1/portal/pos/tables/${tableId}/split-draft`,
+      {
+        method: "POST",
+        apiKey,
+        body: JSON.stringify(payload),
+      },
+    );
+  },
+
+  async mergeTableDrafts(
+    apiKey: string,
+    payload: { sourceDraftId: string; targetDraftId: string },
+  ) {
+    return apiFetch<{ success: boolean; draft: any }>(
+      "/v1/portal/pos/tables/merge-drafts",
+      {
+        method: "POST",
+        apiKey,
+        body: JSON.stringify(payload),
+      },
+    );
+  },
+
+  async createPosRefund(
+    apiKey: string,
+    orderId: string,
+    payload: {
+      items: Array<{
+        catalogItemId?: string;
+        sku?: string;
+        name?: string;
+        quantity: number;
+        unitPrice?: number;
+      }>;
+      reason?: string;
+      restock?: boolean;
+      createExchangeDraft?: boolean;
+    },
+  ) {
+    return apiFetch<{ success: boolean; refund: any; exchangeDraft?: any }>(
+      `/v1/portal/orders/${orderId}/refunds`,
+      {
+        method: "POST",
+        apiKey,
+        body: JSON.stringify(payload),
+      },
+    );
+  },
+
+  async listOrderPayments(apiKey: string, orderId: string) {
+    return apiFetch<{ payments: any[] }>(
+      `/v1/portal/orders/${orderId}/payments`,
+      {
+        apiKey,
+      },
+    );
   },
 
   async getCalls(
@@ -1586,6 +1879,15 @@ export const merchantApi = {
         features: string[];
         isEnabled: boolean;
         isIncludedInPlan: boolean;
+        implemented: boolean;
+        sellable: boolean;
+        comingSoon: boolean;
+        beta: boolean;
+        subscriptionEnabled: boolean;
+        routeVisibility: "visible" | "hidden" | "internal";
+        requiredFeatures: string[];
+        entrypoints: string[];
+        config?: Record<string, unknown> | null;
       }>;
       features: Array<{
         id: string;
@@ -1860,10 +2162,20 @@ export const merchantApi = {
   },
 
   async getBillingSummary(apiKey: string) {
-    return apiFetch<{ status: string; subscription: any | null }>(
-      `/v1/portal/billing/summary`,
-      { apiKey },
-    );
+    return apiFetch<{
+      status: string;
+      subscription:
+        | (Record<string, any> & {
+            cashierPromoEligible?: boolean;
+            cashierPromoActive?: boolean;
+            cashierPromoStartsAt?: string | null;
+            cashierPromoEndsAt?: string | null;
+            cashierIncludedByPlan?: boolean;
+            cashierEnabledByPromo?: boolean;
+            cashierEffective?: boolean;
+          })
+        | null;
+    }>(`/v1/portal/billing/summary`, { apiKey });
   },
 
   async getBillingHistory(apiKey: string) {
@@ -1878,6 +2190,12 @@ export const merchantApi = {
       status: string;
       message: string;
       subscriptionId: string;
+      cashierPromoPreview?: {
+        eligible: boolean;
+        activeOnPurchase: boolean;
+        durationDays: number;
+        note: string | null;
+      };
     }>(`/v1/portal/billing/checkout`, {
       method: "POST",
       apiKey,
@@ -1888,7 +2206,81 @@ export const merchantApi = {
   // Pricing calculator
   async getPricing(apiKey: string) {
     return apiFetch<{
-      plans: any[];
+      currency: string;
+      plans: Array<{
+        id: string;
+        nameAr: string;
+        nameEn: string;
+        price: number | null;
+        currency: string;
+        agents: string[];
+        features: string[];
+        excludedFeatures: string[];
+        limits: {
+          totalMessagesPerDay: number;
+          totalMessagesPerMonth: number;
+          aiRepliesPerDay: number;
+          aiRepliesPerMonth: number;
+          branches: number;
+          posConnections: number;
+        };
+        isFullPlatformPlan: boolean;
+        bestFor: string;
+        mainValue: string;
+        cashierPromoEligible: boolean;
+        upsellPriority: string[];
+        notes: string[];
+      }>;
+      catalog: {
+        currency: string;
+        plans: Array<{
+          id: string;
+          nameAr: string;
+          nameEn: string;
+          monthlyPriceEgp: number | null;
+          isFullPlatformPlan: boolean;
+          bestFor: string;
+          mainValue: string;
+          includedFeatures: string[];
+          excludedFeatures: string[];
+          includedAgents: string[];
+          totalMessagesPerDay: number;
+          totalMessagesPerMonth: number;
+          aiRepliesPerDay: number;
+          aiRepliesPerMonth: number;
+          includedBranches: number;
+          includedPosConnections: number;
+          cashierPromoEligible: boolean;
+          upsellPriority: string[];
+          notes: string[];
+        }>;
+        featureAddOns: Array<{
+          code: string;
+          nameAr: string;
+          descriptionAr: string;
+          monthlyPriceEgp: number;
+        }>;
+        liveAgentAddOns: Array<{
+          code: string;
+          nameAr: string;
+          descriptionAr: string;
+          monthlyPriceEgp: number;
+        }>;
+        usagePacks: Array<{
+          code: string;
+          nameAr: string;
+          descriptionAr: string;
+          monthlyPriceEgp: number;
+        }>;
+        enterprise: Array<{
+          code: string;
+          nameAr: string;
+          descriptionAr: string;
+          priceEgp: number;
+          billingType: "monthly" | "one_time";
+        }>;
+        notes: string[];
+      };
       featurePrices: Record<string, number>;
       agentPrices: Record<string, number>;
       aiUsageTiers: Record<
@@ -1899,8 +2291,35 @@ export const merchantApi = {
         string,
         { messagesPerMonth: number; price: number; label: string }
       >;
-      agents: any[];
-      features: any[];
+      agents: Array<{
+        id: string;
+        nameAr: string;
+        nameEn: string;
+        descriptionAr: string;
+        status: "available" | "beta" | "coming_soon";
+        price: number;
+        dependencies: string[];
+        features: string[];
+        implemented: boolean;
+        sellable: boolean;
+        comingSoon: boolean;
+        beta: boolean;
+        subscriptionEnabled: boolean;
+        routeVisibility: "visible" | "hidden" | "internal";
+        requiredFeatures: string[];
+        entrypoints: string[];
+      }>;
+      features: Array<{
+        id: string;
+        nameAr: string;
+        nameEn: string;
+        descriptionAr: string;
+        status: "available" | "beta" | "coming_soon";
+        price: number;
+        requiredAgent: string | null;
+        dependencies: string[];
+        sellable: boolean;
+      }>;
     }>(`/v1/portal/billing/pricing`, { apiKey });
   },
 
@@ -1917,6 +2336,19 @@ export const merchantApi = {
       totalMonthly: number;
       currency: string;
       breakdown: Array<{ item: string; nameAr: string; price: number }>;
+      aiTier: {
+        aiCallsPerDay: number;
+        tokenBudgetDaily: number;
+        price: number;
+        label: string;
+        id?: string;
+      } | null;
+      messageTier: {
+        messagesPerMonth: number;
+        price: number;
+        label: string;
+        id?: string;
+      } | null;
       recommendedPlan: string | null;
       recommendedPlanPrice: number | null;
       savingsVsCustom: number;
@@ -2382,16 +2814,23 @@ export const merchantApi = {
     if (days) url += `?days=${days}`;
     return apiFetch<{
       totalRevenue: number;
+      realizedRevenue?: number;
+      previousPeriodRevenue?: number;
       revenueChange: number;
-      avgOrderValue: number;
+      averageOrderValue: number;
       avgOrderValueChange: number;
+      bookedSales?: number;
+      deliveredRevenue?: number;
+      pendingCollections?: number;
+      refundsAmount?: number;
       discountsGiven: number;
       deliveryFeesCollected: number;
       topProducts: Array<{ name: string; revenue: number; quantity: number }>;
-      revenueByPaymentMethod: Array<{
+      revenueByDay: Array<{ date: string; revenue: number }>;
+      paymentMethods: Array<{
         method: string;
         amount: number;
-        count: number;
+        percentage: number;
       }>;
       pendingPayments: number;
       codAtRisk: number;
@@ -2490,14 +2929,62 @@ export const merchantApi = {
     if (options?.startDate) params.set("startDate", options.startDate);
     if (options?.endDate) params.set("endDate", options.endDate);
     const query = params.toString();
-    return apiFetch<any>(
+    return apiFetch<{
+      forecastDays: number;
+      period: {
+        startDate: string;
+        endDate: string;
+      };
+      forecast: Array<{
+        date: string;
+        projectedRevenue: number;
+        projectedExpenses: number;
+        netCashFlow: number;
+      }>;
+      summary: {
+        projectedMonthlyRevenue: number;
+        projectedMonthlyExpenses: number;
+        projectedNetCashFlow: number;
+        confidenceLevel: "HIGH" | "MEDIUM" | "LOW";
+        daysWithActivity: number;
+        realizedRevenue?: number;
+        bookedSales?: number;
+        pendingCollections?: number;
+        refundsAmount?: number;
+        actualNetCashFlow?: number;
+      };
+    }>(
       `/v1/finance-reports/${merchantId}/cash-flow-forecast${query ? `?${query}` : ""}`,
       { apiKey },
     );
   },
 
   async getDiscountImpact(merchantId: string, apiKey: string, periodDays = 30) {
-    return apiFetch<any>(
+    return apiFetch<{
+      period: string;
+      overview: {
+        discountedOrders: number;
+        fullPriceOrders: number;
+        totalDiscount: number;
+        totalRevenue: number;
+        realizedRevenue?: number;
+        bookedSales?: number;
+        deliveredRevenue?: number;
+        pendingCollections?: number;
+        refundsAmount?: number;
+      };
+      avgOrderValue: {
+        discounted: number;
+        fullPrice: number;
+      };
+      byCode: Array<{
+        code: string;
+        orders: number;
+        uniqueCustomers: number;
+        discount: number;
+        revenue: number;
+      }>;
+    }>(
       `/v1/finance-reports/${merchantId}/discount-impact?periodDays=${periodDays}`,
       { apiKey },
     );
@@ -2913,9 +3400,15 @@ export const kpisApi = {
   async getRevenueKpis(apiKey: string, days = 30) {
     return apiFetch<{
       totalRevenue: number;
+      realizedRevenue?: number;
       previousPeriodRevenue: number;
       revenueChange: number;
       averageOrderValue: number;
+      averageOrderValueChange?: number;
+      bookedSales?: number;
+      deliveredRevenue?: number;
+      pendingCollections?: number;
+      refundsAmount?: number;
       topProducts: Array<{ name: string; revenue: number; quantity: number }>;
       revenueByDay: Array<{ date: string; revenue: number }>;
       paymentMethods: Array<{
@@ -2923,6 +3416,8 @@ export const kpisApi = {
         amount: number;
         percentage: number;
       }>;
+      pendingPayments?: number;
+      codAtRisk?: number;
     }>(`/v1/kpis/revenue?days=${days}`, { apiKey });
   },
 
@@ -2980,6 +3475,12 @@ export interface BranchSummary {
   branchId: string;
   periodDays: number;
   revenue: number;
+  realizedRevenue?: number;
+  bookedSales?: number;
+  deliveredRevenue?: number;
+  pendingCollections?: number;
+  refundsAmount?: number;
+  netCashFlow?: number;
   revenueChange: number;
   totalOrders: number;
   completedOrders: number;
@@ -2995,6 +3496,7 @@ export interface BranchSummary {
 export interface BranchComparison {
   periodDays: number;
   totalRevenue: number;
+  realizedRevenue?: number;
   branches: Array<{
     branchId: string | null;
     branchName: string;
@@ -3296,12 +3798,13 @@ export const branchesApi = {
   },
 };
 
-const AUTHENTICATED_API_BASE_URL =
+const AUTHENTICATED_API_BASE_URL = normalizeBaseUrl(
   process.env.NEXT_PUBLIC_API_URL ||
-  process.env.API_BASE_URL ||
-  (process.env.NODE_ENV === "production"
-    ? "http://api:3000"
-    : "http://localhost:3000");
+    process.env.API_BASE_URL ||
+    (process.env.NODE_ENV === "production"
+      ? "http://api:3000"
+      : "http://localhost:3000"),
+);
 
 // Client-side requests should go through the Next.js proxy (relative URL)
 // to avoid CORS. Server-side requests can hit the API directly.
@@ -5035,8 +5538,13 @@ export const portalApi = {
       generatedAt: string;
       summary: {
         revenue: number;
+        realizedRevenue?: number;
+        bookedSales?: number;
+        deliveredRevenue?: number;
+        pendingCollections?: number;
         revenueGrowth: number;
         orderCount: number;
+        realizedOrders?: number;
         orderGrowth: number;
         aov: number;
         uniqueCustomers: number;
@@ -5053,6 +5561,7 @@ export const portalApi = {
         expenses: number;
         profit: number;
         profitMargin: number;
+        refundsAmount?: number;
         pendingCod?: number;
         pendingOnline?: number;
         cashInHand?: number;
@@ -5167,6 +5676,15 @@ export const portalApi = {
         features: string[];
         isEnabled: boolean;
         isIncludedInPlan: boolean;
+        implemented: boolean;
+        sellable: boolean;
+        comingSoon: boolean;
+        beta: boolean;
+        subscriptionEnabled: boolean;
+        routeVisibility: "visible" | "hidden" | "internal";
+        requiredFeatures: string[];
+        entrypoints: string[];
+        config?: Record<string, unknown> | null;
       }>;
       features: Array<{
         id: string;

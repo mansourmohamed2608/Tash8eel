@@ -61,6 +61,10 @@ interface DashboardData {
     totalOrders: number;
     ordersChange: number;
     totalRevenue: number;
+    realizedRevenue?: number;
+    bookedSales?: number;
+    deliveredRevenue?: number;
+    pendingCollections?: number;
     revenueChange: number;
     activeConversations: number;
     conversationsChange: number;
@@ -92,6 +96,11 @@ interface DashboardData {
     financeSummary: {
       profitEstimate: number;
       codPending: number;
+      pendingCollections?: number;
+      pendingOnline?: number;
+      bookedSales?: number;
+      deliveredRevenue?: number;
+      refundsAmount?: number;
       spendingAlert: boolean;
       grossMargin: number;
     };
@@ -238,6 +247,22 @@ export default function MerchantDashboard() {
     periodDays === 365
       ? `من ${periodRange.startDate.toLocaleDateString("ar-EG")} حتى ${periodRange.endDate.toLocaleDateString("ar-EG")}`
       : selectedPeriodLabel;
+  const realizedRevenue =
+    data.stats.realizedRevenue ?? data.stats.totalRevenue ?? 0;
+  const bookedSales =
+    data.stats.bookedSales ??
+    data.premium?.financeSummary?.bookedSales ??
+    realizedRevenue;
+  const deliveredRevenue =
+    data.stats.deliveredRevenue ??
+    data.premium?.financeSummary?.deliveredRevenue ??
+    realizedRevenue;
+  const pendingCollections =
+    data.stats.pendingCollections ??
+    data.premium?.financeSummary?.pendingCollections ??
+    0;
+  const pendingOnline = data.premium?.financeSummary?.pendingOnline ?? 0;
+  const refundsAmount = data.premium?.financeSummary?.refundsAmount ?? 0;
 
   return (
     <div className="space-y-6 animate-fadeIn">
@@ -297,7 +322,7 @@ export default function MerchantDashboard() {
         title="مساعد الذكاء الاصطناعي"
         insights={generateDashboardInsights({
           todayOrders: data.stats.totalOrders,
-          todayRevenue: data.stats.totalRevenue,
+          todayRevenue: realizedRevenue,
           pendingOrders: data.stats.pendingDeliveries,
           lowStockCount: 0,
           unreadNotifications: 0,
@@ -320,7 +345,7 @@ export default function MerchantDashboard() {
         />
         <StatCard
           title="إجمالي الإيرادات المحققة"
-          value={formatCurrency(data.stats.totalRevenue)}
+          value={formatCurrency(realizedRevenue)}
           change={data.stats.revenueChange}
           changeLabel="من الفترة السابقة"
           icon={<TrendingUp className="h-5 w-5" />}
@@ -340,6 +365,73 @@ export default function MerchantDashboard() {
           icon={<Package className="h-5 w-5" />}
         />
       </KPIGrid>
+
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <p className="text-sm text-muted-foreground">
+                  إجمالي المبيعات المحجوزة
+                </p>
+                <p className="mt-2 text-2xl font-bold">
+                  {formatCurrency(bookedSales)}
+                </p>
+              </div>
+              <Wallet className="h-5 w-5 text-blue-600" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <p className="text-sm text-muted-foreground">
+                  الإيراد من الطلبات المسلّمة
+                </p>
+                <p className="mt-2 text-2xl font-bold">
+                  {formatCurrency(deliveredRevenue)}
+                </p>
+              </div>
+              <Truck className="h-5 w-5 text-emerald-600" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <p className="text-sm text-muted-foreground">
+                  مبالغ قيد التحصيل
+                </p>
+                <p className="mt-2 text-2xl font-bold">
+                  {formatCurrency(pendingCollections)}
+                </p>
+                {pendingOnline > 0 ? (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    منها {formatCurrency(pendingOnline)} دفع إلكتروني قيد
+                    المعالجة
+                  </p>
+                ) : null}
+              </div>
+              <DollarSign className="h-5 w-5 text-amber-600" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <p className="text-sm text-muted-foreground">مرتجعات الفترة</p>
+                <p className="mt-2 text-2xl font-bold">
+                  {formatCurrency(refundsAmount)}
+                </p>
+              </div>
+              <RotateCcw className="h-5 w-5 text-rose-600" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Premium Insights Row */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -413,7 +505,10 @@ export default function MerchantDashboard() {
                     {data.premium.deliveryFailures.reasons
                       .slice(0, 2)
                       .map((r, i) => (
-                        <div key={i} className="flex justify-between">
+                        <div
+                          key={i}
+                          className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between"
+                        >
                           <span>{r.reason}</span>
                           <Badge variant="secondary" className="text-xs">
                             {r.count}
@@ -457,7 +552,7 @@ export default function MerchantDashboard() {
               </div>
             ) : data.premium ? (
               <div className="space-y-2">
-                <div className="flex justify-between items-center">
+                <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                   <span className="text-xs text-muted-foreground">
                     الربح التقديري
                   </span>
@@ -465,7 +560,7 @@ export default function MerchantDashboard() {
                     {formatCurrency(data.premium.financeSummary.profitEstimate)}
                   </span>
                 </div>
-                <div className="flex justify-between items-center">
+                <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                   <span className="text-xs text-muted-foreground">
                     COD معلق
                   </span>

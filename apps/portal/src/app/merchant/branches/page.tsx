@@ -231,7 +231,7 @@ export default function BranchesPage() {
         title="إدارة الفروع"
         description="إنشاء وإدارة فروع متعددة ومتابعة أداء كل فرع"
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex w-full flex-wrap items-center gap-2 md:w-auto md:justify-end">
             <Button variant="outline" size="sm" onClick={fetchBranches}>
               <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
               تحديث
@@ -416,7 +416,10 @@ export default function BranchesPage() {
 
       {/* Add/Edit Dialog */}
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-        <DialogContent className="max-w-md" dir="rtl">
+        <DialogContent
+          className="max-h-[90vh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-md"
+          dir="rtl"
+        >
           <DialogHeader>
             <DialogTitle>
               {editingBranch ? "تعديل الفرع" : "إنشاء فرع جديد"}
@@ -512,11 +515,12 @@ export default function BranchesPage() {
             </div>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="flex-col-reverse gap-2 sm:flex-row">
             <Button
               variant="outline"
               onClick={() => setIsFormOpen(false)}
               disabled={submitting}
+              className="w-full sm:w-auto"
             >
               إلغاء
             </Button>
@@ -535,7 +539,10 @@ export default function BranchesPage() {
         open={!!deleteTarget}
         onOpenChange={(o) => !o && setDeleteTarget(null)}
       >
-        <AlertDialogContent dir="rtl">
+        <AlertDialogContent
+          className="max-h-[90vh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-md"
+          dir="rtl"
+        >
           <AlertDialogHeader>
             <AlertDialogTitle>حذف الفرع</AlertDialogTitle>
             <AlertDialogDescription>
@@ -544,10 +551,12 @@ export default function BranchesPage() {
               هذا الإجراء.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>إلغاء</AlertDialogCancel>
+          <AlertDialogFooter className="flex-col-reverse gap-2 sm:flex-row">
+            <AlertDialogCancel className="w-full sm:w-auto">
+              إلغاء
+            </AlertDialogCancel>
             <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="w-full bg-destructive text-destructive-foreground hover:bg-destructive/90 sm:w-auto"
               onClick={handleDelete}
             >
               حذف الفرع

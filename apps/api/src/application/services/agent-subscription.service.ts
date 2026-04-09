@@ -3,7 +3,7 @@ import { Pool } from "pg";
 import { DATABASE_POOL } from "../../infrastructure/database/database.module";
 import { OutboxService } from "../events/outbox.service";
 import { EVENT_TYPES } from "../events/event-types";
-import { AgentType } from "../../shared/entitlements";
+import { AGENT_CATALOG, AgentType } from "../../shared/entitlements";
 
 // Re-export for backward compatibility
 export { AgentType };
@@ -128,16 +128,7 @@ export class AgentSubscriptionService {
 
     // Return existing subscriptions merged with defaults for missing agents
     const existingMap = new Map(result.rows.map((r) => [r.agent_type, r]));
-    const allAgentTypes: AgentType[] = [
-      "OPS_AGENT",
-      "INVENTORY_AGENT",
-      "FINANCE_AGENT",
-      "MARKETING_AGENT",
-      "SUPPORT_AGENT",
-      "CONTENT_AGENT",
-      "SALES_AGENT",
-      "CREATIVE_AGENT",
-    ];
+    const allAgentTypes = AGENT_CATALOG.map((agent) => agent.id);
 
     return allAgentTypes.map((agentType) => {
       const existing = existingMap.get(agentType);
@@ -398,16 +389,9 @@ export class AgentSubscriptionService {
        GROUP BY agent_type, is_enabled`,
     );
 
-    const stats: Record<AgentType, { enabled: number; disabled: number }> = {
-      OPS_AGENT: { enabled: 0, disabled: 0 },
-      INVENTORY_AGENT: { enabled: 0, disabled: 0 },
-      FINANCE_AGENT: { enabled: 0, disabled: 0 },
-      MARKETING_AGENT: { enabled: 0, disabled: 0 },
-      SUPPORT_AGENT: { enabled: 0, disabled: 0 },
-      CONTENT_AGENT: { enabled: 0, disabled: 0 },
-      SALES_AGENT: { enabled: 0, disabled: 0 },
-      CREATIVE_AGENT: { enabled: 0, disabled: 0 },
-    };
+    const stats = Object.fromEntries(
+      AGENT_CATALOG.map((agent) => [agent.id, { enabled: 0, disabled: 0 }]),
+    ) as Record<AgentType, { enabled: number; disabled: number }>;
 
     for (const row of result.rows) {
       if (row.is_enabled) {

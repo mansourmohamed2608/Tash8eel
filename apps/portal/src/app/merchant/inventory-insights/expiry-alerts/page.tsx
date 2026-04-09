@@ -61,12 +61,16 @@ export default function ExpiryAlertsPage() {
 
   if (error) {
     return (
-      <div className="space-y-6 animate-fadeIn">
+      <div className="space-y-6 animate-fadeIn p-4 sm:p-6">
         <PageHeader
           title="تنبيهات الصلاحية"
           description="تتبع المنتجات القابلة للتلف وتواريخ انتهاء الصلاحية"
           actions={
-            <Button variant="outline" onClick={fetchData}>
+            <Button
+              variant="outline"
+              onClick={fetchData}
+              className="w-full sm:w-auto"
+            >
               <RefreshCw className="ml-2 h-4 w-4" /> تحديث
             </Button>
           }
@@ -90,12 +94,16 @@ export default function ExpiryAlertsPage() {
       : "مسجلة من تنبيهات النظام";
 
   return (
-    <div className="space-y-6 animate-fadeIn">
+    <div className="space-y-6 animate-fadeIn p-4 sm:p-6">
       <PageHeader
         title="تنبيهات الصلاحية"
         description="تتبع المنتجات القابلة للتلف وتواريخ انتهاء الصلاحية"
         actions={
-          <Button variant="outline" onClick={fetchData}>
+          <Button
+            variant="outline"
+            onClick={fetchData}
+            className="w-full sm:w-auto"
+          >
             <RefreshCw className="ml-2 h-4 w-4" /> تحديث
           </Button>
         }
@@ -171,7 +179,7 @@ export default function ExpiryAlertsPage() {
               {alerts.map((alert: any) => (
                 <div
                   key={alert.id}
-                  className="flex items-center justify-between border rounded-lg p-4 hover:bg-gray-50"
+                  className="flex flex-col gap-3 rounded-lg border p-4 hover:bg-gray-50 sm:flex-row sm:items-center sm:justify-between"
                 >
                   <div className="flex items-center gap-3">
                     {alert.alertType === "EXPIRED" && (
@@ -190,8 +198,8 @@ export default function ExpiryAlertsPage() {
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <div className="text-left">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                    <div className="text-right sm:text-left">
                       <Badge
                         variant={
                           alert.alertType === "EXPIRED"
@@ -217,6 +225,7 @@ export default function ExpiryAlertsPage() {
                       size="sm"
                       variant="outline"
                       onClick={() => handleAcknowledge(alert.id)}
+                      className="w-full sm:w-auto"
                     >
                       <CheckCircle className="h-4 w-4 ml-1" /> تم
                     </Button>

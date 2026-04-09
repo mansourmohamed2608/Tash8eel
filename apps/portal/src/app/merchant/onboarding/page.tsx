@@ -55,7 +55,7 @@ export default function OnboardingPage() {
 
   if (loading) {
     return (
-      <div className="space-y-6 animate-fadeIn">
+      <div className="space-y-6 animate-fadeIn p-4 sm:p-6">
         <Skeleton className="h-10 w-1/3" />
         <Skeleton className="h-4 w-1/2" />
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -75,14 +75,17 @@ export default function OnboardingPage() {
   };
 
   return (
-    <div className="space-y-6 animate-fadeIn">
+    <div className="space-y-6 animate-fadeIn p-4 sm:p-6">
       <PageHeader
         title="البدء السريع"
         description="خطوات بسيطة لتجهيز النظام لعملك"
         actions={
           <Link
             href="/merchant/help"
-            className={cn(buttonVariants({ variant: "outline" }))}
+            className={cn(
+              buttonVariants({ variant: "outline" }),
+              "w-full sm:w-auto",
+            )}
           >
             <HelpCircle className="h-4 w-4" />
             مركز المساعدة
@@ -93,7 +96,7 @@ export default function OnboardingPage() {
       {/* Progress Bar */}
       <Card>
         <CardContent className="pt-6 space-y-3">
-          <div className="flex items-center justify-between text-sm">
+          <div className="flex flex-col gap-2 text-sm sm:flex-row sm:items-center sm:justify-between">
             <span className="font-medium">
               {summary.isComplete
                 ? "🎉 تم إعداد النظام بالكامل!"

@@ -80,47 +80,47 @@ export default function BranchInventoryPage() {
   const items: any[] = inventory?.items ?? [];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-4 sm:p-6">
       {/* Tab nav */}
-      <div className="flex gap-1 border-b pb-0">
+      <div className="grid grid-cols-2 gap-2 border-b pb-0 sm:grid-cols-3 xl:grid-cols-6">
         <Link
           href={`/merchant/branches/${branchId}`}
-          className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 border-transparent text-muted-foreground hover:text-foreground"
+          className="flex items-center justify-center gap-1.5 border-b-2 border-transparent px-4 py-2 text-center text-sm font-medium text-muted-foreground hover:text-foreground"
         >
           <BarChart3 className="h-4 w-4" />
           التحليلات
         </Link>
         <Link
           href={`/merchant/branches/${branchId}/settings`}
-          className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 border-transparent text-muted-foreground hover:text-foreground"
+          className="flex items-center justify-center gap-1.5 border-b-2 border-transparent px-4 py-2 text-center text-sm font-medium text-muted-foreground hover:text-foreground"
         >
           <Settings className="h-4 w-4" />
           الإعدادات
         </Link>
         <Link
           href={`/merchant/branches/${branchId}/shifts`}
-          className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 border-transparent text-muted-foreground hover:text-foreground"
+          className="flex items-center justify-center gap-1.5 border-b-2 border-transparent px-4 py-2 text-center text-sm font-medium text-muted-foreground hover:text-foreground"
         >
           <Clock className="h-4 w-4" />
           الجلسات
         </Link>
         <Link
           href={`/merchant/branches/${branchId}/inventory`}
-          className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 border-primary text-primary"
+          className="flex items-center justify-center gap-1.5 border-b-2 border-primary px-4 py-2 text-center text-sm font-medium text-primary"
         >
           <Package className="h-4 w-4" />
           المخزون
         </Link>
         <Link
           href={`/merchant/branches/${branchId}/alerts`}
-          className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 border-transparent text-muted-foreground hover:text-foreground"
+          className="flex items-center justify-center gap-1.5 border-b-2 border-transparent px-4 py-2 text-center text-sm font-medium text-muted-foreground hover:text-foreground"
         >
           <Bell className="h-4 w-4" />
           التنبيهات
         </Link>
         <Link
           href={`/merchant/branches/${branchId}/pl-report`}
-          className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 border-transparent text-muted-foreground hover:text-foreground"
+          className="flex items-center justify-center gap-1.5 border-b-2 border-transparent px-4 py-2 text-center text-sm font-medium text-muted-foreground hover:text-foreground"
         >
           <FileText className="h-4 w-4" />
           تقرير الأرباح
@@ -131,11 +131,12 @@ export default function BranchInventoryPage() {
         title="مخزون الفرع"
         description="مستويات المخزون في مواقع تخزين هذا الفرع"
         actions={
-          <div className="flex gap-2">
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => router.push("/merchant/branches")}
+              className="w-full sm:w-auto"
             >
               <ArrowLeft className="h-4 w-4 ml-1" />
               الفروع
@@ -145,6 +146,7 @@ export default function BranchInventoryPage() {
               size="sm"
               onClick={fetchData}
               disabled={loading}
+              className="w-full sm:w-auto"
             >
               <RefreshCw
                 className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
@@ -156,7 +158,7 @@ export default function BranchInventoryPage() {
 
       {/* KPI summary */}
       {summary && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <Card>
             <CardContent className="pt-4">
               <p className="text-xs text-muted-foreground">إجمالي الأصناف</p>
@@ -248,66 +250,140 @@ export default function BranchInventoryPage() {
                 : "لا توجد بيانات مخزون للفرع"}
             </p>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>المنتج</TableHead>
-                  <TableHead>الكود (SKU)</TableHead>
-                  <TableHead>الموقع</TableHead>
-                  <TableHead className="text-right">فعلي</TableHead>
-                  <TableHead className="text-right">محجوز</TableHead>
-                  <TableHead className="text-right">متاح</TableHead>
-                  <TableHead className="text-right">الحالة</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            <>
+              <div className="space-y-3 p-4 md:hidden">
                 {items.map((item) => (
-                  <TableRow key={`${item.variantId}-${item.locationId}`}>
-                    <TableCell>
-                      <div>
-                        <p className="font-medium">{item.itemName}</p>
-                        {item.variantName &&
-                          item.variantName !== item.itemName && (
+                  <Card key={`${item.variantId}-${item.locationId}`}>
+                    <CardContent className="space-y-3 p-4 text-sm">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-medium">{item.itemName}</p>
+                          {item.variantName &&
+                            item.variantName !== item.itemName && (
+                              <p className="text-xs text-muted-foreground">
+                                {item.variantName}
+                              </p>
+                            )}
+                          {item.category && (
                             <p className="text-xs text-muted-foreground">
-                              {item.variantName}
+                              {item.category}
                             </p>
                           )}
-                        {item.category && (
-                          <p className="text-xs text-muted-foreground">
-                            {item.category}
-                          </p>
+                        </div>
+                        {item.isLowStock ? (
+                          <Badge
+                            variant="destructive"
+                            className="text-xs gap-1"
+                          >
+                            <AlertTriangle className="h-3 w-3" />
+                            منخفض
+                          </Badge>
+                        ) : (
+                          <Badge variant="secondary" className="text-xs">
+                            طبيعي
+                          </Badge>
                         )}
                       </div>
-                    </TableCell>
-                    <TableCell className="font-mono text-sm">
-                      {item.sku || "-"}
-                    </TableCell>
-                    <TableCell>{item.locationName || "-"}</TableCell>
-                    <TableCell className="text-right">
-                      {formatQty(item.quantityOnHand)}
-                    </TableCell>
-                    <TableCell className="text-right text-muted-foreground">
-                      {formatQty(item.quantityReserved)}
-                    </TableCell>
-                    <TableCell className="text-right font-semibold">
-                      {formatQty(item.quantityAvailable)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {item.isLowStock ? (
-                        <Badge variant="destructive" className="text-xs gap-1">
-                          <AlertTriangle className="h-3 w-3" />
-                          منخفض
-                        </Badge>
-                      ) : (
-                        <Badge variant="secondary" className="text-xs">
-                          طبيعي
-                        </Badge>
-                      )}
-                    </TableCell>
-                  </TableRow>
+                      <div className="grid grid-cols-2 gap-3 text-xs">
+                        <div>
+                          <p className="text-muted-foreground">SKU</p>
+                          <p className="font-mono">{item.sku || "-"}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">الموقع</p>
+                          <p className="font-medium">
+                            {item.locationName || "-"}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">فعلي</p>
+                          <p className="font-medium">
+                            {formatQty(item.quantityOnHand)}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">محجوز</p>
+                          <p className="font-medium">
+                            {formatQty(item.quantityReserved)}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">متاح</p>
+                          <p className="font-semibold">
+                            {formatQty(item.quantityAvailable)}
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
                 ))}
-              </TableBody>
-            </Table>
+              </div>
+              <div className="hidden overflow-x-auto md:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>المنتج</TableHead>
+                      <TableHead>الكود (SKU)</TableHead>
+                      <TableHead>الموقع</TableHead>
+                      <TableHead className="text-right">فعلي</TableHead>
+                      <TableHead className="text-right">محجوز</TableHead>
+                      <TableHead className="text-right">متاح</TableHead>
+                      <TableHead className="text-right">الحالة</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {items.map((item) => (
+                      <TableRow key={`${item.variantId}-${item.locationId}`}>
+                        <TableCell>
+                          <div>
+                            <p className="font-medium">{item.itemName}</p>
+                            {item.variantName &&
+                              item.variantName !== item.itemName && (
+                                <p className="text-xs text-muted-foreground">
+                                  {item.variantName}
+                                </p>
+                              )}
+                            {item.category && (
+                              <p className="text-xs text-muted-foreground">
+                                {item.category}
+                              </p>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="font-mono text-sm">
+                          {item.sku || "-"}
+                        </TableCell>
+                        <TableCell>{item.locationName || "-"}</TableCell>
+                        <TableCell className="text-right">
+                          {formatQty(item.quantityOnHand)}
+                        </TableCell>
+                        <TableCell className="text-right text-muted-foreground">
+                          {formatQty(item.quantityReserved)}
+                        </TableCell>
+                        <TableCell className="text-right font-semibold">
+                          {formatQty(item.quantityAvailable)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {item.isLowStock ? (
+                            <Badge
+                              variant="destructive"
+                              className="text-xs gap-1"
+                            >
+                              <AlertTriangle className="h-3 w-3" />
+                              منخفض
+                            </Badge>
+                          ) : (
+                            <Badge variant="secondary" className="text-xs">
+                              طبيعي
+                            </Badge>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>

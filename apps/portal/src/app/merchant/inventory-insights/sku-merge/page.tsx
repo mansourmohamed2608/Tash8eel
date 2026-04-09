@@ -84,12 +84,16 @@ export default function SkuMergePage() {
   const duplicates = data?.duplicates || [];
 
   return (
-    <div className="space-y-6 animate-fadeIn">
+    <div className="space-y-6 animate-fadeIn p-4 sm:p-6">
       <PageHeader
         title="كشف التكرارات ودمج رموز الأصناف"
         description="اكتشف المنتجات المكررة وادمجها لتنظيف المخزون"
         actions={
-          <Button variant="outline" onClick={fetchData}>
+          <Button
+            variant="outline"
+            onClick={fetchData}
+            className="w-full sm:w-auto"
+          >
             <RefreshCw className="ml-2 h-4 w-4" /> فحص
           </Button>
         }
@@ -138,7 +142,7 @@ export default function SkuMergePage() {
           <CardContent className="space-y-4">
             {duplicates.map((dup: any, i: number) => (
               <div key={i} className="border rounded-lg p-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
+                <div className="mb-3 grid grid-cols-1 gap-4 md:grid-cols-2">
                   <div className="bg-red-50 rounded p-3">
                     <div className="text-sm text-red-600 font-medium mb-1">
                       المصدر (سيتم إلغاء تفعيله)
@@ -160,11 +164,12 @@ export default function SkuMergePage() {
                     </div>
                   </div>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-col gap-2 sm:flex-row">
                   <Button
                     size="sm"
                     onClick={() => handleMerge(dup.itemA.id, dup.itemB.id)}
                     disabled={merging === dup.itemA.id}
+                    className="w-full sm:w-auto"
                   >
                     <Merge className="h-4 w-4 ml-1" />
                     {merging === dup.itemA.id
@@ -176,6 +181,7 @@ export default function SkuMergePage() {
                     variant="outline"
                     onClick={() => handleMerge(dup.itemB.id, dup.itemA.id)}
                     disabled={merging === dup.itemB.id}
+                    className="w-full sm:w-auto"
                   >
                     <Merge className="h-4 w-4 ml-1" />
                     دمج الهدف إلى المصدر

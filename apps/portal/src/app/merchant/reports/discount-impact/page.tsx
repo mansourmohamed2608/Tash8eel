@@ -92,6 +92,12 @@ export default function DiscountImpactPage() {
   const overview = data?.overview || {};
   const avgOv = data?.avgOrderValue || {};
   const byCode = data?.byCode || [];
+  const realizedRevenue = Number(
+    overview.realizedRevenue ?? overview.totalRevenue ?? 0,
+  );
+  const bookedSales = Number(overview.bookedSales || 0);
+  const pendingCollections = Number(overview.pendingCollections || 0);
+  const refundsAmount = Number(overview.refundsAmount || 0);
 
   const pieData = [
     {
@@ -120,7 +126,7 @@ export default function DiscountImpactPage() {
         title="تحليل تأثير الخصومات"
         description="مقارنة الطلبات المخصومة مع طلبات السعر الكامل"
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex w-full flex-wrap items-center gap-2 md:w-auto md:justify-end">
             <Select
               value={String(periodDays)}
               onValueChange={(value) => {
@@ -129,7 +135,7 @@ export default function DiscountImpactPage() {
                 setStoredReportingDays(next);
               }}
             >
-              <SelectTrigger className="w-[150px]">
+              <SelectTrigger className="w-full md:w-[150px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -171,12 +177,21 @@ export default function DiscountImpactPage() {
           value={formatCurrency(avgOv.fullPrice)}
           icon={<Percent className="h-5 w-5 text-green-500" />}
         />
+        <StatCard
+          title="الإيرادات المحققة"
+          value={formatCurrency(realizedRevenue)}
+          icon={<TrendingDown className="h-5 w-5 text-emerald-600" />}
+        />
       </KPIGrid>
 
       <Tabs defaultValue="overview">
-        <TabsList>
-          <TabsTrigger value="overview">نظرة عامة</TabsTrigger>
-          <TabsTrigger value="codes">حسب الكود</TabsTrigger>
+        <TabsList className="grid h-auto w-full grid-cols-1 gap-2 sm:w-[320px] sm:grid-cols-2">
+          <TabsTrigger value="overview" className="w-full">
+            نظرة عامة
+          </TabsTrigger>
+          <TabsTrigger value="codes" className="w-full">
+            حسب الكود
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="mt-4">
@@ -188,9 +203,27 @@ export default function DiscountImpactPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex justify-between items-center">
-                  <span>إجمالي الإيرادات</span>
+                  <span>إجمالي الإيرادات المحققة</span>
                   <span className="font-bold">
-                    {formatCurrency(overview.totalRevenue)}
+                    {formatCurrency(realizedRevenue)}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span>إجمالي المبيعات المحجوزة</span>
+                  <span className="font-medium">
+                    {formatCurrency(bookedSales)}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span>مبالغ قيد التحصيل</span>
+                  <span className="font-medium">
+                    {formatCurrency(pendingCollections)}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span>إجمالي المرتجعات</span>
+                  <span className="font-medium text-red-600">
+                    {formatCurrency(refundsAmount)}
                   </span>
                 </div>
                 <div className="flex justify-between items-center">

@@ -41,8 +41,27 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"] },
     },
     {
-      name: "mobile-safari",
-      use: { ...devices["iPhone 14"] },
+      name: "mobile-360",
+      use: {
+        ...devices["Pixel 5"],
+        browserName: "chromium",
+        viewport: { width: 360, height: 800 },
+      },
+    },
+    {
+      name: "mobile-390",
+      use: {
+        ...devices["iPhone 14"],
+        viewport: { width: 390, height: 844 },
+      },
+    },
+    {
+      name: "mobile-430",
+      use: {
+        ...devices["Pixel 7"],
+        browserName: "chromium",
+        viewport: { width: 430, height: 932 },
+      },
     },
   ],
 

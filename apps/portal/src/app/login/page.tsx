@@ -116,8 +116,8 @@ function LoginForm() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 to-primary-100 p-4">
-      <Card className="w-full max-w-md">
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-primary-50 to-primary-100 p-3 sm:p-4">
+      <Card className="w-full max-w-md rounded-2xl sm:rounded-xl">
         <CardHeader className="text-center">
           <div className="mx-auto mb-4 h-14 w-14 rounded-full bg-primary-600 flex items-center justify-center">
             <Store className="h-8 w-8 text-white" />
@@ -187,7 +187,7 @@ function LoginForm() {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-muted-foreground transition-colors hover:text-foreground"
                 >
                   {showPassword ? (
                     <EyeOff className="h-5 w-5" />
@@ -198,7 +198,7 @@ function LoginForm() {
               </div>
             </div>
 
-            <div className="flex items-center justify-between text-sm">
+            <div className="flex items-center text-sm">
               <Link
                 href="/forgot-password"
                 className="text-primary-600 hover:underline"

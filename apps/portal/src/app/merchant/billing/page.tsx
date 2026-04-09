@@ -49,6 +49,10 @@ interface BillingSummary {
     currency: string;
     nextBillingDate: string;
     status: string;
+    cashierPromoEligible?: boolean;
+    cashierPromoActive?: boolean;
+    cashierPromoEndsAt?: string | null;
+    cashierEffective?: boolean;
   } | null;
 }
 
@@ -161,6 +165,10 @@ export default function BillingPage() {
           currency: sub.currency || "EGP",
           nextBillingDate: sub.nextBillingDate || sub.current_period_end || "",
           status: sub.status || "pending",
+          cashierPromoEligible: Boolean(sub.cashierPromoEligible),
+          cashierPromoActive: Boolean(sub.cashierPromoActive),
+          cashierPromoEndsAt: sub.cashierPromoEndsAt || null,
+          cashierEffective: Boolean(sub.cashierEffective),
         };
       }
       setSummary(mapped);
@@ -249,23 +257,23 @@ export default function BillingPage() {
 
   if (loading) {
     return (
-      <>
+      <div className="space-y-6 p-4 sm:p-6">
         <PageHeader
           title="الفواتير"
           description="عرض تفاصيل الفواتير والمدفوعات"
         />
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+        <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
           {[1, 2, 3].map((i) => (
             <CardSkeleton key={i} />
           ))}
         </div>
-      </>
+      </div>
     );
   }
 
   if (error) {
     return (
-      <>
+      <div className="space-y-6 p-4 sm:p-6">
         <PageHeader
           title="الفواتير"
           description="عرض تفاصيل الفواتير والمدفوعات"
@@ -280,12 +288,12 @@ export default function BillingPage() {
             </Button>
           </CardContent>
         </Card>
-      </>
+      </div>
     );
   }
 
   return (
-    <>
+    <div className="space-y-6 p-4 sm:p-6">
       <PageHeader
         title="الفواتير"
         description="عرض تفاصيل الفواتير والاشتراك والمدفوعات"
@@ -334,6 +342,39 @@ export default function BillingPage() {
                 >
                   {subscriptionStatusInfo?.label || "غير معروف"}
                 </Badge>
+                {summary.subscription.cashierPromoEligible ? (
+                  <div className="mt-3 flex flex-wrap items-center justify-start gap-2 sm:justify-end">
+                    <Badge
+                      variant={
+                        summary.subscription.cashierPromoActive
+                          ? "secondary"
+                          : "outline"
+                      }
+                    >
+                      {summary.subscription.cashierPromoActive
+                        ? "عرض الكاشير فعّال"
+                        : "عرض الكاشير غير فعّال"}
+                    </Badge>
+                    <Badge
+                      variant={
+                        summary.subscription.cashierEffective
+                          ? "default"
+                          : "outline"
+                      }
+                    >
+                      {summary.subscription.cashierEffective
+                        ? "الكاشير متاح حالياً"
+                        : "الكاشير غير متاح حالياً"}
+                    </Badge>
+                  </div>
+                ) : null}
+                {summary.subscription.cashierPromoActive &&
+                summary.subscription.cashierPromoEndsAt ? (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    ينتهي عرض الكاشير في{" "}
+                    {formatBillingDate(summary.subscription.cashierPromoEndsAt)}
+                  </p>
+                ) : null}
               </div>
             </div>
           ) : (
@@ -354,7 +395,7 @@ export default function BillingPage() {
       </Card>
 
       {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+      <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-3">
         <Link href="/merchant/plan">
           <Card className="hover:border-primary/50 transition-colors cursor-pointer h-full">
             <CardContent className="p-4 flex items-center gap-3">
@@ -404,7 +445,7 @@ export default function BillingPage() {
 
       {/* Billing Events / History */}
       <div>
-        <div className="flex justify-between items-center mb-4">
+        <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <h2 className="text-lg font-semibold text-foreground">
             سجل الفواتير
           </h2>
@@ -436,8 +477,8 @@ export default function BillingPage() {
               const StatusIcon = statusConfig.icon;
               return (
                 <Card key={event.id}>
-                  <CardContent className="p-4 flex items-center justify-between">
-                    <div className="flex items-center gap-4">
+                  <CardContent className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-start gap-4 sm:items-center">
                       <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-muted">
                         <TypeIcon className={cn("h-5 w-5", typeConfig.color)} />
                       </div>
@@ -450,7 +491,7 @@ export default function BillingPage() {
                         </p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-4">
+                    <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center">
                       <Badge variant={statusConfig.variant}>
                         <StatusIcon className="h-3 w-3 ml-1" />
                         {statusConfig.label}
@@ -474,6 +515,6 @@ export default function BillingPage() {
           </div>
         )}
       </div>
-    </>
+    </div>
   );
 }

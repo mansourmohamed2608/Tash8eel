@@ -254,7 +254,7 @@ export default function FeatureRequestsPage() {
 
   const headerActions =
     activeTab === "requests" ? (
-      <div className="flex gap-2">
+      <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
         <Button variant="outline" onClick={fetchRequests} disabled={loading}>
           <RefreshCw className="h-4 w-4" />
           تحديث
@@ -265,7 +265,7 @@ export default function FeatureRequestsPage() {
         </Button>
       </div>
     ) : (
-      <div className="flex gap-2">
+      <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
         <Button
           variant="outline"
           onClick={fetchQuotes}
@@ -278,7 +278,7 @@ export default function FeatureRequestsPage() {
     );
 
   return (
-    <div className="space-y-6 animate-fadeIn">
+    <div className="space-y-6 animate-fadeIn p-4 sm:p-6">
       <PageHeader
         title="الاقتراحات وعروض السعر"
         description="اقتراحات ميزات جديدة للنظام وعروض أسعار الباقات المخصصة"
@@ -295,9 +295,13 @@ export default function FeatureRequestsPage() {
       )}
 
       <Tabs value={activeTab} onValueChange={handleTabChange}>
-        <TabsList className="grid grid-cols-2 w-full md:w-[360px]">
-          <TabsTrigger value="requests">الاقتراحات</TabsTrigger>
-          <TabsTrigger value="quotes">عروض السعر</TabsTrigger>
+        <TabsList className="grid h-auto w-full grid-cols-1 gap-2 sm:w-[360px] sm:grid-cols-2">
+          <TabsTrigger value="requests" className="w-full">
+            الاقتراحات
+          </TabsTrigger>
+          <TabsTrigger value="quotes" className="w-full">
+            عروض السعر
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="requests" className="space-y-4">
@@ -331,11 +335,11 @@ export default function FeatureRequestsPage() {
                 return (
                   <Card key={req.id}>
                     <CardHeader>
-                      <div className="flex items-center justify-between gap-2">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                         <CardTitle className="text-base">{req.title}</CardTitle>
                         <Badge variant={status.variant}>{status.label}</Badge>
                       </div>
-                      <CardDescription className="flex gap-2">
+                      <CardDescription className="flex flex-col gap-1 sm:flex-row sm:flex-wrap sm:gap-2">
                         <span>التصنيف: {categoryLabel}</span>
                         <span>الأولوية: {priorityLabel}</span>
                       </CardDescription>
@@ -392,7 +396,7 @@ export default function FeatureRequestsPage() {
                 return (
                   <Card key={quote.id}>
                     <CardHeader>
-                      <div className="flex items-center justify-between gap-2">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                         <div>
                           <CardTitle className="text-base">
                             {quote.title || "عرض سعر مخصص"}
@@ -408,7 +412,7 @@ export default function FeatureRequestsPage() {
                       </div>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                      <div className="flex items-center justify-between text-sm">
+                      <div className="flex flex-col gap-2 text-sm sm:flex-row sm:items-center sm:justify-between">
                         <span className="text-muted-foreground">
                           آخر تحديث:{" "}
                           {quote.updated_at
@@ -421,6 +425,7 @@ export default function FeatureRequestsPage() {
                           variant="outline"
                           size="sm"
                           onClick={() => toggleQuoteExpand(quote.id)}
+                          className="w-full sm:w-auto"
                         >
                           {isExpanded ? "إخفاء التفاصيل" : "عرض التفاصيل"}
                         </Button>
@@ -467,6 +472,7 @@ export default function FeatureRequestsPage() {
                                 addingNoteId === quote.id ||
                                 !(quoteNoteDrafts[quote.id] || "").trim()
                               }
+                              className="w-full sm:w-auto"
                             >
                               {addingNoteId === quote.id
                                 ? "جاري الإرسال..."
@@ -489,7 +495,7 @@ export default function FeatureRequestsPage() {
                                     key={event.id}
                                     className="rounded-md border p-2 text-xs text-muted-foreground"
                                   >
-                                    <div className="flex items-center justify-between">
+                                    <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                                       <span>{event.action}</span>
                                       <span>
                                         {new Date(
@@ -517,7 +523,7 @@ export default function FeatureRequestsPage() {
       </Tabs>
 
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
-        <DialogContent className="max-w-xl">
+        <DialogContent className="max-h-[90vh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-xl">
           <DialogHeader>
             <DialogTitle>اقتراح ميزة جديدة</DialogTitle>
             <DialogDescription>
@@ -541,7 +547,7 @@ export default function FeatureRequestsPage() {
                 rows={4}
               />
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               <div className="space-y-2">
                 <label className="text-sm font-medium">التصنيف</label>
                 <Select value={category} onValueChange={setCategory}>
@@ -574,17 +580,19 @@ export default function FeatureRequestsPage() {
               </div>
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="flex-col-reverse gap-2 sm:flex-row">
             <Button
               variant="outline"
               onClick={() => setShowDialog(false)}
               disabled={submitting}
+              className="w-full sm:w-auto"
             >
               إلغاء
             </Button>
             <Button
               onClick={handleSubmit}
               disabled={submitting || !title.trim()}
+              className="w-full sm:w-auto"
             >
               {submitting ? "جاري الإرسال..." : "إرسال الاقتراح"}
             </Button>

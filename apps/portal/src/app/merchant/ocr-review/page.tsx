@@ -180,13 +180,14 @@ export default function OcrReviewPage() {
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6 p-4 sm:p-6">
       <PageHeader
         title="مراجعة التعرف الضوئي"
         description="مراجعة واعتماد المنتجات المكتشفة تلقائياً من صور الإيصالات والفواتير"
         actions={
           <Button
             variant="outline"
+            className="w-full sm:w-auto"
             onClick={fetchConfirmations}
             disabled={loading}
           >
@@ -207,7 +208,7 @@ export default function OcrReviewPage() {
       />
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
@@ -264,8 +265,8 @@ export default function OcrReviewPage() {
 
       {/* Filter Tabs */}
       <Tabs value={filter} onValueChange={setFilter}>
-        <TabsList>
-          <TabsTrigger value="pending">
+        <TabsList className="grid h-auto w-full grid-cols-1 gap-2 sm:grid-cols-3">
+          <TabsTrigger value="pending" className="w-full">
             بانتظار المراجعة
             {pending.length > 0 && (
               <Badge variant="destructive" className="ml-2 text-xs">
@@ -273,9 +274,15 @@ export default function OcrReviewPage() {
               </Badge>
             )}
           </TabsTrigger>
-          <TabsTrigger value="approved">تمت الموافقة</TabsTrigger>
-          <TabsTrigger value="rejected">مرفوض</TabsTrigger>
-          <TabsTrigger value="all">الكل</TabsTrigger>
+          <TabsTrigger value="approved" className="w-full">
+            تمت الموافقة
+          </TabsTrigger>
+          <TabsTrigger value="rejected" className="w-full">
+            مرفوض
+          </TabsTrigger>
+          <TabsTrigger value="all" className="shrink-0">
+            الكل
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value={filter} className="mt-4">
@@ -284,98 +291,188 @@ export default function OcrReviewPage() {
           ) : (
             <Card>
               <CardContent className="pt-4">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="text-right">
-                        المنتج المكتشف
-                      </TableHead>
-                      <TableHead className="text-right">
-                        المنتج الأصلي
-                      </TableHead>
-                      <TableHead className="text-center">السعر</TableHead>
-                      <TableHead className="text-center">الكمية</TableHead>
-                      <TableHead className="text-center">الثقة</TableHead>
-                      <TableHead className="text-center">الحالة</TableHead>
-                      <TableHead className="text-center">إجراء</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {displayItems.length === 0 ? (
-                      <TableRow>
-                        <TableCell
-                          colSpan={7}
-                          className="text-center text-muted-foreground py-8"
-                        >
-                          <ScanLine className="h-12 w-12 mx-auto mb-2 opacity-30" />
-                          لا توجد عناصر للمراجعة
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      displayItems.map((item) => (
-                        <TableRow key={item.id}>
-                          <TableCell className="font-medium">
-                            {item.detectedName}
-                          </TableCell>
-                          <TableCell className="text-sm text-muted-foreground">
-                            {item.productName || "-"}
-                          </TableCell>
-                          <TableCell className="text-center">
-                            {item.detectedPrice != null
-                              ? `${item.detectedPrice} ج.م`
-                              : "-"}
-                          </TableCell>
-                          <TableCell className="text-center">
-                            {item.detectedQuantity ?? "-"}
-                          </TableCell>
-                          <TableCell className="text-center">
-                            {confidenceBadge(item.confidence)}
-                          </TableCell>
-                          <TableCell className="text-center">
-                            {statusBadge(item.status)}
-                          </TableCell>
-                          <TableCell className="text-center">
-                            <div className="flex items-center justify-center gap-1">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setSelected(item)}
-                              >
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                              {item.status === "pending" && (
-                                <>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="text-green-600"
-                                    onClick={() =>
-                                      handleAction(item.id, "approve")
-                                    }
-                                    disabled={actionLoading}
-                                  >
-                                    <CheckCircle2 className="h-4 w-4" />
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="text-red-600"
-                                    onClick={() =>
-                                      handleAction(item.id, "reject")
-                                    }
-                                    disabled={actionLoading}
-                                  >
-                                    <XCircle className="h-4 w-4" />
-                                  </Button>
-                                </>
-                              )}
+                <div className="space-y-3 md:hidden">
+                  {displayItems.length === 0 ? (
+                    <div className="py-8 text-center text-muted-foreground">
+                      <ScanLine className="mx-auto mb-2 h-12 w-12 opacity-30" />
+                      لا توجد عناصر للمراجعة
+                    </div>
+                  ) : (
+                    displayItems.map((item) => (
+                      <div
+                        key={item.id}
+                        className="space-y-3 rounded-lg border p-4"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="font-medium">{item.detectedName}</p>
+                            <p className="text-xs text-muted-foreground">
+                              المنتج الأصلي: {item.productName || "-"}
+                            </p>
+                          </div>
+                          {statusBadge(item.status)}
+                        </div>
+                        <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+                          <div>
+                            <p className="text-xs text-muted-foreground">
+                              السعر
+                            </p>
+                            <p className="font-medium">
+                              {item.detectedPrice != null
+                                ? `${item.detectedPrice} ج.م`
+                                : "-"}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-muted-foreground">
+                              الكمية
+                            </p>
+                            <p className="font-medium">
+                              {item.detectedQuantity ?? "-"}
+                            </p>
+                          </div>
+                          <div className="sm:col-span-2">
+                            <p className="text-xs text-muted-foreground">
+                              الثقة
+                            </p>
+                            <div className="mt-1">
+                              {confidenceBadge(item.confidence)}
                             </div>
+                          </div>
+                        </div>
+                        <div className="flex flex-col gap-2 sm:flex-row">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full sm:w-auto"
+                            onClick={() => setSelected(item)}
+                          >
+                            <Eye className="ml-1 h-4 w-4" />
+                            مراجعة
+                          </Button>
+                          {item.status === "pending" && (
+                            <>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="w-full text-green-600 sm:w-auto"
+                                onClick={() => handleAction(item.id, "approve")}
+                                disabled={actionLoading}
+                              >
+                                <CheckCircle2 className="ml-1 h-4 w-4" />
+                                موافقة
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="w-full text-red-600 sm:w-auto"
+                                onClick={() => handleAction(item.id, "reject")}
+                                disabled={actionLoading}
+                              >
+                                <XCircle className="ml-1 h-4 w-4" />
+                                رفض
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+                <div className="hidden md:block">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-right">
+                          المنتج المكتشف
+                        </TableHead>
+                        <TableHead className="text-right">
+                          المنتج الأصلي
+                        </TableHead>
+                        <TableHead className="text-center">السعر</TableHead>
+                        <TableHead className="text-center">الكمية</TableHead>
+                        <TableHead className="text-center">الثقة</TableHead>
+                        <TableHead className="text-center">الحالة</TableHead>
+                        <TableHead className="text-center">إجراء</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {displayItems.length === 0 ? (
+                        <TableRow>
+                          <TableCell
+                            colSpan={7}
+                            className="text-center text-muted-foreground py-8"
+                          >
+                            <ScanLine className="h-12 w-12 mx-auto mb-2 opacity-30" />
+                            لا توجد عناصر للمراجعة
                           </TableCell>
                         </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
+                      ) : (
+                        displayItems.map((item) => (
+                          <TableRow key={item.id}>
+                            <TableCell className="font-medium">
+                              {item.detectedName}
+                            </TableCell>
+                            <TableCell className="text-sm text-muted-foreground">
+                              {item.productName || "-"}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              {item.detectedPrice != null
+                                ? `${item.detectedPrice} ج.م`
+                                : "-"}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              {item.detectedQuantity ?? "-"}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              {confidenceBadge(item.confidence)}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              {statusBadge(item.status)}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <div className="flex items-center justify-center gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => setSelected(item)}
+                                >
+                                  <Eye className="h-4 w-4" />
+                                </Button>
+                                {item.status === "pending" && (
+                                  <>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="text-green-600"
+                                      onClick={() =>
+                                        handleAction(item.id, "approve")
+                                      }
+                                      disabled={actionLoading}
+                                    >
+                                      <CheckCircle2 className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="text-red-600"
+                                      onClick={() =>
+                                        handleAction(item.id, "reject")
+                                      }
+                                      disabled={actionLoading}
+                                    >
+                                      <XCircle className="h-4 w-4" />
+                                    </Button>
+                                  </>
+                                )}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
               </CardContent>
             </Card>
           )}
@@ -384,7 +481,10 @@ export default function OcrReviewPage() {
 
       {/* Detail Dialog */}
       <Dialog open={!!selected} onOpenChange={() => setSelected(null)}>
-        <DialogContent className="max-w-lg" dir="rtl">
+        <DialogContent
+          className="max-h-[90vh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-lg"
+          dir="rtl"
+        >
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <ScanLine className="h-5 w-5 text-blue-500" />
@@ -399,7 +499,7 @@ export default function OcrReviewPage() {
                   <Image className="h-24 w-24 text-muted-foreground/30" />
                 </div>
               )}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="bg-muted rounded-lg p-3">
                   <p className="text-xs text-muted-foreground">الاسم المكتشف</p>
                   <p className="font-medium">{selected.detectedName}</p>
@@ -425,7 +525,7 @@ export default function OcrReviewPage() {
                   </p>
                 </div>
               </div>
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-sm text-muted-foreground">
                   تاريخ المسح:{" "}
                   {new Date(selected.createdAt).toLocaleString("ar-EG")}
@@ -435,10 +535,10 @@ export default function OcrReviewPage() {
             </div>
           )}
           {selected?.status === "pending" && (
-            <DialogFooter>
+            <DialogFooter className="flex-col gap-2 sm:flex-row">
               <Button
                 variant="outline"
-                className="text-red-600"
+                className="w-full text-red-600 sm:w-auto"
                 onClick={() => handleAction(selected.id, "reject")}
                 disabled={actionLoading}
               >
@@ -446,6 +546,7 @@ export default function OcrReviewPage() {
                 رفض
               </Button>
               <Button
+                className="w-full sm:w-auto"
                 onClick={() => handleAction(selected.id, "approve")}
                 disabled={actionLoading}
               >

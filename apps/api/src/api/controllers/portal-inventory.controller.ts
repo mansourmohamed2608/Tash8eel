@@ -98,9 +98,9 @@ export class PortalInventoryController {
          ii.catalog_item_id::text as catalog_item_id,
          ii.sku,
          COALESCE(
-           NULLIF((to_jsonb(ii)->>'name'), ''),
            NULLIF(ci.name_ar, ''),
            NULLIF(ci.name_en, ''),
+           NULLIF((to_jsonb(ii)->>'name'), ''),
            ii.sku
          ) as name,
          COALESCE(vt.quantity_on_hand, 0) as stock_quantity,

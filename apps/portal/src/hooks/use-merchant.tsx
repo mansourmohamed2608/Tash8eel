@@ -38,6 +38,14 @@ interface MerchantContextType {
       voiceNotes: boolean;
       notifications: boolean;
       apiAccess: boolean;
+      cashier: boolean;
+    };
+    billing?: {
+      cashierPromoEligible: boolean;
+      cashierPromoActive: boolean;
+      cashierPromoStartsAt: string | null;
+      cashierPromoEndsAt: string | null;
+      cashierEffective: boolean;
     };
   } | null;
   refetch: () => Promise<void>;

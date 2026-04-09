@@ -97,7 +97,9 @@ interface ProofSummary {
 function resolveProofImageUrl(rawUrl?: string): string | null {
   if (!rawUrl) return null;
   if (/^https?:\/\//i.test(rawUrl) || rawUrl.startsWith("data:")) return rawUrl;
-  const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
+  const apiBase = (
+    process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"
+  ).trim();
   if (rawUrl.startsWith("/")) return `${apiBase}${rawUrl}`;
   return `${apiBase}/${rawUrl}`;
 }
@@ -250,15 +252,22 @@ export default function PaymentProofsPage() {
   const proofImageUrl = resolveProofImageUrl(selectedProof?.imageUrl);
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6 p-4 sm:p-6">
       <PageHeader
         title="إثباتات الدفع"
         description="مراجعة واعتماد إثباتات الدفع من العملاء"
         actions={
-          <Button onClick={fetchProofs} variant="outline" size="sm">
-            <RefreshCw className="h-4 w-4 ml-2" />
-            تحديث
-          </Button>
+          <div className="flex w-full sm:w-auto">
+            <Button
+              onClick={fetchProofs}
+              variant="outline"
+              size="sm"
+              className="w-full sm:w-auto"
+            >
+              <RefreshCw className="ml-2 h-4 w-4" />
+              تحديث
+            </Button>
+          </div>
         }
       />
 
@@ -274,7 +283,7 @@ export default function PaymentProofsPage() {
       />
 
       {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
@@ -332,8 +341,8 @@ export default function PaymentProofsPage() {
       {/* Filters */}
       <Card>
         <CardContent className="p-4">
-          <div className="flex items-center gap-4">
-            <div className="w-48">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+            <div className="w-full sm:w-48">
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger>
                   <SelectValue placeholder="كل الحالات" />
@@ -361,88 +370,171 @@ export default function PaymentProofsPage() {
         />
       ) : (
         <Card>
-          <DataTable
-            data={proofs}
-            columns={[
-              {
-                key: "createdAt",
-                header: "التاريخ",
-                render: (proof) => formatDate(proof.createdAt, "short"),
-              },
-              {
-                key: "orderNumber",
-                header: "الطلب",
-                render: (proof) => proof.orderNumber || proof.linkCode || "-",
-              },
-              {
-                key: "amount",
-                header: "المبلغ",
-                render: (proof) => (
-                  <div className="text-right">
-                    {proof.extractedAmount !== null &&
-                      proof.extractedAmount !== undefined && (
-                        <div>
-                          {formatCurrency(proof.extractedAmount, "EGP")}
-                        </div>
-                      )}
+          <div className="md:hidden divide-y">
+            {proofs.map((proof) => (
+              <div key={proof.id} className="space-y-4 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="space-y-1">
+                    <p className="font-medium">
+                      {proof.orderNumber || proof.linkCode || "إثبات دفع"}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {formatDate(proof.createdAt, "short")}
+                    </p>
+                  </div>
+                  {getStatusBadge(proof.status)}
+                </div>
+                <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+                  <div>
+                    <p className="text-muted-foreground">المبلغ</p>
+                    <p className="font-medium">
+                      {proof.extractedAmount !== null &&
+                      proof.extractedAmount !== undefined
+                        ? formatCurrency(proof.extractedAmount, "EGP")
+                        : "غير متاح"}
+                    </p>
                     {proof.linkAmount !== null &&
                       proof.linkAmount !== undefined &&
                       proof.extractedAmount !== proof.linkAmount && (
-                        <div className="text-xs text-muted-foreground">
+                        <p className="text-xs text-muted-foreground">
                           المتوقع: {formatCurrency(proof.linkAmount, "EGP")}
-                        </div>
+                        </p>
                       )}
                   </div>
-                ),
-              },
-              {
-                key: "ocrConfidence",
-                header: "ثقة OCR",
-                render: (proof) => getConfidenceBadge(proof.ocrConfidence),
-              },
-              {
-                key: "risk",
-                header: "Risk",
-                render: (proof) =>
-                  getRiskBadge(proof.riskLevel, proof.riskScore),
-              },
-              {
-                key: "status",
-                header: "الحالة",
-                render: (proof) => getStatusBadge(proof.status),
-              },
-              {
-                key: "actions",
-                header: "الإجراءات",
-                render: (proof) => (
-                  <div className="flex items-center gap-2">
+                  <div>
+                    <p className="text-muted-foreground">ثقة OCR</p>
+                    <div className="mt-1">
+                      {getConfidenceBadge(proof.ocrConfidence) || "غير متاح"}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">مستوى المخاطر</p>
+                    <div className="mt-1">
+                      {getRiskBadge(proof.riskLevel, proof.riskScore)}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">المرجع</p>
+                    <p className="font-mono text-xs">
+                      {proof.extractedReference ||
+                        proof.referenceNumber ||
+                        "غير متاح"}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="w-full sm:w-auto"
+                    onClick={() => {
+                      setSelectedProof(proof);
+                      setShowImageDialog(true);
+                    }}
+                  >
+                    <Eye className="ml-2 h-4 w-4" />
+                    عرض
+                  </Button>
+                  {proof.status === "PENDING" && (
                     <Button
                       size="sm"
-                      variant="ghost"
+                      className="w-full sm:w-auto"
                       onClick={() => {
                         setSelectedProof(proof);
-                        setShowImageDialog(true);
+                        setShowVerifyDialog(true);
                       }}
                     >
-                      <Eye className="h-4 w-4" />
+                      مراجعة
                     </Button>
-                    {proof.status === "PENDING" && (
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="hidden md:block">
+            <DataTable
+              data={proofs}
+              columns={[
+                {
+                  key: "createdAt",
+                  header: "التاريخ",
+                  render: (proof) => formatDate(proof.createdAt, "short"),
+                },
+                {
+                  key: "orderNumber",
+                  header: "الطلب",
+                  render: (proof) => proof.orderNumber || proof.linkCode || "-",
+                },
+                {
+                  key: "amount",
+                  header: "المبلغ",
+                  render: (proof) => (
+                    <div className="text-right">
+                      {proof.extractedAmount !== null &&
+                        proof.extractedAmount !== undefined && (
+                          <div>
+                            {formatCurrency(proof.extractedAmount, "EGP")}
+                          </div>
+                        )}
+                      {proof.linkAmount !== null &&
+                        proof.linkAmount !== undefined &&
+                        proof.extractedAmount !== proof.linkAmount && (
+                          <div className="text-xs text-muted-foreground">
+                            المتوقع: {formatCurrency(proof.linkAmount, "EGP")}
+                          </div>
+                        )}
+                    </div>
+                  ),
+                },
+                {
+                  key: "ocrConfidence",
+                  header: "ثقة OCR",
+                  render: (proof) => getConfidenceBadge(proof.ocrConfidence),
+                },
+                {
+                  key: "risk",
+                  header: "مستوى المخاطر",
+                  render: (proof) =>
+                    getRiskBadge(proof.riskLevel, proof.riskScore),
+                },
+                {
+                  key: "status",
+                  header: "الحالة",
+                  render: (proof) => getStatusBadge(proof.status),
+                },
+                {
+                  key: "actions",
+                  header: "الإجراءات",
+                  render: (proof) => (
+                    <div className="flex items-center gap-2">
                       <Button
                         size="sm"
-                        variant="outline"
+                        variant="ghost"
                         onClick={() => {
                           setSelectedProof(proof);
-                          setShowVerifyDialog(true);
+                          setShowImageDialog(true);
                         }}
                       >
-                        مراجعة
+                        <Eye className="h-4 w-4" />
                       </Button>
-                    )}
-                  </div>
-                ),
-              },
-            ]}
-          />
+                      {proof.status === "PENDING" && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setSelectedProof(proof);
+                            setShowVerifyDialog(true);
+                          }}
+                        >
+                          مراجعة
+                        </Button>
+                      )}
+                    </div>
+                  ),
+                },
+              ]}
+            />
+          </div>
           <div className="p-4 border-t">
             <Pagination
               currentPage={page}
@@ -455,7 +547,7 @@ export default function PaymentProofsPage() {
 
       {/* Image Preview Dialog */}
       <Dialog open={showImageDialog} onOpenChange={setShowImageDialog}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-h-[90vh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>عرض إثبات الدفع</DialogTitle>
           </DialogHeader>
@@ -481,7 +573,7 @@ export default function PaymentProofsPage() {
                 </div>
               )}
 
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label>المبلغ المستخرج</Label>
                   <p className="font-semibold">
@@ -513,7 +605,7 @@ export default function PaymentProofsPage() {
                   </p>
                 </div>
                 <div className="space-y-2">
-                  <Label>Risk score</Label>
+                  <Label>درجة المخاطر</Label>
                   <div>
                     {getRiskBadge(
                       selectedProof.riskLevel,
@@ -522,11 +614,11 @@ export default function PaymentProofsPage() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>Duplicate image</Label>
+                  <Label>صورة مكررة</Label>
                   <p>
                     {selectedProof.duplicateOfProofId
-                      ? `Yes (distance ${selectedProof.duplicateDistance ?? "-"})`
-                      : "No"}
+                      ? `نعم (المسافة ${selectedProof.duplicateDistance ?? "-"})`
+                      : "لا"}
                   </p>
                 </div>
               </div>
@@ -558,8 +650,12 @@ export default function PaymentProofsPage() {
                 )}
             </div>
           )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowImageDialog(false)}>
+          <DialogFooter className="flex-col-reverse gap-2 sm:flex-row">
+            <Button
+              variant="outline"
+              onClick={() => setShowImageDialog(false)}
+              className="w-full sm:w-auto"
+            >
               إغلاق
             </Button>
           </DialogFooter>
@@ -568,7 +664,7 @@ export default function PaymentProofsPage() {
 
       {/* Verify Dialog */}
       <Dialog open={showVerifyDialog} onOpenChange={setShowVerifyDialog}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>مراجعة إثبات الدفع</DialogTitle>
             <DialogDescription>
@@ -577,7 +673,7 @@ export default function PaymentProofsPage() {
           </DialogHeader>
           {selectedProof && (
             <div className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <Label>المبلغ المستخرج</Label>
                   <p className="text-lg font-semibold">
@@ -633,11 +729,12 @@ export default function PaymentProofsPage() {
               </div>
             </div>
           )}
-          <DialogFooter className="gap-2">
+          <DialogFooter className="flex-col gap-2 sm:flex-row">
             <Button
               variant="destructive"
               onClick={() => handleVerify(false)}
               disabled={verifying}
+              className="w-full sm:w-auto"
             >
               <X className="h-4 w-4 ml-2" />
               رفض
@@ -646,6 +743,7 @@ export default function PaymentProofsPage() {
               variant="default"
               onClick={() => handleVerify(true)}
               disabled={verifying}
+              className="w-full sm:w-auto"
             >
               <Check className="h-4 w-4 ml-2" />
               اعتماد

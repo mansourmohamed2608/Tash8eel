@@ -400,7 +400,9 @@ export default function AgentActivityPage() {
       <Card className="border-dashed">
         <CardContent className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <p className="font-medium">ما الفرق بين هذه الصفحة وسجل القرارات؟</p>
+            <p className="font-medium">
+              ما الفرق بين هذه الصفحة وسجل القرارات؟
+            </p>
             <p className="text-sm text-muted-foreground">
               هنا ترى ما فعله الوكلاء أو اكتشفوه عملياً. أما سجل قرارات الذكاء
               فيعرض منطق القرار نفسه ودرجة الثقة.
@@ -417,11 +419,19 @@ export default function AgentActivityPage() {
 
       {/* ─── Filter Tabs ────────────────────────────── */}
       <Tabs defaultValue="ALL" onValueChange={setFilter}>
-        <TabsList className="flex-wrap">
-          <TabsTrigger value="ALL">الكل</TabsTrigger>
-          <TabsTrigger value="OPS">العمليات</TabsTrigger>
-          <TabsTrigger value="INVENTORY">المخزون</TabsTrigger>
-          <TabsTrigger value="FINANCE">المالية</TabsTrigger>
+        <TabsList className="grid h-auto w-full grid-cols-2 gap-2 sm:w-auto sm:grid-cols-4">
+          <TabsTrigger value="ALL" className="w-full">
+            الكل
+          </TabsTrigger>
+          <TabsTrigger value="OPS" className="w-full">
+            العمليات
+          </TabsTrigger>
+          <TabsTrigger value="INVENTORY" className="w-full">
+            المخزون
+          </TabsTrigger>
+          <TabsTrigger value="FINANCE" className="w-full">
+            المالية
+          </TabsTrigger>
         </TabsList>
       </Tabs>
 

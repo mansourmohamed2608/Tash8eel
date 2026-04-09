@@ -49,7 +49,7 @@ export default function HelpCenterPage() {
 
   if (loading) {
     return (
-      <div className="space-y-6 animate-fadeIn">
+      <div className="space-y-6 animate-fadeIn p-4 sm:p-6">
         <Skeleton className="h-10 w-1/3" />
         <Skeleton className="h-4 w-1/2" />
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -65,14 +65,17 @@ export default function HelpCenterPage() {
   const summary = data?.summary ?? {};
 
   return (
-    <div className="space-y-6 animate-fadeIn">
+    <div className="space-y-6 animate-fadeIn p-4 sm:p-6">
       <PageHeader
         title="مركز المساعدة"
         description="مسارات واضحة لتجهيز النظام وتشغيله بكفاءة"
         actions={
           <Link
             href="/merchant/onboarding"
-            className={cn(buttonVariants({ variant: "outline" }))}
+            className={cn(
+              buttonVariants({ variant: "outline" }),
+              "w-full sm:w-auto",
+            )}
           >
             <LifeBuoy className="h-4 w-4" />
             العودة للبدء السريع

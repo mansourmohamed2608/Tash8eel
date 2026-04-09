@@ -917,18 +917,22 @@ export default function KnowledgeBasePage() {
   }
 
   return (
-    <div className="space-y-6 animate-fadeIn">
+    <div className="space-y-6 animate-fadeIn p-4 sm:p-6">
       <PageHeader
         title="قاعدة المعرفة"
         description="أضف المعلومات التي يستخدمها الذكاء الاصطناعي للرد على عملائك"
         actions={
-          <div className="flex items-center gap-3">
+          <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
             {lastSavedAt && (
               <span className="text-xs text-muted-foreground">
                 آخر حفظ: {new Date(lastSavedAt).toLocaleString("ar-SA")}
               </span>
             )}
-            <Button variant="outline" onClick={loadData}>
+            <Button
+              variant="outline"
+              onClick={loadData}
+              className="w-full sm:w-auto"
+            >
               <RefreshCw className="h-4 w-4 ml-2" />
               تحديث
             </Button>
@@ -1080,7 +1084,7 @@ export default function KnowledgeBasePage() {
       </Card>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
@@ -1144,16 +1148,19 @@ export default function KnowledgeBasePage() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={handleTabChange}>
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="menu" className="flex items-center gap-2">
+        <TabsList className="grid h-auto w-full grid-cols-1 gap-2 sm:grid-cols-3">
+          <TabsTrigger value="menu" className="flex w-full items-center gap-2">
             <Package className="h-4 w-4" />
             المنتجات والخدمات
           </TabsTrigger>
-          <TabsTrigger value="faqs" className="flex items-center gap-2">
+          <TabsTrigger value="faqs" className="flex w-full items-center gap-2">
             <HelpCircle className="h-4 w-4" />
             الأسئلة الشائعة
           </TabsTrigger>
-          <TabsTrigger value="business" className="flex items-center gap-2">
+          <TabsTrigger
+            value="business"
+            className="flex w-full items-center gap-2"
+          >
             <Store className="h-4 w-4" />
             معلومات النشاط
           </TabsTrigger>
@@ -1161,9 +1168,9 @@ export default function KnowledgeBasePage() {
 
         {/* ==================== MENU TAB ==================== */}
         <TabsContent value="menu" className="space-y-4">
-          <div className="flex justify-between items-center">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h3 className="text-lg font-medium">المنتجات والخدمات</h3>
-            <div className="flex items-center gap-2">
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
               <Button
                 variant="outline"
                 size="sm"
@@ -1320,8 +1327,8 @@ export default function KnowledgeBasePage() {
                   className={cn(!item.isAvailable && "opacity-60")}
                 >
                   <CardContent className="p-4">
-                    <div className="flex justify-between items-start mb-2">
-                      <div>
+                    <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="min-w-0">
                         <h4 className="font-medium">{item.name}</h4>
                         {item.nameEn && (
                           <p className="text-sm text-muted-foreground">
@@ -1340,8 +1347,8 @@ export default function KnowledgeBasePage() {
                         {item.description}
                       </p>
                     )}
-                    <div className="flex items-center justify-between">
-                      <div>
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="min-w-0">
                         <span className="text-lg font-bold text-primary">
                           {formatCurrency(item.price)}
                         </span>
@@ -1438,9 +1445,9 @@ export default function KnowledgeBasePage() {
 
         {/* ==================== FAQS TAB ==================== */}
         <TabsContent value="faqs" className="space-y-4">
-          <div className="flex justify-between items-center">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h3 className="text-lg font-medium">الأسئلة الشائعة</h3>
-            <div className="flex items-center gap-2">
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
               <Button
                 variant="outline"
                 onClick={() => openAutoFaqsDialog("both")}
@@ -1480,9 +1487,9 @@ export default function KnowledgeBasePage() {
                   className={cn(!faq.isActive && "opacity-60")}
                 >
                   <CardContent className="p-4">
-                    <div className="flex justify-between items-start">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
+                        <div className="mb-1 flex flex-wrap items-center gap-2">
                           <HelpCircle className="h-4 w-4 text-blue-500" />
                           <h4 className="font-medium">{faq.question}</h4>
                           <Badge variant="outline">{faq.category}</Badge>
@@ -1701,9 +1708,12 @@ export default function KnowledgeBasePage() {
                     close: "22:00",
                   };
                   return (
-                    <div key={dayKey} className="flex items-center gap-4">
-                      <div className="w-24 font-medium">{dayName}</div>
-                      <div className="flex items-center gap-2 flex-1">
+                    <div
+                      key={dayKey}
+                      className="flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-center"
+                    >
+                      <div className="font-medium sm:w-24">{dayName}</div>
+                      <div className="flex flex-col gap-2 sm:flex-1 sm:flex-row sm:items-center">
                         <Input
                           type="time"
                           value={hours.open}
@@ -1716,10 +1726,12 @@ export default function KnowledgeBasePage() {
                               },
                             }))
                           }
-                          className="w-32"
+                          className="w-full sm:w-32"
                           disabled={hours.closed}
                         />
-                        <span className="text-muted-foreground">إلى</span>
+                        <span className="text-muted-foreground sm:block">
+                          إلى
+                        </span>
                         <Input
                           type="time"
                           value={hours.close}
@@ -1732,7 +1744,7 @@ export default function KnowledgeBasePage() {
                               },
                             }))
                           }
-                          className="w-32"
+                          className="w-full sm:w-32"
                           disabled={hours.closed}
                         />
                         <label className="flex items-center gap-2 text-sm">
@@ -1933,7 +1945,7 @@ export default function KnowledgeBasePage() {
 
           {/* Offers */}
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
+            <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <CardTitle className="flex items-center gap-2">
                   <Sparkles className="h-5 w-5" />
@@ -1943,7 +1955,10 @@ export default function KnowledgeBasePage() {
                   عروضك الحالية التي سيعرضها المساعد للعملاء
                 </CardDescription>
               </div>
-              <Button onClick={() => setShowOfferDialog(true)}>
+              <Button
+                onClick={() => setShowOfferDialog(true)}
+                className="w-full sm:w-auto"
+              >
                 <Plus className="h-4 w-4 ml-2" />
                 إضافة عرض
               </Button>
@@ -1975,8 +1990,8 @@ export default function KnowledgeBasePage() {
                     return (
                       <Card key={offer.id}>
                         <CardContent className="p-4 space-y-2">
-                          <div className="flex items-center justify-between">
-                            <div>
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                            <div className="min-w-0">
                               <h4 className="font-medium">
                                 {offer.nameAr || offer.name}
                               </h4>
@@ -2023,6 +2038,7 @@ export default function KnowledgeBasePage() {
               onClick={handleSaveBusinessInfo}
               disabled={!canEdit || saving}
               size="lg"
+              className="w-full sm:w-auto"
             >
               {saving ? "جاري الحفظ..." : "حفظ معلومات النشاط"}
             </Button>
@@ -2032,7 +2048,7 @@ export default function KnowledgeBasePage() {
 
       {/* ==================== OFFER DIALOG ==================== */}
       <Dialog open={showOfferDialog} onOpenChange={setShowOfferDialog}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-h-[90vh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>إضافة عرض ترويجي</DialogTitle>
             <DialogDescription>
@@ -2146,11 +2162,19 @@ export default function KnowledgeBasePage() {
               </div>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowOfferDialog(false)}>
+          <DialogFooter className="flex-col-reverse gap-2 sm:flex-row">
+            <Button
+              variant="outline"
+              onClick={() => setShowOfferDialog(false)}
+              className="w-full sm:w-auto"
+            >
               إلغاء
             </Button>
-            <Button onClick={handleCreateOffer} disabled={savingOffer}>
+            <Button
+              onClick={handleCreateOffer}
+              disabled={savingOffer}
+              className="w-full sm:w-auto"
+            >
               {savingOffer ? "جاري الحفظ..." : "إضافة العرض"}
             </Button>
           </DialogFooter>
@@ -2159,7 +2183,7 @@ export default function KnowledgeBasePage() {
 
       {/* ==================== DELETE CONFIRMATIONS ==================== */}
       <Dialog open={showAutoFaqDialog} onOpenChange={setShowAutoFaqDialog}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-xl">
           <DialogHeader>
             <DialogTitle>توليد أسئلة من المنتجات والسياسات</DialogTitle>
             <DialogDescription>
@@ -2237,16 +2261,18 @@ export default function KnowledgeBasePage() {
               </div>
             </div>
           )}
-          <DialogFooter>
+          <DialogFooter className="flex-col-reverse gap-2 sm:flex-row">
             <Button
               variant="outline"
               onClick={() => setShowAutoFaqDialog(false)}
+              className="w-full sm:w-auto"
             >
               إلغاء
             </Button>
             <Button
               onClick={handleApplyAutoFaqs}
               disabled={!canCreate || saving || autoFaqs.length === 0}
+              className="w-full sm:w-auto"
             >
               {saving ? "جاري الإنشاء..." : "تأكيد الإنشاء"}
             </Button>
@@ -2258,7 +2284,7 @@ export default function KnowledgeBasePage() {
         open={!!menuItemToDelete}
         onOpenChange={(open) => !open && setMenuItemToDelete(null)}
       >
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-md">
           <DialogHeader>
             <DialogTitle>حذف المنتج/الخدمة</DialogTitle>
           </DialogHeader>
@@ -2266,14 +2292,19 @@ export default function KnowledgeBasePage() {
             هل أنت متأكد من حذف "{menuItemToDelete?.name}"؟ لا يمكن التراجع عن
             هذا الإجراء.
           </p>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setMenuItemToDelete(null)}>
+          <DialogFooter className="flex-col-reverse gap-2 sm:flex-row">
+            <Button
+              variant="outline"
+              onClick={() => setMenuItemToDelete(null)}
+              className="w-full sm:w-auto"
+            >
               إلغاء
             </Button>
             <Button
               variant="destructive"
               onClick={handleDeleteMenuItem}
               disabled={!canDelete}
+              className="w-full sm:w-auto"
             >
               حذف
             </Button>
@@ -2285,7 +2316,7 @@ export default function KnowledgeBasePage() {
         open={!!faqToDelete}
         onOpenChange={(open) => !open && setFaqToDelete(null)}
       >
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-md">
           <DialogHeader>
             <DialogTitle>حذف السؤال</DialogTitle>
           </DialogHeader>
@@ -2293,14 +2324,19 @@ export default function KnowledgeBasePage() {
             هل أنت متأكد من حذف "{faqToDelete?.question}"؟ لا يمكن التراجع عن
             هذا الإجراء.
           </p>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setFaqToDelete(null)}>
+          <DialogFooter className="flex-col-reverse gap-2 sm:flex-row">
+            <Button
+              variant="outline"
+              onClick={() => setFaqToDelete(null)}
+              className="w-full sm:w-auto"
+            >
               إلغاء
             </Button>
             <Button
               variant="destructive"
               onClick={handleDeleteFAQ}
               disabled={!canDelete}
+              className="w-full sm:w-auto"
             >
               حذف
             </Button>
@@ -2310,7 +2346,7 @@ export default function KnowledgeBasePage() {
 
       {/* ==================== MENU ITEM DIALOG ==================== */}
       <Dialog open={showMenuDialog} onOpenChange={setShowMenuDialog}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-xl">
           <DialogHeader>
             <DialogTitle>
               {editingMenuItem ? "تعديل المنتج/الخدمة" : "إضافة منتج/خدمة جديد"}
@@ -2362,7 +2398,7 @@ export default function KnowledgeBasePage() {
                 rows={2}
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <label className="text-sm font-medium">السعر *</label>
                 <Input
@@ -2409,13 +2445,18 @@ export default function KnowledgeBasePage() {
               <label className="text-sm font-medium">متاح للبيع</label>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowMenuDialog(false)}>
+          <DialogFooter className="flex-col-reverse gap-2 sm:flex-row">
+            <Button
+              variant="outline"
+              onClick={() => setShowMenuDialog(false)}
+              className="w-full sm:w-auto"
+            >
               إلغاء
             </Button>
             <Button
               onClick={handleSaveMenuItem}
               disabled={!canEdit || saving || !menuFormData.name}
+              className="w-full sm:w-auto"
             >
               {saving
                 ? "جاري الحفظ..."
@@ -2429,7 +2470,7 @@ export default function KnowledgeBasePage() {
 
       {/* ==================== FAQ DIALOG ==================== */}
       <Dialog open={showFAQDialog} onOpenChange={setShowFAQDialog}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-xl">
           <DialogHeader>
             <DialogTitle>
               {editingFAQ ? "تعديل السؤال" : "إضافة سؤال جديد"}
@@ -2467,7 +2508,7 @@ export default function KnowledgeBasePage() {
                 rows={4}
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <label className="text-sm font-medium">التصنيف</label>
                 <Select
@@ -2499,8 +2540,12 @@ export default function KnowledgeBasePage() {
               </div>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowFAQDialog(false)}>
+          <DialogFooter className="flex-col-reverse gap-2 sm:flex-row">
+            <Button
+              variant="outline"
+              onClick={() => setShowFAQDialog(false)}
+              className="w-full sm:w-auto"
+            >
               إلغاء
             </Button>
             <Button
@@ -2511,6 +2556,7 @@ export default function KnowledgeBasePage() {
                 !faqFormData.question ||
                 !faqFormData.answer
               }
+              className="w-full sm:w-auto"
             >
               {saving
                 ? "جاري الحفظ..."

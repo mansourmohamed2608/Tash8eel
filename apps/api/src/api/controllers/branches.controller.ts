@@ -34,6 +34,8 @@ import {
 } from "../../shared/guards/entitlement.guard";
 import { DATABASE_POOL } from "../../infrastructure/database/database.module";
 import { MerchantId } from "../../shared/decorators/merchant-id.decorator";
+import { normalizeDisplayProductName } from "../../shared/utils/product-display";
+import { CommerceFactsService } from "../../application/services/commerce-facts.service";
 
 // ============================================================================
 // HELPERS
@@ -135,7 +137,10 @@ function hasNormalizedNameOverlap(a: Set<string>, b: Set<string>): boolean {
 export class BranchesController {
   private readonly logger = new Logger(BranchesController.name);
 
-  constructor(@Inject(DATABASE_POOL) private readonly pool: Pool) {}
+  constructor(
+    @Inject(DATABASE_POOL) private readonly pool: Pool,
+    private readonly commerceFactsService: CommerceFactsService,
+  ) {}
 
   // ------------------------------------------------------------------
   // LIST branches
@@ -426,7 +431,10 @@ export class BranchesController {
 export class BranchAnalyticsController {
   private readonly logger = new Logger(BranchAnalyticsController.name);
 
-  constructor(@Inject(DATABASE_POOL) private readonly pool: Pool) {}
+  constructor(
+    @Inject(DATABASE_POOL) private readonly pool: Pool,
+    private readonly commerceFactsService: CommerceFactsService,
+  ) {}
 
   // Detect which column holds the order amount
   private orderAmountExpr(alias: string): string {
@@ -436,6 +444,26 @@ export class BranchAnalyticsController {
       NULLIF(CASE WHEN ${totalAmountTxt} ~ '^-?[0-9]+(\\.[0-9]+)?$' THEN (${totalAmountTxt})::numeric ELSE NULL END, 0),
       NULLIF(CASE WHEN ${totalTxt} ~ '^-?[0-9]+(\\.[0-9]+)?$' THEN (${totalTxt})::numeric ELSE NULL END, 0),
       0
+    )`;
+  }
+
+  private paidOrderAmountExpr(orderAlias = "o", paidAlias = "paid"): string {
+    const amountExpr = this.orderAmountExpr(orderAlias);
+    return `LEAST(
+      ${amountExpr},
+      GREATEST(
+        COALESCE(
+          ${paidAlias}.total_paid,
+          CASE
+            WHEN UPPER(
+              COALESCE(NULLIF(to_jsonb(${orderAlias})->>'payment_status', ''), 'PENDING')
+            ) = 'PAID'
+            THEN ${amountExpr}
+            ELSE 0
+          END
+        ),
+        0
+      )
     )`;
   }
 
@@ -457,61 +485,65 @@ export class BranchAnalyticsController {
     @Query("days") daysStr?: string,
   ) {
     const days = parseIntParam(daysStr, 30);
-    const amtExpr = this.orderAmountExpr("o");
-    const expDateExpr = expenseDateExpr("e");
-    const branchFilter = branchId === "all" ? "" : "AND o.branch_id = $2";
-    const params: unknown[] =
-      branchId === "all" ? [merchantId] : [merchantId, branchId];
+    const now = new Date();
+    const periodStart = new Date(now);
+    periodStart.setUTCDate(periodStart.getUTCDate() - (days - 1));
+    periodStart.setUTCHours(0, 0, 0, 0);
+    const previousEnd = new Date(periodStart.getTime() - 1);
+    const previousStart = new Date(previousEnd);
+    previousStart.setUTCDate(previousStart.getUTCDate() - (days - 1));
+    previousStart.setUTCHours(0, 0, 0, 0);
 
-    const ordersResult = await this.pool.query(
-      `SELECT
-         COUNT(*) FILTER (WHERE o.status::text NOT IN ('CANCELLED','DRAFT')) AS total_orders,
-         COALESCE(SUM(${amtExpr}) FILTER (WHERE o.status::text IN ('DELIVERED','COMPLETED')), 0) AS revenue,
-         COALESCE(AVG(${amtExpr}) FILTER (WHERE o.status::text IN ('DELIVERED','COMPLETED')), 0) AS avg_order_value,
-         COUNT(*) FILTER (WHERE o.status::text IN ('DELIVERED','COMPLETED')) AS completed_orders,
-         COUNT(*) FILTER (WHERE o.status::text = 'CANCELLED') AS cancelled_orders,
-         COALESCE(SUM(COALESCE(o.delivery_fee,0)) FILTER (WHERE o.status::text IN ('DELIVERED','COMPLETED')), 0) AS delivery_fees,
-         COALESCE(SUM(COALESCE(o.discount,0)) FILTER (WHERE o.status::text IN ('DELIVERED','COMPLETED')), 0) AS discounts_given
-       FROM orders o
-       WHERE o.merchant_id = $1
-         ${branchFilter}
-         AND o.created_at >= NOW() - ($${params.length + 1}::int || ' days')::interval`,
-      [...params, days],
-    );
+    const branchScope = branchId === "all" ? undefined : branchId;
+    const [currentSummary, previousSummary, extrasResult] = await Promise.all([
+      branchScope
+        ? this.commerceFactsService.buildBranchFinanceSummary(
+            merchantId,
+            branchScope,
+            periodStart,
+            now,
+          )
+        : this.commerceFactsService.buildFinanceSummary(
+            merchantId,
+            periodStart,
+            now,
+          ),
+      branchScope
+        ? this.commerceFactsService.buildBranchFinanceSummary(
+            merchantId,
+            branchScope,
+            previousStart,
+            previousEnd,
+          )
+        : this.commerceFactsService.buildFinanceSummary(
+            merchantId,
+            previousStart,
+            previousEnd,
+          ),
+      this.pool.query(
+        `SELECT
+           COALESCE(SUM(COALESCE(o.delivery_fee,0)) FILTER (
+             WHERE o.status::text NOT IN ('CANCELLED','DRAFT','FAILED','RETURNED')
+           ), 0) AS delivery_fees,
+           COALESCE(SUM(COALESCE(o.discount,0)) FILTER (
+             WHERE o.status::text NOT IN ('CANCELLED','DRAFT','FAILED','RETURNED')
+           ), 0) AS discounts_given
+         FROM orders o
+         WHERE o.merchant_id = $1
+           ${branchScope ? `AND o.branch_id = $2` : ""}
+           AND o.created_at >= $${branchScope ? 3 : 2}
+           AND o.created_at <= $${branchScope ? 4 : 3}`,
+        branchScope
+          ? [merchantId, branchScope, periodStart, now]
+          : [merchantId, periodStart, now],
+      ),
+    ]);
 
-    // Previous period for trend
-    const prevResult = await this.pool.query(
-      `SELECT
-         COALESCE(SUM(${amtExpr}), 0) AS revenue,
-         COUNT(*) AS orders
-       FROM orders o
-       WHERE o.merchant_id = $1
-         ${branchFilter}
-         AND o.status::text IN ('DELIVERED','COMPLETED')
-         AND o.created_at >= NOW() - ($${params.length + 1}::int * 2 || ' days')::interval
-         AND o.created_at <  NOW() - ($${params.length + 1}::int || ' days')::interval`,
-      [...params, days],
-    );
-
-    // Expenses for the period
-    const expBranchFilter = branchId === "all" ? "" : "AND e.branch_id = $2";
-    const expParams: unknown[] =
-      branchId === "all" ? [merchantId] : [merchantId, branchId];
-    const expResult = await this.pool.query(
-      `SELECT COALESCE(SUM(e.amount), 0) AS total_expenses
-       FROM expenses e
-       WHERE e.merchant_id = $1
-         ${expBranchFilter}
-         AND ${expDateExpr} >= (CURRENT_DATE - ($${expParams.length + 1} || ' days')::interval)`,
-      [...expParams, days],
-    );
-
-    const r = ordersResult.rows[0];
-    const prev = prevResult.rows[0];
-    const revenue = round2(pn(r.revenue));
-    const prevRevenue = round2(pn(prev.revenue));
-    const totalExpenses = round2(pn(expResult.rows[0].total_expenses));
-    const netProfit = round2(revenue - totalExpenses);
+    const extras = extrasResult.rows[0] ?? {};
+    const revenue = currentSummary.realizedRevenue;
+    const prevRevenue = previousSummary.realizedRevenue;
+    const totalExpenses = currentSummary.totalExpenses;
+    const netProfit = currentSummary.netCashFlow;
     const revenueChange =
       prevRevenue > 0
         ? round2(((revenue - prevRevenue) / prevRevenue) * 100)
@@ -521,13 +553,19 @@ export class BranchAnalyticsController {
       branchId,
       periodDays: days,
       revenue,
+      realizedRevenue: revenue,
+      bookedSales: currentSummary.bookedSales,
+      deliveredRevenue: currentSummary.deliveredRevenue,
+      pendingCollections: currentSummary.pendingCollections,
+      refundsAmount: currentSummary.refundsAmount,
+      netCashFlow: currentSummary.netCashFlow,
       revenueChange,
-      totalOrders: pi(r.total_orders),
-      completedOrders: pi(r.completed_orders),
-      cancelledOrders: pi(r.cancelled_orders),
-      avgOrderValue: round2(pn(r.avg_order_value)),
-      deliveryFeesCollected: round2(pn(r.delivery_fees)),
-      discountsGiven: round2(pn(r.discounts_given)),
+      totalOrders: currentSummary.totalOrders,
+      completedOrders: currentSummary.deliveredOrders,
+      cancelledOrders: currentSummary.cancelledOrders,
+      avgOrderValue: currentSummary.averageOrderValue,
+      deliveryFeesCollected: round2(pn(extras.delivery_fees)),
+      discountsGiven: round2(pn(extras.discounts_given)),
       totalExpenses,
       netProfit,
       margin: revenue > 0 ? round2((netProfit / revenue) * 100) : 0,
@@ -547,19 +585,31 @@ export class BranchAnalyticsController {
     @Query("days") daysStr?: string,
   ) {
     const days = parseIntParam(daysStr, 30);
-    const amtExpr = this.orderAmountExpr("o");
+    const paidAmountExpr = this.paidOrderAmountExpr("o", "paid");
     const branchFilter = branchId === "all" ? "" : "AND o.branch_id = $2";
     const params: unknown[] =
       branchId === "all" ? [merchantId] : [merchantId, branchId];
 
     const result = await this.pool.query(
       `SELECT DATE(o.created_at) AS date,
-              COALESCE(SUM(${amtExpr}), 0) AS revenue,
-              COUNT(*) AS orders
+              COALESCE(SUM(${paidAmountExpr}), 0) AS revenue,
+              COUNT(*) FILTER (WHERE o.status::text NOT IN ('CANCELLED','DRAFT','FAILED','RETURNED')) AS orders
        FROM orders o
+       LEFT JOIN (
+         SELECT
+           order_id,
+           COALESCE(
+             SUM(amount) FILTER (
+               WHERE UPPER(COALESCE(status, 'PAID')) = 'PAID'
+             ),
+             0
+           ) AS total_paid
+         FROM order_payments
+         WHERE merchant_id = $1
+         GROUP BY order_id
+       ) paid ON paid.order_id = o.id
        WHERE o.merchant_id = $1
          ${branchFilter}
-         AND o.status::text IN ('DELIVERED','COMPLETED')
          AND o.created_at >= NOW() - ($${params.length + 1} || ' days')::interval
        GROUP BY DATE(o.created_at)
        ORDER BY date ASC`,
@@ -588,7 +638,7 @@ export class BranchAnalyticsController {
     @Query("days") daysStr?: string,
   ) {
     const days = parseIntParam(daysStr, 30);
-    const amtExpr = this.orderAmountExpr("o");
+    const paidAmountExpr = this.paidOrderAmountExpr("o", "paid");
     const expDateExpr = expenseDateExpr("e");
     const orderBranchExpr = branchIdTextExpr("o");
     const expenseBranchExpr = branchIdTextExpr("e");
@@ -626,13 +676,26 @@ export class BranchAnalyticsController {
       const statsResult = await this.pool.query(
         `SELECT
            ${orderBranchExpr} AS branch_id,
-           COALESCE(SUM(${amtExpr}), 0) AS revenue,
+           COALESCE(SUM(${paidAmountExpr}), 0) AS revenue,
            COUNT(*) FILTER (WHERE o.status::text NOT IN ('CANCELLED','DRAFT')) AS total_orders,
            COUNT(*) FILTER (WHERE o.status::text IN ('DELIVERED','COMPLETED')) AS completed_orders,
-           COALESCE(AVG(${amtExpr}) FILTER (WHERE o.status::text IN ('DELIVERED','COMPLETED')), 0) AS aov
+           COALESCE(AVG(NULLIF(${paidAmountExpr}, 0)) FILTER (WHERE ${paidAmountExpr} > 0), 0) AS aov
          FROM orders o
+         LEFT JOIN (
+           SELECT
+             order_id,
+             COALESCE(
+               SUM(amount) FILTER (
+                 WHERE UPPER(COALESCE(status, 'PAID')) = 'PAID'
+               ),
+               0
+             ) AS total_paid
+           FROM order_payments
+           WHERE merchant_id = $1
+           GROUP BY order_id
+         ) paid ON paid.order_id = o.id
          WHERE o.merchant_id = $1
-           AND o.status::text IN ('DELIVERED','COMPLETED')
+           AND o.status::text NOT IN ('CANCELLED','DRAFT','FAILED','RETURNED')
            AND o.created_at >= NOW() - ($2 || ' days')::interval
          GROUP BY 1`,
         [merchantId, days],
@@ -732,6 +795,7 @@ export class BranchAnalyticsController {
     return {
       periodDays: days,
       totalRevenue: round2(totalRevenue),
+      realizedRevenue: round2(totalRevenue),
       branches: comparisons.map((b) => ({
         ...b,
         revenuePct:
@@ -762,7 +826,8 @@ export class BranchAnalyticsController {
 
     const result = await this.pool.query(
       `SELECT
-         COALESCE(NULLIF(item->>'name', ''), NULLIF(item->>'productName', ''), 'منتج') AS name,
+         COALESCE(NULLIF(item->>'name', ''), NULLIF(item->>'productName', ''), '') AS raw_name,
+         COALESCE(NULLIF(item->>'sku', ''), NULLIF(item->>'productId', ''), NULLIF(item->>'product_id', ''), '') AS fallback_code,
          SUM(
            COALESCE(NULLIF(item->>'price', '')::decimal, NULLIF(item->>'unitPrice', '')::decimal, 0)
            * COALESCE(NULLIF(item->>'quantity', '')::int, NULLIF(item->>'qty', '')::int, 1)
@@ -773,7 +838,7 @@ export class BranchAnalyticsController {
          ${branchFilter}
          AND o.status::text IN ('DELIVERED','COMPLETED')
          AND o.created_at >= NOW() - ($${params.length + 1} || ' days')::interval
-       GROUP BY 1
+       GROUP BY 1, 2
        ORDER BY revenue DESC
        LIMIT $${params.length + 2}`,
       [...params, days, limit],
@@ -783,7 +848,10 @@ export class BranchAnalyticsController {
       branchId,
       periodDays: days,
       products: result.rows.map((r: any) => ({
-        name: r.name,
+        name: normalizeDisplayProductName(
+          r.raw_name,
+          r.fallback_code || "منتج",
+        ),
         revenue: round2(pn(r.revenue)),
         quantity: pi(r.qty),
       })),

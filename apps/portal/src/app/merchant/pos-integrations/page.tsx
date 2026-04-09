@@ -464,13 +464,14 @@ export default function PosIntegrationsPage() {
   const connectedProviders = integrations.map((i) => i.provider);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-4 sm:p-6">
       <PageHeader
         title="تكاملات أنظمة نقاط البيع (POS)"
         description="اربط نظام نقاط البيع الخاص بك لمزامنة الطلبات والمنتجات تلقائياً"
         actions={
           <Button
             variant="outline"
+            className="w-full sm:w-auto"
             onClick={fetchIntegrations}
             disabled={loading}
           >
@@ -498,9 +499,9 @@ export default function PosIntegrationsPage() {
                 return (
                   <div
                     key={integration.id}
-                    className="flex items-center justify-between p-4 border rounded-lg"
+                    className="flex flex-col gap-4 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between"
                   >
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-start gap-3 sm:items-center">
                       <span className="text-2xl">{provider?.logo || "⚙️"}</span>
                       <div>
                         <h4 className="font-medium">{integration.name}</h4>
@@ -518,7 +519,7 @@ export default function PosIntegrationsPage() {
                         </p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                       <Badge
                         variant={
                           integration.status === "ACTIVE"
@@ -542,6 +543,7 @@ export default function PosIntegrationsPage() {
                       <Button
                         variant="outline"
                         size="sm"
+                        className="w-full sm:w-auto"
                         onClick={() => handleTestConnection(integration.id)}
                         disabled={testing === integration.id}
                       >
@@ -555,7 +557,7 @@ export default function PosIntegrationsPage() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="text-red-500"
+                        className="text-red-500 self-start sm:self-auto"
                         onClick={() => handleDelete(integration)}
                       >
                         <Trash2 className="h-4 w-4" />
@@ -691,7 +693,7 @@ export default function PosIntegrationsPage() {
               </p>
             </div>
           </div>
-          <div className="grid gap-4 md:grid-cols-4 pt-2">
+          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 pt-2">
             <div className="text-center p-3 bg-white rounded-lg border">
               <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center mx-auto mb-2">
                 <Link2 className="h-5 w-5 text-blue-600" />
@@ -734,7 +736,7 @@ export default function PosIntegrationsPage() {
 
       {/* Setup Dialog */}
       <Dialog open={isSetupOpen} onOpenChange={setIsSetupOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-h-[90vh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <span className="text-2xl">{selectedProvider?.logo}</span>
@@ -783,11 +785,19 @@ export default function PosIntegrationsPage() {
             </div>
           </div>
 
-          <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setIsSetupOpen(false)}>
+          <DialogFooter className="gap-2 flex-col sm:flex-row">
+            <Button
+              variant="outline"
+              className="w-full sm:w-auto"
+              onClick={() => setIsSetupOpen(false)}
+            >
               إلغاء
             </Button>
-            <Button onClick={handleSave} disabled={saving}>
+            <Button
+              className="w-full sm:w-auto"
+              onClick={handleSave}
+              disabled={saving}
+            >
               {saving ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (

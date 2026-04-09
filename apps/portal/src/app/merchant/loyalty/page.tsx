@@ -377,7 +377,7 @@ export default function LoyaltyPage() {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="container mx-auto space-y-6 p-4 sm:p-6">
       <PageHeader
         title="برنامج الولاء"
         titleEn="Loyalty Program"
@@ -406,20 +406,29 @@ export default function LoyaltyPage() {
       )}
 
       <Tabs value={activeTab} onValueChange={handleTabChange}>
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="overview" className="flex items-center gap-2">
+        <TabsList className="grid h-auto w-full grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
+          <TabsTrigger
+            value="overview"
+            className="flex w-full items-center gap-2"
+          >
             <TrendingUp className="w-4 h-4" />
             نظرة عامة
           </TabsTrigger>
-          <TabsTrigger value="tiers" className="flex items-center gap-2">
+          <TabsTrigger value="tiers" className="flex w-full items-center gap-2">
             <Crown className="w-4 h-4" />
             المستويات
           </TabsTrigger>
-          <TabsTrigger value="promotions" className="flex items-center gap-2">
+          <TabsTrigger
+            value="promotions"
+            className="flex w-full items-center gap-2"
+          >
             <Ticket className="w-4 h-4" />
             العروض
           </TabsTrigger>
-          <TabsTrigger value="members" className="flex items-center gap-2">
+          <TabsTrigger
+            value="members"
+            className="flex w-full items-center gap-2"
+          >
             <Users className="w-4 h-4" />
             الأعضاء
           </TabsTrigger>
@@ -427,7 +436,7 @@ export default function LoyaltyPage() {
 
         {/* Overview Tab */}
         <TabsContent value="overview" className="space-y-6">
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">
@@ -504,8 +513,11 @@ export default function LoyaltyPage() {
             <CardContent>
               <div className="space-y-4">
                 {stats?.tierDistribution?.map((tier) => (
-                  <div key={tier.tier} className="flex items-center gap-4">
-                    <div className="w-24 font-medium">
+                  <div
+                    key={tier.tier}
+                    className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4"
+                  >
+                    <div className="w-full font-medium sm:w-24">
                       {localizeTierName(tier.tier)}
                     </div>
                     <div className="flex-1 h-4 bg-secondary rounded-full overflow-hidden">
@@ -516,7 +528,7 @@ export default function LoyaltyPage() {
                         }}
                       />
                     </div>
-                    <div className="w-16 text-right text-muted-foreground">
+                    <div className="w-full text-right text-muted-foreground sm:w-16">
                       {tier.count}
                     </div>
                   </div>
@@ -528,7 +540,7 @@ export default function LoyaltyPage() {
 
         {/* Tiers Tab */}
         <TabsContent value="tiers" className="space-y-6">
-          <div className="flex justify-between items-center">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="text-lg font-semibold">مستويات الولاء</h2>
             <Dialog open={showTierDialog} onOpenChange={setShowTierDialog}>
               <DialogTrigger asChild>
@@ -537,7 +549,7 @@ export default function LoyaltyPage() {
                   إضافة مستوى
                 </Button>
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent className="max-h-[90vh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-lg">
                 <DialogHeader>
                   <DialogTitle>إضافة مستوى جديد</DialogTitle>
                   <DialogDescription>
@@ -545,7 +557,7 @@ export default function LoyaltyPage() {
                   </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
                       <Label>الاسم (English)</Label>
                       <Input
@@ -567,7 +579,7 @@ export default function LoyaltyPage() {
                       />
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
                       <Label>الحد الأدنى من النقاط</Label>
                       <Input
@@ -608,14 +620,19 @@ export default function LoyaltyPage() {
                     />
                   </div>
                 </div>
-                <DialogFooter>
+                <DialogFooter className="flex-col-reverse gap-2 sm:flex-row">
                   <Button
                     variant="outline"
                     onClick={() => setShowTierDialog(false)}
+                    className="w-full sm:w-auto"
                   >
                     إلغاء
                   </Button>
-                  <Button onClick={handleCreateTier} disabled={!canCreate}>
+                  <Button
+                    onClick={handleCreateTier}
+                    disabled={!canCreate}
+                    className="w-full sm:w-auto"
+                  >
                     إضافة
                   </Button>
                 </DialogFooter>
@@ -623,11 +640,11 @@ export default function LoyaltyPage() {
             </Dialog>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
             {tiers.map((tier) => (
               <Card key={tier.id} className={tier.isActive ? "" : "opacity-60"}>
                 <CardHeader>
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <CardTitle className="flex items-center gap-2">
                       <Crown className="w-5 h-5 text-primary" />
                       {tier.nameAr}
@@ -639,7 +656,7 @@ export default function LoyaltyPage() {
                   <CardDescription>{tier.name}</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
                     <div>
                       <span className="text-muted-foreground">
                         الحد الأدنى:
@@ -679,7 +696,7 @@ export default function LoyaltyPage() {
 
         {/* Promotions Tab */}
         <TabsContent value="promotions" className="space-y-6">
-          <div className="flex justify-between items-center">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="text-lg font-semibold">العروض الترويجية</h2>
             <Dialog open={showPromoDialog} onOpenChange={setShowPromoDialog}>
               <DialogTrigger asChild>
@@ -688,13 +705,13 @@ export default function LoyaltyPage() {
                   إضافة عرض
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-lg">
+              <DialogContent className="max-h-[90vh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-lg">
                 <DialogHeader>
                   <DialogTitle>إضافة عرض ترويجي</DialogTitle>
                   <DialogDescription>أنشئ كود خصم جديد</DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
                       <Label>كود الخصم</Label>
                       <Input
@@ -734,7 +751,7 @@ export default function LoyaltyPage() {
                       </Select>
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
                       <Label>الاسم (English)</Label>
                       <Input
@@ -756,7 +773,7 @@ export default function LoyaltyPage() {
                       />
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
                       <Label>
                         قيمة الخصم{" "}
@@ -788,7 +805,7 @@ export default function LoyaltyPage() {
                       />
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
                       <Label>الحد الأدنى للطلب (EGP)</Label>
                       <Input
@@ -829,14 +846,19 @@ export default function LoyaltyPage() {
                     />
                   </div>
                 </div>
-                <DialogFooter>
+                <DialogFooter className="flex-col-reverse gap-2 sm:flex-row">
                   <Button
                     variant="outline"
                     onClick={() => setShowPromoDialog(false)}
+                    className="w-full sm:w-auto"
                   >
                     إلغاء
                   </Button>
-                  <Button onClick={handleCreatePromo} disabled={!canCreate}>
+                  <Button
+                    onClick={handleCreatePromo}
+                    disabled={!canCreate}
+                    className="w-full sm:w-auto"
+                  >
                     إضافة
                   </Button>
                 </DialogFooter>
@@ -845,78 +867,147 @@ export default function LoyaltyPage() {
           </div>
 
           <Card>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>الكود</TableHead>
-                  <TableHead>الاسم</TableHead>
-                  <TableHead>النوع</TableHead>
-                  <TableHead>الخصم</TableHead>
-                  <TableHead>الاستخدام</TableHead>
-                  <TableHead>الحالة</TableHead>
-                  <TableHead>الإجراءات</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {promotions.map((promo) => (
-                  <TableRow key={promo.id}>
-                    <TableCell className="font-mono font-bold">
-                      {promo.code}
-                    </TableCell>
-                    <TableCell>{promo.nameAr}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline">
-                        {promo.type === "PERCENTAGE" && (
-                          <Percent className="w-3 h-3 mr-1" />
-                        )}
-                        {promo.type === "PERCENTAGE"
-                          ? "نسبة"
-                          : promo.type === "FIXED_AMOUNT"
-                            ? "ثابت"
-                            : promo.type === "FREE_SHIPPING"
-                              ? "شحن مجاني"
-                              : "عرض"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {promo.type === "PERCENTAGE"
-                        ? `${promo.discountValue}%`
-                        : promo.type === "FIXED_AMOUNT"
-                          ? `${promo.discountValue} EGP`
-                          : "-"}
-                    </TableCell>
-                    <TableCell>
-                      {promo.usageCount}
-                      {promo.maxUsageTotal && ` / ${promo.maxUsageTotal}`}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={promo.isActive ? "default" : "secondary"}>
-                        {promo.isActive ? "نشط" : "منتهي"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Switch
-                        checked={promo.isActive}
-                        onCheckedChange={() =>
-                          handleTogglePromo(promo.id, promo.isActive)
-                        }
-                        disabled={!canEdit}
-                      />
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {promotions.length === 0 && (
-                  <TableRow>
-                    <TableCell
-                      colSpan={7}
-                      className="text-center py-8 text-muted-foreground"
-                    >
-                      لا توجد عروض ترويجية
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
+            <CardContent className="p-4 sm:p-6">
+              {promotions.length === 0 ? (
+                <div className="py-8 text-center text-muted-foreground">
+                  لا توجد عروض ترويجية
+                </div>
+              ) : (
+                <>
+                  <div className="space-y-4 md:hidden">
+                    {promotions.map((promo) => (
+                      <div key={promo.id} className="rounded-lg border p-4">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                          <div>
+                            <div className="font-semibold">{promo.nameAr}</div>
+                            <div className="font-mono text-xs text-muted-foreground">
+                              {promo.code}
+                            </div>
+                          </div>
+                          <Badge
+                            variant={promo.isActive ? "default" : "secondary"}
+                          >
+                            {promo.isActive ? "نشط" : "منتهي"}
+                          </Badge>
+                        </div>
+                        <div className="mt-3 grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
+                          <div>
+                            <span className="text-muted-foreground">
+                              النوع:
+                            </span>{" "}
+                            {promo.type === "PERCENTAGE"
+                              ? "نسبة"
+                              : promo.type === "FIXED_AMOUNT"
+                                ? "ثابت"
+                                : promo.type === "FREE_SHIPPING"
+                                  ? "شحن مجاني"
+                                  : "عرض"}
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">
+                              الخصم:
+                            </span>{" "}
+                            {promo.type === "PERCENTAGE"
+                              ? `${promo.discountValue}%`
+                              : promo.type === "FIXED_AMOUNT"
+                                ? `${promo.discountValue} EGP`
+                                : "-"}
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">
+                              الاستخدام:
+                            </span>{" "}
+                            {promo.usageCount}
+                            {promo.maxUsageTotal && ` / ${promo.maxUsageTotal}`}
+                          </div>
+                        </div>
+                        <div className="mt-4 flex items-center justify-between gap-3">
+                          <span className="text-sm text-muted-foreground">
+                            تبديل الحالة
+                          </span>
+                          <Switch
+                            checked={promo.isActive}
+                            onCheckedChange={() =>
+                              handleTogglePromo(promo.id, promo.isActive)
+                            }
+                            disabled={!canEdit}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="hidden md:block">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>الكود</TableHead>
+                          <TableHead>الاسم</TableHead>
+                          <TableHead>النوع</TableHead>
+                          <TableHead>الخصم</TableHead>
+                          <TableHead>الاستخدام</TableHead>
+                          <TableHead>الحالة</TableHead>
+                          <TableHead>الإجراءات</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {promotions.map((promo) => (
+                          <TableRow key={promo.id}>
+                            <TableCell className="font-mono font-bold">
+                              {promo.code}
+                            </TableCell>
+                            <TableCell>{promo.nameAr}</TableCell>
+                            <TableCell>
+                              <Badge variant="outline">
+                                {promo.type === "PERCENTAGE" && (
+                                  <Percent className="w-3 h-3 mr-1" />
+                                )}
+                                {promo.type === "PERCENTAGE"
+                                  ? "نسبة"
+                                  : promo.type === "FIXED_AMOUNT"
+                                    ? "ثابت"
+                                    : promo.type === "FREE_SHIPPING"
+                                      ? "شحن مجاني"
+                                      : "عرض"}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              {promo.type === "PERCENTAGE"
+                                ? `${promo.discountValue}%`
+                                : promo.type === "FIXED_AMOUNT"
+                                  ? `${promo.discountValue} EGP`
+                                  : "-"}
+                            </TableCell>
+                            <TableCell>
+                              {promo.usageCount}
+                              {promo.maxUsageTotal &&
+                                ` / ${promo.maxUsageTotal}`}
+                            </TableCell>
+                            <TableCell>
+                              <Badge
+                                variant={
+                                  promo.isActive ? "default" : "secondary"
+                                }
+                              >
+                                {promo.isActive ? "نشط" : "منتهي"}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <Switch
+                                checked={promo.isActive}
+                                onCheckedChange={() =>
+                                  handleTogglePromo(promo.id, promo.isActive)
+                                }
+                                disabled={!canEdit}
+                              />
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </>
+              )}
+            </CardContent>
           </Card>
         </TabsContent>
 
@@ -934,7 +1025,10 @@ export default function LoyaltyPage() {
                     العملاء المسجلين في برنامج الولاء ونقاطهم
                   </CardDescription>
                 </div>
-                <Button onClick={() => setShowEnrollDialog(true)}>
+                <Button
+                  onClick={() => setShowEnrollDialog(true)}
+                  className="w-full sm:w-auto"
+                >
                   <Plus className="h-4 w-4 ml-2" />
                   إضافة عضو
                 </Button>
@@ -956,61 +1050,125 @@ export default function LoyaltyPage() {
                   </p>
                 </div>
               ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>العميل</TableHead>
-                      <TableHead>رقم الهاتف</TableHead>
-                      <TableHead>النقاط الحالية</TableHead>
-                      <TableHead>إجمالي النقاط</TableHead>
-                      <TableHead>المستوى</TableHead>
-                      <TableHead>آخر نشاط</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
+                <>
+                  <div className="space-y-4 md:hidden">
                     {members.map((member) => (
-                      <TableRow key={member.customerId}>
-                        <TableCell className="font-medium">
-                          {member.customerName || "عميل"}
-                        </TableCell>
-                        <TableCell dir="ltr" className="text-right">
-                          {member.customerPhone}
-                        </TableCell>
-                        <TableCell>
+                      <div
+                        key={member.customerId}
+                        className="rounded-lg border p-4"
+                      >
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                          <div>
+                            <div className="font-medium">
+                              {member.customerName || "عميل"}
+                            </div>
+                            <div
+                              dir="ltr"
+                              className="text-sm text-muted-foreground"
+                            >
+                              {member.customerPhone}
+                            </div>
+                          </div>
                           <Badge variant="default" className="bg-yellow-500">
                             <Star className="h-3 w-3 ml-1" />
                             {member.currentPoints.toLocaleString("ar-SA")}
                           </Badge>
-                        </TableCell>
-                        <TableCell>
-                          {member.lifetimePoints.toLocaleString("ar-SA")}
-                        </TableCell>
-                        <TableCell>
-                          {member.tierName ? (
-                            <Badge variant="outline">
-                              <Crown className="h-3 w-3 ml-1" />
-                              {localizeTierName(member.tierName)}
-                            </Badge>
-                          ) : (
-                            <span className="text-muted-foreground">-</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {member.lastActivityAt
-                            ? new Date(
-                                member.lastActivityAt,
-                              ).toLocaleDateString("ar-SA")
-                            : "-"}
-                        </TableCell>
-                      </TableRow>
+                        </div>
+                        <div className="mt-3 grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
+                          <div>
+                            <span className="text-muted-foreground">
+                              إجمالي النقاط:
+                            </span>{" "}
+                            {member.lifetimePoints.toLocaleString("ar-SA")}
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">
+                              المستوى:
+                            </span>{" "}
+                            {member.tierName ? (
+                              <Badge variant="outline">
+                                <Crown className="h-3 w-3 ml-1" />
+                                {localizeTierName(member.tierName)}
+                              </Badge>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">
+                              آخر نشاط:
+                            </span>{" "}
+                            {member.lastActivityAt
+                              ? new Date(
+                                  member.lastActivityAt,
+                                ).toLocaleDateString("ar-SA")
+                              : "-"}
+                          </div>
+                        </div>
+                      </div>
                     ))}
-                  </TableBody>
-                </Table>
+                  </div>
+                  <div className="hidden md:block">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>العميل</TableHead>
+                          <TableHead>رقم الهاتف</TableHead>
+                          <TableHead>النقاط الحالية</TableHead>
+                          <TableHead>إجمالي النقاط</TableHead>
+                          <TableHead>المستوى</TableHead>
+                          <TableHead>آخر نشاط</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {members.map((member) => (
+                          <TableRow key={member.customerId}>
+                            <TableCell className="font-medium">
+                              {member.customerName || "عميل"}
+                            </TableCell>
+                            <TableCell dir="ltr" className="text-right">
+                              {member.customerPhone}
+                            </TableCell>
+                            <TableCell>
+                              <Badge
+                                variant="default"
+                                className="bg-yellow-500"
+                              >
+                                <Star className="h-3 w-3 ml-1" />
+                                {member.currentPoints.toLocaleString("ar-SA")}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              {member.lifetimePoints.toLocaleString("ar-SA")}
+                            </TableCell>
+                            <TableCell>
+                              {member.tierName ? (
+                                <Badge variant="outline">
+                                  <Crown className="h-3 w-3 ml-1" />
+                                  {localizeTierName(member.tierName)}
+                                </Badge>
+                              ) : (
+                                <span className="text-muted-foreground">-</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-muted-foreground">
+                              {member.lastActivityAt
+                                ? new Date(
+                                    member.lastActivityAt,
+                                  ).toLocaleDateString("ar-SA")
+                                : "-"}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </>
               )}
             </CardContent>
           </Card>
           <Dialog open={showEnrollDialog} onOpenChange={setShowEnrollDialog}>
-            <DialogContent>
+            <DialogContent className="max-h-[90vh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-lg">
               <DialogHeader>
                 <DialogTitle>إضافة عضو لبرنامج الولاء</DialogTitle>
                 <DialogDescription>
@@ -1040,16 +1198,18 @@ export default function LoyaltyPage() {
                   />
                 </div>
               </div>
-              <DialogFooter>
+              <DialogFooter className="flex-col-reverse gap-2 sm:flex-row">
                 <Button
                   variant="outline"
                   onClick={() => setShowEnrollDialog(false)}
+                  className="w-full sm:w-auto"
                 >
                   إلغاء
                 </Button>
                 <Button
                   onClick={handleEnrollMember}
                   disabled={!canCreate || enrolling}
+                  className="w-full sm:w-auto"
                 >
                   {enrolling ? "جاري الإضافة..." : "إضافة"}
                 </Button>

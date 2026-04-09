@@ -11,6 +11,7 @@ import { ApiHeader, ApiOperation, ApiSecurity, ApiTags } from "@nestjs/swagger";
 import { Request } from "express";
 import { Pool } from "pg";
 import { DATABASE_POOL } from "../../infrastructure/database/database.module";
+import { CommerceFactsService } from "../../application/services/commerce-facts.service";
 import { MerchantApiKeyGuard } from "../../shared/guards/merchant-api-key.guard";
 import { EntitlementGuard } from "../../shared/guards/entitlement.guard";
 import { RolesGuard } from "../../shared/guards/roles.guard";
@@ -28,7 +29,10 @@ import { getMerchantId, toNumber, parseWindow } from "./portal-compat.helpers";
 export class PortalAnalyticsController {
   private readonly logger = new Logger(PortalAnalyticsController.name);
 
-  constructor(@Inject(DATABASE_POOL) private readonly pool: Pool) {}
+  constructor(
+    @Inject(DATABASE_POOL) private readonly pool: Pool,
+    private readonly commerceFactsService: CommerceFactsService,
+  ) {}
 
   @Get("analytics")
   @ApiOperation({
@@ -42,34 +46,27 @@ export class PortalAnalyticsController {
   ) {
     const merchantId = getMerchantId(req);
     const window = parseWindow(days, startDate, endDate);
-    const orderAmountExpr = `COALESCE(
-      NULLIF((to_jsonb(o)->>'total'), '')::numeric,
-      NULLIF((to_jsonb(o)->>'total_amount'), '')::numeric,
-      0
-    )`;
-
-    const [ordersResult, statusResult, conversationsResult, customersResult] =
+    const [summary, statusResult, conversationsResult, customersResult] =
       await Promise.all([
-        this.pool.query<{
-          total_orders: string;
-          delivered_orders: string;
-          total_revenue: string;
-        }>(
-          `SELECT
-           COUNT(*)::text as total_orders,
-           COUNT(*) FILTER (WHERE status::text IN ('DELIVERED', 'COMPLETED'))::text as delivered_orders,
-           COALESCE(SUM(CASE WHEN status::text IN ('DELIVERED', 'COMPLETED') THEN ${orderAmountExpr} ELSE 0 END), 0)::text as total_revenue
-         FROM orders o
-         WHERE o.merchant_id = $1
-           AND o.created_at >= $2
-           AND o.created_at <= $3`,
-          [merchantId, window.startDate, window.endDate],
+        this.commerceFactsService.buildFinanceSummary(
+          merchantId,
+          window.startDate,
+          window.endDate,
         ),
         this.pool.query<{ status: string; count: string; revenue: string }>(
           `SELECT
            status::text as status,
            COUNT(*)::text as count,
-           COALESCE(SUM(${orderAmountExpr}), 0)::text as revenue
+           COALESCE(
+             SUM(
+               COALESCE(
+                 NULLIF((to_jsonb(o)->>'total'), '')::numeric,
+                 NULLIF((to_jsonb(o)->>'total_amount'), '')::numeric,
+                 0
+               )
+             ),
+             0
+           )::text as revenue
          FROM orders o
          WHERE o.merchant_id = $1
            AND o.created_at >= $2
@@ -96,10 +93,6 @@ export class PortalAnalyticsController {
         ),
       ]);
 
-    const totalOrders = toNumber(ordersResult.rows[0]?.total_orders, 0);
-    const deliveredOrders = toNumber(ordersResult.rows[0]?.delivered_orders, 0);
-    const totalRevenue = toNumber(ordersResult.rows[0]?.total_revenue, 0);
-
     return {
       period: {
         startDate: window.startDate.toISOString(),
@@ -107,16 +100,29 @@ export class PortalAnalyticsController {
         days: window.days,
       },
       summary: {
-        totalOrders,
-        deliveredOrders,
-        totalRevenue,
+        totalOrders: summary.totalOrders,
+        deliveredOrders: summary.deliveredOrders,
+        totalRevenue: summary.realizedRevenue,
+        realizedRevenue: summary.realizedRevenue,
+        bookedSales: summary.bookedSales,
+        deliveredRevenue: summary.deliveredRevenue,
+        pendingCollections: summary.pendingCollections,
+        refundsAmount: summary.refundsAmount,
+        netCashFlow: summary.netCashFlow,
+        realizedOrders: summary.realizedOrders,
+        paidCashAmount: summary.paidCashAmount,
+        paidOnlineAmount: summary.paidOnlineAmount,
+        pendingCod: summary.pendingCod,
+        pendingOnline: summary.pendingOnline,
         avgOrderValue:
-          totalOrders > 0 ? Number((totalRevenue / totalOrders).toFixed(2)) : 0,
+          summary.totalOrders > 0
+            ? Number((summary.realizedRevenue / summary.totalOrders).toFixed(2))
+            : 0,
         conversionRate:
           toNumber(conversationsResult.rows[0]?.count, 0) > 0
             ? Number(
                 (
-                  (deliveredOrders /
+                  (summary.deliveredOrders /
                     toNumber(conversationsResult.rows[0]?.count, 0)) *
                   100
                 ).toFixed(2),

@@ -361,7 +361,7 @@ export default function AdminFeatureRequestsPage() {
     );
 
   return (
-    <div className="space-y-6 animate-fadeIn">
+    <div className="space-y-6 p-4 sm:p-6 animate-fadeIn">
       <PageHeader
         title="اقتراحات الميزات"
         description="مراجعة اقتراحات التجار وتحديد أولويات التنفيذ"
@@ -378,14 +378,18 @@ export default function AdminFeatureRequestsPage() {
       )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid grid-cols-2 w-full md:w-[360px]">
-          <TabsTrigger value="requests">الاقتراحات</TabsTrigger>
-          <TabsTrigger value="quotes">عروض السعر</TabsTrigger>
+        <TabsList className="grid h-auto w-full grid-cols-1 gap-2 sm:w-[360px] sm:grid-cols-2">
+          <TabsTrigger value="requests" className="w-full">
+            الاقتراحات
+          </TabsTrigger>
+          <TabsTrigger value="quotes" className="w-full">
+            عروض السعر
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="requests" className="space-y-4">
           <Card>
-            <CardContent className="p-4 grid gap-3 md:grid-cols-4">
+            <CardContent className="grid grid-cols-1 gap-3 p-4 md:grid-cols-4">
               <Input
                 placeholder="بحث بالعنوان أو التاجر"
                 value={searchQuery}
@@ -462,7 +466,7 @@ export default function AdminFeatureRequestsPage() {
                 return (
                   <Card key={req.id}>
                     <CardHeader>
-                      <div className="flex items-center justify-between gap-2">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                         <CardTitle className="text-base">{req.title}</CardTitle>
                         <Badge variant={status.variant}>{status.label}</Badge>
                       </div>
@@ -527,7 +531,7 @@ export default function AdminFeatureRequestsPage() {
                           </div>
                         </div>
                       )}
-                      <div className="grid gap-3 md:grid-cols-2">
+                      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                         <div className="space-y-2">
                           <label className="text-sm font-medium">
                             تحديث الحالة
@@ -585,7 +589,7 @@ export default function AdminFeatureRequestsPage() {
 
         <TabsContent value="quotes" className="space-y-4">
           <Card>
-            <CardContent className="p-4 grid gap-3 md:grid-cols-2">
+            <CardContent className="grid grid-cols-1 gap-3 p-4 md:grid-cols-2">
               <Input
                 placeholder="بحث برقم التاجر"
                 value={searchQuery}
@@ -657,7 +661,7 @@ export default function AdminFeatureRequestsPage() {
                       </div>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                      <div className="grid gap-3 md:grid-cols-3">
+                      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                         <div className="space-y-2">
                           <label className="text-sm font-medium">الحالة</label>
                           <Select
@@ -734,7 +738,7 @@ export default function AdminFeatureRequestsPage() {
                         />
                       </div>
 
-                      <div className="flex flex-wrap gap-2">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                         <Button
                           size="sm"
                           onClick={() => handleUpdateQuote(quote)}
@@ -811,7 +815,7 @@ export default function AdminFeatureRequestsPage() {
                                 key={event.id}
                                 className="rounded-md border p-2 text-xs text-muted-foreground"
                               >
-                                <div className="flex items-center justify-between">
+                                <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                                   <span>{event.action}</span>
                                   <span>
                                     {new Date(event.created_at).toLocaleString(

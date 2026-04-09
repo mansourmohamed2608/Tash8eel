@@ -106,7 +106,10 @@ export default function MerchantAssistantPage() {
   const usagePercent = useMemo(() => {
     const usage = aiStatus?.usage;
     if (!usage?.dailyLimit) return null;
-    return Math.min(100, Math.round((usage.callsToday / usage.dailyLimit) * 100));
+    return Math.min(
+      100,
+      Math.round((usage.callsToday / usage.dailyLimit) * 100),
+    );
   }, [aiStatus]);
 
   // Fetch AI status on mount
@@ -472,17 +475,25 @@ export default function MerchantAssistantPage() {
   }, [isRecording]);
 
   return (
-    <div className="space-y-6 animate-fadeIn">
+    <div className="space-y-6 animate-fadeIn p-4 sm:p-6">
       <PageHeader
         title="مساعد التاجر"
         description="أرسل أوامر نصية أو صوتية لإدارة المصاريف، المخزون، الطلبات والمزيد"
         actions={
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="secondary" className="flex items-center gap-2 px-3 py-1">
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
+            <Badge
+              variant="secondary"
+              className="flex items-center gap-2 px-3 py-1"
+            >
               <Sparkles className="h-4 w-4" />
               Copilot
             </Badge>
-            <Button variant="outline" size="sm" onClick={handleClear}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleClear}
+              className="w-full sm:w-auto"
+            >
               <Trash2 className="h-4 w-4 ml-2" />
               مسح المحادثة
             </Button>
@@ -499,9 +510,17 @@ export default function MerchantAssistantPage() {
         />
       )}
 
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <Card className={cn("border-dashed", aiStatus?.connected && "border-emerald-200 bg-emerald-50/50", aiStatus && !aiStatus.connected && "border-amber-200 bg-amber-50/60")}>
-          <CardContent className="flex items-center justify-between p-4">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <Card
+          className={cn(
+            "border-dashed",
+            aiStatus?.connected && "border-emerald-200 bg-emerald-50/50",
+            aiStatus &&
+              !aiStatus.connected &&
+              "border-amber-200 bg-amber-50/60",
+          )}
+        >
+          <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="space-y-1">
               <p className="text-sm text-muted-foreground">حالة الذكاء</p>
               <p className="text-lg font-semibold">
@@ -511,7 +530,9 @@ export default function MerchantAssistantPage() {
             <div
               className={cn(
                 "flex h-11 w-11 items-center justify-center rounded-2xl",
-                aiStatus?.connected ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700",
+                aiStatus?.connected
+                  ? "bg-emerald-100 text-emerald-700"
+                  : "bg-amber-100 text-amber-700",
               )}
             >
               <Wand2 className="h-5 w-5" />
@@ -520,7 +541,7 @@ export default function MerchantAssistantPage() {
         </Card>
 
         <Card>
-          <CardContent className="flex items-center justify-between p-4">
+          <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="space-y-1">
               <p className="text-sm text-muted-foreground">الرسائل الصوتية</p>
               <p className="text-lg font-semibold">
@@ -534,7 +555,7 @@ export default function MerchantAssistantPage() {
         </Card>
 
         <Card>
-          <CardContent className="flex items-center justify-between p-4">
+          <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="space-y-1">
               <p className="text-sm text-muted-foreground">سعة اليوم</p>
               <p className="text-lg font-semibold">
@@ -571,7 +592,7 @@ export default function MerchantAssistantPage() {
       </div>
 
       {aiStatus && !aiStatus.connected && (
-        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-800">
+        <div className="flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-800 sm:flex-row sm:items-center">
           <div className="flex-1">
             <p className="font-semibold">الذكاء الاصطناعي غير متاح حالياً</p>
             <p className="text-sm">
@@ -580,7 +601,7 @@ export default function MerchantAssistantPage() {
           </div>
           <a
             href="/merchant/plan"
-            className="inline-flex items-center rounded-lg bg-amber-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-700"
+            className="inline-flex w-full items-center justify-center rounded-lg bg-amber-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-700 sm:w-auto"
           >
             ترقية الباقة
           </a>
@@ -608,107 +629,109 @@ export default function MerchantAssistantPage() {
           <CardContent className="space-y-4 p-0">
             <div className="min-h-[62vh] max-h-[68vh] overflow-y-auto bg-gradient-to-b from-muted/10 to-background px-4 py-5 sm:px-6">
               <div className="space-y-4">
-            {messages.map((msg) => (
-              <div
-                key={msg.id}
-                className={cn(
-                  "flex gap-3",
-                  msg.role === "assistant" ? "justify-start" : "justify-end",
-                )}
-              >
-                <div
-                  className={cn(
-                    "max-w-[86%] rounded-2xl px-4 py-3 text-sm shadow-sm sm:max-w-[78%] xl:max-w-[72%]",
-                    msg.role === "assistant"
-                      ? "border bg-white text-foreground"
-                      : "bg-primary text-primary-foreground",
-                  )}
-                >
-                  <p className="whitespace-pre-wrap leading-relaxed">
-                    {msg.content}
-                  </p>
-
-                  {/* Feature blocked indicator */}
-                  {msg.featureBlocked && (
-                    <div className="mt-3 p-2 bg-amber-50 border border-amber-200 rounded-lg">
-                      <div className="flex items-center gap-2 text-amber-700 text-xs">
-                        <Lock className="h-3 w-3" />
-                        <span>هذه الميزة تتطلب ترقية خطتك</span>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="mt-2 text-xs h-7"
-                      >
-                        ترقية الآن
-                      </Button>
-                    </div>
-                  )}
-
-                  {/* Confirmation buttons */}
-                  {msg.requiresConfirmation &&
-                    msg.pendingActionId &&
-                    !msg.confirmed &&
-                    msg.confirmed !== false && (
-                      <div className="mt-3 flex gap-2">
-                        <Button
-                          size="sm"
-                          variant="default"
-                          className="h-8 text-xs"
-                          onClick={() =>
-                            handleConfirmAction(
-                              msg.id,
-                              msg.pendingActionId!,
-                              true,
-                            )
-                          }
-                          disabled={sending}
-                        >
-                          <Check className="h-3 w-3 ml-1" />
-                          تأكيد
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-8 text-xs"
-                          onClick={() =>
-                            handleConfirmAction(
-                              msg.id,
-                              msg.pendingActionId!,
-                              false,
-                            )
-                          }
-                          disabled={sending}
-                        >
-                          <X className="h-3 w-3 ml-1" />
-                          إلغاء
-                        </Button>
-                      </div>
-                    )}
-
-                  <span
+                {messages.map((msg) => (
+                  <div
+                    key={msg.id}
                     className={cn(
-                      "mt-2 block text-[11px]",
+                      "flex gap-3",
                       msg.role === "assistant"
-                        ? "text-muted-foreground"
-                        : "text-primary-100",
+                        ? "justify-start"
+                        : "justify-end",
                     )}
                   >
-                    {formatMessageTime(msg.createdAt)}
-                  </span>
-                </div>
+                    <div
+                      className={cn(
+                        "max-w-[86%] rounded-2xl px-4 py-3 text-sm shadow-sm sm:max-w-[78%] xl:max-w-[72%]",
+                        msg.role === "assistant"
+                          ? "border bg-white text-foreground"
+                          : "bg-primary text-primary-foreground",
+                      )}
+                    >
+                      <p className="whitespace-pre-wrap leading-relaxed">
+                        {msg.content}
+                      </p>
+
+                      {/* Feature blocked indicator */}
+                      {msg.featureBlocked && (
+                        <div className="mt-3 p-2 bg-amber-50 border border-amber-200 rounded-lg">
+                          <div className="flex items-center gap-2 text-amber-700 text-xs">
+                            <Lock className="h-3 w-3" />
+                            <span>هذه الميزة تتطلب ترقية خطتك</span>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="mt-2 text-xs h-7"
+                          >
+                            ترقية الآن
+                          </Button>
+                        </div>
+                      )}
+
+                      {/* Confirmation buttons */}
+                      {msg.requiresConfirmation &&
+                        msg.pendingActionId &&
+                        !msg.confirmed &&
+                        msg.confirmed !== false && (
+                          <div className="mt-3 flex gap-2">
+                            <Button
+                              size="sm"
+                              variant="default"
+                              className="h-8 text-xs"
+                              onClick={() =>
+                                handleConfirmAction(
+                                  msg.id,
+                                  msg.pendingActionId!,
+                                  true,
+                                )
+                              }
+                              disabled={sending}
+                            >
+                              <Check className="h-3 w-3 ml-1" />
+                              تأكيد
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-8 text-xs"
+                              onClick={() =>
+                                handleConfirmAction(
+                                  msg.id,
+                                  msg.pendingActionId!,
+                                  false,
+                                )
+                              }
+                              disabled={sending}
+                            >
+                              <X className="h-3 w-3 ml-1" />
+                              إلغاء
+                            </Button>
+                          </div>
+                        )}
+
+                      <span
+                        className={cn(
+                          "mt-2 block text-[11px]",
+                          msg.role === "assistant"
+                            ? "text-muted-foreground"
+                            : "text-primary-100",
+                        )}
+                      >
+                        {formatMessageTime(msg.createdAt)}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+                {sending && (
+                  <div className="flex justify-start">
+                    <div className="rounded-2xl bg-white px-4 py-3 text-sm text-muted-foreground border animate-pulse">
+                      جاري التفكير...
+                    </div>
+                  </div>
+                )}
+                <div ref={endRef} />
               </div>
-            ))}
-            {sending && (
-              <div className="flex justify-start">
-                <div className="rounded-2xl bg-white px-4 py-3 text-sm text-muted-foreground border animate-pulse">
-                  جاري التفكير...
-                </div>
-              </div>
-            )}
-            <div ref={endRef} />
-              </div>
-          </div>
+            </div>
 
             <div className="border-t bg-background px-4 py-4 sm:px-6">
               <div className="flex gap-2">
@@ -742,7 +765,7 @@ export default function MerchantAssistantPage() {
                   <Button
                     onClick={sendMessage}
                     disabled={sending || !input.trim() || isRecording}
-                    className="h-12 min-w-[108px]"
+                    className="h-12 w-full sm:w-auto"
                   >
                     <Send className="ml-2 h-4 w-4" />
                     إرسال
@@ -809,7 +832,8 @@ export default function MerchantAssistantPage() {
                 يدعم الأوامر الصوتية إذا كانت الخدمة مفعلة في خطتك الحالية.
               </div>
               <div className="rounded-xl bg-muted/30 p-3">
-                يمكنه توجيهك إلى صفحات المدفوعات والمخزون والتقارير بدل البحث اليدوي.
+                يمكنه توجيهك إلى صفحات المدفوعات والمخزون والتقارير بدل البحث
+                اليدوي.
               </div>
             </CardContent>
           </Card>

@@ -295,47 +295,47 @@ export default function BranchSettingsPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-4 sm:p-6">
       {/* Tab nav */}
-      <div className="flex gap-1 border-b pb-0">
+      <div className="grid grid-cols-2 gap-2 border-b pb-0 sm:grid-cols-3 xl:grid-cols-6">
         <Link
           href={`/merchant/branches/${branchId}`}
-          className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 border-transparent text-muted-foreground hover:text-foreground"
+          className="flex items-center justify-center gap-1.5 border-b-2 border-transparent px-4 py-2 text-center text-sm font-medium text-muted-foreground hover:text-foreground"
         >
           <BarChart3 className="h-4 w-4" />
           التحليلات
         </Link>
         <Link
           href={`/merchant/branches/${branchId}/settings`}
-          className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 border-primary text-primary"
+          className="flex items-center justify-center gap-1.5 border-b-2 border-primary px-4 py-2 text-center text-sm font-medium text-primary"
         >
           <Settings className="h-4 w-4" />
           الإعدادات
         </Link>
         <Link
           href={`/merchant/branches/${branchId}/shifts`}
-          className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 border-transparent text-muted-foreground hover:text-foreground"
+          className="flex items-center justify-center gap-1.5 border-b-2 border-transparent px-4 py-2 text-center text-sm font-medium text-muted-foreground hover:text-foreground"
         >
           <Clock className="h-4 w-4" />
           الجلسات
         </Link>
         <Link
           href={`/merchant/branches/${branchId}/inventory`}
-          className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 border-transparent text-muted-foreground hover:text-foreground"
+          className="flex items-center justify-center gap-1.5 border-b-2 border-transparent px-4 py-2 text-center text-sm font-medium text-muted-foreground hover:text-foreground"
         >
           <Package className="h-4 w-4" />
           المخزون
         </Link>
         <Link
           href={`/merchant/branches/${branchId}/alerts`}
-          className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 border-transparent text-muted-foreground hover:text-foreground"
+          className="flex items-center justify-center gap-1.5 border-b-2 border-transparent px-4 py-2 text-center text-sm font-medium text-muted-foreground hover:text-foreground"
         >
           <Bell className="h-4 w-4" />
           التنبيهات
         </Link>
         <Link
           href={`/merchant/branches/${branchId}/pl-report`}
-          className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 border-transparent text-muted-foreground hover:text-foreground"
+          className="flex items-center justify-center gap-1.5 border-b-2 border-transparent px-4 py-2 text-center text-sm font-medium text-muted-foreground hover:text-foreground"
         >
           <FileText className="h-4 w-4" />
           تقرير الأرباح
@@ -346,11 +346,12 @@ export default function BranchSettingsPage() {
         title={`إعدادات الفرع - ${branch?.name ?? "..."}`}
         description="إدارة الموظفين والتواصل والأهداف"
         actions={
-          <div className="flex gap-2">
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => router.push("/merchant/branches")}
+              className="w-full sm:w-auto"
             >
               <ArrowLeft className="h-4 w-4 ml-1" />
               الفروع
@@ -360,6 +361,7 @@ export default function BranchSettingsPage() {
               size="sm"
               onClick={fetchAll}
               disabled={loading}
+              className="w-full sm:w-auto"
             >
               <RefreshCw
                 className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
@@ -380,7 +382,7 @@ export default function BranchSettingsPage() {
         </CardHeader>
         <CardContent>
           {editingWA ? (
-            <div className="flex items-center gap-2 max-w-sm">
+            <div className="flex max-w-sm flex-col items-stretch gap-2 sm:flex-row sm:items-center">
               <Input
                 value={waNumber}
                 onChange={(e) => setWaNumber(e.target.value)}
@@ -398,12 +400,13 @@ export default function BranchSettingsPage() {
                 size="sm"
                 variant="ghost"
                 onClick={() => setEditingWA(false)}
+                className="w-full sm:w-auto"
               >
                 إلغاء
               </Button>
             </div>
           ) : (
-            <div className="flex items-center gap-3">
+            <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center">
               <span className="font-mono text-sm" dir="ltr">
                 {branch?.whatsapp_number || (
                   <span className="text-muted-foreground">لم يُحدد بعد</span>
@@ -425,7 +428,7 @@ export default function BranchSettingsPage() {
       {/* Staff assignments */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <CardTitle className="text-base flex items-center gap-2">
                 <UserPlus className="h-4 w-4 text-primary" />
@@ -439,6 +442,7 @@ export default function BranchSettingsPage() {
               size="sm"
               onClick={() => setShowAssignDialog(true)}
               disabled={available.length === 0}
+              className="w-full sm:w-auto"
             >
               <UserPlus className="h-4 w-4 ml-1" />
               إضافة موظف
@@ -451,57 +455,110 @@ export default function BranchSettingsPage() {
               لا يوجد موظفون مُعيّنون لهذا الفرع بعد
             </p>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>الاسم</TableHead>
-                  <TableHead>البريد الإلكتروني</TableHead>
-                  <TableHead>الدور</TableHead>
-                  <TableHead>الحالة</TableHead>
-                  <TableHead />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            <>
+              <div className="space-y-3 md:hidden">
                 {staff.map((s) => (
-                  <TableRow key={s.id}>
-                    <TableCell className="font-medium">
-                      {s.name}
-                      {s.is_primary && (
-                        <Badge className="mr-1 text-xs" variant="secondary">
-                          رئيسي
+                  <Card key={s.id}>
+                    <CardContent className="space-y-3 p-4 text-sm">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-medium">
+                            {s.name}
+                            {s.is_primary && (
+                              <Badge
+                                className="mr-1 text-xs"
+                                variant="secondary"
+                              >
+                                رئيسي
+                              </Badge>
+                            )}
+                          </p>
+                          <p
+                            className="text-xs text-muted-foreground"
+                            dir="ltr"
+                          >
+                            {s.email}
+                          </p>
+                        </div>
+                        <Badge
+                          variant={
+                            s.status === "ACTIVE" ? "default" : "secondary"
+                          }
+                          className="text-xs"
+                        >
+                          {s.status === "ACTIVE" ? "نشط" : s.status}
                         </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground" dir="ltr">
-                      {s.email}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{s.role}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={
-                          s.status === "ACTIVE" ? "default" : "secondary"
-                        }
-                        className="text-xs"
-                      >
-                        {s.status === "ACTIVE" ? "نشط" : s.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="text-red-500 hover:text-red-600"
-                        onClick={() => setRemoveConfirm(s.id)}
-                      >
-                        <UserMinus className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
+                      </div>
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <Badge variant="outline">{s.role}</Badge>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-red-500 hover:text-red-600"
+                          onClick={() => setRemoveConfirm(s.id)}
+                        >
+                          <UserMinus className="h-4 w-4 ml-1" />
+                          إزالة
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
                 ))}
-              </TableBody>
-            </Table>
+              </div>
+              <div className="hidden overflow-x-auto md:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>الاسم</TableHead>
+                      <TableHead>البريد الإلكتروني</TableHead>
+                      <TableHead>الدور</TableHead>
+                      <TableHead>الحالة</TableHead>
+                      <TableHead />
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {staff.map((s) => (
+                      <TableRow key={s.id}>
+                        <TableCell className="font-medium">
+                          {s.name}
+                          {s.is_primary && (
+                            <Badge className="mr-1 text-xs" variant="secondary">
+                              رئيسي
+                            </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground" dir="ltr">
+                          {s.email}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{s.role}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={
+                              s.status === "ACTIVE" ? "default" : "secondary"
+                            }
+                            className="text-xs"
+                          >
+                            {s.status === "ACTIVE" ? "نشط" : s.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-red-500 hover:text-red-600"
+                            onClick={() => setRemoveConfirm(s.id)}
+                          >
+                            <UserMinus className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
@@ -509,7 +566,7 @@ export default function BranchSettingsPage() {
       {/* Goals */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <CardTitle className="text-base flex items-center gap-2">
                 <Target className="h-4 w-4 text-primary" />
@@ -519,7 +576,11 @@ export default function BranchSettingsPage() {
                 المستهدفات الشهرية أو الدورية للفرع
               </CardDescription>
             </div>
-            <Button size="sm" onClick={openNewGoal}>
+            <Button
+              size="sm"
+              onClick={openNewGoal}
+              className="w-full sm:w-auto"
+            >
               <Plus className="h-4 w-4 ml-1" />
               هدف جديد
             </Button>
@@ -531,71 +592,126 @@ export default function BranchSettingsPage() {
               لا توجد أهداف محددة لهذا الفرع بعد
             </p>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>الفترة</TableHead>
-                  <TableHead>التاريخ</TableHead>
-                  <TableHead>هدف الإيراد</TableHead>
-                  <TableHead>هدف الطلبات</TableHead>
-                  <TableHead />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            <>
+              <div className="space-y-3 md:hidden">
                 {goals.map((g) => (
-                  <TableRow key={g.id}>
-                    <TableCell>
-                      <Badge variant="outline">
-                        {PERIOD_LABELS[g.period_type] ?? g.period_type}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {g.start_date} → {g.end_date}
-                    </TableCell>
-                    <TableCell>
-                      {g.target_revenue != null ? (
-                        formatCurrency(g.target_revenue)
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {g.target_orders != null ? (
-                        `${g.target_orders} طلب`
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-1">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => openEditGoal(g)}
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="text-red-500"
-                          onClick={() => setDeleteGoalId(g.id)}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
+                  <Card key={g.id}>
+                    <CardContent className="space-y-3 p-4 text-sm">
+                      <div className="flex items-start justify-between gap-3">
+                        <Badge variant="outline">
+                          {PERIOD_LABELS[g.period_type] ?? g.period_type}
+                        </Badge>
+                        <div className="flex gap-1">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => openEditGoal(g)}
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-red-500"
+                            onClick={() => setDeleteGoalId(g.id)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
                       </div>
-                    </TableCell>
-                  </TableRow>
+                      <p className="text-xs text-muted-foreground">
+                        {g.start_date} → {g.end_date}
+                      </p>
+                      <div className="grid grid-cols-2 gap-3 text-xs">
+                        <div>
+                          <p className="text-muted-foreground">هدف الإيراد</p>
+                          <p className="font-medium">
+                            {g.target_revenue != null
+                              ? formatCurrency(g.target_revenue)
+                              : "-"}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">هدف الطلبات</p>
+                          <p className="font-medium">
+                            {g.target_orders != null
+                              ? `${g.target_orders} طلب`
+                              : "-"}
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
                 ))}
-              </TableBody>
-            </Table>
+              </div>
+              <div className="hidden overflow-x-auto md:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>الفترة</TableHead>
+                      <TableHead>التاريخ</TableHead>
+                      <TableHead>هدف الإيراد</TableHead>
+                      <TableHead>هدف الطلبات</TableHead>
+                      <TableHead />
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {goals.map((g) => (
+                      <TableRow key={g.id}>
+                        <TableCell>
+                          <Badge variant="outline">
+                            {PERIOD_LABELS[g.period_type] ?? g.period_type}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {g.start_date} → {g.end_date}
+                        </TableCell>
+                        <TableCell>
+                          {g.target_revenue != null ? (
+                            formatCurrency(g.target_revenue)
+                          ) : (
+                            <span className="text-muted-foreground">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {g.target_orders != null ? (
+                            `${g.target_orders} طلب`
+                          ) : (
+                            <span className="text-muted-foreground">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-1">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => openEditGoal(g)}
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="text-red-500"
+                              onClick={() => setDeleteGoalId(g.id)}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
 
       {/* ── Assign Staff Dialog ── */}
       <Dialog open={showAssignDialog} onOpenChange={setShowAssignDialog}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>إضافة موظف للفرع</DialogTitle>
             <DialogDescription>
@@ -617,16 +733,18 @@ export default function BranchSettingsPage() {
               </SelectContent>
             </Select>
           </div>
-          <DialogFooter>
+          <DialogFooter className="flex-col-reverse gap-2 sm:flex-row">
             <Button
               variant="outline"
               onClick={() => setShowAssignDialog(false)}
+              className="w-full sm:w-auto"
             >
               إلغاء
             </Button>
             <Button
               onClick={handleAssignStaff}
               disabled={!selectedStaffId || assigningStaff}
+              className="w-full sm:w-auto"
             >
               {assigningStaff ? (
                 <Loader2 className="h-4 w-4 animate-spin ml-1" />
@@ -642,17 +760,19 @@ export default function BranchSettingsPage() {
         open={!!removeConfirm}
         onOpenChange={() => setRemoveConfirm(null)}
       >
-        <AlertDialogContent>
+        <AlertDialogContent className="max-h-[90vh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-md">
           <AlertDialogHeader>
             <AlertDialogTitle>إزالة الموظف من الفرع؟</AlertDialogTitle>
             <AlertDialogDescription>
               لن يتأثر حساب الموظف، فقط سيُزال تعيينه من هذا الفرع.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>إلغاء</AlertDialogCancel>
+          <AlertDialogFooter className="flex-col-reverse gap-2 sm:flex-row">
+            <AlertDialogCancel className="w-full sm:w-auto">
+              إلغاء
+            </AlertDialogCancel>
             <AlertDialogAction
-              className="bg-red-600 hover:bg-red-700"
+              className="w-full bg-red-600 hover:bg-red-700 sm:w-auto"
               onClick={() => removeConfirm && handleRemoveStaff(removeConfirm)}
             >
               إزالة
@@ -663,12 +783,12 @@ export default function BranchSettingsPage() {
 
       {/* ── Goal Dialog ── */}
       <Dialog open={showGoalDialog} onOpenChange={setShowGoalDialog}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>{editGoal ? "تعديل الهدف" : "هدف جديد"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label>نوع الفترة</Label>
                 <Select
@@ -704,7 +824,7 @@ export default function BranchSettingsPage() {
                 />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label>هدف الطلبات</Label>
                 <Input
@@ -718,7 +838,7 @@ export default function BranchSettingsPage() {
                 />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label>تاريخ البداية</Label>
                 <Input
@@ -751,11 +871,19 @@ export default function BranchSettingsPage() {
               />
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowGoalDialog(false)}>
+          <DialogFooter className="flex-col-reverse gap-2 sm:flex-row">
+            <Button
+              variant="outline"
+              onClick={() => setShowGoalDialog(false)}
+              className="w-full sm:w-auto"
+            >
               إلغاء
             </Button>
-            <Button onClick={handleSaveGoal} disabled={savingGoal}>
+            <Button
+              onClick={handleSaveGoal}
+              disabled={savingGoal}
+              className="w-full sm:w-auto"
+            >
               {savingGoal ? (
                 <Loader2 className="h-4 w-4 animate-spin ml-1" />
               ) : null}
@@ -770,17 +898,19 @@ export default function BranchSettingsPage() {
         open={!!deleteGoalId}
         onOpenChange={() => setDeleteGoalId(null)}
       >
-        <AlertDialogContent>
+        <AlertDialogContent className="max-h-[90vh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-md">
           <AlertDialogHeader>
             <AlertDialogTitle>حذف الهدف؟</AlertDialogTitle>
             <AlertDialogDescription>
               لا يمكن التراجع عن هذا الإجراء.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>إلغاء</AlertDialogCancel>
+          <AlertDialogFooter className="flex-col-reverse gap-2 sm:flex-row">
+            <AlertDialogCancel className="w-full sm:w-auto">
+              إلغاء
+            </AlertDialogCancel>
             <AlertDialogAction
-              className="bg-red-600 hover:bg-red-700"
+              className="w-full bg-red-600 hover:bg-red-700 sm:w-auto"
               onClick={() => deleteGoalId && handleDeleteGoal(deleteGoalId)}
             >
               حذف

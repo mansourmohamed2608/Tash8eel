@@ -240,9 +240,9 @@ export default function AnalyticsPage() {
 
   if (loading) {
     return (
-      <div>
+      <div className="p-4 sm:p-6">
         <PageHeader title="التحليلات" />
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {[...Array(4)].map((_, i) => (
             <Card key={i}>
               <CardContent className="p-6">
@@ -257,7 +257,7 @@ export default function AnalyticsPage() {
 
   if (error) {
     return (
-      <div>
+      <div className="p-4 sm:p-6">
         <PageHeader title="التحليلات" />
         <Card>
           <CardContent className="p-12">
@@ -268,7 +268,7 @@ export default function AnalyticsPage() {
               <Button
                 onClick={fetchAllAnalytics}
                 variant="outline"
-                className="mt-4"
+                className="mt-4 w-full sm:w-auto"
               >
                 <RefreshCw className="h-4 w-4 ml-2" />
                 إعادة المحاولة
@@ -296,7 +296,7 @@ export default function AnalyticsPage() {
   };
 
   return (
-    <div className="space-y-6 animate-fadeIn">
+    <div className="space-y-6 animate-fadeIn p-4 sm:p-6">
       <PageHeader
         title="التحليلات"
         description="تحليلات متقدمة لأداء متجرك"
@@ -322,7 +322,12 @@ export default function AnalyticsPage() {
                 ))}
               </SelectContent>
             </Select>
-            <Button variant="outline" size="sm" onClick={fetchAllAnalytics}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={fetchAllAnalytics}
+              className="w-full sm:w-auto"
+            >
               <RefreshCw className="h-4 w-4" />
             </Button>
           </div>
@@ -362,20 +367,20 @@ export default function AnalyticsPage() {
       )}
 
       <Tabs defaultValue="conversion" className="space-y-6">
-        <TabsList className="grid grid-cols-2 md:grid-cols-4 w-full">
-          <TabsTrigger value="conversion">
+        <TabsList className="grid h-auto w-full grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
+          <TabsTrigger value="conversion" className="w-full">
             <Target className="h-4 w-4 ml-2" />
             التحويلات
           </TabsTrigger>
-          <TabsTrigger value="response">
+          <TabsTrigger value="response" className="w-full">
             <Clock className="h-4 w-4 ml-2" />
             أوقات الاستجابة
           </TabsTrigger>
-          <TabsTrigger value="products">
+          <TabsTrigger value="products" className="w-full">
             <Package className="h-4 w-4 ml-2" />
             المنتجات
           </TabsTrigger>
-          <TabsTrigger value="peaks">
+          <TabsTrigger value="peaks" className="w-full">
             <Zap className="h-4 w-4 ml-2" />
             أوقات الذروة
           </TabsTrigger>
@@ -392,7 +397,7 @@ export default function AnalyticsPage() {
           ) : conversionData && conversionData.funnel.totalConversations > 0 ? (
             <>
               {/* Funnel Stats */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4">
                 <Card>
                   <CardContent className="p-4">
                     <div className="flex items-center gap-3">
@@ -532,7 +537,7 @@ export default function AnalyticsPage() {
                   </div>
 
                   {/* Conversion insights */}
-                  <div className="mt-6 pt-4 border-t grid grid-cols-2 gap-4">
+                  <div className="mt-6 grid grid-cols-1 gap-4 border-t pt-4 sm:grid-cols-2">
                     <div className="text-center p-4 bg-muted/50 rounded-lg">
                       <p className="text-sm text-muted-foreground">
                         من السلة للدفع
@@ -573,7 +578,7 @@ export default function AnalyticsPage() {
           ) : responseTimeData &&
             (responseTimeData.hasData ??
               (responseTimeData.responseTimes.sampleCount || 0) > 0) ? (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <Card>
                 <CardContent className="p-6 text-center">
                   <Clock className="h-8 w-8 mx-auto text-primary mb-2" />
@@ -654,7 +659,7 @@ export default function AnalyticsPage() {
                   {popularProducts.map((product) => (
                     <div
                       key={`${product.itemId}-${product.rank}`}
-                      className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
+                      className="flex flex-col gap-3 rounded-lg bg-muted/50 p-3 sm:flex-row sm:items-center sm:justify-between"
                     >
                       <div className="flex items-center gap-4">
                         <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
@@ -667,7 +672,7 @@ export default function AnalyticsPage() {
                           </p>
                         </div>
                       </div>
-                      <div className="text-end">
+                      <div className="text-start sm:text-end">
                         <p className="font-bold">
                           {product.totalQuantity} قطعة
                         </p>
@@ -713,7 +718,7 @@ export default function AnalyticsPage() {
               )) ? (
             <>
               {/* Peak Summary */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <Card>
                   <CardContent className="p-6">
                     <div className="flex items-center gap-4">
@@ -765,49 +770,53 @@ export default function AnalyticsPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="h-64 flex items-end gap-1">
-                    {peakHoursData.hourlyStats.map((stat) => {
-                      const maxActivity = Math.max(
-                        ...peakHoursData.hourlyStats.map((s) =>
-                          Math.max(s.messageCount, s.orderCount),
-                        ),
-                        1,
-                      );
-                      const messageHeight =
-                        (stat.messageCount / maxActivity) * 100;
-                      const orderHeight = (stat.orderCount / maxActivity) * 100;
-                      return (
-                        <div
-                          key={stat.hour}
-                          className="flex-1 flex flex-col items-center gap-1"
-                          title={`${stat.hourLabel}: ${stat.messageCount} رسالة، ${stat.orderCount} طلب`}
-                        >
-                          <div className="w-full h-full flex items-end justify-center gap-[2px]">
-                            <div
-                              className="w-[45%] bg-primary/80 rounded-t transition-all duration-300 hover:bg-primary"
-                              style={{
-                                height: `${messageHeight}%`,
-                                minHeight: stat.messageCount > 0 ? "4px" : "0",
-                              }}
-                            />
-                            <div
-                              className="w-[45%] bg-green-500/80 rounded-t transition-all duration-300 hover:bg-green-500"
-                              style={{
-                                height: `${orderHeight}%`,
-                                minHeight: stat.orderCount > 0 ? "4px" : "0",
-                              }}
-                            />
+                  <div className="overflow-hidden">
+                    <div className="flex h-64 items-end gap-px sm:gap-1">
+                      {peakHoursData.hourlyStats.map((stat) => {
+                        const maxActivity = Math.max(
+                          ...peakHoursData.hourlyStats.map((s) =>
+                            Math.max(s.messageCount, s.orderCount),
+                          ),
+                          1,
+                        );
+                        const messageHeight =
+                          (stat.messageCount / maxActivity) * 100;
+                        const orderHeight =
+                          (stat.orderCount / maxActivity) * 100;
+                        return (
+                          <div
+                            key={stat.hour}
+                            className="flex min-w-0 flex-1 flex-col items-center gap-1"
+                            title={`${stat.hourLabel}: ${stat.messageCount} رسالة، ${stat.orderCount} طلب`}
+                          >
+                            <div className="w-full h-full flex items-end justify-center gap-[2px]">
+                              <div
+                                className="w-[45%] bg-primary/80 rounded-t transition-all duration-300 hover:bg-primary"
+                                style={{
+                                  height: `${messageHeight}%`,
+                                  minHeight:
+                                    stat.messageCount > 0 ? "4px" : "0",
+                                }}
+                              />
+                              <div
+                                className="w-[45%] bg-green-500/80 rounded-t transition-all duration-300 hover:bg-green-500"
+                                style={{
+                                  height: `${orderHeight}%`,
+                                  minHeight: stat.orderCount > 0 ? "4px" : "0",
+                                }}
+                              />
+                            </div>
+                            <span className="text-[10px] text-muted-foreground">
+                              {stat.hour % 4 === 0
+                                ? stat.hourLabel.split(":")[0]
+                                : ""}
+                            </span>
                           </div>
-                          <span className="text-[10px] text-muted-foreground">
-                            {stat.hour % 4 === 0
-                              ? stat.hourLabel.split(":")[0]
-                              : ""}
-                          </span>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
                   </div>
-                  <div className="mt-4 flex justify-center gap-4 text-sm">
+                  <div className="mt-4 flex flex-col items-center gap-2 text-sm sm:flex-row sm:justify-center sm:gap-4">
                     <div className="flex items-center gap-2">
                       <div className="w-3 h-3 bg-primary rounded" />
                       <span>الرسائل</span>

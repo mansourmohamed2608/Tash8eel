@@ -516,13 +516,14 @@ export default function CallsPage() {
         title="المكالمات"
         description="متابعة المكالمات الفائتة والمكالمات التي تعامل معها الذكاء الاصطناعي"
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
             {activeCallBadge}
             <Button
               variant="outline"
               size="sm"
               onClick={() => void refreshAll()}
               disabled={refreshing}
+              className="w-full sm:w-auto"
             >
               {refreshing ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -534,7 +535,7 @@ export default function CallsPage() {
         }
       />
 
-      <div className="grid gap-4 md:grid-cols-4 mb-6">
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Card>
           <CardContent className="pt-6">
             <p className="text-sm text-muted-foreground">مكالمات اليوم</p>
@@ -635,8 +636,9 @@ export default function CallsPage() {
                         variant="ghost"
                         size="sm"
                         onClick={() => toggleTranscript(call.id)}
+                        className="w-full sm:w-auto"
                       >
-                        transcript
+                        سجل المكالمة
                         {isExpanded ? (
                           <ChevronUp className="mr-1 h-4 w-4" />
                         ) : (
@@ -700,7 +702,7 @@ export default function CallsPage() {
         }}
       >
         <DialogContent
-          className="max-w-3xl max-h-[90vh] overflow-y-auto"
+          className="max-h-[90vh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-3xl"
           dir="rtl"
         >
           <DialogHeader>
@@ -918,7 +920,7 @@ export default function CallsPage() {
               </span>
             </div>
 
-            <div className="flex justify-end gap-2 pt-2">
+            <div className="flex flex-col justify-end gap-2 pt-2 sm:flex-row">
               <Button
                 variant="outline"
                 onClick={() => {
@@ -927,12 +929,14 @@ export default function CallsPage() {
                   resetOrderForm();
                 }}
                 disabled={creatingOrder}
+                className="w-full sm:w-auto"
               >
                 إلغاء
               </Button>
               <Button
                 onClick={() => void submitManualOrder()}
                 disabled={creatingOrder}
+                className="w-full sm:w-auto"
               >
                 {creatingOrder ? (
                   <>

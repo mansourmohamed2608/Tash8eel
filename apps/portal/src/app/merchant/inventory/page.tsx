@@ -1451,7 +1451,7 @@ export default function InventoryPage() {
   }
 
   return (
-    <div className="space-y-6 animate-fadeIn">
+    <div className="space-y-6 animate-fadeIn p-4 sm:p-6">
       <PageHeader
         title="المخزون"
         description="إدارة منتجات وكميات المخزون"
@@ -1785,10 +1785,10 @@ export default function InventoryPage() {
           )}
 
           {/* Stats Cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
             <Card>
               <CardContent className="p-4">
-                <div className="flex items-center justify-between">
+                <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="text-sm text-muted-foreground">
                       إجمالي المنتجات
@@ -1803,7 +1803,7 @@ export default function InventoryPage() {
             </Card>
             <Card>
               <CardContent className="p-4">
-                <div className="flex items-center justify-between">
+                <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="text-sm text-muted-foreground">
                       الكمية المتاحة
@@ -1818,7 +1818,7 @@ export default function InventoryPage() {
             </Card>
             <Card>
               <CardContent className="p-4">
-                <div className="flex items-center justify-between">
+                <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="text-sm text-muted-foreground">مخزون منخفض</p>
                     <p className="text-2xl font-bold text-yellow-600">
@@ -1831,7 +1831,7 @@ export default function InventoryPage() {
             </Card>
             <Card>
               <CardContent className="p-4">
-                <div className="flex items-center justify-between">
+                <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="text-sm text-muted-foreground">نفد المخزون</p>
                     <p className="text-2xl font-bold text-red-600">
@@ -1848,7 +1848,7 @@ export default function InventoryPage() {
           {summary && (
             <Card>
               <CardContent className="p-4">
-                <div className="flex items-center justify-between">
+                <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="text-sm text-muted-foreground">
                       قيمة المخزون الإجمالية

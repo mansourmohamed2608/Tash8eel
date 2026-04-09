@@ -87,20 +87,19 @@ export default function AiAuditPage() {
       )
     : 0;
   const agentsInLog = new Set(decisions.map((d: any) => d.agent_type)).size;
-  const decisionTypes = new Set(
-    decisions.map((d: any) => d.decision_type),
-  ).size;
+  const decisionTypes = new Set(decisions.map((d: any) => d.decision_type))
+    .size;
 
   return (
-    <div className="space-y-6 animate-fadeIn">
+    <div className="space-y-6 animate-fadeIn p-4 sm:p-6">
       <PageHeader
         title="سجل قرارات الذكاء"
         titleEn="AI Decision Audit Trail"
         description="تتبع كل قرار يتخذه الذكاء الاصطناعي مع السبب والسياق"
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
             <Select value={agentFilter} onValueChange={setAgentFilter}>
-              <SelectTrigger className="w-[160px]">
+              <SelectTrigger className="w-full sm:w-[160px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -111,7 +110,11 @@ export default function AiAuditPage() {
                 <SelectItem value="MARKETING_AGENT">التسويق</SelectItem>
               </SelectContent>
             </Select>
-            <Button variant="outline" onClick={fetchData}>
+            <Button
+              variant="outline"
+              onClick={fetchData}
+              className="w-full sm:w-auto"
+            >
               <RefreshCw className="ml-2 h-4 w-4" /> تحديث
             </Button>
           </div>
@@ -128,7 +131,8 @@ export default function AiAuditPage() {
               {decisions.length}
             </p>
             <p className="mt-2 text-xs text-muted-foreground">
-              هذا السجل يركز على لماذا اتُخذ القرار، لا على feed النشاط التشغيلي.
+              هذا السجل يركز على لماذا اتُخذ القرار، لا على feed النشاط
+              التشغيلي.
             </p>
           </CardContent>
         </Card>
@@ -272,8 +276,8 @@ export default function AiAuditPage() {
                     const source = metadata?.source || metadata?.origin || null;
                     return (
                       <>
-                        <div className="flex items-start justify-between mb-2">
-                          <div className="flex items-center gap-2">
+                        <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                          <div className="flex flex-wrap items-center gap-2">
                             <Badge variant="outline">
                               {d.agent_type?.replace("_AGENT", "")}
                             </Badge>

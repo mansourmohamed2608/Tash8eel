@@ -579,14 +579,17 @@ export default function PlanPage() {
     async (planCode: string) => {
       if (!apiKey || !canEdit) return;
       try {
-        await merchantApi.subscribeBundlePlan(apiKey, {
+        const result = await merchantApi.subscribeBundlePlan(apiKey, {
           planCode,
           regionCode,
           cycleMonths,
         });
         toast({
           title: "تم التفعيل",
-          description: `تم تفعيل ${localizePlanName(planCode, planCode)} بنجاح.`,
+          description:
+            result?.cashierPromo?.active && result?.cashierPromo?.endsAt
+              ? `تم تفعيل ${localizePlanName(planCode, planCode)} بنجاح. الكاشير متاح ضمن العرض حتى ${new Date(result.cashierPromo.endsAt).toLocaleDateString("ar-EG")}.`
+              : `تم تفعيل ${localizePlanName(planCode, planCode)} بنجاح.`,
         });
         await loadCatalog();
       } catch (error) {
@@ -690,7 +693,7 @@ export default function PlanPage() {
 
   if (loading) {
     return (
-      <div className="space-y-4 p-6">
+      <div className="space-y-4 p-4 sm:p-6">
         <CardSkeleton />
         <CardSkeleton />
       </div>
@@ -699,7 +702,7 @@ export default function PlanPage() {
 
   if (!catalog) {
     return (
-      <div className="p-6">
+      <div className="p-4 sm:p-6">
         <EmptyState
           title="لا توجد بيانات"
           description="حاول التحديث مرة أخرى."
@@ -709,12 +712,16 @@ export default function PlanPage() {
   }
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 p-4 sm:p-6">
       <PageHeader
         title="الباقات والفوترة"
         description="الباقات الجاهزة + إضافات الباقة + BYO"
         actions={
-          <Button variant="outline" onClick={loadCatalog}>
+          <Button
+            variant="outline"
+            className="w-full sm:w-auto"
+            onClick={loadCatalog}
+          >
             <RefreshCw className="mr-2 h-4 w-4" />
             تحديث
           </Button>
@@ -779,7 +786,7 @@ export default function PlanPage() {
         <CardHeader>
           <CardTitle className="text-base">استهلاكك الحالي</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <CardContent className="grid gap-3 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4">
           {Object.entries(usageStatus?.metrics || {})
             .filter(([metric]) => !HIDDEN_USAGE_METRICS.has(String(metric)))
             .slice(0, 8)
@@ -816,7 +823,7 @@ export default function PlanPage() {
           <h2 className="text-lg font-semibold">الباقات الجاهزة</h2>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-5">
           {(catalog.bundles || []).map((bundle: any) => {
             const cyclePriceMap = mapPricesByCycle(bundle.prices);
             const selectedCyclePrice = cyclePriceMap.get(Number(cycleMonths));
@@ -841,7 +848,7 @@ export default function PlanPage() {
                 className={isCurrent ? "border-primary" : ""}
               >
                 <CardHeader className="space-y-2">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <CardTitle>
                       {localizePlanName(bundle.code, bundle.name)}
                     </CardTitle>
@@ -888,7 +895,7 @@ export default function PlanPage() {
                     {visibleLimits.map(([key, value]) => (
                       <div
                         key={key}
-                        className="flex justify-between gap-2 text-xs"
+                        className="flex flex-col gap-1 text-xs sm:flex-row sm:justify-between sm:gap-2"
                       >
                         <span className="text-muted-foreground">
                           {LIMIT_LABELS[key] || key}
@@ -970,7 +977,7 @@ export default function PlanPage() {
               الرقم داخل الحقل = عدد الوحدات المراد شراؤها من نفس الإضافة. إذا
               ظهرت "مضمنة بالفعل" فهذا يعني أن باقتك الحالية تغطيها.
             </p>
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
               {(catalog.bundleAddOns?.capacityAddOns || [])
                 .filter((addon: any) => addon?.isActive !== false)
                 .map((addOn: any) => {
@@ -1001,8 +1008,8 @@ export default function PlanPage() {
                   return (
                     <Card key={addOn.code}>
                       <CardContent className="space-y-2 pt-4">
-                        <div className="flex items-start justify-between gap-2">
-                          <div>
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                          <div className="min-w-0">
                             <p className="font-medium text-sm">
                               {localizeAddOnName(addOn.code, addOn.name)}
                             </p>
@@ -1018,7 +1025,7 @@ export default function PlanPage() {
                           ) : null}
                         </div>
 
-                        <div className="flex items-center justify-between text-xs">
+                        <div className="flex flex-col gap-1 text-xs sm:flex-row sm:items-center sm:justify-between">
                           <span>شهري فعلي ({cycleMonths} شهر)</span>
                           <span className="font-medium">
                             {selectedCyclePrice
@@ -1038,7 +1045,7 @@ export default function PlanPage() {
                             <Input
                               type="number"
                               min={1}
-                              className="h-8 w-28"
+                              className="h-8 w-full sm:w-28"
                               value={quantity}
                               disabled={alreadyIncluded || !canEdit}
                               onChange={(event) => {
@@ -1087,20 +1094,21 @@ export default function PlanPage() {
             </p>
             {Object.entries(bundleUsagePacksByMetric).map(([metric, packs]) => (
               <div key={metric} className="space-y-2">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <p className="text-sm font-medium">
                     {METRIC_LABELS[metric] || metric}
                   </p>
                   <Button
                     size="sm"
                     variant="outline"
+                    className="w-full sm:w-auto"
                     disabled={!canEdit}
                     onClick={() => handleBuyUsagePack(metric)}
                   >
                     شراء الفئة المحددة
                   </Button>
                 </div>
-                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4">
                   {(packs || []).map((pack: any) => {
                     const selected =
                       bundleSelectedPackByMetric[metric] === pack.code;
@@ -1118,7 +1126,7 @@ export default function PlanPage() {
                           <p className="font-medium text-sm">
                             {localizeUsagePackName(pack.code, pack.name)}
                           </p>
-                          <div className="flex items-center justify-between text-xs">
+                          <div className="flex flex-col gap-1 text-xs sm:flex-row sm:items-center sm:justify-between">
                             <span>شهري</span>
                             <span className="font-medium">
                               {pack.priceCents
@@ -1169,7 +1177,7 @@ export default function PlanPage() {
                           <Input
                             type="number"
                             min={1}
-                            className="h-8 w-24"
+                            className="h-8 w-full sm:w-24"
                             disabled={!selected}
                             value={quantity}
                             onChange={(event) => {
@@ -1209,7 +1217,7 @@ export default function PlanPage() {
           <CardContent className="space-y-6">
             <div className="space-y-3">
               <h3 className="font-medium">إضافات BYO (تخضع لخصم الدورة)</h3>
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
                 {(byoAddOns || [])
                   .filter((addon: any) => addon?.isActive !== false)
                   .map((addOn: any) => {
@@ -1232,7 +1240,7 @@ export default function PlanPage() {
                         className={checked ? "border-primary" : ""}
                       >
                         <CardContent className="space-y-2 pt-4">
-                          <div className="flex items-start justify-between gap-2">
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                             <div>
                               <p className="font-medium text-sm">
                                 {localizeAddOnName(addOn.code, addOn.name)}
@@ -1247,7 +1255,7 @@ export default function PlanPage() {
                             {isCore ? <Badge>إلزامي</Badge> : null}
                           </div>
 
-                          <div className="flex items-center justify-between text-xs">
+                          <div className="flex flex-col gap-1 text-xs sm:flex-row sm:items-center sm:justify-between">
                             <span>شهري فعلي ({cycleMonths} شهر)</span>
                             <span className="font-medium">
                               {selectedCyclePrice
@@ -1259,7 +1267,7 @@ export default function PlanPage() {
                             </span>
                           </div>
 
-                          <div className="flex items-center justify-between gap-2">
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                             <div className="flex items-center gap-2">
                               <Checkbox
                                 checked={checked}
@@ -1290,7 +1298,7 @@ export default function PlanPage() {
                                   1,
                                   Number(byoAddOnQty[addOn.code] || 1),
                                 )}
-                                className="h-8 w-20"
+                                className="h-8 w-full sm:w-20"
                                 disabled={!checked || !canEdit}
                                 onChange={(event) => {
                                   const quantity = Math.max(
@@ -1329,7 +1337,7 @@ export default function PlanPage() {
                       <p className="text-sm font-medium">
                         {METRIC_LABELS[metric] || metric}
                       </p>
-                      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                      <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4">
                         {(packs || []).map((pack: any) => {
                           const checked =
                             Number(byoPackQty[pack.code] || 0) > 0;
@@ -1350,7 +1358,7 @@ export default function PlanPage() {
                                 <p className="font-medium text-sm">
                                   {localizeUsagePackName(pack.code, pack.name)}
                                 </p>
-                                <div className="flex items-center justify-between text-xs">
+                                <div className="flex flex-col gap-1 text-xs sm:flex-row sm:items-center sm:justify-between">
                                   <span>شهري</span>
                                   <span className="font-medium">
                                     {pack.priceCents
@@ -1386,7 +1394,7 @@ export default function PlanPage() {
                                     </p>
                                   )}
                                 </div>
-                                <div className="flex items-center justify-between gap-2">
+                                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                                   <div className="flex items-center gap-2">
                                     <Checkbox
                                       checked={checked}
@@ -1421,7 +1429,7 @@ export default function PlanPage() {
                                   <Input
                                     type="number"
                                     min={1}
-                                    className="h-8 w-20"
+                                    className="h-8 w-full sm:w-20"
                                     disabled={!checked}
                                     value={quantity}
                                     onChange={(event) => {
@@ -1447,8 +1455,12 @@ export default function PlanPage() {
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
-              <Button onClick={calculateByo} disabled={calculating}>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <Button
+                onClick={calculateByo}
+                disabled={calculating}
+                className="w-full sm:w-auto"
+              >
                 <Layers className="mr-2 h-4 w-4" />
                 {calculating ? "جاري الحساب..." : "إعادة حساب BYO"}
               </Button>
@@ -1466,7 +1478,7 @@ export default function PlanPage() {
               <CardTitle className="text-base">نتيجة تسعير BYO</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-3">
+              <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
                 <div className="rounded-md border p-3">
                   <p className="text-xs text-muted-foreground">
                     قبل معامل BYO (شهري)
@@ -1510,7 +1522,7 @@ export default function PlanPage() {
                   {(byoResult.bundleComparison || []).map((entry: any) => (
                     <div
                       key={entry.code}
-                      className="flex items-center justify-between text-xs"
+                      className="flex flex-col gap-1 text-xs sm:flex-row sm:items-center sm:justify-between"
                     >
                       <span>{localizePlanName(entry.code, entry.name)}</span>
                       <span>

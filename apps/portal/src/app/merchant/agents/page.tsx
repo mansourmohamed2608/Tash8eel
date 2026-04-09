@@ -55,6 +55,15 @@ interface AgentInfo {
   features: string[];
   isEnabled: boolean;
   isIncludedInPlan: boolean;
+  implemented: boolean;
+  sellable: boolean;
+  comingSoon: boolean;
+  beta: boolean;
+  subscriptionEnabled: boolean;
+  routeVisibility: "visible" | "hidden" | "internal";
+  requiredFeatures: string[];
+  entrypoints: string[];
+  config?: Record<string, unknown> | null;
 }
 
 const AGENT_ICONS: Record<string, React.ElementType> = {
@@ -250,7 +259,9 @@ export default function AgentsPage() {
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <Card className="border-blue-200 bg-blue-50/50">
           <CardContent className="p-4">
-            <p className="text-sm text-muted-foreground">الوكلاء المفعلة الآن</p>
+            <p className="text-sm text-muted-foreground">
+              الوكلاء المفعلة الآن
+            </p>
             <p className="mt-1 text-2xl font-bold text-blue-700">
               {enabledCount || 0}
             </p>
@@ -295,7 +306,7 @@ export default function AgentsPage() {
       </div>
 
       {/* Hero Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4">
         <Card className="border-green-200 dark:border-green-800/50">
           <CardContent className="p-4 text-center">
             <div className="flex items-center justify-center gap-2 mb-1">
@@ -343,14 +354,14 @@ export default function AgentsPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={handleTabChange}>
-        <TabsList className="w-full flex">
-          <TabsTrigger value="overview" className="flex-1">
+        <TabsList className="grid h-auto w-full grid-cols-1 gap-2 sm:grid-cols-3">
+          <TabsTrigger value="overview" className="w-full">
             نظرة عامة
           </TabsTrigger>
-          <TabsTrigger value="agents" className="flex-1">
+          <TabsTrigger value="agents" className="w-full">
             الوكلاء ({agents.length || 8})
           </TabsTrigger>
-          <TabsTrigger value="capabilities" className="flex-1">
+          <TabsTrigger value="capabilities" className="w-full">
             القدرات الذكية
           </TabsTrigger>
         </TabsList>
@@ -469,7 +480,7 @@ export default function AgentsPage() {
               <CardTitle className="text-base">وصول سريع</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
                 {QUICK_LINKS.map((link) => {
                   const Icon = link.icon;
                   return (
@@ -493,7 +504,7 @@ export default function AgentsPage() {
           </Card>
 
           <Card className="bg-gradient-to-l from-indigo-50 to-blue-50 dark:from-indigo-950/30 dark:to-blue-950/30 border-indigo-200 dark:border-indigo-800/50">
-            <CardContent className="p-6 flex items-center justify-between">
+            <CardContent className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h3 className="font-bold text-lg flex items-center gap-2">
                   👥 المهام الجماعية للوكلاء
@@ -503,7 +514,7 @@ export default function AgentsPage() {
                 </p>
               </div>
               <Link href="/merchant/teams">
-                <Button>
+                <Button className="w-full sm:w-auto">
                   إدارة الفرق <ChevronLeft className="h-4 w-4 mr-1" />
                 </Button>
               </Link>
@@ -514,7 +525,7 @@ export default function AgentsPage() {
         {/* Agents Tab */}
         <TabsContent value="agents" className="space-y-4">
           {currentPlan && (
-            <div className="bg-gradient-to-l from-blue-50 to-purple-50 dark:from-blue-950/30 dark:to-purple-950/30 border border-blue-200 dark:border-blue-800/50 rounded-xl p-4 flex justify-between items-center">
+            <div className="flex flex-col gap-4 rounded-xl border border-blue-200 bg-gradient-to-l from-blue-50 to-purple-50 p-4 dark:border-blue-800/50 dark:from-blue-950/30 dark:to-purple-950/30 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="font-medium">
                   خطتك الحالية:{" "}
@@ -527,14 +538,18 @@ export default function AgentsPage() {
                 </p>
               </div>
               <Link href="/merchant/plan">
-                <Button variant="outline" size="sm">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full sm:w-auto"
+                >
                   ترقية الخطة
                 </Button>
               </Link>
             </div>
           )}
           {loading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
               {[1, 2, 3, 4, 5, 6].map((i) => (
                 <CardSkeleton key={i} />
               ))}
@@ -557,13 +572,14 @@ export default function AgentsPage() {
                 const emoji = AGENT_EMOJIS[agent.id] || "🤖";
                 const isComingSoon = agent.status === "coming_soon";
                 const isBeta = agent.status === "beta";
+                const isNotSellable = !agent.sellable;
                 return (
                   <Card
                     key={agent.id}
                     className={`border transition-all ${agent.isEnabled ? "border-green-200 dark:border-green-800/50 bg-green-50/50 dark:bg-green-950/10" : isComingSoon ? "opacity-60" : ""}`}
                   >
                     <CardHeader className="pb-3">
-                      <div className="flex justify-between items-start">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                         <div className="flex items-center gap-3">
                           <div
                             className={`w-10 h-10 rounded-lg flex items-center justify-center text-lg ${agent.isEnabled ? "bg-green-100 dark:bg-green-900/40" : "bg-muted"}`}
@@ -628,6 +644,20 @@ export default function AgentsPage() {
                           )}
                         </div>
                       )}
+                      <div className="mb-3 space-y-1">
+                        <p className="text-[11px] text-muted-foreground">
+                          الحالة التنفيذية:{" "}
+                          <span className="font-medium text-foreground">
+                            {agent.implemented ? "مطبّق" : "قيد التنفيذ"}
+                          </span>
+                        </p>
+                        <p className="text-[11px] text-muted-foreground">
+                          الحالة التجارية:{" "}
+                          <span className="font-medium text-foreground">
+                            {isNotSellable ? "غير جاهز للبيع" : "جاهز للبيع"}
+                          </span>
+                        </p>
+                      </div>
                       <div className="pt-3 border-t">
                         {agent.isIncludedInPlan ? (
                           <p className="text-xs text-green-600 dark:text-green-400">
@@ -636,6 +666,11 @@ export default function AgentsPage() {
                         ) : isComingSoon ? (
                           <p className="text-xs text-muted-foreground">
                             سيتوفر قريباً
+                            {isNotSellable ? " وغير جاهز للبيع حالياً" : ""}
+                          </p>
+                        ) : !agent.subscriptionEnabled ? (
+                          <p className="text-xs text-amber-600 dark:text-amber-400">
+                            غير قابل للتفعيل حالياً من سجل القدرات
                           </p>
                         ) : (
                           <Link href="/merchant/plan">

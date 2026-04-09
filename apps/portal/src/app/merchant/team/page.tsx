@@ -567,13 +567,18 @@ export default function TeamPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-4 sm:p-6">
       <PageHeader
         title="إدارة الفريق"
         description="إدارة أعضاء الفريق وصلاحياتهم"
         actions={
-          <>
-            <Button variant="outline" onClick={fetchStaff} disabled={loading}>
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+            <Button
+              variant="outline"
+              onClick={fetchStaff}
+              disabled={loading}
+              className="w-full sm:w-auto"
+            >
               <RefreshCw
                 className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
               />
@@ -581,12 +586,12 @@ export default function TeamPage() {
             </Button>
             <Dialog open={isInviteOpen} onOpenChange={setIsInviteOpen}>
               <DialogTrigger asChild>
-                <Button>
+                <Button className="w-full sm:w-auto">
                   <UserPlus className="h-4 w-4" />
                   دعوة عضو جديد
                 </Button>
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent className="max-h-[90vh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-lg">
                 <DialogHeader>
                   <DialogTitle>دعوة عضو جديد</DialogTitle>
                   <DialogDescription>
@@ -646,14 +651,19 @@ export default function TeamPage() {
                     </Select>
                   </div>
                 </div>
-                <div className="flex justify-end gap-2">
+                <div className="flex flex-col justify-end gap-2 sm:flex-row">
                   <Button
                     variant="outline"
                     onClick={() => setIsInviteOpen(false)}
+                    className="w-full sm:w-auto"
                   >
                     إلغاء
                   </Button>
-                  <Button onClick={handleInvite} disabled={saving}>
+                  <Button
+                    onClick={handleInvite}
+                    disabled={saving}
+                    className="w-full sm:w-auto"
+                  >
                     {saving ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
                     ) : null}
@@ -662,7 +672,7 @@ export default function TeamPage() {
                 </div>
               </DialogContent>
             </Dialog>
-          </>
+          </div>
         }
       />
 
@@ -678,7 +688,7 @@ export default function TeamPage() {
       />
 
       {loading ? (
-        <div className="grid gap-4 md:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {[...Array(4)].map((_, i) => (
             <Card key={i}>
               <CardContent className="p-6">
@@ -690,7 +700,7 @@ export default function TeamPage() {
       ) : (
         <>
           {/* Stats Cards */}
-          <div className="grid gap-4 md:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">
@@ -748,59 +758,38 @@ export default function TeamPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>العضو</TableHead>
-                    <TableHead>الدور</TableHead>
-                    <TableHead>الحالة</TableHead>
-                    <TableHead>آخر دخول</TableHead>
-                    <TableHead>آخر نشاط</TableHead>
-                    <TableHead className="text-end">إجراءات</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {staff.map((member) => {
-                    const StatusIcon = statusIcons[member.status];
-                    return (
-                      <TableRow key={member.id}>
-                        <TableCell>
-                          <div className="flex items-center gap-3">
-                            <div className="relative">
-                              <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold">
-                                {member.name.charAt(0)}
-                              </div>
-                              {isOnline(member) && (
-                                <div
-                                  className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full bg-green-500 border-2 border-white"
-                                  title="متصل الآن"
-                                />
-                              )}
+              <div className="space-y-3 md:hidden">
+                {staff.map((member) => {
+                  const StatusIcon = statusIcons[member.status];
+                  return (
+                    <div key={member.id} className="rounded-lg border p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <div className="relative">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-purple-500 font-bold text-white">
+                              {member.name.charAt(0)}
                             </div>
-                            <div>
-                              <div className="font-medium flex items-center gap-2">
-                                {member.name}
-                                {isOnline(member) && (
-                                  <span className="text-xs text-green-600">
-                                    متصل
-                                  </span>
-                                )}
-                              </div>
-                              <div className="text-sm text-muted-foreground">
-                                {member.email}
-                              </div>
-                            </div>
+                            {isOnline(member) && (
+                              <div className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-white bg-green-500" />
+                            )}
                           </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge
-                            className={`${roleColors[member.role]} text-white`}
-                          >
-                            {roleLabels[member.role]}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
+                          <div>
+                            <p className="font-medium">{member.name}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {member.email}
+                            </p>
+                          </div>
+                        </div>
+                        <Badge
+                          className={`${roleColors[member.role]} text-white`}
+                        >
+                          {roleLabels[member.role]}
+                        </Badge>
+                      </div>
+                      <div className="mt-3 grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+                        <div>
+                          <p className="text-muted-foreground">الحالة</p>
+                          <div className="mt-1 flex items-center gap-2">
                             <StatusIcon
                               className={`h-4 w-4 ${
                                 member.status === "ACTIVE"
@@ -812,84 +801,164 @@ export default function TeamPage() {
                             />
                             <span>{statusLabels[member.status]}</span>
                           </div>
-                        </TableCell>
-                        <TableCell>
-                          {getTimeSince(member.lastLoginAt)}
-                        </TableCell>
-                        <TableCell>
-                          {getTimeSince(member.lastActivityAt)}
-                        </TableCell>
-                        <TableCell>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                disabled={member.role === "OWNER"}
-                              >
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem
-                                onClick={() => openEditDialog(member)}
-                              >
-                                <Edit className="h-4 w-4" />
-                                تعديل الدور
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => openPermissionsDialog(member)}
-                              >
-                                <Shield className="h-4 w-4" />
-                                تعديل الصلاحيات
-                              </DropdownMenuItem>
-                              {member.status === "ACTIVE" && (
-                                <DropdownMenuItem
-                                  onClick={() =>
-                                    handleStatusChange(member.id, "SUSPENDED")
-                                  }
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">آخر دخول</p>
+                          <p>{getTimeSince(member.lastLoginAt)}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">آخر نشاط</p>
+                          <p>{getTimeSince(member.lastActivityAt)}</p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="hidden md:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>العضو</TableHead>
+                      <TableHead>الدور</TableHead>
+                      <TableHead>الحالة</TableHead>
+                      <TableHead>آخر دخول</TableHead>
+                      <TableHead>آخر نشاط</TableHead>
+                      <TableHead className="text-end">إجراءات</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {staff.map((member) => {
+                      const StatusIcon = statusIcons[member.status];
+                      return (
+                        <TableRow key={member.id}>
+                          <TableCell>
+                            <div className="flex items-center gap-3">
+                              <div className="relative">
+                                <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold">
+                                  {member.name.charAt(0)}
+                                </div>
+                                {isOnline(member) && (
+                                  <div
+                                    className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full bg-green-500 border-2 border-white"
+                                    title="متصل الآن"
+                                  />
+                                )}
+                              </div>
+                              <div>
+                                <div className="font-medium flex items-center gap-2">
+                                  {member.name}
+                                  {isOnline(member) && (
+                                    <span className="text-xs text-green-600">
+                                      متصل
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-sm text-muted-foreground">
+                                  {member.email}
+                                </div>
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              className={`${roleColors[member.role]} text-white`}
+                            >
+                              {roleLabels[member.role]}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <StatusIcon
+                                className={`h-4 w-4 ${
+                                  member.status === "ACTIVE"
+                                    ? "text-green-500"
+                                    : member.status === "PENDING_INVITE"
+                                      ? "text-yellow-500"
+                                      : "text-red-500"
+                                }`}
+                              />
+                              <span>{statusLabels[member.status]}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            {getTimeSince(member.lastLoginAt)}
+                          </TableCell>
+                          <TableCell>
+                            {getTimeSince(member.lastActivityAt)}
+                          </TableCell>
+                          <TableCell>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  disabled={member.role === "OWNER"}
                                 >
-                                  <Ban className="h-4 w-4" />
-                                  إيقاف
-                                </DropdownMenuItem>
-                              )}
-                              {member.status === "SUSPENDED" && (
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
                                 <DropdownMenuItem
-                                  onClick={() =>
-                                    handleStatusChange(member.id, "ACTIVE")
-                                  }
+                                  onClick={() => openEditDialog(member)}
                                 >
-                                  <CheckCircle className="h-4 w-4" />
-                                  تفعيل
+                                  <Edit className="h-4 w-4" />
+                                  تعديل الدور
                                 </DropdownMenuItem>
-                              )}
-                              {member.status === "PENDING_INVITE" && (
-                                <DropdownMenuItem>
-                                  <RefreshCw className="h-4 w-4" />
-                                  إعادة إرسال الدعوة
+                                <DropdownMenuItem
+                                  onClick={() => openPermissionsDialog(member)}
+                                >
+                                  <Shield className="h-4 w-4" />
+                                  تعديل الصلاحيات
                                 </DropdownMenuItem>
-                              )}
-                              <DropdownMenuItem
-                                className="text-red-600"
-                                onClick={() => handleDelete(member.id)}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                                حذف
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
+                                {member.status === "ACTIVE" && (
+                                  <DropdownMenuItem
+                                    onClick={() =>
+                                      handleStatusChange(member.id, "SUSPENDED")
+                                    }
+                                  >
+                                    <Ban className="h-4 w-4" />
+                                    إيقاف
+                                  </DropdownMenuItem>
+                                )}
+                                {member.status === "SUSPENDED" && (
+                                  <DropdownMenuItem
+                                    onClick={() =>
+                                      handleStatusChange(member.id, "ACTIVE")
+                                    }
+                                  >
+                                    <CheckCircle className="h-4 w-4" />
+                                    تفعيل
+                                  </DropdownMenuItem>
+                                )}
+                                {member.status === "PENDING_INVITE" && (
+                                  <DropdownMenuItem>
+                                    <RefreshCw className="h-4 w-4" />
+                                    إعادة إرسال الدعوة
+                                  </DropdownMenuItem>
+                                )}
+                                <DropdownMenuItem
+                                  className="text-red-600"
+                                  onClick={() => handleDelete(member.id)}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                  حذف
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
             </CardContent>
           </Card>
 
           {/* Edit Role Dialog */}
           <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-            <DialogContent>
+            <DialogContent className="max-h-[90vh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-lg">
               <DialogHeader>
                 <DialogTitle>تعديل دور العضو</DialogTitle>
                 <DialogDescription>
@@ -968,13 +1037,18 @@ export default function TeamPage() {
                   </div>
                 )}
               </div>
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setIsEditOpen(false)}>
+              <div className="flex flex-col justify-end gap-2 sm:flex-row">
+                <Button
+                  variant="outline"
+                  onClick={() => setIsEditOpen(false)}
+                  className="w-full sm:w-auto"
+                >
                   إلغاء
                 </Button>
                 <Button
                   onClick={handleRoleChange}
                   disabled={saving || editRole === selectedStaff?.role}
+                  className="w-full sm:w-auto"
                 >
                   {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                   حفظ التغييرات
@@ -993,7 +1067,76 @@ export default function TeamPage() {
               <CardDescription>الصلاحيات الافتراضية لكل دور</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
+              <div className="space-y-3 md:hidden">
+                {permissions.map((perm) => (
+                  <div
+                    key={perm.key}
+                    className="rounded-lg border p-4 space-y-2"
+                  >
+                    <div className="font-medium">{perm.label}</div>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="h-4 w-4 text-green-500" />
+                        <span>مالك</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {perm.key !== "staff" ? (
+                          <CheckCircle className="h-4 w-4 text-green-500" />
+                        ) : (
+                          <XCircle className="h-4 w-4 text-red-500" />
+                        )}
+                        <span>مدير</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {[
+                          "orders",
+                          "conversations",
+                          "customers",
+                          "products",
+                          "inventory",
+                          "reports",
+                        ].includes(perm.key) ? (
+                          <CheckCircle className="h-4 w-4 text-green-500" />
+                        ) : (
+                          <XCircle className="h-4 w-4 text-red-500" />
+                        )}
+                        <span>مشرف</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {[
+                          "orders",
+                          "conversations",
+                          "customers",
+                          "products",
+                          "inventory",
+                          "reports",
+                        ].includes(perm.key) ? (
+                          <AlertCircle className="h-4 w-4 text-yellow-500" />
+                        ) : (
+                          <XCircle className="h-4 w-4 text-red-500" />
+                        )}
+                        <span>وكيل</span>
+                      </div>
+                      <div className="col-span-2 flex items-center gap-2">
+                        {[
+                          "orders",
+                          "conversations",
+                          "customers",
+                          "products",
+                          "inventory",
+                          "reports",
+                        ].includes(perm.key) ? (
+                          <AlertCircle className="h-4 w-4 text-yellow-500" />
+                        ) : (
+                          <XCircle className="h-4 w-4 text-red-500" />
+                        )}
+                        <span>مشاهد</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="hidden overflow-x-auto md:block">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -1072,7 +1215,7 @@ export default function TeamPage() {
                   </TableBody>
                 </Table>
               </div>
-              <div className="flex gap-4 mt-4 text-sm text-muted-foreground">
+              <div className="mt-4 flex flex-col gap-2 text-sm text-muted-foreground sm:flex-row sm:flex-wrap sm:gap-4">
                 <div className="flex items-center gap-1">
                   <CheckCircle className="h-4 w-4 text-green-500" />
                   <span>كامل</span>
@@ -1091,7 +1234,7 @@ export default function TeamPage() {
 
           {/* Custom Permissions Dialog */}
           <Dialog open={isPermissionsOpen} onOpenChange={setIsPermissionsOpen}>
-            <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+            <DialogContent className="max-h-[85vh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-2xl">
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
                   <Shield className="h-5 w-5" />
@@ -1103,8 +1246,8 @@ export default function TeamPage() {
                 </DialogDescription>
               </DialogHeader>
 
-              <div className="flex items-center justify-between py-2">
-                <div className="flex items-center gap-2">
+              <div className="flex flex-col gap-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                   <Badge
                     className={`${roleColors[selectedStaff?.role || "AGENT"]} text-white`}
                   >
@@ -1187,14 +1330,19 @@ export default function TeamPage() {
                 })}
               </div>
 
-              <div className="flex justify-end gap-2 pt-2">
+              <div className="flex flex-col gap-2 pt-2 sm:flex-row sm:justify-end">
                 <Button
                   variant="outline"
                   onClick={() => setIsPermissionsOpen(false)}
+                  className="w-full sm:w-auto"
                 >
                   إلغاء
                 </Button>
-                <Button onClick={handlePermissionsSave} disabled={saving}>
+                <Button
+                  onClick={handlePermissionsSave}
+                  disabled={saving}
+                  className="w-full sm:w-auto"
+                >
                   {saving ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (

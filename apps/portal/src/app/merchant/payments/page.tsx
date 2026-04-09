@@ -9,28 +9,29 @@ import { ShieldCheck } from "lucide-react";
 
 export default function PaymentsPage() {
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6">
       <PageHeader
-        title="Payments"
-        description="Payment links have been removed. Use proof verification workflow."
+        title="المدفوعات"
+        description="تم إيقاف روابط الدفع. استخدم مراجعة إثباتات الدفع بدلًا منها."
       />
 
       <AlertBanner
         type="warning"
-        title="Payment links removed"
-        message="For fraud control and manual verification, payment links are no longer available."
+        title="تم إيقاف روابط الدفع"
+        message="لأسباب تتعلق بمكافحة الاحتيال والتحقق اليدوي، لم تعد روابط الدفع متاحة داخل النظام."
       />
 
       <Card>
         <CardContent className="space-y-4 pt-6">
           <p className="text-sm text-muted-foreground">
-            OCR is used only to assist payment proof extraction and risk flags. Every proof requires review.
+            يتم استخدام OCR فقط للمساعدة في استخراج بيانات إثبات الدفع ورصد
+            المخاطر. كل إثبات يحتاج مراجعة فعلية قبل اعتماده.
           </p>
 
           <Button asChild>
             <Link href="/merchant/payments/proofs">
-              <ShieldCheck className="mr-2 h-4 w-4" />
-              Open Payment Proof Verification
+              <ShieldCheck className="ml-2 h-4 w-4" />
+              افتح مراجعة إثباتات الدفع
             </Link>
           </Button>
         </CardContent>

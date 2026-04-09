@@ -102,12 +102,17 @@ export default function TaxReportPage() {
   };
 
   return (
-    <div className="space-y-6 animate-fadeIn">
+    <div className="space-y-6 animate-fadeIn p-4 sm:p-6">
       <PageHeader
         title="تقرير ضريبة القيمة المضافة"
         description="احسب ضريبة المبيعات والمشتريات والاسترجاعات"
         actions={
-          <Button variant="outline" onClick={fetchReports} disabled={loading}>
+          <Button
+            variant="outline"
+            onClick={fetchReports}
+            disabled={loading}
+            className="w-full sm:w-auto"
+          >
             <RefreshCw className="ml-2 h-4 w-4" /> تحديث
           </Button>
         }
@@ -122,8 +127,8 @@ export default function TaxReportPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-wrap items-end gap-4">
-            <div>
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[repeat(2,minmax(0,1fr))_auto]">
+            <div className="space-y-2">
               <Label>من تاريخ</Label>
               <Input
                 type="date"
@@ -131,7 +136,7 @@ export default function TaxReportPage() {
                 onChange={(e) => setPeriodStart(e.target.value)}
               />
             </div>
-            <div>
+            <div className="space-y-2">
               <Label>إلى تاريخ</Label>
               <Input
                 type="date"
@@ -139,7 +144,11 @@ export default function TaxReportPage() {
                 onChange={(e) => setPeriodEnd(e.target.value)}
               />
             </div>
-            <Button onClick={generateReport} disabled={loading}>
+            <Button
+              onClick={generateReport}
+              disabled={loading}
+              className="w-full lg:w-auto"
+            >
               <Calculator className="ml-2 h-4 w-4" />
               {loading ? "جاري الحساب..." : "احسب الضريبة"}
             </Button>
@@ -222,53 +231,53 @@ export default function TaxReportPage() {
                       <CardTitle>تفاصيل الضريبة</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-3">
-                      <div className="flex justify-between">
+                      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                         <span>نسبة الضريبة</span>
                         <Badge variant="outline">{vatRateLabel}</Badge>
                       </div>
-                      <div className="flex justify-between">
+                      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                         <span>إجمالي الخصومات</span>
                         <span>{formatCurrency(totalDiscounts)}</span>
                       </div>
-                      <div className="flex justify-between">
+                      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                         <span>رسوم التوصيل</span>
                         <span>{formatCurrency(totalDeliveryFees)}</span>
                       </div>
-                      <div className="flex justify-between">
+                      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                         <span>الوعاء الضريبي للمبيعات</span>
                         <span>{formatCurrency(taxableSalesBase)}</span>
                       </div>
-                      <div className="flex justify-between">
+                      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                         <span>إجمالي المصروفات (كل البنود)</span>
                         <span>{formatCurrency(totalExpenses)}</span>
                       </div>
-                      <div className="flex justify-between">
+                      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                         <span>المصروفات المحتسبة ضريبياً</span>
                         <span>{formatCurrency(deductibleExpenses)}</span>
                       </div>
-                      <div className="flex justify-between">
+                      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                         <span>مصروفات غير محتسبة ضريبياً</span>
                         <span>{formatCurrency(nonDeductibleExpenses)}</span>
                       </div>
-                      <div className="flex justify-between">
+                      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                         <span>ضريبة المبيعات</span>
                         <span className="text-red-600">
                           {formatCurrency(vatOnSales)}
                         </span>
                       </div>
-                      <div className="flex justify-between">
+                      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                         <span>ضريبة المشتريات</span>
                         <span className="text-green-600">
                           {formatCurrency(-vatOnPurchases)}
                         </span>
                       </div>
-                      <div className="flex justify-between">
+                      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                         <span>ضريبة الاسترجاعات</span>
                         <span className="text-green-600">
                           {formatCurrency(-vatOnRefunds)}
                         </span>
                       </div>
-                      <div className="flex justify-between">
+                      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                         <span>أسلوب الحساب</span>
                         <Badge variant="secondary">
                           {includeVatInPrice
@@ -276,14 +285,14 @@ export default function TaxReportPage() {
                             : "الضريبة تضاف على السعر"}
                         </Badge>
                       </div>
-                      <div className="flex justify-between">
+                      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                         <span>حساب ضريبة التوصيل</span>
                         <Badge variant="secondary">
                           {includeDeliveryInTax ? "مشمولة" : "غير مشمولة"}
                         </Badge>
                       </div>
                       <hr />
-                      <div className="flex justify-between font-bold text-lg">
+                      <div className="flex flex-col gap-1 text-lg font-bold sm:flex-row sm:items-center sm:justify-between">
                         <span>صافي الضريبة المستحقة</span>
                         <span
                           className={
@@ -303,26 +312,26 @@ export default function TaxReportPage() {
                       <CardTitle>ملخص الفترة</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-3">
-                      <div className="flex justify-between">
+                      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                         <span>عدد الطلبات الخاضعة للضريبة</span>
                         <span>{totalOrders}</span>
                       </div>
-                      <div className="flex justify-between">
+                      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                         <span>إجمالي المصروفات</span>
                         <span>{formatCurrency(totalExpenses)}</span>
                       </div>
-                      <div className="flex justify-between">
+                      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                         <span>عدد المصروفات المحتسبة ضريبياً</span>
                         <span>
                           {deductibleExpenseCount} من {totalExpenseCount}
                         </span>
                       </div>
-                      <div className="flex justify-between">
+                      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                         <span>إجمالي الاسترجاعات</span>
                         <span>{formatCurrency(refundTotal)}</span>
                       </div>
                       {report.taxRegistrationNo && (
-                        <div className="flex justify-between">
+                        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                           <span>رقم التسجيل الضريبي</span>
                           <Badge>{report.taxRegistrationNo}</Badge>
                         </div>
@@ -347,14 +356,14 @@ export default function TaxReportPage() {
               {reports.map((r: any) => (
                 <div
                   key={r.id}
-                  className="flex items-center justify-between border rounded-lg p-3"
+                  className="flex flex-col gap-2 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between"
                 >
-                  <div>
+                  <div className="space-y-2">
                     <span className="font-medium">
                       {r.period_start} → {r.period_end}
                     </span>
                     <Badge
-                      className="mr-2"
+                      className="mr-0 sm:mr-2"
                       variant={
                         String(r.status || "").toUpperCase() === "FINAL" ||
                         String(r.status || "").toUpperCase() === "GENERATED"

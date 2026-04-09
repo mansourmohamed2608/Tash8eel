@@ -80,6 +80,17 @@ interface MerchantSettings {
     bankIban: string | null;
     preferredMethod: "INSTAPAY" | "VODAFONE_CASH" | "BANK_TRANSFER";
   };
+  pos: {
+    enabled: boolean;
+    mode: "retail" | "restaurant" | "hybrid";
+    tablesEnabled: boolean;
+    suspendedSalesEnabled: boolean;
+    splitPaymentsEnabled: boolean;
+    returnsEnabled: boolean;
+    requireActiveRegisterSession: boolean;
+    defaultServiceMode: "delivery" | "pickup" | "dine_in";
+    thermalReceiptWidth: "58mm" | "80mm" | "a4";
+  };
 }
 
 // Default settings
@@ -115,6 +126,17 @@ const defaultSettings: MerchantSettings = {
     bankAccount: null,
     bankIban: null,
     preferredMethod: "INSTAPAY",
+  },
+  pos: {
+    enabled: true,
+    mode: "retail",
+    tablesEnabled: false,
+    suspendedSalesEnabled: true,
+    splitPaymentsEnabled: true,
+    returnsEnabled: true,
+    requireActiveRegisterSession: false,
+    defaultServiceMode: "pickup",
+    thermalReceiptWidth: "80mm",
   },
 };
 
@@ -172,7 +194,8 @@ export default function SettingsPage() {
   const showGlobalSave =
     activeTab === "business" ||
     activeTab === "payout" ||
-    activeTab === "preferences";
+    activeTab === "preferences" ||
+    activeTab === "pos";
   const categoryOptions = useMemo(() => {
     const current = settings?.business.category?.trim();
     if (current && !CATEGORY_OPTIONS.includes(current)) {
@@ -195,6 +218,7 @@ export default function SettingsPage() {
         },
         preferences: { ...defaultSettings.preferences, ...result.preferences },
         payout: { ...defaultSettings.payout, ...(result.payout || {}) },
+        pos: { ...defaultSettings.pos, ...(result.pos || {}) },
       };
       const normalizedCategory = merged.business.category
         ? CATEGORY_FROM_ENUM[merged.business.category] ||
@@ -227,6 +251,7 @@ export default function SettingsPage() {
       tab === "payout" ||
       tab === "notifications" ||
       tab === "preferences" ||
+      tab === "pos" ||
       tab === "danger"
     ) {
       setActiveTab(tab);
@@ -308,6 +333,21 @@ export default function SettingsPage() {
         );
       }
 
+      if (activeTab === "pos") {
+        await merchantApi.updateSettings(apiKey, {
+          pos: settings.pos,
+        } as any);
+
+        setInitialSettings((prev) =>
+          prev
+            ? {
+                ...prev,
+                pos: settings.pos,
+              }
+            : settings,
+        );
+      }
+
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (err) {
@@ -332,13 +372,17 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="space-y-6 animate-fadeIn">
+    <div className="space-y-6 animate-fadeIn p-4 sm:p-6">
       <PageHeader
         title="الإعدادات"
         description="إدارة إعدادات المتجر والإشعارات"
         actions={
           showGlobalSave && (
-            <Button onClick={handleSave} disabled={saving}>
+            <Button
+              onClick={handleSave}
+              disabled={saving}
+              className="w-full sm:w-auto"
+            >
               <Save className="h-4 w-4" />
               {saving ? "جاري الحفظ..." : "حفظ التغييرات"}
             </Button>
@@ -384,27 +428,43 @@ export default function SettingsPage() {
         onValueChange={handleTabChange}
         className="space-y-6"
       >
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="business" className="flex items-center gap-2">
+        <TabsList className="grid h-auto w-full grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-6">
+          <TabsTrigger
+            value="business"
+            className="flex w-full items-center gap-2"
+          >
             <Store className="h-4 w-4" />
             المتجر
           </TabsTrigger>
-          <TabsTrigger value="payout" className="flex items-center gap-2">
+          <TabsTrigger
+            value="payout"
+            className="flex w-full items-center gap-2"
+          >
             <Wallet className="h-4 w-4" />
             الدفع
           </TabsTrigger>
           <TabsTrigger
             value="notifications"
-            className="flex items-center gap-2"
+            className="flex w-full items-center gap-2"
           >
             <Bell className="h-4 w-4" />
             الإشعارات
           </TabsTrigger>
-          <TabsTrigger value="preferences" className="flex items-center gap-2">
+          <TabsTrigger
+            value="preferences"
+            className="flex w-full items-center gap-2"
+          >
             <Clock className="h-4 w-4" />
             التفضيلات
           </TabsTrigger>
-          <TabsTrigger value="danger" className="flex items-center gap-2">
+          <TabsTrigger value="pos" className="flex w-full items-center gap-2">
+            <CreditCard className="h-4 w-4" />
+            نقطة البيع
+          </TabsTrigger>
+          <TabsTrigger
+            value="danger"
+            className="flex w-full items-center gap-2"
+          >
             <AlertTriangle className="h-4 w-4" />
             الحذف
           </TabsTrigger>
@@ -421,7 +481,7 @@ export default function SettingsPage() {
               <CardDescription>بيانات المتجر الأساسية</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <label className="text-sm font-medium">اسم المتجر</label>
                   <Input
@@ -607,7 +667,7 @@ export default function SettingsPage() {
                   <Building2 className="h-4 w-4 text-blue-600" />
                   <span className="font-medium">تحويل بنكي</span>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <label className="text-sm font-medium">اسم البنك</label>
                     <Input
@@ -706,7 +766,7 @@ export default function SettingsPage() {
                 إعدادات القنوات، تفضيلات التنبيهات، فترات التقارير، وأرقام
                 الإشعارات تم دمجها في صفحة واحدة.
               </div>
-              <Button asChild className="w-fit">
+              <Button asChild className="w-full sm:w-fit">
                 <Link href="/merchant/notifications?tab=settings">
                   الانتقال إلى مركز الإشعارات
                   <ArrowUpRight className="h-4 w-4" />
@@ -727,7 +787,7 @@ export default function SettingsPage() {
               <CardDescription>إعدادات العمل والردود التلقائية</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="space-y-0.5">
                   <label className="text-sm font-medium">
                     الردود التلقائية
@@ -779,7 +839,7 @@ export default function SettingsPage() {
                 </Select>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <label className="text-sm font-medium">
                     بداية ساعات العمل
@@ -854,7 +914,7 @@ export default function SettingsPage() {
                   تفضيلات الأمان (منقولة من صفحة الأمان)
                 </div>
 
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between">
                   <div className="space-y-0.5">
                     <label className="text-sm font-medium">
                       حماية العمليات المالية
@@ -908,6 +968,153 @@ export default function SettingsPage() {
                     </SelectContent>
                   </Select>
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="pos">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <CreditCard className="h-5 w-5" />
+                إعدادات نقطة البيع
+              </CardTitle>
+              <CardDescription>
+                ربط الكاشير بالنظام الرئيسي مع التحكم في الجلسات، الجداول،
+                الطلبات المعلقة، المدفوعات، والإيصالات.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">وضع نقطة البيع</label>
+                  <Select
+                    value={settings.pos.mode}
+                    onValueChange={(
+                      value: "retail" | "restaurant" | "hybrid",
+                    ) =>
+                      setSettings({
+                        ...settings,
+                        pos: { ...settings.pos, mode: value },
+                      })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="retail">تجزئة</SelectItem>
+                      <SelectItem value="restaurant">مطاعم</SelectItem>
+                      <SelectItem value="hybrid">هجين</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">
+                    الخدمة الافتراضية
+                  </label>
+                  <Select
+                    value={settings.pos.defaultServiceMode}
+                    onValueChange={(value: "delivery" | "pickup" | "dine_in") =>
+                      setSettings({
+                        ...settings,
+                        pos: { ...settings.pos, defaultServiceMode: value },
+                      })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pickup">استلام</SelectItem>
+                      <SelectItem value="delivery">توصيل</SelectItem>
+                      <SelectItem value="dine_in">داخل الفرع</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">مقاس الإيصال</label>
+                  <Select
+                    value={settings.pos.thermalReceiptWidth}
+                    onValueChange={(value: "58mm" | "80mm" | "a4") =>
+                      setSettings({
+                        ...settings,
+                        pos: { ...settings.pos, thermalReceiptWidth: value },
+                      })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="58mm">58mm</SelectItem>
+                      <SelectItem value="80mm">80mm</SelectItem>
+                      <SelectItem value="a4">A4</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                {[
+                  [
+                    "enabled",
+                    "تفعيل نقطة البيع",
+                    "تفعيل وظائف الكاشير وربطها بالطلبات والمخزون.",
+                  ],
+                  [
+                    "tablesEnabled",
+                    "تفعيل الجداول",
+                    "تمكين إدارة الطاولات للمطاعم والكافيهات.",
+                  ],
+                  [
+                    "suspendedSalesEnabled",
+                    "الطلبات المعلقة",
+                    "حفظ السلال مؤقتاً ثم استكمالها لاحقاً.",
+                  ],
+                  [
+                    "splitPaymentsEnabled",
+                    "الدفع المتعدد",
+                    "تحصيل نفس الطلب بأكثر من وسيلة دفع.",
+                  ],
+                  [
+                    "returnsEnabled",
+                    "المرتجعات والاستبدال",
+                    "السماح بعمليات الاسترجاع والاستبدال من الكاشير.",
+                  ],
+                  [
+                    "requireActiveRegisterSession",
+                    "إلزام جلسة كاشير",
+                    "منع تنفيذ البيع قبل فتح جلسة كاشير فعلية.",
+                  ],
+                ].map(([key, label, description]) => (
+                  <div
+                    key={key}
+                    className="flex flex-col gap-3 rounded-xl border p-4 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium">{label}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {description}
+                      </p>
+                    </div>
+                    <Switch
+                      checked={Boolean(
+                        settings.pos[key as keyof typeof settings.pos],
+                      )}
+                      onCheckedChange={(checked) =>
+                        setSettings({
+                          ...settings,
+                          pos: {
+                            ...settings.pos,
+                            [key]: checked,
+                          },
+                        })
+                      }
+                    />
+                  </div>
+                ))}
               </div>
             </CardContent>
           </Card>
