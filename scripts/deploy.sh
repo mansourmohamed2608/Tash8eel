@@ -19,6 +19,20 @@ fail() {
   exit 1
 }
 
+read_env_value() {
+  local key="$1"
+  local line
+
+  line="$(grep -E "^${key}=" .env | tail -n 1 || true)"
+  line="${line#*=}"
+  line="${line%\"}"
+  line="${line#\"}"
+  line="${line%\'}"
+  line="${line#\'}"
+
+  printf '%s' "${line}"
+}
+
 service_status() {
   local service="$1"
   local container_id
@@ -123,8 +137,20 @@ fi
 log_ok "All services are healthy"
 
 log_step "Printing public URLs"
-echo "API: https://api.${DOMAIN:-YOUR_DOMAIN}"
-echo "Portal: https://${DOMAIN:-YOUR_DOMAIN}"
+domain="$(read_env_value "DOMAIN")"
+portal_url="$(read_env_value "NEXTAUTH_URL")"
+api_url="$(read_env_value "NEXT_PUBLIC_API_URL")"
+
+if [ -z "${portal_url}" ] && [ -n "${domain}" ]; then
+  portal_url="https://${domain}"
+fi
+
+if [ -z "${api_url}" ] && [ -n "${domain}" ]; then
+  api_url="https://api.${domain}"
+fi
+
+echo "API: ${api_url:-https://api.YOUR_DOMAIN}"
+echo "Portal: ${portal_url:-https://YOUR_DOMAIN}"
 log_ok "Public URL output complete"
 
 log_step "Cleaning old Docker images"
