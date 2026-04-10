@@ -1,27 +1,33 @@
-﻿"use client";
+"use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { PageHeader } from "@/components/layout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
+import {
+  type CSSProperties,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { AlertBanner } from "@/components/ui/alerts";
 import {
+  Activity,
+  AudioLines,
   BarChart3,
   Bot,
   Boxes,
-  Send,
-  Sparkles,
-  Trash2,
   Check,
-  X,
+  Clock3,
+  Command,
   Lock,
   Mic,
-  Square,
   Receipt,
+  Send,
   ShieldCheck,
+  Sparkles,
+  Square,
+  Trash2,
   Wand2,
+  X,
 } from "lucide-react";
 import { merchantApi } from "@/lib/client";
 import { useMerchant } from "@/hooks/use-merchant";
@@ -45,33 +51,67 @@ const QUICK_COMMANDS = [
     label: "مصاريف الشهر",
     command: "مصاريف الشهر",
     icon: Receipt,
-    description: "ملخص المصروفات والتوزيع الحالي",
+    description: "ملخص سريع للمصروفات والتوزيع الحالي.",
   },
   {
     label: "المنتجات الأقل مخزون",
     command: "إيه المنتجات اللي قربت تخلص؟",
     icon: Boxes,
-    description: "أسرع طريقة لمعرفة المخزون الحرج",
+    description: "أسرع طريقة لمعرفة المخزون الحرج.",
   },
   {
     label: "إيرادات اليوم",
     command: "إيرادات اليوم كام؟",
     icon: BarChart3,
-    description: "لمحة فورية عن أداء اليوم",
+    description: "قراءة مباشرة لأداء اليوم.",
   },
   {
     label: "راجع إثباتات الدفع",
     command: "افتح مراجعة إثباتات الدفع",
     icon: ShieldCheck,
-    description: "اذهب مباشرة لمسار المدفوعات",
+    description: "انتقال فوري إلى مسار المدفوعات.",
   },
 ] as const;
+
+const FEATURE_LABELS: Record<string, string> = {
+  INVENTORY: "المخزون",
+  REPORTS: "التقارير",
+  PAYMENTS: "المدفوعات",
+  ORDERS: "الطلبات",
+  COPILOT_CHAT: "مساعد التاجر",
+};
+
+const INTENT_LABELS: Record<string, string> = {
+  ADD_EXPENSE: "إضافة مصروف",
+  ASK_EXPENSE_SUMMARY: "ملخص المصروفات",
+  CREATE_PAYMENT_LINK: "رابط دفع",
+  APPROVE_PAYMENT_PROOF: "مراجعة إثبات الدفع",
+  ASK_COD_STATUS: "حالة التحصيل",
+  CLOSE_MONTH: "إغلاق الشهر",
+  UPDATE_STOCK: "تحديث المخزون",
+  ASK_LOW_STOCK: "المخزون الحرج",
+  ASK_SHRINKAGE: "الانكماش",
+  IMPORT_SUPPLIER_CSV: "استيراد الموردين",
+  ASK_TOP_MOVERS: "الأصناف الأعلى حركة",
+  TAG_VIP: "تمييز عميل مهم",
+  REMOVE_VIP: "إزالة التمييز",
+  REORDER_LAST: "إعادة الطلب السابق",
+};
 
 function formatMessageTime(value: string) {
   return new Date(value).toLocaleTimeString("ar-SA", {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+function staggerStyle(index: number): CSSProperties {
+  return { ["--stagger-index" as string]: index } as CSSProperties;
+}
+
+function formatIntentLabel(intent?: string) {
+  if (!intent) return null;
+  return INTENT_LABELS[intent] || intent.replaceAll("_", " ");
 }
 
 export default function MerchantAssistantPage() {
@@ -82,15 +122,14 @@ export default function MerchantAssistantPage() {
   const [error, setError] = useState<string | null>(null);
   const [initialized, setInitialized] = useState(false);
   const endRef = useRef<HTMLDivElement | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
-  // Voice recording state
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // AI connection status
   const [aiStatus, setAiStatus] = useState<{
     connected: boolean;
     message: string;
@@ -103,6 +142,7 @@ export default function MerchantAssistantPage() {
     () => messages.filter((m) => (m.role as string) !== "system").slice(-12),
     [messages],
   );
+
   const usagePercent = useMemo(() => {
     const usage = aiStatus?.usage;
     if (!usage?.dailyLimit) return null;
@@ -112,7 +152,6 @@ export default function MerchantAssistantPage() {
     );
   }, [aiStatus]);
 
-  // Fetch AI status on mount
   useEffect(() => {
     if (!apiKey) return;
     merchantApi
@@ -135,7 +174,7 @@ export default function MerchantAssistantPage() {
       .catch(() => {
         setAiStatus({
           connected: false,
-          message: "⚠️ تعذر الاتصال بخدمة الذكاء الاصطناعي",
+          message: "تعذر الاتصال بخدمة الذكاء الاصطناعي حالياً.",
           voice: false,
           vision: false,
         });
@@ -155,14 +194,16 @@ export default function MerchantAssistantPage() {
           return;
         }
       } catch {
-        // ignore invalid cache
+        // Ignore corrupt cached history.
       }
     }
+
     setMessages([
       {
         id: crypto.randomUUID(),
         role: "assistant",
-        content: "أهلاً! أنا مساعدك الذكي. اسألني عن أي شيء يتعلق بعملك.",
+        content:
+          "أهلاً بك. أنا المساعد التشغيلي داخل النظام. اسألني عن المصروفات أو الطلبات أو المدفوعات وسأعيد لك الإجابة بشكل تنفيذي مباشر.",
         createdAt: new Date().toISOString(),
       },
     ]);
@@ -200,20 +241,22 @@ export default function MerchantAssistantPage() {
         message: userMessage,
         history: history.map((m) => ({ role: m.role, content: m.content })),
       });
-      const assistantEntry: ChatMessage = {
-        id: crypto.randomUUID(),
-        role: "assistant",
-        content: res.reply,
-        createdAt: new Date().toISOString(),
-        intent: res.intent,
-        requiresConfirmation: res.requiresConfirmation,
-        pendingActionId: res.pendingActionId,
-        featureBlocked: res.featureBlocked,
-        blockedFeatures: res.blockedFeatures,
-      };
-      setMessages((prev) => [...prev, assistantEntry]);
 
-      // If AI returned an error, update status banner to show disconnected
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: res.reply,
+          createdAt: new Date().toISOString(),
+          intent: res.intent,
+          requiresConfirmation: res.requiresConfirmation,
+          pendingActionId: res.pendingActionId,
+          featureBlocked: res.featureBlocked,
+          blockedFeatures: res.blockedFeatures,
+        },
+      ]);
+
       if (
         res.error === "AI_QUOTA_EXHAUSTED" ||
         res.error === "AI_TEMPORARILY_UNAVAILABLE" ||
@@ -232,20 +275,20 @@ export default function MerchantAssistantPage() {
         );
       }
     } catch (err: any) {
-      setError(err.message || "فشل في إرسال الرسالة");
+      setError(err.message || "فشل في إرسال الرسالة.");
       setMessages((prev) => [
         ...prev,
         {
           id: crypto.randomUUID(),
           role: "assistant",
-          content: "حدث خطأ. حاول مرة أخرى.",
+          content: "حدث خطأ أثناء التنفيذ. أعد المحاولة بعد لحظة.",
           createdAt: new Date().toISOString(),
         },
       ]);
     } finally {
       setSending(false);
     }
-  }, [input, sending, history, apiKey]);
+  }, [apiKey, history, input, sending]);
 
   const handleConfirmAction = useCallback(
     async (messageId: string, actionId: string, confirm: boolean) => {
@@ -253,25 +296,29 @@ export default function MerchantAssistantPage() {
         setSending(true);
         const res = await merchantApi.copilotConfirm(apiKey, actionId, confirm);
 
-        // Update the message to mark as confirmed/cancelled
         setMessages((prev) =>
-          prev.map((m) =>
-            m.id === messageId
-              ? { ...m, confirmed: confirm, requiresConfirmation: false }
-              : m,
+          prev.map((message) =>
+            message.id === messageId
+              ? {
+                  ...message,
+                  confirmed: confirm,
+                  requiresConfirmation: false,
+                }
+              : message,
           ),
         );
 
-        // Add result message
-        const resultMessage: ChatMessage = {
-          id: crypto.randomUUID(),
-          role: "assistant",
-          content:
-            res.reply ||
-            (confirm ? "✅ تم تنفيذ الأمر بنجاح" : "❌ تم إلغاء الأمر"),
-          createdAt: new Date().toISOString(),
-        };
-        setMessages((prev) => [...prev, resultMessage]);
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: crypto.randomUUID(),
+            role: "assistant",
+            content:
+              res.reply ||
+              (confirm ? "تم تنفيذ الأمر بنجاح." : "تم إلغاء الأمر."),
+            createdAt: new Date().toISOString(),
+          },
+        ]);
       } catch (err: any) {
         const errMsg = err?.message || err?.error || "";
         const isQuotaError =
@@ -281,6 +328,7 @@ export default function MerchantAssistantPage() {
             errMsg.includes("AI_TEMPORARILY_UNAVAILABLE") ||
             errMsg.includes("AI_LIMIT_EXCEEDED") ||
             errMsg.includes("Token budget exceeded"));
+
         if (isQuotaError) {
           setAiStatus((prev) =>
             prev
@@ -291,7 +339,7 @@ export default function MerchantAssistantPage() {
             "تم استنفاد رصيد الذكاء الاصطناعي. قم بترقية الباقة أو انتظر تجديد الرصيد اليومي.",
           );
         } else {
-          setError(err.message || "فشل في تأكيد الأمر");
+          setError(err.message || "فشل في تأكيد الأمر.");
         }
       } finally {
         setSending(false);
@@ -300,19 +348,26 @@ export default function MerchantAssistantPage() {
     [apiKey],
   );
 
-  const handleClear = () => {
-    const cleared: ChatMessage[] = [
+  const handleClear = useCallback(() => {
+    setMessages([
       {
         id: crypto.randomUUID(),
         role: "assistant",
-        content: "تم مسح المحادثة. كيف يمكنني مساعدتك الآن؟",
+        content: "تم فتح جلسة جديدة. ابدأ بالأمر التالي عندما تكون جاهزاً.",
         createdAt: new Date().toISOString(),
       },
-    ];
-    setMessages(cleared);
-  };
+    ]);
+    setError(null);
+    setInput("");
+    textareaRef.current?.focus();
+  }, []);
 
-  // Voice recording functions
+  const handleQuickCommand = useCallback((command: string) => {
+    setInput(command);
+    setError(null);
+    textareaRef.current?.focus();
+  }, []);
+
   const startRecording = useCallback(async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -339,12 +394,10 @@ export default function MerchantAssistantPage() {
       mediaRecorder.start();
       setIsRecording(true);
       setRecordingTime(0);
-
-      // Start timer
       recordingTimerRef.current = setInterval(() => {
         setRecordingTime((prev) => prev + 1);
       }, 1000);
-    } catch (err: any) {
+    } catch {
       setError("لا يمكن الوصول إلى الميكروفون. تأكد من السماح بالوصول.");
     }
   }, []);
@@ -365,26 +418,24 @@ export default function MerchantAssistantPage() {
       setSending(true);
       setError(null);
 
-      // Add "recording user" message
       const userEntry: ChatMessage = {
         id: crypto.randomUUID(),
         role: "user",
-        content: "🎤 رسالة صوتية...",
+        content: "رسالة صوتية قيد المعالجة...",
         createdAt: new Date().toISOString(),
       };
       setMessages((prev) => [...prev, userEntry]);
 
       try {
-        // Convert blob to base64
         const reader = new FileReader();
-        const base64Promise = new Promise<string>((resolve) => {
+        const audioBase64 = await new Promise<string>((resolve) => {
           reader.onloadend = () => {
-            const base64 = (reader.result as string).split(",")[1];
-            resolve(base64);
+            const value =
+              typeof reader.result === "string" ? reader.result : "";
+            resolve(value.split(",")[1] || "");
           };
+          reader.readAsDataURL(audioBlob);
         });
-        reader.readAsDataURL(audioBlob);
-        const audioBase64 = await base64Promise;
 
         const res = await merchantApi.copilotVoice(apiKey, {
           audioBase64,
@@ -392,29 +443,30 @@ export default function MerchantAssistantPage() {
           history: history.map((m) => ({ role: m.role, content: m.content })),
         });
 
-        // Update user message with transcribed text
         if (res.transcribedText) {
           setMessages((prev) =>
-            prev.map((m) =>
-              m.id === userEntry.id
-                ? { ...m, content: `🎤 "${res.transcribedText}"` }
-                : m,
+            prev.map((message) =>
+              message.id === userEntry.id
+                ? { ...message, content: `رسالة صوتية: ${res.transcribedText}` }
+                : message,
             ),
           );
         }
 
-        const assistantEntry: ChatMessage = {
-          id: crypto.randomUUID(),
-          role: "assistant",
-          content: res.reply,
-          createdAt: new Date().toISOString(),
-          intent: res.intent,
-          requiresConfirmation: res.requiresConfirmation,
-          pendingActionId: res.pendingActionId,
-          featureBlocked: res.featureBlocked,
-          blockedFeatures: res.blockedFeatures,
-        };
-        setMessages((prev) => [...prev, assistantEntry]);
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: crypto.randomUUID(),
+            role: "assistant",
+            content: res.reply,
+            createdAt: new Date().toISOString(),
+            intent: res.intent,
+            requiresConfirmation: res.requiresConfirmation,
+            pendingActionId: res.pendingActionId,
+            featureBlocked: res.featureBlocked,
+            blockedFeatures: res.blockedFeatures,
+          },
+        ]);
       } catch (err: any) {
         const errMsg = err?.message || err?.error || "";
         const isQuotaError =
@@ -425,6 +477,7 @@ export default function MerchantAssistantPage() {
             errMsg.includes("AI_LIMIT_EXCEEDED") ||
             errMsg.includes("Token budget exceeded") ||
             errMsg.includes("budget"));
+
         if (isQuotaError) {
           setAiStatus((prev) =>
             prev
@@ -438,10 +491,11 @@ export default function MerchantAssistantPage() {
               : prev,
           );
         }
+
         setError(
           isQuotaError
             ? "تم استنفاد رصيد الذكاء الاصطناعي. قم بترقية الباقة أو انتظر تجديد الرصيد اليومي."
-            : err.message || "فشل في إرسال الرسالة الصوتية",
+            : err.message || "فشل في إرسال الرسالة الصوتية.",
         );
         setMessages((prev) => [
           ...prev,
@@ -449,8 +503,8 @@ export default function MerchantAssistantPage() {
             id: crypto.randomUUID(),
             role: "assistant",
             content: isQuotaError
-              ? "⚠️ رصيد الذكاء الاصطناعي غير كافٍ. قم بترقية باقتك للاستمرار."
-              : "حدث خطأ في معالجة الصوت. حاول مرة أخرى.",
+              ? "رصيد الذكاء الاصطناعي غير كافٍ حالياً. قم بالترقية للاستمرار."
+              : "تعذر معالجة الرسالة الصوتية. حاول مرة أخرى.",
             createdAt: new Date().toISOString(),
           },
         ]);
@@ -462,7 +516,6 @@ export default function MerchantAssistantPage() {
     [apiKey, history],
   );
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (recordingTimerRef.current) {
@@ -474,342 +527,469 @@ export default function MerchantAssistantPage() {
     };
   }, [isRecording]);
 
+  const statusCards = useMemo(
+    () => [
+      {
+        label: "حالة الذكاء",
+        value: aiStatus?.connected ? "متصل وجاهز" : "يحتاج تفعيل",
+        note: aiStatus?.connected
+          ? "يمكنك إرسال أوامر تشغيلية ونصوص تنفيذية الآن."
+          : "الخدمة متوقفة أو مقيدة بخطتك الحالية.",
+        icon: Wand2,
+        tone: aiStatus?.connected
+          ? "var(--success-muted)"
+          : "var(--warning-muted)",
+        toneColor: aiStatus?.connected ? "var(--success)" : "var(--warning)",
+      },
+      {
+        label: "الصوت",
+        value: aiStatus?.voice ? "مفعل" : "غير متاح",
+        note: aiStatus?.voice
+          ? "التفريغ الصوتي جاهز لاختصارات التشغيل السريعة."
+          : "الأوامر الصوتية غير مفعلة في الجلسة الحالية.",
+        icon: Mic,
+        tone: "var(--accent-muted)",
+        toneColor: "var(--accent)",
+      },
+      {
+        label: "الاستخدام اليومي",
+        value: aiStatus?.usage
+          ? `${aiStatus.usage.callsToday} / ${aiStatus.usage.dailyLimit}`
+          : "غير متاح",
+        note:
+          usagePercent !== null
+            ? `تم استهلاك ${usagePercent}% من الرصيد اليومي.`
+            : "سيظهر الرصيد هنا عند توافر بيانات الاستهلاك.",
+        icon: Activity,
+        tone:
+          usagePercent !== null && usagePercent >= 85
+            ? "var(--warning-muted)"
+            : "var(--surface-muted)",
+        toneColor:
+          usagePercent !== null && usagePercent >= 85
+            ? "var(--warning)"
+            : "var(--text-primary)",
+      },
+      {
+        label: "آخر حالة",
+        value: aiStatus?.message || "جاري التحقق من الاتصال",
+        note: "تحديث مباشر من خدمة المساعد داخل المنصة.",
+        icon: Clock3,
+        tone: "var(--surface-muted)",
+        toneColor: "var(--text-primary)",
+      },
+    ],
+    [aiStatus, usagePercent],
+  );
+
   return (
-    <div className="space-y-6 animate-fadeIn p-4 sm:p-6">
-      <PageHeader
-        title="مساعد التاجر"
-        description="أرسل أوامر نصية أو صوتية لإدارة المصاريف، المخزون، الطلبات والمزيد"
-        actions={
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
-            <Badge
-              variant="secondary"
-              className="flex items-center gap-2 px-3 py-1"
-            >
+    <div className="assistant-screen">
+      <section
+        className="assistant-hero assistant-stagger"
+        style={staggerStyle(0)}
+      >
+        <div className="assistant-hero-grid">
+          <div className="assistant-hero-copy">
+            <span className="assistant-hero-meta">
               <Sparkles className="h-4 w-4" />
-              Copilot
-            </Badge>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleClear}
-              className="w-full sm:w-auto"
-            >
-              <Trash2 className="h-4 w-4 ml-2" />
-              مسح المحادثة
-            </Button>
+              AI Operator Console
+            </span>
+            <h1 className="assistant-display">مساعد التاجر</h1>
+            <p className="assistant-subheading">
+              واجهة تشغيل مكثفة لإدارة الأسئلة التنفيذية، مراجعة النتائج، واتخاذ
+              الأوامر من مكان واحد من دون التنقل بين شاشات كثيرة.
+            </p>
           </div>
-        }
-      />
+
+          <div className="assistant-hero-actions">
+            <span className="assistant-chip">
+              <Bot className="h-4 w-4" />
+              Copilot Active
+            </span>
+            <button
+              type="button"
+              onClick={handleClear}
+              className="assistant-button assistant-button--ghost"
+            >
+              <Trash2 className="h-4 w-4" />
+              مسح الجلسة
+            </button>
+          </div>
+        </div>
+      </section>
 
       {error && (
         <AlertBanner
           type="error"
-          title="خطأ"
+          title="تعذر إكمال الأمر"
           message={error}
           onDismiss={() => setError(null)}
         />
       )}
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Card
-          className={cn(
-            "border-dashed",
-            aiStatus?.connected && "border-emerald-200 bg-emerald-50/50",
-            aiStatus &&
-              !aiStatus.connected &&
-              "border-amber-200 bg-amber-50/60",
-          )}
-        >
-          <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="space-y-1">
-              <p className="text-sm text-muted-foreground">حالة الذكاء</p>
-              <p className="text-lg font-semibold">
-                {aiStatus?.connected ? "متصل وجاهز" : "يحتاج تفعيل"}
-              </p>
-            </div>
-            <div
-              className={cn(
-                "flex h-11 w-11 items-center justify-center rounded-2xl",
-                aiStatus?.connected
-                  ? "bg-emerald-100 text-emerald-700"
-                  : "bg-amber-100 text-amber-700",
-              )}
-            >
-              <Wand2 className="h-5 w-5" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="space-y-1">
-              <p className="text-sm text-muted-foreground">الرسائل الصوتية</p>
-              <p className="text-lg font-semibold">
-                {aiStatus?.voice ? "مفعلة" : "غير متاحة"}
-              </p>
-            </div>
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-50 text-blue-700">
-              <Mic className="h-5 w-5" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="space-y-1">
-              <p className="text-sm text-muted-foreground">سعة اليوم</p>
-              <p className="text-lg font-semibold">
-                {aiStatus?.usage
-                  ? `${aiStatus.usage.callsToday} / ${aiStatus.usage.dailyLimit}`
-                  : "غير متاحة"}
-              </p>
-            </div>
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-violet-50 text-violet-700">
-              <Sparkles className="h-5 w-5" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-sm text-muted-foreground">آخر حالة</p>
-            <p className="mt-1 text-sm leading-6 text-foreground">
-              {aiStatus?.message || "جاهز لاستقبال أوامرك النصية والصوتية."}
-            </p>
-            {usagePercent !== null && (
-              <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted">
-                <div
-                  className={cn(
-                    "h-full rounded-full transition-all",
-                    usagePercent >= 85 ? "bg-amber-500" : "bg-primary",
-                  )}
-                  style={{ width: `${usagePercent}%` }}
+      <section className="assistant-metrics">
+        {aiStatus
+          ? statusCards.map((card, index) => {
+              const Icon = card.icon;
+              return (
+                <article
+                  key={card.label}
+                  className="assistant-panel assistant-metric assistant-stagger"
+                  style={staggerStyle(index + 1)}
+                >
+                  <div className="assistant-metric-header">
+                    <div className="assistant-metric-copy">
+                      <span className="assistant-label">{card.label}</span>
+                      <p className="assistant-metric-value">{card.value}</p>
+                    </div>
+                    <span
+                      className="assistant-metric-icon"
+                      style={{
+                        background: card.tone,
+                        color: card.toneColor,
+                      }}
+                    >
+                      <Icon className="h-5 w-5" />
+                    </span>
+                  </div>
+                  <p className="assistant-metric-note">{card.note}</p>
+                  {card.label === "الاستخدام اليومي" &&
+                    usagePercent !== null && (
+                      <div className="assistant-progress" aria-hidden="true">
+                        <div
+                          className="assistant-progress-bar"
+                          style={{
+                            width: `${usagePercent}%`,
+                            background:
+                              usagePercent >= 85
+                                ? "var(--warning)"
+                                : "var(--accent)",
+                          }}
+                        />
+                      </div>
+                    )}
+                </article>
+              );
+            })
+          : Array.from({ length: 4 }).map((_, index) => (
+              <article
+                key={`metric-skeleton-${index}`}
+                className="assistant-panel assistant-metric assistant-stagger"
+                style={staggerStyle(index + 1)}
+              >
+                <span
+                  className="assistant-skeleton"
+                  style={{ height: 12, width: "34%" }}
                 />
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+                <span
+                  className="assistant-skeleton"
+                  style={{ height: 22, width: "62%" }}
+                />
+                <span
+                  className="assistant-skeleton"
+                  style={{ height: 10, width: "82%" }}
+                />
+                <span
+                  className="assistant-skeleton"
+                  style={{ height: 8, width: "100%" }}
+                />
+              </article>
+            ))}
+      </section>
 
       {aiStatus && !aiStatus.connected && (
-        <div className="flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-800 sm:flex-row sm:items-center">
-          <div className="flex-1">
-            <p className="font-semibold">الذكاء الاصطناعي غير متاح حالياً</p>
-            <p className="text-sm">
-              قم بتفعيل الخدمة أو ترقية الباقة لاستمرار استخدام مساعد التاجر.
+        <section
+          className="assistant-upgrade assistant-stagger"
+          style={staggerStyle(5)}
+        >
+          <div>
+            <h2 className="assistant-upgrade-title">
+              الخدمة الذكية غير متاحة بالكامل الآن
+            </h2>
+            <p className="assistant-upgrade-body">
+              بعض الأوامر التشغيلية ستبقى مقيدة حتى يتم تفعيل الخدمة أو تعديل
+              صلاحيات الحساب الحالي. إذا كنت تحضّر للديمو، لا تعتمد على أوامر
+              المخزون أو الخدمات المقيدة قبل مراجعة الباقة.
             </p>
           </div>
-          <a
-            href="/merchant/plan"
-            className="inline-flex w-full items-center justify-center rounded-lg bg-amber-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-700 sm:w-auto"
-          >
-            ترقية الباقة
-          </a>
-        </div>
+          <div className="assistant-inline-actions">
+            <a
+              href="/merchant/plan"
+              className="assistant-button assistant-button--primary"
+            >
+              الاطلاع على الباقات
+            </a>
+          </div>
+        </section>
       )}
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
-        <Card className="overflow-hidden">
-          <CardHeader className="border-b bg-muted/20">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <CardTitle className="flex items-center gap-2 text-xl">
-                  <Bot className="h-5 w-5" />
-                  المحادثة
-                </CardTitle>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  محادثة تنفيذية سريعة لإدارة المتجر من مكان واحد.
-                </p>
+      <section className="assistant-workspace">
+        <article
+          className="assistant-panel assistant-chat-panel assistant-stagger"
+          style={staggerStyle(6)}
+        >
+          <header className="assistant-panel-header">
+            <div className="assistant-panel-copy">
+              <div className="assistant-panel-title">
+                <Command className="h-5 w-5" />
+                المحادثة التنفيذية
               </div>
-              <Badge variant="outline" className="w-fit">
-                يتم حفظ المحادثة تلقائياً في هذا المتصفح
-              </Badge>
+              <p className="assistant-panel-description">
+                سجل حي للأوامر والردود. يتم حفظ الجلسة محلياً داخل هذا المتصفح
+                لتعود إليها بسرعة.
+              </p>
             </div>
-          </CardHeader>
-          <CardContent className="space-y-4 p-0">
-            <div className="min-h-[62vh] max-h-[68vh] overflow-y-auto bg-gradient-to-b from-muted/10 to-background px-4 py-5 sm:px-6">
-              <div className="space-y-4">
-                {messages.map((msg) => (
-                  <div
-                    key={msg.id}
-                    className={cn(
-                      "flex gap-3",
-                      msg.role === "assistant"
-                        ? "justify-start"
-                        : "justify-end",
-                    )}
-                  >
-                    <div
-                      className={cn(
-                        "max-w-[86%] rounded-2xl px-4 py-3 text-sm shadow-sm sm:max-w-[78%] xl:max-w-[72%]",
-                        msg.role === "assistant"
-                          ? "border bg-white text-foreground"
-                          : "bg-primary text-primary-foreground",
-                      )}
-                    >
-                      <p className="whitespace-pre-wrap leading-relaxed">
-                        {msg.content}
-                      </p>
+            <span className="assistant-chip">
+              <AudioLines className="h-4 w-4" />
+              آخر 12 رسالة
+            </span>
+          </header>
 
-                      {/* Feature blocked indicator */}
-                      {msg.featureBlocked && (
-                        <div className="mt-3 p-2 bg-amber-50 border border-amber-200 rounded-lg">
-                          <div className="flex items-center gap-2 text-amber-700 text-xs">
+          <div className="assistant-transcript">
+            {messages.map((message, index) => {
+              const intentLabel = formatIntentLabel(message.intent);
+              const blockedLabels = (message.blockedFeatures || []).map(
+                (feature) => FEATURE_LABELS[feature] || feature,
+              );
+
+              return (
+                <div
+                  key={message.id}
+                  className={cn(
+                    "assistant-message-row",
+                    message.role === "user"
+                      ? "assistant-message-row--user"
+                      : "assistant-message-row--assistant",
+                  )}
+                >
+                  <article
+                    className={cn(
+                      "assistant-bubble assistant-stagger",
+                      message.role === "user"
+                        ? "assistant-bubble--user"
+                        : "assistant-bubble--assistant",
+                    )}
+                    style={staggerStyle(index + 7)}
+                  >
+                    {(intentLabel || blockedLabels.length > 0) && (
+                      <div className="assistant-inline-actions">
+                        {intentLabel && (
+                          <span className="assistant-intent-badge">
+                            <Sparkles className="h-3 w-3" />
+                            {intentLabel}
+                          </span>
+                        )}
+                        {blockedLabels.map((label) => (
+                          <span key={label} className="assistant-feature-badge">
                             <Lock className="h-3 w-3" />
-                            <span>هذه الميزة تتطلب ترقية خطتك</span>
-                          </div>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="mt-2 text-xs h-7"
+                            {label}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    <p className="assistant-bubble-text">{message.content}</p>
+
+                    {message.featureBlocked && (
+                      <div className="assistant-blocked">
+                        <div>
+                          <strong>هذا الأمر مقيد بالخطة الحالية.</strong>
+                          <p className="assistant-panel-description">
+                            المزايا المطلوبة:{" "}
+                            {blockedLabels.length > 0
+                              ? blockedLabels.join("، ")
+                              : "ميزات إضافية"}
+                          </p>
+                        </div>
+                        <a
+                          href="/merchant/plan"
+                          className="assistant-button assistant-button--secondary assistant-button--tiny"
+                        >
+                          راجع الباقات
+                        </a>
+                      </div>
+                    )}
+
+                    {message.requiresConfirmation &&
+                      message.pendingActionId &&
+                      !message.confirmed &&
+                      message.confirmed !== false && (
+                        <div className="assistant-inline-actions">
+                          <button
+                            type="button"
+                            className="assistant-button assistant-button--primary assistant-button--tiny"
+                            onClick={() =>
+                              handleConfirmAction(
+                                message.id,
+                                message.pendingActionId!,
+                                true,
+                              )
+                            }
+                            disabled={sending}
                           >
-                            ترقية الآن
-                          </Button>
+                            <Check className="h-3 w-3" />
+                            تأكيد التنفيذ
+                          </button>
+                          <button
+                            type="button"
+                            className="assistant-button assistant-button--secondary assistant-button--tiny"
+                            onClick={() =>
+                              handleConfirmAction(
+                                message.id,
+                                message.pendingActionId!,
+                                false,
+                              )
+                            }
+                            disabled={sending}
+                          >
+                            <X className="h-3 w-3" />
+                            إلغاء
+                          </button>
                         </div>
                       )}
 
-                      {/* Confirmation buttons */}
-                      {msg.requiresConfirmation &&
-                        msg.pendingActionId &&
-                        !msg.confirmed &&
-                        msg.confirmed !== false && (
-                          <div className="mt-3 flex gap-2">
-                            <Button
-                              size="sm"
-                              variant="default"
-                              className="h-8 text-xs"
-                              onClick={() =>
-                                handleConfirmAction(
-                                  msg.id,
-                                  msg.pendingActionId!,
-                                  true,
-                                )
-                              }
-                              disabled={sending}
-                            >
-                              <Check className="h-3 w-3 ml-1" />
-                              تأكيد
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-8 text-xs"
-                              onClick={() =>
-                                handleConfirmAction(
-                                  msg.id,
-                                  msg.pendingActionId!,
-                                  false,
-                                )
-                              }
-                              disabled={sending}
-                            >
-                              <X className="h-3 w-3 ml-1" />
-                              إلغاء
-                            </Button>
-                          </div>
-                        )}
+                    <footer className="assistant-bubble-meta">
+                      <span>{formatMessageTime(message.createdAt)}</span>
+                    </footer>
+                  </article>
+                </div>
+              );
+            })}
 
-                      <span
-                        className={cn(
-                          "mt-2 block text-[11px]",
-                          msg.role === "assistant"
-                            ? "text-muted-foreground"
-                            : "text-primary-100",
-                        )}
-                      >
-                        {formatMessageTime(msg.createdAt)}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-                {sending && (
-                  <div className="flex justify-start">
-                    <div className="rounded-2xl bg-white px-4 py-3 text-sm text-muted-foreground border animate-pulse">
-                      جاري التفكير...
-                    </div>
-                  </div>
-                )}
-                <div ref={endRef} />
+            {sending && (
+              <div className="assistant-message-row assistant-message-row--assistant">
+                <div className="assistant-bubble assistant-bubble--assistant assistant-loading">
+                  <span
+                    className="assistant-skeleton"
+                    style={{ height: 12, width: "42%" }}
+                  />
+                  <span
+                    className="assistant-skeleton"
+                    style={{ height: 12, width: "78%" }}
+                  />
+                  <span
+                    className="assistant-skeleton"
+                    style={{ height: 12, width: "64%" }}
+                  />
+                </div>
               </div>
-            </div>
+            )}
 
-            <div className="border-t bg-background px-4 py-4 sm:px-6">
-              <div className="flex gap-2">
-                <Textarea
+            <div ref={endRef} />
+          </div>
+
+          <div className="assistant-composer">
+            <div className="assistant-field">
+              <label
+                className="assistant-field-label"
+                htmlFor="assistant-command"
+              >
+                أمر جديد
+              </label>
+              <div
+                className={cn(
+                  "assistant-composer-shell",
+                  error && "assistant-composer-shell--error",
+                )}
+              >
+                <textarea
+                  id="assistant-command"
+                  ref={textareaRef}
                   value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  placeholder="اكتب أمرك هنا... مثال: مصاريف الشهر، زود المخزون 10"
-                  className="min-h-[72px] resize-none"
+                  onChange={(event) => setInput(event.target.value)}
+                  className="assistant-textarea"
+                  placeholder="مثال: افتح مراجعة إثباتات الدفع أو اعرض مصاريف الشهر"
                   disabled={isRecording}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" && !event.shiftKey) {
+                      event.preventDefault();
                       sendMessage();
                     }
                   }}
                 />
-                <div className="flex flex-col gap-2">
-                  <Button
-                    variant={isRecording ? "destructive" : "outline"}
-                    onClick={isRecording ? stopRecording : startRecording}
-                    disabled={sending}
-                    className={cn("h-12 w-12", isRecording && "animate-pulse")}
-                    title={isRecording ? "إيقاف التسجيل" : "تسجيل صوتي"}
-                  >
-                    {isRecording ? (
-                      <Square className="h-4 w-4" />
-                    ) : (
-                      <Mic className="h-4 w-4" />
-                    )}
-                  </Button>
-                  <Button
+
+                <div className="assistant-composer-actions">
+                  <div className="assistant-inline-actions">
+                    <button
+                      type="button"
+                      onClick={isRecording ? stopRecording : startRecording}
+                      disabled={sending}
+                      className={cn(
+                        "assistant-button assistant-button--secondary assistant-button--icon",
+                        isRecording && "assistant-button--danger",
+                      )}
+                      aria-label={
+                        isRecording
+                          ? "إيقاف التسجيل الصوتي"
+                          : "بدء التسجيل الصوتي"
+                      }
+                    >
+                      {isRecording ? (
+                        <Square className="h-4 w-4" />
+                      ) : (
+                        <Mic className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
+
+                  <button
+                    type="button"
                     onClick={sendMessage}
                     disabled={sending || !input.trim() || isRecording}
-                    className="h-12 w-full sm:w-auto"
+                    className="assistant-button assistant-button--primary"
                   >
-                    <Send className="ml-2 h-4 w-4" />
-                    إرسال
-                  </Button>
+                    <Send className="h-4 w-4" />
+                    إرسال الأمر
+                  </button>
                 </div>
               </div>
-              <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-                <span>اضغط Enter للإرسال و Shift + Enter لسطر جديد.</span>
-                {isRecording && (
-                  <Badge
-                    variant="destructive"
-                    className="text-[10px] animate-pulse"
-                  >
-                    <Mic className="h-3 w-3 ml-1" />
-                    جاري التسجيل... {recordingTime}ث
-                  </Badge>
-                )}
-              </div>
             </div>
-          </CardContent>
-        </Card>
 
-        <div className="space-y-4">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">أوامر جاهزة</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {QUICK_COMMANDS.map((item) => {
+            <div className="assistant-composer-meta">
+              <span>Enter للإرسال و Shift + Enter لسطر جديد.</span>
+              {isRecording && (
+                <span className="assistant-recording-pill">
+                  <Mic className="h-3 w-3" />
+                  جاري التسجيل {recordingTime}ث
+                </span>
+              )}
+            </div>
+          </div>
+        </article>
+
+        <aside className="assistant-sidebar">
+          <section
+            className="assistant-panel assistant-stagger"
+            style={staggerStyle(7)}
+          >
+            <header className="assistant-panel-copy">
+              <div className="assistant-panel-title">
+                <Command className="h-5 w-5" />
+                أوامر جاهزة
+              </div>
+              <p className="assistant-panel-description">
+                اختصارات عملية لبدء الديمو أو التنقل إلى الأسئلة الأكثر فائدة.
+              </p>
+            </header>
+
+            <div className="assistant-stack">
+              {QUICK_COMMANDS.map((item, index) => {
                 const Icon = item.icon;
                 return (
                   <button
                     key={item.command}
                     type="button"
-                    onClick={() => setInput(item.command)}
-                    className="w-full rounded-2xl border p-3 text-right transition-colors hover:border-primary/40 hover:bg-primary/5"
+                    onClick={() => handleQuickCommand(item.command)}
+                    className="assistant-quick-button assistant-stagger"
+                    style={staggerStyle(index + 8)}
                   >
-                    <div className="flex items-start gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                    <div className="assistant-quick-header">
+                      <span className="assistant-quick-icon">
                         <Icon className="h-4 w-4" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="font-medium">{item.label}</p>
-                        <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                      </span>
+                      <div>
+                        <p className="assistant-quick-title">{item.label}</p>
+                        <p className="assistant-quick-body">
                           {item.description}
                         </p>
                       </div>
@@ -817,28 +997,70 @@ export default function MerchantAssistantPage() {
                   </button>
                 );
               })}
-            </CardContent>
-          </Card>
+            </div>
+          </section>
 
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">قدرات المساعد</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2 text-sm text-muted-foreground">
-              <div className="rounded-xl bg-muted/30 p-3">
-                يقرأ النصوص والأوامر التشغيلية ويرد بخطوات تنفيذية واضحة.
+          <section
+            className="assistant-panel assistant-stagger"
+            style={staggerStyle(8)}
+          >
+            <header className="assistant-panel-copy">
+              <div className="assistant-panel-title">
+                <Bot className="h-5 w-5" />
+                قدرات الجلسة
               </div>
-              <div className="rounded-xl bg-muted/30 p-3">
-                يدعم الأوامر الصوتية إذا كانت الخدمة مفعلة في خطتك الحالية.
+            </header>
+
+            <div className="assistant-stack">
+              <div className="assistant-note">
+                <strong>تحليل تشغيلي مباشر</strong>
+                يقرأ الأسئلة العربية الحرة ويعيد لك إجابات قابلة للتنفيذ بدل
+                ردود عامة.
               </div>
-              <div className="rounded-xl bg-muted/30 p-3">
-                يمكنه توجيهك إلى صفحات المدفوعات والمخزون والتقارير بدل البحث
-                اليدوي.
+              <div className="assistant-note">
+                <strong>أوامر صوتية عند التفعيل</strong>
+                إذا كانت خدمة الصوت متاحة، يمكنك إرسال الأوامر من الميكروفون
+                مباشرة.
               </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+              <div className="assistant-note">
+                <strong>تحكم قبل التنفيذ</strong>
+                الأوامر الحساسة تمر عبر تأكيد صريح قبل تنفيذها داخل النظام.
+              </div>
+            </div>
+          </section>
+
+          <section
+            className="assistant-panel assistant-stagger"
+            style={staggerStyle(9)}
+          >
+            <header className="assistant-panel-copy">
+              <div className="assistant-panel-title">
+                <Activity className="h-5 w-5" />
+                ملاحظات الجلسة
+              </div>
+            </header>
+
+            <div className="assistant-stack">
+              <div className="assistant-note">
+                <strong>الحفظ المحلي</strong>
+                يتم حفظ المحادثة الحالية محلياً داخل هذا المتصفح لتستكملها
+                بسرعة.
+              </div>
+              <div className="assistant-note">
+                <strong>أفضلية الديمو</strong>
+                استخدم أوامر المصروفات والمدفوعات والتنقلات التشغيلية قبل أوامر
+                المخزون المقيدة بالخطة الحالية.
+              </div>
+              <div className="assistant-note">
+                <strong>الحساب الحالي</strong>
+                {merchantId
+                  ? `معرّف التاجر المستخدم الآن هو ${merchantId}.`
+                  : "جاري تحميل بيانات الحساب الحالي."}
+              </div>
+            </div>
+          </section>
+        </aside>
+      </section>
     </div>
   );
 }

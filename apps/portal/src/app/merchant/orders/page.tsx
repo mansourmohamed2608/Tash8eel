@@ -1038,13 +1038,13 @@ export default function OrdersPage() {
   }
 
   return (
-    <div className="space-y-6 animate-fadeIn">
+    <div className="space-y-8 animate-fadeIn">
       <PageHeader
         title="الطلبات"
         description={
           countedOrders.length !== ordersForStats.length
-            ? `إدارة ومتابعة الطلبات (${countedOrders.length} طلب فعّال من أصل ${ordersForStats.length})`
-            : `إدارة ومتابعة الطلبات (${countedOrders.length} طلب)`
+            ? `تشغيل ومتابعة الطلبات (${countedOrders.length} طلب فعّال من أصل ${ordersForStats.length})`
+            : `تشغيل ومتابعة الطلبات (${countedOrders.length} طلب)`
         }
         actions={
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
@@ -1080,6 +1080,61 @@ export default function OrdersPage() {
         }
       />
 
+      <section className="app-hero-band">
+        <div className="app-hero-band__grid">
+          <div className="space-y-4">
+            <span className="app-hero-band__eyebrow">Order Operations</span>
+            <div className="space-y-3">
+              <h2 className="app-hero-band__title">
+                واجهة تنفيذية واحدة للطلب منذ الإنشاء حتى التسليم أو الإلغاء.
+              </h2>
+              <p className="app-hero-band__copy">
+                راقب الحجم الكلي، حالات التنفيذ، الفروع، ومصادر الطلبات. صممت
+                هذه الصفحة لتسمح بالبحث السريع، قراءة المخاطر، واتخاذ الإجراء من
+                نفس السياق دون تشتيت.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Badge variant="info">طلبات فعالة: {countedOrders.length}</Badge>
+              <Badge variant="secondary">
+                متوسط قيمة الطلب: {formatCurrency(averageOrderValue)}
+              </Badge>
+              {branchFilter !== "all" ? (
+                <Badge variant="warning">فلتر الفرع مفعل</Badge>
+              ) : null}
+            </div>
+          </div>
+          <div className="app-hero-band__metrics">
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">
+                إجمالي الطلبات
+              </span>
+              <strong className="app-hero-band__metric-value">
+                {stats.total}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">قيد التنفيذ</span>
+              <strong className="app-hero-band__metric-value">
+                {stats.pending + stats.inProgress}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">مكتملة</span>
+              <strong className="app-hero-band__metric-value">
+                {stats.completed}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">إيراد اليوم</span>
+              <strong className="app-hero-band__metric-value">
+                {formatCurrency(todayRevenue)}
+              </strong>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Order Quick Stats */}
       <OrderQuickStats
         stats={{
@@ -1108,7 +1163,7 @@ export default function OrdersPage() {
       <SmartAnalysisButton context="operations" />
 
       {/* Filters */}
-      <Card>
+      <Card className="app-data-card">
         <CardContent className="p-4">
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="relative flex-1">
@@ -1186,7 +1241,7 @@ export default function OrdersPage() {
         </CardContent>
       </Card>
 
-      <Card className="border-dashed bg-muted/20">
+      <Card className="app-data-card app-data-card--muted border-dashed">
         <CardContent className="p-4 space-y-3">
           <div className="text-sm font-semibold">شرح الحالات</div>
           <div className="grid grid-cols-1 gap-2 text-xs text-muted-foreground sm:grid-cols-2 xl:grid-cols-4">
@@ -1229,7 +1284,7 @@ export default function OrdersPage() {
 
       {/* Orders Table */}
       {filteredOrders.length === 0 ? (
-        <Card>
+        <Card className="app-data-card">
           <CardContent className="p-12">
             <EmptyState
               icon={<ShoppingCart className="h-16 w-16" />}
@@ -1253,7 +1308,7 @@ export default function OrdersPage() {
               return (
                 <Card
                   key={order.id}
-                  className="cursor-pointer"
+                  className="app-data-card cursor-pointer"
                   onClick={() => setSelectedOrder(order)}
                 >
                   <CardContent className="space-y-3 p-4 text-sm">

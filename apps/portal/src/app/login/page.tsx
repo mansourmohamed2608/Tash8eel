@@ -14,7 +14,16 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { AlertCircle, Loader2, Eye, EyeOff, Store } from "lucide-react";
+import {
+  AlertCircle,
+  ArrowUpLeft,
+  Eye,
+  EyeOff,
+  Loader2,
+  ShieldCheck,
+  Sparkles,
+  Store,
+} from "lucide-react";
 
 function LoginForm() {
   const [email, setEmail] = useState("");
@@ -98,7 +107,9 @@ function LoginForm() {
           session?.user?.role === "ADMIN" &&
           session?.user?.merchantId === "system"
             ? "/admin/dashboard"
-            : callbackUrl;
+            : session?.user?.role === "CASHIER"
+              ? "/merchant/cashier"
+              : callbackUrl;
 
         // Keep client-side routing for immediate transition, then force full
         // navigation so the server picks up fresh auth session state.
@@ -116,144 +127,237 @@ function LoginForm() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-primary-50 to-primary-100 p-3 sm:p-4">
-      <Card className="w-full max-w-md rounded-2xl sm:rounded-xl">
-        <CardHeader className="text-center">
-          <div className="mx-auto mb-4 h-14 w-14 rounded-full bg-primary-600 flex items-center justify-center">
-            <Store className="h-8 w-8 text-white" />
+    <div className="app-auth-shell">
+      <div className="app-auth-grid">
+        <section className="app-auth-panel hidden lg:grid">
+          <div className="space-y-6">
+            <span className="app-auth-kicker">
+              <Sparkles className="h-4 w-4" />
+              Merchant Operating System
+            </span>
+            <div className="space-y-4">
+              <h1 className="app-auth-title">
+                واجهة تشغيل ذكية
+                <br />
+                للتاجر وفريقه
+              </h1>
+              <p className="app-auth-copy">
+                من المحادثات والطلبات إلى التقارير والذكاء الاصطناعي، كل شيء
+                مرتبط داخل مساحة عمل واحدة مصممة للتشغيل اليومي السريع.
+              </p>
+            </div>
           </div>
-          <CardTitle className="text-2xl">تسجيل الدخول</CardTitle>
-          <CardDescription>أدخل بياناتك للوصول إلى لوحة التحكم</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {successMessage && (
-              <div className="flex items-center gap-2 p-3 rounded-md bg-green-50 text-green-700 text-sm">
-                <span>{successMessage}</span>
-              </div>
-            )}
 
-            {error && (
-              <div className="flex items-center gap-2 p-3 rounded-md bg-red-50 text-red-700 text-sm">
-                <AlertCircle className="h-4 w-4 flex-shrink-0" />
-                <span>{error}</span>
+          <div className="grid gap-4">
+            <div className="app-surface rounded-[24px] p-5">
+              <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-[16px] bg-primary/10 text-primary">
+                <ShieldCheck className="h-5 w-5" />
               </div>
-            )}
-
-            <div className="space-y-2">
-              <Label htmlFor="merchantId">رقم المتجر</Label>
-              <Input
-                id="merchantId"
-                type="text"
-                placeholder="مثال: demo-merchant"
-                value={merchantId}
-                onChange={(e) => setMerchantId(e.target.value)}
-                required
-                disabled={isLoading}
-                className="text-right"
-                dir="rtl"
-              />
+              <h2 className="text-lg font-bold tracking-[-0.02em]">
+                وصول سريع وآمن
+              </h2>
+              <p className="mt-2 text-sm leading-7 text-muted-foreground">
+                سجّل الدخول إلى لوحة موحدة تجمع التشغيل، التحليلات، والكاشير ضمن
+                نفس الجلسة.
+              </p>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="email">البريد الإلكتروني</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="example@email.com :مثال"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                disabled={isLoading}
-                className="text-right"
-                dir="rtl"
-              />
+            <div className="grid gap-3 md:grid-cols-2">
+              <div className="app-surface rounded-[24px] p-5">
+                <p className="app-page-header-eyebrow">Workflows</p>
+                <p className="mt-3 text-base font-bold">
+                  طلبات، متابعات، وتقارير
+                </p>
+                <p className="mt-2 text-sm leading-7 text-muted-foreground">
+                  بنية تشغيل مكثفة لفريق العمل من دون تنقل عشوائي بين الصفحات.
+                </p>
+              </div>
+              <div className="app-surface rounded-[24px] p-5">
+                <p className="app-page-header-eyebrow">AI Layer</p>
+                <p className="mt-3 text-base font-bold">
+                  ذكاء اصطناعي داخل النظام
+                </p>
+                <p className="mt-2 text-sm leading-7 text-muted-foreground">
+                  مساعد تشغيلي، رؤى، وسجل قرارات قابل للمراجعة عند الحاجة.
+                </p>
+              </div>
             </div>
+          </div>
+        </section>
 
+        <Card className="app-auth-card w-full">
+          <CardHeader className="space-y-5 pb-6 text-right">
+            <div className="inline-flex h-14 w-14 items-center justify-center rounded-[18px] bg-primary text-primary-foreground shadow-[0_18px_48px_rgba(31,111,255,0.2)]">
+              <Store className="h-7 w-7" />
+            </div>
             <div className="space-y-2">
-              <Label htmlFor="password">كلمة المرور</Label>
-              <div className="relative">
+              <CardTitle className="text-[1.85rem]">تسجيل الدخول</CardTitle>
+              <CardDescription className="text-sm leading-7">
+                أدخل بيانات المتجر للوصول إلى لوحة التحكم ومساحة العمل
+                التشغيلية.
+              </CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-5">
+              {successMessage && (
+                <div className="app-inline-note app-inline-note--success">
+                  <ShieldCheck className="mt-0.5 h-4 w-4 flex-shrink-0" />
+                  <span>{successMessage}</span>
+                </div>
+              )}
+
+              {error && (
+                <div className="app-inline-note app-inline-note--error">
+                  <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                  <span>{error}</span>
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <Label htmlFor="merchantId" className="app-input-label">
+                  رقم المتجر
+                </Label>
                 <Input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="أدخل كلمة المرور"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  id="merchantId"
+                  type="text"
+                  placeholder="مثال: demo-merchant"
+                  value={merchantId}
+                  onChange={(e) => setMerchantId(e.target.value)}
                   required
                   disabled={isLoading}
-                  className="text-right pr-10 [&::-ms-reveal]:hidden [&::-webkit-credentials-auto-fill-button]:hidden"
+                  className="text-right"
                   dir="rtl"
                 />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="email" className="app-input-label">
+                  البريد الإلكتروني
+                </Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="example@email.com :مثال"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  disabled={isLoading}
+                  className="text-right"
+                  dir="rtl"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="password" className="app-input-label">
+                  كلمة المرور
+                </Label>
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="أدخل كلمة المرور"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    disabled={isLoading}
+                    className="text-right pr-10 [&::-ms-reveal]:hidden [&::-webkit-credentials-auto-fill-button]:hidden"
+                    dir="rtl"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-[10px] text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground"
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-5 w-5" />
+                    ) : (
+                      <Eye className="h-5 w-5" />
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between gap-3 text-sm">
+                <span className="text-muted-foreground">
+                  استخدم حساب المتجر للوصول إلى الفريق والبيانات التشغيلية.
+                </span>
+                <Link
+                  href="/forgot-password"
+                  className="font-semibold text-primary hover:underline"
+                >
+                  نسيت كلمة المرور؟
+                </Link>
+              </div>
+
+              <Button
+                type="submit"
+                className="w-full justify-center"
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="ml-2 h-4 w-4 animate-spin" />
+                    جاري تسجيل الدخول...
+                  </>
+                ) : (
+                  "تسجيل الدخول"
+                )}
+              </Button>
+
+              <div className="text-center text-sm text-muted-foreground">
+                <span>ليس لديك حساب؟ </span>
+                <Link
+                  href="/signup"
+                  className="font-semibold text-primary hover:underline"
+                >
+                  تواصل معنا
+                </Link>
+              </div>
+            </form>
+
+            {/* Demo credentials hint — click any value to auto-fill */}
+            {process.env.NODE_ENV === "development" && (
+              <div className="mt-6 rounded-[18px] border border-border/70 bg-background/80 p-4 text-xs text-muted-foreground">
+                <p className="mb-2 font-semibold text-foreground">
+                  بيانات تجريبية (اضغط للملء التلقائي):
+                </p>
                 <button
                   type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-muted-foreground transition-colors hover:text-foreground"
+                  className="flex w-full items-start justify-between gap-3 rounded-[14px] border border-transparent px-3 py-3 text-right transition-colors hover:border-border/70 hover:bg-accent/40 hover:text-foreground"
+                  onClick={() => {
+                    setMerchantId("demo-merchant");
+                    setEmail("demo@tash8eel.com");
+                    setPassword("demo123");
+                  }}
                 >
-                  {showPassword ? (
-                    <EyeOff className="h-5 w-5" />
-                  ) : (
-                    <Eye className="h-5 w-5" />
-                  )}
+                  <span className="space-y-1">
+                    <span className="block text-muted-foreground">
+                      المتجر:{" "}
+                      <span className="font-semibold text-primary">
+                        demo-merchant
+                      </span>
+                    </span>
+                    <span className="block text-muted-foreground">
+                      البريد:{" "}
+                      <span className="font-semibold text-primary">
+                        demo@tash8eel.com
+                      </span>
+                    </span>
+                    <span className="block text-muted-foreground">
+                      كلمة المرور:{" "}
+                      <span className="font-semibold text-primary">
+                        demo123
+                      </span>
+                    </span>
+                  </span>
+                  <ArrowUpLeft className="mt-0.5 h-4 w-4 flex-shrink-0 text-primary" />
                 </button>
               </div>
-            </div>
-
-            <div className="flex items-center text-sm">
-              <Link
-                href="/forgot-password"
-                className="text-primary-600 hover:underline"
-              >
-                نسيت كلمة المرور؟
-              </Link>
-            </div>
-
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? (
-                <>
-                  <Loader2 className="ml-2 h-4 w-4 animate-spin" />
-                  جاري تسجيل الدخول...
-                </>
-              ) : (
-                "تسجيل الدخول"
-              )}
-            </Button>
-
-            <div className="text-center text-sm text-muted-foreground">
-              <span>ليس لديك حساب؟ </span>
-              <Link href="/signup" className="text-primary-600 hover:underline">
-                تواصل معنا
-              </Link>
-            </div>
-          </form>
-
-          {/* Demo credentials hint — click any value to auto-fill */}
-          {process.env.NODE_ENV === "development" && (
-            <div className="mt-6 p-3 bg-muted rounded-md text-xs text-muted-foreground">
-              <p className="font-semibold mb-1">
-                بيانات تجريبية (اضغط للملء التلقائي):
-              </p>
-              <button
-                type="button"
-                className="block w-full text-right hover:text-foreground transition-colors py-0.5 cursor-pointer"
-                onClick={() => {
-                  setMerchantId("demo-merchant");
-                  setEmail("demo@tash8eel.com");
-                  setPassword("demo123");
-                }}
-              >
-                <span className="text-muted-foreground">المتجر: </span>
-                <span className="text-primary underline">demo-merchant</span>
-                <span className="text-muted-foreground"> · البريد: </span>
-                <span className="text-primary underline">
-                  demo@tash8eel.com
-                </span>
-                <span className="text-muted-foreground"> · كلمة المرور: </span>
-                <span className="text-primary underline">demo123</span>
-              </button>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
@@ -261,10 +365,10 @@ function LoginForm() {
 // Loading fallback for Suspense
 function LoginFormSkeleton() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 to-primary-100 p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <div className="mx-auto mb-4 h-14 w-14 rounded-full bg-primary-600 flex items-center justify-center">
+    <div className="app-auth-shell">
+      <Card className="app-auth-card w-full max-w-md">
+        <CardHeader className="text-right">
+          <div className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-[18px] bg-primary text-primary-foreground">
             <Store className="h-8 w-8 text-white" />
           </div>
           <CardTitle className="text-2xl">تسجيل الدخول</CardTitle>
@@ -272,10 +376,10 @@ function LoginFormSkeleton() {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            <div className="h-10 bg-muted animate-pulse rounded-md" />
-            <div className="h-10 bg-muted animate-pulse rounded-md" />
-            <div className="h-10 bg-muted animate-pulse rounded-md" />
-            <div className="h-10 bg-muted animate-pulse rounded-md" />
+            <div className="assistant-skeleton h-11 rounded-[14px]" />
+            <div className="assistant-skeleton h-11 rounded-[14px]" />
+            <div className="assistant-skeleton h-11 rounded-[14px]" />
+            <div className="assistant-skeleton h-11 rounded-[14px]" />
           </div>
         </CardContent>
       </Card>

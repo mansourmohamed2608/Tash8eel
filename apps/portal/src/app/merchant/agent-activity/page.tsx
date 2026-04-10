@@ -241,7 +241,7 @@ export default function AgentActivityPage() {
   const latestAction = actions[0];
 
   return (
-    <div className="space-y-6 p-6" dir="rtl">
+    <div className="space-y-8 p-4 sm:p-6" dir="rtl">
       {/* Back link */}
       <Link
         href="/merchant/agents"
@@ -252,11 +252,60 @@ export default function AgentActivityPage() {
 
       <PageHeader
         title="سجل نشاط الوكلاء"
-        description="كل ما قامت به الوكلاء تلقائياً - اكتشاف المشاكل، اتخاذ الإجراءات، وتنبيهك"
+        description="عرض تشغيلي مباشر لكل ما التقطه النظام أو نفذه الوكلاء من تنبيهات وإجراءات."
       />
 
+      <section className="app-hero-band">
+        <div className="app-hero-band__grid">
+          <div className="space-y-4">
+            <span className="app-hero-band__eyebrow">
+              Agent Operations Feed
+            </span>
+            <div className="space-y-3">
+              <h2 className="app-hero-band__title">
+                راقب ما اكتشفه الوكلاء، ما تم حله تلقائياً، وما يزال يحتاج تدخل
+                بشري.
+              </h2>
+              <p className="app-hero-band__copy">
+                هذا السجل يركز على النشاط التنفيذي نفسه: تنبيهات، محاولات إصلاح،
+                عناصر حرجة، وإشارات تحتاج اطلاعك. إذا كنت تريد منطق القرار نفسه
+                فانتقل إلى سجل قرارات الذكاء.
+              </p>
+            </div>
+          </div>
+          <div className="app-hero-band__metrics">
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">السجل الحالي</span>
+              <strong className="app-hero-band__metric-value">
+                {actions.length}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">غير مطلع عليه</span>
+              <strong className="app-hero-band__metric-value">
+                {unresolvedCount}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">
+                تم حلها تلقائياً
+              </span>
+              <strong className="app-hero-band__metric-value">
+                {autoResolvedCount}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">آخر حركة</span>
+              <strong className="app-hero-band__metric-value">
+                {latestAction ? timeAgo(latestAction.created_at) : "لا يوجد"}
+              </strong>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <Card className="border-blue-200 bg-blue-50/50">
+        <Card className="app-data-card border-[color:color-mix(in_srgb,var(--accent)_18%,var(--border-strong))] bg-[var(--accent-muted)]">
           <CardContent className="p-4">
             <p className="text-sm text-muted-foreground">إجمالي السجل الحالي</p>
             <p className="mt-1 text-2xl font-bold text-blue-700">
@@ -267,7 +316,7 @@ export default function AgentActivityPage() {
             </p>
           </CardContent>
         </Card>
-        <Card className="border-amber-200 bg-amber-50/50">
+        <Card className="app-data-card border-[color:color-mix(in_srgb,var(--warning)_18%,var(--border-strong))] bg-[var(--warning-muted)]">
           <CardContent className="p-4">
             <p className="text-sm text-muted-foreground">غير مُطّلع عليه</p>
             <p className="mt-1 text-2xl font-bold text-amber-700">
@@ -278,7 +327,7 @@ export default function AgentActivityPage() {
             </p>
           </CardContent>
         </Card>
-        <Card className="border-emerald-200 bg-emerald-50/50">
+        <Card className="app-data-card border-[color:color-mix(in_srgb,var(--success)_18%,var(--border-strong))] bg-[var(--success-muted)]">
           <CardContent className="p-4">
             <p className="text-sm text-muted-foreground">تم حلها تلقائياً</p>
             <p className="mt-1 text-2xl font-bold text-emerald-700">
@@ -289,7 +338,7 @@ export default function AgentActivityPage() {
             </p>
           </CardContent>
         </Card>
-        <Card className="border-violet-200 bg-violet-50/50">
+        <Card className="app-data-card">
           <CardContent className="p-4">
             <p className="text-sm text-muted-foreground">وكلاء ظهر نشاطهم</p>
             <p className="mt-1 text-2xl font-bold text-violet-700">
@@ -307,7 +356,7 @@ export default function AgentActivityPage() {
       {/* ─── Summary Cards ──────────────────────────── */}
       {summary && (
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-          <Card>
+          <Card className="app-data-card">
             <CardContent className="pt-4 pb-3 text-center">
               <div className="text-2xl font-bold">{summary.last_24h || 0}</div>
               <div className="text-xs text-muted-foreground">
@@ -360,7 +409,7 @@ export default function AgentActivityPage() {
 
       {/* ─── Activity Heatmap ───────────────────────── */}
       {actions.length > 0 && (
-        <Card>
+        <Card className="app-data-card">
           <CardContent className="pt-4 pb-3">
             <p className="text-xs font-medium text-muted-foreground mb-2">
               نشاط الوكلاء حسب الساعة
@@ -397,7 +446,7 @@ export default function AgentActivityPage() {
         </Card>
       )}
 
-      <Card className="border-dashed">
+      <Card className="app-data-card app-data-card--muted border-dashed">
         <CardContent className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between">
           <div>
             <p className="font-medium">
@@ -451,7 +500,7 @@ export default function AgentActivityPage() {
 
       {/* ─── Actions Feed ───────────────────────────── */}
       {filtered.length === 0 ? (
-        <Card>
+        <Card className="app-data-card">
           <CardContent className="py-12 text-center">
             <Bot className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
             <p className="text-lg font-medium">لا يوجد نشاط بعد</p>
@@ -472,7 +521,7 @@ export default function AgentActivityPage() {
             return (
               <Card
                 key={action.id}
-                className={`transition-all ${!action.merchant_ack && action.severity === "CRITICAL" ? "border-red-300 bg-red-50/30" : ""} ${!action.merchant_ack && action.severity === "WARNING" ? "border-yellow-200 bg-yellow-50/20" : ""}`}
+                className={`app-data-card transition-all ${!action.merchant_ack && action.severity === "CRITICAL" ? "border-[color:color-mix(in_srgb,var(--danger)_22%,var(--border-strong))] bg-[color:color-mix(in_srgb,var(--danger-muted)_72%,transparent)]" : ""} ${!action.merchant_ack && action.severity === "WARNING" ? "border-[color:color-mix(in_srgb,var(--warning)_22%,var(--border-strong))] bg-[color:color-mix(in_srgb,var(--warning-muted)_72%,transparent)]" : ""}`}
               >
                 <CardContent className="py-4">
                   <div className="flex items-start gap-3">

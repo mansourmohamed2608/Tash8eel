@@ -407,8 +407,14 @@ export const DESTRUCTIVE_INTENTS: CopilotIntent[] = [
 
 // ============= RBAC Role Requirements =============
 // Maps each intent to the minimum required role level
-// Role hierarchy: OWNER (100) > ADMIN (80) > MANAGER (60) > AGENT (40) > VIEWER (20)
-export type StaffRole = "OWNER" | "ADMIN" | "MANAGER" | "AGENT" | "VIEWER";
+// Role hierarchy: OWNER (100) > ADMIN (80) > MANAGER (60) > AGENT (40) > CASHIER (30) > VIEWER (20)
+export type StaffRole =
+  | "OWNER"
+  | "ADMIN"
+  | "MANAGER"
+  | "AGENT"
+  | "CASHIER"
+  | "VIEWER";
 
 export const INTENT_ROLE_REQUIREMENTS: Record<CopilotIntent, StaffRole> = {
   // Finance - require MANAGER or higher, ADMIN for destructive
@@ -450,6 +456,7 @@ export const ROLE_HIERARCHY: Record<StaffRole, number> = {
   ADMIN: 80,
   MANAGER: 60,
   AGENT: 40,
+  CASHIER: 30,
   VIEWER: 20,
 };
 
@@ -478,6 +485,7 @@ export function getRoleRequirementMessage(intent: CopilotIntent): string {
     ADMIN: "مدير",
     MANAGER: "مسؤول",
     AGENT: "موظف",
+    CASHIER: "كاشير",
     VIEWER: "مشاهد",
   };
   const required = INTENT_ROLE_REQUIREMENTS[intent];

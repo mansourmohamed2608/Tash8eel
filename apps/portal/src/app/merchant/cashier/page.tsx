@@ -2032,53 +2032,44 @@ export default function CashierPage() {
   ]);
 
   return (
-    <div dir="rtl" className="cashier-shell min-h-screen bg-slate-100">
+    <div
+      dir="rtl"
+      className="cashier-shell min-h-screen bg-[color:color-mix(in_srgb,var(--surface-muted)_52%,var(--bg))]"
+    >
       <div className="mx-auto flex min-h-[100dvh] max-w-[1700px] flex-col px-3 py-3 lg:h-screen lg:px-5">
-        <header className="mb-3 rounded-2xl border bg-card px-4 py-3 shadow-sm">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <header className="cashier-command-bar mb-3">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-600 text-white">
+              <div className="flex h-12 w-12 items-center justify-center rounded-[18px] bg-[var(--accent)] text-white shadow-[0_18px_40px_-24px_color-mix(in_srgb,var(--accent)_84%,black)]">
                 <ShoppingCart className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-lg font-semibold text-slate-900">
+                <p className="text-lg font-black tracking-[-0.02em] text-[var(--text-primary)]">
                   {merchantName}
                 </p>
-                <p className="text-sm text-muted-foreground">
-                  نقطة البيع السريعة - وضع الكاشير
+                <p className="text-sm text-[var(--text-muted)]">
+                  مساحة تشغيل سريعة للكاشير، المبيعات، الجلسات، والطباعة من شاشة
+                  واحدة.
                 </p>
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <Badge
-                variant="secondary"
-                className="h-9 rounded-full px-3 text-sm"
-              >
+              <Badge variant="secondary" className="h-9 px-3 text-sm">
                 <ArrowUpDown className="ml-1 h-4 w-4" />
                 {selectedBranchId
                   ? branches.find((branch) => branch.id === selectedBranchId)
                       ?.name || "الفرع"
                   : "بدون فرع"}
               </Badge>
-              <Badge
-                variant="secondary"
-                className="h-9 rounded-full px-3 text-sm"
-              >
+              <Badge variant="secondary" className="h-9 px-3 text-sm">
                 <ShoppingCart className="ml-1 h-4 w-4" />
                 {cartItemsCount} عنصر
               </Badge>
-              <Badge
-                variant="secondary"
-                className="h-9 rounded-full px-3 text-sm"
-              >
+              <Badge variant="secondary" className="h-9 px-3 text-sm">
                 <Banknote className="ml-1 h-4 w-4" />
                 {formatCurrency(totalAfterDiscount)}
               </Badge>
-              <Button
-                asChild
-                variant="outline"
-                className="h-9 rounded-full px-4"
-              >
+              <Button asChild variant="outline" className="h-9 px-4">
                 <Link href="/merchant/orders">
                   <ArrowRight className="ml-1 h-4 w-4" />
                   الخروج من الكاشير
@@ -2086,10 +2077,44 @@ export default function CashierPage() {
               </Button>
             </div>
           </div>
+          <div className="cashier-command-bar__stats">
+            <div className="cashier-command-bar__stat">
+              <span className="app-hero-band__metric-label">حالة الجلسة</span>
+              <strong className="app-hero-band__metric-value">
+                {registerLoading
+                  ? "جارٍ التحقق..."
+                  : currentRegister?.status === "open"
+                    ? "جلسة مفتوحة"
+                    : "لا توجد جلسة نشطة"}
+              </strong>
+            </div>
+            <div className="cashier-command-bar__stat">
+              <span className="app-hero-band__metric-label">نوع الخدمة</span>
+              <strong className="app-hero-band__metric-value">
+                {DELIVERY_OPTIONS.find((option) => option.key === deliveryType)
+                  ?.label || "استلام"}
+              </strong>
+            </div>
+            <div className="cashier-command-bar__stat">
+              <span className="app-hero-band__metric-label">وسيلة الدفع</span>
+              <strong className="app-hero-band__metric-value">
+                {PAYMENT_OPTIONS.find((option) => option.key === paymentMethod)
+                  ?.label || "نقدي"}
+              </strong>
+            </div>
+            <div className="cashier-command-bar__stat">
+              <span className="app-hero-band__metric-label">
+                الإجمالي الحالي
+              </span>
+              <strong className="app-hero-band__metric-value">
+                {formatCurrency(totalAfterDiscount)}
+              </strong>
+            </div>
+          </div>
         </header>
 
         <div className="flex min-h-0 flex-1 flex-col gap-3 lg:flex-row-reverse">
-          <Card className="flex min-h-0 flex-1 flex-col">
+          <Card className="app-data-card flex min-h-0 flex-1 flex-col">
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-base">
                 <Package className="h-4 w-4 text-emerald-600" />
@@ -2156,12 +2181,12 @@ export default function CashierPage() {
             </CardHeader>
             <CardContent className="min-h-0 flex-1 overflow-y-auto pb-4">
               {catalogLoading ? (
-                <div className="flex h-full items-center justify-center text-muted-foreground">
+                <div className="flex h-full items-center justify-center text-[var(--text-muted)]">
                   <Loader2 className="ml-2 h-5 w-5 animate-spin" />
                   جاري تحميل المنتجات...
                 </div>
               ) : filteredProducts.length === 0 ? (
-                <div className="flex h-full items-center justify-center text-center text-sm text-muted-foreground">
+                <div className="flex h-full items-center justify-center text-center text-sm text-[var(--text-muted)]">
                   لا توجد منتجات مطابقة للبحث الحالي
                 </div>
               ) : (
@@ -2171,7 +2196,7 @@ export default function CashierPage() {
                       key={product.id}
                       type="button"
                       onClick={() => addToCart(product)}
-                      className="flex min-h-[132px] flex-col justify-between rounded-2xl border bg-white p-3 text-right transition hover:border-emerald-300 hover:shadow-sm"
+                      className="flex min-h-[132px] flex-col justify-between rounded-[22px] border border-[color:color-mix(in_srgb,var(--border-strong)_86%,transparent)] bg-[color:color-mix(in_srgb,var(--surface)_98%,transparent)] p-3 text-right transition-all duration-150 ease-in-out hover:-translate-y-0.5 hover:border-[color:color-mix(in_srgb,var(--accent)_22%,var(--border-strong))] hover:shadow-[0_20px_38px_-28px_rgba(15,23,42,0.45)]"
                     >
                       <div>
                         <p className="line-clamp-2 text-sm font-semibold text-slate-900">
@@ -2201,7 +2226,7 @@ export default function CashierPage() {
             </CardContent>
           </Card>
 
-          <Card className="flex min-h-0 w-full flex-col lg:w-[40%] xl:w-[37%]">
+          <Card className="app-data-card flex min-h-0 w-full flex-col lg:w-[40%] xl:w-[37%]">
             <CardHeader className="pb-2">
               <CardTitle className="flex flex-col gap-2 text-base sm:flex-row sm:items-center sm:justify-between">
                 <span className="flex items-center gap-2">

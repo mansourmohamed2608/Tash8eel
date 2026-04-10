@@ -263,7 +263,7 @@ export class MerchantPortalController {
   }
 
   @Post("pos/registers/open")
-  @RequireRole("MANAGER")
+  @Roles("OWNER", "ADMIN", "MANAGER", "CASHIER")
   @RequiresFeature("ORDERS")
   @ApiOperation({ summary: "Open POS register session" })
   async openPosRegister(
@@ -348,7 +348,7 @@ export class MerchantPortalController {
   }
 
   @Post("pos/registers/:id/close")
-  @RequireRole("MANAGER")
+  @Roles("OWNER", "ADMIN", "MANAGER", "CASHIER")
   @RequiresFeature("ORDERS")
   @ApiOperation({ summary: "Close POS register session" })
   async closePosRegister(
@@ -11018,7 +11018,7 @@ export class MerchantPortalController {
 
   @Get("expenses")
   @RequiresFeature("REPORTS")
-  @RequireRole("MANAGER")
+  @Roles("OWNER", "ADMIN", "MANAGER", "CASHIER")
   @ApiOperation({ summary: "List expenses for merchant" })
   @ApiQuery({
     name: "month",
@@ -11132,7 +11132,7 @@ export class MerchantPortalController {
 
   @Post("expenses")
   @RequiresFeature("REPORTS")
-  @RequireRole("MANAGER")
+  @Roles("OWNER", "ADMIN", "MANAGER", "CASHIER")
   @ApiOperation({ summary: "Create a new expense" })
   @ApiBody({
     schema: {
@@ -11290,7 +11290,7 @@ export class MerchantPortalController {
 
   @Put("expenses/:id")
   @RequiresFeature("REPORTS")
-  @RequireRole("MANAGER")
+  @Roles("OWNER", "ADMIN", "MANAGER", "CASHIER")
   @ApiOperation({ summary: "Update an expense" })
   @ApiParam({ name: "id", description: "Expense ID" })
   @ApiBody({

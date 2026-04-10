@@ -116,10 +116,10 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="space-y-6 animate-fadeIn p-4 sm:p-6">
+    <div className="space-y-8 animate-fadeIn p-4 sm:p-6">
       <PageHeader
         title="لوحة تحكم النظام"
-        description="مراقبة صحة النظام والمقاييس الرئيسية"
+        description="غرفة التحكم المركزية للمنصة: صحة الخدمات، النشاط، والاختناقات التشغيلية."
         actions={
           <Button
             variant="outline"
@@ -134,6 +134,57 @@ export default function AdminDashboard() {
           </Button>
         }
       />
+
+      <section className="app-hero-band">
+        <div className="app-hero-band__grid">
+          <div className="space-y-4">
+            <span className="app-hero-band__eyebrow">Platform Control</span>
+            <div className="space-y-3">
+              <h2 className="app-hero-band__title">
+                راقب المنصة على مستوى التجار، الطلبات، المحادثات، والخدمات من
+                نفس الشاشة.
+              </h2>
+              <p className="app-hero-band__copy">
+                هذه الواجهة تعطيك قراءة سريعة عن حالة النظام، وتلفت انتباهك إلى
+                أحداث DLQ والمشكلات التشغيلية قبل أن تتحول إلى أثر واضح على
+                التجار أو العملاء.
+              </p>
+            </div>
+          </div>
+          <div className="app-hero-band__metrics">
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">صحة النظام</span>
+              <strong className="app-hero-band__metric-value">
+                {metrics.systemHealth === "healthy"
+                  ? "مستقر"
+                  : metrics.systemHealth === "degraded"
+                    ? "متراجع"
+                    : "حرج"}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">
+                التجار النشطون
+              </span>
+              <strong className="app-hero-band__metric-value">
+                {metrics.activeMerchants}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">طلبات اليوم</span>
+              <strong className="app-hero-band__metric-value">
+                {metrics.ordersToday}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">DLQ المعلق</span>
+              <strong className="app-hero-band__metric-value">
+                {metrics.dlqPending}
+              </strong>
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* System Health Alert */}
       {metrics.systemHealth !== "healthy" && (
@@ -182,7 +233,7 @@ export default function AdminDashboard() {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* System Services Health */}
-        <Card className="lg:col-span-1">
+        <Card className="app-data-card lg:col-span-1">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Server className="h-5 w-5" />
@@ -246,7 +297,7 @@ export default function AdminDashboard() {
         />
 
         {/* Recent DLQ Events */}
-        <Card>
+        <Card className="app-data-card">
           <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <CardTitle className="flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-yellow-500" />
@@ -266,7 +317,7 @@ export default function AdminDashboard() {
                 recentDlq.map((event) => (
                   <div
                     key={event.id}
-                    className="flex flex-col gap-2 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between"
+                    className="flex flex-col gap-2 rounded-[18px] border border-[color:color-mix(in_srgb,var(--border-strong)_84%,transparent)] p-3 sm:flex-row sm:items-center sm:justify-between"
                   >
                     <div>
                       <p className="text-sm font-medium">{event.type}</p>

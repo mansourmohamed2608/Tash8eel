@@ -9,8 +9,9 @@ describe("BranchAnalyticsController.compareBranches", () => {
     const pool = {
       query: jest.fn(impl),
     } as any;
+    const commerceFactsService = {} as any;
     return {
-      controller: new BranchAnalyticsController(pool),
+      controller: new BranchAnalyticsController(pool, commerceFactsService),
       queryMock: pool.query as jest.Mock,
     };
   }

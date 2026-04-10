@@ -532,7 +532,7 @@ export default function ExpensesPage() {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <PageHeader
         title="المصروفات"
         description="إدارة وتتبع مصروفات العمل"
@@ -561,6 +561,47 @@ export default function ExpensesPage() {
         }
       />
 
+      <section className="app-hero-band">
+        <div className="app-hero-band__grid">
+          <div>
+            <p className="app-hero-band__eyebrow">مصروفات وتشغيل</p>
+            <h2 className="app-hero-band__title">
+              رؤية مباشرة لتكلفة التشغيل وتوزيع الصرف
+            </h2>
+            <p className="app-hero-band__copy">
+              راقب حجم الإنفاق، واعزل أكثر الفئات استهلاكًا، وراجع السجل المالي
+              من نفس المساحة دون تفكيك السياق.
+            </p>
+          </div>
+          <div className="app-hero-band__metrics">
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">
+                الإجمالي الحالي
+              </span>
+              <strong className="app-hero-band__metric-value">
+                {formatCurrency(totalAmount)}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">عدد العمليات</span>
+              <strong className="app-hero-band__metric-value">
+                {expenses.length}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">
+                أعلى فئة إنفاق
+              </span>
+              <strong className="app-hero-band__metric-value">
+                {topCategories[0]
+                  ? getCategoryDisplayName(topCategories[0][0])
+                  : "لا يوجد"}
+              </strong>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* AI Expense Insights */}
       <AiInsightsCard
         title="تحليلات المصروفات"
@@ -574,7 +615,7 @@ export default function ExpensesPage() {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        <Card>
+        <Card className="app-data-card">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
               {periodType === "month"
@@ -595,7 +636,7 @@ export default function ExpensesPage() {
           </CardContent>
         </Card>
         {topCategories.map(([category, amount]) => (
-          <Card key={category}>
+          <Card key={category} className="app-data-card">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
                 {getCategoryDisplayName(category)}
@@ -614,7 +655,7 @@ export default function ExpensesPage() {
       </div>
 
       {/* Filters */}
-      <Card>
+      <Card className="app-data-card app-data-card--muted">
         <CardContent className="pt-6">
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
@@ -684,7 +725,7 @@ export default function ExpensesPage() {
       </Card>
 
       {/* Expenses Table */}
-      <Card>
+      <Card className="app-data-card">
         <CardHeader>
           <CardTitle>سجل المصروفات</CardTitle>
           <CardDescription>

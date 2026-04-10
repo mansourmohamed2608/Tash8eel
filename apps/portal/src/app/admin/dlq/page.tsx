@@ -194,7 +194,7 @@ export default function DlqPage() {
   }
 
   return (
-    <div className="space-y-6 animate-fadeIn">
+    <div className="space-y-8 animate-fadeIn">
       <PageHeader
         title="إدارة DLQ"
         description="مراقبة وإعادة معالجة الأحداث الفاشلة"
@@ -223,6 +223,43 @@ export default function DlqPage() {
         }
       />
 
+      <section className="app-hero-band">
+        <div className="app-hero-band__grid">
+          <div>
+            <p className="app-hero-band__eyebrow">موثوقية وتشغيل</p>
+            <h2 className="app-hero-band__title">
+              سيطرة أوضح على الأحداث المتعثرة ومحاولات الاسترجاع
+            </h2>
+            <p className="app-hero-band__copy">
+              راقب الطوابير الفاشلة، فرّق بين الحالات المعلقة والنهائية، وأعد
+              تشغيل الممرات الحرجة قبل أن تتحول إلى تراكم تشغيلي.
+            </p>
+          </div>
+          <div className="app-hero-band__metrics">
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">
+                الأحداث الحالية
+              </span>
+              <strong className="app-hero-band__metric-value">
+                {events.length}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">معلّقة</span>
+              <strong className="app-hero-band__metric-value">
+                {pendingCount}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">فشل نهائي</span>
+              <strong className="app-hero-band__metric-value">
+                {deadCount}
+              </strong>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Alerts */}
       {deadCount > 0 && (
         <AlertBanner
@@ -234,7 +271,7 @@ export default function DlqPage() {
 
       {/* Stats Summary */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-        <Card>
+        <Card className="app-data-card">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
@@ -245,7 +282,7 @@ export default function DlqPage() {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="app-data-card">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
@@ -258,7 +295,7 @@ export default function DlqPage() {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="app-data-card">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
@@ -271,7 +308,7 @@ export default function DlqPage() {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="app-data-card">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
@@ -285,7 +322,7 @@ export default function DlqPage() {
       </div>
 
       {/* Filters */}
-      <Card>
+      <Card className="app-data-card app-data-card--muted">
         <CardContent className="p-4">
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="relative flex-1">
@@ -327,7 +364,7 @@ export default function DlqPage() {
       </Card>
 
       {/* Events Table */}
-      <Card>
+      <Card className="app-data-card">
         <CardContent className="p-0">
           {filteredEvents.length === 0 ? (
             <EmptyState

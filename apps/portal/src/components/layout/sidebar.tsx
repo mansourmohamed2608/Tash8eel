@@ -70,6 +70,7 @@ const ROLE_LEVEL: Record<string, number> = {
   ADMIN: 80,
   MANAGER: 60,
   AGENT: 40,
+  CASHIER: 30,
   VIEWER: 20,
 };
 
@@ -523,6 +524,15 @@ const MERCHANT_SECTION_CONFIG: MerchantSidebarSection[] = [
   },
 ];
 
+const CASHIER_ONLY_SECTION_CONFIG: MerchantSidebarSection[] = [
+  {
+    id: "cashier",
+    label: "الكاشير",
+    icon: Banknote,
+    items: [{ href: "/merchant/cashier", label: "الكاشير" }],
+  },
+];
+
 interface SidebarProps {
   role: "merchant" | "admin";
   merchantName?: string;
@@ -530,7 +540,7 @@ interface SidebarProps {
   apiKey?: string;
   collapsed?: boolean;
   onCollapsedChange?: (collapsed: boolean) => void;
-  userRole?: string; // Staff role: OWNER, ADMIN, MANAGER, AGENT, VIEWER
+  userRole?: string; // Staff role: OWNER, ADMIN, MANAGER, AGENT, CASHIER, VIEWER
   enabledAgents?: string[];
   features?: {
     inventory?: boolean;
@@ -648,8 +658,12 @@ export function Sidebar({
 
     const navByHref = new Map(navItems.map((item) => [item.href, item]));
     const usedHrefs = new Set<string>();
+    const sectionConfig =
+      userRole === "CASHIER"
+        ? CASHIER_ONLY_SECTION_CONFIG
+        : MERCHANT_SECTION_CONFIG;
 
-    const sections = MERCHANT_SECTION_CONFIG.map((section) => {
+    const sections = sectionConfig.map((section) => {
       const items = section.items
         .map((mappedItem) => {
           const sourceItem = navByHref.get(mappedItem.href);
@@ -680,7 +694,7 @@ export function Sidebar({
     }
 
     return sections;
-  }, [role, navItems]);
+  }, [role, navItems, userRole]);
 
   const merchantSectionItemHrefs = useMemo(
     () =>
@@ -855,7 +869,7 @@ export function Sidebar({
       {/* Mobile menu button */}
       <button
         onClick={() => setMobileOpen(true)}
-        className="lg:hidden fixed top-4 right-4 z-50 p-2 rounded-md bg-card border shadow-sm"
+        className="lg:hidden fixed top-4 right-4 z-50 inline-flex h-11 w-11 items-center justify-center rounded-[14px] border border-border/80 bg-card/95 shadow-[0_18px_48px_rgba(15,23,42,0.08)] backdrop-blur"
         aria-label="فتح القائمة الجانبية"
         aria-expanded={mobileOpen}
         aria-controls="main-sidebar"
@@ -867,7 +881,7 @@ export function Sidebar({
       {/* Mobile overlay */}
       {mobileOpen && (
         <div
-          className="lg:hidden fixed inset-0 bg-black/50 z-40"
+          className="lg:hidden fixed inset-0 z-40 bg-slate-950/40 backdrop-blur-sm"
           onClick={() => setMobileOpen(false)}
         />
       )}
@@ -878,19 +892,22 @@ export function Sidebar({
         role="complementary"
         aria-label="القائمة الجانبية"
         className={cn(
-          "fixed top-0 right-0 h-full bg-card border-l shadow-sm z-50 transition-all duration-300",
-          collapsed ? "w-64 lg:w-16" : "w-64",
+          "app-sidebar-shell fixed top-0 right-0 z-50 h-full transition-all duration-300",
+          collapsed ? "w-72 lg:w-[88px]" : "w-72",
           mobileOpen ? "translate-x-0" : "translate-x-full lg:translate-x-0",
         )}
       >
         <div className="flex flex-col h-full">
           {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b">
+          <div className="flex items-center justify-between border-b border-border/70 px-5 py-5">
             {!collapsed && (
-              <div>
-                <h1 className="text-lg font-bold text-primary-600">{title}</h1>
+              <div className="min-w-0">
+                <p className="app-page-header-eyebrow">Workspace</p>
+                <h1 className="mt-2 truncate text-[1.15rem] font-bold tracking-[-0.02em] text-foreground">
+                  {title}
+                </h1>
                 {merchantName && (
-                  <p className="text-xs text-muted-foreground truncate">
+                  <p className="mt-1 truncate text-xs leading-5 text-muted-foreground">
                     {merchantName}
                   </p>
                 )}
@@ -899,14 +916,14 @@ export function Sidebar({
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setMobileOpen(false)}
-                className="lg:hidden p-1 rounded-md hover:bg-muted"
+                className="lg:hidden inline-flex h-10 w-10 items-center justify-center rounded-[12px] border border-border/70 bg-background/70 text-muted-foreground hover:bg-accent/60 hover:text-foreground"
                 aria-label="إغلاق القائمة الجانبية"
               >
                 <X className="h-5 w-5" aria-hidden="true" />
               </button>
               <button
                 onClick={() => setCollapsed(!collapsed)}
-                className="hidden lg:flex p-1 rounded-md hover:bg-muted"
+                className="hidden lg:inline-flex h-10 w-10 items-center justify-center rounded-[12px] border border-border/70 bg-background/70 text-muted-foreground hover:bg-accent/60 hover:text-foreground"
                 aria-label={collapsed ? "توسيع القائمة" : "تصغير القائمة"}
                 aria-expanded={!collapsed}
               >
@@ -923,11 +940,11 @@ export function Sidebar({
 
           {/* Navigation */}
           <nav
-            className="flex-1 overflow-y-auto p-2"
+            className="flex-1 overflow-y-auto px-3 py-4"
             aria-label="التنقل الرئيسي"
           >
             {role === "merchant" ? (
-              <ul className="space-y-1" role="list">
+              <ul className="space-y-2" role="list">
                 {merchantSections.map((section) => {
                   const isExpanded =
                     !collapsed && expandedSectionId === section.id;
@@ -958,13 +975,13 @@ export function Sidebar({
                         });
                       }}
                       className={cn(
-                        "h-11 w-full rounded-md px-3 text-sm font-semibold transition-colors",
+                        "h-12 w-full rounded-[16px] px-4 text-sm font-bold transition-all duration-150 ease-in-out",
                         collapsed
                           ? "flex items-center justify-center"
                           : "flex flex-row-reverse items-center justify-between",
                         isActiveSection
-                          ? "bg-primary-50 text-primary-700"
-                          : "text-foreground hover:bg-muted",
+                          ? "bg-primary/10 text-primary shadow-[inset_0_0_0_1px_rgba(31,111,255,0.12)]"
+                          : "text-foreground hover:bg-accent/50",
                       )}
                       aria-expanded={isExpanded}
                       aria-controls={`section-${section.id}`}
@@ -987,7 +1004,7 @@ export function Sidebar({
                   );
 
                   return (
-                    <li key={section.id} className="space-y-1">
+                    <li key={section.id} className="space-y-1.5">
                       {collapsed ? (
                         <Tooltip>
                           <TooltipTrigger asChild>
@@ -1004,7 +1021,7 @@ export function Sidebar({
                       {!collapsed && isExpanded && (
                         <ul
                           id={`section-${section.id}`}
-                          className="space-y-0.5 pr-4"
+                          className="space-y-1 pr-4 pt-2"
                           role="list"
                         >
                           {section.items.map((item) => {
@@ -1027,7 +1044,7 @@ export function Sidebar({
                                     <TooltipTrigger asChild>
                                       <div
                                         className={cn(
-                                          "flex items-center gap-3 rounded-md border-l-2 border-transparent px-3 py-2 text-[13px] font-medium",
+                                          "flex items-center gap-3 rounded-[14px] border border-transparent px-3 py-2.5 text-[13px] font-medium",
                                           "cursor-not-allowed text-muted-foreground/45",
                                         )}
                                       >
@@ -1056,10 +1073,10 @@ export function Sidebar({
                                   href={item.href}
                                   aria-current={isActive ? "page" : undefined}
                                   className={cn(
-                                    "flex items-center gap-3 rounded-md border-l-2 px-3 py-2 text-[13px] font-medium transition-colors",
+                                    "flex items-center gap-3 rounded-[14px] border px-3 py-2.5 text-[13px] font-semibold transition-all duration-150 ease-in-out",
                                     isActive
-                                      ? "border-primary-600 bg-primary-50/70 text-primary-700"
-                                      : "border-transparent text-muted-foreground hover:bg-muted hover:text-foreground",
+                                      ? "border-primary/20 bg-primary/10 text-primary shadow-[0_14px_32px_rgba(31,111,255,0.08)]"
+                                      : "border-transparent text-muted-foreground hover:border-border/70 hover:bg-background/80 hover:text-foreground",
                                   )}
                                 >
                                   <item.icon className="h-4 w-4 flex-shrink-0" />
@@ -1114,7 +1131,7 @@ export function Sidebar({
                 })}
               </ul>
             ) : (
-              <ul className="space-y-1" role="list">
+              <ul className="space-y-2" role="list">
                 {navItems.map((item) => {
                   const isActive = isItemActive(
                     item.href,
@@ -1127,11 +1144,11 @@ export function Sidebar({
                       aria-current={isActive ? "page" : undefined}
                       aria-label={collapsed ? item.label : undefined}
                       className={cn(
-                        "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors",
+                        "flex items-center gap-3 rounded-[14px] border px-3 py-2.5 text-sm font-semibold transition-all duration-150 ease-in-out",
                         collapsed && "justify-center",
                         isActive
-                          ? "bg-primary-100 text-primary-700"
-                          : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                          ? "border-primary/20 bg-primary/10 text-primary"
+                          : "border-transparent text-muted-foreground hover:border-border/70 hover:bg-background/80 hover:text-foreground",
                       )}
                     >
                       <item.icon className="h-5 w-5 flex-shrink-0" />
@@ -1161,14 +1178,14 @@ export function Sidebar({
           </nav>
 
           {/* Footer */}
-          <div className="border-t p-4">
+          <div className="border-t border-border/70 p-4">
             <div className="flex items-center gap-3">
               <ApiStatusIndicator collapsed={collapsed} />
             </div>
             {!collapsed && (
               <Button
                 variant="ghost"
-                className="w-full mt-3 text-muted-foreground"
+                className="mt-3 w-full justify-center border border-border/70 bg-background/70 text-muted-foreground hover:bg-accent/60 hover:text-foreground"
                 onClick={() => signOut({ callbackUrl: "/login" })}
               >
                 <LogOut className="h-4 w-4 ml-2" />
@@ -1196,19 +1213,16 @@ export function PageHeader({
   actions,
 }: PageHeaderProps) {
   return (
-    <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+    <div className="app-page-header">
       <div className="min-w-0">
-        <h1 className="break-words text-xl font-bold text-foreground sm:text-2xl">
-          {title}
-        </h1>
+        {titleEn && <p className="app-page-header-eyebrow">{titleEn}</p>}
+        <h1 className="app-page-title break-words">{title}</h1>
         {description && (
-          <p className="mt-1 break-words text-sm text-muted-foreground">
-            {description}
-          </p>
+          <p className="app-page-description mt-2 break-words">{description}</p>
         )}
       </div>
       {actions && (
-        <div className="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end md:w-auto">
+        <div className="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end lg:w-auto">
           {actions}
         </div>
       )}
@@ -1223,10 +1237,12 @@ interface TopBarProps {
 
 export function TopBar({ role, collapsed }: TopBarProps) {
   return (
-    <header className="sticky top-0 z-30 bg-background/95 backdrop-blur border-b px-4 h-14 flex items-center">
-      <div className="flex items-center justify-between w-full">
+    <header className="app-topbar-shell sticky top-0 z-30 flex h-16 items-center px-4 lg:px-6">
+      <div className="app-shell-main flex w-full items-center justify-between">
         {/* Page title area - right side in RTL */}
-        <h1 className="text-lg font-semibold lg:hidden">لوحة التحكم</h1>
+        <h1 className="text-lg font-bold tracking-[-0.02em] text-foreground lg:hidden">
+          لوحة التحكم
+        </h1>
         <div className="hidden lg:block" />
 
         {/* Actions - left side in RTL */}

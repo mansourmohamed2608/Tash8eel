@@ -767,6 +767,41 @@ export default function CODReconciliationPage() {
         }
       />
 
+      <section className="app-hero-band">
+        <div className="app-hero-band__grid">
+          <div>
+            <p className="app-hero-band__eyebrow">تحصيل وتسوية</p>
+            <h2 className="app-hero-band__title">
+              تحكم أدق في دورة الدفع عند الاستلام من الشحن حتى التسوية المالية
+            </h2>
+            <p className="app-hero-band__copy">
+              اجمع حالات الشركات، مبالغ التحصيل، النزاعات، والتذكيرات في واجهة
+              واحدة مناسبة للمتابعة اليومية مع فرق التشغيل والمالية.
+            </p>
+          </div>
+          <div className="app-hero-band__metrics">
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">قيد الانتظار</span>
+              <strong className="app-hero-band__metric-value">
+                {summary ? formatCurrency(summary.totalPendingAmount) : "-"}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">تم التحصيل</span>
+              <strong className="app-hero-band__metric-value">
+                {summary ? formatCurrency(summary.totalCollectedAmount) : "-"}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">متنازع عليه</span>
+              <strong className="app-hero-band__metric-value">
+                {summary ? formatCurrency(summary.totalDisputedAmount) : "-"}
+              </strong>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* AI COD Insights */}
       <AiInsightsCard
         title="تحليلات الدفع عند الاستلام"
@@ -782,7 +817,7 @@ export default function CODReconciliationPage() {
       {/* Summary Cards */}
       {summary && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <Card>
+          <Card className="app-data-card">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
                 قيد الانتظار
@@ -799,7 +834,7 @@ export default function CODReconciliationPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="app-data-card">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">تم التحصيل</CardTitle>
               <Banknote className="h-4 w-4 text-blue-500" />
@@ -814,7 +849,7 @@ export default function CODReconciliationPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="app-data-card">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">تمت التسوية</CardTitle>
               <CheckCircle2 className="h-4 w-4 text-green-500" />
@@ -829,7 +864,7 @@ export default function CODReconciliationPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="app-data-card">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">متنازع عليه</CardTitle>
               <AlertTriangle className="h-4 w-4 text-red-500" />
@@ -846,7 +881,7 @@ export default function CODReconciliationPage() {
         </div>
       )}
 
-      <Card className="border-blue-200 bg-blue-50/60">
+      <Card className="app-data-card border-blue-200 bg-blue-50/60">
         <CardContent className="pt-4 text-sm text-blue-800">
           حالات COD هنا مبنية على حالة التسوية المالية (`pending / collected /
           reconciled / disputed`) وليست مرادفة تلقائياً لحالة الشحن.
@@ -854,7 +889,7 @@ export default function CODReconciliationPage() {
       </Card>
 
       {/* Filters and Actions */}
-      <Card>
+      <Card className="app-data-card app-data-card--muted">
         <CardContent className="pt-6">
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-4 lg:flex-row lg:flex-wrap lg:items-center">

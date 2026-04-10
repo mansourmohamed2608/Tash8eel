@@ -15,14 +15,21 @@ import {
 } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
 
-// Role hierarchy: OWNER > ADMIN > MANAGER > AGENT > VIEWER
-export type StaffRole = "OWNER" | "ADMIN" | "MANAGER" | "AGENT" | "VIEWER";
+// Role hierarchy: OWNER > ADMIN > MANAGER > AGENT > CASHIER > VIEWER
+export type StaffRole =
+  | "OWNER"
+  | "ADMIN"
+  | "MANAGER"
+  | "AGENT"
+  | "CASHIER"
+  | "VIEWER";
 
 export const ROLE_HIERARCHY: Record<StaffRole, number> = {
   OWNER: 100,
   ADMIN: 80,
   MANAGER: 60,
   AGENT: 40,
+  CASHIER: 30,
   VIEWER: 20,
 };
 
@@ -199,8 +206,12 @@ export class DestructiveActionGuard implements CanActivate {
       throw new ForbiddenException("Access denied: No role assigned");
     }
 
-    // VIEWER and AGENT cannot perform destructive actions
-    if (userRole === "VIEWER" || userRole === "AGENT") {
+    // VIEWER, AGENT, and CASHIER cannot perform destructive actions
+    if (
+      userRole === "VIEWER" ||
+      userRole === "AGENT" ||
+      userRole === "CASHIER"
+    ) {
       throw new ForbiddenException(
         "Access denied: Insufficient role for destructive actions",
       );

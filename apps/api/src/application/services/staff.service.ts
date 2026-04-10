@@ -19,7 +19,13 @@ import { DATABASE_POOL } from "../../infrastructure/database/database.module";
 import { updateMerchantProvisioning } from "../../api/controllers/billing.helpers";
 import { PLAN_ENTITLEMENTS } from "../../shared/entitlements";
 
-export type StaffRole = "OWNER" | "ADMIN" | "MANAGER" | "AGENT" | "VIEWER";
+export type StaffRole =
+  | "OWNER"
+  | "ADMIN"
+  | "MANAGER"
+  | "AGENT"
+  | "CASHIER"
+  | "VIEWER";
 export type StaffStatus =
   | "ACTIVE"
   | "INACTIVE"
@@ -1092,6 +1098,18 @@ export class StaffService {
 
     if (result.rows.length > 0) {
       return result.rows[0].permissions;
+    }
+
+    if (role === "CASHIER") {
+      return {
+        orders: { create: true, read: true, update: true },
+        customers: { read: true, update: true },
+        products: { read: true },
+        inventory: { read: true },
+        expenses: { create: true, read: true, update: true },
+        payments_cod: { read: true },
+        notifications: { read: true },
+      };
     }
 
     // Fallback minimal permissions

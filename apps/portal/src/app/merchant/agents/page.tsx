@@ -250,14 +250,58 @@ export default function AgentsPage() {
   const categoriesCount = new Set(AI_CAPABILITIES.map((c) => c.category)).size;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <PageHeader
         title="مركز الذكاء"
-        description="كل أدوات الذكاء الاصطناعي التي تعمل لصالح متجرك - من بوت الواتساب إلى تحليلات المخزون"
+        description="واجهة موحدة للوكلاء والقدرات الذكية التي تدير التسويق والعمليات والمخزون والمالية."
       />
 
+      <section className="app-hero-band">
+        <div className="app-hero-band__grid">
+          <div className="space-y-4">
+            <span className="app-hero-band__eyebrow">AI Control Center</span>
+            <div className="space-y-3">
+              <h2 className="app-hero-band__title">
+                تعرف على ما هو مفعّل الآن، ما المتاح في الخطة، وما الذي سيزيد
+                أثر النظام مباشرة على التشغيل.
+              </h2>
+              <p className="app-hero-band__copy">
+                هذه الصفحة تجمع الوكلاء، حالاتهم، وروابطهم التنفيذية في مكان
+                واحد. ليست مجرد صفحة تعريفية، بل خريطة تشغيل للذكاء عبر النظام.
+              </p>
+            </div>
+          </div>
+          <div className="app-hero-band__metrics">
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">مفعّل الآن</span>
+              <strong className="app-hero-band__metric-value">
+                {enabledCount || 0}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">المتاح بالخطة</span>
+              <strong className="app-hero-band__metric-value">
+                {availableCount}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">مجالات الذكاء</span>
+              <strong className="app-hero-band__metric-value">
+                {categoriesCount}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">الخطة الحالية</span>
+              <strong className="app-hero-band__metric-value">
+                {currentPlan}
+              </strong>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <Card className="border-blue-200 bg-blue-50/50">
+        <Card className="app-data-card border-[color:color-mix(in_srgb,var(--accent)_18%,var(--border-strong))] bg-[var(--accent-muted)]">
           <CardContent className="p-4">
             <p className="text-sm text-muted-foreground">
               الوكلاء المفعلة الآن
@@ -270,7 +314,7 @@ export default function AgentsPage() {
             </p>
           </CardContent>
         </Card>
-        <Card className="border-emerald-200 bg-emerald-50/50">
+        <Card className="app-data-card border-[color:color-mix(in_srgb,var(--success)_18%,var(--border-strong))] bg-[var(--success-muted)]">
           <CardContent className="p-4">
             <p className="text-sm text-muted-foreground">المتاح في الخطة</p>
             <p className="mt-1 text-2xl font-bold text-emerald-700">
@@ -281,7 +325,7 @@ export default function AgentsPage() {
             </p>
           </CardContent>
         </Card>
-        <Card className="border-violet-200 bg-violet-50/50">
+        <Card className="app-data-card">
           <CardContent className="p-4">
             <p className="text-sm text-muted-foreground">مجالات الذكاء</p>
             <p className="mt-1 text-2xl font-bold text-violet-700">
@@ -292,7 +336,7 @@ export default function AgentsPage() {
             </p>
           </CardContent>
         </Card>
-        <Card className="border-amber-200 bg-amber-50/50">
+        <Card className="app-data-card border-[color:color-mix(in_srgb,var(--warning)_18%,var(--border-strong))] bg-[var(--warning-muted)]">
           <CardContent className="p-4">
             <p className="text-sm text-muted-foreground">قدرات قادمة</p>
             <p className="mt-1 text-2xl font-bold text-amber-700">
@@ -307,7 +351,7 @@ export default function AgentsPage() {
 
       {/* Hero Stats */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4">
-        <Card className="border-green-200 dark:border-green-800/50">
+        <Card className="app-data-card">
           <CardContent className="p-4 text-center">
             <div className="flex items-center justify-center gap-2 mb-1">
               <Activity className="h-4 w-4 text-green-500" />
@@ -318,7 +362,7 @@ export default function AgentsPage() {
             <p className="text-xs text-muted-foreground">قدرة ذكية نشطة</p>
           </CardContent>
         </Card>
-        <Card className="border-blue-200 dark:border-blue-800/50">
+        <Card className="app-data-card">
           <CardContent className="p-4 text-center">
             <div className="flex items-center justify-center gap-2 mb-1">
               <Bot className="h-4 w-4 text-blue-500" />
@@ -329,7 +373,7 @@ export default function AgentsPage() {
             <p className="text-xs text-muted-foreground">وكيل مفعّل</p>
           </CardContent>
         </Card>
-        <Card className="border-purple-200 dark:border-purple-800/50">
+        <Card className="app-data-card">
           <CardContent className="p-4 text-center">
             <div className="flex items-center justify-center gap-2 mb-1">
               <Sparkles className="h-4 w-4 text-purple-500" />
@@ -340,7 +384,7 @@ export default function AgentsPage() {
             <p className="text-xs text-muted-foreground">موديل الذكاء</p>
           </CardContent>
         </Card>
-        <Card className="border-amber-200 dark:border-amber-800/50">
+        <Card className="app-data-card">
           <CardContent className="p-4 text-center">
             <div className="flex items-center justify-center gap-2 mb-1">
               <Globe className="h-4 w-4 text-amber-500" />
@@ -368,7 +412,7 @@ export default function AgentsPage() {
 
         {/* Overview Tab */}
         <TabsContent value="overview" className="space-y-6">
-          <Card>
+          <Card className="app-data-card">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Brain className="h-5 w-5 text-blue-500" />

@@ -396,7 +396,7 @@ export default function ReportsPage() {
       : 0;
 
   return (
-    <div className="space-y-6 animate-fadeIn p-4 sm:p-6">
+    <div className="space-y-8 animate-fadeIn p-4 sm:p-6">
       <PageHeader
         title="التقارير"
         description="تحليل أداء متجرك ومؤشرات النجاح"
@@ -457,6 +457,43 @@ export default function ReportsPage() {
         }
       />
 
+      <section className="app-hero-band">
+        <div className="app-hero-band__grid">
+          <div>
+            <p className="app-hero-band__eyebrow">تقارير ورؤية تنفيذية</p>
+            <h2 className="app-hero-band__title">
+              حول البيانات اليومية إلى صورة أداء تنفيذية واضحة
+            </h2>
+            <p className="app-hero-band__copy">
+              اجمع الإيرادات، التحويل، جودة الطلبات، وأداء المنتجات في مسار
+              قراءة سريع يناسب القرار اليومي والإرسال الفوري.
+            </p>
+          </div>
+          <div className="app-hero-band__metrics">
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">
+                الإيرادات المحققة
+              </span>
+              <strong className="app-hero-band__metric-value">
+                {formatCurrency(realizedRevenue)}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">الطلبات</span>
+              <strong className="app-hero-band__metric-value">
+                {formatNumber(stats.totalOrders)}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">الإكمال</span>
+              <strong className="app-hero-band__metric-value">
+                {completionRate}%
+              </strong>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* AI Reports Insights */}
       <AiInsightsCard
         title="تحليلات التقارير"
@@ -502,7 +539,7 @@ export default function ReportsPage() {
       </KPIGrid>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <Card>
+        <Card className="app-data-card">
           <CardContent className="p-6">
             <p className="text-sm text-muted-foreground">
               إجمالي المبيعات المحجوزة
@@ -512,7 +549,7 @@ export default function ReportsPage() {
             </p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="app-data-card">
           <CardContent className="p-6">
             <p className="text-sm text-muted-foreground">
               الإيراد من الطلبات المسلّمة
@@ -522,7 +559,7 @@ export default function ReportsPage() {
             </p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="app-data-card">
           <CardContent className="p-6">
             <p className="text-sm text-muted-foreground">مبالغ قيد التحصيل</p>
             <p className="mt-2 text-2xl font-bold">
@@ -565,7 +602,7 @@ export default function ReportsPage() {
             />
           </div>
 
-          <Card>
+          <Card className="app-data-card">
             <CardHeader>
               <CardTitle className="text-base">ملخص الفترة</CardTitle>
             </CardHeader>

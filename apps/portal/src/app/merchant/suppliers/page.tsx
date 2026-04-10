@@ -555,14 +555,58 @@ export default function SuppliersPage() {
   };
 
   return (
-    <div dir="rtl" className="space-y-6 p-4 sm:p-6">
+    <div dir="rtl" className="space-y-8 p-4 sm:p-6">
       <PageHeader
         title="إدارة الموردين"
         description="أضف موردّيك وفعّل التنبيهات التلقائية عند انخفاض المخزون"
       />
 
+      <section className="app-hero-band">
+        <div className="app-hero-band__grid">
+          <div>
+            <p className="app-hero-band__eyebrow">توريد واكتشاف</p>
+            <h2 className="app-hero-band__title">
+              شبكة الموردين، الاقتراحات الذكية، وتنبيهات النقص من شاشة واحدة
+            </h2>
+            <p className="app-hero-band__copy">
+              اربط كل مورّد بمنتجاته، افتح قنوات التواصل فورًا، واستفد من
+              الترشيحات الخلفية عندما يكتشف النظام مصادر أفضل أو أسرع.
+            </p>
+          </div>
+          <div className="app-hero-band__metrics">
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">
+                الموردون النشطون
+              </span>
+              <strong className="app-hero-band__metric-value">
+                {suppliers.filter((supplier) => supplier.is_active).length}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">
+                تنبيهات تلقائية
+              </span>
+              <strong className="app-hero-band__metric-value">
+                {
+                  suppliers.filter((supplier) => supplier.auto_notify_low_stock)
+                    .length
+                }
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">
+                اقتراحات حالية
+              </span>
+              <strong className="app-hero-band__metric-value">
+                {autoSuggestions.length}
+              </strong>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Toolbar */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+      <div className="app-data-card app-data-card--muted flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
         <Input
           placeholder="بحث باسم المورّد..."
           value={search}
@@ -602,7 +646,7 @@ export default function SuppliersPage() {
 
       {/* Auto-discovered supplier suggestions banner */}
       {autoSuggestions.length > 0 && (
-        <Card className="border-purple-200 bg-purple-50/50">
+        <Card className="app-data-card border-purple-200 bg-purple-50/50">
           <CardContent className="pt-4 pb-3">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-2 text-purple-800">
@@ -630,7 +674,7 @@ export default function SuppliersPage() {
 
       {/* Error */}
       {error && (
-        <Card className="border-red-200 bg-red-50">
+        <Card className="app-data-card border-red-200 bg-red-50">
           <CardContent className="pt-4 flex gap-2 items-center text-red-700">
             <AlertCircle className="w-4 h-4 shrink-0" />
             {error}
@@ -640,7 +684,7 @@ export default function SuppliersPage() {
 
       {/* Empty */}
       {!loading && !error && filtered.length === 0 && (
-        <Card>
+        <Card className="app-data-card">
           <CardContent className="py-16 text-center text-muted-foreground">
             <Truck className="w-12 h-12 mx-auto mb-4 opacity-30" />
             <p className="font-medium">لا يوجد موردون حتى الآن</p>
@@ -659,7 +703,7 @@ export default function SuppliersPage() {
             ref={(node) => {
               supplierCardRefs.current[s.id] = node;
             }}
-            className={`relative ${!s.is_active ? "opacity-60" : ""} ${highlightedSupplierId === s.id ? "ring-2 ring-blue-500 shadow-lg" : ""}`}
+            className={`app-data-card relative ${!s.is_active ? "opacity-60" : ""} ${highlightedSupplierId === s.id ? "ring-2 ring-blue-500 shadow-lg" : ""}`}
           >
             <CardHeader className="pb-2">
               <div className="flex items-start justify-between gap-2">

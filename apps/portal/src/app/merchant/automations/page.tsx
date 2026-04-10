@@ -683,14 +683,51 @@ export default function AutomationsPage() {
   }
 
   return (
-    <div dir="rtl" className="space-y-6 p-4 sm:p-6">
+    <div dir="rtl" className="space-y-8 p-4 sm:p-6">
       <PageHeader
         title="مركز الأتمتة"
         description="فعّل وعطّل التدفقات التلقائية لرسائل واتساب وأدرها من مكان واحد"
       />
 
+      <section className="app-hero-band">
+        <div className="app-hero-band__grid">
+          <div>
+            <p className="app-hero-band__eyebrow">تشغيل مؤتمت</p>
+            <h2 className="app-hero-band__title">
+              أدر الرسائل والسلوكيات التلقائية كمنظومة تشغيل، لا كإعدادات متفرقة
+            </h2>
+            <p className="app-hero-band__copy">
+              فعّل السيناريوهات المناسبة، راقب سجل التنفيذ، واضبط الإيقاع
+              التشغيلي لكل تدفق من مساحة واحدة مكثفة وواضحة.
+            </p>
+          </div>
+          <div className="app-hero-band__metrics">
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">
+                الأتمتات النشطة
+              </span>
+              <strong className="app-hero-band__metric-value">
+                {automations.filter((a) => a.isEnabled).length}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">رسائل أُرسلت</span>
+              <strong className="app-hero-band__metric-value">
+                {logs.reduce((s, l) => s + (l.messages_sent || 0), 0)}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">آخر نجاحات</span>
+              <strong className="app-hero-band__metric-value">
+                {logs.filter((l) => l.status === "success").length}
+              </strong>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Toolbar */}
-      <div className="flex justify-end">
+      <div className="app-data-card app-data-card--muted flex justify-end">
         <Button
           variant="outline"
           size="icon"
@@ -703,7 +740,7 @@ export default function AutomationsPage() {
       </div>
 
       {error && (
-        <Card className="border-red-200 bg-red-50">
+        <Card className="app-data-card border-red-200 bg-red-50">
           <CardContent className="pt-4 flex gap-2 items-center text-red-700">
             <AlertCircle className="w-4 h-4 shrink-0" />
             {error}
@@ -713,7 +750,7 @@ export default function AutomationsPage() {
 
       {/* Summary strip */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
-        <Card className="text-center">
+        <Card className="app-data-card text-center">
           <CardContent className="pt-4 pb-3">
             <p className="text-2xl font-bold text-green-600">
               {automations.filter((a) => a.isEnabled).length}
@@ -721,7 +758,7 @@ export default function AutomationsPage() {
             <p className="text-xs text-muted-foreground mt-1">أتمتة مفعّلة</p>
           </CardContent>
         </Card>
-        <Card className="text-center">
+        <Card className="app-data-card text-center">
           <CardContent className="pt-4 pb-3">
             <p className="text-2xl font-bold">
               {logs.reduce((s, l) => s + (l.messages_sent || 0), 0)}
@@ -729,7 +766,7 @@ export default function AutomationsPage() {
             <p className="text-xs text-muted-foreground mt-1">رسائل أُرسلت</p>
           </CardContent>
         </Card>
-        <Card className="text-center">
+        <Card className="app-data-card text-center">
           <CardContent className="pt-4 pb-3">
             <p className="text-2xl font-bold text-green-600">
               {logs.filter((l) => l.status === "success").length}
@@ -737,7 +774,7 @@ export default function AutomationsPage() {
             <p className="text-xs text-muted-foreground mt-1">تشغيل ناجح</p>
           </CardContent>
         </Card>
-        <Card className="text-center">
+        <Card className="app-data-card text-center">
           <CardContent className="pt-4 pb-3">
             <p className="text-2xl font-bold text-red-500">
               {logs.filter((l) => l.status === "error").length}
@@ -757,7 +794,7 @@ export default function AutomationsPage() {
           return (
             <Card
               key={automation.type}
-              className={`border-2 ${automation.isEnabled ? COLORS[automation.type] || "" : "border-border"}`}
+              className={`app-data-card border-2 ${automation.isEnabled ? COLORS[automation.type] || "" : "border-border"}`}
             >
               <CardHeader className="pb-3">
                 <div className="flex items-start gap-3">
@@ -913,7 +950,7 @@ export default function AutomationsPage() {
 
       {/* Recent run log table */}
       {logs.length > 0 && (
-        <Card>
+        <Card className="app-data-card">
           <CardHeader>
             <CardTitle className="text-sm">سجل التشغيل الأخير</CardTitle>
           </CardHeader>

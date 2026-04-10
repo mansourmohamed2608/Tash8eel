@@ -1,7 +1,15 @@
 import type { Metadata } from "next";
+import { IBM_Plex_Sans_Arabic } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/providers/auth-provider";
 import { Toaster } from "@/components/ui/toaster";
+
+const uiFont = IBM_Plex_Sans_Arabic({
+  subsets: ["arabic", "latin"],
+  weight: ["300", "400", "500", "600", "700"],
+  display: "swap",
+  variable: "--font-ui",
+});
 
 export const metadata: Metadata = {
   title: "Tash8eel - لوحة التحكم",
@@ -17,7 +25,7 @@ export default async function RootLayout({
   return (
     <html lang="ar" dir="rtl">
       <head />
-      <body>
+      <body className={uiFont.variable}>
         <AuthProvider>
           {children}
           <Toaster />

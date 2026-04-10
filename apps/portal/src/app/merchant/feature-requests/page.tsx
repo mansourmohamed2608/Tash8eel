@@ -278,12 +278,49 @@ export default function FeatureRequestsPage() {
     );
 
   return (
-    <div className="space-y-6 animate-fadeIn p-4 sm:p-6">
+    <div className="space-y-8 animate-fadeIn p-4 sm:p-6">
       <PageHeader
         title="الاقتراحات وعروض السعر"
         description="اقتراحات ميزات جديدة للنظام وعروض أسعار الباقات المخصصة"
         actions={headerActions}
       />
+
+      <section className="app-hero-band">
+        <div className="app-hero-band__grid">
+          <div>
+            <p className="app-hero-band__eyebrow">صوت العميل</p>
+            <h2 className="app-hero-band__title">
+              حوّل الطلبات والاحتياجات الخاصة إلى مسار واضح للمتابعة والتنفيذ
+            </h2>
+            <p className="app-hero-band__copy">
+              هذه المساحة تجمع الاقتراحات اليومية وعروض السعر المخصصة في واجهة
+              واحدة حتى يعرف التاجر ما تم استلامه وما الذي ينتظر قرارًا.
+            </p>
+          </div>
+          <div className="app-hero-band__metrics">
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">الاقتراحات</span>
+              <strong className="app-hero-band__metric-value">
+                {requests.length}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">عروض السعر</span>
+              <strong className="app-hero-band__metric-value">
+                {quotes.length}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">
+                التبويب الحالي
+              </span>
+              <strong className="app-hero-band__metric-value">
+                {activeTab === "quotes" ? "العروض" : "الاقتراحات"}
+              </strong>
+            </div>
+          </div>
+        </div>
+      </section>
 
       {error && (
         <AlertBanner
@@ -333,7 +370,7 @@ export default function FeatureRequestsPage() {
                   PRIORITIES.find((p) => p.value === req.priority)?.label ||
                   req.priority;
                 return (
-                  <Card key={req.id}>
+                  <Card key={req.id} className="app-data-card">
                     <CardHeader>
                       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                         <CardTitle className="text-base">{req.title}</CardTitle>
@@ -394,7 +431,7 @@ export default function FeatureRequestsPage() {
                   ? `${(quote.quoted_price_cents / 100).toLocaleString("ar-EG")} ${quote.currency || "EGP"}`
                   : null;
                 return (
-                  <Card key={quote.id}>
+                  <Card key={quote.id} className="app-data-card">
                     <CardHeader>
                       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                         <div>

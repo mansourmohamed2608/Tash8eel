@@ -922,14 +922,54 @@ function AdminEntitlementsContent() {
   ];
 
   return (
-    <div className="space-y-6 p-4 sm:p-6">
+    <div className="space-y-8 p-4 sm:p-6">
       <PageHeader
         title="إدارة صلاحيات التجار"
         description="تعيين الخطط والميزات لكل تاجر"
       />
 
+      <section className="app-hero-band">
+        <div className="app-hero-band__grid">
+          <div>
+            <p className="app-hero-band__eyebrow">خطط وصلاحيات</p>
+            <h2 className="app-hero-band__title">
+              رؤية أوضح للخطط، الوكلاء، والميزات الفعالة لكل تاجر
+            </h2>
+            <p className="app-hero-band__copy">
+              وحّد إدارة التسعير التشغيلي والصلاحيات من واجهة واحدة تبرز
+              الاستثناءات، العروض المؤقتة، وتوزيع الخطط عبر قاعدة العملاء.
+            </p>
+          </div>
+          <div className="app-hero-band__metrics">
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">
+                التجار المعروضون
+              </span>
+              <strong className="app-hero-band__metric-value">
+                {merchants.length}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">عدد الخطط</span>
+              <strong className="app-hero-band__metric-value">
+                {plans.length}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">كاشير متاح</span>
+              <strong className="app-hero-band__metric-value">
+                {
+                  merchants.filter((merchant) => merchant.cashierEffective)
+                    .length
+                }
+              </strong>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Filters */}
-      <Card>
+      <Card className="app-data-card app-data-card--muted">
         <CardContent className="py-4">
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="flex-1 relative">
@@ -968,7 +1008,7 @@ function AdminEntitlementsContent() {
           description="لم يتم العثور على تجار مطابقين للبحث"
         />
       ) : (
-        <Card>
+        <Card className="app-data-card">
           <div className="divide-y md:hidden">
             {merchants.map((merchant) => (
               <div key={merchant.id} className="space-y-4 p-4">

@@ -296,10 +296,10 @@ export default function AnalyticsPage() {
   };
 
   return (
-    <div className="space-y-6 animate-fadeIn p-4 sm:p-6">
+    <div className="space-y-8 animate-fadeIn p-4 sm:p-6">
       <PageHeader
         title="التحليلات"
-        description="تحليلات متقدمة لأداء متجرك"
+        description="قراءة تنفيذية دقيقة للتحويلات، الاستجابة، المنتجات، وأوقات الذروة."
         actions={
           <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
             <Select
@@ -334,6 +334,61 @@ export default function AnalyticsPage() {
         }
       />
 
+      <section className="app-hero-band">
+        <div className="app-hero-band__grid">
+          <div className="space-y-4">
+            <span className="app-hero-band__eyebrow">Commerce Analytics</span>
+            <div className="space-y-3">
+              <h2 className="app-hero-band__title">
+                تحليلات تشغيلية مركزة على القرارات، لا مجرد رسوم بيانية.
+              </h2>
+              <p className="app-hero-band__copy">
+                راقب مسار التحويل، زمن الاستجابة، المنتجات الأعلى أداءً، وأوقات
+                الذروة من نفس الصفحة. كل تبويب هنا مصمم ليقودك إلى إجراء واضح.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Badge variant="info">{selectedPeriodSummary}</Badge>
+              {failedSectionsCount > 0 ? (
+                <Badge variant="warning">
+                  تعذر تحميل {failedSectionsCount} قسم
+                </Badge>
+              ) : (
+                <Badge variant="success">جميع الأقسام محدثة</Badge>
+              )}
+            </div>
+          </div>
+          <div className="app-hero-band__metrics">
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">التحويل الكلي</span>
+              <strong className="app-hero-band__metric-value">
+                {Math.round(conversionData?.rates?.conversionRate || 0)}%
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">
+                متوسط الاستجابة
+              </span>
+              <strong className="app-hero-band__metric-value">
+                {responseTimeData?.formatted?.average || "—"}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">أعلى منتج</span>
+              <strong className="app-hero-band__metric-value">
+                {popularProducts[0]?.name || "—"}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">ذروة الرسائل</span>
+              <strong className="app-hero-band__metric-value">
+                {peakHoursData?.peaks?.messages?.label || "—"}
+              </strong>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* AI Analytics Insights */}
       <AiInsightsCard
         title="تحليلات ذكية"
@@ -351,7 +406,7 @@ export default function AnalyticsPage() {
       {/* GPT-Powered Smart Analysis */}
       <SmartAnalysisButton context="analytics" />
 
-      <div className="rounded-lg border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
+      <div className="app-data-card app-data-card--muted rounded-[22px] px-3 py-2 text-sm text-muted-foreground">
         <div className="flex flex-wrap items-center gap-2">
           <span>الفترة الحالية: {selectedPeriodSummary}</span>
           {refreshing && (
@@ -389,7 +444,7 @@ export default function AnalyticsPage() {
         {/* Conversion Funnel Tab */}
         <TabsContent value="conversion" className="space-y-6">
           {sectionErrors.conversion ? (
-            <Card>
+            <Card className="app-data-card">
               <CardContent className="p-12 text-center text-muted-foreground">
                 <p>{sectionErrors.conversion}</p>
               </CardContent>
@@ -398,7 +453,7 @@ export default function AnalyticsPage() {
             <>
               {/* Funnel Stats */}
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4">
-                <Card>
+                <Card className="app-data-card">
                   <CardContent className="p-4">
                     <div className="flex items-center gap-3">
                       <div className="p-2 bg-blue-500/10 rounded-lg">
@@ -415,7 +470,7 @@ export default function AnalyticsPage() {
                     </div>
                   </CardContent>
                 </Card>
-                <Card>
+                <Card className="app-data-card">
                   <CardContent className="p-4">
                     <div className="flex items-center gap-3">
                       <div className="p-2 bg-yellow-500/10 rounded-lg">

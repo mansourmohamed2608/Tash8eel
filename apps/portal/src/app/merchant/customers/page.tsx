@@ -359,10 +359,10 @@ export default function CustomersPage() {
   }
 
   return (
-    <div className="space-y-6 animate-fadeIn p-4 sm:p-6">
+    <div className="space-y-8 animate-fadeIn p-4 sm:p-6">
       <PageHeader
         title="إدارة العملاء"
-        description="تحليل وتقسيم العملاء حسب قيمتهم"
+        description="فهم الشرائح، قيمة العميل، واحتمال فقدانه من شاشة تنفيذية واحدة."
         actions={
           <Button
             variant="outline"
@@ -374,6 +374,57 @@ export default function CustomersPage() {
           </Button>
         }
       />
+
+      <section className="app-hero-band">
+        <div className="app-hero-band__grid">
+          <div className="space-y-4">
+            <span className="app-hero-band__eyebrow">
+              Customer Intelligence
+            </span>
+            <div className="space-y-3">
+              <h2 className="app-hero-band__title">
+                حوّل قائمة العملاء إلى طبقة قرار: من الأكثر قيمة، من يحتاج
+                متابعة، ومن يقترب من التسرب.
+              </h2>
+              <p className="app-hero-band__copy">
+                هذه الصفحة تجمع الشريحة، الإنفاق، التكرار، والولاء في عرض واحد
+                يسهل البحث فيه والتصرف بناءً عليه، بدلاً من الاكتفاء بسجل أسماء
+                جامد.
+              </p>
+            </div>
+          </div>
+          <div className="app-hero-band__metrics">
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">
+                إجمالي العملاء
+              </span>
+              <strong className="app-hero-band__metric-value">
+                {customers.length}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">VIP</span>
+              <strong className="app-hero-band__metric-value">
+                {segmentSummary?.VIP?.count || 0}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">
+                معرضون للخسارة
+              </span>
+              <strong className="app-hero-band__metric-value">
+                {segmentSummary?.AT_RISK?.count || 0}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">جدد</span>
+              <strong className="app-hero-band__metric-value">
+                {segmentSummary?.NEW?.count || 0}
+              </strong>
+            </div>
+          </div>
+        </div>
+      </section>
 
       <AiInsightsCard
         insights={generateCustomerInsights({
@@ -392,7 +443,7 @@ export default function CustomersPage() {
         })}
       />
 
-      <Card>
+      <Card className="app-data-card app-data-card--muted">
         <CardContent className="py-3 text-sm text-muted-foreground">
           الشريحة تُحسب من نشاط الطلبات (عدد الطلبات + حداثة آخر طلب)، بينما
           الولاء يُحسب من نقاط برنامج الولاء والمستوى (برونزي/فضي/ذهبي).
@@ -409,7 +460,7 @@ export default function CustomersPage() {
               <Card
                 key={key}
                 className={cn(
-                  "cursor-pointer transition-all hover:shadow-md",
+                  "app-data-card cursor-pointer transition-all hover:shadow-md",
                   segmentFilter === key && "ring-2 ring-primary",
                 )}
                 onClick={() =>
@@ -443,7 +494,7 @@ export default function CustomersPage() {
       )}
 
       {/* Filters */}
-      <Card>
+      <Card className="app-data-card">
         <CardContent className="p-4">
           <div className="flex flex-col md:flex-row gap-4">
             <div className="relative flex-1">
@@ -473,7 +524,7 @@ export default function CustomersPage() {
       </Card>
 
       {/* Customers Table */}
-      <Card>
+      <Card className="app-data-card">
         <CardContent className="p-0">
           {filteredCustomers.length === 0 ? (
             <div className="py-12 text-center">
@@ -489,7 +540,7 @@ export default function CustomersPage() {
                   return (
                     <Card
                       key={customer.customerId}
-                      className="cursor-pointer"
+                      className="app-data-card cursor-pointer"
                       onClick={() => setSelectedCustomer(customer)}
                     >
                       <CardContent className="space-y-3 p-4 text-sm">

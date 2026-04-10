@@ -293,11 +293,63 @@ export default function BillingPage() {
   }
 
   return (
-    <div className="space-y-6 p-4 sm:p-6">
+    <div className="space-y-8 p-4 sm:p-6">
       <PageHeader
         title="الفواتير"
-        description="عرض تفاصيل الفواتير والاشتراك والمدفوعات"
+        description="مركز الاشتراك والمدفوعات والفواتير مع قراءة واضحة للحالة الحالية."
       />
+
+      <section className="app-hero-band">
+        <div className="app-hero-band__grid">
+          <div className="space-y-4">
+            <span className="app-hero-band__eyebrow">Billing Control</span>
+            <div className="space-y-3">
+              <h2 className="app-hero-band__title">
+                راقب الخطة الحالية، المدفوعات، والامتيازات الفعالة من شاشة
+                واحدة.
+              </h2>
+              <p className="app-hero-band__copy">
+                هذه الصفحة مصممة لإعطاء التاجر حالة اشتراكه فوراً، مع تاريخ
+                الفاتورة القادمة، تفاصيل العرض الفعال، وسجل الأحداث المالية
+                المرتبط بالخطة.
+              </p>
+            </div>
+          </div>
+          <div className="app-hero-band__metrics">
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">الخطة الحالية</span>
+              <strong className="app-hero-band__metric-value">
+                {summary?.subscription?.planName || "بدون اشتراك"}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">
+                التكلفة الشهرية
+              </span>
+              <strong className="app-hero-band__metric-value">
+                {summary?.subscription
+                  ? formatCurrency(
+                      summary.subscription.amount,
+                      summary.subscription.currency,
+                    )
+                  : "—"}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">الحالة</span>
+              <strong className="app-hero-band__metric-value">
+                {subscriptionStatusInfo?.label || "غير معروف"}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">أحداث مالية</span>
+              <strong className="app-hero-band__metric-value">
+                {events.length}
+              </strong>
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* AI Billing Insights */}
       <AiInsightsCard
@@ -311,7 +363,7 @@ export default function BillingPage() {
       />
 
       {/* Current Subscription */}
-      <Card className="bg-gradient-to-l from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 border-blue-200 dark:border-blue-800/50 mb-6">
+      <Card className="app-data-card bg-gradient-to-l from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 border-blue-200 dark:border-blue-800/50 mb-6">
         <CardContent className="p-6">
           {summary?.subscription ? (
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -397,7 +449,7 @@ export default function BillingPage() {
       {/* Quick Actions */}
       <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-3">
         <Link href="/merchant/plan">
-          <Card className="hover:border-primary/50 transition-colors cursor-pointer h-full">
+          <Card className="app-data-card hover:border-primary/50 transition-colors cursor-pointer h-full">
             <CardContent className="p-4 flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-950/50 flex items-center justify-center">
                 <CreditCard className="h-5 w-5 text-blue-600 dark:text-blue-400" />
@@ -412,7 +464,7 @@ export default function BillingPage() {
           </Card>
         </Link>
         <Link href="/merchant/plan#calculator">
-          <Card className="hover:border-primary/50 transition-colors cursor-pointer h-full">
+          <Card className="app-data-card hover:border-primary/50 transition-colors cursor-pointer h-full">
             <CardContent className="p-4 flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-green-100 dark:bg-green-950/50 flex items-center justify-center">
                 <DollarSign className="h-5 w-5 text-green-600 dark:text-green-400" />
@@ -427,7 +479,7 @@ export default function BillingPage() {
           </Card>
         </Link>
         <Link href="/merchant/plan#usage">
-          <Card className="hover:border-primary/50 transition-colors cursor-pointer h-full">
+          <Card className="app-data-card hover:border-primary/50 transition-colors cursor-pointer h-full">
             <CardContent className="p-4 flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-purple-100 dark:bg-purple-950/50 flex items-center justify-center">
                 <FileText className="h-5 w-5 text-purple-600 dark:text-purple-400" />

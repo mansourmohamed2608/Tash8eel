@@ -651,7 +651,10 @@ export class ProductionFeaturesController {
       properties: {
         email: { type: "string", format: "email" },
         name: { type: "string" },
-        role: { type: "string", enum: ["ADMIN", "MANAGER", "AGENT", "VIEWER"] },
+        role: {
+          type: "string",
+          enum: ["ADMIN", "MANAGER", "AGENT", "CASHIER", "VIEWER"],
+        },
         permissions: { type: "object" },
       },
     },

@@ -1,5 +1,7 @@
 import { cn } from "@/lib/utils";
 import { AlertCircle, CheckCircle2, Info, XCircle, X } from "lucide-react";
+import { Button } from "./button";
+import { Skeleton } from "./skeleton";
 
 interface AlertBannerProps {
   type: "error" | "success" | "warning" | "info";
@@ -11,28 +13,24 @@ interface AlertBannerProps {
 
 const alertConfig = {
   error: {
-    bgColor: "bg-red-50 border-red-200",
-    textColor: "text-red-800",
+    shell:
+      "border-[color:color-mix(in_srgb,var(--danger)_18%,var(--border-strong))] bg-[var(--danger-muted)] text-[var(--danger)]",
     icon: XCircle,
-    iconColor: "text-red-600",
   },
   success: {
-    bgColor: "bg-green-50 border-green-200",
-    textColor: "text-green-800",
+    shell:
+      "border-[color:color-mix(in_srgb,var(--success)_18%,var(--border-strong))] bg-[var(--success-muted)] text-[var(--success)]",
     icon: CheckCircle2,
-    iconColor: "text-green-600",
   },
   warning: {
-    bgColor: "bg-yellow-50 border-yellow-200",
-    textColor: "text-yellow-800",
+    shell:
+      "border-[color:color-mix(in_srgb,var(--warning)_18%,var(--border-strong))] bg-[var(--warning-muted)] text-[var(--warning)]",
     icon: AlertCircle,
-    iconColor: "text-yellow-600",
   },
   info: {
-    bgColor: "bg-blue-50 border-blue-200",
-    textColor: "text-blue-800",
+    shell:
+      "border-[color:color-mix(in_srgb,var(--accent)_18%,var(--border-strong))] bg-[var(--accent-muted)] text-[var(--accent)]",
     icon: Info,
-    iconColor: "text-blue-600",
   },
 };
 
@@ -49,25 +47,24 @@ export function AlertBanner({
   return (
     <div
       className={cn(
-        "flex items-start gap-3 p-4 rounded-lg border",
-        config.bgColor,
+        "flex items-start gap-3 rounded-[20px] border p-4 shadow-[0_18px_40px_-30px_rgba(15,23,42,0.35)]",
+        config.shell,
         className,
       )}
       role="alert"
     >
-      <Icon className={cn("h-5 w-5 flex-shrink-0 mt-0.5", config.iconColor)} />
+      <span className="mt-0.5 inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-[14px] border border-current/10 bg-white/55">
+        <Icon className="h-[18px] w-[18px]" />
+      </span>
       <div className="flex-1">
-        {title && (
-          <h4 className={cn("font-semibold", config.textColor)}>{title}</h4>
-        )}
-        <p className={cn("text-sm", config.textColor)}>{message}</p>
+        {title && <h4 className="font-black tracking-[-0.01em]">{title}</h4>}
+        <p className="mt-1 text-sm leading-6 opacity-90">{message}</p>
       </div>
       {onDismiss && (
         <button
           onClick={onDismiss}
           className={cn(
-            "p-1 rounded-md hover:bg-black/10 transition-colors",
-            config.textColor,
+            "inline-flex h-8 w-8 items-center justify-center rounded-[12px] transition-colors hover:bg-black/5",
           )}
         >
           <X className="h-4 w-4" />
@@ -95,14 +92,20 @@ export function EmptyState({
   return (
     <div
       className={cn(
-        "flex flex-col items-center justify-center py-12 px-4 text-center",
+        "flex flex-col items-center justify-center rounded-[24px] border border-dashed border-[color:color-mix(in_srgb,var(--border-strong)_86%,transparent)] bg-[color:color-mix(in_srgb,var(--surface-muted)_68%,transparent)] px-5 py-12 text-center",
         className,
       )}
     >
-      {icon && <div className="mb-4 text-muted-foreground">{icon}</div>}
-      <h3 className="text-lg font-semibold text-foreground mb-1">{title}</h3>
+      {icon && (
+        <div className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-[18px] border border-[color:color-mix(in_srgb,var(--border-strong)_86%,transparent)] bg-[color:color-mix(in_srgb,var(--surface)_96%,transparent)] text-[var(--text-muted)]">
+          {icon}
+        </div>
+      )}
+      <h3 className="mb-1 text-lg font-black tracking-[-0.02em] text-[var(--text-primary)]">
+        {title}
+      </h3>
       {description && (
-        <p className="text-sm text-muted-foreground max-w-sm mb-4">
+        <p className="mb-4 max-w-sm text-sm leading-6 text-[var(--text-muted)]">
           {description}
         </p>
       )}
@@ -123,15 +126,17 @@ export function LoadingState({
   return (
     <div
       className={cn(
-        "flex flex-col items-center justify-center py-12",
+        "flex flex-col items-center justify-center rounded-[24px] border border-[color:color-mix(in_srgb,var(--border-strong)_86%,transparent)] bg-[color:color-mix(in_srgb,var(--surface-muted)_62%,transparent)] px-5 py-12",
         className,
       )}
     >
-      <div className="relative">
-        <div className="h-12 w-12 rounded-full border-4 border-muted"></div>
-        <div className="absolute top-0 left-0 h-12 w-12 rounded-full border-4 border-primary-600 border-t-transparent animate-spin"></div>
+      <div className="w-full max-w-sm space-y-3">
+        <Skeleton className="h-4 w-1/3" />
+        <Skeleton className="h-14 w-full rounded-[18px]" />
+        <Skeleton className="h-14 w-[88%] rounded-[18px]" />
+        <Skeleton className="h-4 w-1/2" />
       </div>
-      <p className="mt-4 text-sm text-muted-foreground">{message}</p>
+      <p className="mt-5 text-sm text-[var(--text-muted)]">{message}</p>
     </div>
   );
 }
@@ -152,22 +157,23 @@ export function ErrorState({
   return (
     <div
       className={cn(
-        "flex flex-col items-center justify-center py-12 px-4 text-center",
+        "flex flex-col items-center justify-center rounded-[24px] border border-[color:color-mix(in_srgb,var(--danger)_16%,var(--border-strong))] bg-[color:color-mix(in_srgb,var(--danger-muted)_82%,transparent)] px-4 py-12 text-center",
         className,
       )}
     >
-      <div className="rounded-full bg-red-100 p-4 mb-4">
-        <XCircle className="h-8 w-8 text-red-600" />
+      <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-[20px] border border-[color:color-mix(in_srgb,var(--danger)_20%,var(--border-strong))] bg-white/60">
+        <XCircle className="h-8 w-8 text-[var(--danger)]" />
       </div>
-      <h3 className="text-lg font-semibold text-foreground mb-1">{title}</h3>
-      <p className="text-sm text-muted-foreground max-w-sm mb-4">{message}</p>
+      <h3 className="mb-1 text-lg font-black tracking-[-0.02em] text-[var(--text-primary)]">
+        {title}
+      </h3>
+      <p className="mb-4 max-w-sm text-sm leading-6 text-[var(--text-muted)]">
+        {message}
+      </p>
       {onRetry && (
-        <button
-          onClick={onRetry}
-          className="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 transition-colors"
-        >
+        <Button onClick={onRetry} variant="destructive">
           حاول مرة أخرى
-        </button>
+        </Button>
       )}
     </div>
   );

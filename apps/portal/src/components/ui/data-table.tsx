@@ -1,6 +1,9 @@
 "use client";
 
 import { cn } from "@/lib/utils";
+import { Button } from "./button";
+import { EmptyState } from "./alerts";
+import { Skeleton } from "./skeleton";
 
 interface DataTableProps<T> {
   data: T[];
@@ -28,29 +31,32 @@ export function DataTable<T extends { id?: string | number }>({
     return (
       <div
         className={cn(
-          "rounded-lg border bg-card shadow-sm overflow-hidden",
+          "overflow-hidden rounded-[24px] border border-[color:color-mix(in_srgb,var(--border-strong)_88%,transparent)] bg-card shadow-[0_20px_48px_-34px_rgba(15,23,42,0.48)]",
           className,
         )}
       >
         <table className="w-full">
           <thead>
-            <tr className="border-b bg-muted/50">
+            <tr className="border-b border-[color:color-mix(in_srgb,var(--border-strong)_72%,transparent)] bg-[color:color-mix(in_srgb,var(--surface-muted)_90%,transparent)]">
               {columns.map((col) => (
                 <th
                   key={col.key}
-                  className="p-4 text-right font-medium text-muted-foreground"
+                  className="p-4 text-right font-bold text-[var(--text-muted)]"
                 >
-                  <div className="h-4 bg-muted animate-pulse rounded w-20"></div>
+                  <Skeleton className="h-4 w-20" />
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
             {Array.from({ length: 5 }).map((_, i) => (
-              <tr key={i} className="border-b">
+              <tr
+                key={i}
+                className="border-b border-[color:color-mix(in_srgb,var(--border-strong)_72%,transparent)]"
+              >
                 {columns.map((col) => (
                   <td key={col.key} className="p-4">
-                    <div className="h-4 bg-muted animate-pulse rounded w-full"></div>
+                    <Skeleton className="h-4 w-full" />
                   </td>
                 ))}
               </tr>
@@ -65,11 +71,11 @@ export function DataTable<T extends { id?: string | number }>({
     return (
       <div
         className={cn(
-          "rounded-lg border bg-card shadow-sm p-12 text-center",
+          "rounded-[24px] border border-[color:color-mix(in_srgb,var(--border-strong)_88%,transparent)] bg-card p-3 shadow-[0_20px_48px_-34px_rgba(15,23,42,0.48)]",
           className,
         )}
       >
-        <p className="text-muted-foreground">{emptyMessage}</p>
+        <EmptyState title="لا توجد نتائج" description={emptyMessage} />
       </div>
     );
   }
@@ -77,19 +83,19 @@ export function DataTable<T extends { id?: string | number }>({
   return (
     <div
       className={cn(
-        "rounded-lg border bg-card shadow-sm overflow-hidden",
+        "overflow-hidden rounded-[24px] border border-[color:color-mix(in_srgb,var(--border-strong)_88%,transparent)] bg-card shadow-[0_20px_48px_-34px_rgba(15,23,42,0.48)]",
         className,
       )}
     >
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
-            <tr className="border-b bg-muted/50">
+            <tr className="border-b border-[color:color-mix(in_srgb,var(--border-strong)_72%,transparent)] bg-[color:color-mix(in_srgb,var(--surface-muted)_90%,transparent)]">
               {columns.map((col) => (
                 <th
                   key={col.key}
                   className={cn(
-                    "p-4 text-right font-medium text-muted-foreground text-sm",
+                    "p-4 text-right text-[0.6875rem] font-bold tracking-[0.08em] text-[var(--text-muted)]",
                     col.className,
                   )}
                 >
@@ -103,8 +109,9 @@ export function DataTable<T extends { id?: string | number }>({
               <tr
                 key={item.id ?? idx}
                 className={cn(
-                  "border-b last:border-0 transition-colors",
-                  onRowClick && "cursor-pointer hover:bg-muted/50",
+                  "border-b border-[color:color-mix(in_srgb,var(--border-strong)_72%,transparent)] transition-colors last:border-0",
+                  onRowClick &&
+                    "cursor-pointer hover:bg-[color:color-mix(in_srgb,var(--surface-muted)_60%,transparent)]",
                 )}
                 onClick={() => onRowClick?.(item)}
               >
@@ -150,39 +157,33 @@ export function Pagination({
 
   return (
     <div className={cn("flex items-center justify-center gap-1", className)}>
-      <button
+      <Button
         onClick={() => onPageChange(currentPage - 1)}
         disabled={currentPage === 1}
-        className="px-3 py-2 rounded-md text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-muted"
+        variant="outline"
+        size="sm"
       >
         السابق
-      </button>
+      </Button>
 
       {visiblePages[0] > 1 && (
         <>
-          <button
-            onClick={() => onPageChange(1)}
-            className="px-3 py-2 rounded-md text-sm font-medium hover:bg-muted"
-          >
+          <Button onClick={() => onPageChange(1)} variant="ghost" size="sm">
             1
-          </button>
+          </Button>
           {visiblePages[0] > 2 && <span className="px-2">...</span>}
         </>
       )}
 
       {visiblePages.map((page) => (
-        <button
+        <Button
           key={page}
           onClick={() => onPageChange(page)}
-          className={cn(
-            "px-3 py-2 rounded-md text-sm font-medium",
-            page === currentPage
-              ? "bg-primary-600 text-white"
-              : "hover:bg-muted",
-          )}
+          variant={page === currentPage ? "default" : "ghost"}
+          size="sm"
         >
           {page}
-        </button>
+        </Button>
       ))}
 
       {visiblePages[visiblePages.length - 1] < totalPages && (
@@ -190,22 +191,24 @@ export function Pagination({
           {visiblePages[visiblePages.length - 1] < totalPages - 1 && (
             <span className="px-2">...</span>
           )}
-          <button
+          <Button
             onClick={() => onPageChange(totalPages)}
-            className="px-3 py-2 rounded-md text-sm font-medium hover:bg-muted"
+            variant="ghost"
+            size="sm"
           >
             {totalPages}
-          </button>
+          </Button>
         </>
       )}
 
-      <button
+      <Button
         onClick={() => onPageChange(currentPage + 1)}
         disabled={currentPage === totalPages}
-        className="px-3 py-2 rounded-md text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-muted"
+        variant="outline"
+        size="sm"
       >
         التالي
-      </button>
+      </Button>
     </div>
   );
 }

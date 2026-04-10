@@ -577,10 +577,10 @@ export default function ConversationsPage() {
   }
 
   return (
-    <div className="space-y-6 animate-fadeIn p-4 sm:p-6">
+    <div className="space-y-8 animate-fadeIn p-4 sm:p-6">
       <PageHeader
         title="المحادثات"
-        description="إدارة ومتابعة محادثات العملاء"
+        description="تشغيل المحادثات الحية بين العميل والذكاء والفريق من واجهة واحدة."
         actions={
           <Button
             variant="outline"
@@ -593,6 +593,52 @@ export default function ConversationsPage() {
         }
       />
 
+      <section className="app-hero-band">
+        <div className="app-hero-band__grid">
+          <div className="space-y-4">
+            <span className="app-hero-band__eyebrow">Conversation Desk</span>
+            <div className="space-y-3">
+              <h2 className="app-hero-band__title">
+                شاشة تشغيل للمحادثات الحية، التحويل للبشري، والإشارات التنفيذية
+                داخل نفس السياق.
+              </h2>
+              <p className="app-hero-band__copy">
+                راقب حالة كل محادثة، التقط الحالات التي تحتاج تدخلاً بشرياً،
+                وتابع الرسائل من عرض ثنائي يسمح للفريق بالاستجابة بسرعة ووضوح.
+              </p>
+            </div>
+          </div>
+          <div className="app-hero-band__metrics">
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">
+                إجمالي المحادثات
+              </span>
+              <strong className="app-hero-band__metric-value">
+                {stats.total}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">نشطة</span>
+              <strong className="app-hero-band__metric-value">
+                {stats.active}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">تدخل بشري</span>
+              <strong className="app-hero-band__metric-value">
+                {stats.humanTakeover}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">مكتملة</span>
+              <strong className="app-hero-band__metric-value">
+                {stats.completed}
+              </strong>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <AiInsightsCard
         insights={generateConversationInsights({
           totalConversations: stats.total ?? 0,
@@ -604,7 +650,7 @@ export default function ConversationsPage() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Card>
+        <Card className="app-data-card">
           <CardContent className="p-4 flex items-center gap-3">
             <div className="p-2 bg-primary/10 rounded-lg">
               <MessageSquare className="h-5 w-5 text-primary" />
@@ -615,7 +661,7 @@ export default function ConversationsPage() {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="app-data-card">
           <CardContent className="p-4 flex items-center gap-3">
             <div className="p-2 bg-blue-500/10 rounded-lg">
               <Clock className="h-5 w-5 text-blue-500" />
@@ -626,7 +672,7 @@ export default function ConversationsPage() {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="app-data-card">
           <CardContent className="p-4 flex items-center gap-3">
             <div className="p-2 bg-red-500/10 rounded-lg">
               <UserCheck className="h-5 w-5 text-red-500" />
@@ -637,7 +683,7 @@ export default function ConversationsPage() {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="app-data-card">
           <CardContent className="p-4 flex items-center gap-3">
             <div className="p-2 bg-green-500/10 rounded-lg">
               <CheckCircle className="h-5 w-5 text-green-500" />
@@ -653,7 +699,7 @@ export default function ConversationsPage() {
       {/* Main Content - Split View */}
       <div className="grid min-h-0 grid-cols-1 gap-4 xl:h-[calc(100vh-10rem)] xl:min-h-[52rem] xl:grid-cols-[380px_minmax(0,1fr)] 2xl:grid-cols-[440px_minmax(0,1fr)]">
         {/* Conversations List */}
-        <Card className="h-full overflow-hidden border-border/70 shadow-sm">
+        <Card className="app-data-card h-full overflow-hidden border-border/70 shadow-sm">
           <CardHeader className="border-b bg-muted/20 pb-3">
             <div className="space-y-3">
               <div className="relative">

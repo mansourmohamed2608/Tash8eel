@@ -3,17 +3,23 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const badgeVariants = cva(
-  "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+  "inline-flex min-h-8 items-center gap-1.5 rounded-full border px-3 py-1 text-[0.6875rem] font-bold tracking-[0.04em] text-slate-800 transition-all duration-150 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background",
   {
     variants: {
       variant: {
-        default: "border-transparent bg-primary-600 text-white",
-        secondary: "border-transparent bg-secondary text-secondary-foreground",
-        destructive: "border-transparent bg-red-600 text-white",
-        success: "border-transparent bg-green-100 text-green-800",
-        warning: "border-transparent bg-yellow-100 text-yellow-800",
-        info: "border-transparent bg-blue-100 text-blue-800",
-        outline: "text-foreground",
+        default:
+          "border-transparent bg-[var(--accent)] text-white shadow-[0_10px_24px_-16px_color-mix(in_srgb,var(--accent)_86%,black)]",
+        secondary:
+          "border-[color:color-mix(in_srgb,var(--border-strong)_84%,transparent)] bg-[color:color-mix(in_srgb,var(--surface-muted)_92%,transparent)] text-[var(--text-primary)]",
+        destructive:
+          "border-transparent bg-[var(--danger)] text-white shadow-[0_10px_24px_-16px_color-mix(in_srgb,var(--danger)_82%,black)]",
+        success:
+          "border-[color:color-mix(in_srgb,var(--success)_18%,var(--border-strong))] bg-[var(--success-muted)] text-[var(--success)]",
+        warning:
+          "border-[color:color-mix(in_srgb,var(--warning)_18%,var(--border-strong))] bg-[var(--warning-muted)] text-[var(--warning)]",
+        info: "border-[color:color-mix(in_srgb,var(--accent)_18%,var(--border-strong))] bg-[var(--accent-muted)] text-[var(--accent)]",
+        outline:
+          "border-[color:color-mix(in_srgb,var(--border-strong)_88%,transparent)] bg-transparent text-[var(--text-muted)]",
       },
     },
     defaultVariants: {

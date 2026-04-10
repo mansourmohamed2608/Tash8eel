@@ -291,7 +291,7 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   // Show loading while checking session
   if (status === "loading") {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-muted/30">
+      <div className="app-shell flex min-h-screen items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
           <p className="text-muted-foreground">جاري التحقق من الجلسة...</p>
@@ -302,7 +302,7 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
 
   if (isRecoveringSession) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-muted/30">
+      <div className="app-shell flex min-h-screen items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
           <p className="text-muted-foreground">
@@ -318,7 +318,7 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     pathname !== "/merchant/change-password"
   ) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-muted/30">
+      <div className="app-shell flex min-h-screen items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
           <p className="text-muted-foreground">
@@ -331,7 +331,7 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
 
   if (status === "authenticated" && isHardBlockedRoute) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-muted/30">
+      <div className="app-shell flex min-h-screen items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
           <p className="text-muted-foreground">
@@ -345,7 +345,7 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   // If not authenticated, show nothing (will redirect)
   if (!session) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-muted/30">
+      <div className="app-shell flex min-h-screen items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
           <p className="text-muted-foreground">جاري التوجيه لتسجيل الدخول...</p>
@@ -398,7 +398,10 @@ function MerchantLayoutContent({ children }: { children: React.ReactNode }) {
   const agentGate = AGENT_GATES.find((gate) =>
     pathname?.startsWith(gate.prefix),
   );
+  const userRole = String(session?.user?.role || "");
+  const isCashierUser = userRole === "CASHIER";
   const isCashierRoute = pathname === "/merchant/cashier";
+  const showCashierChrome = isCashierUser && isCashierRoute;
   const shouldWaitForEntitlements = !!(featureGate || agentGate) && isLoading;
   const isFeatureBlocked =
     !isLoading &&
@@ -440,6 +443,17 @@ function MerchantLayoutContent({ children }: { children: React.ReactNode }) {
       );
     }
   }, [isChatOnlyRouteBlocked, pathname, router]);
+
+  useEffect(() => {
+    if (!isCashierUser || !pathname) return;
+    if (
+      pathname === "/merchant/cashier" ||
+      pathname === "/merchant/change-password"
+    ) {
+      return;
+    }
+    router.replace("/merchant/cashier");
+  }, [isCashierUser, pathname, router]);
 
   const triggerRealtimeRefresh = useCallback(() => {
     if (!pathname || pathname === "/merchant/change-password") return;
@@ -512,8 +526,8 @@ function MerchantLayoutContent({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <div className="min-h-screen bg-muted/30">
-      {!isCashierRoute && (
+    <div className="app-shell">
+      {(!isCashierRoute || showCashierChrome) && (
         <Sidebar
           role="merchant"
           merchantName={merchantName}
@@ -528,14 +542,25 @@ function MerchantLayoutContent({ children }: { children: React.ReactNode }) {
       )}
       <div
         className={cn(
-          isCashierRoute ? "min-h-screen" : "transition-all duration-300",
-          !isCashierRoute && (collapsed ? "lg:mr-16" : "lg:mr-64"),
+          isCashierRoute && !showCashierChrome
+            ? "min-h-screen"
+            : "transition-all duration-300",
+          (!isCashierRoute || showCashierChrome) &&
+            (collapsed ? "lg:mr-[88px]" : "lg:mr-72"),
         )}
       >
-        {!isCashierRoute && <TopBar role="merchant" collapsed={collapsed} />}
-        <main className={cn(isCashierRoute ? "p-0" : "p-4 lg:p-6")}>
-          {isDemo && !isCashierRoute && (
-            <div className="mb-4 px-4 py-2 bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-300 dark:border-yellow-700 rounded-lg text-yellow-800 dark:text-yellow-200 text-sm">
+        {(!isCashierRoute || showCashierChrome) && (
+          <TopBar role="merchant" collapsed={collapsed} />
+        )}
+        <main
+          className={cn(
+            isCashierRoute && !showCashierChrome
+              ? "p-0"
+              : "app-shell-main p-4 lg:p-6",
+          )}
+        >
+          {isDemo && (!isCashierRoute || showCashierChrome) && (
+            <div className="mb-4 rounded-[18px] border border-amber-300/80 bg-amber-50/90 px-4 py-3 text-sm text-amber-800 shadow-[0_12px_24px_rgba(217,119,6,0.08)] dark:border-amber-700/70 dark:bg-amber-900/20 dark:text-amber-200">
               <strong>وضع العرض التجريبي:</strong> البيانات المعروضة للتجربة
               فقط.{" "}
               <a href="/login" className="underline font-medium">
@@ -545,14 +570,14 @@ function MerchantLayoutContent({ children }: { children: React.ReactNode }) {
             </div>
           )}
           {shouldWaitForEntitlements ? (
-            <div className="mx-auto flex max-w-2xl flex-col items-center gap-4 rounded-xl border bg-card p-8 text-center shadow-sm">
+            <div className="app-surface mx-auto flex max-w-2xl flex-col items-center gap-4 rounded-[24px] p-8 text-center">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
               <p className="text-sm text-muted-foreground">
                 جاري التحقق من الصلاحيات المتاحة لحسابك...
               </p>
             </div>
           ) : isChatOnlyRouteBlocked ? (
-            <div className="mx-auto flex max-w-2xl flex-col items-center gap-4 rounded-xl border bg-card p-8 text-center shadow-sm">
+            <div className="app-surface mx-auto flex max-w-2xl flex-col items-center gap-4 rounded-[24px] p-8 text-center">
               <Lock className="h-6 w-6 text-muted-foreground" />
               <p className="text-sm text-muted-foreground">
                 خطة Chat Only مخصصة للمحادثات فقط. للوصول إلى التشغيل والمخزون
@@ -566,7 +591,7 @@ function MerchantLayoutContent({ children }: { children: React.ReactNode }) {
               </Link>
             </div>
           ) : isEntitlementBlocked ? (
-            <div className="mx-auto flex max-w-2xl flex-col items-center gap-4 rounded-xl border bg-card p-8 text-center shadow-sm">
+            <div className="app-surface mx-auto flex max-w-2xl flex-col items-center gap-4 rounded-[24px] p-8 text-center">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
               <p className="text-sm text-muted-foreground">
                 هذه الصفحة غير متاحة ضمن خطتك الحالية. جاري التوجيه إلى صفحة

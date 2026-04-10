@@ -226,10 +226,10 @@ export default function BranchesPage() {
 
   // ── Render ──────────────────────────────────────────────────────
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <PageHeader
         title="إدارة الفروع"
-        description="إنشاء وإدارة فروع متعددة ومتابعة أداء كل فرع"
+        description="إدارة الفروع، تشغيلها، ومتابعة انتشار النشاط جغرافياً من شاشة واحدة."
         actions={
           <div className="flex w-full flex-wrap items-center gap-2 md:w-auto md:justify-end">
             <Button variant="outline" size="sm" onClick={fetchBranches}>
@@ -246,9 +246,52 @@ export default function BranchesPage() {
         }
       />
 
+      <section className="app-hero-band">
+        <div className="app-hero-band__grid">
+          <div className="space-y-4">
+            <span className="app-hero-band__eyebrow">Branch Network</span>
+            <div className="space-y-3">
+              <h2 className="app-hero-band__title">
+                تحكم في بنية الفروع كشبكة تشغيل، لا كقائمة إعدادات فقط.
+              </h2>
+              <p className="app-hero-band__copy">
+                أنشئ فروعاً جديدة، حدّث بياناتها، وادخل إلى التحليلات الخاصة بكل
+                فرع مباشرة. هذه الصفحة تربط بين إعداد الفرع وحضوره التشغيلي.
+              </p>
+            </div>
+          </div>
+          <div className="app-hero-band__metrics">
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">إجمالي الفروع</span>
+              <strong className="app-hero-band__metric-value">
+                {branches.length}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">نشطة</span>
+              <strong className="app-hero-band__metric-value">
+                {branches.filter((b) => b.is_active).length}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">معطلة</span>
+              <strong className="app-hero-band__metric-value">
+                {branches.filter((b) => !b.is_active).length}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">افتراضي</span>
+              <strong className="app-hero-band__metric-value">
+                {branches.find((b) => b.is_default)?.name || "غير محدد"}
+              </strong>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Summary row */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-        <Card>
+        <Card className="app-data-card">
           <CardContent className="p-4">
             <div className="flex items-center gap-2 text-muted-foreground text-sm mb-1">
               <Building2 className="h-4 w-4" />
@@ -257,7 +300,7 @@ export default function BranchesPage() {
             <p className="text-2xl font-bold">{branches.length}</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="app-data-card">
           <CardContent className="p-4">
             <div className="flex items-center gap-2 text-muted-foreground text-sm mb-1">
               <CheckCircle className="h-4 w-4 text-green-500" />
@@ -268,7 +311,7 @@ export default function BranchesPage() {
             </p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="app-data-card">
           <CardContent className="p-4">
             <div className="flex items-center gap-2 text-muted-foreground text-sm mb-1">
               <XCircle className="h-4 w-4 text-red-400" />
@@ -285,7 +328,7 @@ export default function BranchesPage() {
       {loading ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {[1, 2, 3].map((i) => (
-            <Card key={i} className="animate-pulse">
+            <Card key={i} className="app-data-card animate-pulse">
               <CardContent className="p-6">
                 <div className="h-5 w-40 bg-muted rounded mb-3" />
                 <div className="h-4 w-32 bg-muted rounded mb-2" />
@@ -295,7 +338,7 @@ export default function BranchesPage() {
           ))}
         </div>
       ) : branches.length === 0 ? (
-        <Card>
+        <Card className="app-data-card">
           <CardContent className="p-12 text-center">
             <Building2 className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
             <p className="text-muted-foreground">لا يوجد فروع حتى الآن</p>
@@ -313,7 +356,7 @@ export default function BranchesPage() {
             <Card
               key={branch.id}
               className={cn(
-                "relative overflow-hidden transition-shadow hover:shadow-md",
+                "app-data-card relative overflow-hidden transition-shadow hover:shadow-md",
                 !branch.is_active && "opacity-60",
               )}
             >

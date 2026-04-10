@@ -225,13 +225,46 @@ export default function MerchantPricingPage() {
         description="Choose a full business plan or start with chat-only."
       />
 
+      <section className="app-hero-band">
+        <div className="app-hero-band__grid">
+          <div>
+            <p className="app-hero-band__eyebrow">Plans and packaging</p>
+            <h2 className="app-hero-band__title">
+              Clear packaging for chat, operations, and full business workflows
+            </h2>
+            <p className="app-hero-band__copy">
+              Compare platform plans, understand message capacity, and surface
+              add-ons without forcing the buyer through generic pricing noise.
+            </p>
+          </div>
+          <div className="app-hero-band__metrics">
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">Full plans</span>
+              <strong className="app-hero-band__metric-value">
+                {fullPlatformPlans.length}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">Chat-only</span>
+              <strong className="app-hero-band__metric-value">
+                {chatOnlyPlan ? "Available" : "Hidden"}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">Add-on groups</span>
+              <strong className="app-hero-band__metric-value">4</strong>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <AlertBanner
         type="info"
         title="عرض الكاشير"
         message="الكاشير مجاني لأول 30 يوم في الاشتراكات المدفوعة الجديدة على الخطط الكاملة. لا ينطبق على Chat Only."
       />
 
-      <Card className="border-slate-200">
+      <Card className="app-data-card border-slate-200">
         <CardHeader>
           <CardTitle>خطط المنصة الكاملة</CardTitle>
           <CardDescription>
@@ -311,7 +344,7 @@ export default function MerchantPricingPage() {
       </Card>
 
       {chatOnlyPlan ? (
-        <Card className="border-2 border-cyan-300 bg-cyan-50/40">
+        <Card className="app-data-card border-2 border-cyan-300 bg-cyan-50/40">
           <CardHeader>
             <div className="flex flex-wrap items-center gap-2">
               <CardTitle>{chatOnlyPlan.nameAr}</CardTitle>
@@ -393,7 +426,7 @@ export default function MerchantPricingPage() {
           return (
             <Card
               key={plan.id}
-              className={`border-2 ${PLAN_COLORS[plan.id] || "border-slate-200"}`}
+              className={`app-data-card border-2 ${PLAN_COLORS[plan.id] || "border-slate-200"}`}
             >
               <CardHeader>
                 <div className="flex flex-wrap items-center gap-2">
