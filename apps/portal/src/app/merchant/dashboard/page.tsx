@@ -47,7 +47,6 @@ import {
   AiInsightsCard,
   generateDashboardInsights,
 } from "@/components/ai/ai-insights-card";
-import { SmartAnalysisButton } from "@/components/ai/smart-analysis-button";
 import {
   getReportingDateRange,
   REPORTING_PERIOD_OPTIONS,
@@ -265,6 +264,33 @@ export default function MerchantDashboard() {
     0;
   const pendingOnline = data.premium?.financeSummary?.pendingOnline ?? 0;
   const refundsAmount = data.premium?.financeSummary?.refundsAmount ?? 0;
+  const lastOrder = data.recentOrders[0];
+  const statusRail = [
+    {
+      label: "الطلبات النشطة",
+      value: `${data.stats.pendingDeliveries}`,
+    },
+    {
+      label: "المحادثات",
+      value: `${data.stats.activeConversations}`,
+    },
+    {
+      label: "المبيعات",
+      value: formatCurrency(realizedRevenue),
+    },
+    {
+      label: "نفد المخزون",
+      value: "3",
+    },
+    {
+      label: "COD معلق",
+      value: formatCurrency(pendingCollections),
+    },
+    {
+      label: "آخر طلب",
+      value: lastOrder ? formatRelativeTime(lastOrder.createdAt) : "لا يوجد",
+    },
+  ];
 
   return (
     <div className="space-y-8 animate-fadeIn">
@@ -307,83 +333,27 @@ export default function MerchantDashboard() {
         }
       />
 
-      <section className="app-hero-band">
-        <div className="app-hero-band__grid">
-          <div className="space-y-4">
-            <span className="app-hero-band__eyebrow">Operating Brief</span>
-            <div className="space-y-3">
-              <h2 className="app-hero-band__title">
-                صورة واحدة للحركة المالية والتشغيلية بدل التنقل بين عدة شاشات.
-              </h2>
-              <p className="app-hero-band__copy">
-                راقب المبيعات المحققة، الطلبات المعلقة، المحادثات النشطة،
-                والتنبيهات التنفيذية من نفس الواجهة. كل بطاقة هنا مبنية لتجيب
-                على سؤال تشغيلي واضح.
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <Badge variant="info">{selectedPeriodSummary}</Badge>
-              <Badge variant="secondary">
-                الخطة الحالية:{" "}
-                {subUsage?.planName || merchant?.plan || "غير محددة"}
-              </Badge>
-              {hasFinance ? (
-                <Badge variant="success">التحليلات المالية مفعلة</Badge>
-              ) : (
-                <Badge variant="warning">
-                  بعض المؤشرات المتقدمة تتطلب ترقية
-                </Badge>
+      <section className="overflow-hidden rounded-[var(--radius-md)] border border-[var(--border-subtle)] border-r-2 border-r-[var(--accent-gold)] bg-[var(--bg-surface-2)]">
+        <div className="grid gap-0 lg:grid-cols-6">
+          {statusRail.map((item, index) => (
+            <div
+              key={item.label}
+              className={cn(
+                "flex min-h-12 items-center justify-between gap-3 px-4 py-3",
+                index !== statusRail.length - 1 &&
+                  "border-b border-[var(--border-subtle)] lg:border-b-0 lg:border-l",
               )}
-            </div>
-          </div>
-          <div className="app-hero-band__metrics">
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">
-                الإيراد المحقق
+            >
+              <span className="text-[11px] text-[var(--text-muted)]">
+                {item.label}
               </span>
-              <strong className="app-hero-band__metric-value">
-                {formatCurrency(realizedRevenue)}
+              <strong className="font-mono text-[14px] font-bold text-[var(--accent-gold)]">
+                {item.value}
               </strong>
             </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">
-                الطلبات المفتوحة
-              </span>
-              <strong className="app-hero-band__metric-value">
-                {data.stats.pendingDeliveries}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">
-                المحادثات النشطة
-              </span>
-              <strong className="app-hero-band__metric-value">
-                {data.stats.activeConversations}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">
-                آخر ملاحظة ذكية
-              </span>
-              <strong className="app-hero-band__metric-value">
-                {aiBrief ? "محدثة الآن" : "جاهزة عند الطلب"}
-              </strong>
-            </div>
-          </div>
+          ))}
         </div>
       </section>
-
-      {/* Demo Mode Banner */}
-      {isDemo && (
-        <Card className="app-data-card border-[color:color-mix(in_srgb,var(--accent)_18%,var(--border-strong))] bg-[var(--accent-muted)]">
-          <CardContent className="flex items-center gap-3 p-4">
-            <AlertCircle className="h-5 w-5 text-[var(--accent)]" />
-            <p className="text-sm text-[var(--accent)]">
-              وضع العرض التجريبي - أنت تستخدم حساب تجريبي.
-            </p>
-          </CardContent>
-        </Card>
-      )}
 
       {/* AI Dashboard Insights */}
       <AiInsightsCard
@@ -398,9 +368,6 @@ export default function MerchantDashboard() {
           periodLabel: selectedPeriodSummary,
         })}
       />
-
-      {/* GPT-Powered Smart Analysis */}
-      <SmartAnalysisButton context="dashboard" />
 
       {/* KPI Cards */}
       <KPIGrid>

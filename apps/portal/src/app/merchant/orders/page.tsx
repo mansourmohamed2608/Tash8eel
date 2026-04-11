@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback } from "react";
 import { PageHeader } from "@/components/layout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { DataTable, Pagination } from "@/components/ui/data-table";
@@ -45,6 +44,8 @@ import {
   Plus,
   Minus,
   Trash2,
+  LayoutGrid,
+  Rows3,
 } from "lucide-react";
 import {
   cn,
@@ -57,17 +58,12 @@ import {
 import { merchantApi, branchesApi } from "@/lib/client";
 import portalApi from "@/lib/client";
 import { useToast } from "@/hooks/use-toast";
-import {
-  OrderQuickStats,
-  OrderStatusFilter,
-} from "@/components/orders/enhanced-features";
 import { useMerchant } from "@/hooks/use-merchant";
 import { useRoleAccess } from "@/hooks/use-role-access";
 import {
   AiInsightsCard,
   generateOrderInsights,
 } from "@/components/ai/ai-insights-card";
-import { SmartAnalysisButton } from "@/components/ai/smart-analysis-button";
 
 interface OrderItem {
   sku: string;
@@ -123,6 +119,32 @@ const statusIcons: Record<string, React.ReactNode> = {
 };
 
 const DRIVER_ASSIGNABLE_STATUSES = new Set(["CONFIRMED"]);
+const STATUS_TABS = [
+  { key: "all", label: "الكل" },
+  { key: "pending", label: "قيد الانتظار" },
+  { key: "processing", label: "قيد التنفيذ" },
+  { key: "completed", label: "مكتملة" },
+  { key: "cancelled", label: "ملغية" },
+] as const;
+
+const KANBAN_COLUMNS = [
+  {
+    key: "pending",
+    label: "قيد الانتظار",
+    border: "border-t-[var(--accent-warning)]",
+  },
+  {
+    key: "processing",
+    label: "قيد التنفيذ",
+    border: "border-t-[var(--accent-blue)]",
+  },
+  { key: "shipped", label: "تم الشحن", border: "border-t-[color:#8b5cf6]" },
+  {
+    key: "completed",
+    label: "مكتملة",
+    border: "border-t-[var(--accent-success)]",
+  },
+] as const;
 
 const SOURCE_LABELS: Record<string, string> = {
   manual_button: "زر يدوي",
@@ -229,6 +251,24 @@ function getCancelRisk(
   return null;
 }
 
+function getBoardStatus(order: Order) {
+  const status = String(order.status || "").toUpperCase();
+  if (["CANCELLED", "RETURNED", "FAILED"].includes(status)) return "cancelled";
+  if (["DELIVERED", "COMPLETED"].includes(status)) return "completed";
+  if (["BOOKED", "SHIPPED", "OUT_FOR_DELIVERY"].includes(status))
+    return "shipped";
+  if (["CONFIRMED"].includes(status)) return "processing";
+  return "pending";
+}
+
+function getElapsedState(order: Order) {
+  const ageMinutes =
+    (Date.now() - new Date(order.createdAt).getTime()) / (1000 * 60);
+  if (ageMinutes > 60) return "critical";
+  if (ageMinutes > 30) return "warning";
+  return "default";
+}
+
 export default function OrdersPage() {
   const { merchantId, apiKey } = useMerchant();
   const { canCreate, canExport, isReadOnly } = useRoleAccess("orders");
@@ -240,8 +280,10 @@ export default function OrdersPage() {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [statusTab, setStatusTab] = useState<string>("all");
   const [branchFilter, setBranchFilter] = useState<string>("all");
   const [sourceFilter, setSourceFilter] = useState<string>("all");
+  const [viewMode, setViewMode] = useState<"kanban" | "table">("kanban");
   const [branches, setBranches] = useState<{ id: string; name: string }[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [reordering, setReordering] = useState(false);
@@ -831,7 +873,15 @@ export default function OrdersPage() {
       order.orderNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
       order.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       order.customerPhone.includes(searchQuery);
-    return matchesSearch;
+    const boardStatus = getBoardStatus(order);
+    const matchesTab =
+      statusTab === "all" ||
+      (statusTab === "pending" && boardStatus === "pending") ||
+      (statusTab === "processing" &&
+        (boardStatus === "processing" || boardStatus === "shipped")) ||
+      (statusTab === "completed" && boardStatus === "completed") ||
+      (statusTab === "cancelled" && boardStatus === "cancelled");
+    return matchesSearch && matchesTab;
   });
 
   const filteredCatalogProducts =
@@ -1009,6 +1059,51 @@ export default function OrdersPage() {
       return !Number.isNaN(createdAt.getTime()) && createdAt >= startOfToday;
     })
     .reduce((sum, o) => sum + (o.total || 0), 0);
+  const tabCounts = {
+    all: countedOrders.length,
+    pending: countedOrders.filter((o) => getBoardStatus(o) === "pending")
+      .length,
+    processing: countedOrders.filter((o) => {
+      const stage = getBoardStatus(o);
+      return stage === "processing" || stage === "shipped";
+    }).length,
+    completed: countedOrders.filter((o) => getBoardStatus(o) === "completed")
+      .length,
+    cancelled: countedOrders.filter((o) => getBoardStatus(o) === "cancelled")
+      .length,
+  };
+  const summaryColumns = [
+    {
+      label: "إجمالي الطلبات",
+      value: stats.total,
+      icon: <ShoppingCart className="h-4 w-4" />,
+      tone: "",
+    },
+    {
+      label: "قيد الانتظار",
+      value: tabCounts.pending,
+      icon: <Clock className="h-4 w-4" />,
+      tone: tabCounts.pending > 0 ? "bg-[color:rgba(245,158,11,0.10)]" : "",
+    },
+    {
+      label: "قيد التنفيذ",
+      value: stats.inProgress,
+      icon: <Package className="h-4 w-4" />,
+      tone: "",
+    },
+    {
+      label: "مكتملة",
+      value: stats.completed,
+      icon: <CheckCircle className="h-4 w-4" />,
+      tone: "",
+    },
+    {
+      label: "ملغية",
+      value: stats.cancelled,
+      icon: <XCircle className="h-4 w-4" />,
+      tone: "",
+    },
+  ];
 
   if (loading) {
     return (
@@ -1044,11 +1139,7 @@ export default function OrdersPage() {
     <div className="space-y-8 animate-fadeIn">
       <PageHeader
         title="الطلبات"
-        description={
-          countedOrders.length !== ordersForStats.length
-            ? `تشغيل ومتابعة الطلبات (${countedOrders.length} طلب فعّال من أصل ${ordersForStats.length})`
-            : `تشغيل ومتابعة الطلبات (${countedOrders.length} طلب)`
-        }
+        description="تشغيل ومتابعة الطلبات الحالية بسرعة، مع قراءة فورية للحالات الحرجة."
         actions={
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
             {canCreate && (
@@ -1083,73 +1174,50 @@ export default function OrdersPage() {
         }
       />
 
-      <section className="app-hero-band">
-        <div className="app-hero-band__grid">
-          <div className="space-y-4">
-            <span className="app-hero-band__eyebrow">Order Operations</span>
-            <div className="space-y-3">
-              <h2 className="app-hero-band__title">
-                واجهة تنفيذية واحدة للطلب منذ الإنشاء حتى التسليم أو الإلغاء.
-              </h2>
-              <p className="app-hero-band__copy">
-                راقب الحجم الكلي، حالات التنفيذ، الفروع، ومصادر الطلبات. صممت
-                هذه الصفحة لتسمح بالبحث السريع، قراءة المخاطر، واتخاذ الإجراء من
-                نفس السياق دون تشتيت.
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <Badge variant="info">طلبات فعالة: {countedOrders.length}</Badge>
-              <Badge variant="secondary">
-                متوسط قيمة الطلب: {formatCurrency(averageOrderValue)}
-              </Badge>
-              {branchFilter !== "all" ? (
-                <Badge variant="warning">فلتر الفرع مفعل</Badge>
-              ) : null}
-            </div>
-          </div>
-          <div className="app-hero-band__metrics">
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">
-                إجمالي الطلبات
-              </span>
-              <strong className="app-hero-band__metric-value">
-                {stats.total}
+      <div className="flex flex-wrap items-center gap-2">
+        {STATUS_TABS.map((tab) => (
+          <button
+            key={tab.key}
+            type="button"
+            onClick={() => {
+              setStatusTab(tab.key);
+              setCurrentPage(1);
+            }}
+            className={cn(
+              "inline-flex h-9 items-center rounded-[var(--radius-sm)] border px-3 text-xs font-semibold transition-colors",
+              statusTab === tab.key
+                ? "border-[var(--accent-gold)] bg-[var(--accent-gold)] text-[#0A0A0B]"
+                : "border-[var(--border-default)] bg-[var(--bg-surface-1)] text-[var(--text-secondary)] hover:border-[var(--accent-gold)] hover:text-[var(--accent-gold)]",
+            )}
+          >
+            {tab.label} ({tabCounts[tab.key as keyof typeof tabCounts]})
+          </button>
+        ))}
+      </div>
+
+      <section className="overflow-hidden rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--bg-surface-2)]">
+        <div className="grid gap-0 lg:grid-cols-5">
+          {summaryColumns.map((item, index) => (
+            <div
+              key={item.label}
+              className={cn(
+                "flex h-16 items-center justify-between gap-3 px-4",
+                item.tone,
+                index !== summaryColumns.length - 1 &&
+                  "border-b border-[var(--border-subtle)] lg:border-b-0 lg:border-l",
+              )}
+            >
+              <div className="flex items-center gap-2 text-[var(--text-secondary)]">
+                {item.icon}
+                <span className="text-[11px]">{item.label}</span>
+              </div>
+              <strong className="font-mono text-[24px] font-bold text-[var(--text-primary)]">
+                {item.value}
               </strong>
             </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">قيد التنفيذ</span>
-              <strong className="app-hero-band__metric-value">
-                {stats.pending + stats.inProgress}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">مكتملة</span>
-              <strong className="app-hero-band__metric-value">
-                {stats.completed}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">إيراد اليوم</span>
-              <strong className="app-hero-band__metric-value">
-                {formatCurrency(todayRevenue)}
-              </strong>
-            </div>
-          </div>
+          ))}
         </div>
       </section>
-
-      {/* Order Quick Stats */}
-      <OrderQuickStats
-        stats={{
-          total: stats.total,
-          pending: stats.pending,
-          processing: stats.inProgress,
-          completed: stats.completed,
-          cancelled: stats.cancelled,
-          todayRevenue,
-          averageOrderValue,
-        }}
-      />
 
       {/* AI Order Insights */}
       <AiInsightsCard
@@ -1163,12 +1231,10 @@ export default function OrdersPage() {
         })}
       />
 
-      <SmartAnalysisButton context="operations" />
-
       {/* Filters */}
       <Card className="app-data-card">
         <CardContent className="p-4">
-          <div className="flex flex-col sm:flex-row gap-4">
+          <div className="flex flex-col gap-4 xl:flex-row">
             <div className="relative flex-1">
               <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -1178,108 +1244,76 @@ export default function OrdersPage() {
                 className="pr-9"
               />
             </div>
-            <Select
-              value={statusFilter}
-              onValueChange={(value) => {
-                setStatusFilter(value);
-                setCurrentPage(1);
-              }}
-            >
-              <SelectTrigger className="w-full sm:w-48">
-                <Filter className="h-4 w-4 ml-2" />
-                <SelectValue placeholder="حالة الطلب" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">كل الحالات</SelectItem>
-                <SelectItem value="DRAFT">مسودة</SelectItem>
-                <SelectItem value="CONFIRMED">مؤكد</SelectItem>
-                <SelectItem value="BOOKED">محجوز</SelectItem>
-                <SelectItem value="SHIPPED">تم الشحن</SelectItem>
-                <SelectItem value="OUT_FOR_DELIVERY">قيد التوصيل</SelectItem>
-                <SelectItem value="DELIVERED">تم التوصيل</SelectItem>
-                <SelectItem value="CANCELLED">ملغي</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select
-              value={sourceFilter}
-              onValueChange={(value) => {
-                setSourceFilter(value);
-                setCurrentPage(1);
-              }}
-            >
-              <SelectTrigger className="w-full sm:w-44">
-                <SelectValue placeholder="المصدر" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">كل المصادر</SelectItem>
-                <SelectItem value="manual_button">زر يدوي</SelectItem>
-                <SelectItem value="cashier">الكاشير</SelectItem>
-                <SelectItem value="calls">المكالمات</SelectItem>
-                <SelectItem value="whatsapp">واتساب</SelectItem>
-                <SelectItem value="voice_ai">مكالمة AI</SelectItem>
-              </SelectContent>
-            </Select>
-            {branches.length > 1 && (
+            <div className="flex flex-col gap-3 sm:flex-row">
               <Select
-                value={branchFilter}
+                value={sourceFilter}
                 onValueChange={(value) => {
-                  setBranchFilter(value);
+                  setSourceFilter(value);
                   setCurrentPage(1);
                 }}
               >
                 <SelectTrigger className="w-full sm:w-44">
-                  <SelectValue placeholder="الفرع" />
+                  <Filter className="ml-2 h-4 w-4" />
+                  <SelectValue placeholder="المصدر" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">كل الفروع</SelectItem>
-                  {branches.map((b) => (
-                    <SelectItem key={b.id} value={b.id}>
-                      {b.name}
-                    </SelectItem>
-                  ))}
+                  <SelectItem value="all">كل المصادر</SelectItem>
+                  <SelectItem value="manual_button">زر يدوي</SelectItem>
+                  <SelectItem value="cashier">الكاشير</SelectItem>
+                  <SelectItem value="calls">المكالمات</SelectItem>
+                  <SelectItem value="whatsapp">واتساب</SelectItem>
+                  <SelectItem value="voice_ai">مكالمة AI</SelectItem>
                 </SelectContent>
               </Select>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card className="app-data-card app-data-card--muted border-dashed">
-        <CardContent className="p-4 space-y-3">
-          <div className="text-sm font-semibold">شرح الحالات</div>
-          <div className="grid grid-cols-1 gap-2 text-xs text-muted-foreground sm:grid-cols-2 xl:grid-cols-4">
-            <div>
-              <span className="font-medium text-foreground">مسودة:</span> طلب
-              غير مكتمل ولم يبدأ تنفيذه.
-            </div>
-            <div>
-              <span className="font-medium text-foreground">مؤكد:</span> تم
-              تأكيد الطلب وجاهز للتجهيز.
-            </div>
-            <div>
-              <span className="font-medium text-foreground">محجوز:</span> تم حجز
-              الشحنة مع شركة التوصيل.
-            </div>
-            <div>
-              <span className="font-medium text-foreground">تم الشحن:</span>{" "}
-              الطلب خرج مع شركة الشحن.
-            </div>
-            <div>
-              <span className="font-medium text-foreground">قيد التوصيل:</span>{" "}
-              الطلب في الطريق للعميل.
-            </div>
-            <div>
-              <span className="font-medium text-foreground">تم التوصيل:</span>{" "}
-              طلب مكتمل ومُحقق للإيراد.
-            </div>
-            <div>
-              <span className="font-medium text-foreground">الكاشير:</span>{" "}
-              طلبات الاستلام وداخل الفرع قد تظهر كـ تم الدفع أو تم الاستلام
-              بدلاً من مسار الشحن.
-            </div>
-            <div>
-              <span className="font-medium text-foreground">ملغي:</span> طلب غير
-              محسوب ضمن الإيراد.
+              {branches.length > 1 && (
+                <Select
+                  value={branchFilter}
+                  onValueChange={(value) => {
+                    setBranchFilter(value);
+                    setCurrentPage(1);
+                  }}
+                >
+                  <SelectTrigger className="w-full sm:w-44">
+                    <SelectValue placeholder="الفرع" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">كل الفروع</SelectItem>
+                    {branches.map((b) => (
+                      <SelectItem key={b.id} value={b.id}>
+                        {b.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              <div className="inline-flex overflow-hidden rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-1)]">
+                <button
+                  type="button"
+                  onClick={() => setViewMode("kanban")}
+                  className={cn(
+                    "inline-flex h-10 items-center gap-2 px-3 text-xs font-semibold transition-colors",
+                    viewMode === "kanban"
+                      ? "bg-[var(--bg-surface-3)] text-[var(--text-primary)]"
+                      : "text-[var(--text-secondary)]",
+                  )}
+                >
+                  <LayoutGrid className="h-4 w-4" />
+                  كانبان
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode("table")}
+                  className={cn(
+                    "inline-flex h-10 items-center gap-2 px-3 text-xs font-semibold transition-colors",
+                    viewMode === "table"
+                      ? "bg-[var(--bg-surface-3)] text-[var(--text-primary)]"
+                      : "text-[var(--text-secondary)]",
+                  )}
+                >
+                  <Rows3 className="h-4 w-4" />
+                  جدول
+                </button>
+              </div>
             </div>
           </div>
         </CardContent>
@@ -1305,233 +1339,351 @@ export default function OrdersPage() {
         </Card>
       ) : (
         <>
-          <div className="space-y-3 md:hidden">
-            {paginatedOrders.map((order) => {
-              const risk = getCancelRisk(order);
-              return (
-                <Card
-                  key={order.id}
-                  className="app-data-card cursor-pointer"
-                  onClick={() => setSelectedOrder(order)}
-                >
-                  <CardContent className="space-y-3 p-4 text-sm">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="font-mono text-sm">{order.orderNumber}</p>
-                        <p className="font-medium">{order.customerName}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {formatRelativeTime(order.createdAt)}
-                        </p>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedOrder(order);
-                        }}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      <span
-                        className={cn(
-                          "inline-flex items-center gap-1 rounded-[var(--radius-sm)] border px-2.5 py-0.5 text-xs font-semibold",
-                          getStatusColor(order.status),
-                        )}
-                      >
-                        {statusIcons[order.status]}
-                        {getOrderDisplayStatus(order)}
-                      </span>
-                      <span
-                        className={cn(
-                          "inline-flex items-center rounded-[var(--radius-sm)] border px-2.5 py-0.5 text-xs font-semibold",
-                          getSourceBadgeClass(order.sourceChannel),
-                        )}
-                      >
-                        {getSourceLabel(order.sourceChannel)}
-                      </span>
-                      {risk && (
-                        <span
-                          className={cn(
-                            "rounded border px-1.5 py-0.5 text-[10px] font-medium",
-                            risk.className,
-                          )}
-                        >
-                          {risk.label}
+          {viewMode === "kanban" ? (
+            <div className="grid gap-4 xl:grid-cols-4">
+              {KANBAN_COLUMNS.map((column) => {
+                const columnOrders = filteredOrders.filter(
+                  (order) => getBoardStatus(order) === column.key,
+                );
+
+                return (
+                  <Card
+                    key={column.key}
+                    className={cn(
+                      "app-data-card max-h-[70vh] overflow-hidden border-t-2",
+                      column.border,
+                    )}
+                  >
+                    <CardContent className="flex h-full flex-col gap-3 p-4">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-sm font-bold">{column.label}</h3>
+                        <span className="rounded-[4px] bg-[var(--bg-surface-3)] px-2 py-1 font-mono text-[11px] text-[var(--text-secondary)]">
+                          {columnOrders.length}
                         </span>
-                      )}
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-xs text-muted-foreground">المنتجات</p>
-                      <p className="text-sm">
-                        {order.items.length > 0
-                          ? `${order.items
-                              .slice(0, 2)
-                              .map((i) => i.name)
-                              .join(
-                                "، ",
-                              )}${order.items.length > 2 ? ` +${order.items.length - 2}` : ""}`
-                          : "غير محدد"}
-                      </p>
-                    </div>
-                    <div className="grid grid-cols-1 gap-3 text-xs sm:grid-cols-2">
-                      <div>
-                        <p className="text-muted-foreground">الإجمالي</p>
-                        <p className="font-semibold">
-                          {formatCurrency(order.total)}
-                        </p>
                       </div>
-                      <div>
-                        <p className="text-muted-foreground">عدد القطع</p>
-                        <p className="font-medium">
-                          {order.items.reduce(
-                            (sum, item) => sum + (item.quantity || 0),
-                            0,
-                          )}{" "}
-                          قطعة
-                        </p>
+                      <div className="space-y-3 overflow-y-auto">
+                        {columnOrders.length === 0 ? (
+                          <div className="rounded-[var(--radius-sm)] border border-dashed border-[var(--border-default)] px-3 py-6 text-center text-xs text-[var(--text-muted)]">
+                            لا توجد طلبات في هذه المرحلة
+                          </div>
+                        ) : (
+                          columnOrders.map((order) => {
+                            const elapsedState = getElapsedState(order);
+                            return (
+                              <button
+                                key={order.id}
+                                type="button"
+                                onClick={() => setSelectedOrder(order)}
+                                className={cn(
+                                  "w-full rounded-[8px] border border-[var(--border-default)] border-r-[3px] bg-[var(--bg-surface-2)] p-3 text-right transition-colors hover:bg-[var(--bg-surface-3)]",
+                                  column.key === "pending" &&
+                                    "border-r-[var(--accent-warning)]",
+                                  column.key === "processing" &&
+                                    "border-r-[var(--accent-blue)]",
+                                  column.key === "shipped" &&
+                                    "border-r-[color:#8b5cf6]",
+                                  column.key === "completed" &&
+                                    "border-r-[var(--accent-success)]",
+                                )}
+                              >
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="font-mono text-xs text-[var(--accent-gold)]">
+                                    {order.orderNumber}
+                                  </span>
+                                  <div className="flex items-center gap-2">
+                                    <span
+                                      className={cn(
+                                        "text-[11px] font-mono",
+                                        elapsedState === "critical" &&
+                                          "text-[var(--accent-danger)]",
+                                        elapsedState === "warning" &&
+                                          "text-[var(--accent-warning)]",
+                                        elapsedState === "default" &&
+                                          "text-[var(--text-muted)]",
+                                      )}
+                                    >
+                                      {formatRelativeTime(order.createdAt)}
+                                    </span>
+                                    <span
+                                      className={cn(
+                                        "inline-flex items-center rounded-[4px] border px-1.5 py-0.5 text-[10px] font-semibold",
+                                        getSourceBadgeClass(
+                                          order.sourceChannel,
+                                        ),
+                                      )}
+                                    >
+                                      {getSourceLabel(order.sourceChannel)}
+                                    </span>
+                                  </div>
+                                </div>
+                                <div className="mt-3">
+                                  <p className="text-sm font-semibold text-[var(--text-primary)]">
+                                    {order.customerName}
+                                  </p>
+                                  <p className="mt-1 line-clamp-2 text-xs text-[var(--text-secondary)]">
+                                    {order.items.length > 0
+                                      ? order.items
+                                          .slice(0, 2)
+                                          .map((item) => item.name)
+                                          .join("، ")
+                                      : "بدون منتجات واضحة"}
+                                  </p>
+                                </div>
+                                <div className="mt-3 flex items-center justify-between">
+                                  <strong className="font-mono text-sm text-[var(--text-primary)]">
+                                    {formatCurrency(order.total)}
+                                  </strong>
+                                  <span className="text-xs text-[var(--text-secondary)]">
+                                    {getOrderDisplayStatus(order)}
+                                  </span>
+                                </div>
+                              </button>
+                            );
+                          })
+                        )}
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-          <div className="hidden md:block">
-            <DataTable
-              data={paginatedOrders}
-              columns={[
-                {
-                  key: "orderNumber",
-                  header: "رقم الطلب",
-                  render: (order) => (
-                    <span className="font-mono text-sm">
-                      {order.orderNumber}
-                    </span>
-                  ),
-                },
-                { key: "customerName", header: "العميل" },
-                {
-                  key: "items",
-                  header: "المنتجات",
-                  render: (order) =>
-                    order.items.length > 0 ? (
-                      <div className="max-w-[220px]">
-                        <div
-                          className="truncate text-sm"
-                          title={order.items.map((i) => i.name).join("، ")}
-                        >
-                          {order.items
-                            .slice(0, 2)
-                            .map((i) => i.name)
-                            .join("، ")}
-                          {order.items.length > 2
-                            ? ` +${order.items.length - 2}`
-                            : ""}
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          ) : (
+            <>
+              <div className="space-y-3 md:hidden">
+                {paginatedOrders.map((order) => {
+                  const risk = getCancelRisk(order);
+                  return (
+                    <Card
+                      key={order.id}
+                      className="app-data-card cursor-pointer"
+                      onClick={() => setSelectedOrder(order)}
+                    >
+                      <CardContent className="space-y-3 p-4 text-sm">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="font-mono text-sm">
+                              {order.orderNumber}
+                            </p>
+                            <p className="font-medium">{order.customerName}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {formatRelativeTime(order.createdAt)}
+                            </p>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedOrder(order);
+                            }}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
                         </div>
-                        <div className="text-xs text-muted-foreground">
-                          {order.items.reduce(
-                            (sum, item) => sum + (item.quantity || 0),
-                            0,
-                          )}{" "}
-                          قطعة
-                        </div>
-                      </div>
-                    ) : (
-                      <span className="text-muted-foreground">غير محدد</span>
-                    ),
-                },
-                {
-                  key: "total",
-                  header: "الإجمالي",
-                  render: (order) => (
-                    <span className="font-semibold">
-                      {formatCurrency(order.total)}
-                    </span>
-                  ),
-                },
-                {
-                  key: "status",
-                  header: "الحالة",
-                  render: (order) => {
-                    const risk = getCancelRisk(order);
-                    return (
-                      <div className="flex flex-col gap-1 items-start">
-                        <span
-                          className={cn(
-                            "inline-flex items-center gap-1 rounded-[var(--radius-sm)] border px-2.5 py-0.5 text-xs font-semibold",
-                            getStatusColor(order.status),
-                          )}
-                        >
-                          {statusIcons[order.status]}
-                          {getOrderDisplayStatus(order)}
-                        </span>
-                        {risk && (
+                        <div className="flex flex-wrap gap-2">
                           <span
                             className={cn(
-                              "text-[10px] px-1.5 py-0.5 rounded border font-medium",
-                              risk.className,
+                              "inline-flex items-center gap-1 rounded-[var(--radius-sm)] border px-2.5 py-0.5 text-xs font-semibold",
+                              getStatusColor(order.status),
                             )}
                           >
-                            {risk.label}
+                            {statusIcons[order.status]}
+                            {getOrderDisplayStatus(order)}
                           </span>
-                        )}
-                      </div>
-                    );
-                  },
-                },
-                {
-                  key: "source",
-                  header: "المصدر",
-                  render: (order) => (
-                    <span
-                      className={cn(
-                        "inline-flex items-center rounded-[var(--radius-sm)] border px-2.5 py-0.5 text-xs font-semibold",
-                        getSourceBadgeClass(order.sourceChannel),
-                      )}
-                    >
-                      {getSourceLabel(order.sourceChannel)}
-                    </span>
-                  ),
-                },
-                {
-                  key: "createdAt",
-                  header: "التاريخ",
-                  render: (order) => (
-                    <span className="text-muted-foreground text-sm">
-                      {formatRelativeTime(order.createdAt)}
-                    </span>
-                  ),
-                },
-                {
-                  key: "actions",
-                  header: "",
-                  render: (order) => (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedOrder(order);
-                      }}
-                    >
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                  ),
-                },
-              ]}
-              onRowClick={setSelectedOrder}
-            />
-          </div>
+                          <span
+                            className={cn(
+                              "inline-flex items-center rounded-[var(--radius-sm)] border px-2.5 py-0.5 text-xs font-semibold",
+                              getSourceBadgeClass(order.sourceChannel),
+                            )}
+                          >
+                            {getSourceLabel(order.sourceChannel)}
+                          </span>
+                          {risk && (
+                            <span
+                              className={cn(
+                                "rounded border px-1.5 py-0.5 text-[10px] font-medium",
+                                risk.className,
+                              )}
+                            >
+                              {risk.label}
+                            </span>
+                          )}
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-xs text-muted-foreground">
+                            المنتجات
+                          </p>
+                          <p className="text-sm">
+                            {order.items.length > 0
+                              ? `${order.items
+                                  .slice(0, 2)
+                                  .map((i) => i.name)
+                                  .join(
+                                    "، ",
+                                  )}${order.items.length > 2 ? ` +${order.items.length - 2}` : ""}`
+                              : "غير محدد"}
+                          </p>
+                        </div>
+                        <div className="grid grid-cols-1 gap-3 text-xs sm:grid-cols-2">
+                          <div>
+                            <p className="text-muted-foreground">الإجمالي</p>
+                            <p className="font-semibold">
+                              {formatCurrency(order.total)}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground">عدد القطع</p>
+                            <p className="font-medium">
+                              {order.items.reduce(
+                                (sum, item) => sum + (item.quantity || 0),
+                                0,
+                              )}{" "}
+                              قطعة
+                            </p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+              <div className="hidden md:block">
+                <DataTable
+                  data={paginatedOrders}
+                  columns={[
+                    {
+                      key: "orderNumber",
+                      header: "رقم الطلب",
+                      render: (order) => (
+                        <span className="font-mono text-sm">
+                          {order.orderNumber}
+                        </span>
+                      ),
+                    },
+                    { key: "customerName", header: "العميل" },
+                    {
+                      key: "items",
+                      header: "المنتجات",
+                      render: (order) =>
+                        order.items.length > 0 ? (
+                          <div className="max-w-[220px]">
+                            <div
+                              className="truncate text-sm"
+                              title={order.items.map((i) => i.name).join("، ")}
+                            >
+                              {order.items
+                                .slice(0, 2)
+                                .map((i) => i.name)
+                                .join("، ")}
+                              {order.items.length > 2
+                                ? ` +${order.items.length - 2}`
+                                : ""}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {order.items.reduce(
+                                (sum, item) => sum + (item.quantity || 0),
+                                0,
+                              )}{" "}
+                              قطعة
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground">
+                            غير محدد
+                          </span>
+                        ),
+                    },
+                    {
+                      key: "total",
+                      header: "الإجمالي",
+                      render: (order) => (
+                        <span className="font-semibold">
+                          {formatCurrency(order.total)}
+                        </span>
+                      ),
+                    },
+                    {
+                      key: "status",
+                      header: "الحالة",
+                      render: (order) => {
+                        const risk = getCancelRisk(order);
+                        return (
+                          <div className="flex flex-col gap-1 items-start">
+                            <span
+                              className={cn(
+                                "inline-flex items-center gap-1 rounded-[var(--radius-sm)] border px-2.5 py-0.5 text-xs font-semibold",
+                                getStatusColor(order.status),
+                              )}
+                            >
+                              {statusIcons[order.status]}
+                              {getOrderDisplayStatus(order)}
+                            </span>
+                            {risk && (
+                              <span
+                                className={cn(
+                                  "text-[10px] px-1.5 py-0.5 rounded border font-medium",
+                                  risk.className,
+                                )}
+                              >
+                                {risk.label}
+                              </span>
+                            )}
+                          </div>
+                        );
+                      },
+                    },
+                    {
+                      key: "source",
+                      header: "المصدر",
+                      render: (order) => (
+                        <span
+                          className={cn(
+                            "inline-flex items-center rounded-[var(--radius-sm)] border px-2.5 py-0.5 text-xs font-semibold",
+                            getSourceBadgeClass(order.sourceChannel),
+                          )}
+                        >
+                          {getSourceLabel(order.sourceChannel)}
+                        </span>
+                      ),
+                    },
+                    {
+                      key: "createdAt",
+                      header: "التاريخ",
+                      render: (order) => (
+                        <span className="text-muted-foreground text-sm">
+                          {formatRelativeTime(order.createdAt)}
+                        </span>
+                      ),
+                    },
+                    {
+                      key: "actions",
+                      header: "",
+                      render: (order) => (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedOrder(order);
+                          }}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      ),
+                    },
+                  ]}
+                  onRowClick={setSelectedOrder}
+                />
+              </div>
 
-          {totalPages > 1 && (
-            <Pagination
-              currentPage={currentPage}
-              totalPages={totalPages}
-              onPageChange={setCurrentPage}
-            />
+              {totalPages > 1 && (
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={setCurrentPage}
+                />
+              )}
+            </>
           )}
         </>
       )}

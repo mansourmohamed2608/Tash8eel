@@ -645,28 +645,24 @@ export function InventoryQuickActions({
       icon: Package,
       label: "إضافة منتج",
       onClick: onAddProduct,
-      color: "bg-blue-500",
       disabled: !canCreate,
     },
     {
       icon: Upload,
       label: "استيراد مجمّع",
       onClick: onBulkImport,
-      color: "bg-green-500",
       disabled: !canImport,
     },
     {
       icon: Download,
       label: "تصدير البيانات",
       onClick: onExport,
-      color: "bg-purple-500",
       disabled: !canExport,
     },
     {
       icon: Scan,
       label: "مسح الباركود",
       onClick: onScanBarcode,
-      color: "bg-orange-500",
       disabled: false,
     },
     // Viewing shrinkage/stock-count report should always be allowed, even in read-only mode.
@@ -674,38 +670,28 @@ export function InventoryQuickActions({
       icon: ClipboardList,
       label: "جرد المخزون",
       onClick: onStockCount,
-      color: "bg-teal-500",
       disabled: false,
     },
   ];
 
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="text-base">إجراءات سريعة</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-          {actions.map((action) => (
-            <Button
-              key={action.label}
-              variant="outline"
-              className={cn(
-                "h-auto py-3 flex-col gap-2 hover:bg-muted",
-                action.disabled && "opacity-40 cursor-not-allowed",
-              )}
-              onClick={action.disabled ? undefined : action.onClick}
-              disabled={action.disabled}
-            >
-              <div className={cn("p-2 rounded-lg text-white", action.color)}>
-                <action.icon className="h-4 w-4" />
-              </div>
-              <span className="text-xs font-medium">{action.label}</span>
-            </Button>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+      {actions.map((action) => (
+        <Button
+          key={action.label}
+          variant="outline"
+          className={cn(
+            "h-10 justify-center gap-2 border-[var(--border-default)] bg-[var(--bg-surface-1)] px-3 text-[var(--text-secondary)] hover:border-[var(--accent-gold)] hover:text-[var(--accent-gold)]",
+            action.disabled && "cursor-not-allowed opacity-40",
+          )}
+          onClick={action.disabled ? undefined : action.onClick}
+          disabled={action.disabled}
+        >
+          <action.icon className="h-4 w-4" />
+          <span className="text-xs font-medium">{action.label}</span>
+        </Button>
+      ))}
+    </div>
   );
 }
 

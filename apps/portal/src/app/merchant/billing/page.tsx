@@ -23,10 +23,6 @@ import { merchantApi } from "@/lib/client";
 import { useMerchant } from "@/hooks/use-merchant";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
-import {
-  AiInsightsCard,
-  generateBillingInsights,
-} from "@/components/ai/ai-insights-card";
 
 interface BillingEvent {
   id: string;
@@ -317,105 +313,72 @@ export default function BillingPage() {
       <PageHeader
         title="الفواتير"
         description="مركز الاشتراك والمدفوعات والفواتير مع قراءة واضحة للحالة الحالية."
+        actions={
+          <div className="flex flex-wrap gap-2">
+            <Link href="/merchant/pricing">
+              <Button variant="outline">عرض الخطط</Button>
+            </Link>
+            <Link href="/merchant/plan">
+              <Button>إدارة الاشتراك</Button>
+            </Link>
+          </div>
+        }
       />
 
-      <section className="app-hero-band">
-        <div className="app-hero-band__grid">
-          <div className="space-y-4">
-            <span className="app-hero-band__eyebrow">Billing Control</span>
-            <div className="space-y-3">
-              <h2 className="app-hero-band__title">
-                راقب الخطة الحالية، المدفوعات، والامتيازات الفعالة من شاشة
-                واحدة.
-              </h2>
-              <p className="app-hero-band__copy">
-                هذه الصفحة مصممة لإعطاء التاجر حالة اشتراكه فوراً، مع تاريخ
-                الفاتورة القادمة، تفاصيل العرض الفعال، وسجل الأحداث المالية
-                المرتبط بالخطة.
-              </p>
-            </div>
+      <div className="flex flex-wrap gap-2">
+        {[
+          `الخطة الحالية: ${summary?.subscription?.planName || "بدون اشتراك"}`,
+          `قيمة الاشتراك: ${summary?.subscription ? formatCurrency(summary.subscription.amount, summary.subscription.currency) : "—"}`,
+          `الحالة: ${subscriptionStatusInfo?.label || "غير معروف"}`,
+          `أحداث مالية: ${events.length}`,
+        ].map((chip) => (
+          <div
+            key={chip}
+            className="inline-flex h-8 items-center rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs text-[var(--text-secondary)]"
+          >
+            {chip}
           </div>
-          <div className="app-hero-band__metrics">
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">الخطة الحالية</span>
-              <strong className="app-hero-band__metric-value">
-                {summary?.subscription?.planName || "بدون اشتراك"}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">
-                التكلفة الشهرية
-              </span>
-              <strong className="app-hero-band__metric-value">
-                {summary?.subscription
-                  ? formatCurrency(
-                      summary.subscription.amount,
-                      summary.subscription.currency,
-                    )
-                  : "—"}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">الحالة</span>
-              <strong className="app-hero-band__metric-value">
-                {subscriptionStatusInfo?.label || "غير معروف"}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">أحداث مالية</span>
-              <strong className="app-hero-band__metric-value">
-                {events.length}
-              </strong>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* AI Billing Insights */}
-      <AiInsightsCard
-        title="مساعد الفواتير"
-        insights={generateBillingInsights({
-          plan: summary?.subscription?.planName?.toLowerCase(),
-          status: summary?.subscription?.status,
-          nextBillingDate: summary?.subscription?.nextBillingDate,
-        })}
-        loading={loading}
-      />
+        ))}
+      </div>
 
       {/* Current Subscription */}
-      <Card className="app-data-card mb-6 border-[color:rgba(59,130,246,0.22)] bg-[color:rgba(59,130,246,0.08)]">
+      <Card className="app-data-card mb-6 border-[var(--accent-gold)]/25 bg-[var(--bg-surface-2)]">
         <CardContent className="p-6">
           {summary?.subscription ? (
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div className="grid gap-6 lg:grid-cols-[1.3fr,0.7fr]">
               <div>
-                <p className="text-sm text-muted-foreground">الاشتراك الحالي</p>
-                <p className="text-2xl font-bold text-foreground mt-1">
+                <p className="text-xs text-[var(--text-muted)]">
+                  الاشتراك الحالي
+                </p>
+                <p className="mt-1 text-2xl font-bold text-foreground">
                   {summary.subscription.planName}
                 </p>
-                <p className="text-sm text-muted-foreground mt-2 flex items-center gap-1">
+                <p className="mt-2 flex items-center gap-1 text-sm text-muted-foreground">
                   <Calendar className="h-4 w-4" />
                   الفاتورة القادمة:{" "}
                   {formatBillingDate(summary.subscription.nextBillingDate)}
                 </p>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-1)] px-4 py-3">
+                    <p className="text-xs text-[var(--text-muted)]">شهرياً</p>
+                    <p className="mt-2 font-mono text-2xl font-bold text-[var(--text-primary)]">
+                      {formatCurrency(
+                        summary.subscription.amount,
+                        summary.subscription.currency,
+                      )}
+                    </p>
+                  </div>
+                  <div className="rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-1)] px-4 py-3">
+                    <p className="text-xs text-[var(--text-muted)]">الحالة</p>
+                    <p className="mt-2 text-lg font-semibold text-[var(--text-primary)]">
+                      {subscriptionStatusInfo?.label || "غير معروف"}
+                    </p>
+                  </div>
+                </div>
               </div>
-              <div className="text-start sm:text-end">
-                <p className="text-3xl font-bold text-foreground">
-                  {formatCurrency(
-                    summary.subscription.amount,
-                    summary.subscription.currency,
-                  )}
-                </p>
-                <p className="text-sm text-muted-foreground">/ شهرياً</p>
-                <Badge
-                  variant={
-                    subscriptionStatusInfo?.active ? "default" : "secondary"
-                  }
-                  className="mt-2"
-                >
-                  {subscriptionStatusInfo?.label || "غير معروف"}
-                </Badge>
+              <div className="space-y-3">
                 {summary.subscription.cashierPromoEligible ? (
-                  <div className="mt-3 flex flex-wrap items-center justify-start gap-2 sm:justify-end">
+                  <div className="flex flex-wrap gap-2">
                     <Badge
                       variant={
                         summary.subscription.cashierPromoActive
@@ -442,11 +405,23 @@ export default function BillingPage() {
                 ) : null}
                 {summary.subscription.cashierPromoActive &&
                 summary.subscription.cashierPromoEndsAt ? (
-                  <p className="mt-2 text-xs text-muted-foreground">
+                  <p className="text-xs text-muted-foreground">
                     ينتهي عرض الكاشير في{" "}
                     {formatBillingDate(summary.subscription.cashierPromoEndsAt)}
                   </p>
                 ) : null}
+                <div className="grid gap-2">
+                  <Link href="/merchant/pricing">
+                    <Button variant="outline" className="w-full">
+                      قارن جميع الخطط
+                    </Button>
+                  </Link>
+                  <Link href="/merchant/plan#usage">
+                    <Button variant="outline" className="w-full">
+                      راجع الاستخدام
+                    </Button>
+                  </Link>
+                </div>
               </div>
             </div>
           ) : (
@@ -467,51 +442,15 @@ export default function BillingPage() {
       </Card>
 
       {/* Quick Actions */}
-      <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-3">
+      <div className="mb-8 flex flex-wrap gap-2">
         <Link href="/merchant/plan">
-          <Card className="app-data-card h-full cursor-pointer transition-colors hover:border-[color:rgba(232,197,71,0.22)]">
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-[var(--radius-md)] border border-[color:rgba(59,130,246,0.22)] bg-[color:rgba(59,130,246,0.12)]">
-                <CreditCard className="h-5 w-5 text-[color:var(--accent-blue)]" />
-              </div>
-              <div>
-                <p className="font-medium text-foreground">إدارة الاشتراك</p>
-                <p className="text-xs text-muted-foreground">
-                  تعديل أو ترقية خطتك
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+          <Button variant="outline">إدارة الاشتراك</Button>
         </Link>
         <Link href="/merchant/plan#calculator">
-          <Card className="app-data-card h-full cursor-pointer transition-colors hover:border-[color:rgba(232,197,71,0.22)]">
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-[var(--radius-md)] border border-[color:rgba(34,197,94,0.22)] bg-[color:rgba(34,197,94,0.12)]">
-                <DollarSign className="h-5 w-5 text-[color:var(--accent-success)]" />
-              </div>
-              <div>
-                <p className="font-medium text-foreground">حاسبة الأسعار</p>
-                <p className="text-xs text-muted-foreground">
-                  احسب تكلفة الخطة المناسبة
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+          <Button variant="outline">حاسبة الأسعار</Button>
         </Link>
         <Link href="/merchant/plan#usage">
-          <Card className="app-data-card h-full cursor-pointer transition-colors hover:border-[color:rgba(232,197,71,0.22)]">
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-[var(--radius-md)] border border-[color:rgba(232,197,71,0.22)] bg-[color:var(--accent-gold-dim)]">
-                <FileText className="h-5 w-5 text-[color:var(--accent-gold)]" />
-              </div>
-              <div>
-                <p className="font-medium text-foreground">بيانات الاستخدام</p>
-                <p className="text-xs text-muted-foreground">
-                  الرسائل والتوكنز المستخدمة
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+          <Button variant="outline">بيانات الاستخدام</Button>
         </Link>
       </div>
 

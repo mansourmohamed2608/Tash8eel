@@ -16,10 +16,11 @@ import { AlertBanner } from "@/components/ui/alerts";
 import { merchantApi } from "@/lib/client";
 import { useMerchant } from "@/hooks/use-merchant";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 import {
-  ArrowRight,
   Bot,
   CreditCard,
+  Check,
   MessageSquare,
   Package,
   ShieldCheck,
@@ -29,7 +30,7 @@ import {
 type PricingPayload = Awaited<ReturnType<typeof merchantApi.getPricing>>;
 
 const CAPABILITY_LABELS: Record<string, string> = {
-  OMNICHANNEL_INBOX: "Omnichannel inbox",
+  OMNICHANNEL_INBOX: "صندوق محادثات موحد",
   WHATSAPP_META: "WhatsApp عبر Meta",
   MESSENGER_INSTAGRAM: "Messenger وInstagram DM",
   AI_CUSTOMER_REPLIES: "ردود العملاء بالذكاء الاصطناعي",
@@ -86,12 +87,12 @@ const CAPABILITY_LABELS: Record<string, string> = {
 };
 
 const PLAN_COLORS: Record<string, string> = {
-  STARTER: "border-slate-300",
-  BASIC: "border-blue-300",
-  GROWTH: "border-emerald-300",
-  PRO: "border-violet-300",
-  ENTERPRISE: "border-amber-300",
-  CHAT_ONLY: "border-cyan-300",
+  STARTER: "border-[var(--border-default)]",
+  BASIC: "border-[var(--accent-blue)]/35",
+  GROWTH: "border-[var(--accent-gold)]/55",
+  PRO: "border-[var(--accent-success)]/35",
+  ENTERPRISE: "border-[var(--accent-warning)]/45",
+  CHAT_ONLY: "border-[var(--border-active)]",
 };
 
 const AGENT_ICONS: Record<string, ElementType> = {
@@ -101,7 +102,7 @@ const AGENT_ICONS: Record<string, ElementType> = {
 };
 
 function formatLimit(value: number) {
-  if (value === -1) return "Custom";
+  if (value === -1) return "مخصص";
   return new Intl.NumberFormat("en-US").format(value);
 }
 
@@ -116,6 +117,12 @@ function PricingMetricRow({ label, value }: { label: string; value: string }) {
       <span className="text-sm font-semibold text-foreground">{value}</span>
     </div>
   );
+}
+
+function getPlanCtaLabel(planId: string) {
+  if (planId === "ENTERPRISE") return "تواصل مع المبيعات";
+  if (planId === "CHAT_ONLY") return "ابدأ بخطة المحادثات";
+  return "اختر هذه الخطة";
 }
 
 export default function MerchantPricingPage() {
@@ -217,145 +224,130 @@ export default function MerchantPricingPage() {
   const chatOnlyPlan = pricing.catalog.plans.find(
     (plan) => plan.id === "CHAT_ONLY",
   );
+  const recommendedPlanId = "GROWTH";
 
   return (
     <div className="space-y-8 p-4 sm:p-6">
       <PageHeader
-        title="Run sales, operations, and customer conversations from one system."
-        description="Choose a full business plan or start with chat-only."
+        title="خطي والأسعار"
+        description="اختر الخطة المناسبة لنشاطك وقارن السعة والميزات بوضوح."
       />
-
-      <section className="app-hero-band">
-        <div className="app-hero-band__grid">
-          <div>
-            <p className="app-hero-band__eyebrow">Plans and packaging</p>
-            <h2 className="app-hero-band__title">
-              Clear packaging for chat, operations, and full business workflows
-            </h2>
-            <p className="app-hero-band__copy">
-              Compare platform plans, understand message capacity, and surface
-              add-ons without forcing the buyer through generic pricing noise.
-            </p>
-          </div>
-          <div className="app-hero-band__metrics">
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">Full plans</span>
-              <strong className="app-hero-band__metric-value">
-                {fullPlatformPlans.length}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">Chat-only</span>
-              <strong className="app-hero-band__metric-value">
-                {chatOnlyPlan ? "Available" : "Hidden"}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">Add-on groups</span>
-              <strong className="app-hero-band__metric-value">4</strong>
-            </div>
-          </div>
-        </div>
-      </section>
 
       <AlertBanner
         type="info"
         title="عرض الكاشير"
-        message="الكاشير مجاني لأول 30 يوم في الاشتراكات المدفوعة الجديدة على الخطط الكاملة. لا ينطبق على Chat Only."
+        message="الكاشير مجاني لأول 30 يوم في الاشتراكات المدفوعة الجديدة على الخطط الكاملة. لا ينطبق على خطة المحادثات فقط."
       />
 
-      <Card className="app-data-card border-slate-200">
-        <CardHeader>
-          <CardTitle>خطط المنصة الكاملة</CardTitle>
-          <CardDescription>
-            الأسعار ثابتة بالجنيه المصري وتشمل هيكل الرسائل وحدود الردود الذكية
-            كما هو مطبق في الكتالوج.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="hidden md:block overflow-x-auto">
-          <table className="w-full min-w-[720px] text-sm">
-            <thead>
-              <tr className="border-b text-right text-muted-foreground">
-                <th className="py-3 pr-0">الخطة</th>
-                <th className="py-3">السعر</th>
-                <th className="py-3">Best for</th>
-                <th className="py-3">Messages / day</th>
-                <th className="py-3">Messages / month</th>
-                <th className="py-3 pl-0">Main value</th>
-              </tr>
-            </thead>
-            <tbody>
-              {fullPlatformPlans.map((plan) => (
-                <tr key={plan.id} className="border-b last:border-b-0">
-                  <td className="py-4 pr-0 font-semibold">{plan.nameAr}</td>
-                  <td className="py-4">
-                    {formatLimit(plan.monthlyPriceEgp || 0)} EGP
-                  </td>
-                  <td className="py-4 text-muted-foreground">{plan.bestFor}</td>
-                  <td className="py-4">
-                    {formatLimit(plan.totalMessagesPerDay)}
-                  </td>
-                  <td className="py-4">
-                    {formatLimit(plan.totalMessagesPerMonth)}
-                  </td>
-                  <td className="py-4 pl-0 text-muted-foreground">
-                    {plan.mainValue}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </CardContent>
-        <CardContent className="grid gap-3 md:hidden">
-          {fullPlatformPlans.map((plan) => (
-            <div
+      <div className="grid gap-4 xl:grid-cols-5">
+        {pricing.catalog.plans.map((plan) => {
+          const isEnterprise = plan.id === "ENTERPRISE";
+          const isCurrent = false;
+          const isRecommended = plan.id === recommendedPlanId;
+          return (
+            <Card
               key={plan.id}
-              className={`rounded-xl border p-4 ${PLAN_COLORS[plan.id] || "border-slate-200"}`}
+              className={cn(
+                "app-data-card flex h-full flex-col border",
+                PLAN_COLORS[plan.id] || "border-[var(--border-default)]",
+                isRecommended && "border-[var(--accent-gold)]",
+              )}
             >
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="text-base font-semibold">{plan.nameAr}</div>
-                {plan.cashierPromoEligible ? (
-                  <Badge className="border-0 bg-[var(--accent-success)]/15 text-[var(--accent-success)]">
-                    Cashier promo
-                  </Badge>
-                ) : null}
-              </div>
-              <div className="mt-2 text-sm text-muted-foreground">
-                {plan.bestFor}
-              </div>
-              <div className="mt-4 grid gap-2">
-                <PricingMetricRow
-                  label="السعر"
-                  value={`${formatLimit(plan.monthlyPriceEgp || 0)} EGP`}
-                />
-                <PricingMetricRow
-                  label="Messages / day"
-                  value={formatLimit(plan.totalMessagesPerDay)}
-                />
-                <PricingMetricRow
-                  label="Messages / month"
-                  value={formatLimit(plan.totalMessagesPerMonth)}
-                />
-                <PricingMetricRow label="Main value" value={plan.mainValue} />
-              </div>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
+              <CardHeader className="space-y-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  <CardTitle className="text-lg">{plan.nameAr}</CardTitle>
+                  {isRecommended && (
+                    <Badge className="border-0 bg-[var(--accent-gold-dim)] text-[var(--accent-gold)]">
+                      الأكثر شيوعاً
+                    </Badge>
+                  )}
+                  {plan.id === "CHAT_ONLY" && (
+                    <Badge variant="secondary">المحادثات فقط</Badge>
+                  )}
+                </div>
+                <CardDescription>{plan.bestFor}</CardDescription>
+                <div className="font-mono text-4xl font-black text-[var(--accent-gold)]">
+                  {formatLimit(plan.monthlyPriceEgp || 0)}
+                  <span className="mr-2 text-sm font-medium text-[var(--text-secondary)]">
+                    ج.م / شهر
+                  </span>
+                </div>
+                <div className="rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 py-2 text-sm text-[var(--text-secondary)]">
+                  {plan.mainValue}
+                </div>
+              </CardHeader>
+              <CardContent className="flex flex-1 flex-col gap-4">
+                <div className="space-y-2">
+                  <PricingMetricRow
+                    label="الرسائل / يوم"
+                    value={formatLimit(plan.totalMessagesPerDay)}
+                  />
+                  <PricingMetricRow
+                    label="الرسائل / شهر"
+                    value={formatLimit(plan.totalMessagesPerMonth)}
+                  />
+                  <PricingMetricRow
+                    label="ردود AI / يوم"
+                    value={formatLimit(plan.aiRepliesPerDay)}
+                  />
+                  <PricingMetricRow
+                    label="الفروع"
+                    value={formatLimit(plan.includedBranches)}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  {plan.includedFeatures.slice(0, 6).map((feature) => (
+                    <div
+                      key={feature}
+                      className="flex items-center gap-2 text-sm text-[var(--text-secondary)]"
+                    >
+                      <Check className="h-4 w-4 text-[var(--accent-gold)]" />
+                      <span>{labelCapability(feature)}</span>
+                    </div>
+                  ))}
+                  {plan.excludedFeatures.slice(0, 3).map((feature) => (
+                    <div
+                      key={feature}
+                      className="flex items-center gap-2 text-sm text-[var(--text-muted)]"
+                    >
+                      <span className="text-base leading-none">—</span>
+                      <span>{labelCapability(feature)}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <Button
+                  className="mt-auto w-full"
+                  variant={isEnterprise || isCurrent ? "outline" : "default"}
+                  onClick={() => handlePlanAction(plan.id)}
+                  disabled={checkoutPlan === plan.id || isCurrent}
+                >
+                  {checkoutPlan === plan.id
+                    ? "جاري الإنشاء..."
+                    : isCurrent
+                      ? "خطتك الحالية"
+                      : getPlanCtaLabel(plan.id)}
+                </Button>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
 
       {chatOnlyPlan ? (
-        <Card className="app-data-card border-2 border-[var(--accent-blue)]/20 bg-[var(--accent-blue)]/10">
+        <Card className="app-data-card border-[var(--border-default)] bg-[var(--bg-surface-2)]">
           <CardHeader>
             <div className="flex flex-wrap items-center gap-2">
-              <CardTitle>{chatOnlyPlan.nameAr}</CardTitle>
-              <Badge variant="secondary">Narrower chat product</Badge>
+              <CardTitle>خيار المحادثات فقط</CardTitle>
+              <Badge variant="secondary">بدون وحدات تشغيل</Badge>
               <Badge className="border-0 bg-[var(--accent-blue)]/15 text-[var(--accent-blue)]">
-                Higher chat capacity than Starter
+                سعة محادثات أعلى من Starter
               </Badge>
             </div>
             <CardDescription>
               {chatOnlyPlan.mainValue}. السعر{" "}
-              {formatLimit(chatOnlyPlan.monthlyPriceEgp || 0)} EGP / month.
+              {formatLimit(chatOnlyPlan.monthlyPriceEgp || 0)} ج.م / شهر.
             </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-6 lg:grid-cols-[1.2fr,0.8fr]">
@@ -383,19 +375,19 @@ export default function MerchantPricingPage() {
             </div>
             <div className="space-y-3 rounded-xl border bg-background p-4">
               <PricingMetricRow
-                label="Messages / day"
+                label="الرسائل / يوم"
                 value={formatLimit(chatOnlyPlan.totalMessagesPerDay)}
               />
               <PricingMetricRow
-                label="Messages / month"
+                label="الرسائل / شهر"
                 value={formatLimit(chatOnlyPlan.totalMessagesPerMonth)}
               />
               <PricingMetricRow
-                label="AI replies / day"
+                label="ردود AI / يوم"
                 value={formatLimit(chatOnlyPlan.aiRepliesPerDay)}
               />
               <PricingMetricRow
-                label="AI replies / month"
+                label="ردود AI / شهر"
                 value={formatLimit(chatOnlyPlan.aiRepliesPerMonth)}
               />
               <Button
@@ -405,8 +397,7 @@ export default function MerchantPricingPage() {
               >
                 {checkoutPlan === chatOnlyPlan.id
                   ? "جاري الإنشاء..."
-                  : "Start chat-only"}
-                <ArrowRight className="mr-2 h-4 w-4" />
+                  : "ابدأ بخطة المحادثات"}
               </Button>
             </div>
           </CardContent>
@@ -414,183 +405,9 @@ export default function MerchantPricingPage() {
       ) : null}
 
       <div className="grid gap-4 xl:grid-cols-2">
-        {pricing.catalog.plans.map((plan) => {
-          const isEnterprise = plan.id === "ENTERPRISE";
-          const isChatOnly = plan.id === "CHAT_ONLY";
-          const ctaLabel = isEnterprise
-            ? "Talk to sales"
-            : isChatOnly
-              ? "Start chat-only"
-              : "Choose plan";
-
-          return (
-            <Card
-              key={plan.id}
-              className={`app-data-card border-2 ${PLAN_COLORS[plan.id] || "border-slate-200"}`}
-            >
-              <CardHeader>
-                <div className="flex flex-wrap items-center gap-2">
-                  <CardTitle>{plan.nameAr}</CardTitle>
-                  {!plan.isFullPlatformPlan ? (
-                    <Badge variant="secondary">Chat-only</Badge>
-                  ) : null}
-                  {plan.cashierPromoEligible ? (
-                    <Badge className="border-0 bg-[var(--accent-success)]/15 text-[var(--accent-success)]">
-                      Cashier promo
-                    </Badge>
-                  ) : null}
-                </div>
-                <CardDescription>{plan.bestFor}</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-5">
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-lg border bg-muted/20 p-3">
-                    <div className="text-xs text-muted-foreground">السعر</div>
-                    <div className="mt-1 text-lg font-semibold">
-                      {formatLimit(plan.monthlyPriceEgp || 0)} EGP / month
-                    </div>
-                  </div>
-                  <div className="rounded-lg border bg-muted/20 p-3">
-                    <div className="text-xs text-muted-foreground">
-                      Main value
-                    </div>
-                    <div className="mt-1 text-sm font-medium">
-                      {plan.mainValue}
-                    </div>
-                  </div>
-                  <div className="rounded-lg border bg-muted/20 p-3">
-                    <div className="text-xs text-muted-foreground">
-                      Messages
-                    </div>
-                    <div className="mt-1 text-sm font-medium">
-                      {formatLimit(plan.totalMessagesPerDay)} / day
-                      <br />
-                      {formatLimit(plan.totalMessagesPerMonth)} / month
-                    </div>
-                  </div>
-                  <div className="rounded-lg border bg-muted/20 p-3">
-                    <div className="text-xs text-muted-foreground">
-                      AI replies
-                    </div>
-                    <div className="mt-1 text-sm font-medium">
-                      {formatLimit(plan.aiRepliesPerDay)} / day
-                      <br />
-                      {formatLimit(plan.aiRepliesPerMonth)} / month
-                    </div>
-                  </div>
-                  <div className="rounded-lg border bg-muted/20 p-3">
-                    <div className="text-xs text-muted-foreground">
-                      Branches
-                    </div>
-                    <div className="mt-1 text-sm font-medium">
-                      {plan.includedBranches === -1
-                        ? "Custom"
-                        : formatLimit(plan.includedBranches)}
-                    </div>
-                  </div>
-                  <div className="rounded-lg border bg-muted/20 p-3">
-                    <div className="text-xs text-muted-foreground">
-                      POS connections
-                    </div>
-                    <div className="mt-1 text-sm font-medium">
-                      {plan.includedPosConnections === -1
-                        ? "Custom"
-                        : formatLimit(plan.includedPosConnections)}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid gap-5 lg:grid-cols-2">
-                  <div>
-                    <h3 className="mb-2 text-sm font-semibold">
-                      Included features
-                    </h3>
-                    <ul className="space-y-2 text-sm text-muted-foreground">
-                      {plan.includedFeatures.map((feature) => (
-                        <li
-                          key={feature}
-                          className="rounded-md border px-3 py-2"
-                        >
-                          {labelCapability(feature)}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                  <div>
-                    <h3 className="mb-2 text-sm font-semibold">
-                      Excluded features
-                    </h3>
-                    <ul className="space-y-2 text-sm text-muted-foreground">
-                      {plan.excludedFeatures.length > 0 ? (
-                        plan.excludedFeatures.map((feature) => (
-                          <li
-                            key={feature}
-                            className="rounded-md border border-dashed px-3 py-2"
-                          >
-                            {labelCapability(feature)}
-                          </li>
-                        ))
-                      ) : (
-                        <li className="rounded-md border px-3 py-2">
-                          لا توجد استثناءات رئيسية في هذه الخطة.
-                        </li>
-                      )}
-                    </ul>
-                  </div>
-                </div>
-
-                <div>
-                  <h3 className="mb-2 text-sm font-semibold">
-                    Included live agents
-                  </h3>
-                  <div className="flex flex-wrap gap-2">
-                    {plan.includedAgents.length > 0 ? (
-                      plan.includedAgents.map((agent) => {
-                        const Icon = AGENT_ICONS[agent] || Sparkles;
-                        return (
-                          <Badge
-                            key={agent}
-                            variant="outline"
-                            className="gap-1"
-                          >
-                            <Icon className="h-3.5 w-3.5" />
-                            {agent}
-                          </Badge>
-                        );
-                      })
-                    ) : (
-                      <Badge variant="secondary">
-                        No standalone live agent included
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-
-                {plan.notes.length > 0 ? (
-                  <div className="rounded-lg border bg-amber-50/60 p-3 text-sm text-muted-foreground">
-                    {plan.notes.join(" ")}
-                  </div>
-                ) : null}
-
-                <Button
-                  className="w-full"
-                  variant={isEnterprise ? "outline" : "default"}
-                  onClick={() => handlePlanAction(plan.id)}
-                  disabled={checkoutPlan === plan.id}
-                >
-                  {checkoutPlan === plan.id ? "جاري الإنشاء..." : ctaLabel}
-                  <ArrowRight className="mr-2 h-4 w-4" />
-                </Button>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
-
-      <div className="grid gap-4 xl:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Feature add-ons</CardTitle>
+            <CardTitle>إضافات الميزات</CardTitle>
             <CardDescription>
               إضافات شهرية لتوسيع الخطة الحالية دون تغيير الباقة.
             </CardDescription>
@@ -617,7 +434,7 @@ export default function MerchantPricingPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Live agents</CardTitle>
+            <CardTitle>الوكلاء الإضافيون</CardTitle>
             <CardDescription>
               فقط الوكلاء الحية القابلة للبيع حالياً.
             </CardDescription>
@@ -644,7 +461,7 @@ export default function MerchantPricingPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Usage packs</CardTitle>
+            <CardTitle>باقات السعة</CardTitle>
             <CardDescription>
               باقات سعة قابلة للإضافة خلال فترة الفوترة.
             </CardDescription>
@@ -671,7 +488,7 @@ export default function MerchantPricingPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Enterprise / custom</CardTitle>
+            <CardTitle>المؤسسات والتسعير المخصص</CardTitle>
             <CardDescription>
               عناصر تسعير تبدأ من حد أدنى وتذهب لمسار المبيعات.
             </CardDescription>
@@ -689,8 +506,8 @@ export default function MerchantPricingPage() {
                   </div>
                 </div>
                 <Badge variant="secondary" className="w-fit">
-                  {formatLimit(item.priceEgp)} EGP /{" "}
-                  {item.billingType === "one_time" ? "one-time" : "month"}
+                  {formatLimit(item.priceEgp)} ج.م /{" "}
+                  {item.billingType === "one_time" ? "مرة واحدة" : "شهر"}
                 </Badge>
               </div>
             ))}
@@ -699,7 +516,7 @@ export default function MerchantPricingPage() {
               className="w-full"
               onClick={() => router.push("/merchant/plan?contactSales=custom")}
             >
-              Talk to sales
+              تواصل مع المبيعات
               <ShieldCheck className="mr-2 h-4 w-4" />
             </Button>
           </CardContent>
@@ -708,7 +525,7 @@ export default function MerchantPricingPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Important notes</CardTitle>
+          <CardTitle>ملاحظات مهمة</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           {pricing.catalog.notes.map((note) => (
@@ -722,7 +539,9 @@ export default function MerchantPricingPage() {
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="rounded-lg border bg-muted/20 p-4">
               <MessageSquare className="mb-2 h-5 w-5 text-primary" />
-              <div className="text-sm font-medium">Starter vs Chat Only</div>
+              <div className="text-sm font-medium">
+                Starter مقابل المحادثات فقط
+              </div>
               <div className="mt-1 text-sm text-muted-foreground">
                 Chat Only أعلى في سعة الرسائل من Starter لكنه لا يفتح وحدات
                 التشغيل الأوسع.
@@ -730,7 +549,7 @@ export default function MerchantPricingPage() {
             </div>
             <div className="rounded-lg border bg-muted/20 p-4">
               <Bot className="mb-2 h-5 w-5 text-primary" />
-              <div className="text-sm font-medium">Live agents only</div>
+              <div className="text-sm font-medium">الوكلاء الإضافيون فقط</div>
               <div className="mt-1 text-sm text-muted-foreground">
                 لا نظهر Marketing / Support / Content / Sales / Creative كوكلاء
                 مدفوعين مباشرين.
@@ -738,10 +557,10 @@ export default function MerchantPricingPage() {
             </div>
             <div className="rounded-lg border bg-muted/20 p-4">
               <Sparkles className="mb-2 h-5 w-5 text-primary" />
-              <div className="text-sm font-medium">Usage visibility</div>
+              <div className="text-sm font-medium">وضوح حدود الاستخدام</div>
               <div className="mt-1 text-sm text-muted-foreground">
                 حدود الرسائل والردود الذكية تظهر في واجهات الخطة والفوترة وتتحول
-                إلى ترقية أو شراء usage pack عند الاقتراب من الحد.
+                إلى ترقية أو شراء باقة سعة عند الاقتراب من الحد.
               </div>
             </div>
           </div>

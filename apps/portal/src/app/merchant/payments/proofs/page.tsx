@@ -11,13 +11,6 @@ import { DataTable, Pagination } from "@/components/ui/data-table";
 import { TableSkeleton } from "@/components/ui/skeleton";
 import { EmptyState, AlertBanner } from "@/components/ui/alerts";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -40,10 +33,6 @@ import { formatDate, formatCurrency } from "@/lib/utils";
 import { merchantApi } from "@/lib/client";
 import { useMerchant } from "@/hooks/use-merchant";
 import { useToast } from "@/hooks/use-toast";
-import {
-  AiInsightsCard,
-  generatePaymentsInsights,
-} from "@/components/ai/ai-insights-card";
 
 interface PaymentProof {
   id: string;
@@ -294,94 +283,28 @@ export default function PaymentProofsPage() {
           </div>
         }
       />
-
-      {/* AI Payment Proofs Insights */}
-      <AiInsightsCard
-        title="مساعد إثباتات الدفع"
-        insights={generatePaymentsInsights({
-          totalLinks: 0,
-          pendingProofs: pendingCount,
-          totalProofs: summaryTotal,
-        })}
-        loading={loading}
-      />
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Card className="app-data-card">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="rounded-[var(--radius-md)] border border-[color:rgba(245,158,11,0.22)] bg-[color:rgba(245,158,11,0.12)] p-2">
-                <Clock className="h-5 w-5 text-[color:var(--accent-warning)]" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{pendingCount}</p>
-                <p className="text-sm text-muted-foreground">في الانتظار</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="app-data-card">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="rounded-[var(--radius-md)] border border-[color:rgba(34,197,94,0.22)] bg-[color:rgba(34,197,94,0.12)] p-2">
-                <CheckCircle className="h-5 w-5 text-[color:var(--accent-success)]" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{approvedCount}</p>
-                <p className="text-sm text-muted-foreground">معتمد</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="app-data-card">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="rounded-[var(--radius-md)] border border-[color:rgba(239,68,68,0.22)] bg-[color:rgba(239,68,68,0.12)] p-2">
-                <XCircle className="h-5 w-5 text-[color:var(--accent-danger)]" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{rejectedCount}</p>
-                <p className="text-sm text-muted-foreground">مرفوض</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="app-data-card">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="rounded-[var(--radius-md)] border border-[color:rgba(59,130,246,0.22)] bg-[color:rgba(59,130,246,0.12)] p-2">
-                <Receipt className="h-5 w-5 text-[color:var(--accent-blue)]" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{summaryTotal}</p>
-                <p className="text-sm text-muted-foreground">إجمالي</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="flex flex-wrap gap-2">
+        {[
+          { id: "ALL", label: "الكل", count: summaryTotal },
+          { id: "PENDING", label: "في الانتظار", count: pendingCount },
+          { id: "APPROVED", label: "معتمد", count: approvedCount },
+          { id: "REJECTED", label: "مرفوض", count: rejectedCount },
+        ].map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            onClick={() => setStatusFilter(item.id)}
+            className={
+              statusFilter === item.id
+                ? "inline-flex h-9 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--accent-gold)] bg-[var(--accent-gold)] px-3 text-xs font-semibold text-[#0A0A0B]"
+                : "inline-flex h-9 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-1)] px-3 text-xs font-semibold text-[var(--text-secondary)] hover:border-[var(--border-active)] hover:text-[var(--text-primary)]"
+            }
+          >
+            <span>{item.label}</span>
+            <span className="font-mono">{item.count}</span>
+          </button>
+        ))}
       </div>
-
-      {/* Filters */}
-      <Card className="app-data-card">
-        <CardContent className="p-4">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-            <div className="w-full sm:w-48">
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="كل الحالات" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ALL">كل الحالات</SelectItem>
-                  <SelectItem value="PENDING">في الانتظار</SelectItem>
-                  <SelectItem value="APPROVED">معتمد</SelectItem>
-                  <SelectItem value="REJECTED">مرفوض</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Proofs List */}
       {loading ? (

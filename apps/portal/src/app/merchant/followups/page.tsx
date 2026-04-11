@@ -13,13 +13,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Phone,
   MessageSquare,
   Banknote,
@@ -34,10 +27,6 @@ import {
 } from "lucide-react";
 import { cn, formatCurrency, formatRelativeTime } from "@/lib/utils";
 import { portalApi } from "@/lib/client";
-import {
-  AiInsightsCard,
-  generateFollowupInsights,
-} from "@/components/ai/ai-insights-card";
 import { EmptyState, LoadingState } from "@/components/ui/alerts";
 
 interface Followup {
@@ -225,7 +214,7 @@ export default function FollowupsPage() {
     <div className="space-y-8 animate-fadeIn p-4 sm:p-6">
       <PageHeader
         title="المتابعات"
-        description="مركز متابعة ذكي للطلبات التي تحتاج تحصيلاً أو تدخلاً أو تواصلاً سريعاً."
+        description="قائمة تنفيذية للطلبات والحالات التي تحتاج تواصلاً سريعاً."
         actions={
           <Button
             variant="outline"
@@ -237,130 +226,46 @@ export default function FollowupsPage() {
           </Button>
         }
       />
-
-      <section className="app-hero-band">
-        <div className="app-hero-band__grid">
-          <div className="space-y-4">
-            <span className="app-hero-band__eyebrow">Followup Queue</span>
-            <div className="space-y-3">
-              <h2 className="app-hero-band__title">
-                اعرف فوراً ما يحتاج تواصلاً بشرياً أو إجراءً مالياً قبل أن
-                يتأخر.
-              </h2>
-              <p className="app-hero-band__copy">
-                هذه الشاشة تجمع تحصيلات COD، طلبات التقييم، التوصيلات المتأخرة،
-                والسلات المتروكة في قائمة واحدة قابلة للتنفيذ، مع انتقال مباشر
-                إلى واتساب وإغلاق المتابعة من نفس المكان.
-              </p>
-            </div>
-          </div>
-          <div className="app-hero-band__metrics">
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">
-                إجمالي المتابعات
-              </span>
-              <strong className="app-hero-band__metric-value">
-                {counts.all}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">تحصيلات COD</span>
-              <strong className="app-hero-band__metric-value">
-                {counts.cod_collection}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">
-                توصيلات تحتاج مراجعة
-              </span>
-              <strong className="app-hero-band__metric-value">
-                {counts.delivery_check}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">سلات متروكة</span>
-              <strong className="app-hero-band__metric-value">
-                {counts.abandoned_cart}
-              </strong>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* AI Followup Insights */}
-      <AiInsightsCard
-        title="مساعد المتابعات"
-        insights={generateFollowupInsights({
-          totalFollowups: followups.length,
-          codFollowups: counts.cod_collection,
-          overdueCount: followups.filter(
-            (f) => f.followup_type === "delivery_check",
-          ).length,
-        })}
-        loading={loading}
-      />
-
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        {Object.entries(FOLLOWUP_CONFIG).map(([key, config]) => {
-          const count = followups.filter((f) => f.followup_type === key).length;
-          const Icon = config.icon;
-          return (
-            <Card
-              key={key}
-              className={cn(
-                "app-data-card cursor-pointer transition-all duration-150 ease-in-out hover:-translate-y-0.5",
-                activeTab === key &&
-                  "ring-2 ring-[color:color-mix(in_srgb,var(--accent)_28%,transparent)]",
-              )}
-              onClick={() => handleTabChange(activeTab === key ? "all" : key)}
-            >
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className={cn("p-2 rounded-lg", config.color)}>
-                    <Icon className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium">{config.label}</p>
-                    <p className="text-2xl font-bold">{count}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
+      <div className="flex flex-wrap gap-2">
+        {[
+          { id: "all", label: "الكل", count: counts.all },
+          {
+            id: "cod_collection",
+            label: "تحصيل COD",
+            count: counts.cod_collection,
+          },
+          {
+            id: "feedback_request",
+            label: "طلبات التقييم",
+            count: counts.feedback_request,
+          },
+          {
+            id: "delivery_check",
+            label: "مراجعة التسليم",
+            count: counts.delivery_check,
+          },
+          {
+            id: "abandoned_cart",
+            label: "السلات المتروكة",
+            count: counts.abandoned_cart,
+          },
+        ].map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            onClick={() => handleTabChange(item.id)}
+            className={cn(
+              "inline-flex h-9 items-center gap-2 rounded-[var(--radius-sm)] border px-3 text-xs font-semibold transition-colors",
+              activeTab === item.id
+                ? "border-[var(--accent-gold)] bg-[var(--accent-gold)] text-[#0A0A0B]"
+                : "border-[var(--border-default)] bg-[var(--bg-surface-1)] text-[var(--text-secondary)] hover:border-[var(--border-active)] hover:text-[var(--text-primary)]",
+            )}
+          >
+            <span>{item.label}</span>
+            <span className="font-mono">{item.count}</span>
+          </button>
+        ))}
       </div>
-
-      <Card className="app-data-card app-data-card--muted border-dashed">
-        <CardContent className="p-4 text-xs text-muted-foreground grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
-          <div>
-            <span className="font-medium text-foreground">
-              تحصيل الدفع عند الاستلام:
-            </span>{" "}
-            طلب تم تسليمه + طريقة الدفع COD + حالة الدفع غير مدفوعة.
-          </div>
-          <div>
-            <span className="font-medium text-foreground">طلب تقييم:</span> طلب
-            تم تسليمه وآخر تحديث أقدم من 3 أيام.
-          </div>
-          <div>
-            <span className="font-medium text-foreground">
-              التحقق من التسليم:
-            </span>{" "}
-            طلب مشحون وآخر تحديث أقدم من 5 أيام.
-          </div>
-          <div>
-            <span className="font-medium text-foreground">
-              السلات المتروكة:
-            </span>{" "}
-            محادثات توقفت بدون إكمال الطلب ويتم جدولة متابعة تلقائية.
-          </div>
-          <div>
-            <span className="font-medium text-foreground">متابعة عامة:</span> أي
-            حالة متابعة أخرى مطابقة للشروط العامة.
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Followups Table */}
       <Card className="app-data-card">

@@ -53,10 +53,6 @@ import { useMerchant } from "@/hooks/use-merchant";
 import portalApi from "@/lib/client";
 import { branchesApi } from "@/lib/client";
 import { REPORTING_PERIOD_OPTIONS } from "@/lib/reporting-period";
-import {
-  AiInsightsCard,
-  generateCodInsights,
-} from "@/components/ai/ai-insights-card";
 
 interface CODOrder {
   id: string;
@@ -770,118 +766,21 @@ export default function CODReconciliationPage() {
           </div>
         }
       />
-
-      <section className="app-hero-band">
-        <div className="app-hero-band__grid">
-          <div>
-            <p className="app-hero-band__eyebrow">تحصيل وتسوية</p>
-            <h2 className="app-hero-band__title">
-              تحكم أدق في دورة الدفع عند الاستلام من الشحن حتى التسوية المالية
-            </h2>
-            <p className="app-hero-band__copy">
-              اجمع حالات الشركات، مبالغ التحصيل، النزاعات، والتذكيرات في واجهة
-              واحدة مناسبة للمتابعة اليومية مع فرق التشغيل والمالية.
-            </p>
-          </div>
-          <div className="app-hero-band__metrics">
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">قيد الانتظار</span>
-              <strong className="app-hero-band__metric-value">
-                {summary ? formatCurrency(summary.totalPendingAmount) : "-"}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">تم التحصيل</span>
-              <strong className="app-hero-band__metric-value">
-                {summary ? formatCurrency(summary.totalCollectedAmount) : "-"}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">متنازع عليه</span>
-              <strong className="app-hero-band__metric-value">
-                {summary ? formatCurrency(summary.totalDisputedAmount) : "-"}
-              </strong>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* AI COD Insights */}
-      <AiInsightsCard
-        title="تحليلات الدفع عند الاستلام"
-        insights={generateCodInsights({
-          pendingAmount: summary?.totalPendingAmount ?? 0,
-          collectedAmount: summary?.totalCollectedAmount ?? 0,
-          disputedAmount: summary?.totalDisputedAmount ?? 0,
-          totalOrders: orders.length,
-        })}
-        loading={loading}
-      />
-
-      {/* Summary Cards */}
       {summary && (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <Card className="app-data-card">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                قيد الانتظار
-              </CardTitle>
-              <Clock className="h-4 w-4 text-[color:var(--accent-warning)]" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-[color:var(--accent-warning)]">
-                {formatCurrency(summary.totalPendingAmount)}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {summary.totalPending} طلب
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="app-data-card">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">تم التحصيل</CardTitle>
-              <Banknote className="h-4 w-4 text-[color:var(--accent-blue)]" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-[color:var(--accent-blue)]">
-                {formatCurrency(summary.totalCollectedAmount)}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {summary.totalCollected} طلب
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="app-data-card">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">تمت التسوية</CardTitle>
-              <CheckCircle2 className="h-4 w-4 text-[color:var(--accent-success)]" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-[color:var(--accent-success)]">
-                {formatCurrency(summary.totalReconciledAmount)}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {summary.totalReconciled} طلب
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="app-data-card">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">متنازع عليه</CardTitle>
-              <AlertTriangle className="h-4 w-4 text-[color:var(--accent-danger)]" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-[color:var(--accent-danger)]">
-                {formatCurrency(summary.totalDisputedAmount)}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {summary.totalDisputed} طلب
-              </p>
-            </CardContent>
-          </Card>
+        <div className="flex flex-wrap gap-2">
+          {[
+            `قيد الانتظار: ${formatCurrency(summary.totalPendingAmount)} (${summary.totalPending})`,
+            `تم التحصيل: ${formatCurrency(summary.totalCollectedAmount)} (${summary.totalCollected})`,
+            `تمت التسوية: ${formatCurrency(summary.totalReconciledAmount)} (${summary.totalReconciled})`,
+            `متنازع عليه: ${formatCurrency(summary.totalDisputedAmount)} (${summary.totalDisputed})`,
+          ].map((chip) => (
+            <div
+              key={chip}
+              className="inline-flex h-8 items-center rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs text-[var(--text-secondary)]"
+            >
+              {chip}
+            </div>
+          ))}
         </div>
       )}
 

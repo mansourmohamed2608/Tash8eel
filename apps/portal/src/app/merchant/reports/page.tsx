@@ -34,10 +34,6 @@ import { useMerchant } from "@/hooks/use-merchant";
 import { useRoleAccess } from "@/hooks/use-role-access";
 import { useToast } from "@/hooks/use-toast";
 import {
-  AiInsightsCard,
-  generateReportsInsights,
-} from "@/components/ai/ai-insights-card";
-import {
   getReportingDateRange,
   REPORTING_PERIOD_OPTIONS,
   getStoredReportingDays,
@@ -401,7 +397,7 @@ export default function ReportsPage() {
     <div className="space-y-8 animate-fadeIn p-4 sm:p-6">
       <PageHeader
         title="التقارير"
-        description="تحليل أداء متجرك ومؤشرات النجاح"
+        description="قراءة تنفيذية للأداء والمبيعات والتحويل خلال الفترة المحددة."
         actions={
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap">
             <Button
@@ -458,55 +454,21 @@ export default function ReportsPage() {
           </div>
         }
       />
-
-      <section className="app-hero-band">
-        <div className="app-hero-band__grid">
-          <div>
-            <p className="app-hero-band__eyebrow">تقارير ورؤية تنفيذية</p>
-            <h2 className="app-hero-band__title">
-              حول البيانات اليومية إلى صورة أداء تنفيذية واضحة
-            </h2>
-            <p className="app-hero-band__copy">
-              اجمع الإيرادات، التحويل، جودة الطلبات، وأداء المنتجات في مسار
-              قراءة سريع يناسب القرار اليومي والإرسال الفوري.
-            </p>
+      <div className="flex flex-wrap gap-2">
+        {[
+          `الفترة: ${selectedPeriodSummary}`,
+          `الإيراد المحقق: ${formatCurrency(realizedRevenue)}`,
+          `الطلبات: ${formatNumber(stats.totalOrders)}`,
+          `الإكمال: ${completionRate}%`,
+        ].map((chip) => (
+          <div
+            key={chip}
+            className="inline-flex h-8 items-center rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs text-[var(--text-secondary)]"
+          >
+            {chip}
           </div>
-          <div className="app-hero-band__metrics">
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">
-                الإيرادات المحققة
-              </span>
-              <strong className="app-hero-band__metric-value">
-                {formatCurrency(realizedRevenue)}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">الطلبات</span>
-              <strong className="app-hero-band__metric-value">
-                {formatNumber(stats.totalOrders)}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">الإكمال</span>
-              <strong className="app-hero-band__metric-value">
-                {completionRate}%
-              </strong>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* AI Reports Insights */}
-      <AiInsightsCard
-        title="تحليلات التقارير"
-        insights={generateReportsInsights({
-          totalRevenue: realizedRevenue,
-          totalOrders: stats.totalOrders,
-          avgOrderValue:
-            completedOrders > 0 ? realizedRevenue / completedOrders : 0,
-        })}
-        loading={loading}
-      />
+        ))}
+      </div>
 
       {/* KPI Overview */}
       <KPIGrid>

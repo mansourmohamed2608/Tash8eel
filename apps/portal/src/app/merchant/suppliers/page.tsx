@@ -60,6 +60,7 @@ import portalApi from "@/lib/client";
 const authenticatedApi = portalApi;
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -406,6 +407,13 @@ export default function SuppliersPage() {
     return () => window.clearTimeout(timeoutId);
   }, [highlightedSupplierId]);
 
+  const supplierStatChips = [
+    `إجمالي الموردين: ${suppliers.length}`,
+    `موردون نشطون: ${suppliers.filter((supplier) => supplier.is_active).length}`,
+    `تنبيه تلقائي: ${suppliers.filter((supplier) => supplier.auto_notify_low_stock).length}`,
+    `اقتراحات حالية: ${autoSuggestions.length}`,
+  ];
+
   // ── Supplier discovery ─────────────────────────────────────────────────
   const openSupplierLookup = (
     mode: SupplierLookupMode,
@@ -557,90 +565,58 @@ export default function SuppliersPage() {
   return (
     <div dir="rtl" className="space-y-8 p-4 sm:p-6">
       <PageHeader
-        title="إدارة الموردين"
-        description="أضف موردّيك وفعّل التنبيهات التلقائية عند انخفاض المخزون"
+        title="الموردون"
+        description="إدارة الموردين والتواصل معهم وتنبيهات إعادة الطلب من شاشة واحدة."
+        actions={
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              onClick={() => openSupplierLookup("internal")}
+            >
+              <Search className="ml-1 h-4 w-4" />
+              ابحث في الموردين
+            </Button>
+            <Button
+              variant="outline"
+              onClick={loadSuppliers}
+              disabled={loading}
+            >
+              <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
+            </Button>
+            <Button onClick={openCreate}>
+              <Plus className="ml-1 h-4 w-4" />
+              إضافة مورد
+            </Button>
+          </div>
+        }
       />
 
-      <section className="app-hero-band">
-        <div className="app-hero-band__grid">
-          <div>
-            <p className="app-hero-band__eyebrow">توريد واكتشاف</p>
-            <h2 className="app-hero-band__title">
-              شبكة الموردين، الاقتراحات الذكية، وتنبيهات النقص من شاشة واحدة
-            </h2>
-            <p className="app-hero-band__copy">
-              اربط كل مورّد بمنتجاته، افتح قنوات التواصل فورًا، واستفد من
-              الترشيحات الخلفية عندما يكتشف النظام مصادر أفضل أو أسرع.
-            </p>
+      <div className="flex flex-wrap gap-2">
+        {supplierStatChips.map((chip) => (
+          <div
+            key={chip}
+            className="inline-flex h-8 items-center rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs text-[var(--text-secondary)]"
+          >
+            {chip}
           </div>
-          <div className="app-hero-band__metrics">
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">
-                الموردون النشطون
-              </span>
-              <strong className="app-hero-band__metric-value">
-                {suppliers.filter((supplier) => supplier.is_active).length}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">
-                تنبيهات تلقائية
-              </span>
-              <strong className="app-hero-band__metric-value">
-                {
-                  suppliers.filter((supplier) => supplier.auto_notify_low_stock)
-                    .length
-                }
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">
-                اقتراحات حالية
-              </span>
-              <strong className="app-hero-band__metric-value">
-                {autoSuggestions.length}
-              </strong>
-            </div>
-          </div>
-        </div>
-      </section>
+        ))}
+      </div>
 
       {/* Toolbar */}
-      <div className="app-data-card app-data-card--muted flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
         <Input
           placeholder="بحث باسم المورّد..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="w-full sm:max-w-xs"
         />
-        <Button onClick={openCreate} className="w-full sm:mr-auto sm:w-auto">
-          <Plus className="w-4 h-4 ml-1" />
-          إضافة مورّد
-        </Button>
-        <Button
-          variant="outline"
-          onClick={() => openSupplierLookup("internal")}
-          className="w-full sm:w-auto"
-        >
-          <Search className="w-4 h-4 ml-1" />
-          ابحث في مورديك
-        </Button>
         <Button
           variant="outline"
           onClick={() => openSupplierLookup("external")}
-          className="w-full sm:w-auto"
+          className="w-full sm:mr-auto sm:w-auto"
         >
           <Sparkles className="ml-1 h-4 w-4 text-[var(--accent-gold)]" />
           اكتشف موردين جدد
-        </Button>
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={loadSuppliers}
-          disabled={loading}
-          className="w-full sm:w-10"
-        >
-          <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
         </Button>
       </div>
 
@@ -754,7 +730,7 @@ export default function SuppliersPage() {
               </div>
 
               {/* Auto-notify toggle */}
-              <div className="flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2">
+              <div className="flex items-center justify-between rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 py-2">
                 <div className="flex items-center gap-2">
                   {s.auto_notify_low_stock ? (
                     <Bell className="w-4 h-4 text-[var(--accent-warning)]" />
@@ -817,7 +793,7 @@ export default function SuppliersPage() {
               <Button
                 variant="outline"
                 size="sm"
-                className="w-full"
+                className="w-full border-[var(--accent-success)]/25 bg-[var(--accent-success)]/12 text-[var(--accent-success)] hover:border-[var(--accent-success)] hover:bg-[var(--accent-success)]/18 hover:text-[var(--accent-success)]"
                 onClick={() => {
                   setMsgTarget(s);
                   setMsgText("");
@@ -912,6 +888,15 @@ export default function SuppliersPage() {
                     )}
                   </div>
                 )}
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[var(--border-subtle)] pt-3 text-[11px] text-[var(--text-muted)]">
+                <span>مهلة التوريد: {s.lead_time_days || 0} يوم</span>
+                <span>
+                  {s.last_auto_notified_at
+                    ? `آخر إشعار: ${new Date(s.last_auto_notified_at).toLocaleDateString("en-GB")}`
+                    : "لم يُرسل إشعار بعد"}
+                </span>
               </div>
             </CardContent>
           </Card>
