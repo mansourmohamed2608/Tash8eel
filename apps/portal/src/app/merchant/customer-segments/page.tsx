@@ -61,10 +61,6 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { authenticatedFetch } from "@/lib/client";
-import {
-  AiInsightsCard,
-  generateSegmentInsights,
-} from "@/components/ai/ai-insights-card";
 
 // ─── Types ────────────────────────────────────────────────────────
 interface SegmentRule {
@@ -439,18 +435,24 @@ export default function CustomerSegmentsPage() {
         }
       />
 
-      {/* AI Segment Insights */}
-      <AiInsightsCard
-        title="مساعد الشرائح"
-        insights={generateSegmentInsights({
-          totalSegments: segments.length,
-          totalCustomersInSegments: segments.reduce(
-            (sum, s) => sum + (s.customer_count || 0),
-            0,
-          ),
-        })}
-        loading={loading}
-      />
+      <div className="flex flex-wrap gap-2">
+        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
+          <Users className="h-3.5 w-3.5 text-[var(--accent-gold)]" />
+          <span className="text-muted-foreground">عدد الشرائح</span>
+          <span className="font-mono text-[var(--accent-gold)]">
+            {segments.length}
+          </span>
+        </div>
+        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
+          <Target className="h-3.5 w-3.5 text-[var(--accent-blue)]" />
+          <span className="text-muted-foreground">
+            إجمالي العملاء داخل الشرائح
+          </span>
+          <span className="font-mono text-[var(--accent-blue)]">
+            {segments.reduce((sum, s) => sum + (s.customer_count || 0), 0)}
+          </span>
+        </div>
+      </div>
 
       {/* ─── Presets (empty state) ───────────────────────────── */}
       {segments.length === 0 && !loading && (

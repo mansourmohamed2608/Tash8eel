@@ -1294,7 +1294,7 @@ export const PUBLIC_PRICING_PLANS: PublicPricingPlan[] = [
     monthlyPriceEgp: 999,
     isFullPlatformPlan: true,
     bestFor: "للتجار في بداية التشغيل بمنصة كاملة خفيفة",
-    mainValue: "تشغيل كامل أساسي: محادثات + طلبات + كتالوج + مدفوعات أساسية",
+    mainValue: "تشغيل كامل أساسي: رسائل + طلبات + كتالوج + مدفوعات أساسية",
     includedFeatures: [
       "OMNICHANNEL_INBOX",
       "WHATSAPP_META",
@@ -1475,7 +1475,7 @@ export const PUBLIC_PRICING_PLANS: PublicPricingPlan[] = [
     nameEn: "Chat Only",
     monthlyPriceEgp: 1000,
     isFullPlatformPlan: false,
-    bestFor: "للتجار الذين يريدون قناة محادثات ذكية فقط",
+    bestFor: "للتجار الذين يريدون قناة رسائل ذكية فقط",
     mainValue: "أضيق من Starter وظيفيًا، لكن بسعة رسائل أعلى للدردشة",
     includedFeatures: [
       "WHATSAPP_META",

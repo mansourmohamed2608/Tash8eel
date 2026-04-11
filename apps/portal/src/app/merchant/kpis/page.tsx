@@ -44,10 +44,6 @@ import portalApi from "@/lib/client";
 import { useMerchant } from "@/hooks/use-merchant";
 import { useToast } from "@/hooks/use-toast";
 import {
-  AiInsightsCard,
-  generateKpiInsights,
-} from "@/components/ai/ai-insights-card";
-import {
   getReportingDateRange,
   REPORTING_PERIOD_OPTIONS,
   getStoredReportingDays,
@@ -418,13 +414,29 @@ export default function KpisPage() {
         }
       />
 
-      <AiInsightsCard
-        insights={generateKpiInsights({
-          conversionRate: recoveredCarts?.recoveryRate ?? 0,
-          avgOrderValue: revenue?.averageOrderValue ?? 0,
-          customerSatisfaction: agentPerformance?.successRate ?? 0,
-        })}
-      />
+      <div className="flex flex-wrap gap-2">
+        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
+          <Target className="h-3.5 w-3.5 text-[var(--accent-gold)]" />
+          <span className="text-muted-foreground">استرداد السلات</span>
+          <span className="font-mono text-[var(--accent-gold)]">
+            {recoveredCarts?.recoveryRate ?? 0}%
+          </span>
+        </div>
+        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
+          <DollarSign className="h-3.5 w-3.5 text-[var(--accent-blue)]" />
+          <span className="text-muted-foreground">متوسط قيمة الطلب</span>
+          <span className="font-mono text-[var(--accent-blue)]">
+            {formatCurrency(revenue?.averageOrderValue ?? 0)}
+          </span>
+        </div>
+        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
+          <Bot className="h-3.5 w-3.5 text-[var(--accent-success)]" />
+          <span className="text-muted-foreground">نجاح الوكلاء</span>
+          <span className="font-mono text-[var(--accent-success)]">
+            {agentPerformance?.successRate ?? 0}%
+          </span>
+        </div>
+      </div>
 
       {loading ? (
         <LoadingSkeleton />

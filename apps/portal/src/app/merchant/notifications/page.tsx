@@ -42,10 +42,6 @@ import { formatDistanceToNow } from "date-fns";
 import { ar } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import {
-  AiInsightsCard,
-  generateNotificationsInsights,
-} from "@/components/ai/ai-insights-card";
 import { useMerchant } from "@/hooks/use-merchant";
 import { BroadcastNotificationsPanel } from "@/components/merchant/notifications/broadcast-notifications-panel";
 
@@ -466,18 +462,34 @@ export default function NotificationsPage() {
           </Badge>
         )}
       </div>
-
-      {/* AI Notifications Insights */}
-      <AiInsightsCard
-        title="مساعد الإشعارات"
-        insights={generateNotificationsInsights({
-          unreadCount,
-          totalNotifications: total,
-          whatsappEnabled: preferences?.whatsappEnabled,
-          emailEnabled: preferences?.emailEnabled,
-        })}
-        loading={loading}
-      />
+      <div className="flex flex-wrap gap-2">
+        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
+          <Bell className="h-3.5 w-3.5 text-muted-foreground" />
+          <span className="text-muted-foreground">إجمالي الإشعارات</span>
+          <span className="font-mono text-foreground">{total}</span>
+        </div>
+        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
+          <AlertCircle className="h-3.5 w-3.5 text-[var(--accent-warning)]" />
+          <span className="text-muted-foreground">غير مقروء</span>
+          <span className="font-mono text-[var(--accent-warning)]">
+            {unreadCount}
+          </span>
+        </div>
+        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
+          <MessageSquare className="h-3.5 w-3.5 text-[var(--accent-success)]" />
+          <span className="text-muted-foreground">واتساب</span>
+          <span className="font-mono text-[var(--accent-success)]">
+            {preferences?.whatsappEnabled ? "مفعل" : "معطل"}
+          </span>
+        </div>
+        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
+          <Mail className="h-3.5 w-3.5 text-[var(--accent-blue)]" />
+          <span className="text-muted-foreground">البريد</span>
+          <span className="font-mono text-[var(--accent-blue)]">
+            {preferences?.emailEnabled ? "مفعل" : "معطل"}
+          </span>
+        </div>
+      </div>
 
       {error && (
         <Card className="border-[var(--accent-danger)]/20 bg-[var(--accent-danger)]/10">

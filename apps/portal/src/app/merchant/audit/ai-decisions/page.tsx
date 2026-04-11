@@ -121,55 +121,30 @@ export default function AiAuditPage() {
         }
       />
 
-      <section className="app-hero-band">
-        <div className="app-hero-band__grid">
-          <div className="space-y-4">
-            <span className="app-hero-band__eyebrow">AI Decision Audit</span>
-            <div className="space-y-3">
-              <h2 className="app-hero-band__title">
-                طبقة المراجعة التي تشرح لك كيف فكّر النظام، لا ماذا فعل فقط.
-              </h2>
-              <p className="app-hero-band__copy">
-                كل صف هنا يمثل قراراً محدداً مع نوع القرار، الوكيل المسؤول،
-                الثقة، والسياق المرتبط به. هذا السجل مهم للتدقيق الداخلي، وضبط
-                السياسات، ومراجعة جودة قرارات الذكاء عبر الوقت.
-              </p>
-            </div>
-          </div>
-          <div className="app-hero-band__metrics">
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">
-                القرارات المعروضة
-              </span>
-              <strong className="app-hero-band__metric-value">
-                {decisions.length}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">
-                أنواع القرارات
-              </span>
-              <strong className="app-hero-band__metric-value">
-                {decisionTypes}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">متوسط الثقة</span>
-              <strong className="app-hero-band__metric-value">
-                {avgConfidence}%
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">
-                الوكلاء المشاركون
-              </span>
-              <strong className="app-hero-band__metric-value">
-                {agentsInLog}
-              </strong>
-            </div>
-          </div>
+      <div className="flex flex-wrap gap-2">
+        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
+          <span className="text-muted-foreground">القرارات المعروضة</span>
+          <span className="font-mono text-[var(--accent-gold)]">
+            {decisions.length}
+          </span>
         </div>
-      </section>
+        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
+          <span className="text-muted-foreground">أنواع القرارات</span>
+          <span className="font-mono text-[var(--accent-blue)]">
+            {decisionTypes}
+          </span>
+        </div>
+        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
+          <span className="text-muted-foreground">متوسط الثقة</span>
+          <span className="font-mono text-[var(--accent-success)]">
+            {avgConfidence}%
+          </span>
+        </div>
+        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
+          <span className="text-muted-foreground">الوكلاء المشاركون</span>
+          <span className="font-mono text-foreground">{agentsInLog}</span>
+        </div>
+      </div>
 
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <Card className="app-data-card">

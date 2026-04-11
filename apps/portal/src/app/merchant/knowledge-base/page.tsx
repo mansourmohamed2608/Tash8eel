@@ -62,10 +62,6 @@ import { merchantApi } from "@/lib/client";
 import { useMerchant } from "@/hooks/use-merchant";
 import { useRoleAccess } from "@/hooks/use-role-access";
 import { useToast } from "@/hooks/use-toast";
-import {
-  AiInsightsCard,
-  generateKnowledgeBaseInsights,
-} from "@/components/ai/ai-insights-card";
 import { RecipeManager } from "@/components/inventory/recipe-manager";
 
 // ==================== INTERFACES ====================
@@ -940,14 +936,29 @@ export default function KnowledgeBasePage() {
         }
       />
 
-      <AiInsightsCard
-        insights={generateKnowledgeBaseInsights({
-          totalEntries: menuItems.length ?? 0,
-          hasFaqs: faqs.length > 0,
-          hasOffers: offers.length > 0,
-          hasDeliveryPricing: hasValidDeliveryPricing ?? false,
-        })}
-      />
+      <div className="flex flex-wrap gap-2">
+        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
+          <Package className="h-3.5 w-3.5 text-[var(--accent-gold)]" />
+          <span className="text-muted-foreground">العناصر</span>
+          <span className="font-mono text-[var(--accent-gold)]">
+            {menuItems.length ?? 0}
+          </span>
+        </div>
+        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
+          <HelpCircle className="h-3.5 w-3.5 text-[var(--accent-blue)]" />
+          <span className="text-muted-foreground">الأسئلة الشائعة</span>
+          <span className="font-mono text-[var(--accent-blue)]">
+            {faqs.length}
+          </span>
+        </div>
+        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
+          <Sparkles className="h-3.5 w-3.5 text-[var(--accent-success)]" />
+          <span className="text-muted-foreground">العروض</span>
+          <span className="font-mono text-[var(--accent-success)]">
+            {offers.length}
+          </span>
+        </div>
+      </div>
 
       {/* AI Info Banner */}
       <Card className="border-primary/20 bg-primary/5">

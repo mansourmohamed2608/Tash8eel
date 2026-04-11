@@ -285,42 +285,28 @@ export default function FeatureRequestsPage() {
         actions={headerActions}
       />
 
-      <section className="app-hero-band">
-        <div className="app-hero-band__grid">
-          <div>
-            <p className="app-hero-band__eyebrow">صوت العميل</p>
-            <h2 className="app-hero-band__title">
-              حوّل الطلبات والاحتياجات الخاصة إلى مسار واضح للمتابعة والتنفيذ
-            </h2>
-            <p className="app-hero-band__copy">
-              هذه المساحة تجمع الاقتراحات اليومية وعروض السعر المخصصة في واجهة
-              واحدة حتى يعرف التاجر ما تم استلامه وما الذي ينتظر قرارًا.
-            </p>
-          </div>
-          <div className="app-hero-band__metrics">
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">الاقتراحات</span>
-              <strong className="app-hero-band__metric-value">
-                {requests.length}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">عروض السعر</span>
-              <strong className="app-hero-band__metric-value">
-                {quotes.length}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">
-                التبويب الحالي
-              </span>
-              <strong className="app-hero-band__metric-value">
-                {activeTab === "quotes" ? "العروض" : "الاقتراحات"}
-              </strong>
-            </div>
-          </div>
+      <div className="flex flex-wrap gap-2">
+        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
+          <Lightbulb className="h-3.5 w-3.5 text-[var(--accent-gold)]" />
+          <span className="text-muted-foreground">الاقتراحات</span>
+          <span className="font-mono text-[var(--accent-gold)]">
+            {requests.length}
+          </span>
         </div>
-      </section>
+        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
+          <MessageSquare className="h-3.5 w-3.5 text-[var(--accent-blue)]" />
+          <span className="text-muted-foreground">عروض السعر</span>
+          <span className="font-mono text-[var(--accent-blue)]">
+            {quotes.length}
+          </span>
+        </div>
+        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
+          <span className="text-muted-foreground">التبويب الحالي</span>
+          <span className="font-mono text-foreground">
+            {activeTab === "quotes" ? "العروض" : "الاقتراحات"}
+          </span>
+        </div>
+      </div>
 
       {error && (
         <AlertBanner

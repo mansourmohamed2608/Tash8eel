@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { portalApi } from "@/lib/client";
 import Link from "next/link";
+import { cn } from "@/lib/utils";
 
 /* ─── Types ──────────────────────────────────────────────── */
 interface AgentAction {
@@ -285,155 +286,73 @@ export default function AgentActivityPage() {
         description="عرض تشغيلي مباشر لكل ما التقطه النظام أو نفذه الوكلاء من تنبيهات وإجراءات."
       />
 
-      <section className="app-hero-band">
-        <div className="app-hero-band__grid">
-          <div className="space-y-4">
-            <span className="app-hero-band__eyebrow">
-              Agent Operations Feed
-            </span>
-            <div className="space-y-3">
-              <h2 className="app-hero-band__title">
-                راقب ما اكتشفه الوكلاء، ما تم حله تلقائياً، وما يزال يحتاج تدخل
-                بشري.
-              </h2>
-              <p className="app-hero-band__copy">
-                هذا السجل يركز على النشاط التنفيذي نفسه: تنبيهات، محاولات إصلاح،
-                عناصر حرجة، وإشارات تحتاج اطلاعك. إذا كنت تريد منطق القرار نفسه
-                فانتقل إلى سجل قرارات الذكاء.
-              </p>
-            </div>
+      <div className="flex flex-wrap gap-2">
+        {[
+          ["إجمالي السجل", String(actions.length), "text-[var(--accent-blue)]"],
+          [
+            "غير مطلع عليه",
+            String(unresolvedCount),
+            "text-[var(--accent-warning)]",
+          ],
+          [
+            "تم حلها تلقائياً",
+            String(autoResolvedCount),
+            "text-[var(--accent-success)]",
+          ],
+          [
+            "وكلاء نشطون",
+            String(activeAgentsCount),
+            "text-[var(--accent-gold)]",
+          ],
+          [
+            "آخر حركة",
+            latestAction ? timeAgo(latestAction.created_at) : "لا يوجد",
+            "text-foreground",
+          ],
+        ].map(([label, value, color]) => (
+          <div
+            key={label}
+            className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs"
+          >
+            <span className="text-muted-foreground">{label}</span>
+            <span className={cn("font-mono", color)}>{value}</span>
           </div>
-          <div className="app-hero-band__metrics">
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">السجل الحالي</span>
-              <strong className="app-hero-band__metric-value">
-                {actions.length}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">غير مطلع عليه</span>
-              <strong className="app-hero-band__metric-value">
-                {unresolvedCount}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">
-                تم حلها تلقائياً
-              </span>
-              <strong className="app-hero-band__metric-value">
-                {autoResolvedCount}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">آخر حركة</span>
-              <strong className="app-hero-band__metric-value">
-                {latestAction ? timeAgo(latestAction.created_at) : "لا يوجد"}
-              </strong>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <Card className="app-data-card border-[color:color-mix(in_srgb,var(--accent)_18%,var(--border-strong))] bg-[var(--accent-muted)]">
-          <CardContent className="p-4">
-            <p className="text-sm text-muted-foreground">إجمالي السجل الحالي</p>
-            <p className="mt-1 text-2xl font-bold text-[color:var(--accent-blue)]">
-              {actions.length}
-            </p>
-            <p className="mt-2 text-xs text-muted-foreground">
-              هذا feed النشاط التشغيلي للوكلاء، وليس سجل قراراتهم.
-            </p>
-          </CardContent>
-        </Card>
-        <Card className="app-data-card border-[color:color-mix(in_srgb,var(--warning)_18%,var(--border-strong))] bg-[var(--warning-muted)]">
-          <CardContent className="p-4">
-            <p className="text-sm text-muted-foreground">غير مُطّلع عليه</p>
-            <p className="mt-1 text-2xl font-bold text-[color:var(--accent-warning)]">
-              {unresolvedCount}
-            </p>
-            <p className="mt-2 text-xs text-muted-foreground">
-              عناصر ما زالت تحتاج اطلاع أو متابعة من التاجر.
-            </p>
-          </CardContent>
-        </Card>
-        <Card className="app-data-card border-[color:color-mix(in_srgb,var(--success)_18%,var(--border-strong))] bg-[var(--success-muted)]">
-          <CardContent className="p-4">
-            <p className="text-sm text-muted-foreground">تم حلها تلقائياً</p>
-            <p className="mt-1 text-2xl font-bold text-[color:var(--accent-success)]">
-              {autoResolvedCount}
-            </p>
-            <p className="mt-2 text-xs text-muted-foreground">
-              تنبيهات أو إجراءات أنجزها النظام بدون تدخل يدوي.
-            </p>
-          </CardContent>
-        </Card>
-        <Card className="app-data-card">
-          <CardContent className="p-4">
-            <p className="text-sm text-muted-foreground">وكلاء ظهر نشاطهم</p>
-            <p className="mt-1 text-2xl font-bold text-[color:var(--accent-gold)]">
-              {activeAgentsCount}
-            </p>
-            <p className="mt-2 text-xs text-muted-foreground">
-              {latestAction
-                ? `آخر نشاط: ${timeAgo(latestAction.created_at)}`
-                : "لا يوجد نشاط مسجل بعد."}
-            </p>
-          </CardContent>
-        </Card>
+        ))}
       </div>
 
-      {/* ─── Summary Cards ──────────────────────────── */}
       {summary && (
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-          <Card className="app-data-card">
-            <CardContent className="pt-4 pb-3 text-center">
-              <div className="text-2xl font-bold">{summary.last_24h || 0}</div>
-              <div className="text-xs text-muted-foreground">
-                نشاط آخر 24 ساعة
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="app-data-card">
-            <CardContent className="pt-4 pb-3 text-center">
-              <div className="text-2xl font-bold text-[color:var(--accent-success)]">
-                {summary.auto_resolved_24h || 0}
-              </div>
-              <div className="text-xs text-muted-foreground">
-                تم حلها تلقائياً
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="app-data-card">
-            <CardContent className="pt-4 pb-3 text-center">
-              <div className="text-2xl font-bold text-[color:var(--accent-warning)]">
-                {summary.actions_taken_24h || 0}
-              </div>
-              <div className="text-xs text-muted-foreground">
-                إجراءات اتخذها
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="app-data-card">
-            <CardContent className="pt-4 pb-3 text-center">
-              <div className="text-2xl font-bold text-[color:var(--accent-danger)]">
-                {summary.unack_critical || 0}
-              </div>
-              <div className="text-xs text-muted-foreground">
-                حرج - يحتاج انتباهك
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="app-data-card">
-            <CardContent className="pt-4 pb-3 text-center">
-              <div className="text-2xl font-bold text-[color:var(--accent-warning)]">
-                {summary.unack_warning || 0}
-              </div>
-              <div className="text-xs text-muted-foreground">
-                تنبيهات لم تُقرأ
-              </div>
-            </CardContent>
-          </Card>
+        <div className="flex flex-wrap gap-2">
+          {[
+            ["آخر 24 ساعة", String(summary.last_24h || 0), "text-foreground"],
+            [
+              "حل تلقائي",
+              String(summary.auto_resolved_24h || 0),
+              "text-[var(--accent-success)]",
+            ],
+            [
+              "إجراءات منفذة",
+              String(summary.actions_taken_24h || 0),
+              "text-[var(--accent-warning)]",
+            ],
+            [
+              "حرج غير مقروء",
+              String(summary.unack_critical || 0),
+              "text-[var(--accent-danger)]",
+            ],
+            [
+              "تنبيهات غير مقروءة",
+              String(summary.unack_warning || 0),
+              "text-[var(--accent-warning)]",
+            ],
+          ].map(([label, value, color]) => (
+            <div
+              key={label}
+              className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs"
+            >
+              <span className="text-muted-foreground">{label}</span>
+              <span className={cn("font-mono", color)}>{value}</span>
+            </div>
+          ))}
         </div>
       )}
 

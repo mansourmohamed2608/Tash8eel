@@ -732,42 +732,29 @@ export default function AutomationsPage() {
         description="فعّل وعطّل التدفقات التلقائية لرسائل واتساب وأدرها من مكان واحد"
       />
 
-      <section className="app-hero-band">
-        <div className="app-hero-band__grid">
-          <div>
-            <p className="app-hero-band__eyebrow">تشغيل مؤتمت</p>
-            <h2 className="app-hero-band__title">
-              أدر الرسائل والسلوكيات التلقائية كمنظومة تشغيل، لا كإعدادات متفرقة
-            </h2>
-            <p className="app-hero-band__copy">
-              فعّل السيناريوهات المناسبة، راقب سجل التنفيذ، واضبط الإيقاع
-              التشغيلي لكل تدفق من مساحة واحدة مكثفة وواضحة.
-            </p>
-          </div>
-          <div className="app-hero-band__metrics">
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">
-                الأتمتات النشطة
-              </span>
-              <strong className="app-hero-band__metric-value">
-                {automations.filter((a) => a.isEnabled).length}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">رسائل أُرسلت</span>
-              <strong className="app-hero-band__metric-value">
-                {logs.reduce((s, l) => s + (l.messages_sent || 0), 0)}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">آخر نجاحات</span>
-              <strong className="app-hero-band__metric-value">
-                {logs.filter((l) => l.status === "success").length}
-              </strong>
-            </div>
-          </div>
+      <div className="flex flex-wrap gap-2">
+        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
+          <Zap className="h-3.5 w-3.5 text-[var(--accent-gold)]" />
+          <span className="text-muted-foreground">الأتمتات النشطة</span>
+          <span className="font-mono text-[var(--accent-gold)]">
+            {automations.filter((a) => a.isEnabled).length}
+          </span>
         </div>
-      </section>
+        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
+          <MessageSquare className="h-3.5 w-3.5 text-[var(--accent-success)]" />
+          <span className="text-muted-foreground">رسائل أُرسلت</span>
+          <span className="font-mono text-[var(--accent-success)]">
+            {logs.reduce((s, l) => s + (l.messages_sent || 0), 0)}
+          </span>
+        </div>
+        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
+          <CheckCircle className="h-3.5 w-3.5 text-[var(--accent-blue)]" />
+          <span className="text-muted-foreground">آخر نجاحات</span>
+          <span className="font-mono text-[var(--accent-blue)]">
+            {logs.filter((l) => l.status === "success").length}
+          </span>
+        </div>
+      </div>
 
       {/* Toolbar */}
       <div className="app-data-card app-data-card--muted flex justify-end">

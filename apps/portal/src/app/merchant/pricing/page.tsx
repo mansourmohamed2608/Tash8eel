@@ -36,8 +36,71 @@ const FULL_PLATFORM_ORDER = [
   "ENTERPRISE",
 ] as const;
 
+const FINAL_APPROVED_PLAN_QUOTAS: Record<
+  string,
+  {
+    totalMessagesPerDay: number;
+    totalMessagesPerMonth: number;
+    aiRepliesPerDay: number;
+    aiRepliesPerMonth: number;
+  }
+> = {
+  STARTER: {
+    totalMessagesPerDay: 480,
+    totalMessagesPerMonth: 14_400,
+    aiRepliesPerDay: 240,
+    aiRepliesPerMonth: 7_200,
+  },
+  BASIC: {
+    totalMessagesPerDay: 1_200,
+    totalMessagesPerMonth: 36_000,
+    aiRepliesPerDay: 600,
+    aiRepliesPerMonth: 18_000,
+  },
+  GROWTH: {
+    totalMessagesPerDay: 2_400,
+    totalMessagesPerMonth: 72_000,
+    aiRepliesPerDay: 1_200,
+    aiRepliesPerMonth: 36_000,
+  },
+  PRO: {
+    totalMessagesPerDay: 5_000,
+    totalMessagesPerMonth: 150_000,
+    aiRepliesPerDay: 2_500,
+    aiRepliesPerMonth: 75_000,
+  },
+  ENTERPRISE: {
+    totalMessagesPerDay: 10_000,
+    totalMessagesPerMonth: 300_000,
+    aiRepliesPerDay: 5_000,
+    aiRepliesPerMonth: 150_000,
+  },
+  CHAT_ONLY: {
+    totalMessagesPerDay: 960,
+    totalMessagesPerMonth: 28_800,
+    aiRepliesPerDay: 480,
+    aiRepliesPerMonth: 14_400,
+  },
+};
+
+const CURATED_FEATURE_ADDON_ORDER = [
+  "inventory",
+  "api_access",
+  "automations",
+  "forecasting",
+  "cashier_pos",
+  "team_rbac",
+  "loyalty",
+  "kpi_dashboard",
+  "audit_logs",
+  "branch_pack_plus_1",
+  "pos_connection_plus_1",
+] as const;
+
+const CURATED_FEATURE_ADDON_SET = new Set(CURATED_FEATURE_ADDON_ORDER);
+
 const CAPABILITY_LABELS: Record<string, string> = {
-  OMNICHANNEL_INBOX: "صندوق المحادثات الموحد",
+  OMNICHANNEL_INBOX: "صندوق الرسائل الموحد",
   WHATSAPP_META: "واتساب + Meta",
   MESSENGER_INSTAGRAM: "فيسبوك / ماسنجر",
   AI_CUSTOMER_REPLIES: "ردود العملاء بالذكاء الاصطناعي",
@@ -78,7 +141,7 @@ const CAPABILITY_LABELS: Record<string, string> = {
   CUSTOM_INTEGRATIONS: "تكاملات مخصصة",
   SLA_ELIGIBLE: "أهلية SLA",
   VOICE_CALLING_ENABLEMENT_ELIGIBLE: "أهلية تفعيل المكالمات",
-  CHAT_HISTORY: "سجل المحادثات",
+  CHAT_HISTORY: "سجل الرسائل",
   BASIC_ROUTING_TAGGING: "Routing / Tagging أساسي",
   INVENTORY: "المخزون",
   FINANCE: "المالية",
@@ -89,12 +152,12 @@ const CAPABILITY_LABELS: Record<string, string> = {
 
 const PLAN_TOP_BULLETS: Record<string, string[]> = {
   STARTER: [
-    "محادثات العملاء عبر واتساب وفيسبوك",
-    "ردود AI للعملاء + إدارة الطلبات",
+    "رسائل العملاء عبر واتساب وفيسبوك",
+    "ردود الذكاء الاصطناعي + إدارة الطلبات",
     "كتالوج + مخزون أساسي + مالية أساسية",
     "Webhooks + إشعارات + تفريغ صوتي",
     "Ops Agent",
-    "الكاشير مجاني لأول 30 يوم",
+    "الكاشير مجاني لأول 30 يومًا فقط",
   ],
   BASIC: [
     "كل ما في Starter",
@@ -130,8 +193,8 @@ const PLAN_TOP_BULLETS: Record<string, string[]> = {
   ],
   CHAT_ONLY: [
     "واتساب + فيسبوك / ماسنجر",
-    "ردود AI للعملاء",
-    "سجل المحادثات",
+    "ردود الذكاء الاصطناعي للعملاء",
+    "سجل الرسائل",
     "Routing / Tagging أساسي",
     "لا يشمل وحدات التشغيل الكاملة",
   ],
@@ -175,11 +238,28 @@ function getPlanCtaLabel(planId: string) {
 }
 
 function getCashierLabel(planId: string) {
-  if (planId === "STARTER") return "مجاني 30 يوم فقط";
+  if (planId === "STARTER") return "مجاني لأول 30 يومًا فقط";
   if (["BASIC", "GROWTH", "PRO", "ENTERPRISE"].includes(planId)) {
     return "مضمن دائمًا";
   }
   return "غير متاح";
+}
+
+function getDisplayQuotas(plan: {
+  id: string;
+  totalMessagesPerDay: number;
+  totalMessagesPerMonth: number;
+  aiRepliesPerDay: number;
+  aiRepliesPerMonth: number;
+}) {
+  const fixed = FINAL_APPROVED_PLAN_QUOTAS[plan.id];
+  if (fixed) return fixed;
+  return {
+    totalMessagesPerDay: Number(plan.totalMessagesPerDay || 0),
+    totalMessagesPerMonth: Number(plan.totalMessagesPerMonth || 0),
+    aiRepliesPerDay: Number(plan.aiRepliesPerDay || 0),
+    aiRepliesPerMonth: Number(plan.aiRepliesPerMonth || 0),
+  };
 }
 
 function supportsFeature(planId: string, key: string) {
@@ -299,6 +379,37 @@ export default function MerchantPricingPage() {
     return plans;
   }, [fullPlatformPlans, chatOnlyPlan]);
 
+  const curatedFeatureAddOns = useMemo(() => {
+    const order = new Map<string, number>(
+      CURATED_FEATURE_ADDON_ORDER.map((code, index) => [code, index]),
+    );
+    const deduped = new Map<
+      (typeof CURATED_FEATURE_ADDON_ORDER)[number],
+      PricingPayload["catalog"]["featureAddOns"][number]
+    >();
+    for (const item of pricing?.catalog?.featureAddOns || []) {
+      const code = item.code as (typeof CURATED_FEATURE_ADDON_ORDER)[number];
+      if (!CURATED_FEATURE_ADDON_SET.has(code)) continue;
+      if (!deduped.has(code)) deduped.set(code, item);
+    }
+    return Array.from(deduped.values()).sort(
+      (a, b) =>
+        (order.get(a.code) ?? Number.MAX_SAFE_INTEGER) -
+        (order.get(b.code) ?? Number.MAX_SAFE_INTEGER),
+    );
+  }, [pricing]);
+
+  const curatedUsagePacks = useMemo(() => {
+    const deduped = new Map<
+      string,
+      PricingPayload["catalog"]["usagePacks"][number]
+    >();
+    for (const item of pricing?.catalog?.usagePacks || []) {
+      if (!deduped.has(item.code)) deduped.set(item.code, item);
+    }
+    return Array.from(deduped.values());
+  }, [pricing]);
+
   const handlePlanAction = async (planId: string) => {
     if (!apiKey) return;
 
@@ -357,13 +468,13 @@ export default function MerchantPricingPage() {
     <div className="space-y-8 p-4 sm:p-6">
       <PageHeader
         title="الأسعار والباقات"
-        description="باقات التشغيل الكاملة + باقة الدردشة فقط + الإضافات"
+        description="باقات التشغيل الكاملة + باقة الدردشة فقط + إضافات التوسّع"
       />
 
       <Card className="overflow-hidden border bg-[linear-gradient(120deg,var(--bg-surface)_0%,var(--bg-surface-2)_55%,var(--bg-surface)_100%)]">
         <CardContent className="space-y-4 p-5 sm:p-7">
           <h1 className="text-2xl font-black leading-tight sm:text-3xl">
-            شغّل المبيعات والعمليات ومحادثات العملاء من مكان واحد
+            شغّل المبيعات والعمليات ورسائل العملاء من مكان واحد
           </h1>
           <p className="text-sm text-muted-foreground sm:text-base">
             اختَر باقة تشغيل كاملة أو ابدأ بباقة الدردشة فقط
@@ -385,6 +496,7 @@ export default function MerchantPricingPage() {
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
           {fullPlatformPlans.map((plan) => {
             const cta = getPlanCtaLabel(plan.id);
+            const quotas = getDisplayQuotas(plan);
             return (
               <Card
                 key={plan.id}
@@ -402,7 +514,9 @@ export default function MerchantPricingPage() {
                       </Badge>
                     ) : null}
                     {plan.id === "STARTER" ? (
-                      <Badge variant="secondary">الكاشير 30 يوم مجانًا</Badge>
+                      <Badge variant="secondary">
+                        الكاشير مجاني لأول 30 يومًا فقط
+                      </Badge>
                     ) : null}
                   </div>
                   <CardDescription className="min-h-[36px]">
@@ -420,13 +534,29 @@ export default function MerchantPricingPage() {
                     <div>
                       <p className="text-muted-foreground">الرسائل / يوم</p>
                       <p className="font-semibold">
-                        {formatNumber(plan.totalMessagesPerDay)}
+                        {formatNumber(quotas.totalMessagesPerDay)}
                       </p>
                     </div>
                     <div>
                       <p className="text-muted-foreground">الرسائل / شهر</p>
                       <p className="font-semibold">
-                        {formatNumber(plan.totalMessagesPerMonth)}
+                        {formatNumber(quotas.totalMessagesPerMonth)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">
+                        ردود الذكاء الاصطناعي / يوم
+                      </p>
+                      <p className="font-semibold">
+                        {formatNumber(quotas.aiRepliesPerDay)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">
+                        ردود الذكاء الاصطناعي / شهر
+                      </p>
+                      <p className="font-semibold">
+                        {formatNumber(quotas.aiRepliesPerMonth)}
                       </p>
                     </div>
                   </div>
@@ -462,96 +592,107 @@ export default function MerchantPricingPage() {
 
       {chatOnlyPlan ? (
         <section className="space-y-4">
-          <div className="flex items-center gap-2">
-            <MessageSquare className="h-4 w-4 text-primary" />
-            <h2 className="text-lg font-semibold">باقة الدردشة فقط</h2>
-          </div>
+          {(() => {
+            const quotas = getDisplayQuotas(chatOnlyPlan);
+            return (
+              <>
+                <div className="flex items-center gap-2">
+                  <MessageSquare className="h-4 w-4 text-primary" />
+                  <h2 className="text-lg font-semibold">باقة الدردشة فقط</h2>
+                </div>
 
-          <Card className="border-[var(--accent-blue)]/40 bg-[var(--bg-surface-2)]">
-            <CardHeader className="space-y-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <CardTitle>{chatOnlyPlan.nameAr}</CardTitle>
-                <Badge variant="secondary">منتج تواصل فقط</Badge>
-                <Badge className="border-0 bg-[var(--accent-blue)]/15 text-[var(--accent-blue)]">
-                  سعة رسائل أعلى من Starter
-                </Badge>
-              </div>
-              <CardDescription>{chatOnlyPlan.bestFor}</CardDescription>
-              <p className="font-mono text-2xl font-black text-[var(--accent-blue)]">
-                {formatEgp(chatOnlyPlan.monthlyPriceEgp)}
-              </p>
-            </CardHeader>
-
-            <CardContent className="grid gap-5 lg:grid-cols-[1.2fr,0.8fr]">
-              <div className="space-y-4">
-                <div>
-                  <h3 className="mb-2 text-sm font-semibold">يشمل</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {chatOnlyPlan.includedFeatures.map((feature) => (
-                      <Badge key={feature} variant="outline">
-                        {labelCapability(feature)}
+                <Card className="border-[var(--accent-blue)]/40 bg-[var(--bg-surface-2)]">
+                  <CardHeader className="space-y-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <CardTitle>{chatOnlyPlan.nameAr}</CardTitle>
+                      <Badge variant="secondary">منتج تواصل فقط</Badge>
+                      <Badge className="border-0 bg-[var(--accent-blue)]/15 text-[var(--accent-blue)]">
+                        سعة رسائل أعلى من Starter
                       </Badge>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <h3 className="mb-2 text-sm font-semibold">لا يشمل</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {chatOnlyPlan.excludedFeatures.map((feature) => (
-                      <Badge key={feature} variant="secondary">
-                        {labelCapability(feature)}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="rounded-lg border bg-background/70 p-3 text-xs text-muted-foreground">
-                  هذه الباقة أضيق وظيفيًا من Starter لكنها موجهة للتواصل وتقدم
-                  سعة رسائل أعلى.
-                </div>
-              </div>
-
-              <div className="space-y-3 rounded-lg border bg-background p-4">
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div>
-                    <p className="text-muted-foreground">الرسائل / يوم</p>
-                    <p className="font-semibold">
-                      {formatNumber(chatOnlyPlan.totalMessagesPerDay)}
+                    </div>
+                    <CardDescription>{chatOnlyPlan.bestFor}</CardDescription>
+                    <p className="font-mono text-2xl font-black text-[var(--accent-blue)]">
+                      {formatEgp(chatOnlyPlan.monthlyPriceEgp)}
                     </p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">الرسائل / شهر</p>
-                    <p className="font-semibold">
-                      {formatNumber(chatOnlyPlan.totalMessagesPerMonth)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">ردود AI / يوم</p>
-                    <p className="font-semibold">
-                      {formatNumber(chatOnlyPlan.aiRepliesPerDay)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">ردود AI / شهر</p>
-                    <p className="font-semibold">
-                      {formatNumber(chatOnlyPlan.aiRepliesPerMonth)}
-                    </p>
-                  </div>
-                </div>
+                  </CardHeader>
 
-                <Button
-                  className="w-full"
-                  onClick={() => handlePlanAction(chatOnlyPlan.id)}
-                  disabled={checkoutPlan === chatOnlyPlan.id}
-                >
-                  {checkoutPlan === chatOnlyPlan.id
-                    ? "جاري الإنشاء..."
-                    : getPlanCtaLabel(chatOnlyPlan.id)}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+                  <CardContent className="grid gap-5 lg:grid-cols-[1.2fr,0.8fr]">
+                    <div className="space-y-4">
+                      <div>
+                        <h3 className="mb-2 text-sm font-semibold">يشمل</h3>
+                        <div className="flex flex-wrap gap-2">
+                          {chatOnlyPlan.includedFeatures.map((feature) => (
+                            <Badge key={feature} variant="outline">
+                              {labelCapability(feature)}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div>
+                        <h3 className="mb-2 text-sm font-semibold">لا يشمل</h3>
+                        <div className="flex flex-wrap gap-2">
+                          {chatOnlyPlan.excludedFeatures.map((feature) => (
+                            <Badge key={feature} variant="secondary">
+                              {labelCapability(feature)}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="rounded-lg border bg-background/70 p-3 text-xs text-muted-foreground">
+                        هذه الباقة أضيق وظيفيًا من Starter لكنها موجهة للتواصل
+                        وتقدم سعة رسائل أعلى.
+                      </div>
+                    </div>
+
+                    <div className="space-y-3 rounded-lg border bg-background p-4">
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div>
+                          <p className="text-muted-foreground">الرسائل / يوم</p>
+                          <p className="font-semibold">
+                            {formatNumber(quotas.totalMessagesPerDay)}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">الرسائل / شهر</p>
+                          <p className="font-semibold">
+                            {formatNumber(quotas.totalMessagesPerMonth)}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">
+                            ردود الذكاء الاصطناعي / يوم
+                          </p>
+                          <p className="font-semibold">
+                            {formatNumber(quotas.aiRepliesPerDay)}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">
+                            ردود الذكاء الاصطناعي / شهر
+                          </p>
+                          <p className="font-semibold">
+                            {formatNumber(quotas.aiRepliesPerMonth)}
+                          </p>
+                        </div>
+                      </div>
+
+                      <Button
+                        className="w-full"
+                        onClick={() => handlePlanAction(chatOnlyPlan.id)}
+                        disabled={checkoutPlan === chatOnlyPlan.id}
+                      >
+                        {checkoutPlan === chatOnlyPlan.id
+                          ? "جاري الإنشاء..."
+                          : getPlanCtaLabel(chatOnlyPlan.id)}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </>
+            );
+          })()}
         </section>
       ) : null}
 
@@ -591,27 +732,51 @@ export default function MerchantPricingPage() {
                   </tr>
                   <tr className="border-b">
                     <td className="p-2 font-medium">الرسائل / يوم</td>
-                    {comparisonPlans.map((plan) => (
-                      <td key={`${plan.id}-day-msg`} className="p-2">
-                        {formatNumber(plan.totalMessagesPerDay)}
-                      </td>
-                    ))}
+                    {comparisonPlans.map((plan) => {
+                      const quotas = getDisplayQuotas(plan);
+                      return (
+                        <td key={`${plan.id}-day-msg`} className="p-2">
+                          {formatNumber(quotas.totalMessagesPerDay)}
+                        </td>
+                      );
+                    })}
                   </tr>
                   <tr className="border-b">
                     <td className="p-2 font-medium">الرسائل / شهر</td>
-                    {comparisonPlans.map((plan) => (
-                      <td key={`${plan.id}-month-msg`} className="p-2">
-                        {formatNumber(plan.totalMessagesPerMonth)}
-                      </td>
-                    ))}
+                    {comparisonPlans.map((plan) => {
+                      const quotas = getDisplayQuotas(plan);
+                      return (
+                        <td key={`${plan.id}-month-msg`} className="p-2">
+                          {formatNumber(quotas.totalMessagesPerMonth)}
+                        </td>
+                      );
+                    })}
                   </tr>
                   <tr className="border-b">
-                    <td className="p-2 font-medium">ردود AI / يوم</td>
-                    {comparisonPlans.map((plan) => (
-                      <td key={`${plan.id}-day-ai`} className="p-2">
-                        {formatNumber(plan.aiRepliesPerDay)}
-                      </td>
-                    ))}
+                    <td className="p-2 font-medium">
+                      ردود الذكاء الاصطناعي / يوم
+                    </td>
+                    {comparisonPlans.map((plan) => {
+                      const quotas = getDisplayQuotas(plan);
+                      return (
+                        <td key={`${plan.id}-day-ai`} className="p-2">
+                          {formatNumber(quotas.aiRepliesPerDay)}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                  <tr className="border-b">
+                    <td className="p-2 font-medium">
+                      ردود الذكاء الاصطناعي / شهر
+                    </td>
+                    {comparisonPlans.map((plan) => {
+                      const quotas = getDisplayQuotas(plan);
+                      return (
+                        <td key={`${plan.id}-month-ai`} className="p-2">
+                          {formatNumber(quotas.aiRepliesPerMonth)}
+                        </td>
+                      );
+                    })}
                   </tr>
                   <tr className="border-b">
                     <td className="p-2 font-medium">الفروع</td>
@@ -721,7 +886,7 @@ export default function MerchantPricingPage() {
       <section className="space-y-4">
         <div className="flex items-center gap-2">
           <Sparkles className="h-4 w-4 text-primary" />
-          <h2 className="text-lg font-semibold">الإضافات و BYO</h2>
+          <h2 className="text-lg font-semibold">الإضافات</h2>
         </div>
 
         <div className="grid gap-4 xl:grid-cols-2">
@@ -733,7 +898,7 @@ export default function MerchantPricingPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              {pricing.catalog.featureAddOns.map((item) => (
+              {curatedFeatureAddOns.map((item) => (
                 <div
                   key={item.code}
                   className="flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-start sm:justify-between"
@@ -787,7 +952,7 @@ export default function MerchantPricingPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              {pricing.catalog.usagePacks.map((item) => (
+              {curatedUsagePacks.map((item) => (
                 <div
                   key={item.code}
                   className="flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-start sm:justify-between"
@@ -854,11 +1019,8 @@ export default function MerchantPricingPage() {
         <CardContent className="space-y-2 text-sm text-muted-foreground">
           <p>• الرسائل = إجمالي الرسائل المُدارة داخل المنصة.</p>
           <p>• تشمل رسائل العملاء + ردود الذكاء الاصطناعي.</p>
-          <p>
-            • رسوم قوالب واتساب المدفوعة تُحاسب بشكل منفصل
-            (استخدام/Wallet-Based).
-          </p>
-          <p>• دقائق المكالمات لا تشملها الباقات القياسية.</p>
+          <p>• رسوم قوالب واتساب المدفوعة تُحاسب بشكل منفصل.</p>
+          <p>• المكالمات لا تشملها الباقات القياسية.</p>
           <p>• الكاشير مجاني لأول 30 يومًا في الاشتراكات الجديدة المؤهلة.</p>
         </CardContent>
       </Card>

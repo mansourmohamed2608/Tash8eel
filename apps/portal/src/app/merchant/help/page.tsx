@@ -68,7 +68,7 @@ export default function HelpCenterPage() {
     <div className="space-y-6 animate-fadeIn p-4 sm:p-6">
       <PageHeader
         title="مركز المساعدة"
-        description="مسارات واضحة لتجهيز النظام وتشغيله بكفاءة"
+        description="روابط مساعدة وتشغيل سريعة للوصول إلى أهم أقسام النظام."
         actions={
           <Link
             href="/merchant/onboarding"
@@ -89,22 +89,31 @@ export default function HelpCenterPage() {
         summary.totalCustomers > 0) && (
         <div className="flex flex-wrap gap-3">
           {summary.totalProducts > 0 && (
-            <Badge variant="secondary" className="px-3 py-1 text-sm">
+            <Badge
+              variant="secondary"
+              className="h-8 rounded-[var(--radius-sm)] px-3 text-xs"
+            >
               {summary.totalProducts} منتج
             </Badge>
           )}
           {summary.totalOrders > 0 && (
-            <Badge variant="secondary" className="px-3 py-1 text-sm">
+            <Badge
+              variant="secondary"
+              className="h-8 rounded-[var(--radius-sm)] px-3 text-xs"
+            >
               {summary.totalOrders} طلب
             </Badge>
           )}
           {summary.totalCustomers > 0 && (
-            <Badge variant="secondary" className="px-3 py-1 text-sm">
+            <Badge
+              variant="secondary"
+              className="h-8 rounded-[var(--radius-sm)] px-3 text-xs"
+            >
               {summary.totalCustomers} عميل
             </Badge>
           )}
           {summary.unreadNotifications > 0 && (
-            <Badge className="border-[color:rgba(239,68,68,0.3)] bg-[color:rgba(239,68,68,0.1)] px-3 py-1 text-sm text-[color:#fca5a5]">
+            <Badge className="h-8 rounded-[var(--radius-sm)] border-[color:rgba(239,68,68,0.3)] bg-[color:rgba(239,68,68,0.1)] px-3 text-xs text-[color:#fca5a5]">
               {summary.unreadNotifications} إشعار غير مقروء
             </Badge>
           )}
@@ -141,7 +150,8 @@ export default function HelpCenterPage() {
                 <Link
                   href={section.href}
                   className={cn(
-                    buttonVariants({ variant: "secondary", size: "sm" }),
+                    buttonVariants({ variant: "outline", size: "sm" }),
+                    "w-full justify-center",
                   )}
                 >
                   فتح القسم

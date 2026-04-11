@@ -37,11 +37,6 @@ import { merchantApi } from "@/lib/client";
 import { formatCurrency } from "@/lib/utils";
 import { useMerchant } from "@/hooks/use-merchant";
 import {
-  AiInsightsCard,
-  generateAnalyticsInsights,
-} from "@/components/ai/ai-insights-card";
-import { SmartAnalysisButton } from "@/components/ai/smart-analysis-button";
-import {
   REPORTING_PERIOD_OPTIONS,
   getReportingDateRange,
   getStoredReportingDays,
@@ -334,77 +329,54 @@ export default function AnalyticsPage() {
         }
       />
 
-      <section className="app-hero-band">
-        <div className="app-hero-band__grid">
-          <div className="space-y-4">
-            <span className="app-hero-band__eyebrow">Commerce Analytics</span>
-            <div className="space-y-3">
-              <h2 className="app-hero-band__title">
-                تحليلات تشغيلية مركزة على القرارات، لا مجرد رسوم بيانية.
-              </h2>
-              <p className="app-hero-band__copy">
-                راقب مسار التحويل، زمن الاستجابة، المنتجات الأعلى أداءً، وأوقات
-                الذروة من نفس الصفحة. كل تبويب هنا مصمم ليقودك إلى إجراء واضح.
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <Badge variant="info">{selectedPeriodSummary}</Badge>
-              {failedSectionsCount > 0 ? (
-                <Badge variant="warning">
-                  تعذر تحميل {failedSectionsCount} قسم
-                </Badge>
-              ) : (
-                <Badge variant="success">جميع الأقسام محدثة</Badge>
-              )}
-            </div>
-          </div>
-          <div className="app-hero-band__metrics">
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">التحويل الكلي</span>
-              <strong className="app-hero-band__metric-value">
-                {Math.round(conversionData?.rates?.conversionRate || 0)}%
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">
-                متوسط الاستجابة
-              </span>
-              <strong className="app-hero-band__metric-value">
-                {responseTimeData?.formatted?.average || "—"}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">أعلى منتج</span>
-              <strong className="app-hero-band__metric-value">
-                {popularProducts[0]?.name || "—"}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">ذروة الرسائل</span>
-              <strong className="app-hero-band__metric-value">
-                {peakHoursData?.peaks?.messages?.label || "—"}
-              </strong>
-            </div>
-          </div>
+      <div className="flex flex-wrap gap-2">
+        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
+          <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+          <span className="text-muted-foreground">الفترة</span>
+          <span className="text-foreground">{selectedPeriodSummary}</span>
         </div>
-      </section>
-
-      {/* AI Analytics Insights */}
-      <AiInsightsCard
-        title="تحليلات ذكية"
-        insights={generateAnalyticsInsights({
-          conversionRate: conversionData?.rates?.conversionRate,
-          avgResponseTime: responseTimeData?.responseTimes?.averageSeconds
-            ? responseTimeData.responseTimes.averageSeconds / 60
-            : undefined,
-          topProductCount: popularProducts?.length ?? 0,
-          peakHour: peakHoursData?.peaks?.messages?.hour,
-        })}
-        loading={loading}
-      />
-
-      {/* GPT-Powered Smart Analysis */}
-      <SmartAnalysisButton context="analytics" />
+        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
+          <Target className="h-3.5 w-3.5 text-[var(--accent-gold)]" />
+          <span className="text-muted-foreground">التحويل</span>
+          <span className="font-mono text-[var(--accent-gold)]">
+            {Math.round(conversionData?.rates?.conversionRate || 0)}%
+          </span>
+        </div>
+        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
+          <Clock className="h-3.5 w-3.5 text-[var(--accent-blue)]" />
+          <span className="text-muted-foreground">الاستجابة</span>
+          <span className="font-mono text-[var(--accent-blue)]">
+            {responseTimeData?.formatted?.average || "—"}
+          </span>
+        </div>
+        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
+          <Package className="h-3.5 w-3.5 text-[var(--accent-success)]" />
+          <span className="text-muted-foreground">أعلى منتج</span>
+          <span className="max-w-[220px] truncate text-foreground">
+            {popularProducts[0]?.name || "—"}
+          </span>
+        </div>
+        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
+          <Zap className="h-3.5 w-3.5 text-[var(--accent-warning)]" />
+          <span className="text-muted-foreground">ذروة الرسائل</span>
+          <span className="font-mono text-[var(--accent-warning)]">
+            {peakHoursData?.peaks?.messages?.label || "—"}
+          </span>
+        </div>
+        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
+          <AlertCircle className="h-3.5 w-3.5 text-[var(--accent-warning)]" />
+          <span className="text-muted-foreground">الأقسام المتعثرة</span>
+          <span
+            className={
+              failedSectionsCount > 0
+                ? "font-mono text-[var(--accent-warning)]"
+                : "font-mono text-[var(--accent-success)]"
+            }
+          >
+            {failedSectionsCount}
+          </span>
+        </div>
+      </div>
 
       <div className="app-data-card app-data-card--muted rounded-[22px] px-3 py-2 text-sm text-muted-foreground">
         <div className="flex flex-wrap items-center gap-2">

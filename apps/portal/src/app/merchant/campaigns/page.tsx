@@ -60,11 +60,6 @@ import {
 } from "lucide-react";
 import { authenticatedFetch } from "@/lib/client";
 import { useMerchant } from "@/hooks/use-merchant";
-import {
-  AiInsightsCard,
-  generateCampaignInsights,
-} from "@/components/ai/ai-insights-card";
-import { SmartAnalysisButton } from "@/components/ai/smart-analysis-button";
 import portalApi from "@/lib/client";
 import { useLocalStorageState } from "@/hooks/use-local-storage-state";
 
@@ -366,14 +361,22 @@ export default function WinbackCampaignsPage() {
         }
       />
 
-      {/* AI Campaign Insights */}
-      <AiInsightsCard
-        title="مساعد الحملات"
-        insights={generateCampaignInsights({
-          totalCampaigns: 0,
-          activeCampaigns: result ? 1 : 0,
-        })}
-      />
+      <div className="flex flex-wrap gap-2">
+        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
+          <Send className="h-3.5 w-3.5 text-[var(--accent-gold)]" />
+          <span className="text-muted-foreground">الحملات النشطة</span>
+          <span className="font-mono text-[var(--accent-gold)]">
+            {result ? 1 : 0}
+          </span>
+        </div>
+        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
+          <MessageSquare className="h-3.5 w-3.5 text-[var(--accent-success)]" />
+          <span className="text-muted-foreground">واتساب</span>
+          <span className="font-mono text-[var(--accent-success)]">
+            {waReady ? "جاهز" : "غير مفعّل"}
+          </span>
+        </div>
+      </div>
 
       {/* WhatsApp Status */}
       {!waReady && (

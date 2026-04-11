@@ -54,10 +54,6 @@ import { formatCurrency, cn } from "@/lib/utils";
 import { useMerchant } from "@/hooks/use-merchant";
 import { useRoleAccess } from "@/hooks/use-role-access";
 import { authenticatedFetch } from "@/lib/client";
-import {
-  AiInsightsCard,
-  generateExpenseInsights,
-} from "@/components/ai/ai-insights-card";
 
 interface Expense {
   id: string;
@@ -561,57 +557,29 @@ export default function ExpensesPage() {
         }
       />
 
-      <section className="app-hero-band">
-        <div className="app-hero-band__grid">
-          <div>
-            <p className="app-hero-band__eyebrow">مصروفات وتشغيل</p>
-            <h2 className="app-hero-band__title">
-              رؤية مباشرة لتكلفة التشغيل وتوزيع الصرف
-            </h2>
-            <p className="app-hero-band__copy">
-              راقب حجم الإنفاق، واعزل أكثر الفئات استهلاكًا، وراجع السجل المالي
-              من نفس المساحة دون تفكيك السياق.
-            </p>
-          </div>
-          <div className="app-hero-band__metrics">
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">
-                الإجمالي الحالي
-              </span>
-              <strong className="app-hero-band__metric-value">
-                {formatCurrency(totalAmount)}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">عدد العمليات</span>
-              <strong className="app-hero-band__metric-value">
-                {expenses.length}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">
-                أعلى فئة إنفاق
-              </span>
-              <strong className="app-hero-band__metric-value">
-                {topCategories[0]
-                  ? getCategoryDisplayName(topCategories[0][0])
-                  : "لا يوجد"}
-              </strong>
-            </div>
-          </div>
+      <div className="flex flex-wrap gap-2">
+        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
+          <DollarSign className="h-3.5 w-3.5 text-[var(--accent-gold)]" />
+          <span className="text-muted-foreground">الإجمالي الحالي</span>
+          <span className="font-mono text-[var(--accent-gold)]">
+            {formatCurrency(totalAmount)}
+          </span>
         </div>
-      </section>
-
-      {/* AI Expense Insights */}
-      <AiInsightsCard
-        title="تحليلات المصروفات"
-        insights={generateExpenseInsights({
-          totalExpenses: totalAmount,
-          expensesByCategory: normalizedByCategory,
-          monthlyTrend: [expenses.length],
-        })}
-        loading={loading}
-      />
+        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
+          <Receipt className="h-3.5 w-3.5 text-muted-foreground" />
+          <span className="text-muted-foreground">عدد العمليات</span>
+          <span className="font-mono text-foreground">{expenses.length}</span>
+        </div>
+        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
+          <Filter className="h-3.5 w-3.5 text-[var(--accent-warning)]" />
+          <span className="text-muted-foreground">أعلى فئة إنفاق</span>
+          <span className="text-foreground">
+            {topCategories[0]
+              ? getCategoryDisplayName(topCategories[0][0])
+              : "لا يوجد"}
+          </span>
+        </div>
+      </div>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">

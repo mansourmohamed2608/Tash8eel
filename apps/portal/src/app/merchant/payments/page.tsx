@@ -12,41 +12,24 @@ export default function PaymentsPage() {
     <div className="space-y-8">
       <PageHeader
         title="المدفوعات"
-        description="تم إيقاف روابط الدفع. استخدم مراجعة إثباتات الدفع بدلًا منها."
+        description="إدارة مسارات التحقق اليدوي، ومراجعة الإثباتات بدل روابط الدفع المباشرة."
       />
 
-      <section className="app-hero-band">
-        <div className="app-hero-band__grid">
-          <div>
-            <p className="app-hero-band__eyebrow">مراجعة وتحكم</p>
-            <h2 className="app-hero-band__title">
-              المدفوعات تمر الآن عبر مراجعة إثباتات أكثر صرامة
-            </h2>
-            <p className="app-hero-band__copy">
-              هذا المسار يوضح قرار المنصة الحالي: إيقاف الروابط المباشرة
-              والاعتماد على التحقق اليدوي المدعوم باستخراج OCR لتقليل المخاطر.
-            </p>
+      <div className="flex flex-wrap gap-2">
+        {[
+          ["روابط الدفع", "متوقفة"],
+          ["المسار النشط", "إثباتات الدفع"],
+          ["المراجعة", "يدوية + OCR"],
+        ].map(([label, value]) => (
+          <div
+            key={label}
+            className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs"
+          >
+            <span className="text-muted-foreground">{label}</span>
+            <span className="font-mono text-[var(--accent-gold)]">{value}</span>
           </div>
-          <div className="app-hero-band__metrics">
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">روابط الدفع</span>
-              <strong className="app-hero-band__metric-value">متوقفة</strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">المسار البديل</span>
-              <strong className="app-hero-band__metric-value">
-                إثباتات الدفع
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">المراجعة</span>
-              <strong className="app-hero-band__metric-value">
-                يدوية + OCR
-              </strong>
-            </div>
-          </div>
-        </div>
-      </section>
+        ))}
+      </div>
 
       <AlertBanner
         type="warning"
@@ -61,12 +44,19 @@ export default function PaymentsPage() {
             المخاطر. كل إثبات يحتاج مراجعة فعلية قبل اعتماده.
           </p>
 
-          <Button asChild>
-            <Link href="/merchant/payments/proofs">
-              <ShieldCheck className="ml-2 h-4 w-4" />
-              افتح مراجعة إثباتات الدفع
-            </Link>
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button asChild>
+              <Link href="/merchant/payments/proofs">
+                <ShieldCheck className="ml-2 h-4 w-4" />
+                افتح مراجعة إثباتات الدفع
+              </Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link href="/merchant/payments/cod">
+                راجع التحصيل عند الاستلام
+              </Link>
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </div>

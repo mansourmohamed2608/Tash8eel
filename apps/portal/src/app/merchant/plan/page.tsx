@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -57,13 +58,16 @@ function getCycleOptions(
 
 const LIMIT_LABELS: Record<string, string> = {
   aiCallsPerDay: "ردود الذكاء الاصطناعي / يوم",
-  messagesPerMonth: "محادثات واتساب / شهر",
-  monthlyConversationsEgypt: "محادثات واتساب / شهر",
-  monthlyConversationsGulf: "محادثات واتساب / شهر",
-  monthlyConversationsIncluded: "محادثات واتساب / شهر",
-  paidTemplatesPerMonth:
-    "رسائل القوالب المدفوعة / شهر (Broadcast/OTP/خارج 24 ساعة)",
-  voiceMinutesPerMonth: "دقائق الملاحظات الصوتية / شهر",
+  aiRepliesPerDay: "ردود الذكاء الاصطناعي / يوم",
+  aiRepliesPerMonth: "ردود الذكاء الاصطناعي / شهر",
+  totalMessagesPerDay: "الرسائل / يوم",
+  totalMessagesPerMonth: "الرسائل / شهر",
+  messagesPerMonth: "الرسائل / شهر",
+  monthlyConversationsEgypt: "الرسائل / شهر",
+  monthlyConversationsGulf: "الرسائل / شهر",
+  monthlyConversationsIncluded: "الرسائل / شهر",
+  paidTemplatesPerMonth: "القوالب المدفوعة / شهر",
+  voiceMinutesPerMonth: "الدقائق الصوتية / شهر",
   paymentProofScansPerMonth: "فحوصات إثبات الدفع / شهر",
   mapsLookupsPerMonth: "استعلامات الخرائط / شهر",
   whatsappNumbers: "أرقام واتساب",
@@ -76,17 +80,17 @@ const LIMIT_LABELS: Record<string, string> = {
 };
 
 const METRIC_LABELS: Record<string, string> = {
-  AI_CAPACITY: "الردود الذكية الإضافية",
-  IN_APP_AI_ACTIONS: "إجراءات الذكاء الاصطناعي داخل النظام",
-  PAYMENT_PROOF_SCANS: "فحوصات إثبات الدفع",
-  VOICE_MINUTES: "الدقائق الصوتية",
-  PAID_TEMPLATES: "القوالب المدفوعة",
-  MAP_LOOKUPS: "استعلامات الخرائط",
+  AI_CAPACITY: "ردود الذكاء الاصطناعي / يوم",
+  MESSAGES: "الرسائل / شهر",
+  PAYMENT_PROOF_SCANS: "فحوصات إثبات الدفع / شهر",
+  VOICE_MINUTES: "الدقائق الصوتية / شهر",
+  PAID_TEMPLATES: "القوالب المدفوعة / شهر",
+  MAP_LOOKUPS: "استعلامات الخرائط / شهر",
   OTHER: "أخرى",
 };
 
 const USAGE_STATUS_LABELS: Record<string, string> = {
-  MESSAGES: "محادثات واتساب / شهر",
+  MESSAGES: "الرسائل / شهر",
   AI_CALLS: "ردود الذكاء الاصطناعي / يوم",
   PAID_TEMPLATES: "القوالب المدفوعة / شهر",
   PAYMENT_PROOF_SCANS: "فحوصات إثبات الدفع / شهر",
@@ -97,7 +101,7 @@ const USAGE_STATUS_LABELS: Record<string, string> = {
 const PLAN_NAME_AR: Record<string, string> = {
   TRIAL: "التجربة",
   STARTER: "باقة المبتدئ",
-  CHAT_ONLY: "باقة المحادثات فقط",
+  CHAT_ONLY: "باقة الدردشة فقط",
   BASIC: "باقة الأساسي",
   GROWTH: "باقة النمو",
   PRO: "الباقة الاحترافية",
@@ -106,15 +110,12 @@ const PLAN_NAME_AR: Record<string, string> = {
 
 const PLAN_DESC_AR: Record<string, string> = {
   TRIAL: "وضع تجريبي بحدود منخفضة للتجربة الأولية.",
-  STARTER:
-    "واتساب ذكي لاستقبال الطلبات والرد التلقائي - يشمل 1,200 محادثة/شهر في مصر",
-  CHAT_ONLY:
-    "واتساب مدعوم بالذكاء الاصطناعي للمحادثات فقط دون وحدات تشغيل متقدمة.",
-  BASIC: "كل أساسيات التشغيل + الدفع والمخزون - يشمل 1,500 محادثة/شهر في مصر",
-  GROWTH: "تشغيل متقدم مع الفريق والبث والولاء - يشمل 3,500 محادثة/شهر في مصر",
-  PRO: "للعمليات المتقدمة والفروع المتعددة - يشمل 8,000 محادثة/شهر في مصر",
-  ENTERPRISE:
-    "للمؤسسات الكبيرة مع حدود تشغيل واسعة ودعم مخصص - يشمل 15,000 محادثة/شهر في مصر",
+  STARTER: "تشغيل أساسي كامل مع رسائل وإدارة طلبات وكتالوج.",
+  CHAT_ONLY: "باقة رسائل ذكية أعلى سعة وأضيق وظيفيًا دون وحدات تشغيل كاملة.",
+  BASIC: "تشغيل يومي نشط مع كاشير دائم ومخزون كامل.",
+  GROWTH: "تشغيل متقدم مع الفريق والولاء والأتمتة.",
+  PRO: "تشغيل احترافي متعدد الفروع مع تحليلات وتنبؤات.",
+  ENTERPRISE: "حل مؤسسي مخصص مع SLA وتكاملات ودعم مبيعات مباشر.",
 };
 
 const ADDON_NAME_AR: Record<string, string> = {
@@ -186,7 +187,7 @@ const ADDON_DESC_AR: Record<string, string> = {
 };
 
 const FEATURE_LABELS_AR: Record<string, string> = {
-  CONVERSATIONS: "المحادثات",
+  CONVERSATIONS: "الرسائل",
   ORDERS: "الطلبات",
   CATALOG: "الكتالوج",
   CASHIER_POS: "الكاشير",
@@ -213,7 +214,7 @@ const USAGE_PACK_NAME_AR: Record<string, string> = {
   PROOF_S: "فحوصات إثبات الدفع S (100)",
   PROOF_M: "فحوصات إثبات الدفع M (300)",
   PROOF_L: "فحوصات إثبات الدفع L (800)",
-  PROOF_XL: "فحوصات إثبات الدفع XL (1500)",
+  PROOF_XL: "فحوصات إثبات الدفع XL",
   VOICE_S: "دقائق صوتية S (30)",
   VOICE_M: "دقائق صوتية M (90)",
   VOICE_L: "دقائق صوتية L (240)",
@@ -231,7 +232,7 @@ const USAGE_PACK_NAME_AR: Record<string, string> = {
   PROOF_CHECKS_S: "فحوصات إثبات الدفع S (100)",
   PROOF_CHECKS_M: "فحوصات إثبات الدفع M (300)",
   PROOF_CHECKS_L: "فحوصات إثبات الدفع L (800)",
-  PROOF_CHECKS_XL: "فحوصات إثبات الدفع XL (1500)",
+  PROOF_CHECKS_XL: "فحوصات إثبات الدفع XL",
   VOICE_MINUTES_S: "دقائق صوتية S (30)",
   VOICE_MINUTES_M: "دقائق صوتية M (90)",
   VOICE_MINUTES_L: "دقائق صوتية L (240)",
@@ -253,14 +254,14 @@ const SCALABLE_CAPACITY_ADDONS = new Set([
   "MULTI_BRANCH_EXTRA",
 ]);
 
-const CONVERSATION_TOOLTIP =
-  "المحادثة = 24 ساعة مع نفس العميل على واتساب. مثال: إذا راسلك العميل 10 مرات في يوم واحد = محادثة واحدة فقط";
+const MESSAGE_TOOLTIP =
+  "الرسائل = إجمالي الرسائل المُدارة داخل المنصة وتشمل رسائل العملاء + ردود الذكاء الاصطناعي.";
 
 const HIDDEN_LIMIT_KEYS = new Set(["tokenBudgetDaily", "monthlyAiCapacity"]);
 
-const HIDDEN_USAGE_METRICS = new Set(["TOKENS"]);
+const HIDDEN_USAGE_METRICS = new Set(["TOKENS", "IN_APP_AI_ACTIONS"]);
 
-const HIDDEN_USAGE_PACK_CODES = new Set(["AI_CAPACITY_L", "AI_CAPACITY_XL"]);
+const HIDDEN_USAGE_PACK_CODES = new Set<string>();
 
 const FULL_PLATFORM_PLAN_CODES = new Set([
   "STARTER",
@@ -268,6 +269,97 @@ const FULL_PLATFORM_PLAN_CODES = new Set([
   "GROWTH",
   "PRO",
   "ENTERPRISE",
+]);
+
+const FINAL_APPROVED_PLAN_QUOTAS: Record<
+  string,
+  {
+    totalMessagesPerDay: number;
+    totalMessagesPerMonth: number;
+    aiRepliesPerDay: number;
+    aiRepliesPerMonth: number;
+  }
+> = {
+  STARTER: {
+    totalMessagesPerDay: 480,
+    totalMessagesPerMonth: 14_400,
+    aiRepliesPerDay: 240,
+    aiRepliesPerMonth: 7_200,
+  },
+  BASIC: {
+    totalMessagesPerDay: 1_200,
+    totalMessagesPerMonth: 36_000,
+    aiRepliesPerDay: 600,
+    aiRepliesPerMonth: 18_000,
+  },
+  GROWTH: {
+    totalMessagesPerDay: 2_400,
+    totalMessagesPerMonth: 72_000,
+    aiRepliesPerDay: 1_200,
+    aiRepliesPerMonth: 36_000,
+  },
+  PRO: {
+    totalMessagesPerDay: 5_000,
+    totalMessagesPerMonth: 150_000,
+    aiRepliesPerDay: 2_500,
+    aiRepliesPerMonth: 75_000,
+  },
+  ENTERPRISE: {
+    totalMessagesPerDay: 10_000,
+    totalMessagesPerMonth: 300_000,
+    aiRepliesPerDay: 5_000,
+    aiRepliesPerMonth: 150_000,
+  },
+  CHAT_ONLY: {
+    totalMessagesPerDay: 960,
+    totalMessagesPerMonth: 28_800,
+    aiRepliesPerDay: 480,
+    aiRepliesPerMonth: 14_400,
+  },
+};
+
+const CURATED_FEATURE_ADDON_CODES = new Set([
+  "INVENTORY_BASIC",
+  "INVENTORY_FULL",
+  "API_WEBHOOKS",
+  "FOLLOWUP_AUTOMATIONS",
+  "AUTONOMOUS_AGENT",
+  "FORECASTING",
+  "CASHIER_POS",
+  "POS_BASIC",
+  "POS_ADV",
+  "POS_INTEGRATIONS_BASIC",
+  "POS_INTEGRATIONS_ADVANCED",
+  "TEAM_UP_TO_3",
+  "TEAM_UPTO3",
+  "TEAM_SEAT_EXPANSION",
+  "LOYALTY",
+  "KPI_DASHBOARD",
+  "AUDIT_LOGS",
+  "MULTI_BRANCH_PER_1",
+  "MULTI_BRANCH_EXTRA",
+]);
+
+const LIVE_AGENT_ADDON_ITEMS = [
+  "Ops Agent",
+  "Inventory Agent",
+  "Finance Agent",
+];
+
+const ENTERPRISE_CUSTOM_ITEMS = [
+  "تكاملات مخصصة",
+  "SLA حسب احتياج النشاط",
+  "تفعيل المكالمات الصوتية",
+  "باقات مؤسسية مخصصة",
+];
+
+const CURATED_USAGE_METRICS = new Set([
+  "AI_CAPACITY",
+  "MESSAGES",
+  "PAYMENT_PROOF_SCANS",
+  "VOICE_MINUTES",
+  "PAID_TEMPLATES",
+  "MAP_LOOKUPS",
 ]);
 
 const DEFAULT_USAGE_THRESHOLDS = {
@@ -309,12 +401,12 @@ const USAGE_BAND_BAR_CLASSES: Record<string, string> = {
 
 const PLAN_CARD_HIGHLIGHTS: Record<string, string[]> = {
   STARTER: [
-    "محادثات العملاء + ردود AI",
+    "رسائل العملاء + ردود الذكاء الاصطناعي",
     "إدارة الطلبات والكتالوج",
     "مخزون أساسي + مالية أساسية",
     "Webhooks + إشعارات + تفريغ صوتي",
     "Ops Agent",
-    "الكاشير مجاني 30 يوم",
+    "الكاشير مجاني لأول 30 يومًا فقط",
   ],
   BASIC: [
     "كل ما في Starter",
@@ -349,8 +441,8 @@ const PLAN_CARD_HIGHLIGHTS: Record<string, string[]> = {
   ],
   CHAT_ONLY: [
     "واتساب + فيسبوك / ماسنجر",
-    "ردود AI للعملاء",
-    "سجل المحادثات",
+    "ردود الذكاء الاصطناعي للعملاء",
+    "سجل الرسائل",
     "Routing / Tagging أساسي",
     "بدون وحدات تشغيل كاملة",
   ],
@@ -468,43 +560,154 @@ function usagePackBenefitLines(pack: any, quantity = 1): string[] {
     });
 }
 
-function getConversationLimit(
-  bundle: any,
-  regionCode: RegionCode,
-): number | null {
-  const limits = bundle?.limits || {};
-  if (regionCode === "EG") {
-    const value = Number(
-      limits.monthlyConversationsEgypt || limits.messagesPerMonth || 0,
-    );
-    return value > 0 ? value : null;
-  }
+function getBundleDisplayQuotas(bundle: any) {
+  const planCode = String(bundle?.code || "").toUpperCase();
+  const fixed = FINAL_APPROVED_PLAN_QUOTAS[planCode];
+  if (fixed) return fixed;
 
-  const gulfValue = Number(
-    limits.monthlyConversationsGulf ||
+  const limits = bundle?.limits || {};
+  const totalMessagesPerMonth = Number(
+    limits.messagesPerMonth ||
+      limits.monthlyConversationsEgypt ||
+      limits.monthlyConversationsGulf ||
       limits.monthlyConversationsIncluded ||
-      limits.messagesPerMonth ||
       0,
   );
-  return gulfValue > 0 ? gulfValue : null;
+  const totalMessagesPerDay =
+    totalMessagesPerMonth > 0 ? Math.round(totalMessagesPerMonth / 30) : 0;
+  const aiRepliesPerDay = Number(
+    limits.aiRepliesPerDay ||
+      limits.dailyAiResponses ||
+      limits.aiCallsPerDay ||
+      0,
+  );
+  const aiRepliesPerMonth = Number(
+    limits.aiRepliesPerMonth ||
+      (aiRepliesPerDay > 0 ? aiRepliesPerDay * 30 : 0),
+  );
+
+  return {
+    totalMessagesPerDay,
+    totalMessagesPerMonth,
+    aiRepliesPerDay,
+    aiRepliesPerMonth,
+  };
 }
 
-function getOverageRate(bundle: any, currency: string): number | null {
-  const limits = bundle?.limits || {};
-  if (currency === "AED") {
-    const value = Number(limits.overageRateAed ?? 0);
-    return value > 0 ? value : null;
+function getUsagePackPrimaryDelta(pack: any): {
+  metric: string;
+  units: number;
+} {
+  const metric = String(pack?.metricKey || "OTHER").toUpperCase();
+  const deltas = getUsagePackDeltas(pack);
+  if (metric === "AI_CAPACITY") {
+    return {
+      metric,
+      units: Math.max(
+        0,
+        Number(pack?.includedAiCallsPerDay || deltas.aiCallsPerDay || 0),
+      ),
+    };
   }
-  if (currency === "SAR") {
-    const value = Number(limits.overageRateSar ?? 0);
-    return value > 0 ? value : null;
+  if (metric === "MESSAGES") {
+    return {
+      metric,
+      units: Math.max(
+        0,
+        Number(
+          deltas.totalMessagesPerMonth ||
+            deltas.messagesPerMonth ||
+            deltas.monthlyConversationsIncluded ||
+            pack?.includedUnits ||
+            0,
+        ),
+      ),
+    };
   }
-  return null;
+  if (metric === "PAYMENT_PROOF_SCANS") {
+    return {
+      metric,
+      units: Math.max(
+        0,
+        Number(deltas.paymentProofScansPerMonth || pack?.includedUnits || 0),
+      ),
+    };
+  }
+  if (metric === "VOICE_MINUTES") {
+    return {
+      metric,
+      units: Math.max(
+        0,
+        Number(deltas.voiceMinutesPerMonth || pack?.includedUnits || 0),
+      ),
+    };
+  }
+  if (metric === "PAID_TEMPLATES") {
+    return {
+      metric,
+      units: Math.max(
+        0,
+        Number(deltas.paidTemplatesPerMonth || pack?.includedUnits || 0),
+      ),
+    };
+  }
+  if (metric === "MAP_LOOKUPS") {
+    return {
+      metric,
+      units: Math.max(
+        0,
+        Number(deltas.mapsLookupsPerMonth || pack?.includedUnits || 0),
+      ),
+    };
+  }
+  return {
+    metric,
+    units: Math.max(0, Number(pack?.includedUnits || 0)),
+  };
+}
+
+function getCuratedUsagePackLabel(pack: any): string {
+  const { metric, units } = getUsagePackPrimaryDelta(pack);
+  const formatted = units.toLocaleString("ar-EG");
+
+  if (metric === "AI_CAPACITY") return `زيادة ${formatted} رد AI يوميًا`;
+  if (metric === "MESSAGES") return `+${formatted} رسالة شهريًا`;
+  if (metric === "PAYMENT_PROOF_SCANS") return `+${formatted} فحص شهريًا`;
+  if (metric === "VOICE_MINUTES") return `+${formatted} دقيقة شهريًا`;
+  if (metric === "PAID_TEMPLATES") return `+${formatted} قالب مدفوع شهريًا`;
+  if (metric === "MAP_LOOKUPS") return `+${formatted} استخدام خرائط شهريًا`;
+
+  const localized = localizeUsagePackName(pack?.code, pack?.name);
+  return localized;
+}
+
+function dedupeAndSortUsagePacks(packs: any[]): any[] {
+  const deduped = new Map<string, any>();
+  for (const pack of packs || []) {
+    const label = getCuratedUsagePackLabel(pack);
+    const current = deduped.get(label);
+    if (!current) {
+      deduped.set(label, pack);
+      continue;
+    }
+    const currentPrice = Number(current?.priceCents || Number.MAX_SAFE_INTEGER);
+    const nextPrice = Number(pack?.priceCents || Number.MAX_SAFE_INTEGER);
+    if (nextPrice < currentPrice) {
+      deduped.set(label, pack);
+    }
+  }
+
+  return Array.from(deduped.values()).sort((a, b) => {
+    const aUnits = getUsagePackPrimaryDelta(a).units;
+    const bUnits = getUsagePackPrimaryDelta(b).units;
+    return aUnits - bUnits;
+  });
 }
 
 export default function PlanPage() {
   const { apiKey } = useMerchant();
   const { toast } = useToast();
+  const router = useRouter();
   const { canEdit } = useRoleAccess("plan");
 
   const [loading, setLoading] = useState(true);
@@ -554,6 +757,23 @@ export default function PlanPage() {
     );
   }, [catalog, currentPlan]);
 
+  const curatedFeatureAddOns = useMemo(() => {
+    const deduped = new Map<string, any>();
+    for (const addOn of (catalog?.bundleAddOns?.capacityAddOns || []).filter(
+      (item: any) => item?.isActive !== false,
+    )) {
+      const code = String(addOn.code || "").toUpperCase();
+      if (!CURATED_FEATURE_ADDON_CODES.has(code)) continue;
+      if (!deduped.has(code)) deduped.set(code, addOn);
+    }
+
+    return Array.from(deduped.values()).sort((a, b) => {
+      const aName = localizeAddOnName(a.code, a.name);
+      const bName = localizeAddOnName(b.code, b.name);
+      return aName.localeCompare(bName, "ar");
+    });
+  }, [catalog]);
+
   const byoAddOns = useMemo(() => {
     const core = catalog?.byo?.coreAddOn ? [catalog.byo.coreAddOn] : [];
     const rest = catalog?.byo?.featureAddOns || [];
@@ -570,10 +790,18 @@ export default function PlanPage() {
       ) {
         continue;
       }
-      const key = String(usagePack.metricKey || "OTHER");
+      const key = getUsagePackPrimaryDelta(usagePack).metric;
+      if (HIDDEN_USAGE_METRICS.has(key) || !CURATED_USAGE_METRICS.has(key)) {
+        continue;
+      }
       groups[key] = groups[key] || [];
       groups[key].push(usagePack);
     }
+
+    for (const key of Object.keys(groups)) {
+      groups[key] = dedupeAndSortUsagePacks(groups[key]);
+    }
+
     return groups;
   }, [catalog]);
 
@@ -770,12 +998,6 @@ export default function PlanPage() {
     loadCatalog();
   }, [loadCatalog]);
 
-  useEffect(() => {
-    if (!loading) {
-      calculateByo();
-    }
-  }, [loading, calculateByo]);
-
   if (loading) {
     return (
       <div className="space-y-4 p-4 sm:p-6">
@@ -800,7 +1022,7 @@ export default function PlanPage() {
     <div className="space-y-6 p-4 sm:p-6">
       <PageHeader
         title="الباقات والفوترة"
-        description="الباقات الجاهزة + إضافات الباقة + BYO"
+        description="باقات التشغيل + إضافات التوسّع + خيارات مخصصة"
         actions={
           <Button
             variant="outline"
@@ -921,7 +1143,7 @@ export default function PlanPage() {
                   <p className="text-xs text-muted-foreground">
                     {USAGE_STATUS_LABELS[String(metric)] || metric}
                     {String(metric) === "MESSAGES" ? (
-                      <span className="mr-1" title={CONVERSATION_TOOLTIP}>
+                      <span className="mr-1" title={MESSAGE_TOOLTIP}>
                         ℹ️
                       </span>
                     ) : null}
@@ -983,28 +1205,12 @@ export default function PlanPage() {
               const isCurrent =
                 currentPlan === String(bundle.code || "").toUpperCase();
               const hasPrice = Boolean(selectedCyclePrice);
-              const canSelect = canEdit && !isCurrent && hasPrice;
               const normalizedPlanCode = String(
                 bundle.code || "",
               ).toUpperCase();
-              const conversationLimit = getConversationLimit(
-                bundle,
-                regionCode,
-              );
-              const overageRate = getOverageRate(bundle, currency);
-              const monthlyMessages = Number(
-                conversationLimit ||
-                  bundle?.limits?.messagesPerMonth ||
-                  bundle?.limits?.monthlyConversationsIncluded ||
-                  0,
-              );
-              const dailyMessages =
-                monthlyMessages > 0 ? Math.round(monthlyMessages / 30) : null;
-              const aiRepliesPerDay = Number(
-                bundle?.limits?.dailyAiResponses ||
-                  bundle?.limits?.aiCallsPerDay ||
-                  0,
-              );
+              const canSelect = canEdit && !isCurrent && hasPrice;
+              const isEnterprise = normalizedPlanCode === "ENTERPRISE";
+              const quotas = getBundleDisplayQuotas(bundle);
               const highlights =
                 PLAN_CARD_HIGHLIGHTS[normalizedPlanCode] ||
                 (bundle.features || [])
@@ -1044,56 +1250,55 @@ export default function PlanPage() {
                         لا يوجد سعر لهذه الدولة
                       </p>
                     )}
-                    {conversationLimit ? (
-                      <div className="rounded-md border bg-muted/20 p-2 text-xs">
-                        <p className="font-medium">
-                          {currency === "AED" || currency === "SAR"
-                            ? `يشمل ${conversationLimit.toLocaleString("ar-EG")} محادثة - بعدها ${overageRate ?? 0} ${currency} لكل محادثة إضافية`
-                            : `يشمل ${conversationLimit.toLocaleString("ar-EG")} محادثة`}
-                          <span className="mr-1" title={CONVERSATION_TOOLTIP}>
-                            ℹ️
-                          </span>
-                        </p>
-                      </div>
-                    ) : null}
+                    <div className="rounded-md border bg-muted/20 p-2 text-xs text-muted-foreground">
+                      الرسائل = إجمالي الرسائل المُدارة داخل المنصة وتشمل رسائل
+                      العملاء + ردود الذكاء الاصطناعي.
+                    </div>
                   </CardHeader>
                   <CardContent className="space-y-3">
                     <div className="grid grid-cols-2 gap-2 rounded-md border bg-muted/10 p-2 text-xs">
                       <div>
                         <p className="text-muted-foreground">الرسائل / يوم</p>
                         <p className="font-semibold">
-                          {dailyMessages
-                            ? dailyMessages.toLocaleString("ar-EG")
-                            : "-"}
+                          {quotas.totalMessagesPerDay.toLocaleString("ar-EG")}
                         </p>
                       </div>
                       <div>
                         <p className="text-muted-foreground">الرسائل / شهر</p>
                         <p className="font-semibold">
-                          {monthlyMessages.toLocaleString("ar-EG")}
+                          {quotas.totalMessagesPerMonth.toLocaleString("ar-EG")}
                         </p>
                       </div>
                       <div>
-                        <p className="text-muted-foreground">ردود AI / يوم</p>
+                        <p className="text-muted-foreground">
+                          ردود الذكاء الاصطناعي / يوم
+                        </p>
                         <p className="font-semibold">
-                          {aiRepliesPerDay.toLocaleString("ar-EG")}
+                          {quotas.aiRepliesPerDay.toLocaleString("ar-EG")}
                         </p>
                       </div>
                       <div>
-                        <p className="text-muted-foreground">الفروع / POS</p>
+                        <p className="text-muted-foreground">
+                          ردود الذكاء الاصطناعي / شهر
+                        </p>
                         <p className="font-semibold">
-                          {Number(bundle?.limits?.branches || 0).toLocaleString(
-                            "ar-EG",
-                          )}{" "}
-                          /{" "}
-                          {Number(
-                            bundle?.limits?.posConnections ||
-                              bundle?.limits?.pos_connections ||
-                              0,
-                          ).toLocaleString("ar-EG")}
+                          {quotas.aiRepliesPerMonth.toLocaleString("ar-EG")}
                         </p>
                       </div>
                     </div>
+
+                    <p className="text-xs text-muted-foreground">
+                      الفروع / POS:{" "}
+                      {Number(bundle?.limits?.branches || 0).toLocaleString(
+                        "ar-EG",
+                      )}{" "}
+                      /{" "}
+                      {Number(
+                        bundle?.limits?.posConnections ||
+                          bundle?.limits?.pos_connections ||
+                          0,
+                      ).toLocaleString("ar-EG")}
+                    </p>
 
                     <div className="space-y-1">
                       {highlights.slice(0, 6).map((line: string) => (
@@ -1109,15 +1314,26 @@ export default function PlanPage() {
 
                     <Button
                       className="w-full"
-                      disabled={!canSelect}
-                      onClick={() => handleSubscribeBundle(bundle.code)}
+                      variant={isEnterprise ? "outline" : "default"}
+                      disabled={
+                        isCurrent ? true : isEnterprise ? false : !canSelect
+                      }
+                      onClick={() => {
+                        if (isEnterprise) {
+                          router.push("/merchant/plan?contactSales=enterprise");
+                          return;
+                        }
+                        handleSubscribeBundle(bundle.code);
+                      }}
                     >
                       <CreditCard className="mr-2 h-4 w-4" />
                       {isCurrent
                         ? "الباقة الحالية"
-                        : hasPrice
-                          ? "اختيار الباقة"
-                          : "غير متاحة حالياً"}
+                        : isEnterprise
+                          ? "تواصل مع المبيعات"
+                          : hasPrice
+                            ? "اختيار الباقة"
+                            : "غير متاحة حالياً"}
                     </Button>
                   </CardContent>
                 </Card>
@@ -1138,24 +1354,7 @@ export default function PlanPage() {
         const normalizedCode = String(chatOnlyBundle.code || "").toUpperCase();
         const isCurrent = currentPlan === normalizedCode;
         const canSelect = canEdit && !isCurrent && Boolean(selectedCyclePrice);
-
-        const conversationLimit = getConversationLimit(
-          chatOnlyBundle,
-          regionCode,
-        );
-        const monthlyMessages = Number(
-          conversationLimit ||
-            chatOnlyBundle?.limits?.messagesPerMonth ||
-            chatOnlyBundle?.limits?.monthlyConversationsIncluded ||
-            0,
-        );
-        const dailyMessages =
-          monthlyMessages > 0 ? Math.round(monthlyMessages / 30) : null;
-        const aiRepliesPerDay = Number(
-          chatOnlyBundle?.limits?.dailyAiResponses ||
-            chatOnlyBundle?.limits?.aiCallsPerDay ||
-            0,
-        );
+        const quotas = getBundleDisplayQuotas(chatOnlyBundle);
 
         return (
           <div className="space-y-3">
@@ -1230,21 +1429,29 @@ export default function PlanPage() {
                   <div>
                     <p className="text-muted-foreground">الرسائل / يوم</p>
                     <p className="font-semibold">
-                      {dailyMessages
-                        ? dailyMessages.toLocaleString("ar-EG")
-                        : "-"}
+                      {quotas.totalMessagesPerDay.toLocaleString("ar-EG")}
                     </p>
                   </div>
                   <div>
                     <p className="text-muted-foreground">الرسائل / شهر</p>
                     <p className="font-semibold">
-                      {monthlyMessages.toLocaleString("ar-EG")}
+                      {quotas.totalMessagesPerMonth.toLocaleString("ar-EG")}
                     </p>
                   </div>
                   <div>
-                    <p className="text-muted-foreground">ردود AI / يوم</p>
+                    <p className="text-muted-foreground">
+                      ردود الذكاء الاصطناعي / يوم
+                    </p>
                     <p className="font-semibold">
-                      {aiRepliesPerDay.toLocaleString("ar-EG")}
+                      {quotas.aiRepliesPerDay.toLocaleString("ar-EG")}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">
+                      ردود الذكاء الاصطناعي / شهر
+                    </p>
+                    <p className="font-semibold">
+                      {quotas.aiRepliesPerMonth.toLocaleString("ar-EG")}
                     </p>
                   </div>
 
@@ -1267,27 +1474,24 @@ export default function PlanPage() {
         );
       })()}
 
-      <div className="space-y-3">
+      <div className="space-y-4">
         <div className="flex items-center gap-2">
           <Layers className="h-4 w-4 text-primary" />
-          <h2 className="text-lg font-semibold">إضافات الباقة الحالية</h2>
+          <h2 className="text-lg font-semibold">إضافات التوسّع</h2>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">
-              إضافات السعة (Capacity Add-ons)
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <p className="text-xs text-muted-foreground">
-              الرقم داخل الحقل = عدد الوحدات المراد شراؤها من نفس الإضافة. إذا
-              ظهرت "مضمنة بالفعل" فهذا يعني أن باقتك الحالية تغطيها.
-            </p>
-            <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
-              {(catalog.bundleAddOns?.capacityAddOns || [])
-                .filter((addon: any) => addon?.isActive !== false)
-                .map((addOn: any) => {
+        <div className="grid gap-4 xl:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">A) إضافات المزايا</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {curatedFeatureAddOns.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  لا توجد إضافات مزايا مباشرة متاحة لهذه الباقة حاليًا.
+                </p>
+              ) : (
+                curatedFeatureAddOns.map((addOn: any) => {
                   const allowsQuantity =
                     SCALABLE_CAPACITY_ADDONS.has(
                       String(addOn.code || "").toUpperCase(),
@@ -1300,7 +1504,6 @@ export default function PlanPage() {
                   const selectedCyclePrice = cyclePriceMap.get(
                     Number(cycleMonths),
                   );
-
                   const floor = addOn.limitFloorUpdates || {};
                   const floorIncluded = Object.entries(floor).every(
                     ([key, value]) => {
@@ -1313,549 +1516,587 @@ export default function PlanPage() {
                   const alreadyIncluded = floorIncluded && noIncrements;
 
                   return (
-                    <Card key={addOn.code}>
-                      <CardContent className="space-y-2 pt-4">
-                        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                          <div className="min-w-0">
-                            <p className="font-medium text-sm">
-                              {localizeAddOnName(addOn.code, addOn.name)}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {localizeAddOnDescription(
-                                addOn.code,
-                                addOn.description,
-                              )}
-                            </p>
-                          </div>
-                          {alreadyIncluded ? (
-                            <Badge variant="secondary">مضمنة بالفعل</Badge>
-                          ) : null}
-                        </div>
-
-                        <div className="flex flex-col gap-1 text-xs sm:flex-row sm:items-center sm:justify-between">
-                          <span>شهري فعلي ({cycleMonths} شهر)</span>
-                          <span className="font-medium">
-                            {selectedCyclePrice
-                              ? toCurrency(
-                                  selectedCyclePrice.effectiveMonthlyCents,
-                                  selectedCyclePrice.currency,
-                                )
-                              : "-"}
-                          </span>
-                        </div>
-
-                        {allowsQuantity ? (
-                          <div className="space-y-1">
-                            <p className="text-[11px] text-muted-foreground">
-                              الكمية = عدد وحدات هذه الإضافة.
-                            </p>
-                            <Input
-                              type="number"
-                              min={1}
-                              className="h-8 w-full sm:w-28"
-                              value={quantity}
-                              disabled={alreadyIncluded || !canEdit}
-                              onChange={(event) => {
-                                const next = Math.max(
-                                  1,
-                                  Number(event.target.value || 1),
-                                );
-                                setCapacityQty((prev) => ({
-                                  ...prev,
-                                  [addOn.code]: next,
-                                }));
-                              }}
-                            />
-                          </div>
-                        ) : (
-                          <p className="text-[11px] text-muted-foreground">
-                            هذه الإضافة تُشترى مرة واحدة فقط.
-                          </p>
+                    <div
+                      key={addOn.code}
+                      className="space-y-2 rounded-md border p-3"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="font-medium text-sm">
+                          {localizeAddOnName(addOn.code, addOn.name)}
+                        </p>
+                        {alreadyIncluded ? (
+                          <Badge variant="secondary">مضمنة بالفعل</Badge>
+                        ) : null}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {localizeAddOnDescription(
+                          addOn.code,
+                          addOn.description,
                         )}
-
-                        <Button
-                          className="w-full"
-                          disabled={!canEdit || alreadyIncluded}
-                          onClick={() => handleBuyCapacity(addOn.code)}
-                        >
-                          شراء الإضافة
-                        </Button>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">
-              باقات الاستخدام للباقة الحالية
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-xs text-muted-foreground">
-              داخل كل فئة اختر باقة واحدة فقط. الرقم = عدد مرات تكرار نفس الباقة
-              شهريًا.
-            </p>
-            {Object.entries(bundleUsagePacksByMetric).map(([metric, packs]) => (
-              <div key={metric} className="space-y-2">
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <p className="text-sm font-medium">
-                    {METRIC_LABELS[metric] || metric}
-                  </p>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="w-full sm:w-auto"
-                    disabled={!canEdit}
-                    onClick={() => handleBuyUsagePack(metric)}
-                  >
-                    شراء الفئة المحددة
-                  </Button>
-                </div>
-                <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4">
-                  {(packs || []).map((pack: any) => {
-                    const selected =
-                      bundleSelectedPackByMetric[metric] === pack.code;
-                    const quantity = Math.max(
-                      1,
-                      Number(bundlePackQty[pack.code] || 1),
-                    );
-                    const benefitLines = usagePackBenefitLines(pack, quantity);
-                    return (
-                      <Card
-                        key={pack.code}
-                        className={selected ? "border-primary" : ""}
-                      >
-                        <CardContent className="space-y-2 pt-4">
-                          <p className="font-medium text-sm">
-                            {localizeUsagePackName(pack.code, pack.name)}
-                          </p>
-                          <div className="flex flex-col gap-1 text-xs sm:flex-row sm:items-center sm:justify-between">
-                            <span>شهري</span>
-                            <span className="font-medium">
-                              {pack.priceCents
-                                ? toCurrency(
-                                    pack.priceCents,
-                                    pack.currency || currency,
-                                  )
-                                : "-"}
-                            </span>
-                          </div>
-                          <div className="rounded-md border bg-muted/20 p-2">
-                            <p className="text-[11px] text-muted-foreground">
-                              ماذا تضيف هذه الباقة:
-                            </p>
-                            {quantity > 1 ? (
-                              <p className="text-[11px] text-muted-foreground">
-                                القيم بعد تطبيق الكمية الحالية ({quantity}).
-                              </p>
-                            ) : null}
-                            {benefitLines.length > 0 ? (
-                              benefitLines.map((line) => (
-                                <p
-                                  key={line}
-                                  className="text-[11px] font-medium"
-                                >
-                                  {line}
-                                </p>
-                              ))
-                            ) : (
-                              <p className="text-[11px] text-muted-foreground">
-                                لا توجد تفاصيل زيادة متاحة.
-                              </p>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2 text-xs">
-                            <Checkbox
-                              checked={selected}
-                              onCheckedChange={(nextChecked) => {
-                                setBundleSelectedPackByMetric((prev) => ({
-                                  ...prev,
-                                  [metric]:
-                                    nextChecked === true ? pack.code : "",
-                                }));
-                              }}
-                            />
-                            <span>اختيار هذه الباقة</span>
-                          </div>
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {selectedCyclePrice
+                          ? `سعر شهري فعلي: ${toCurrency(
+                              selectedCyclePrice.effectiveMonthlyCents,
+                              selectedCyclePrice.currency,
+                            )}`
+                          : "غير متاح لهذه الدولة"}
+                      </p>
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        {allowsQuantity ? (
                           <Input
                             type="number"
                             min={1}
                             className="h-8 w-full sm:w-24"
-                            disabled={!selected}
                             value={quantity}
+                            disabled={alreadyIncluded || !canEdit}
                             onChange={(event) => {
                               const next = Math.max(
                                 1,
                                 Number(event.target.value || 1),
                               );
-                              setBundlePackQty((prev) => ({
+                              setCapacityQty((prev) => ({
                                 ...prev,
-                                [pack.code]: next,
+                                [addOn.code]: next,
                               }));
                             }}
                           />
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
+                        ) : (
+                          <span className="text-[11px] text-muted-foreground">
+                            مرة واحدة
+                          </span>
+                        )}
+                        <Button
+                          size="sm"
+                          className="w-full sm:w-auto"
+                          disabled={!canEdit || alreadyIncluded}
+                          onClick={() => handleBuyCapacity(addOn.code)}
+                        >
+                          شراء الإضافة
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">B) إضافات الوكلاء</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {LIVE_AGENT_ADDON_ITEMS.map((agent) => (
+                <div
+                  key={agent}
+                  className="flex items-center justify-between rounded-md border p-3"
+                >
+                  <p className="text-sm font-medium">{agent}</p>
+                  <Badge variant="outline">وكيل حي قابل للبيع</Badge>
                 </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      </div>
+              ))}
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() =>
+                  router.push("/merchant/plan?contactSales=agents")
+                }
+              >
+                تواصل مع المبيعات
+              </Button>
+            </CardContent>
+          </Card>
 
-      <div className="space-y-3">
-        <div className="flex items-center gap-2">
-          <Calculator className="h-4 w-4 text-primary" />
-          <h2 className="text-lg font-semibold">حاسبة BYO (مخصص)</h2>
-        </div>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">
-              اختر إضافات BYO + باقات الاستخدام
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="space-y-3">
-              <h3 className="font-medium">إضافات BYO (تخضع لخصم الدورة)</h3>
-              <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
-                {(byoAddOns || [])
-                  .filter((addon: any) => addon?.isActive !== false)
-                  .map((addOn: any) => {
-                    const checked = Number(byoAddOnQty[addOn.code] || 0) > 0;
-                    const isCore = addOn.code === "PLATFORM_CORE";
-                    const normalizedAddOnCode = String(
-                      addOn.code || "",
-                    ).toUpperCase();
-                    const allowsQuantity =
-                      SCALABLE_CAPACITY_ADDONS.has(normalizedAddOnCode) ||
-                      Object.keys(addOn.limitIncrements || {}).length > 0;
-                    const cyclePriceMap = mapPricesByCycle(addOn.prices || []);
-                    const selectedCyclePrice = cyclePriceMap.get(
-                      Number(cycleMonths),
-                    );
-
-                    return (
-                      <Card
-                        key={addOn.code}
-                        className={checked ? "border-primary" : ""}
-                      >
-                        <CardContent className="space-y-2 pt-4">
-                          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                            <div>
-                              <p className="font-medium text-sm">
-                                {localizeAddOnName(addOn.code, addOn.name)}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                {localizeAddOnDescription(
-                                  addOn.code,
-                                  addOn.description,
-                                )}
-                              </p>
-                            </div>
-                            {isCore ? <Badge>إلزامي</Badge> : null}
-                          </div>
-
-                          <div className="flex flex-col gap-1 text-xs sm:flex-row sm:items-center sm:justify-between">
-                            <span>شهري فعلي ({cycleMonths} شهر)</span>
-                            <span className="font-medium">
-                              {selectedCyclePrice
-                                ? toCurrency(
-                                    selectedCyclePrice.effectiveMonthlyCents,
-                                    selectedCyclePrice.currency,
-                                  )
-                                : "-"}
-                            </span>
-                          </div>
-
-                          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                            <div className="flex items-center gap-2">
-                              <Checkbox
-                                checked={checked}
-                                disabled={isCore}
-                                onCheckedChange={(nextChecked) => {
-                                  const enabled = nextChecked === true;
-                                  setByoAddOnQty((prev) => ({
-                                    ...prev,
-                                    [addOn.code]: enabled
-                                      ? allowsQuantity
-                                        ? Math.max(
-                                            1,
-                                            Number(prev[addOn.code] || 1),
-                                          )
-                                        : 1
-                                      : 0,
-                                  }));
-                                }}
-                              />
-                              <span className="text-xs">اختيار</span>
-                            </div>
-
-                            {allowsQuantity ? (
-                              <Input
-                                type="number"
-                                min={1}
-                                value={Math.max(
-                                  1,
-                                  Number(byoAddOnQty[addOn.code] || 1),
-                                )}
-                                className="h-8 w-full sm:w-20"
-                                disabled={!checked || !canEdit}
-                                onChange={(event) => {
-                                  const quantity = Math.max(
-                                    1,
-                                    Number(event.target.value || 1),
-                                  );
-                                  setByoAddOnQty((prev) => ({
-                                    ...prev,
-                                    [addOn.code]: quantity,
-                                  }));
-                                }}
-                              />
-                            ) : null}
-                          </div>
-                          <p className="text-[11px] text-muted-foreground">
-                            {allowsQuantity
-                              ? "الرقم = عدد الفروع الإضافية المطلوبة."
-                              : "هذه الإضافة تُختار مرة واحدة فقط."}
-                          </p>
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              <h3 className="font-medium">باقات الاستخدام (بدون خصم دورة)</h3>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">C) باقات الاستخدام</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
               <p className="text-xs text-muted-foreground">
-                لكل فئة اختر باقة واحدة فقط. الرقم = تكرار نفس الباقة شهريًا.
+                اختَر باقة واحدة لكل فئة، والكمية لتكرار نفس الباقة شهريًا.
               </p>
-              <div className="space-y-4">
-                {Object.entries(byoUsagePacksByMetric).map(
-                  ([metric, packs]) => (
-                    <div key={metric} className="space-y-2">
+              {Object.entries(bundleUsagePacksByMetric).map(
+                ([metric, packs]) => (
+                  <div key={metric} className="space-y-2">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                       <p className="text-sm font-medium">
                         {METRIC_LABELS[metric] || metric}
                       </p>
-                      <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4">
-                        {(packs || []).map((pack: any) => {
-                          const checked =
-                            Number(byoPackQty[pack.code] || 0) > 0;
-                          const quantity = Math.max(
-                            1,
-                            Number(byoPackQty[pack.code] || 1),
-                          );
-                          const benefitLines = usagePackBenefitLines(
-                            pack,
-                            quantity,
-                          );
-                          return (
-                            <Card
-                              key={pack.code}
-                              className={checked ? "border-primary" : ""}
-                            >
-                              <CardContent className="space-y-2 pt-4">
-                                <p className="font-medium text-sm">
-                                  {localizeUsagePackName(pack.code, pack.name)}
-                                </p>
-                                <div className="flex flex-col gap-1 text-xs sm:flex-row sm:items-center sm:justify-between">
-                                  <span>شهري</span>
-                                  <span className="font-medium">
-                                    {pack.priceCents
-                                      ? toCurrency(
-                                          pack.priceCents,
-                                          pack.currency || currency,
-                                        )
-                                      : "-"}
-                                  </span>
-                                </div>
-                                <div className="rounded-md border bg-muted/20 p-2">
-                                  <p className="text-[11px] text-muted-foreground">
-                                    ماذا تضيف هذه الباقة:
-                                  </p>
-                                  {quantity > 1 ? (
-                                    <p className="text-[11px] text-muted-foreground">
-                                      القيم بعد تطبيق الكمية الحالية ({quantity}
-                                      ).
-                                    </p>
-                                  ) : null}
-                                  {benefitLines.length > 0 ? (
-                                    benefitLines.map((line) => (
-                                      <p
-                                        key={line}
-                                        className="text-[11px] font-medium"
-                                      >
-                                        {line}
-                                      </p>
-                                    ))
-                                  ) : (
-                                    <p className="text-[11px] text-muted-foreground">
-                                      لا توجد تفاصيل زيادة متاحة.
-                                    </p>
-                                  )}
-                                </div>
-                                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                                  <div className="flex items-center gap-2">
-                                    <Checkbox
-                                      checked={checked}
-                                      onCheckedChange={(nextChecked) => {
-                                        const enabled = nextChecked === true;
-                                        setByoPackQty((prev) => {
-                                          const next = { ...prev };
-                                          const codesInMetric = (
-                                            packs || []
-                                          ).map((item: any) =>
-                                            String(item.code),
-                                          );
-                                          if (enabled) {
-                                            for (const c of codesInMetric) {
-                                              if (c !== pack.code) {
-                                                next[c] = 0;
-                                              }
-                                            }
-                                            next[pack.code] = Math.max(
-                                              1,
-                                              Number(prev[pack.code] || 1),
-                                            );
-                                          } else {
-                                            next[pack.code] = 0;
-                                          }
-                                          return next;
-                                        });
-                                      }}
-                                    />
-                                    <span className="text-xs">اختيار</span>
-                                  </div>
-                                  <Input
-                                    type="number"
-                                    min={1}
-                                    className="h-8 w-full sm:w-20"
-                                    disabled={!checked}
-                                    value={quantity}
-                                    onChange={(event) => {
-                                      const quantity = Math.max(
-                                        1,
-                                        Number(event.target.value || 1),
-                                      );
-                                      setByoPackQty((prev) => ({
-                                        ...prev,
-                                        [pack.code]: quantity,
-                                      }));
-                                    }}
-                                  />
-                                </div>
-                              </CardContent>
-                            </Card>
-                          );
-                        })}
-                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="w-full sm:w-auto"
+                        disabled={!canEdit}
+                        onClick={() => handleBuyUsagePack(metric)}
+                      >
+                        شراء الفئة المحددة
+                      </Button>
                     </div>
-                  ),
-                )}
-              </div>
-            </div>
+                    <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4">
+                      {(packs || []).map((pack: any) => {
+                        const selected =
+                          bundleSelectedPackByMetric[metric] === pack.code;
+                        const quantity = Math.max(
+                          1,
+                          Number(bundlePackQty[pack.code] || 1),
+                        );
+                        return (
+                          <Card
+                            key={pack.code}
+                            className={selected ? "border-primary" : ""}
+                          >
+                            <CardContent className="space-y-2 pt-4">
+                              <p className="font-medium text-sm">
+                                {getCuratedUsagePackLabel(pack)}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {pack.priceCents
+                                  ? toCurrency(
+                                      pack.priceCents,
+                                      pack.currency || currency,
+                                    )
+                                  : "-"}
+                              </p>
+                              <div className="flex items-center gap-2 text-xs">
+                                <Checkbox
+                                  checked={selected}
+                                  onCheckedChange={(nextChecked) => {
+                                    setBundleSelectedPackByMetric((prev) => ({
+                                      ...prev,
+                                      [metric]:
+                                        nextChecked === true ? pack.code : "",
+                                    }));
+                                  }}
+                                />
+                                <span>اختيار هذه الباقة</span>
+                              </div>
+                              <Input
+                                type="number"
+                                min={1}
+                                className="h-8 w-full sm:w-24"
+                                disabled={!selected}
+                                value={quantity}
+                                onChange={(event) => {
+                                  const next = Math.max(
+                                    1,
+                                    Number(event.target.value || 1),
+                                  );
+                                  setBundlePackQty((prev) => ({
+                                    ...prev,
+                                    [pack.code]: next,
+                                  }));
+                                }}
+                              />
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ),
+              )}
+            </CardContent>
+          </Card>
 
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-              <Button
-                onClick={calculateByo}
-                disabled={calculating}
-                className="w-full sm:w-auto"
-              >
-                <Layers className="mr-2 h-4 w-4" />
-                {calculating ? "جاري الحساب..." : "إعادة حساب BYO"}
-              </Button>
-              <p className="text-xs text-muted-foreground">
-                معامل زيادة BYO = {catalog.byoMarkup}x، وباقات الاستخدام شهرية
-                بدون خصم دورة.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        {byoResult ? (
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">نتيجة تسعير BYO</CardTitle>
+              <CardTitle className="text-base">
+                D) الباقات المخصصة / المؤسسية
+              </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
-                <div className="rounded-md border p-3">
-                  <p className="text-xs text-muted-foreground">
-                    قبل معامل BYO (شهري)
-                  </p>
-                  <p className="text-lg font-semibold">
-                    {toCurrency(
-                      byoResult.subtotals?.preMarkupEffectiveMonthlyCents || 0,
-                      currency,
-                    )}
-                  </p>
+            <CardContent className="space-y-3">
+              {ENTERPRISE_CUSTOM_ITEMS.map((item) => (
+                <div key={item} className="rounded-md border p-3 text-sm">
+                  {item}
                 </div>
-                <div className="rounded-md border p-3">
-                  <p className="text-xs text-muted-foreground">
-                    إجمالي BYO (شهري فعلي)
-                  </p>
-                  <p className="text-lg font-semibold">
-                    {toCurrency(
-                      byoResult.totals?.effectiveMonthlyCents || 0,
-                      currency,
-                    )}
-                  </p>
-                </div>
-                <div className="rounded-md border p-3">
-                  <p className="text-xs text-muted-foreground">
-                    إجمالي الدورة ({cycleMonths} شهر)
-                  </p>
-                  <p className="text-lg font-semibold">
-                    {toCurrency(
-                      byoResult.totals?.cycleTotalCents || 0,
-                      currency,
-                    )}
-                  </p>
+              ))}
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() =>
+                  router.push("/merchant/plan?contactSales=custom")
+                }
+              >
+                تواصل مع المبيعات
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">ملاحظات مهمة</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2 text-sm text-muted-foreground">
+          <p>• الرسائل = إجمالي الرسائل المُدارة داخل المنصة</p>
+          <p>• تشمل رسائل العملاء + ردود الذكاء الاصطناعي</p>
+          <p>• رسوم قوالب واتساب المدفوعة تُحاسب بشكل منفصل</p>
+          <p>• المكالمات لا تشملها الباقات القياسية</p>
+          <p>• الكاشير مجاني لأول 30 يومًا في الاشتراكات الجديدة المؤهلة</p>
+        </CardContent>
+      </Card>
+
+      <details className="group rounded-md border bg-background/70 p-3">
+        <summary className="cursor-pointer list-none text-sm font-semibold">
+          وضع متقدم: بناء باقة مخصصة (BYO)
+        </summary>
+        <p className="mt-2 text-xs text-muted-foreground">
+          تم إخفاء تفاصيل البناء المخصص من المسار الافتراضي. افتح هذا القسم فقط
+          إذا كنت تحتاج إعدادًا متقدمًا.
+        </p>
+
+        <div className="mt-3 space-y-3">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">
+                اختر إضافات BYO + باقات الاستخدام
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-3">
+                <h3 className="font-medium">إضافات BYO (تخضع لخصم الدورة)</h3>
+                <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
+                  {(byoAddOns || [])
+                    .filter((addon: any) => addon?.isActive !== false)
+                    .map((addOn: any) => {
+                      const checked = Number(byoAddOnQty[addOn.code] || 0) > 0;
+                      const isCore = addOn.code === "PLATFORM_CORE";
+                      const normalizedAddOnCode = String(
+                        addOn.code || "",
+                      ).toUpperCase();
+                      const allowsQuantity =
+                        SCALABLE_CAPACITY_ADDONS.has(normalizedAddOnCode) ||
+                        Object.keys(addOn.limitIncrements || {}).length > 0;
+                      const cyclePriceMap = mapPricesByCycle(
+                        addOn.prices || [],
+                      );
+                      const selectedCyclePrice = cyclePriceMap.get(
+                        Number(cycleMonths),
+                      );
+
+                      return (
+                        <Card
+                          key={addOn.code}
+                          className={checked ? "border-primary" : ""}
+                        >
+                          <CardContent className="space-y-2 pt-4">
+                            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                              <div>
+                                <p className="font-medium text-sm">
+                                  {localizeAddOnName(addOn.code, addOn.name)}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  {localizeAddOnDescription(
+                                    addOn.code,
+                                    addOn.description,
+                                  )}
+                                </p>
+                              </div>
+                              {isCore ? <Badge>إلزامي</Badge> : null}
+                            </div>
+
+                            <div className="flex flex-col gap-1 text-xs sm:flex-row sm:items-center sm:justify-between">
+                              <span>شهري فعلي ({cycleMonths} شهر)</span>
+                              <span className="font-medium">
+                                {selectedCyclePrice
+                                  ? toCurrency(
+                                      selectedCyclePrice.effectiveMonthlyCents,
+                                      selectedCyclePrice.currency,
+                                    )
+                                  : "-"}
+                              </span>
+                            </div>
+
+                            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                              <div className="flex items-center gap-2">
+                                <Checkbox
+                                  checked={checked}
+                                  disabled={isCore}
+                                  onCheckedChange={(nextChecked) => {
+                                    const enabled = nextChecked === true;
+                                    setByoAddOnQty((prev) => ({
+                                      ...prev,
+                                      [addOn.code]: enabled
+                                        ? allowsQuantity
+                                          ? Math.max(
+                                              1,
+                                              Number(prev[addOn.code] || 1),
+                                            )
+                                          : 1
+                                        : 0,
+                                    }));
+                                  }}
+                                />
+                                <span className="text-xs">اختيار</span>
+                              </div>
+
+                              {allowsQuantity ? (
+                                <Input
+                                  type="number"
+                                  min={1}
+                                  value={Math.max(
+                                    1,
+                                    Number(byoAddOnQty[addOn.code] || 1),
+                                  )}
+                                  className="h-8 w-full sm:w-20"
+                                  disabled={!checked || !canEdit}
+                                  onChange={(event) => {
+                                    const quantity = Math.max(
+                                      1,
+                                      Number(event.target.value || 1),
+                                    );
+                                    setByoAddOnQty((prev) => ({
+                                      ...prev,
+                                      [addOn.code]: quantity,
+                                    }));
+                                  }}
+                                />
+                              ) : null}
+                            </div>
+                            <p className="text-[11px] text-muted-foreground">
+                              {allowsQuantity
+                                ? "الرقم = عدد الفروع الإضافية المطلوبة."
+                                : "هذه الإضافة تُختار مرة واحدة فقط."}
+                            </p>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
                 </div>
               </div>
 
-              <div className="rounded-md border p-3">
-                <p className="text-sm font-medium">
-                  مقارنة الباقات الجاهزة مقابل BYO
+              <div className="space-y-3">
+                <h3 className="font-medium">باقات الاستخدام (بدون خصم دورة)</h3>
+                <p className="text-xs text-muted-foreground">
+                  لكل فئة اختر باقة واحدة فقط. الرقم = تكرار نفس الباقة شهريًا.
                 </p>
-                <div className="mt-2 space-y-1">
-                  {(byoResult.bundleComparison || []).map((entry: any) => (
-                    <div
-                      key={entry.code}
-                      className="flex flex-col gap-1 text-xs sm:flex-row sm:items-center sm:justify-between"
-                    >
-                      <span>{localizePlanName(entry.code, entry.name)}</span>
-                      <span>
-                        {toCurrency(
-                          entry.effectiveMonthlyCents,
-                          entry.currency || currency,
-                        )}{" "}
-                        • الوفر مقابل BYO:{" "}
-                        {Number(entry.savesPercent || 0).toLocaleString(
-                          "ar-EG",
-                        )}
-                        %
-                      </span>
-                    </div>
-                  ))}
+                <div className="space-y-4">
+                  {Object.entries(byoUsagePacksByMetric).map(
+                    ([metric, packs]) => (
+                      <div key={metric} className="space-y-2">
+                        <p className="text-sm font-medium">
+                          {METRIC_LABELS[metric] || metric}
+                        </p>
+                        <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4">
+                          {(packs || []).map((pack: any) => {
+                            const checked =
+                              Number(byoPackQty[pack.code] || 0) > 0;
+                            const quantity = Math.max(
+                              1,
+                              Number(byoPackQty[pack.code] || 1),
+                            );
+                            const benefitLines = usagePackBenefitLines(
+                              pack,
+                              quantity,
+                            );
+                            return (
+                              <Card
+                                key={pack.code}
+                                className={checked ? "border-primary" : ""}
+                              >
+                                <CardContent className="space-y-2 pt-4">
+                                  <p className="font-medium text-sm">
+                                    {localizeUsagePackName(
+                                      pack.code,
+                                      pack.name,
+                                    )}
+                                  </p>
+                                  <div className="flex flex-col gap-1 text-xs sm:flex-row sm:items-center sm:justify-between">
+                                    <span>شهري</span>
+                                    <span className="font-medium">
+                                      {pack.priceCents
+                                        ? toCurrency(
+                                            pack.priceCents,
+                                            pack.currency || currency,
+                                          )
+                                        : "-"}
+                                    </span>
+                                  </div>
+                                  <div className="rounded-md border bg-muted/20 p-2">
+                                    <p className="text-[11px] text-muted-foreground">
+                                      ماذا تضيف هذه الباقة:
+                                    </p>
+                                    {quantity > 1 ? (
+                                      <p className="text-[11px] text-muted-foreground">
+                                        القيم بعد تطبيق الكمية الحالية (
+                                        {quantity}
+                                        ).
+                                      </p>
+                                    ) : null}
+                                    {benefitLines.length > 0 ? (
+                                      benefitLines.map((line) => (
+                                        <p
+                                          key={line}
+                                          className="text-[11px] font-medium"
+                                        >
+                                          {line}
+                                        </p>
+                                      ))
+                                    ) : (
+                                      <p className="text-[11px] text-muted-foreground">
+                                        لا توجد تفاصيل زيادة متاحة.
+                                      </p>
+                                    )}
+                                  </div>
+                                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                    <div className="flex items-center gap-2">
+                                      <Checkbox
+                                        checked={checked}
+                                        onCheckedChange={(nextChecked) => {
+                                          const enabled = nextChecked === true;
+                                          setByoPackQty((prev) => {
+                                            const next = { ...prev };
+                                            const codesInMetric = (
+                                              packs || []
+                                            ).map((item: any) =>
+                                              String(item.code),
+                                            );
+                                            if (enabled) {
+                                              for (const c of codesInMetric) {
+                                                if (c !== pack.code) {
+                                                  next[c] = 0;
+                                                }
+                                              }
+                                              next[pack.code] = Math.max(
+                                                1,
+                                                Number(prev[pack.code] || 1),
+                                              );
+                                            } else {
+                                              next[pack.code] = 0;
+                                            }
+                                            return next;
+                                          });
+                                        }}
+                                      />
+                                      <span className="text-xs">اختيار</span>
+                                    </div>
+                                    <Input
+                                      type="number"
+                                      min={1}
+                                      className="h-8 w-full sm:w-20"
+                                      disabled={!checked}
+                                      value={quantity}
+                                      onChange={(event) => {
+                                        const quantity = Math.max(
+                                          1,
+                                          Number(event.target.value || 1),
+                                        );
+                                        setByoPackQty((prev) => ({
+                                          ...prev,
+                                          [pack.code]: quantity,
+                                        }));
+                                      }}
+                                    />
+                                  </div>
+                                </CardContent>
+                              </Card>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ),
+                  )}
                 </div>
-                {byoResult.floor?.applied ? (
-                  <p className="mt-2 text-xs text-[var(--accent-warning)]">
-                    تم تطبيق حد أدنى: BYO ≥ الباقة المكافئة × 1.15
-                  </p>
-                ) : null}
+              </div>
+
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <Button
+                  onClick={calculateByo}
+                  disabled={calculating}
+                  className="w-full sm:w-auto"
+                >
+                  <Calculator className="mr-2 h-4 w-4" />
+                  {calculating ? "جاري الحساب..." : "إعادة حساب BYO"}
+                </Button>
+                <p className="text-xs text-muted-foreground">
+                  هذه نتيجة تقديرية للباندل المخصص قبل اعتمادها نهائيًا عبر فريق
+                  المبيعات.
+                </p>
               </div>
             </CardContent>
           </Card>
-        ) : null}
-      </div>
+
+          {byoResult ? (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">نتيجة تسعير BYO</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
+                  <div className="rounded-md border p-3">
+                    <p className="text-xs text-muted-foreground">
+                      قبل معامل BYO (شهري)
+                    </p>
+                    <p className="text-lg font-semibold">
+                      {toCurrency(
+                        byoResult.subtotals?.preMarkupEffectiveMonthlyCents ||
+                          0,
+                        currency,
+                      )}
+                    </p>
+                  </div>
+                  <div className="rounded-md border p-3">
+                    <p className="text-xs text-muted-foreground">
+                      إجمالي BYO (شهري فعلي)
+                    </p>
+                    <p className="text-lg font-semibold">
+                      {toCurrency(
+                        byoResult.totals?.effectiveMonthlyCents || 0,
+                        currency,
+                      )}
+                    </p>
+                  </div>
+                  <div className="rounded-md border p-3">
+                    <p className="text-xs text-muted-foreground">
+                      إجمالي الدورة ({cycleMonths} شهر)
+                    </p>
+                    <p className="text-lg font-semibold">
+                      {toCurrency(
+                        byoResult.totals?.cycleTotalCents || 0,
+                        currency,
+                      )}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="rounded-md border p-3">
+                  <p className="text-sm font-medium">
+                    مقارنة الباقات الجاهزة مقابل BYO
+                  </p>
+                  <div className="mt-2 space-y-1">
+                    {(byoResult.bundleComparison || []).map((entry: any) => (
+                      <div
+                        key={entry.code}
+                        className="flex flex-col gap-1 text-xs sm:flex-row sm:items-center sm:justify-between"
+                      >
+                        <span>{localizePlanName(entry.code, entry.name)}</span>
+                        <span>
+                          {toCurrency(
+                            entry.effectiveMonthlyCents,
+                            entry.currency || currency,
+                          )}{" "}
+                          • الوفر مقابل BYO:{" "}
+                          {Number(entry.savesPercent || 0).toLocaleString(
+                            "ar-EG",
+                          )}
+                          %
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  {byoResult.floor?.applied ? (
+                    <p className="mt-2 text-xs text-[var(--accent-warning)]">
+                      تم تطبيق حد أدنى: BYO ≥ الباقة المكافئة × 1.15
+                    </p>
+                  ) : null}
+                </div>
+              </CardContent>
+            </Card>
+          ) : null}
+        </div>
+      </details>
     </div>
   );
 }

@@ -49,10 +49,6 @@ import {
   RefreshCw,
 } from "lucide-react";
 import portalApi from "@/lib/client";
-import {
-  AiInsightsCard,
-  generateOcrInsights,
-} from "@/components/ai/ai-insights-card";
 
 interface OcrConfirmation {
   id: string;
@@ -202,13 +198,29 @@ export default function OcrReviewPage() {
         }
       />
 
-      <AiInsightsCard
-        insights={generateOcrInsights({
-          pendingReview: pending.length ?? 0,
-          approved: approved.length ?? 0,
-          rejected: rejected.length ?? 0,
-        })}
-      />
+      <div className="flex flex-wrap gap-2">
+        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
+          <Clock className="h-3.5 w-3.5 text-[var(--accent-warning)]" />
+          <span className="text-muted-foreground">بانتظار المراجعة</span>
+          <span className="font-mono text-[var(--accent-warning)]">
+            {pending.length}
+          </span>
+        </div>
+        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
+          <CheckCircle2 className="h-3.5 w-3.5 text-[var(--accent-success)]" />
+          <span className="text-muted-foreground">معتمدة</span>
+          <span className="font-mono text-[var(--accent-success)]">
+            {approved.length}
+          </span>
+        </div>
+        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
+          <XCircle className="h-3.5 w-3.5 text-[var(--accent-danger)]" />
+          <span className="text-muted-foreground">مرفوضة</span>
+          <span className="font-mono text-[var(--accent-danger)]">
+            {rejected.length}
+          </span>
+        </div>
+      </div>
 
       {/* Stats */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">

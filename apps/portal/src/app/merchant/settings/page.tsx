@@ -40,10 +40,6 @@ import {
 } from "lucide-react";
 import { merchantApi } from "@/lib/client";
 import { useMerchant } from "@/hooks/use-merchant";
-import {
-  AiInsightsCard,
-  generateSettingsInsights,
-} from "@/components/ai/ai-insights-card";
 import { DeleteAccountPanel } from "@/components/merchant/settings/delete-account-panel";
 
 // Settings structure matching API response
@@ -391,67 +387,42 @@ export default function SettingsPage() {
       />
 
       {settings && (
-        <section className="app-hero-band">
-          <div className="app-hero-band__grid">
-            <div>
-              <p className="app-hero-band__eyebrow">تهيئة المنصة</p>
-              <h2 className="app-hero-band__title">
-                اضبط المتجر والدفعات والتشغيل من لوحة إعدادات واحدة
-              </h2>
-              <p className="app-hero-band__copy">
-                هذه المساحة تجمع هوية النشاط، قنوات الدفع، إعدادات التشغيل،
-                وتجربة نقطة البيع ضمن نموذج واضح وقابل للمراجعة.
-              </p>
-            </div>
-            <div className="app-hero-band__metrics">
-              <div className="app-hero-band__metric">
-                <span className="app-hero-band__metric-label">
-                  وضع نقطة البيع
-                </span>
-                <strong className="app-hero-band__metric-value">
-                  {settings.pos.enabled ? "مفعّل" : "معطّل"}
-                </strong>
-              </div>
-              <div className="app-hero-band__metric">
-                <span className="app-hero-band__metric-label">
-                  جاهزية الدفع
-                </span>
-                <strong className="app-hero-band__metric-value">
-                  {settings.payout.instapayAlias ||
-                  settings.payout.vodafoneCashNumber ||
-                  settings.payout.bankAccount
-                    ? "مكتملة"
-                    : "بحاجة إعداد"}
-                </strong>
-              </div>
-              <div className="app-hero-band__metric">
-                <span className="app-hero-band__metric-label">
-                  الردود التلقائية
-                </span>
-                <strong className="app-hero-band__metric-value">
-                  {settings.preferences.autoResponseEnabled ? "نشطة" : "متوقفة"}
-                </strong>
-              </div>
-            </div>
+        <div className="flex flex-wrap gap-2">
+          <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
+            <Store className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="text-muted-foreground">وضع نقطة البيع</span>
+            <span className="font-mono text-foreground">
+              {settings.pos.enabled ? "مفعّل" : "معطّل"}
+            </span>
           </div>
-        </section>
+          <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
+            <Wallet className="h-3.5 w-3.5 text-[var(--accent-gold)]" />
+            <span className="text-muted-foreground">جاهزية الدفع</span>
+            <span className="font-mono text-[var(--accent-gold)]">
+              {settings.payout.instapayAlias ||
+              settings.payout.vodafoneCashNumber ||
+              settings.payout.bankAccount
+                ? "مكتملة"
+                : "بحاجة إعداد"}
+            </span>
+          </div>
+          <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
+            <Bell className="h-3.5 w-3.5 text-[var(--accent-blue)]" />
+            <span className="text-muted-foreground">الردود التلقائية</span>
+            <span className="font-mono text-[var(--accent-blue)]">
+              {settings.preferences.autoResponseEnabled ? "نشطة" : "متوقفة"}
+            </span>
+          </div>
+          <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
+            <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="text-muted-foreground">ساعات العمل</span>
+            <span className="font-mono text-foreground">
+              {settings.preferences.workingHours.start || "—"} /{" "}
+              {settings.preferences.workingHours.end || "—"}
+            </span>
+          </div>
+        </div>
       )}
-
-      <AiInsightsCard
-        insights={generateSettingsInsights({
-          hasKnowledgeBase: Boolean(settings?.business?.name),
-          hasPayoutSetup: Boolean(
-            settings?.payout?.instapayAlias ||
-            settings?.payout?.vodafoneCashNumber ||
-            settings?.payout?.bankAccount,
-          ),
-          hasDeliveryRules: Boolean(settings?.preferences?.workingHours?.start),
-          hasWorkingHours: Boolean(
-            settings?.preferences?.workingHours?.start &&
-            settings?.preferences?.workingHours?.end,
-          ),
-        })}
-      />
 
       {error && (
         <AlertBanner

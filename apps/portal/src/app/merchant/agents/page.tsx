@@ -44,6 +44,7 @@ import {
 import { merchantApi } from "@/lib/client";
 import { useMerchant } from "@/hooks/use-merchant";
 import Link from "next/link";
+import { cn } from "@/lib/utils";
 
 interface AgentInfo {
   id: string;
@@ -245,148 +246,46 @@ export default function AgentsPage() {
     <div className="space-y-8">
       <PageHeader
         title="مركز الذكاء"
-        description="واجهة موحدة للوكلاء والقدرات الذكية التي تدير التسويق والعمليات والمخزون والمالية."
+        description="التحكم في الوكلاء، قدراتهم، وروابط التشغيل التي تهم الفريق فعلياً."
       />
 
-      <section className="app-hero-band">
-        <div className="app-hero-band__grid">
-          <div className="space-y-4">
-            <span className="app-hero-band__eyebrow">AI Control Center</span>
-            <div className="space-y-3">
-              <h2 className="app-hero-band__title">
-                تعرف على ما هو مفعّل الآن، ما المتاح في الخطة، وما الذي سيزيد
-                أثر النظام مباشرة على التشغيل.
-              </h2>
-              <p className="app-hero-band__copy">
-                هذه الصفحة تجمع الوكلاء، حالاتهم، وروابطهم التنفيذية في مكان
-                واحد. ليست مجرد صفحة تعريفية، بل خريطة تشغيل للذكاء عبر النظام.
-              </p>
-            </div>
+      <div className="flex flex-wrap gap-2">
+        {[
+          [
+            "الوكلاء المفعلة",
+            String(enabledCount || 0),
+            "text-[var(--accent-blue)]",
+          ],
+          [
+            "المتاحة بالخطة",
+            String(availableCount),
+            "text-[var(--accent-success)]",
+          ],
+          [
+            "مجالات الذكاء",
+            String(categoriesCount),
+            "text-[var(--accent-gold)]",
+          ],
+          [
+            "قدرات قادمة",
+            String(comingSoonCount),
+            "text-[var(--accent-warning)]",
+          ],
+          ["الخطة الحالية", currentPlan, "text-foreground"],
+          [
+            "القدرات",
+            String(AI_CAPABILITIES.length),
+            "text-[var(--accent-blue)]",
+          ],
+        ].map(([label, value, color]) => (
+          <div
+            key={label}
+            className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs"
+          >
+            <span className="text-muted-foreground">{label}</span>
+            <span className={cn("font-mono", color)}>{value}</span>
           </div>
-          <div className="app-hero-band__metrics">
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">مفعّل الآن</span>
-              <strong className="app-hero-band__metric-value">
-                {enabledCount || 0}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">المتاح بالخطة</span>
-              <strong className="app-hero-band__metric-value">
-                {availableCount}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">مجالات الذكاء</span>
-              <strong className="app-hero-band__metric-value">
-                {categoriesCount}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">الخطة الحالية</span>
-              <strong className="app-hero-band__metric-value">
-                {currentPlan}
-              </strong>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <Card className="app-data-card border-[color:color-mix(in_srgb,var(--accent)_18%,var(--border-strong))] bg-[var(--accent-muted)]">
-          <CardContent className="p-4">
-            <p className="text-sm text-muted-foreground">
-              الوكلاء المفعلة الآن
-            </p>
-            <p className="mt-1 text-2xl font-bold text-[var(--accent-blue)]">
-              {enabledCount || 0}
-            </p>
-            <p className="mt-2 text-xs text-muted-foreground">
-              هذه هي الوكلاء التي تعمل فعلياً في خطتك الحالية.
-            </p>
-          </CardContent>
-        </Card>
-        <Card className="app-data-card border-[color:color-mix(in_srgb,var(--success)_18%,var(--border-strong))] bg-[var(--success-muted)]">
-          <CardContent className="p-4">
-            <p className="text-sm text-muted-foreground">المتاح في الخطة</p>
-            <p className="mt-1 text-2xl font-bold text-[var(--accent-success)]">
-              {availableCount}
-            </p>
-            <p className="mt-2 text-xs text-muted-foreground">
-              عدد الوكلاء أو القدرات التي يحق لك تشغيلها الآن.
-            </p>
-          </CardContent>
-        </Card>
-        <Card className="app-data-card">
-          <CardContent className="p-4">
-            <p className="text-sm text-muted-foreground">مجالات الذكاء</p>
-            <p className="mt-1 text-2xl font-bold text-[var(--accent-gold)]">
-              {categoriesCount}
-            </p>
-            <p className="mt-2 text-xs text-muted-foreground">
-              مبيعات، مالية، مخزون، مدفوعات، وتقارير تشغيلية.
-            </p>
-          </CardContent>
-        </Card>
-        <Card className="app-data-card border-[color:color-mix(in_srgb,var(--warning)_18%,var(--border-strong))] bg-[var(--warning-muted)]">
-          <CardContent className="p-4">
-            <p className="text-sm text-muted-foreground">قدرات قادمة</p>
-            <p className="mt-1 text-2xl font-bold text-[var(--accent-warning)]">
-              {comingSoonCount}
-            </p>
-            <p className="mt-2 text-xs text-muted-foreground">
-              تظهر هنا القدرات التي لم تدخل الخطة أو لم تُطرح بعد.
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Hero Stats */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4">
-        <Card className="app-data-card">
-          <CardContent className="p-4 text-center">
-            <div className="flex items-center justify-center gap-2 mb-1">
-              <Activity className="h-4 w-4 text-[color:var(--accent-success)]" />
-              <p className="text-2xl font-bold text-[color:var(--accent-success)]">
-                {AI_CAPABILITIES.length}
-              </p>
-            </div>
-            <p className="text-xs text-muted-foreground">قدرة ذكية نشطة</p>
-          </CardContent>
-        </Card>
-        <Card className="app-data-card">
-          <CardContent className="p-4 text-center">
-            <div className="flex items-center justify-center gap-2 mb-1">
-              <Bot className="h-4 w-4 text-[var(--accent-blue)]" />
-              <p className="text-2xl font-bold text-[color:var(--accent-blue)]">
-                {enabledCount || 1}
-              </p>
-            </div>
-            <p className="text-xs text-muted-foreground">وكيل مفعّل</p>
-          </CardContent>
-        </Card>
-        <Card className="app-data-card">
-          <CardContent className="p-4 text-center">
-            <div className="flex items-center justify-center gap-2 mb-1">
-              <Sparkles className="h-4 w-4 text-[var(--accent-gold)]" />
-              <p className="text-2xl font-bold text-[var(--accent-gold)]">
-                متقدم
-              </p>
-            </div>
-            <p className="text-xs text-muted-foreground">موديل الذكاء</p>
-          </CardContent>
-        </Card>
-        <Card className="app-data-card">
-          <CardContent className="p-4 text-center">
-            <div className="flex items-center justify-center gap-2 mb-1">
-              <Globe className="h-4 w-4 text-[var(--accent-warning)]" />
-              <p className="text-2xl font-bold text-[var(--accent-warning)]">
-                {currentPlan}
-              </p>
-            </div>
-            <p className="text-xs text-muted-foreground">خطتك الحالية</p>
-          </CardContent>
-        </Card>
+        ))}
       </div>
 
       <Tabs value={activeTab} onValueChange={handleTabChange}>
@@ -521,16 +420,18 @@ export default function AgentsPage() {
                   const Icon = link.icon;
                   return (
                     <Link key={link.href} href={link.href}>
-                      <div className="p-3 rounded-lg border hover:bg-muted/50 transition-all cursor-pointer">
-                        <div className="flex items-center gap-2 mb-1">
+                      <div className="flex min-h-[72px] items-center gap-3 rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-surface-1)] px-3 py-3 transition-colors hover:border-[var(--accent-gold)] hover:text-[var(--accent-gold)]">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)]">
                           <Icon className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-sm font-medium">
-                            {link.label}
-                          </span>
                         </div>
-                        <p className="text-xs text-muted-foreground">
-                          {link.description}
-                        </p>
+                        <div className="min-w-0 flex-1">
+                          <div className="text-sm font-medium">
+                            {link.label}
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            {link.description}
+                          </p>
+                        </div>
                       </div>
                     </Link>
                   );
@@ -539,7 +440,7 @@ export default function AgentsPage() {
             </CardContent>
           </Card>
 
-          <Card className="app-data-card border-[color:rgba(59,130,246,0.22)] bg-[color:rgba(59,130,246,0.08)]">
+          <Card className="app-data-card">
             <CardContent className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h3 className="font-bold text-lg flex items-center gap-2">
@@ -562,7 +463,7 @@ export default function AgentsPage() {
         {/* Agents Tab */}
         <TabsContent value="agents" className="space-y-4">
           {currentPlan && (
-            <div className="flex flex-col gap-4 rounded-[var(--radius-lg)] border border-[color:rgba(59,130,246,0.22)] bg-[color:rgba(59,130,246,0.08)] p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-4 rounded-[var(--radius-lg)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] p-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="font-medium">
                   خطتك الحالية:{" "}

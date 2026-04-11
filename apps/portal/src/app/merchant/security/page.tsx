@@ -56,10 +56,6 @@ import {
 import { cn } from "@/lib/utils";
 import { useMerchant } from "@/hooks/use-merchant";
 import portalApi from "@/lib/client";
-import {
-  AiInsightsCard,
-  generateSecurityInsights,
-} from "@/components/ai/ai-insights-card";
 
 interface Session {
   id: string;
@@ -338,16 +334,27 @@ export default function SecurityPage() {
         }
       />
 
-      {/* AI Security Insights */}
-      <AiInsightsCard
-        title="مساعد الأمان"
-        insights={generateSecurityInsights({
-          twoFactorEnabled: settings?.twoFactorEnabled,
-          activeSessions: sessions.length,
-          lastPasswordChange: settings?.lastPasswordChange,
-        })}
-        loading={loading}
-      />
+      <div className="flex flex-wrap gap-2">
+        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
+          <Laptop className="h-3.5 w-3.5 text-muted-foreground" />
+          <span className="text-muted-foreground">الجلسات النشطة</span>
+          <span className="font-mono text-foreground">{sessions.length}</span>
+        </div>
+        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
+          <Fingerprint className="h-3.5 w-3.5 text-[var(--accent-gold)]" />
+          <span className="text-muted-foreground">المصادقة الثنائية</span>
+          <span className="font-mono text-[var(--accent-gold)]">
+            {settings?.twoFactorEnabled ? "مفعلة" : "معطلة"}
+          </span>
+        </div>
+        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
+          <Clock className="h-3.5 w-3.5 text-[var(--accent-blue)]" />
+          <span className="text-muted-foreground">آخر تغيير كلمة مرور</span>
+          <span className="font-mono text-[var(--accent-blue)]">
+            {settings?.lastPasswordChange || "—"}
+          </span>
+        </div>
+      </div>
 
       <Tabs value={activeTab} onValueChange={handleTabChange}>
         <TabsList className="grid h-auto w-full grid-cols-1 gap-2 sm:grid-cols-3">

@@ -65,10 +65,6 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { portalApi } from "@/lib/client";
-import {
-  AiInsightsCard,
-  generateAuditInsights,
-} from "@/components/ai/ai-insights-card";
 
 interface AuditLog {
   id: string;
@@ -636,66 +632,36 @@ export default function AuditPage() {
         }
       />
 
-      <section className="app-hero-band">
-        <div className="app-hero-band__grid">
-          <div className="space-y-4">
-            <span className="app-hero-band__eyebrow">Audit Timeline</span>
-            <div className="space-y-3">
-              <h2 className="app-hero-band__title">
-                طبقة المراجعة التشغيلية لكل تغيير، من الإعدادات إلى المخزون
-                والمحادثات والطلبات.
-              </h2>
-              <p className="app-hero-band__copy">
-                راقب من نفذ الإجراء، على أي مورد، ومتى حدث، مع إمكان التصفية
-                بحسب المستخدم أو نوع المورد أو الفترة الزمنية والتصدير عند
-                الحاجة.
-              </p>
-            </div>
-          </div>
-          <div className="app-hero-band__metrics">
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">إجمالي السجل</span>
-              <strong className="app-hero-band__metric-value">
-                {logs.length}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">بعد الفلترة</span>
-              <strong className="app-hero-band__metric-value">
-                {sortedLogs.length}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">
-                مستخدمون نشطون
-              </span>
-              <strong className="app-hero-band__metric-value">
-                {summary?.byStaff?.length || 0}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">الصفحة</span>
-              <strong className="app-hero-band__metric-value">
-                {safePage}/{totalPages}
-              </strong>
-            </div>
-          </div>
+      <div className="flex flex-wrap gap-2">
+        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
+          <History className="h-3.5 w-3.5 text-[var(--accent-gold)]" />
+          <span className="text-muted-foreground">إجمالي السجل</span>
+          <span className="font-mono text-[var(--accent-gold)]">
+            {logs.length}
+          </span>
         </div>
-      </section>
-
-      {/* AI Audit Insights */}
-      <AiInsightsCard
-        title="مساعد سجل النشاط"
-        insights={generateAuditInsights({
-          totalLogs: (summary?.byAction || []).reduce(
-            (sum: number, a: any) => sum + a.count,
-            0,
-          ),
-          staffCount: (summary?.byStaff || []).length,
-          recentActions: logs.length,
-        })}
-        loading={loading}
-      />
+        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
+          <Filter className="h-3.5 w-3.5 text-[var(--accent-blue)]" />
+          <span className="text-muted-foreground">بعد الفلترة</span>
+          <span className="font-mono text-[var(--accent-blue)]">
+            {sortedLogs.length}
+          </span>
+        </div>
+        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
+          <Users className="h-3.5 w-3.5 text-foreground" />
+          <span className="text-muted-foreground">مستخدمون نشطون</span>
+          <span className="font-mono text-foreground">
+            {summary?.byStaff?.length || 0}
+          </span>
+        </div>
+        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
+          <Calendar className="h-3.5 w-3.5 text-[var(--accent-warning)]" />
+          <span className="text-muted-foreground">الصفحة</span>
+          <span className="font-mono text-[var(--accent-warning)]">
+            {safePage}/{totalPages}
+          </span>
+        </div>
+      </div>
 
       {/* Summary Stats */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">

@@ -61,10 +61,6 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { portalApi } from "@/lib/client";
 import { PageHeader } from "@/components/layout/sidebar";
-import {
-  AiInsightsCard,
-  generateTeamInsights,
-} from "@/components/ai/ai-insights-card";
 
 interface Staff {
   id: string;
@@ -700,64 +696,34 @@ export default function TeamPage() {
         }
       />
 
-      <section className="app-hero-band">
-        <div className="app-hero-band__grid">
-          <div className="space-y-4">
-            <span className="app-hero-band__eyebrow">Team Access Control</span>
-            <div className="space-y-3">
-              <h2 className="app-hero-band__title">
-                ابْنِ الفريق بصلاحيات واضحة بدل مشاركة الوصول العشوائي.
-              </h2>
-              <p className="app-hero-band__copy">
-                من هنا تدير الدعوات، تتابع حالة القبول، وتراجع صلاحيات كل دور
-                بما في ذلك الكاشير والوكلاء والمشرفين. الهدف ليس فقط إضافة
-                أعضاء، بل ضبط من يرى ماذا ومن يستطيع تنفيذ ماذا.
-              </p>
-            </div>
-          </div>
-          <div className="app-hero-band__metrics">
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">
-                إجمالي الأعضاء
-              </span>
-              <strong className="app-hero-band__metric-value">
-                {staff.length}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">نشطون</span>
-              <strong className="app-hero-band__metric-value">
-                {staff.filter((s) => s.status === "ACTIVE").length}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">
-                بانتظار القبول
-              </span>
-              <strong className="app-hero-band__metric-value">
-                {staff.filter((s) => s.status === "PENDING_INVITE").length}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">موقوفون</span>
-              <strong className="app-hero-band__metric-value">
-                {staff.filter((s) => s.status === "SUSPENDED").length}
-              </strong>
-            </div>
-          </div>
+      <div className="flex flex-wrap gap-2">
+        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
+          <Users className="h-3.5 w-3.5 text-muted-foreground" />
+          <span className="text-muted-foreground">إجمالي الأعضاء</span>
+          <span className="font-mono text-foreground">{staff.length}</span>
         </div>
-      </section>
-
-      {/* AI Team Insights */}
-      <AiInsightsCard
-        title="مساعد إدارة الفريق"
-        insights={generateTeamInsights({
-          totalStaff: staff.length,
-          activeStaff: staff.filter((s) => s.status === "ACTIVE").length,
-          inactiveStaff: staff.filter((s) => s.status !== "ACTIVE").length,
-        })}
-        loading={loading}
-      />
+        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
+          <CheckCircle className="h-3.5 w-3.5 text-[var(--accent-success)]" />
+          <span className="text-muted-foreground">نشطون</span>
+          <span className="font-mono text-[var(--accent-success)]">
+            {staff.filter((s) => s.status === "ACTIVE").length}
+          </span>
+        </div>
+        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
+          <Clock className="h-3.5 w-3.5 text-[var(--accent-warning)]" />
+          <span className="text-muted-foreground">بانتظار القبول</span>
+          <span className="font-mono text-[var(--accent-warning)]">
+            {staff.filter((s) => s.status === "PENDING_INVITE").length}
+          </span>
+        </div>
+        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
+          <Ban className="h-3.5 w-3.5 text-[var(--accent-danger)]" />
+          <span className="text-muted-foreground">موقوفون</span>
+          <span className="font-mono text-[var(--accent-danger)]">
+            {staff.filter((s) => s.status === "SUSPENDED").length}
+          </span>
+        </div>
+      </div>
 
       {loading ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
