@@ -5,6 +5,7 @@ import {
   Put,
   Param,
   Body,
+  Query,
   Logger,
   UseGuards,
   Inject,
@@ -16,6 +17,7 @@ import {
   ApiParam,
   ApiHeader,
   ApiBody,
+  ApiQuery,
 } from "@nestjs/swagger";
 import { AdminApiKeyGuard } from "../../shared/guards/admin-api-key.guard";
 import { Pool } from "pg";
@@ -37,7 +39,11 @@ import {
   PLAN_ENTITLEMENTS,
   resolveEntitlementDependencies,
 } from "../../shared/entitlements";
-import { resolveCashierProvisioning, toStringArray } from "./billing.helpers";
+import {
+  normalizePlanCode,
+  resolveCashierProvisioning,
+  toStringArray,
+} from "./billing.helpers";
 
 // ===== DTOs =====
 
@@ -110,6 +116,164 @@ export class AdminMerchantsController {
     );
   }
 
+  private toPositiveInt(value: unknown, fallback: number, max = 500): number {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) return fallback;
+    return Math.max(0, Math.min(max, Math.floor(numeric)));
+  }
+
+  private asObject(value: unknown): Record<string, any> {
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+      return {};
+    }
+    return value as Record<string, any>;
+  }
+
+  private extractLimit(limits: Record<string, any>, keys: string[]): number {
+    for (const key of keys) {
+      const raw = limits?.[key];
+      if (raw === undefined || raw === null || raw === "") continue;
+      const numeric = Number(raw);
+      if (Number.isFinite(numeric)) {
+        return numeric;
+      }
+    }
+    return 0;
+  }
+
+  private calculateUsagePercent(used: number, limit: number): number | null {
+    if (!Number.isFinite(limit) || limit <= 0) {
+      return null;
+    }
+    if (!Number.isFinite(used) || used <= 0) {
+      return 0;
+    }
+    return Math.round((used / limit) * 1000) / 10;
+  }
+
+  private classifyUsageBand(percent: number | null): string {
+    if (percent == null) return "healthy";
+    if (percent >= 100) return "exceeded";
+    if (percent >= 95) return "critical";
+    if (percent >= 85) return "warning";
+    if (percent >= 70) return "attention";
+    return "healthy";
+  }
+
+  private mapMerchantEntitlementsRow(row: Record<string, any>): any {
+    const normalizedPlan = normalizePlanCode(row.plan) || "STARTER";
+    const planDefaults =
+      PLAN_ENTITLEMENTS[normalizedPlan] || PLAN_ENTITLEMENTS.STARTER;
+
+    const requestedAgents = toStringArray(row.enabled_agents);
+    const requestedFeatures = toStringArray(row.enabled_features);
+    const baseLimits = {
+      ...planDefaults.limits,
+      ...this.asObject(row.limits),
+      ...this.asObject(row.plan_limits),
+    };
+
+    const cashierProvisioning = resolveCashierProvisioning({
+      planCode: normalizedPlan,
+      enabledFeatures:
+        requestedFeatures.length > 0
+          ? requestedFeatures
+          : planDefaults.enabledFeatures,
+      limits: baseLimits,
+      existingFeatures: requestedFeatures,
+      existingLimits: baseLimits,
+    });
+
+    const effectiveLimits = {
+      ...baseLimits,
+      ...this.asObject(cashierProvisioning.limits),
+    };
+
+    let aiRepliesLimitMonth = this.extractLimit(effectiveLimits, [
+      "aiRepliesPerMonth",
+      "aiMessagesPerMonth",
+      "aiRepliesMonthly",
+    ]);
+    if (aiRepliesLimitMonth === 0) {
+      const aiCallsPerDay = this.extractLimit(effectiveLimits, [
+        "aiCallsPerDay",
+      ]);
+      if (aiCallsPerDay > 0) {
+        aiRepliesLimitMonth = aiCallsPerDay * 30;
+      }
+    }
+
+    const messagesLimitMonth = this.extractLimit(effectiveLimits, [
+      "messagesPerMonth",
+      "totalMessagesPerMonth",
+      "monthlyConversations",
+      "monthly_conversations_egypt",
+      "monthly_conversations_gulf",
+      "monthlyConversationsEgypt",
+      "monthlyConversationsGulf",
+    ]);
+
+    const messagesUsedMonth = Number(row.messages_used_month || 0);
+    const aiRepliesUsedMonth = Number(row.ai_replies_used_month || 0);
+    const messagesUsagePercent = this.calculateUsagePercent(
+      messagesUsedMonth,
+      messagesLimitMonth,
+    );
+    const aiRepliesUsagePercent = this.calculateUsagePercent(
+      aiRepliesUsedMonth,
+      aiRepliesLimitMonth,
+    );
+
+    return {
+      id: row.id,
+      name: row.name,
+      tradeName: row.name,
+      email: row.owner_email || "",
+      whatsappNumber: row.whatsapp_number || null,
+      category: row.category,
+      isActive: Boolean(row.is_active),
+      plan: normalizedPlan,
+      enabledAgents:
+        requestedAgents.length > 0
+          ? requestedAgents
+          : planDefaults.enabledAgents,
+      enabledFeatures: cashierProvisioning.enabledFeatures,
+      limits: effectiveLimits,
+      dailyTokenBudget: Number(row.daily_token_budget || 0),
+      tokensUsedToday: Number(row.tokens_used_today || 0),
+      usage: {
+        messagesUsedMonth,
+        messagesLimitMonth,
+        messagesUsagePercent,
+        aiRepliesUsedMonth,
+        aiRepliesLimitMonth,
+        aiRepliesUsagePercent,
+        thresholdBand: this.classifyUsageBand(messagesUsagePercent),
+      },
+      cashierPromoActive: cashierProvisioning.promo.active,
+      cashierPromoEndsAt: cashierProvisioning.promo.endsAt,
+      cashierEffective: cashierProvisioning.promo.effective,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    };
+  }
+
+  private async hasTable(tableName: string): Promise<boolean> {
+    try {
+      const result = await this.pool.query(
+        `SELECT EXISTS (
+           SELECT 1
+           FROM information_schema.tables
+           WHERE table_schema = 'public' AND table_name = $1
+         ) AS exists`,
+        [tableName],
+      );
+      return Boolean(result.rows[0]?.exists);
+    } catch {
+      return false;
+    }
+  }
+
   private async applyPlanEntitlements(
     merchantId: string,
     dto: UpdateMerchantPlanDto,
@@ -176,6 +340,7 @@ export class AdminMerchantsController {
            enabled_agents = $2, 
            enabled_features = $3,
            plan_limits = $4,
+           limits = $4,
            custom_price = $5,
            updated_at = NOW() 
        WHERE id = $6`,
@@ -387,6 +552,286 @@ export class AdminMerchantsController {
       })),
       total: result.rows.length,
     };
+  }
+
+  @Get("entitlements")
+  @ApiOperation({
+    summary: "List merchants for entitlement management",
+    description:
+      "Returns merchants with plan, entitlements and usage status for admin entitlement screens",
+  })
+  @ApiQuery({ name: "search", required: false })
+  @ApiQuery({ name: "plan", required: false })
+  @ApiQuery({ name: "limit", required: false })
+  @ApiQuery({ name: "offset", required: false })
+  @ApiResponse({ status: 200, description: "Entitlements list retrieved" })
+  async listMerchantEntitlements(
+    @Query("search") search?: string,
+    @Query("plan") plan?: string,
+    @Query("limit") limitRaw?: string,
+    @Query("offset") offsetRaw?: string,
+  ): Promise<any> {
+    const hasMerchantStaff = await this.hasTable("merchant_staff");
+    const hasPhoneNumbers = await this.hasTable("merchant_phone_numbers");
+
+    const whereClauses: string[] = ["1=1"];
+    const filterParams: any[] = [];
+
+    const normalizedSearch = String(search || "").trim();
+    if (normalizedSearch) {
+      filterParams.push(`%${normalizedSearch}%`);
+      const searchParamIndex = filterParams.length;
+      const searchChecks = [
+        `m.id ILIKE $${searchParamIndex}`,
+        `m.name ILIKE $${searchParamIndex}`,
+      ];
+
+      if (hasMerchantStaff) {
+        searchChecks.push(`EXISTS (
+          SELECT 1
+          FROM merchant_staff ms
+          WHERE ms.merchant_id = m.id
+            AND (ms.email ILIKE $${searchParamIndex} OR ms.name ILIKE $${searchParamIndex})
+        )`);
+      }
+
+      if (hasPhoneNumbers) {
+        searchChecks.push(`EXISTS (
+          SELECT 1
+          FROM merchant_phone_numbers mp
+          WHERE mp.merchant_id = m.id
+            AND (
+              mp.whatsapp_number ILIKE $${searchParamIndex}
+              OR mp.phone_number ILIKE $${searchParamIndex}
+            )
+        )`);
+      }
+
+      whereClauses.push(`(${searchChecks.join(" OR ")})`);
+    }
+
+    const normalizedPlan =
+      plan && plan !== "all"
+        ? normalizePlanCode(plan) ||
+          String(plan || "")
+            .trim()
+            .toUpperCase()
+        : null;
+    if (normalizedPlan) {
+      filterParams.push(normalizedPlan);
+      whereClauses.push(
+        `UPPER(COALESCE(m.plan, 'STARTER')) = $${filterParams.length}`,
+      );
+    }
+
+    const limit = Math.max(1, this.toPositiveInt(limitRaw, 20, 100));
+    const offset = this.toPositiveInt(offsetRaw, 0, 100000);
+    const whereSql = whereClauses.join(" AND ");
+
+    const ownerSelect = hasMerchantStaff
+      ? "owner.email AS owner_email,"
+      : "NULL::text AS owner_email,";
+    const ownerJoin = hasMerchantStaff
+      ? `LEFT JOIN LATERAL (
+           SELECT ms.email
+           FROM merchant_staff ms
+           WHERE ms.merchant_id = filtered.id
+           ORDER BY
+             (ms.role = 'OWNER') DESC,
+             (ms.status = 'ACTIVE') DESC,
+             ms.created_at ASC
+           LIMIT 1
+         ) owner ON true`
+      : "";
+
+    const phoneSelect = hasPhoneNumbers
+      ? "phone.whatsapp_number AS whatsapp_number,"
+      : "NULL::text AS whatsapp_number,";
+    const phoneJoin = hasPhoneNumbers
+      ? `LEFT JOIN LATERAL (
+           SELECT mp.whatsapp_number
+           FROM merchant_phone_numbers mp
+           WHERE mp.merchant_id = filtered.id
+             AND COALESCE(mp.is_active, true) = true
+           ORDER BY mp.updated_at DESC, mp.created_at DESC
+           LIMIT 1
+         ) phone ON true`
+      : "";
+
+    const limitIndex = filterParams.length + 1;
+    const offsetIndex = filterParams.length + 2;
+    const dataParams = [...filterParams, limit, offset];
+
+    const dataResult = await this.pool.query(
+      `WITH filtered AS (
+         SELECT m.*
+         FROM merchants m
+         WHERE ${whereSql}
+         ORDER BY m.created_at DESC
+         LIMIT $${limitIndex}
+         OFFSET $${offsetIndex}
+       )
+       SELECT
+         filtered.id,
+         filtered.name,
+         filtered.plan,
+         filtered.category,
+         filtered.is_active,
+         filtered.daily_token_budget,
+         filtered.enabled_agents,
+         filtered.enabled_features,
+         filtered.plan_limits,
+         filtered.limits,
+         filtered.created_at,
+         filtered.updated_at,
+         ${ownerSelect}
+         ${phoneSelect}
+         COALESCE(tokens.today_tokens, 0) AS tokens_used_today,
+         COALESCE(monthly_messages.messages_used_month, 0) AS messages_used_month,
+         COALESCE(monthly_ai.ai_replies_used_month, 0) AS ai_replies_used_month
+       FROM filtered
+       ${ownerJoin}
+       ${phoneJoin}
+       LEFT JOIN LATERAL (
+         SELECT SUM(tu.tokens_used)::bigint AS today_tokens
+         FROM token_usage tu
+         WHERE tu.merchant_id = filtered.id
+           AND tu.created_at >= CURRENT_DATE
+       ) tokens ON true
+       LEFT JOIN LATERAL (
+         SELECT COUNT(*)::bigint AS messages_used_month
+         FROM messages msg
+         WHERE msg.merchant_id = filtered.id
+           AND msg.created_at >= date_trunc('month', NOW())
+       ) monthly_messages ON true
+       LEFT JOIN LATERAL (
+         SELECT COUNT(*)::bigint AS ai_replies_used_month
+         FROM messages msg
+         WHERE msg.merchant_id = filtered.id
+           AND msg.created_at >= date_trunc('month', NOW())
+           AND msg.direction = 'outbound'
+           AND COALESCE(msg.llm_used, false) = true
+       ) monthly_ai ON true
+       ORDER BY filtered.created_at DESC`,
+      dataParams,
+    );
+
+    const totalResult = await this.pool.query(
+      `SELECT COUNT(*)::bigint AS total
+       FROM merchants m
+       WHERE ${whereSql}`,
+      filterParams,
+    );
+
+    return {
+      merchants: dataResult.rows.map((row) =>
+        this.mapMerchantEntitlementsRow(row),
+      ),
+      total: Number(totalResult.rows[0]?.total || 0),
+      pagination: {
+        limit,
+        offset,
+      },
+    };
+  }
+
+  @Get("merchants/:merchantId/entitlements")
+  @ApiOperation({
+    summary: "Get merchant entitlements",
+    description:
+      "Returns a single merchant entitlement payload used by admin entitlement editor",
+  })
+  @ApiParam({ name: "merchantId", description: "Merchant ID" })
+  @ApiResponse({ status: 200, description: "Merchant entitlements retrieved" })
+  @ApiResponse({ status: 404, description: "Merchant not found" })
+  async getMerchantEntitlements(
+    @Param("merchantId") merchantId: string,
+  ): Promise<any> {
+    const hasMerchantStaff = await this.hasTable("merchant_staff");
+    const hasPhoneNumbers = await this.hasTable("merchant_phone_numbers");
+
+    const ownerSelect = hasMerchantStaff
+      ? "owner.email AS owner_email,"
+      : "NULL::text AS owner_email,";
+    const ownerJoin = hasMerchantStaff
+      ? `LEFT JOIN LATERAL (
+           SELECT ms.email
+           FROM merchant_staff ms
+           WHERE ms.merchant_id = m.id
+           ORDER BY
+             (ms.role = 'OWNER') DESC,
+             (ms.status = 'ACTIVE') DESC,
+             ms.created_at ASC
+           LIMIT 1
+         ) owner ON true`
+      : "";
+
+    const phoneSelect = hasPhoneNumbers
+      ? "phone.whatsapp_number AS whatsapp_number,"
+      : "NULL::text AS whatsapp_number,";
+    const phoneJoin = hasPhoneNumbers
+      ? `LEFT JOIN LATERAL (
+           SELECT mp.whatsapp_number
+           FROM merchant_phone_numbers mp
+           WHERE mp.merchant_id = m.id
+             AND COALESCE(mp.is_active, true) = true
+           ORDER BY mp.updated_at DESC, mp.created_at DESC
+           LIMIT 1
+         ) phone ON true`
+      : "";
+
+    const result = await this.pool.query(
+      `SELECT
+         m.id,
+         m.name,
+         m.plan,
+         m.category,
+         m.is_active,
+         m.daily_token_budget,
+         m.enabled_agents,
+         m.enabled_features,
+         m.plan_limits,
+         m.limits,
+         m.created_at,
+         m.updated_at,
+         ${ownerSelect}
+         ${phoneSelect}
+         COALESCE(tokens.today_tokens, 0) AS tokens_used_today,
+         COALESCE(monthly_messages.messages_used_month, 0) AS messages_used_month,
+         COALESCE(monthly_ai.ai_replies_used_month, 0) AS ai_replies_used_month
+       FROM merchants m
+       ${ownerJoin}
+       ${phoneJoin}
+       LEFT JOIN LATERAL (
+         SELECT SUM(tu.tokens_used)::bigint AS today_tokens
+         FROM token_usage tu
+         WHERE tu.merchant_id = m.id
+           AND tu.created_at >= CURRENT_DATE
+       ) tokens ON true
+       LEFT JOIN LATERAL (
+         SELECT COUNT(*)::bigint AS messages_used_month
+         FROM messages msg
+         WHERE msg.merchant_id = m.id
+           AND msg.created_at >= date_trunc('month', NOW())
+       ) monthly_messages ON true
+       LEFT JOIN LATERAL (
+         SELECT COUNT(*)::bigint AS ai_replies_used_month
+         FROM messages msg
+         WHERE msg.merchant_id = m.id
+           AND msg.created_at >= date_trunc('month', NOW())
+           AND msg.direction = 'outbound'
+           AND COALESCE(msg.llm_used, false) = true
+       ) monthly_ai ON true
+       WHERE m.id = $1
+       LIMIT 1`,
+      [merchantId],
+    );
+
+    if (!result.rows[0]) {
+      return { success: false, error: "Merchant not found" };
+    }
+
+    return this.mapMerchantEntitlementsRow(result.rows[0]);
   }
 
   @Get("merchants/:merchantId")

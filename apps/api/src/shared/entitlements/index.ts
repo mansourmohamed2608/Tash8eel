@@ -354,7 +354,6 @@ export const PLAN_ENTITLEMENTS: Record<
       "CONVERSATIONS",
       "ORDERS",
       "CATALOG",
-      "CASHIER_POS",
       "INVENTORY",
       "PAYMENTS",
       "REPORTS",
@@ -472,6 +471,7 @@ export const PLAN_ENTITLEMENTS: Record<
       "CONVERSATIONS",
       "ORDERS",
       "CATALOG",
+      "CASHIER_POS",
       "INVENTORY",
       "REPORTS",
       "NOTIFICATIONS",
@@ -541,6 +541,7 @@ export const PLAN_ENTITLEMENTS: Record<
       "CONVERSATIONS",
       "ORDERS",
       "CATALOG",
+      "CASHIER_POS",
       "INVENTORY",
       "PAYMENTS",
       "VOICE_NOTES",
@@ -1398,7 +1399,7 @@ export const PUBLIC_PRICING_PLANS: PublicPricingPlan[] = [
     includedPosConnections: 2,
     cashierPromoEligible: true,
     upsellPriority: ["kpi_dashboard", "audit_logs", "forecasting"],
-    notes: [],
+    notes: ["الكاشير دائم ضمن الخطة"],
   },
   {
     id: "PRO",
@@ -1432,7 +1433,7 @@ export const PUBLIC_PRICING_PLANS: PublicPricingPlan[] = [
       "sla_business_hours",
       "voice_calling_enablement",
     ],
-    notes: [],
+    notes: ["الكاشير دائم ضمن الخطة"],
   },
   {
     id: "ENTERPRISE",
@@ -1463,7 +1464,10 @@ export const PUBLIC_PRICING_PLANS: PublicPricingPlan[] = [
       "custom_bundle_minimum_with_integration_or_voice",
       "sla_priority",
     ],
-    notes: ["الهيكل النهائي للفروع ونقاط البيع يتم حسب الاتفاق"],
+    notes: [
+      "الكاشير دائم ضمن الخطة",
+      "الهيكل النهائي للفروع ونقاط البيع يتم حسب الاتفاق",
+    ],
   },
   {
     id: "CHAT_ONLY",

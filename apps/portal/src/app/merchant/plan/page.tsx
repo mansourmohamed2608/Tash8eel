@@ -255,6 +255,43 @@ const HIDDEN_USAGE_METRICS = new Set(["TOKENS"]);
 
 const HIDDEN_USAGE_PACK_CODES = new Set(["AI_CAPACITY_L", "AI_CAPACITY_XL"]);
 
+const DEFAULT_USAGE_THRESHOLDS = {
+  attention: 70,
+  warning: 85,
+  critical: 95,
+  exceeded: 100,
+} as const;
+
+const USAGE_BAND_LABELS: Record<string, string> = {
+  healthy: "طبيعي",
+  attention: "تنبيه",
+  warning: "تحذير",
+  critical: "حرج",
+  exceeded: "متجاوز",
+  unlimited: "غير محدود",
+};
+
+const USAGE_BAND_CARD_CLASSES: Record<string, string> = {
+  healthy: "border",
+  attention: "border border-[var(--accent-blue)]/30 bg-[var(--accent-blue)]/10",
+  warning:
+    "border border-[var(--accent-warning)]/30 bg-[var(--accent-warning)]/10",
+  critical:
+    "border border-[var(--accent-danger)]/30 bg-[var(--accent-danger)]/10",
+  exceeded:
+    "border border-[var(--accent-danger)]/40 bg-[var(--accent-danger)]/15",
+  unlimited: "border",
+};
+
+const USAGE_BAND_BAR_CLASSES: Record<string, string> = {
+  healthy: "bg-[var(--accent-success)]",
+  attention: "bg-[var(--accent-blue)]",
+  warning: "bg-[var(--accent-warning)]",
+  critical: "bg-[var(--accent-danger)]",
+  exceeded: "bg-[var(--accent-danger)]",
+  unlimited: "bg-[var(--accent-blue)]",
+};
+
 const STARTER_INCLUDED_FEATURES = [
   "الرد التلقائي الذكي على رسائل واتساب",
   "إدارة الطلبات والمبيعات",
@@ -790,30 +827,93 @@ export default function PlanPage() {
           {Object.entries(usageStatus?.metrics || {})
             .filter(([metric]) => !HIDDEN_USAGE_METRICS.has(String(metric)))
             .slice(0, 8)
-            .map(([metric, data]: any) => (
-              <div key={metric} className="rounded-md border p-3">
-                <p className="text-xs text-muted-foreground">
-                  {USAGE_STATUS_LABELS[String(metric)] || metric}
-                  {String(metric) === "MESSAGES" ? (
-                    <span className="mr-1" title={CONVERSATION_TOOLTIP}>
-                      ℹ️
-                    </span>
-                  ) : null}
-                </p>
-                <p className="text-sm font-semibold">
-                  {Number(data?.used || 0).toLocaleString("ar-EG")} /{" "}
-                  {data?.limit === -1
-                    ? "غير محدود"
-                    : Number(data?.limit || 0).toLocaleString("ar-EG")}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  المتبقي:{" "}
-                  {data?.remaining === -1
-                    ? "غير محدود"
-                    : Number(data?.remaining || 0).toLocaleString("ar-EG")}
-                </p>
-              </div>
-            ))}
+            .map(([metric, data]: any) => {
+              const thresholds =
+                usageStatus?.usageThresholds || DEFAULT_USAGE_THRESHOLDS;
+              const used = Number(data?.used || 0);
+              const limit = Number(data?.limit || 0);
+              const usagePercent =
+                typeof data?.usagePercent === "number"
+                  ? Number(data.usagePercent)
+                  : Number.isFinite(limit) && limit > 0
+                    ? Math.round((used / limit) * 1000) / 10
+                    : null;
+              const thresholdBand =
+                typeof data?.thresholdBand === "string"
+                  ? data.thresholdBand
+                  : usagePercent == null
+                    ? "unlimited"
+                    : usagePercent >= thresholds.exceeded
+                      ? "exceeded"
+                      : usagePercent >= thresholds.critical
+                        ? "critical"
+                        : usagePercent >= thresholds.warning
+                          ? "warning"
+                          : usagePercent >= thresholds.attention
+                            ? "attention"
+                            : "healthy";
+              const progress = Math.max(
+                0,
+                Math.min(100, Number(usagePercent || 0)),
+              );
+              const bandLabel =
+                data?.thresholdMessage ||
+                USAGE_BAND_LABELS[thresholdBand] ||
+                USAGE_BAND_LABELS.healthy;
+
+              return (
+                <div
+                  key={metric}
+                  className={cn(
+                    "rounded-md p-3",
+                    USAGE_BAND_CARD_CLASSES[thresholdBand] ||
+                      USAGE_BAND_CARD_CLASSES.healthy,
+                  )}
+                >
+                  <p className="text-xs text-muted-foreground">
+                    {USAGE_STATUS_LABELS[String(metric)] || metric}
+                    {String(metric) === "MESSAGES" ? (
+                      <span className="mr-1" title={CONVERSATION_TOOLTIP}>
+                        ℹ️
+                      </span>
+                    ) : null}
+                  </p>
+                  <p className="text-sm font-semibold">
+                    {used.toLocaleString("ar-EG")} /{" "}
+                    {data?.limit === -1
+                      ? "غير محدود"
+                      : Number(data?.limit || 0).toLocaleString("ar-EG")}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    المتبقي:{" "}
+                    {data?.remaining === -1
+                      ? "غير محدود"
+                      : Number(data?.remaining || 0).toLocaleString("ar-EG")}
+                  </p>
+                  {usagePercent != null ? (
+                    <>
+                      <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted/60">
+                        <div
+                          className={cn(
+                            "h-full rounded-full transition-all",
+                            USAGE_BAND_BAR_CLASSES[thresholdBand] ||
+                              USAGE_BAND_BAR_CLASSES.healthy,
+                          )}
+                          style={{ width: `${progress}%` }}
+                        />
+                      </div>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {usagePercent.toLocaleString("ar-EG")}٪ • {bandLabel}
+                      </p>
+                    </>
+                  ) : (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {USAGE_BAND_LABELS.unlimited}
+                    </p>
+                  )}
+                </div>
+              );
+            })}
         </CardContent>
       </Card>
 

@@ -100,14 +100,63 @@ export class BillingPlansController {
     const messaging =
       await this.usageGuardService.getMessagingQuotaStatus(merchantId);
 
+    const usageThresholds = {
+      attention: 70,
+      warning: 85,
+      critical: 95,
+      exceeded: 100,
+    };
+
+    const usageBandText: Record<string, string> = {
+      healthy: "استخدام طبيعي",
+      attention: "اقتربت من 70% من الحد",
+      warning: "تجاوزت 85% من الحد",
+      critical: "تجاوزت 95% من الحد",
+      exceeded: "تم تجاوز الحد",
+      unlimited: "غير محدود",
+    };
+
+    const resolveBand = (percent: number | null): string => {
+      if (percent == null) return "unlimited";
+      if (percent >= usageThresholds.exceeded) return "exceeded";
+      if (percent >= usageThresholds.critical) return "critical";
+      if (percent >= usageThresholds.warning) return "warning";
+      if (percent >= usageThresholds.attention) return "attention";
+      return "healthy";
+    };
+
+    const enrichMetric = (row: any) => {
+      const limit = Number(row?.limit ?? 0);
+      const used = Number(row?.used ?? 0);
+      const usagePercent =
+        Number.isFinite(limit) && limit > 0
+          ? Math.round((used / limit) * 1000) / 10
+          : null;
+      const thresholdBand = resolveBand(usagePercent);
+      return {
+        ...row,
+        usagePercent,
+        thresholdBand,
+        thresholdMessage: usageBandText[thresholdBand],
+      };
+    };
+
+    const messagingWithThresholds = {
+      totalMessagesDay: enrichMetric(messaging.totalMessagesDay),
+      totalMessagesMonth: enrichMetric(messaging.totalMessagesMonth),
+      aiRepliesDay: enrichMetric(messaging.aiRepliesDay),
+      aiRepliesMonth: enrichMetric(messaging.aiRepliesMonth),
+    };
+
     return {
       merchantId,
       limits,
-      messaging,
+      messaging: messagingWithThresholds,
       metrics: checks.reduce<Record<string, any>>((acc, row) => {
-        acc[row.metric] = row;
+        acc[row.metric] = enrichMetric(row);
         return acc;
       }, {}),
+      usageThresholds,
       checkedAt: new Date().toISOString(),
     };
   }
