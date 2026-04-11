@@ -75,8 +75,8 @@ export default function ExpiryAlertsPage() {
             </Button>
           }
         />
-        <Card className="border-red-200 bg-red-50">
-          <CardContent className="py-6 text-red-700 text-sm">
+        <Card className="border-[var(--accent-danger)]/20 bg-[var(--accent-danger)]/10">
+          <CardContent className="py-6 text-sm text-[var(--accent-danger)]">
             {error}
           </CardContent>
         </Card>
@@ -113,17 +113,19 @@ export default function ExpiryAlertsPage() {
         <StatCard
           title="منتهي الصلاحية"
           value={summary.expired?.toString() || "0"}
-          icon={<XCircle className="h-5 w-5 text-red-600" />}
+          icon={<XCircle className="h-5 w-5 text-[var(--accent-danger)]" />}
         />
         <StatCard
           title="حرج (أقل من 3 أيام)"
           value={summary.critical?.toString() || "0"}
-          icon={<AlertTriangle className="h-5 w-5 text-amber-600" />}
+          icon={
+            <AlertTriangle className="h-5 w-5 text-[var(--accent-warning)]" />
+          }
         />
         <StatCard
           title="تحذير (أقل من 7 أيام)"
           value={summary.warning?.toString() || "0"}
-          icon={<Timer className="h-5 w-5 text-yellow-500" />}
+          icon={<Timer className="h-5 w-5 text-[var(--accent-gold)]" />}
         />
         <StatCard
           title="إجمالي التنبيهات"
@@ -137,19 +139,23 @@ export default function ExpiryAlertsPage() {
       </div>
 
       {hasMissingExpiry && (
-        <Card className="border-amber-200 bg-amber-50">
+        <Card className="border-[var(--accent-warning)]/20 bg-[var(--accent-warning)]/10">
           <CardContent className="py-4 space-y-2">
-            <p className="text-sm font-medium text-amber-900">
+            <p className="text-sm font-medium text-[var(--accent-warning)]">
               يوجد {summary.missingExpiryDates} صنف بالمخزون بدون تاريخ صلاحية.
             </p>
-            <p className="text-xs text-amber-800">
+            <p className="text-xs text-[var(--text-secondary)]">
               أضف تاريخ الصلاحية من المخزون عبر "تعديل المنتج" (منتج قابل للتلف
               + تاريخ الصلاحية) أو عند استلام دفعة جديدة لضمان دقة التنبيهات.
             </p>
             {missingExpiryItems.length > 0 && (
               <div className="flex flex-wrap gap-2 pt-1">
                 {missingExpiryItems.map((item: any) => (
-                  <Badge key={item.id} variant="outline" className="bg-white">
+                  <Badge
+                    key={item.id}
+                    variant="outline"
+                    className="bg-[var(--bg-surface-1)]"
+                  >
                     {item.itemName} {item.sku ? `(${item.sku})` : ""}
                   </Badge>
                 ))}
@@ -162,7 +168,7 @@ export default function ExpiryAlertsPage() {
       {alerts.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
-            <CheckCircle className="h-12 w-12 text-green-500 mb-4" />
+            <CheckCircle className="mb-4 h-12 w-12 text-[var(--accent-success)]" />
             <p className="text-lg font-medium">لا توجد تنبيهات صلاحية</p>
             <p className="text-muted-foreground">
               جميع المنتجات ضمن فترة الصلاحية
@@ -179,17 +185,17 @@ export default function ExpiryAlertsPage() {
               {alerts.map((alert: any) => (
                 <div
                   key={alert.id}
-                  className="flex flex-col gap-3 rounded-lg border p-4 hover:bg-gray-50 sm:flex-row sm:items-center sm:justify-between"
+                  className="flex flex-col gap-3 rounded-lg border p-4 transition-colors hover:bg-[var(--bg-surface-2)] sm:flex-row sm:items-center sm:justify-between"
                 >
                   <div className="flex items-center gap-3">
                     {alert.alertType === "EXPIRED" && (
-                      <XCircle className="h-5 w-5 text-red-600" />
+                      <XCircle className="h-5 w-5 text-[var(--accent-danger)]" />
                     )}
                     {alert.alertType === "CRITICAL" && (
-                      <AlertTriangle className="h-5 w-5 text-amber-600" />
+                      <AlertTriangle className="h-5 w-5 text-[var(--accent-warning)]" />
                     )}
                     {alert.alertType === "WARNING" && (
-                      <Timer className="h-5 w-5 text-yellow-500" />
+                      <Timer className="h-5 w-5 text-[var(--accent-gold)]" />
                     )}
                     <div>
                       <div className="font-medium">{alert.itemName}</div>

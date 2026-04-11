@@ -150,16 +150,16 @@ function getSourceLabel(value: unknown): string {
 function getSourceBadgeClass(value: unknown): string {
   const normalized = normalizeSourceChannel(value);
   if (normalized === "cashier")
-    return "bg-blue-100 text-blue-700 border-blue-200";
+    return "border-[color:rgba(59,130,246,0.26)] bg-[color:rgba(59,130,246,0.12)] text-[color:#93c5fd]";
   if (normalized === "calls")
-    return "bg-amber-100 text-amber-700 border-amber-200";
+    return "border-[color:rgba(245,158,11,0.26)] bg-[color:rgba(245,158,11,0.12)] text-[color:#fcd34d]";
   if (normalized === "manual_button")
-    return "bg-slate-100 text-slate-700 border-slate-200";
+    return "border-[color:var(--border-default)] bg-[color:var(--bg-surface-2)] text-[color:var(--text-secondary)]";
   if (normalized === "voice_ai")
-    return "bg-purple-100 text-purple-700 border-purple-200";
+    return "border-[color:rgba(232,197,71,0.24)] bg-[color:var(--accent-gold-dim)] text-[color:var(--accent-gold)]";
   if (normalized === "whatsapp")
-    return "bg-emerald-100 text-emerald-700 border-emerald-200";
-  return "bg-muted text-foreground border-border";
+    return "border-[color:rgba(34,197,94,0.28)] bg-[color:rgba(34,197,94,0.12)] text-[color:#86efac]";
+  return "border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-2)] text-[color:var(--text-secondary)]";
 }
 
 function getOrderDisplayStatus(order: Order): string {
@@ -205,13 +205,15 @@ function getCancelRisk(
   if (order.status === "DRAFT" && ageHours > 24) {
     return {
       label: "خطر إلغاء ↑",
-      className: "bg-red-100 text-red-700 border-red-200",
+      className:
+        "border-[color:rgba(239,68,68,0.3)] bg-[color:rgba(239,68,68,0.1)] text-[color:#fca5a5]",
     };
   }
   if (order.status === "CONFIRMED" && ageHours > 48) {
     return {
       label: "تأخر التسليم",
-      className: "bg-amber-100 text-amber-700 border-amber-200",
+      className:
+        "border-[color:rgba(245,158,11,0.28)] bg-[color:rgba(245,158,11,0.12)] text-[color:#fcd34d]",
     };
   }
   if (
@@ -220,7 +222,8 @@ function getCancelRisk(
   ) {
     return {
       label: "لم يُسلَّم بعد",
-      className: "bg-orange-100 text-orange-700 border-orange-200",
+      className:
+        "border-[color:rgba(245,158,11,0.24)] bg-[color:rgba(245,158,11,0.08)] text-[color:#fdba74]",
     };
   }
   return null;
@@ -1334,7 +1337,7 @@ export default function OrdersPage() {
                     <div className="flex flex-wrap gap-2">
                       <span
                         className={cn(
-                          "inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold",
+                          "inline-flex items-center gap-1 rounded-[var(--radius-sm)] border px-2.5 py-0.5 text-xs font-semibold",
                           getStatusColor(order.status),
                         )}
                       >
@@ -1343,7 +1346,7 @@ export default function OrdersPage() {
                       </span>
                       <span
                         className={cn(
-                          "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold",
+                          "inline-flex items-center rounded-[var(--radius-sm)] border px-2.5 py-0.5 text-xs font-semibold",
                           getSourceBadgeClass(order.sourceChannel),
                         )}
                       >
@@ -1458,7 +1461,7 @@ export default function OrdersPage() {
                       <div className="flex flex-col gap-1 items-start">
                         <span
                           className={cn(
-                            "inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold",
+                            "inline-flex items-center gap-1 rounded-[var(--radius-sm)] border px-2.5 py-0.5 text-xs font-semibold",
                             getStatusColor(order.status),
                           )}
                         >
@@ -1485,7 +1488,7 @@ export default function OrdersPage() {
                   render: (order) => (
                     <span
                       className={cn(
-                        "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold",
+                        "inline-flex items-center rounded-[var(--radius-sm)] border px-2.5 py-0.5 text-xs font-semibold",
                         getSourceBadgeClass(order.sourceChannel),
                       )}
                     >
@@ -1588,7 +1591,7 @@ export default function OrdersPage() {
                 />
 
                 {productSearch.trim().length > 0 && (
-                  <div className="absolute z-20 mt-1 w-full rounded-md border bg-background shadow-md max-h-56 overflow-y-auto">
+                  <div className="absolute z-20 mt-1 max-h-56 w-full overflow-y-auto rounded-[var(--radius-md)] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-2)]">
                     {catalogLoading ? (
                       <div className="px-3 py-2 text-sm text-muted-foreground flex items-center gap-2">
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -1599,7 +1602,7 @@ export default function OrdersPage() {
                         <button
                           key={product.id}
                           type="button"
-                          className="w-full text-right px-3 py-2 hover:bg-muted transition-colors"
+                          className="w-full px-3 py-2 text-right transition-colors hover:bg-[color:var(--bg-surface-3)]"
                           onClick={() => addCatalogItemToManualOrder(product)}
                         >
                           <div className="font-medium text-sm">
@@ -1752,9 +1755,9 @@ export default function OrdersPage() {
                 )}
               </div>
 
-              <div className="flex flex-col gap-1 rounded-md border bg-primary/5 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-col gap-1 rounded-[var(--radius-md)] border border-[color:rgba(232,197,71,0.2)] bg-[color:var(--accent-gold-dim)] px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
                 <span className="text-sm font-medium">الإجمالي الحالي</span>
-                <span className="text-sm font-bold text-primary">
+                <span className="text-sm font-bold text-[color:var(--accent-gold)]">
                   {formatCurrency(manualOrderTotal)}
                 </span>
               </div>
@@ -1872,11 +1875,11 @@ export default function OrdersPage() {
           {selectedOrder && (
             <div className="space-y-6">
               {/* Status + Change */}
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-muted/50 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-md)] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-2)] p-4">
                 <div className="flex items-center gap-2">
                   <span
                     className={cn(
-                      "inline-flex items-center gap-1 rounded-full border text-sm px-3 py-1 font-semibold",
+                      "inline-flex items-center gap-1 rounded-[var(--radius-sm)] border px-3 py-1 text-sm font-semibold",
                       getStatusColor(selectedOrder.status),
                     )}
                   >
@@ -1970,9 +1973,9 @@ export default function OrdersPage() {
 
               {/* Assign Delivery Driver */}
               {DRIVER_ASSIGNABLE_STATUSES.has(selectedOrder.status) && (
-                <div className="p-4 border rounded-lg bg-orange-50/50">
+                <div className="rounded-[var(--radius-md)] border border-[color:rgba(245,158,11,0.24)] bg-[color:rgba(245,158,11,0.08)] p-4">
                   <h4 className="font-medium flex items-center gap-2 mb-2">
-                    <Truck className="h-4 w-4 text-orange-600" />
+                    <Truck className="h-4 w-4 text-[color:var(--accent-warning)]" />
                     تعيين سائق توصيل
                   </h4>
                   <Select
@@ -2072,7 +2075,7 @@ export default function OrdersPage() {
                       {selectedOrder.items.map((item, idx) => (
                         <div
                           key={idx}
-                          className="rounded-lg border bg-background p-3"
+                          className="rounded-[var(--radius-md)] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-2)] p-3"
                         >
                           <div className="space-y-1">
                             <p className="break-words text-sm font-medium">
@@ -2111,16 +2114,16 @@ export default function OrdersPage() {
                           </div>
                         </div>
                       ))}
-                      <div className="flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2 text-sm">
+                      <div className="flex items-center justify-between rounded-[var(--radius-md)] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-2)] px-3 py-2 text-sm">
                         <span className="font-medium">الإجمالي</span>
-                        <span className="font-bold text-primary">
+                        <span className="font-bold text-[color:var(--accent-gold)]">
                           {formatCurrency(selectedOrder.total)}
                         </span>
                       </div>
                     </div>
                     <div className="hidden md:block">
                       <table className="w-full">
-                        <thead className="bg-muted/50">
+                        <thead className="bg-[color:var(--bg-surface-2)]">
                           <tr>
                             <th className="p-3 text-right text-sm font-medium">
                               المنتج
@@ -2160,7 +2163,7 @@ export default function OrdersPage() {
                             </tr>
                           ))}
                         </tbody>
-                        <tfoot className="bg-muted/50">
+                        <tfoot className="bg-[color:var(--bg-surface-2)]">
                           <tr>
                             <td
                               colSpan={3}
@@ -2168,7 +2171,7 @@ export default function OrdersPage() {
                             >
                               الإجمالي
                             </td>
-                            <td className="p-3 font-bold text-primary">
+                            <td className="p-3 font-bold text-[color:var(--accent-gold)]">
                               {formatCurrency(selectedOrder.total)}
                             </td>
                           </tr>
@@ -2191,7 +2194,7 @@ export default function OrdersPage() {
                 </h4>
                 <div className="space-y-3 p-4 border rounded-lg">
                   <div className="flex items-center gap-3">
-                    <div className="h-2 w-2 rounded-full bg-green-500" />
+                    <div className="h-2 w-2 rounded-full bg-[color:var(--accent-success)]" />
                     <span className="text-sm">تم الإنشاء</span>
                     <span className="text-sm text-muted-foreground mr-auto">
                       {formatDate(selectedOrder.createdAt, "long")}
@@ -2199,7 +2202,7 @@ export default function OrdersPage() {
                   </div>
                   {selectedOrder.updatedAt !== selectedOrder.createdAt && (
                     <div className="flex items-center gap-3">
-                      <div className="h-2 w-2 rounded-full bg-blue-500" />
+                      <div className="h-2 w-2 rounded-full bg-[color:var(--accent-blue)]" />
                       <span className="text-sm">آخر تحديث</span>
                       <span className="text-sm text-muted-foreground mr-auto">
                         {formatDate(selectedOrder.updatedAt, "long")}
@@ -2215,8 +2218,8 @@ export default function OrdersPage() {
                   className={cn(
                     "p-4 rounded-lg border",
                     reorderResult.success
-                      ? "bg-green-50 border-green-200 text-green-800"
-                      : "bg-red-50 border-red-200 text-red-800",
+                      ? "border-[color:rgba(34,197,94,0.28)] bg-[color:rgba(34,197,94,0.1)] text-[color:#86efac]"
+                      : "border-[color:rgba(239,68,68,0.3)] bg-[color:rgba(239,68,68,0.1)] text-[color:#fca5a5]",
                   )}
                 >
                   <div className="flex items-center gap-2">

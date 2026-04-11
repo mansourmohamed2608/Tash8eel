@@ -136,18 +136,18 @@ export default function OcrReviewPage() {
   const confidenceBadge = (confidence: number) => {
     if (confidence >= 0.9)
       return (
-        <Badge className="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">
+        <Badge className="bg-[var(--accent-success)]/12 text-[var(--accent-success)]">
           عالية {Math.round(confidence * 100)}%
         </Badge>
       );
     if (confidence >= 0.7)
       return (
-        <Badge className="bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300">
+        <Badge className="bg-[var(--accent-warning)]/12 text-[var(--accent-warning)]">
           متوسطة {Math.round(confidence * 100)}%
         </Badge>
       );
     return (
-      <Badge className="bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300">
+      <Badge className="bg-[var(--accent-danger)]/12 text-[var(--accent-danger)]">
         منخفضة {Math.round(confidence * 100)}%
       </Badge>
     );
@@ -157,7 +157,10 @@ export default function OcrReviewPage() {
     switch (status) {
       case "approved":
         return (
-          <Badge variant="default" className="bg-green-600">
+          <Badge
+            variant="default"
+            className="bg-[var(--accent-success)] text-[var(--bg-base)]"
+          >
             <CheckCircle2 className="h-3 w-3 ml-1" />
             تمت الموافقة
           </Badge>
@@ -212,7 +215,7 @@ export default function OcrReviewPage() {
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <Clock className="h-8 w-8 text-yellow-500" />
+              <Clock className="h-8 w-8 text-[var(--accent-warning)]" />
               <div>
                 <p className="text-sm text-muted-foreground">
                   بانتظار المراجعة
@@ -225,7 +228,7 @@ export default function OcrReviewPage() {
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <CheckCircle2 className="h-8 w-8 text-green-500" />
+              <CheckCircle2 className="h-8 w-8 text-[var(--accent-success)]" />
               <div>
                 <p className="text-sm text-muted-foreground">تمت الموافقة</p>
                 <p className="text-2xl font-bold">{approved.length}</p>
@@ -236,7 +239,7 @@ export default function OcrReviewPage() {
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <XCircle className="h-8 w-8 text-red-500" />
+              <XCircle className="h-8 w-8 text-[var(--accent-danger)]" />
               <div>
                 <p className="text-sm text-muted-foreground">مرفوض</p>
                 <p className="text-2xl font-bold">{rejected.length}</p>
@@ -247,7 +250,7 @@ export default function OcrReviewPage() {
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <ScanLine className="h-8 w-8 text-blue-500" />
+              <ScanLine className="h-8 w-8 text-[var(--accent-blue)]" />
               <div>
                 <p className="text-sm text-muted-foreground">إجمالي المسح</p>
                 <p className="text-2xl font-bold">{confirmations.length}</p>
@@ -258,7 +261,7 @@ export default function OcrReviewPage() {
       </div>
 
       {error && (
-        <div className="bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3 text-sm text-yellow-700 dark:text-yellow-300">
+        <div className="rounded-lg border border-[var(--accent-warning)]/20 bg-[var(--accent-warning)]/12 p-3 text-sm text-[var(--accent-warning)]">
           {error} - يتم عرض بيانات تجريبية
         </div>
       )}
@@ -355,7 +358,7 @@ export default function OcrReviewPage() {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                className="w-full text-green-600 sm:w-auto"
+                                className="w-full text-[var(--accent-success)] sm:w-auto"
                                 onClick={() => handleAction(item.id, "approve")}
                                 disabled={actionLoading}
                               >
@@ -365,7 +368,7 @@ export default function OcrReviewPage() {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                className="w-full text-red-600 sm:w-auto"
+                                className="w-full text-[var(--accent-danger)] sm:w-auto"
                                 onClick={() => handleAction(item.id, "reject")}
                                 disabled={actionLoading}
                               >
@@ -444,7 +447,7 @@ export default function OcrReviewPage() {
                                     <Button
                                       variant="ghost"
                                       size="sm"
-                                      className="text-green-600"
+                                      className="text-[var(--accent-success)]"
                                       onClick={() =>
                                         handleAction(item.id, "approve")
                                       }
@@ -455,7 +458,7 @@ export default function OcrReviewPage() {
                                     <Button
                                       variant="ghost"
                                       size="sm"
-                                      className="text-red-600"
+                                      className="text-[var(--accent-danger)]"
                                       onClick={() =>
                                         handleAction(item.id, "reject")
                                       }
@@ -487,7 +490,7 @@ export default function OcrReviewPage() {
         >
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <ScanLine className="h-5 w-5 text-blue-500" />
+              <ScanLine className="h-5 w-5 text-[var(--accent-blue)]" />
               تفاصيل التعرف الضوئي
             </DialogTitle>
             <DialogDescription>مراجعة بيانات المنتج المكتشف</DialogDescription>
@@ -538,7 +541,7 @@ export default function OcrReviewPage() {
             <DialogFooter className="flex-col gap-2 sm:flex-row">
               <Button
                 variant="outline"
-                className="w-full text-red-600 sm:w-auto"
+                className="w-full text-[var(--accent-danger)] sm:w-auto"
                 onClick={() => handleAction(selected.id, "reject")}
                 disabled={actionLoading}
               >

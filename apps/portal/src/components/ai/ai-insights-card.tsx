@@ -795,7 +795,7 @@ export function generateCodInsights(data: {
     insights.push({
       id: "cod-clear",
       severity: "success",
-      title: "جميع مبالغ COD محصّلة ✅",
+      title: "جميع مبالغ COD محصّلة",
       description: "لا توجد مبالغ معلقة. أداء ممتاز في إدارة التدفق النقدي.",
     });
   }

@@ -415,7 +415,7 @@ export default function AnalyticsPage() {
         </div>
       </div>
       {failedSectionsCount > 0 && (
-        <p className="text-xs text-amber-600">
+        <p className="text-xs text-[var(--accent-warning)]">
           تعذر تحميل {failedSectionsCount} قسم من التحليلات في هذه المحاولة.
           يمكن إعادة التحديث.
         </p>
@@ -456,8 +456,8 @@ export default function AnalyticsPage() {
                 <Card className="app-data-card">
                   <CardContent className="p-4">
                     <div className="flex items-center gap-3">
-                      <div className="p-2 bg-blue-500/10 rounded-lg">
-                        <Users className="h-5 w-5 text-blue-500" />
+                      <div className="rounded-lg border border-[var(--accent-blue)]/30 bg-[var(--accent-blue)]/10 p-2">
+                        <Users className="h-5 w-5 text-[var(--accent-blue)]" />
                       </div>
                       <div>
                         <p className="text-2xl font-bold">
@@ -473,8 +473,8 @@ export default function AnalyticsPage() {
                 <Card className="app-data-card">
                   <CardContent className="p-4">
                     <div className="flex items-center gap-3">
-                      <div className="p-2 bg-yellow-500/10 rounded-lg">
-                        <ShoppingCart className="h-5 w-5 text-yellow-500" />
+                      <div className="rounded-lg border border-[var(--accent-warning)]/30 bg-[var(--accent-warning)]/10 p-2">
+                        <ShoppingCart className="h-5 w-5 text-[var(--accent-warning)]" />
                       </div>
                       <div>
                         <p className="text-2xl font-bold">
@@ -493,8 +493,8 @@ export default function AnalyticsPage() {
                 <Card>
                   <CardContent className="p-4">
                     <div className="flex items-center gap-3">
-                      <div className="p-2 bg-orange-500/10 rounded-lg">
-                        <BarChart className="h-5 w-5 text-orange-500" />
+                      <div className="rounded-lg border border-[var(--accent-gold)]/30 bg-[var(--accent-gold)]/10 p-2">
+                        <BarChart className="h-5 w-5 text-[var(--accent-gold)]" />
                       </div>
                       <div>
                         <p className="text-2xl font-bold">
@@ -513,8 +513,8 @@ export default function AnalyticsPage() {
                 <Card>
                   <CardContent className="p-4">
                     <div className="flex items-center gap-3">
-                      <div className="p-2 bg-green-500/10 rounded-lg">
-                        <TrendingUp className="h-5 w-5 text-green-500" />
+                      <div className="rounded-lg border border-[var(--accent-success)]/30 bg-[var(--accent-success)]/10 p-2">
+                        <TrendingUp className="h-5 w-5 text-[var(--accent-success)]" />
                       </div>
                       <div>
                         <p className="text-2xl font-bold">
@@ -525,7 +525,7 @@ export default function AnalyticsPage() {
                         </p>
                         <Badge
                           variant="default"
-                          className="text-xs mt-1 bg-green-500"
+                          className="mt-1 border-0 bg-[var(--accent-success)]/15 text-xs text-[var(--accent-success)]"
                         >
                           {conversionData.rates.checkoutToOrder}% من الدفع
                         </Badge>
@@ -550,25 +550,25 @@ export default function AnalyticsPage() {
                         label: "المحادثات",
                         value: conversionData.funnel.totalConversations,
                         rate: 100,
-                        color: "bg-blue-500",
+                        color: "bg-[var(--accent-blue)]",
                       },
                       {
                         label: "السلة",
                         value: conversionData.funnel.addedToCart,
                         rate: conversionData.rates.cartRate,
-                        color: "bg-yellow-500",
+                        color: "bg-[var(--accent-warning)]",
                       },
                       {
                         label: "الدفع",
                         value: conversionData.funnel.startedCheckout,
                         rate: conversionData.rates.checkoutRate,
-                        color: "bg-orange-500",
+                        color: "bg-[var(--accent-gold)]",
                       },
                       {
                         label: "مكتمل",
                         value: conversionData.funnel.completedOrder,
                         rate: conversionData.rates.conversionRate,
-                        color: "bg-green-500",
+                        color: "bg-[var(--accent-success)]",
                       },
                     ].map((step, idx) => (
                       <div key={idx} className="flex items-center gap-4">
@@ -647,7 +647,7 @@ export default function AnalyticsPage() {
               </Card>
               <Card>
                 <CardContent className="p-6 text-center">
-                  <TrendingDown className="h-8 w-8 mx-auto text-green-500 mb-2" />
+                  <TrendingDown className="mx-auto mb-2 h-8 w-8 text-[var(--accent-success)]" />
                   <p className="text-3xl font-bold">
                     {responseTimeData.formatted.min}
                   </p>
@@ -656,7 +656,7 @@ export default function AnalyticsPage() {
               </Card>
               <Card>
                 <CardContent className="p-6 text-center">
-                  <TrendingUp className="h-8 w-8 mx-auto text-red-500 mb-2" />
+                  <TrendingUp className="mx-auto mb-2 h-8 w-8 text-[var(--accent-danger)]" />
                   <p className="text-3xl font-bold">
                     {responseTimeData.formatted.max}
                   </p>
@@ -665,7 +665,7 @@ export default function AnalyticsPage() {
               </Card>
               <Card>
                 <CardContent className="p-6 text-center">
-                  <BarChart className="h-8 w-8 mx-auto text-blue-500 mb-2" />
+                  <BarChart className="mx-auto mb-2 h-8 w-8 text-[var(--accent-blue)]" />
                   <p className="text-3xl font-bold">
                     {responseTimeData.formatted.median}
                   </p>
@@ -731,7 +731,7 @@ export default function AnalyticsPage() {
                         <p className="font-bold">
                           {product.totalQuantity} قطعة
                         </p>
-                        <p className="text-sm text-green-600">
+                        <p className="text-sm text-[var(--accent-success)]">
                           {formatCurrency(product.totalRevenue)}
                         </p>
                       </div>
@@ -777,8 +777,8 @@ export default function AnalyticsPage() {
                 <Card>
                   <CardContent className="p-6">
                     <div className="flex items-center gap-4">
-                      <div className="p-3 bg-blue-500/10 rounded-lg">
-                        <Users className="h-6 w-6 text-blue-500" />
+                      <div className="rounded-lg border border-[var(--accent-blue)]/30 bg-[var(--accent-blue)]/10 p-3">
+                        <Users className="h-6 w-6 text-[var(--accent-blue)]" />
                       </div>
                       <div>
                         <p className="text-sm text-muted-foreground">
@@ -797,8 +797,8 @@ export default function AnalyticsPage() {
                 <Card>
                   <CardContent className="p-6">
                     <div className="flex items-center gap-4">
-                      <div className="p-3 bg-green-500/10 rounded-lg">
-                        <ShoppingCart className="h-6 w-6 text-green-500" />
+                      <div className="rounded-lg border border-[var(--accent-success)]/30 bg-[var(--accent-success)]/10 p-3">
+                        <ShoppingCart className="h-6 w-6 text-[var(--accent-success)]" />
                       </div>
                       <div>
                         <p className="text-sm text-muted-foreground">
@@ -854,7 +854,7 @@ export default function AnalyticsPage() {
                                 }}
                               />
                               <div
-                                className="w-[45%] bg-green-500/80 rounded-t transition-all duration-300 hover:bg-green-500"
+                                className="w-[45%] rounded-t bg-[var(--accent-success)]/80 transition-all duration-300 hover:bg-[var(--accent-success)]"
                                 style={{
                                   height: `${orderHeight}%`,
                                   minHeight: stat.orderCount > 0 ? "4px" : "0",
@@ -877,7 +877,7 @@ export default function AnalyticsPage() {
                       <span>الرسائل</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 bg-green-500 rounded" />
+                      <div className="h-3 w-3 rounded bg-[var(--accent-success)]" />
                       <span>الطلبات</span>
                     </div>
                   </div>

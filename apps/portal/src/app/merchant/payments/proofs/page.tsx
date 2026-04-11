@@ -201,19 +201,19 @@ export default function PaymentProofsPage() {
     switch (status) {
       case "PENDING":
         return (
-          <Badge className="bg-amber-100 text-amber-800">
+          <Badge className="border-[color:rgba(245,158,11,0.28)] bg-[color:rgba(245,158,11,0.12)] text-[color:#fcd34d]">
             <Clock className="h-3 w-3 ml-1" /> في الانتظار
           </Badge>
         );
       case "APPROVED":
         return (
-          <Badge className="bg-green-100 text-green-800">
+          <Badge className="border-[color:rgba(34,197,94,0.28)] bg-[color:rgba(34,197,94,0.1)] text-[color:#86efac]">
             <CheckCircle className="h-3 w-3 ml-1" /> معتمد
           </Badge>
         );
       case "REJECTED":
         return (
-          <Badge className="bg-red-100 text-red-800">
+          <Badge className="border-[color:rgba(239,68,68,0.3)] bg-[color:rgba(239,68,68,0.1)] text-[color:#fca5a5]">
             <XCircle className="h-3 w-3 ml-1" /> مرفوض
           </Badge>
         );
@@ -226,23 +226,47 @@ export default function PaymentProofsPage() {
     if (!confidence) return null;
     const pct = Math.round(confidence * 100);
     if (pct >= 85) {
-      return <Badge className="bg-green-100 text-green-800">{pct}%</Badge>;
+      return (
+        <Badge className="border-[color:rgba(34,197,94,0.28)] bg-[color:rgba(34,197,94,0.1)] text-[color:#86efac]">
+          {pct}%
+        </Badge>
+      );
     } else if (pct >= 60) {
-      return <Badge className="bg-amber-100 text-amber-800">{pct}%</Badge>;
+      return (
+        <Badge className="border-[color:rgba(245,158,11,0.28)] bg-[color:rgba(245,158,11,0.12)] text-[color:#fcd34d]">
+          {pct}%
+        </Badge>
+      );
     } else {
-      return <Badge className="bg-red-100 text-red-800">{pct}%</Badge>;
+      return (
+        <Badge className="border-[color:rgba(239,68,68,0.3)] bg-[color:rgba(239,68,68,0.1)] text-[color:#fca5a5]">
+          {pct}%
+        </Badge>
+      );
     }
   };
 
   const getRiskBadge = (level?: string, score?: number) => {
     const label = `${level || "LOW"} (${Number(score || 0)})`;
     if (level === "HIGH") {
-      return <Badge className="bg-red-100 text-red-800">{label}</Badge>;
+      return (
+        <Badge className="border-[color:rgba(239,68,68,0.3)] bg-[color:rgba(239,68,68,0.1)] text-[color:#fca5a5]">
+          {label}
+        </Badge>
+      );
     }
     if (level === "MEDIUM") {
-      return <Badge className="bg-amber-100 text-amber-800">{label}</Badge>;
+      return (
+        <Badge className="border-[color:rgba(245,158,11,0.28)] bg-[color:rgba(245,158,11,0.12)] text-[color:#fcd34d]">
+          {label}
+        </Badge>
+      );
     }
-    return <Badge className="bg-emerald-100 text-emerald-800">{label}</Badge>;
+    return (
+      <Badge className="border-[color:rgba(34,197,94,0.28)] bg-[color:rgba(34,197,94,0.1)] text-[color:#86efac]">
+        {label}
+      </Badge>
+    );
   };
 
   const pendingCount = summary.pending;
@@ -284,11 +308,11 @@ export default function PaymentProofsPage() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Card>
+        <Card className="app-data-card">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-amber-100 rounded-lg">
-                <Clock className="h-5 w-5 text-amber-600" />
+              <div className="rounded-[var(--radius-md)] border border-[color:rgba(245,158,11,0.22)] bg-[color:rgba(245,158,11,0.12)] p-2">
+                <Clock className="h-5 w-5 text-[color:var(--accent-warning)]" />
               </div>
               <div>
                 <p className="text-2xl font-bold">{pendingCount}</p>
@@ -297,11 +321,11 @@ export default function PaymentProofsPage() {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="app-data-card">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-green-100 rounded-lg">
-                <CheckCircle className="h-5 w-5 text-green-600" />
+              <div className="rounded-[var(--radius-md)] border border-[color:rgba(34,197,94,0.22)] bg-[color:rgba(34,197,94,0.12)] p-2">
+                <CheckCircle className="h-5 w-5 text-[color:var(--accent-success)]" />
               </div>
               <div>
                 <p className="text-2xl font-bold">{approvedCount}</p>
@@ -310,11 +334,11 @@ export default function PaymentProofsPage() {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="app-data-card">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-red-100 rounded-lg">
-                <XCircle className="h-5 w-5 text-red-600" />
+              <div className="rounded-[var(--radius-md)] border border-[color:rgba(239,68,68,0.22)] bg-[color:rgba(239,68,68,0.12)] p-2">
+                <XCircle className="h-5 w-5 text-[color:var(--accent-danger)]" />
               </div>
               <div>
                 <p className="text-2xl font-bold">{rejectedCount}</p>
@@ -323,11 +347,11 @@ export default function PaymentProofsPage() {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="app-data-card">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <Receipt className="h-5 w-5 text-blue-600" />
+              <div className="rounded-[var(--radius-md)] border border-[color:rgba(59,130,246,0.22)] bg-[color:rgba(59,130,246,0.12)] p-2">
+                <Receipt className="h-5 w-5 text-[color:var(--accent-blue)]" />
               </div>
               <div>
                 <p className="text-2xl font-bold">{summaryTotal}</p>
@@ -339,7 +363,7 @@ export default function PaymentProofsPage() {
       </div>
 
       {/* Filters */}
-      <Card>
+      <Card className="app-data-card">
         <CardContent className="p-4">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
             <div className="w-full sm:w-48">
@@ -369,7 +393,7 @@ export default function PaymentProofsPage() {
           description="لم يتم إرسال أي إثباتات دفع بعد"
         />
       ) : (
-        <Card>
+        <Card className="app-data-card">
           <div className="md:hidden divide-y">
             {proofs.map((proof) => (
               <div key={proof.id} className="space-y-4 p-4">

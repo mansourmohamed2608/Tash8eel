@@ -1,23 +1,52 @@
+"use client";
+
 import * as React from "react";
 import { cn } from "@/lib/utils";
 
-export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {}
+export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
+  label?: string;
+  error?: string;
+  wrapperClassName?: string;
+}
 
-const Input = React.forwardRef<HTMLInputElement, InputProps>(
-  ({ className, type, ...props }, ref) => {
-    return (
+export const Input = React.forwardRef<HTMLInputElement, InputProps>(
+  ({ className, label, error, wrapperClassName, id, ...props }, ref) => {
+    const inputId = id ?? React.useId();
+    const input = (
       <input
-        type={type}
+        id={inputId}
+        ref={ref}
         className={cn(
-          "flex h-11 w-full rounded-[14px] border border-input bg-background/90 px-[14px] py-[10px] text-sm font-medium text-foreground ring-offset-background transition-all duration-150 ease-in-out file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground hover:border-foreground/15 focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/25 focus-visible:ring-offset-0 disabled:cursor-not-allowed disabled:opacity-40",
+          "h-10 w-full rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-1)] px-3 text-[13px] text-[var(--text-primary)] outline-none transition duration-150 ease-in placeholder:text-[var(--text-muted)] hover:border-[var(--border-active)] focus:border-[var(--accent-blue)] focus:ring-4 focus:ring-[rgba(59,130,246,0.15)]",
+          error &&
+            "border-[var(--accent-danger)] focus:border-[var(--accent-danger)] focus:ring-[rgba(239,68,68,0.18)]",
           className,
         )}
-        ref={ref}
         {...props}
       />
     );
+
+    if (!label && !error) {
+      return input;
+    }
+
+    return (
+      <div className={cn("space-y-1.5", wrapperClassName)}>
+        {label ? (
+          <label
+            htmlFor={inputId}
+            className="block text-[12px] font-medium text-[var(--text-secondary)]"
+          >
+            {label}
+          </label>
+        ) : null}
+        {input}
+        {error ? (
+          <p className="text-[11px] text-[var(--accent-danger)]">{error}</p>
+        ) : null}
+      </div>
+    );
   },
 );
-Input.displayName = "Input";
 
-export { Input };
+Input.displayName = "Input";

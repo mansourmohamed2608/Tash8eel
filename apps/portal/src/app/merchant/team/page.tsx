@@ -206,12 +206,22 @@ const actionLabels: Record<string, string> = {
 };
 
 const roleColors: Record<string, string> = {
-  OWNER: "bg-yellow-500",
-  ADMIN: "bg-purple-500",
-  MANAGER: "bg-blue-500",
-  AGENT: "bg-green-500",
-  CASHIER: "bg-orange-500",
-  VIEWER: "bg-gray-500",
+  OWNER: "border-0 bg-[var(--accent-gold)]/15 text-[var(--accent-gold)]",
+  ADMIN: "border-0 bg-[var(--accent-blue)]/15 text-[var(--accent-blue)]",
+  MANAGER: "border-0 bg-[var(--accent-blue)]/10 text-[var(--text-secondary)]",
+  AGENT: "border-0 bg-[var(--accent-success)]/15 text-[var(--accent-success)]",
+  CASHIER:
+    "border-0 bg-[var(--accent-warning)]/15 text-[var(--accent-warning)]",
+  VIEWER: "border-0 bg-[var(--bg-surface-3)] text-[var(--text-secondary)]",
+};
+
+const roleDotColors: Record<string, string> = {
+  OWNER: "bg-[var(--accent-gold)]",
+  ADMIN: "bg-[var(--accent-blue)]",
+  MANAGER: "bg-[var(--text-secondary)]",
+  AGENT: "bg-[var(--accent-success)]",
+  CASHIER: "bg-[var(--accent-warning)]",
+  VIEWER: "bg-[var(--text-muted)]",
 };
 
 const roleLabels: Record<string, string> = {
@@ -777,7 +787,7 @@ export default function TeamPage() {
             <Card className="app-data-card">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">نشطون</CardTitle>
-                <CheckCircle className="h-4 w-4 text-green-500" />
+                <CheckCircle className="h-4 w-4 text-[color:var(--accent-success)]" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
@@ -790,7 +800,7 @@ export default function TeamPage() {
                 <CardTitle className="text-sm font-medium">
                   بانتظار القبول
                 </CardTitle>
-                <Clock className="h-4 w-4 text-yellow-500" />
+                <Clock className="h-4 w-4 text-[color:var(--accent-warning)]" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
@@ -801,7 +811,7 @@ export default function TeamPage() {
             <Card className="app-data-card">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">موقوفون</CardTitle>
-                <Ban className="h-4 w-4 text-red-500" />
+                <Ban className="h-4 w-4 text-[color:var(--accent-danger)]" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
@@ -826,16 +836,16 @@ export default function TeamPage() {
                   return (
                     <div
                       key={member.id}
-                      className="rounded-[22px] border border-[color:color-mix(in_srgb,var(--border-strong)_86%,transparent)] p-4 shadow-[0_16px_34px_-28px_rgba(15,23,42,0.4)]"
+                      className="rounded-[var(--radius-lg)] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-1)] p-4"
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex items-center gap-3">
                           <div className="relative">
-                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-purple-500 font-bold text-white">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-[var(--radius-md)] border border-[color:rgba(59,130,246,0.22)] bg-[color:rgba(59,130,246,0.12)] font-bold text-[color:var(--accent-blue)]">
                               {member.name.charAt(0)}
                             </div>
                             {isOnline(member) && (
-                              <div className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-white bg-green-500" />
+                              <div className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-[color:var(--bg-surface-1)] bg-[color:var(--accent-success)]" />
                             )}
                           </div>
                           <div>
@@ -845,9 +855,7 @@ export default function TeamPage() {
                             </p>
                           </div>
                         </div>
-                        <Badge
-                          className={`${roleColors[member.role]} text-white`}
-                        >
+                        <Badge className={roleColors[member.role]}>
                           {roleLabels[member.role]}
                         </Badge>
                       </div>
@@ -858,10 +866,10 @@ export default function TeamPage() {
                             <StatusIcon
                               className={`h-4 w-4 ${
                                 member.status === "ACTIVE"
-                                  ? "text-green-500"
+                                  ? "text-[color:var(--accent-success)]"
                                   : member.status === "PENDING_INVITE"
-                                    ? "text-yellow-500"
-                                    : "text-red-500"
+                                    ? "text-[color:var(--accent-warning)]"
+                                    : "text-[color:var(--accent-danger)]"
                               }`}
                             />
                             <span>{statusLabels[member.status]}</span>
@@ -900,12 +908,12 @@ export default function TeamPage() {
                           <TableCell>
                             <div className="flex items-center gap-3">
                               <div className="relative">
-                                <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold">
+                                <div className="flex h-10 w-10 items-center justify-center rounded-[var(--radius-md)] border border-[color:rgba(59,130,246,0.22)] bg-[color:rgba(59,130,246,0.12)] font-bold text-[color:var(--accent-blue)]">
                                   {member.name.charAt(0)}
                                 </div>
                                 {isOnline(member) && (
                                   <div
-                                    className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full bg-green-500 border-2 border-white"
+                                    className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-[color:var(--bg-surface-1)] bg-[color:var(--accent-success)]"
                                     title="متصل الآن"
                                   />
                                 )}
@@ -914,7 +922,7 @@ export default function TeamPage() {
                                 <div className="font-medium flex items-center gap-2">
                                   {member.name}
                                   {isOnline(member) && (
-                                    <span className="text-xs text-green-600">
+                                    <span className="text-xs text-[color:var(--accent-success)]">
                                       متصل
                                     </span>
                                   )}
@@ -926,9 +934,7 @@ export default function TeamPage() {
                             </div>
                           </TableCell>
                           <TableCell>
-                            <Badge
-                              className={`${roleColors[member.role]} text-white`}
-                            >
+                            <Badge className={roleColors[member.role]}>
                               {roleLabels[member.role]}
                             </Badge>
                           </TableCell>
@@ -937,10 +943,10 @@ export default function TeamPage() {
                               <StatusIcon
                                 className={`h-4 w-4 ${
                                   member.status === "ACTIVE"
-                                    ? "text-green-500"
+                                    ? "text-[color:var(--accent-success)]"
                                     : member.status === "PENDING_INVITE"
-                                      ? "text-yellow-500"
-                                      : "text-red-500"
+                                      ? "text-[color:var(--accent-warning)]"
+                                      : "text-[color:var(--accent-danger)]"
                                 }`}
                               />
                               <span>{statusLabels[member.status]}</span>
@@ -1003,7 +1009,7 @@ export default function TeamPage() {
                                   </DropdownMenuItem>
                                 )}
                                 <DropdownMenuItem
-                                  className="text-red-600"
+                                  className="text-[color:var(--accent-danger)]"
                                   onClick={() => handleDelete(member.id)}
                                 >
                                   <Trash2 className="h-4 w-4" />
@@ -1031,8 +1037,8 @@ export default function TeamPage() {
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
-                <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
-                  <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold">
+                <div className="flex items-center gap-3 rounded-[var(--radius-md)] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-2)] p-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-[var(--radius-md)] border border-[color:rgba(59,130,246,0.22)] bg-[color:rgba(59,130,246,0.12)] font-bold text-[color:var(--accent-blue)]">
                     {selectedStaff?.name?.charAt(0)}
                   </div>
                   <div>
@@ -1044,9 +1050,7 @@ export default function TeamPage() {
                 </div>
                 <div className="space-y-2">
                   <Label>الدور الحالي</Label>
-                  <Badge
-                    className={`${roleColors[selectedStaff?.role || "AGENT"]} text-white`}
-                  >
+                  <Badge className={roleColors[selectedStaff?.role || "AGENT"]}>
                     {roleLabels[selectedStaff?.role || "AGENT"]}
                   </Badge>
                 </div>
@@ -1063,7 +1067,7 @@ export default function TeamPage() {
                       <SelectItem value="ADMIN">
                         <div className="flex items-center gap-2">
                           <div
-                            className={`h-2 w-2 rounded-full ${roleColors.ADMIN}`}
+                            className={`h-2 w-2 rounded-full ${roleDotColors.ADMIN}`}
                           />
                           مدير - صلاحيات كاملة (إعدادات، تكاملات، تدقيق)
                         </div>
@@ -1071,7 +1075,7 @@ export default function TeamPage() {
                       <SelectItem value="MANAGER">
                         <div className="flex items-center gap-2">
                           <div
-                            className={`h-2 w-2 rounded-full ${roleColors.MANAGER}`}
+                            className={`h-2 w-2 rounded-full ${roleDotColors.MANAGER}`}
                           />
                           مشرف - إدارة العمليات (طلبات، مخزون، تقارير)
                         </div>
@@ -1079,7 +1083,7 @@ export default function TeamPage() {
                       <SelectItem value="AGENT">
                         <div className="flex items-center gap-2">
                           <div
-                            className={`h-2 w-2 rounded-full ${roleColors.AGENT}`}
+                            className={`h-2 w-2 rounded-full ${roleDotColors.AGENT}`}
                           />
                           وكيل - خدمة العملاء (محادثات، طلبات - قراءة)
                         </div>
@@ -1087,7 +1091,7 @@ export default function TeamPage() {
                       <SelectItem value="CASHIER">
                         <div className="flex items-center gap-2">
                           <div
-                            className={`h-2 w-2 rounded-full ${roleColors.CASHIER}`}
+                            className={`h-2 w-2 rounded-full ${roleDotColors.CASHIER}`}
                           />
                           كاشير - بيع مباشر ومشتريات الفرع
                         </div>
@@ -1095,7 +1099,7 @@ export default function TeamPage() {
                       <SelectItem value="VIEWER">
                         <div className="flex items-center gap-2">
                           <div
-                            className={`h-2 w-2 rounded-full ${roleColors.VIEWER}`}
+                            className={`h-2 w-2 rounded-full ${roleDotColors.VIEWER}`}
                           />
                           مشاهد - عرض فقط (بدون تعديل أو إنشاء)
                         </div>
@@ -1104,7 +1108,7 @@ export default function TeamPage() {
                   </Select>
                 </div>
                 {editRole !== selectedStaff?.role && (
-                  <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800">
+                  <div className="rounded-[var(--radius-md)] border border-[color:rgba(245,158,11,0.26)] bg-[color:rgba(245,158,11,0.1)] p-3 text-sm text-[color:#fcd34d]">
                     <AlertCircle className="h-4 w-4 inline mr-1" />
                     سيتم تغيير صلاحيات هذا العضو فوراً بعد الحفظ
                   </div>
@@ -1149,14 +1153,14 @@ export default function TeamPage() {
                     <div className="font-medium">{perm.label}</div>
                     <div className="grid grid-cols-2 gap-2 text-sm">
                       <div className="flex items-center gap-2">
-                        <CheckCircle className="h-4 w-4 text-green-500" />
+                        <CheckCircle className="h-4 w-4 text-[var(--accent-success)]" />
                         <span>مالك</span>
                       </div>
                       <div className="flex items-center gap-2">
                         {perm.key !== "staff" ? (
-                          <CheckCircle className="h-4 w-4 text-green-500" />
+                          <CheckCircle className="h-4 w-4 text-[var(--accent-success)]" />
                         ) : (
-                          <XCircle className="h-4 w-4 text-red-500" />
+                          <XCircle className="h-4 w-4 text-[var(--accent-danger)]" />
                         )}
                         <span>مدير</span>
                       </div>
@@ -1169,9 +1173,9 @@ export default function TeamPage() {
                           "inventory",
                           "reports",
                         ].includes(perm.key) ? (
-                          <CheckCircle className="h-4 w-4 text-green-500" />
+                          <CheckCircle className="h-4 w-4 text-[var(--accent-success)]" />
                         ) : (
-                          <XCircle className="h-4 w-4 text-red-500" />
+                          <XCircle className="h-4 w-4 text-[var(--accent-danger)]" />
                         )}
                         <span>مشرف</span>
                       </div>
@@ -1184,9 +1188,9 @@ export default function TeamPage() {
                           "inventory",
                           "reports",
                         ].includes(perm.key) ? (
-                          <AlertCircle className="h-4 w-4 text-yellow-500" />
+                          <AlertCircle className="h-4 w-4 text-[var(--accent-warning)]" />
                         ) : (
-                          <XCircle className="h-4 w-4 text-red-500" />
+                          <XCircle className="h-4 w-4 text-[var(--accent-danger)]" />
                         )}
                         <span>وكيل</span>
                       </div>
@@ -1199,9 +1203,9 @@ export default function TeamPage() {
                           "inventory",
                           "reports",
                         ].includes(perm.key) ? (
-                          <AlertCircle className="h-4 w-4 text-yellow-500" />
+                          <AlertCircle className="h-4 w-4 text-[var(--accent-warning)]" />
                         ) : (
-                          <XCircle className="h-4 w-4 text-red-500" />
+                          <XCircle className="h-4 w-4 text-[var(--accent-danger)]" />
                         )}
                         <span>مشاهد</span>
                       </div>
@@ -1228,13 +1232,13 @@ export default function TeamPage() {
                           {perm.label}
                         </TableCell>
                         <TableCell className="text-center">
-                          <CheckCircle className="h-4 w-4 text-green-500 mx-auto" />
+                          <CheckCircle className="mx-auto h-4 w-4 text-[var(--accent-success)]" />
                         </TableCell>
                         <TableCell className="text-center">
                           {perm.key !== "staff" ? (
-                            <CheckCircle className="h-4 w-4 text-green-500 mx-auto" />
+                            <CheckCircle className="mx-auto h-4 w-4 text-[var(--accent-success)]" />
                           ) : (
-                            <XCircle className="h-4 w-4 text-red-500 mx-auto" />
+                            <XCircle className="mx-auto h-4 w-4 text-[var(--accent-danger)]" />
                           )}
                         </TableCell>
                         <TableCell className="text-center">
@@ -1246,9 +1250,9 @@ export default function TeamPage() {
                             "inventory",
                             "reports",
                           ].includes(perm.key) ? (
-                            <CheckCircle className="h-4 w-4 text-green-500 mx-auto" />
+                            <CheckCircle className="mx-auto h-4 w-4 text-[var(--accent-success)]" />
                           ) : (
-                            <XCircle className="h-4 w-4 text-red-500 mx-auto" />
+                            <XCircle className="mx-auto h-4 w-4 text-[var(--accent-danger)]" />
                           )}
                         </TableCell>
                         <TableCell className="text-center">
@@ -1261,10 +1265,10 @@ export default function TeamPage() {
                             "reports",
                           ].includes(perm.key) ? (
                             <span title="جزئي">
-                              <AlertCircle className="h-4 w-4 text-yellow-500 mx-auto" />
+                              <AlertCircle className="mx-auto h-4 w-4 text-[var(--accent-warning)]" />
                             </span>
                           ) : (
-                            <XCircle className="h-4 w-4 text-red-500 mx-auto" />
+                            <XCircle className="mx-auto h-4 w-4 text-[var(--accent-danger)]" />
                           )}
                         </TableCell>
                         <TableCell className="text-center">
@@ -1277,10 +1281,10 @@ export default function TeamPage() {
                             "reports",
                           ].includes(perm.key) ? (
                             <span title="قراءة فقط">
-                              <AlertCircle className="h-4 w-4 text-yellow-500 mx-auto" />
+                              <AlertCircle className="mx-auto h-4 w-4 text-[var(--accent-warning)]" />
                             </span>
                           ) : (
-                            <XCircle className="h-4 w-4 text-red-500 mx-auto" />
+                            <XCircle className="mx-auto h-4 w-4 text-[var(--accent-danger)]" />
                           )}
                         </TableCell>
                       </TableRow>
@@ -1290,15 +1294,15 @@ export default function TeamPage() {
               </div>
               <div className="mt-4 flex flex-col gap-2 text-sm text-muted-foreground sm:flex-row sm:flex-wrap sm:gap-4">
                 <div className="flex items-center gap-1">
-                  <CheckCircle className="h-4 w-4 text-green-500" />
+                  <CheckCircle className="h-4 w-4 text-[var(--accent-success)]" />
                   <span>كامل</span>
                 </div>
                 <div className="flex items-center gap-1">
-                  <AlertCircle className="h-4 w-4 text-yellow-500" />
+                  <AlertCircle className="h-4 w-4 text-[var(--accent-warning)]" />
                   <span>جزئي</span>
                 </div>
                 <div className="flex items-center gap-1">
-                  <XCircle className="h-4 w-4 text-red-500" />
+                  <XCircle className="h-4 w-4 text-[var(--accent-danger)]" />
                   <span>غير مسموح</span>
                 </div>
               </div>
@@ -1321,9 +1325,7 @@ export default function TeamPage() {
 
               <div className="flex flex-col gap-3 py-2 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                  <Badge
-                    className={`${roleColors[selectedStaff?.role || "AGENT"]} text-white`}
-                  >
+                  <Badge className={roleColors[selectedStaff?.role || "AGENT"]}>
                     {roleLabels[selectedStaff?.role || "AGENT"]}
                   </Badge>
                   <span className="text-sm text-muted-foreground">
@@ -1356,18 +1358,18 @@ export default function TeamPage() {
                       <div className="flex items-center justify-between mb-2">
                         <button
                           type="button"
-                          className="font-medium text-sm flex items-center gap-2 hover:text-blue-600 transition-colors"
+                          className="flex items-center gap-2 text-sm font-medium transition-colors hover:text-[color:var(--accent-blue)]"
                           onClick={() =>
                             toggleAllSection(perm.key, perm.actions)
                           }
                         >
                           <div
-                            className={`h-4 w-4 rounded border flex items-center justify-center text-white text-xs ${
+                            className={`flex h-4 w-4 items-center justify-center rounded border text-xs ${
                               allEnabled
-                                ? "bg-green-500 border-green-500"
+                                ? "bg-[color:var(--accent-success)] border-[color:var(--accent-success)] text-[var(--bg-base)]"
                                 : someEnabled
-                                  ? "bg-yellow-400 border-yellow-400"
-                                  : "border-gray-300"
+                                  ? "bg-[color:var(--accent-warning)] border-[color:var(--accent-warning)] text-[var(--bg-base)]"
+                                  : "border-[color:var(--border-default)] text-muted-foreground"
                             }`}
                           >
                             {allEnabled ? "✓" : someEnabled ? "-" : ""}
@@ -1386,10 +1388,10 @@ export default function TeamPage() {
                               key={action}
                               type="button"
                               onClick={() => togglePermission(perm.key, action)}
-                              className={`px-2.5 py-1 rounded-full text-xs font-medium transition-all ${
+                              className={`rounded-[var(--radius-sm)] px-2.5 py-1 text-xs font-medium transition-all ${
                                 enabled
-                                  ? "bg-green-100 text-green-700 border border-green-300 hover:bg-green-200"
-                                  : "bg-gray-100 text-gray-500 border border-gray-200 hover:bg-gray-200"
+                                  ? "border border-[color:rgba(34,197,94,0.28)] bg-[color:rgba(34,197,94,0.1)] text-[color:#86efac]"
+                                  : "border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-2)] text-[color:var(--text-secondary)] hover:bg-[color:var(--bg-surface-3)]"
                               }`}
                             >
                               {enabled ? "✓ " : ""}

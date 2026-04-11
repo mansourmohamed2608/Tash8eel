@@ -92,13 +92,19 @@ const PLAN_NAMES: Record<string, string> = {
 };
 
 const PLAN_COLORS: Record<string, string> = {
-  TRIAL: "bg-gray-100 text-gray-800",
-  STARTER: "bg-blue-100 text-blue-800",
-  BASIC: "bg-sky-100 text-sky-800",
-  GROWTH: "bg-green-100 text-green-800",
-  PRO: "bg-purple-100 text-purple-800",
-  ENTERPRISE: "bg-amber-100 text-amber-800",
-  CUSTOM: "bg-pink-100 text-pink-800",
+  TRIAL:
+    "border border-[var(--border-default)] bg-[var(--bg-surface-3)] text-[var(--text-secondary)]",
+  STARTER:
+    "border border-[var(--accent-blue)]/25 bg-[var(--accent-blue)]/12 text-[var(--accent-blue)]",
+  BASIC:
+    "border border-[var(--accent-blue)]/20 bg-[var(--accent-blue)]/10 text-[var(--text-primary)]",
+  GROWTH:
+    "border border-[var(--accent-success)]/25 bg-[var(--accent-success)]/12 text-[var(--accent-success)]",
+  PRO: "border border-[var(--accent-gold)]/25 bg-[var(--accent-gold-dim)] text-[var(--accent-gold)]",
+  ENTERPRISE:
+    "border border-[var(--accent-warning)]/25 bg-[var(--accent-warning)]/12 text-[var(--accent-warning)]",
+  CUSTOM:
+    "border border-[var(--border-active)] bg-[var(--bg-surface-2)] text-[var(--text-primary)]",
 };
 
 type CatalogAgent = {
@@ -1162,8 +1168,8 @@ function AdminEntitlementsContent() {
                       className={cn(
                         "p-4 border-2 rounded-lg cursor-pointer transition-all",
                         editingEntitlements.plan === plan
-                          ? "border-primary-500 bg-primary-50"
-                          : "border-muted hover:border-primary-300",
+                          ? "border-[var(--accent-gold)] bg-[var(--accent-gold-dim)]"
+                          : "border-[var(--border-default)] bg-[var(--bg-surface-2)] hover:border-[var(--border-active)]",
                       )}
                       onClick={() => handlePlanChange(plan)}
                     >
@@ -1176,7 +1182,7 @@ function AdminEntitlementsContent() {
                           {PLAN_NAMES[plan] || plan}
                         </Badge>
                         {editingEntitlements.plan === plan && (
-                          <Check className="h-5 w-5 text-primary-600" />
+                          <Check className="h-5 w-5 text-[var(--accent-gold)]" />
                         )}
                       </div>
                       <div className="text-xs text-muted-foreground">
@@ -1212,8 +1218,8 @@ function AdminEntitlementsContent() {
                           className={cn(
                             "flex items-center gap-2 p-3 rounded-lg border cursor-pointer transition-colors",
                             enabled
-                              ? "bg-green-50 border-green-200"
-                              : "bg-muted/30 hover:bg-muted/50",
+                              ? "border-[var(--accent-success)]/25 bg-[var(--accent-success)]/12"
+                              : "bg-[var(--bg-surface-2)] hover:bg-[var(--bg-surface-3)]",
                           )}
                           onClick={() => toggleAgent(agent.key)}
                         >

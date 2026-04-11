@@ -1069,7 +1069,10 @@ export default function LoyaltyPage() {
                               {member.customerPhone}
                             </div>
                           </div>
-                          <Badge variant="default" className="bg-yellow-500">
+                          <Badge
+                            variant="default"
+                            className="bg-[var(--accent-warning)]/15 text-[var(--accent-warning)]"
+                          >
                             <Star className="h-3 w-3 ml-1" />
                             {member.currentPoints.toLocaleString("ar-SA")}
                           </Badge>
@@ -1132,7 +1135,7 @@ export default function LoyaltyPage() {
                             <TableCell>
                               <Badge
                                 variant="default"
-                                className="bg-yellow-500"
+                                className="bg-[var(--accent-warning)]/15 text-[var(--accent-warning)]"
                               >
                                 <Star className="h-3 w-3 ml-1" />
                                 {member.currentPoints.toLocaleString("ar-SA")}

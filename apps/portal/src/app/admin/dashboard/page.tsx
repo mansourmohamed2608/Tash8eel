@@ -257,10 +257,10 @@ export default function AdminDashboard() {
                         className={cn(
                           "w-2.5 h-2.5 rounded-full",
                           service.status === "healthy"
-                            ? "bg-green-500"
+                            ? "bg-[var(--accent-success)]"
                             : service.status === "degraded"
-                              ? "bg-yellow-500"
-                              : "bg-red-500",
+                              ? "bg-[var(--accent-warning)]"
+                              : "bg-[var(--accent-danger)]",
                         )}
                       />
                       <span className="text-sm font-medium">
@@ -300,7 +300,7 @@ export default function AdminDashboard() {
         <Card className="app-data-card">
           <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <CardTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-yellow-500" />
+              <AlertTriangle className="h-5 w-5 text-[var(--accent-warning)]" />
               أحداث DLQ الأخيرة
             </CardTitle>
             <Button variant="ghost" size="sm" className="w-full sm:w-auto">

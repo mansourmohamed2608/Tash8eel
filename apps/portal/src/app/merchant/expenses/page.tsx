@@ -80,16 +80,16 @@ interface ExpenseCategory {
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
-  inventory: "bg-blue-100 text-blue-800",
-  purchases: "bg-blue-100 text-blue-800",
-  shipping: "bg-yellow-100 text-yellow-800",
-  marketing: "bg-purple-100 text-purple-800",
-  rent: "bg-green-100 text-green-800",
-  utilities: "bg-orange-100 text-orange-800",
-  salaries: "bg-pink-100 text-pink-800",
-  equipment: "bg-indigo-100 text-indigo-800",
-  fees: "bg-red-100 text-red-800",
-  other: "bg-gray-100 text-gray-800",
+  inventory: "bg-[var(--accent-blue)]/12 text-[var(--accent-blue)]",
+  purchases: "bg-[var(--accent-blue)]/12 text-[var(--accent-blue)]",
+  shipping: "bg-[var(--accent-warning)]/12 text-[var(--accent-warning)]",
+  marketing: "bg-[var(--accent-gold)]/12 text-[var(--accent-gold)]",
+  rent: "bg-[var(--accent-success)]/12 text-[var(--accent-success)]",
+  utilities: "bg-[var(--accent-warning)]/12 text-[var(--accent-warning)]",
+  salaries: "bg-[var(--accent-gold)]/12 text-[var(--accent-gold)]",
+  equipment: "bg-[var(--accent-blue)]/12 text-[var(--accent-blue)]",
+  fees: "bg-[var(--accent-danger)]/12 text-[var(--accent-danger)]",
+  other: "bg-[var(--bg-surface-2)] text-[var(--text-secondary)]",
 };
 
 const CATEGORY_NAMES: Record<string, string> = {
@@ -444,7 +444,7 @@ export default function ExpensesPage() {
       key: "amount",
       header: "المبلغ",
       render: (item: Expense) => (
-        <span className="font-semibold text-red-600">
+        <span className="font-semibold text-[var(--accent-danger)]">
           - {formatCurrency(item.amount)}
         </span>
       ),
@@ -467,7 +467,7 @@ export default function ExpensesPage() {
               onClick={() => openEditDialog(item)}
               title="تعديل"
             >
-              <Pencil className="h-4 w-4 text-blue-500" />
+              <Pencil className="h-4 w-4 text-[var(--accent-blue)]" />
             </Button>
           )}
           {canDelete && (
@@ -477,7 +477,7 @@ export default function ExpensesPage() {
               onClick={() => setDeleteTarget(item)}
               title="حذف"
             >
-              <Trash2 className="h-4 w-4 text-red-500" />
+              <Trash2 className="h-4 w-4 text-[var(--accent-danger)]" />
             </Button>
           )}
         </div>
@@ -627,7 +627,7 @@ export default function ExpensesPage() {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">
+            <div className="text-2xl font-bold text-[var(--accent-danger)]">
               {formatCurrency(totalAmount)}
             </div>
             <p className="text-xs text-muted-foreground">
@@ -772,7 +772,7 @@ export default function ExpensesPage() {
                             )}
                           </p>
                         </div>
-                        <p className="font-semibold text-red-600">
+                        <p className="font-semibold text-[var(--accent-danger)]">
                           - {formatCurrency(expense.amount)}
                         </p>
                       </div>
@@ -793,7 +793,7 @@ export default function ExpensesPage() {
                               className="w-full sm:w-auto"
                               onClick={() => openEditDialog(expense)}
                             >
-                              <Pencil className="ml-2 h-4 w-4 text-blue-500" />
+                              <Pencil className="ml-2 h-4 w-4 text-[var(--accent-blue)]" />
                               تعديل
                             </Button>
                           )}
@@ -801,10 +801,10 @@ export default function ExpensesPage() {
                             <Button
                               variant="outline"
                               size="sm"
-                              className="w-full text-red-600 sm:w-auto"
+                              className="w-full text-[var(--accent-danger)] sm:w-auto"
                               onClick={() => setDeleteTarget(expense)}
                             >
-                              <Trash2 className="ml-2 h-4 w-4 text-red-500" />
+                              <Trash2 className="ml-2 h-4 w-4 text-[var(--accent-danger)]" />
                               حذف
                             </Button>
                           )}
@@ -902,7 +902,7 @@ export default function ExpensesPage() {
               إلغاء
             </AlertDialogCancel>
             <AlertDialogAction
-              className="w-full bg-red-600 text-white hover:bg-red-700 sm:w-auto"
+              className="w-full bg-[var(--accent-danger)] text-[var(--text-primary)] hover:brightness-110 sm:w-auto"
               onClick={handleDeleteExpense}
             >
               حذف

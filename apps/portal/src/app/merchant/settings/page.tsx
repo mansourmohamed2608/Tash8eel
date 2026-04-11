@@ -654,9 +654,9 @@ export default function SettingsPage() {
               </div>
 
               {/* InstaPay Section */}
-              <div className="border rounded-lg p-4 space-y-3">
+              <div className="rounded-[var(--radius-md)] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-2)] p-4 space-y-3">
                 <div className="flex items-center gap-2">
-                  <Smartphone className="h-4 w-4 text-orange-600" />
+                  <Smartphone className="h-4 w-4 text-[color:var(--accent-warning)]" />
                   <span className="font-medium">InstaPay</span>
                 </div>
                 <div className="space-y-2">
@@ -684,9 +684,9 @@ export default function SettingsPage() {
               </div>
 
               {/* Vodafone Cash Section */}
-              <div className="border rounded-lg p-4 space-y-3">
+              <div className="rounded-[var(--radius-md)] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-2)] p-4 space-y-3">
                 <div className="flex items-center gap-2">
-                  <CreditCard className="h-4 w-4 text-red-600" />
+                  <CreditCard className="h-4 w-4 text-[color:var(--accent-danger)]" />
                   <span className="font-medium">فودافون كاش</span>
                 </div>
                 <div className="space-y-2">
@@ -709,9 +709,9 @@ export default function SettingsPage() {
               </div>
 
               {/* Bank Transfer Section */}
-              <div className="border rounded-lg p-4 space-y-4">
+              <div className="rounded-[var(--radius-md)] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-2)] p-4 space-y-4">
                 <div className="flex items-center gap-2">
-                  <Building2 className="h-4 w-4 text-blue-600" />
+                  <Building2 className="h-4 w-4 text-[color:var(--accent-blue)]" />
                   <span className="font-medium">تحويل بنكي</span>
                 </div>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -788,7 +788,7 @@ export default function SettingsPage() {
                 </div>
               </div>
 
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800">
+              <div className="rounded-[var(--radius-md)] border border-[color:rgba(245,158,11,0.26)] bg-[color:rgba(245,158,11,0.1)] p-3 text-sm text-[color:rgba(244,244,245,0.86)]">
                 <strong>ملاحظة:</strong> هذه البيانات ستظهر للعملاء عند اختيارهم
                 طريقة الدفع. تأكد من صحة البيانات.
               </div>
@@ -809,7 +809,7 @@ export default function SettingsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground">
+              <div className="rounded-[var(--radius-md)] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-2)] p-4 text-sm text-muted-foreground">
                 إعدادات القنوات، تفضيلات التنبيهات، فترات التقارير، وأرقام
                 الإشعارات تم دمجها في صفحة واحدة.
               </div>
@@ -834,7 +834,7 @@ export default function SettingsPage() {
               <CardDescription>إعدادات العمل والردود التلقائية</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-col gap-3 rounded-[var(--radius-md)] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-2)] p-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="space-y-0.5">
                   <label className="text-sm font-medium">
                     الردود التلقائية

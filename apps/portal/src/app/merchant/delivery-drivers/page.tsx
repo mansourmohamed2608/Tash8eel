@@ -377,7 +377,7 @@ export default function DeliveryDriversPage() {
                 }
               }}
               disabled={sendingReminders || drivers.length === 0}
-              className="w-full border-green-300 text-green-700 hover:bg-green-50 sm:w-auto"
+              className="w-full border-[var(--accent-success)]/25 text-[var(--accent-success)] hover:bg-[var(--accent-success)]/10 sm:w-auto"
             >
               {sendingReminders ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -407,7 +407,7 @@ export default function DeliveryDriversPage() {
 
       {/* Stats */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        <Card>
+        <Card className="app-data-card">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
               إجمالي السائقين
@@ -421,18 +421,18 @@ export default function DeliveryDriversPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">نشطون</CardTitle>
-            <CheckCircle className="h-4 w-4 text-green-500" />
+            <CheckCircle className="h-4 w-4 text-[var(--accent-success)]" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">
+            <div className="text-2xl font-bold text-[var(--accent-success)]">
               {activeDrivers.length}
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="app-data-card">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">واتساب مفعّل</CardTitle>
-            <MessageSquare className="h-4 w-4 text-green-500" />
+            <MessageSquare className="h-4 w-4 text-[var(--accent-success)]" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
@@ -446,10 +446,10 @@ export default function DeliveryDriversPage() {
       </div>
 
       {/* Auto-Assign Settings */}
-      <Card className="border-blue-200 dark:border-blue-800/50">
+      <Card className="app-data-card border-[var(--accent-blue)]/20">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Zap className="h-5 w-5 text-blue-500" />
+            <Zap className="h-5 w-5 text-[var(--accent-blue)]" />
             التعيين التلقائي للسائقين
           </CardTitle>
           <CardDescription>
@@ -562,7 +562,7 @@ export default function DeliveryDriversPage() {
       </Card>
 
       {/* Drivers Table */}
-      <Card>
+      <Card className="app-data-card">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Truck className="h-5 w-5" />
@@ -605,13 +605,10 @@ export default function DeliveryDriversPage() {
                   const VehicleIcon =
                     vehicleIcons[driver.vehicle_type] || Truck;
                   return (
-                    <div
-                      key={driver.id}
-                      className="rounded-lg border p-4 space-y-3"
-                    >
+                    <div key={driver.id} className="app-data-card space-y-3">
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex min-w-0 items-center gap-3">
-                          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-orange-500 to-red-500 font-bold text-white">
+                          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full border border-[var(--accent-gold)]/25 bg-[var(--accent-gold-dim)] font-bold text-[var(--accent-gold)]">
                             {driver.name.charAt(0)}
                           </div>
                           <div className="min-w-0">
@@ -630,7 +627,9 @@ export default function DeliveryDriversPage() {
                             driver.status === "ACTIVE" ? "default" : "secondary"
                           }
                           className={
-                            driver.status === "ACTIVE" ? "bg-green-500" : ""
+                            driver.status === "ACTIVE"
+                              ? "border border-[var(--accent-success)]/25 bg-[var(--accent-success)]/12 text-[var(--accent-success)]"
+                              : ""
                           }
                         >
                           {driver.status === "ACTIVE" ? "نشط" : "غير نشط"}
@@ -642,7 +641,7 @@ export default function DeliveryDriversPage() {
                           <span className="truncate">{driver.phone}</span>
                         </div>
                         <div className="flex items-center gap-2" dir="ltr">
-                          <MessageSquare className="h-4 w-4 flex-shrink-0 text-green-500" />
+                          <MessageSquare className="h-4 w-4 flex-shrink-0 text-[var(--accent-success)]" />
                           <span className="truncate">
                             {driver.whatsapp_number || driver.phone}
                           </span>
@@ -681,7 +680,7 @@ export default function DeliveryDriversPage() {
                         </Button>
                         <Button
                           variant="outline"
-                          className="text-red-600 hover:text-red-700"
+                          className="text-[var(--accent-danger)] hover:text-[var(--accent-danger)]"
                           onClick={() => handleDelete(driver)}
                         >
                           <Trash2 className="h-4 w-4" />
@@ -724,7 +723,7 @@ export default function DeliveryDriversPage() {
                         <TableRow key={driver.id}>
                           <TableCell className="w-[22%]">
                             <div className="flex items-center gap-3">
-                              <div className="h-10 w-10 rounded-full bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center text-white font-bold flex-shrink-0">
+                              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full border border-[var(--accent-gold)]/25 bg-[var(--accent-gold-dim)] font-bold text-[var(--accent-gold)]">
                                 {driver.name.charAt(0)}
                               </div>
                               <div className="min-w-0">
@@ -753,7 +752,7 @@ export default function DeliveryDriversPage() {
                               className="inline-flex items-center gap-1 text-sm"
                               dir="ltr"
                             >
-                              <MessageSquare className="h-3 w-3 text-green-500 flex-shrink-0" />
+                              <MessageSquare className="h-3 w-3 flex-shrink-0 text-[var(--accent-success)]" />
                               <span className="truncate">
                                 {driver.whatsapp_number || driver.phone}
                               </span>
@@ -776,7 +775,9 @@ export default function DeliveryDriversPage() {
                                   : "secondary"
                               }
                               className={
-                                driver.status === "ACTIVE" ? "bg-green-500" : ""
+                                driver.status === "ACTIVE"
+                                  ? "border border-[var(--accent-success)]/25 bg-[var(--accent-success)]/12 text-[var(--accent-success)]"
+                                  : ""
                               }
                             >
                               {driver.status === "ACTIVE" ? "نشط" : "غير نشط"}
@@ -812,7 +813,7 @@ export default function DeliveryDriversPage() {
                                   )}
                                 </DropdownMenuItem>
                                 <DropdownMenuItem
-                                  className="text-red-600"
+                                  className="text-[var(--accent-danger)]"
                                   onClick={() => handleDelete(driver)}
                                 >
                                   <Trash2 className="h-4 w-4" />
@@ -833,18 +834,18 @@ export default function DeliveryDriversPage() {
       </Card>
 
       {/* How it works */}
-      <Card>
+      <Card className="app-data-card">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <MessageSquare className="h-5 w-5 text-green-500" />
+            <MessageSquare className="h-5 w-5 text-[var(--accent-success)]" />
             كيف يعمل إشعار واتساب؟
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <div className="text-center p-4 bg-muted/30 rounded-lg">
-              <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center mx-auto mb-2">
-                <MapPin className="h-5 w-5 text-blue-600" />
+              <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full border border-[var(--accent-blue)]/25 bg-[var(--accent-blue)]/12">
+                <MapPin className="h-5 w-5 text-[var(--accent-blue)]" />
               </div>
               <h4 className="font-medium text-sm">1. طلب جديد</h4>
               <p className="text-xs text-muted-foreground mt-1">
@@ -852,8 +853,8 @@ export default function DeliveryDriversPage() {
               </p>
             </div>
             <div className="text-center p-4 bg-muted/30 rounded-lg">
-              <div className="h-10 w-10 rounded-full bg-orange-100 flex items-center justify-center mx-auto mb-2">
-                <Truck className="h-5 w-5 text-orange-600" />
+              <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full border border-[var(--accent-gold)]/25 bg-[var(--accent-gold-dim)]">
+                <Truck className="h-5 w-5 text-[var(--accent-gold)]" />
               </div>
               <h4 className="font-medium text-sm">2. تعيين السائق</h4>
               <p className="text-xs text-muted-foreground mt-1">
@@ -861,8 +862,8 @@ export default function DeliveryDriversPage() {
               </p>
             </div>
             <div className="text-center p-4 bg-muted/30 rounded-lg">
-              <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-2">
-                <MessageSquare className="h-5 w-5 text-green-600" />
+              <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full border border-[var(--accent-success)]/25 bg-[var(--accent-success)]/12">
+                <MessageSquare className="h-5 w-5 text-[var(--accent-success)]" />
               </div>
               <h4 className="font-medium text-sm">3. إشعار تلقائي</h4>
               <p className="text-xs text-muted-foreground mt-1">

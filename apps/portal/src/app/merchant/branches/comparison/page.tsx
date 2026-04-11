@@ -238,8 +238,8 @@ export default function BranchComparisonPage() {
                             className={cn(
                               "font-semibold",
                               (b.netProfit ?? 0) >= 0
-                                ? "text-green-600"
-                                : "text-red-500",
+                                ? "text-[var(--accent-success)]"
+                                : "text-[var(--accent-danger)]",
                             )}
                           >
                             {formatCurrency(b.netProfit ?? 0)}
@@ -291,14 +291,14 @@ export default function BranchComparisonPage() {
                             className={cn(
                               "font-semibold",
                               (b.netProfit ?? 0) >= 0
-                                ? "text-green-600"
-                                : "text-red-500",
+                                ? "text-[var(--accent-success)]"
+                                : "text-[var(--accent-danger)]",
                             )}
                           >
                             {(b.netProfit ?? 0) >= 0 ? (
-                              <TrendingUp className="inline h-3.5 w-3.5 text-green-500 ml-1" />
+                              <TrendingUp className="ml-1 inline h-3.5 w-3.5 text-[var(--accent-success)]" />
                             ) : (
-                              <TrendingDown className="inline h-3.5 w-3.5 text-red-500 ml-1" />
+                              <TrendingDown className="ml-1 inline h-3.5 w-3.5 text-[var(--accent-danger)]" />
                             )}
                             {formatCurrency(b.netProfit ?? 0)}
                           </TableCell>

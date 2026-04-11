@@ -373,13 +373,21 @@ export default function WebhooksPage() {
   const getStatusBadge = (status?: string) => {
     switch (status) {
       case "SUCCESS":
-        return <Badge className="bg-green-500">ناجح</Badge>;
+        return (
+          <Badge className="border-[color:rgba(34,197,94,0.28)] bg-[color:rgba(34,197,94,0.1)] text-[color:#86efac]">
+            ناجح
+          </Badge>
+        );
       case "FAILED":
         return <Badge variant="destructive">فشل</Badge>;
       case "PENDING":
         return <Badge variant="secondary">قيد الانتظار</Badge>;
       case "RETRYING":
-        return <Badge className="bg-yellow-500">إعادة المحاولة</Badge>;
+        return (
+          <Badge className="border-[color:rgba(245,158,11,0.28)] bg-[color:rgba(245,158,11,0.12)] text-[color:#fcd34d]">
+            إعادة المحاولة
+          </Badge>
+        );
       default:
         return <Badge variant="outline">-</Badge>;
     }
@@ -411,7 +419,7 @@ export default function WebhooksPage() {
     <div className="space-y-6 p-4 sm:p-6">
       {loading ? (
         <div className="flex items-center justify-center py-20">
-          <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+          <Loader2 className="h-8 w-8 animate-spin text-[color:var(--accent-blue)]" />
         </div>
       ) : (
         <>
@@ -545,8 +553,8 @@ export default function WebhooksPage() {
                     {testStatus !== "idle" && (
                       <div className="text-sm text-muted-foreground">
                         {testStatus === "success"
-                          ? "✅ تم الاختبار بنجاح"
-                          : "❌ فشل اختبار الرابط"}
+                          ? "تم الاختبار بنجاح"
+                          : "فشل اختبار الرابط"}
                         {testMessage ? ` - ${testMessage}` : ""}
                       </div>
                     )}
@@ -591,10 +599,10 @@ export default function WebhooksPage() {
                 <CardTitle className="text-sm font-medium">
                   معدل النجاح
                 </CardTitle>
-                <Activity className="h-4 w-4 text-green-500" />
+                <Activity className="h-4 w-4 text-[color:var(--accent-success)]" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-green-600">
+                <div className="text-2xl font-bold text-[color:var(--accent-success)]">
                   {successRate}%
                 </div>
                 <p className="text-xs text-muted-foreground">
@@ -605,10 +613,10 @@ export default function WebhooksPage() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">الفشل</CardTitle>
-                <AlertTriangle className="h-4 w-4 text-red-500" />
+                <AlertTriangle className="h-4 w-4 text-[color:var(--accent-danger)]" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-red-600">
+                <div className="text-2xl font-bold text-[color:var(--accent-danger)]">
                   {totalFailure}
                 </div>
                 <p className="text-xs text-muted-foreground">يحتاج مراجعة</p>
@@ -644,7 +652,7 @@ export default function WebhooksPage() {
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                           <div className="flex min-w-0 items-center gap-3">
                             <div
-                              className={`h-3 w-3 rounded-full ${webhook.isActive ? "bg-green-500" : "bg-gray-300"}`}
+                              className={`h-3 w-3 rounded-full ${webhook.isActive ? "bg-[color:var(--accent-success)]" : "bg-[color:var(--text-muted)]"}`}
                             />
                             <div className="min-w-0">
                               <h3 className="font-semibold">{webhook.name}</h3>
@@ -688,7 +696,7 @@ export default function WebhooksPage() {
                                   تعديل
                                 </DropdownMenuItem>
                                 <DropdownMenuItem
-                                  className="text-red-600"
+                                  className="text-[color:var(--accent-danger)]"
                                   onClick={() => handleDelete(webhook.id)}
                                 >
                                   <Trash2 className="h-4 w-4" />
@@ -749,13 +757,13 @@ export default function WebhooksPage() {
 
                         <div className="flex flex-col gap-3 border-t pt-3 text-sm sm:flex-row sm:flex-wrap sm:items-center sm:gap-6">
                           <div className="flex items-center gap-2">
-                            <CheckCircle className="h-4 w-4 text-green-500" />
+                            <CheckCircle className="h-4 w-4 text-[color:var(--accent-success)]" />
                             <span>
                               {webhook.successCount.toLocaleString()} ناجح
                             </span>
                           </div>
                           <div className="flex items-center gap-2">
-                            <XCircle className="h-4 w-4 text-red-500" />
+                            <XCircle className="h-4 w-4 text-[color:var(--accent-danger)]" />
                             <span>{webhook.failureCount} فشل</span>
                           </div>
                           <div className="flex items-center gap-2">
@@ -809,9 +817,9 @@ export default function WebhooksPage() {
                                 className={
                                   delivery.statusCode &&
                                   delivery.statusCode < 400
-                                    ? "text-green-600"
+                                    ? "text-[color:var(--accent-success)]"
                                     : delivery.statusCode
-                                      ? "text-red-600"
+                                      ? "text-[color:var(--accent-danger)]"
                                       : ""
                                 }
                               >
@@ -881,8 +889,8 @@ export default function WebhooksPage() {
                                   <span
                                     className={
                                       delivery.statusCode < 400
-                                        ? "text-green-600"
-                                        : "text-red-600"
+                                        ? "text-[color:var(--accent-success)]"
+                                        : "text-[color:var(--accent-danger)]"
                                     }
                                   >
                                     {delivery.statusCode}

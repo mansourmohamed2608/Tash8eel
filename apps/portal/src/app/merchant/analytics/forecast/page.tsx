@@ -93,13 +93,13 @@ function urgencyVariant(
 function urgencyBg(u: string) {
   switch (u) {
     case "critical":
-      return "bg-red-50 border-red-200";
+      return "bg-[var(--accent-danger)]/10 border-[var(--accent-danger)]/20";
     case "high":
       return "bg-orange-50 border-orange-200";
     case "medium":
-      return "bg-yellow-50 border-yellow-200";
+      return "bg-[var(--accent-warning)]/10 border-[var(--accent-warning)]/20";
     default:
-      return "bg-green-50 border-green-200";
+      return "bg-[var(--accent-success)]/10 border-[var(--accent-success)]/20";
   }
 }
 
@@ -141,8 +141,10 @@ function getDisplayCode(productId: string): string | null {
 }
 
 function TrendIcon({ pct }: { pct: number }) {
-  if (pct > 5) return <TrendingUp className="w-3.5 h-3.5 text-green-600" />;
-  if (pct < -5) return <TrendingDown className="w-3.5 h-3.5 text-red-500" />;
+  if (pct > 5)
+    return <TrendingUp className="h-3.5 w-3.5 text-[var(--accent-success)]" />;
+  if (pct < -5)
+    return <TrendingDown className="h-3.5 w-3.5 text-[var(--accent-danger)]" />;
   return <Minus className="w-3.5 h-3.5 text-muted-foreground" />;
 }
 
@@ -364,75 +366,89 @@ export default function ForecastPage() {
       {/* ── Summary strip ──────────────────────────────────────────────── */}
       {items.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-8 gap-3">
-          <Card className="app-data-card bg-slate-50 border-slate-200 md:col-span-2">
+          <Card className="app-data-card border-[var(--border-default)] bg-[var(--bg-surface-2)] md:col-span-2">
             <CardContent className="py-3 px-4 text-center">
-              <p className="text-2xl font-bold text-slate-700">
+              <p className="text-2xl font-bold text-foreground">
                 {items.length}
               </p>
-              <p className="text-xs text-slate-600 mt-0.5">إجمالي الأصناف</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                إجمالي الأصناف
+              </p>
             </CardContent>
           </Card>
           <button
-            className={`text-right rounded-lg border transition ${filter === "critical" ? "ring-2 ring-red-500" : ""}`}
+            className={`text-right rounded-lg border transition ${filter === "critical" ? "ring-2 ring-[var(--accent-danger)]" : ""}`}
             onClick={() => setFilter("critical")}
             type="button"
           >
-            <Card className="app-data-card bg-red-50 border-red-200 h-full">
+            <Card className="app-data-card h-full border-[var(--accent-danger)]/20 bg-[var(--accent-danger)]/10">
               <CardContent className="py-3 px-4 text-center">
-                <p className="text-2xl font-bold text-red-700">
+                <p className="text-2xl font-bold text-[var(--accent-danger)]">
                   {counts.critical}
                 </p>
-                <p className="text-xs text-red-600 mt-0.5">حرج</p>
+                <p className="mt-0.5 text-xs text-[var(--accent-danger)]">
+                  حرج
+                </p>
               </CardContent>
             </Card>
           </button>
           <button
-            className={`text-right rounded-lg border transition ${filter === "high" ? "ring-2 ring-orange-500" : ""}`}
+            className={`text-right rounded-lg border transition ${filter === "high" ? "ring-2 ring-[var(--accent-gold)]" : ""}`}
             onClick={() => setFilter("high")}
             type="button"
           >
-            <Card className="app-data-card bg-orange-50 border-orange-200 h-full">
+            <Card className="app-data-card h-full border-[var(--accent-gold)]/20 bg-[var(--accent-gold)]/10">
               <CardContent className="py-3 px-4 text-center">
-                <p className="text-2xl font-bold text-orange-700">
+                <p className="text-2xl font-bold text-[var(--accent-gold)]">
                   {counts.high}
                 </p>
-                <p className="text-xs text-orange-600 mt-0.5">عالي</p>
+                <p className="mt-0.5 text-xs text-[var(--accent-gold)]">عالي</p>
               </CardContent>
             </Card>
           </button>
           <button
-            className={`text-right rounded-lg border transition ${filter === "medium" ? "ring-2 ring-yellow-500" : ""}`}
+            className={`text-right rounded-lg border transition ${filter === "medium" ? "ring-2 ring-[var(--accent-warning)]" : ""}`}
             onClick={() => setFilter("medium")}
             type="button"
           >
-            <Card className="app-data-card bg-yellow-50 border-yellow-200 h-full">
+            <Card className="app-data-card h-full border-[var(--accent-warning)]/20 bg-[var(--accent-warning)]/10">
               <CardContent className="py-3 px-4 text-center">
-                <p className="text-2xl font-bold text-yellow-700">
+                <p className="text-2xl font-bold text-[var(--accent-warning)]">
                   {counts.medium}
                 </p>
-                <p className="text-xs text-yellow-600 mt-0.5">متوسط</p>
+                <p className="mt-0.5 text-xs text-[var(--accent-warning)]">
+                  متوسط
+                </p>
               </CardContent>
             </Card>
           </button>
           <button
-            className={`text-right rounded-lg border transition ${filter === "ok" ? "ring-2 ring-green-500" : ""}`}
+            className={`text-right rounded-lg border transition ${filter === "ok" ? "ring-2 ring-[var(--accent-success)]" : ""}`}
             onClick={() => setFilter("ok")}
             type="button"
           >
-            <Card className="app-data-card bg-green-50 border-green-200 h-full">
+            <Card className="app-data-card h-full border-[var(--accent-success)]/20 bg-[var(--accent-success)]/10">
               <CardContent className="py-3 px-4 text-center">
-                <p className="text-2xl font-bold text-green-700">{counts.ok}</p>
-                <p className="text-xs text-green-600 mt-0.5">جيد</p>
+                <p className="text-2xl font-bold text-[var(--accent-success)]">
+                  {counts.ok}
+                </p>
+                <p className="mt-0.5 text-xs text-[var(--accent-success)]">
+                  جيد
+                </p>
               </CardContent>
             </Card>
           </button>
-          <Card className="app-data-card bg-blue-50 border-blue-200">
+          <Card className="app-data-card border-[var(--accent-blue)]/20 bg-[var(--accent-blue)]/10">
             <CardContent className="py-3 px-4 text-center flex flex-col items-center">
               <div className="flex items-center gap-1">
-                <p className="text-2xl font-bold text-blue-700">{trendingUp}</p>
-                <TrendingUp className="w-4 h-4 text-blue-600" />
+                <p className="text-2xl font-bold text-[var(--accent-blue)]">
+                  {trendingUp}
+                </p>
+                <TrendingUp className="h-4 w-4 text-[var(--accent-blue)]" />
               </div>
-              <p className="text-xs text-blue-600 mt-0.5">طلب متصاعد</p>
+              <p className="mt-0.5 text-xs text-[var(--accent-blue)]">
+                طلب متصاعد
+              </p>
             </CardContent>
           </Card>
           <Card className="app-data-card bg-gray-50 border-gray-200">
@@ -522,7 +538,7 @@ export default function ForecastPage() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-            <div className="rounded-md border bg-slate-50 px-3 py-2">
+            <div className="rounded-md border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 py-2">
               <p className="text-muted-foreground">
                 إجمالي إعادة الطلب المقترح
               </p>
@@ -534,7 +550,7 @@ export default function ForecastPage() {
               <p className="text-muted-foreground">
                 أصناف مهددة بالنفاد خلال 7 أيام
               </p>
-              <p className="text-lg font-semibold text-amber-700">
+              <p className="text-lg font-semibold text-[var(--accent-warning)]">
                 {nearStockout} صنف
               </p>
             </div>
@@ -618,7 +634,7 @@ export default function ForecastPage() {
                       </div>
 
                       <div className="inline-flex items-center gap-1 rounded-md border bg-background px-2.5 py-1 text-xs self-start sm:self-auto">
-                        <AlertCircle className="w-3.5 h-3.5 text-amber-500" />
+                        <AlertCircle className="h-3.5 w-3.5 text-[var(--accent-warning)]" />
                         <span>
                           النفاد المتوقع: {formatDays(item.days_until_stockout)}
                         </span>
@@ -686,7 +702,7 @@ export default function ForecastPage() {
                         <p className="text-muted-foreground">
                           إعادة الطلب المقترحة
                         </p>
-                        <p className="font-semibold text-base text-blue-700 mt-0.5">
+                        <p className="mt-0.5 text-base font-semibold text-[var(--accent-blue)]">
                           {item.reorder_suggestion}
                         </p>
                       </div>

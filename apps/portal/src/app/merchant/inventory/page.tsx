@@ -207,7 +207,7 @@ export default function InventoryPage() {
           .writeText(result.description)
           .catch(() => null);
         toast({
-          title: "✨ تم توليد الوصف",
+          title: "تم توليد الوصف",
           description:
             result.description.slice(0, 120) +
             (result.description.length > 120 ? "..." : ""),
@@ -1746,19 +1746,21 @@ export default function InventoryPage() {
 
           {/* Error Banner */}
           {error && (
-            <Card className="border-red-200 bg-red-50">
+            <Card className="app-data-card border-[color:rgba(239,68,68,0.32)] bg-[color:rgba(239,68,68,0.08)]">
               <CardContent className="flex items-center gap-3 p-6">
-                <AlertTriangle className="h-6 w-6 text-red-500" />
+                <AlertTriangle className="h-6 w-6 text-[color:var(--accent-danger)]" />
                 <div>
-                  <p className="font-medium text-red-800">
+                  <p className="font-medium text-[color:var(--text-primary)]">
                     خطأ في تحميل البيانات
                   </p>
-                  <p className="text-sm text-red-600">{error}</p>
+                  <p className="text-sm text-[color:rgba(244,244,245,0.78)]">
+                    {error}
+                  </p>
                 </div>
                 <Button
                   variant="outline"
                   onClick={handleRefresh}
-                  className="mr-auto"
+                  className="mr-auto border-[color:var(--border-default)] bg-[color:var(--bg-surface-2)] text-[color:var(--text-secondary)] hover:border-[color:var(--border-active)] hover:text-[color:var(--text-primary)]"
                 >
                   إعادة المحاولة
                 </Button>
@@ -1831,7 +1833,7 @@ export default function InventoryPage() {
                       {summary?.total_items || inventory.length}
                     </p>
                   </div>
-                  <Package className="h-8 w-8 text-primary-600" />
+                  <Package className="h-8 w-8 text-[color:var(--accent-blue)]" />
                 </div>
               </CardContent>
             </Card>
@@ -1842,11 +1844,11 @@ export default function InventoryPage() {
                     <p className="text-sm text-muted-foreground">
                       الكمية المتاحة
                     </p>
-                    <p className="text-2xl font-bold text-green-600">
+                    <p className="text-2xl font-bold text-[color:var(--accent-success)]">
                       {summary?.total_available || "-"}
                     </p>
                   </div>
-                  <ArrowUp className="h-8 w-8 text-green-600" />
+                  <ArrowUp className="h-8 w-8 text-[color:var(--accent-success)]" />
                 </div>
               </CardContent>
             </Card>
@@ -1855,11 +1857,11 @@ export default function InventoryPage() {
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="text-sm text-muted-foreground">مخزون منخفض</p>
-                    <p className="text-2xl font-bold text-yellow-600">
+                    <p className="text-2xl font-bold text-[color:var(--accent-warning)]">
                       {summary?.low_stock_count || lowStockItems.length}
                     </p>
                   </div>
-                  <AlertTriangle className="h-8 w-8 text-yellow-600" />
+                  <AlertTriangle className="h-8 w-8 text-[color:var(--accent-warning)]" />
                 </div>
               </CardContent>
             </Card>
@@ -1868,11 +1870,11 @@ export default function InventoryPage() {
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="text-sm text-muted-foreground">نفد المخزون</p>
-                    <p className="text-2xl font-bold text-red-600">
+                    <p className="text-2xl font-bold text-[color:var(--accent-danger)]">
                       {summary?.out_of_stock_count || outOfStockItems.length}
                     </p>
                   </div>
-                  <TrendingDown className="h-8 w-8 text-red-600" />
+                  <TrendingDown className="h-8 w-8 text-[color:var(--accent-danger)]" />
                 </div>
               </CardContent>
             </Card>
@@ -1956,8 +1958,9 @@ export default function InventoryPage() {
                       size="sm"
                       onClick={() => setCategoryFilter("all")}
                       className={cn(
-                        "rounded-full whitespace-nowrap",
-                        categoryFilter === "all" && "shadow-sm",
+                        "rounded-[var(--radius-sm)] whitespace-nowrap border-[color:var(--border-default)]",
+                        categoryFilter === "all" &&
+                          "border-[color:var(--accent-gold)]",
                       )}
                     >
                       الكل
@@ -1974,8 +1977,9 @@ export default function InventoryPage() {
                         size="sm"
                         onClick={() => setCategoryFilter(category.name)}
                         className={cn(
-                          "rounded-full whitespace-nowrap",
-                          categoryFilter === category.name && "shadow-sm",
+                          "rounded-[var(--radius-sm)] whitespace-nowrap border-[color:var(--border-default)]",
+                          categoryFilter === category.name &&
+                            "border-[color:var(--accent-gold)]",
                         )}
                       >
                         {category.name} ({category.count})

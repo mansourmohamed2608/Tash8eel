@@ -539,9 +539,9 @@ export default function AgentTeamsPage() {
           title="المهام الجماعية للوكلاء"
           description="توزيع المهام على عدة وكلاء للعمل بالتوازي"
         />
-        <Card className="mt-6">
+        <Card className="app-data-card mt-6 border-[color:rgba(239,68,68,0.3)] bg-[color:rgba(239,68,68,0.08)]">
           <CardContent className="p-8 text-center">
-            <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
+            <AlertCircle className="mx-auto mb-4 h-12 w-12 text-[color:var(--accent-danger)]" />
             <p className="text-lg font-medium text-foreground">{error}</p>
             <Button
               onClick={fetchData}
@@ -576,10 +576,10 @@ export default function AgentTeamsPage() {
       />
 
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <Card className="border-blue-200 bg-blue-50/50">
+        <Card className="app-data-card border-[color:rgba(59,130,246,0.24)] bg-[color:rgba(59,130,246,0.08)]">
           <CardContent className="p-4">
             <p className="text-sm text-muted-foreground">القوالب المتاحة</p>
-            <p className="mt-1 text-2xl font-bold text-blue-700">
+            <p className="mt-1 text-2xl font-bold text-[color:var(--accent-blue)]">
               {availableTemplates}
             </p>
             <p className="mt-2 text-xs text-muted-foreground">
@@ -587,10 +587,10 @@ export default function AgentTeamsPage() {
             </p>
           </CardContent>
         </Card>
-        <Card className="border-amber-200 bg-amber-50/50">
+        <Card className="app-data-card border-[color:rgba(245,158,11,0.24)] bg-[color:rgba(245,158,11,0.08)]">
           <CardContent className="p-4">
             <p className="text-sm text-muted-foreground">مهام قيد التنفيذ</p>
-            <p className="mt-1 text-2xl font-bold text-amber-700">
+            <p className="mt-1 text-2xl font-bold text-[color:var(--accent-warning)]">
               {activeTasks}
             </p>
             <p className="mt-2 text-xs text-muted-foreground">
@@ -598,10 +598,10 @@ export default function AgentTeamsPage() {
             </p>
           </CardContent>
         </Card>
-        <Card className="border-emerald-200 bg-emerald-50/50">
+        <Card className="app-data-card border-[color:rgba(34,197,94,0.24)] bg-[color:rgba(34,197,94,0.08)]">
           <CardContent className="p-4">
             <p className="text-sm text-muted-foreground">مهام مكتملة</p>
-            <p className="mt-1 text-2xl font-bold text-emerald-700">
+            <p className="mt-1 text-2xl font-bold text-[color:var(--accent-success)]">
               {completedTasks}
             </p>
             <p className="mt-2 text-xs text-muted-foreground">
@@ -609,10 +609,10 @@ export default function AgentTeamsPage() {
             </p>
           </CardContent>
         </Card>
-        <Card className="border-rose-200 bg-rose-50/50">
+        <Card className="app-data-card border-[color:rgba(239,68,68,0.24)] bg-[color:rgba(239,68,68,0.08)]">
           <CardContent className="p-4">
             <p className="text-sm text-muted-foreground">تحتاج مراجعة</p>
-            <p className="mt-1 text-2xl font-bold text-rose-700">
+            <p className="mt-1 text-2xl font-bold text-[color:var(--accent-danger)]">
               {partialOrFailedTasks}
             </p>
             <p className="mt-2 text-xs text-muted-foreground">
@@ -622,7 +622,7 @@ export default function AgentTeamsPage() {
         </Card>
       </div>
 
-      <Card className="border-dashed">
+      <Card className="app-data-card app-data-card--muted border-dashed">
         <CardContent className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between">
           <div>
             <p className="font-medium">هذه الصفحة ليست سجل نشاط</p>
@@ -645,21 +645,21 @@ export default function AgentTeamsPage() {
         <Card
           className={
             message.type === "success"
-              ? "border-green-500/50 bg-green-50 dark:bg-green-950/20"
-              : "border-destructive/50 bg-red-50 dark:bg-red-950/20"
+              ? "border-[color:rgba(34,197,94,0.28)] bg-[color:rgba(34,197,94,0.1)]"
+              : "border-[color:rgba(239,68,68,0.3)] bg-[color:rgba(239,68,68,0.1)]"
           }
         >
           <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
             {message.type === "success" ? (
-              <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400 shrink-0" />
+              <CheckCircle className="h-5 w-5 shrink-0 text-[color:var(--accent-success)]" />
             ) : (
               <XCircle className="h-5 w-5 text-destructive shrink-0" />
             )}
             <p
               className={
                 message.type === "success"
-                  ? "text-green-700 dark:text-green-300"
-                  : "text-destructive flex-1"
+                  ? "text-[color:#86efac]"
+                  : "flex-1 text-[color:#fca5a5]"
               }
             >
               {message.text === "AI_QUOTA"
@@ -669,7 +669,7 @@ export default function AgentTeamsPage() {
             {message.text === "AI_QUOTA" && (
               <a
                 href="/merchant/plan"
-                className="shrink-0 text-xs font-medium bg-primary text-primary-foreground rounded-md px-3 py-1.5 hover:bg-primary/90 transition-colors"
+                className="shrink-0 rounded-[var(--radius-sm)] border border-[color:var(--accent-gold)] bg-[color:var(--accent-gold)] px-3 py-1.5 text-xs font-medium text-[color:var(--bg-base)] transition-opacity hover:opacity-90"
               >
                 ترقية الباقة
               </a>
@@ -787,7 +787,7 @@ export default function AgentTeamsPage() {
           المهام الجماعية الأخيرة
         </h2>
         {tasks.length === 0 ? (
-          <Card>
+          <Card className="app-data-card">
             <CardContent className="p-12 text-center">
               <Users className="h-12 w-12 text-muted-foreground/50 mx-auto mb-4" />
               <p className="text-lg font-medium text-foreground">
@@ -835,12 +835,12 @@ export default function AgentTeamsPage() {
               return (
                 <Card
                   key={task.id}
-                  className="hover:border-primary/30 transition-colors"
+                  className="app-data-card transition-colors hover:border-[color:rgba(232,197,71,0.22)]"
                 >
                   <CardContent className="p-4">
                     <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-[var(--radius-md)] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-2)]">
                           <StatusIcon className="h-5 w-5 text-muted-foreground" />
                         </div>
                         <div>
@@ -879,7 +879,7 @@ export default function AgentTeamsPage() {
 
                     {failedSubtasks > 0 && (
                       <div className="mt-2">
-                        <p className="text-xs text-destructive flex items-center gap-1">
+                        <p className="flex items-center gap-1 text-xs text-[color:var(--accent-danger)]">
                           <AlertTriangle className="h-3 w-3" />
                           {failedSubtasks} مهام فرعية فشلت
                         </p>
@@ -902,8 +902,8 @@ export default function AgentTeamsPage() {
                     )}
 
                     {isSuccessfulTask && (
-                      <div className="mt-2 rounded-md border border-green-200/70 bg-green-50/40 px-2.5 py-2">
-                        <p className="text-xs font-medium text-green-700">
+                      <div className="mt-2 rounded-[var(--radius-sm)] border border-[color:rgba(34,197,94,0.26)] bg-[color:rgba(34,197,94,0.08)] px-2.5 py-2">
+                        <p className="text-xs font-medium text-[color:#86efac]">
                           ملخص التنفيذ
                         </p>
                         {resultSummary.length > 0 && (

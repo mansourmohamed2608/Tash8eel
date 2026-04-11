@@ -52,7 +52,7 @@ interface RoadmapFeature {
   outcomes: string[];
   status: "coming_soon" | "beta" | "available";
   eta?: string;
-  color: string;
+  tone: "gold" | "blue" | "success" | "warning" | "danger";
   agentType?: string;
   implemented?: boolean;
   sellable?: boolean;
@@ -78,7 +78,7 @@ const ROADMAP_FEATURES: RoadmapFeature[] = [
     ],
     status: "available",
     eta: "متاح الآن",
-    color: "from-blue-500 to-blue-600",
+    tone: "blue",
     agentType: "OPS_AGENT",
   },
   {
@@ -95,7 +95,7 @@ const ROADMAP_FEATURES: RoadmapFeature[] = [
     ],
     status: "available",
     eta: "متاح الآن",
-    color: "from-green-500 to-green-600",
+    tone: "success",
     agentType: "INVENTORY_AGENT",
   },
   {
@@ -112,7 +112,7 @@ const ROADMAP_FEATURES: RoadmapFeature[] = [
     ],
     status: "available",
     eta: "متاح الآن",
-    color: "from-purple-500 to-purple-600",
+    tone: "gold",
     agentType: "FINANCE_AGENT",
   },
   {
@@ -129,7 +129,7 @@ const ROADMAP_FEATURES: RoadmapFeature[] = [
     ],
     status: "coming_soon",
     eta: "Q2 2026",
-    color: "from-blue-500 to-blue-600",
+    tone: "blue",
     agentType: "SUPPORT_AGENT",
   },
   {
@@ -146,7 +146,7 @@ const ROADMAP_FEATURES: RoadmapFeature[] = [
     ],
     status: "coming_soon",
     eta: "Q2 2026",
-    color: "from-purple-500 to-purple-600",
+    tone: "gold",
     agentType: "MARKETING_AGENT",
   },
   {
@@ -165,7 +165,7 @@ const ROADMAP_FEATURES: RoadmapFeature[] = [
     ],
     status: "coming_soon",
     eta: "Q3 2026",
-    color: "from-rose-500 to-rose-600",
+    tone: "danger",
     agentType: "SALES_AGENT",
   },
   {
@@ -182,7 +182,7 @@ const ROADMAP_FEATURES: RoadmapFeature[] = [
     ],
     status: "coming_soon",
     eta: "Q3 2026",
-    color: "from-pink-500 to-pink-600",
+    tone: "gold",
     agentType: "CONTENT_AGENT",
   },
   {
@@ -199,7 +199,7 @@ const ROADMAP_FEATURES: RoadmapFeature[] = [
     ],
     status: "coming_soon",
     eta: "Q4 2026",
-    color: "from-fuchsia-500 to-fuchsia-600",
+    tone: "blue",
     agentType: "CREATIVE_AGENT",
   },
   {
@@ -216,7 +216,7 @@ const ROADMAP_FEATURES: RoadmapFeature[] = [
     ],
     status: "beta",
     eta: "متاح للاختبار",
-    color: "from-amber-500 to-amber-600",
+    tone: "warning",
   },
   {
     id: "multi_channel",
@@ -232,7 +232,7 @@ const ROADMAP_FEATURES: RoadmapFeature[] = [
     ],
     status: "coming_soon",
     eta: "Q3 2026",
-    color: "from-indigo-500 to-indigo-600",
+    tone: "blue",
   },
 ];
 
@@ -378,11 +378,23 @@ export default function RoadmapPage() {
   const getStatusBadge = (status: RoadmapFeature["status"]) => {
     switch (status) {
       case "available":
-        return <Badge className="bg-green-100 text-green-800">متاح</Badge>;
+        return (
+          <Badge className="border-0 bg-[var(--accent-success)]/15 text-[var(--accent-success)]">
+            متاح
+          </Badge>
+        );
       case "beta":
-        return <Badge className="bg-amber-100 text-amber-800">تجريبي</Badge>;
+        return (
+          <Badge className="border-0 bg-[var(--accent-warning)]/15 text-[var(--accent-warning)]">
+            تجريبي
+          </Badge>
+        );
       case "coming_soon":
-        return <Badge className="bg-blue-100 text-blue-800">قريباً</Badge>;
+        return (
+          <Badge className="border-0 bg-[var(--accent-blue)]/15 text-[var(--accent-blue)]">
+            قريباً
+          </Badge>
+        );
     }
   };
 
@@ -402,8 +414,21 @@ export default function RoadmapPage() {
     }
 
     return (
-      <Badge className="bg-emerald-100 text-emerald-800">جاهز للبيع</Badge>
+      <Badge className="border-0 bg-[var(--accent-success)]/15 text-[var(--accent-success)]">
+        جاهز للبيع
+      </Badge>
     );
+  };
+
+  const toneClasses: Record<RoadmapFeature["tone"], string> = {
+    gold: "border-[var(--accent-gold)]/30 bg-[var(--accent-gold)]/10 text-[var(--accent-gold)]",
+    blue: "border-[var(--accent-blue)]/30 bg-[var(--accent-blue)]/10 text-[var(--accent-blue)]",
+    success:
+      "border-[var(--accent-success)]/30 bg-[var(--accent-success)]/10 text-[var(--accent-success)]",
+    warning:
+      "border-[var(--accent-warning)]/30 bg-[var(--accent-warning)]/10 text-[var(--accent-warning)]",
+    danger:
+      "border-[var(--accent-danger)]/30 bg-[var(--accent-danger)]/10 text-[var(--accent-danger)]",
   };
 
   return (
@@ -414,15 +439,17 @@ export default function RoadmapPage() {
       />
 
       {/* Hero Section */}
-      <Card className="bg-gradient-to-r from-primary-500 to-primary-600 text-white border-0">
+      <Card className="border-[var(--accent-gold)]/20 bg-[var(--bg-surface-2)]">
         <CardContent className="p-6">
           <div className="flex items-center gap-4">
-            <div className="p-3 bg-white/20 rounded-lg">
+            <div className="rounded-lg border border-[var(--accent-gold)]/30 bg-[var(--accent-gold)]/10 p-3 text-[var(--accent-gold)]">
               <Rocket className="h-8 w-8" />
             </div>
             <div>
-              <h2 className="text-xl font-bold">نعمل على ميزات جديدة</h2>
-              <p className="text-white/80 mt-1">
+              <h2 className="text-xl font-bold text-foreground">
+                نعمل على ميزات جديدة
+              </h2>
+              <p className="mt-1 text-muted-foreground">
                 {roadmapFeatures.filter((f) => f.status === "available").length}{" "}
                 وكلاء متاحين حالياً - سجّل للوصول المبكر لـ{" "}
                 {roadmapFeatures.filter((f) => f.status !== "available").length}{" "}
@@ -440,17 +467,24 @@ export default function RoadmapPage() {
           .map((feature) => (
             <Card
               key={feature.id}
-              className="overflow-hidden hover:shadow-lg transition-shadow"
+              className="overflow-hidden border-[var(--border-subtle)] bg-[var(--bg-surface-1)] transition-colors hover:bg-[var(--bg-surface-2)]"
             >
-              <div className={cn("h-2 bg-gradient-to-r", feature.color)} />
+              <div
+                className={cn("h-1.5", {
+                  "bg-[var(--accent-gold)]": feature.tone === "gold",
+                  "bg-[var(--accent-blue)]": feature.tone === "blue",
+                  "bg-[var(--accent-success)]": feature.tone === "success",
+                  "bg-[var(--accent-warning)]": feature.tone === "warning",
+                  "bg-[var(--accent-danger)]": feature.tone === "danger",
+                })}
+              />
               <CardHeader>
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
                     <div
                       className={cn(
-                        "p-2 rounded-lg bg-gradient-to-br",
-                        feature.color,
-                        "text-white",
+                        "rounded-lg border p-2",
+                        toneClasses[feature.tone],
                       )}
                     >
                       <feature.icon className="h-5 w-5" />
@@ -479,7 +513,7 @@ export default function RoadmapPage() {
                   <ul className="space-y-1">
                     {feature.outcomes.slice(0, 3).map((outcome, idx) => (
                       <li key={idx} className="flex items-center gap-2 text-sm">
-                        <Check className="h-3 w-3 text-green-500" />
+                        <Check className="h-3 w-3 text-[var(--accent-success)]" />
                         {outcome}
                       </li>
                     ))}
@@ -574,11 +608,11 @@ export default function RoadmapPage() {
       </div>
 
       {/* Coming Soon Note */}
-      <Card className="bg-muted/50">
+      <Card className="border-[var(--border-subtle)] bg-[var(--bg-surface-2)]">
         <CardContent className="p-6">
           <div className="flex items-start gap-4">
-            <div className="p-2 bg-primary-100 rounded-lg">
-              <Bot className="h-6 w-6 text-primary-600" />
+            <div className="rounded-lg border border-[var(--accent-blue)]/30 bg-[var(--accent-blue)]/10 p-2 text-[var(--accent-blue)]">
+              <Bot className="h-6 w-6" />
             </div>
             <div>
               <h3 className="font-semibold">ملاحظة مهمة</h3>
@@ -652,7 +686,9 @@ export default function RoadmapPage() {
               )}
             </Button>
           </DialogFooter>
-          {error && <p className="text-sm text-red-500 mt-2">{error}</p>}
+          {error && (
+            <p className="mt-2 text-sm text-[var(--accent-danger)]">{error}</p>
+          )}
         </DialogContent>
       </Dialog>
     </div>

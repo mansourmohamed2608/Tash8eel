@@ -476,7 +476,7 @@ export default function SecurityPage() {
                           variant="ghost"
                           size="sm"
                           onClick={() => handleRevokeSession(session.id)}
-                          className="w-full text-red-600 hover:bg-red-50 hover:text-red-700 sm:w-auto"
+                          className="w-full text-[var(--accent-danger)] hover:bg-[var(--accent-danger)]/10 hover:text-[var(--accent-danger)] sm:w-auto"
                         >
                           <LogOut className="h-4 w-4 ml-1" />
                           إنهاء
@@ -582,7 +582,7 @@ export default function SecurityPage() {
                           </button>
                         </div>
                         {newPassword.length > 0 && newPassword.length < 8 && (
-                          <p className="text-xs text-amber-600">
+                          <p className="text-xs text-[var(--accent-warning)]">
                             يجب أن تكون 8 أحرف على الأقل
                           </p>
                         )}
@@ -616,13 +616,13 @@ export default function SecurityPage() {
                         </div>
                         {confirmPassword.length > 0 &&
                           newPassword !== confirmPassword && (
-                            <p className="text-xs text-red-600">
+                            <p className="text-xs text-[var(--accent-danger)]">
                               كلمتا المرور غير متطابقتين
                             </p>
                           )}
                       </div>
                       {passwordError && (
-                        <p className="text-sm text-red-600 font-medium">
+                        <p className="text-sm font-medium text-[var(--accent-danger)]">
                           {passwordError}
                         </p>
                       )}
@@ -708,14 +708,14 @@ export default function SecurityPage() {
                         className={cn(
                           "mt-0.5 p-1 rounded-full",
                           log.status === "success"
-                            ? "bg-green-100"
-                            : "bg-red-100",
+                            ? "bg-[var(--accent-success)]/10"
+                            : "bg-[var(--accent-danger)]/10",
                         )}
                       >
                         {log.status === "success" ? (
-                          <CheckCircle2 className="h-4 w-4 text-green-600" />
+                          <CheckCircle2 className="h-4 w-4 text-[var(--accent-success)]" />
                         ) : (
-                          <AlertTriangle className="h-4 w-4 text-red-600" />
+                          <AlertTriangle className="h-4 w-4 text-[var(--accent-danger)]" />
                         )}
                       </div>
                       <div className="min-w-0">

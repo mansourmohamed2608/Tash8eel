@@ -218,12 +218,14 @@ export default function MerchantDashboard() {
     return (
       <div className="space-y-6">
         <PageHeader title="لوحة التحكم" />
-        <Card className="border-red-200 bg-red-50">
+        <Card className="app-data-card border-[color:rgba(239,68,68,0.28)] bg-[color:rgba(239,68,68,0.10)]">
           <CardContent className="flex items-center gap-3 p-6">
-            <AlertCircle className="h-6 w-6 text-red-500" />
+            <AlertCircle className="h-6 w-6 text-[var(--accent-danger)]" />
             <div>
-              <p className="font-medium text-red-800">خطأ في تحميل البيانات</p>
-              <p className="text-sm text-red-600">
+              <p className="font-medium text-[var(--text-primary)]">
+                خطأ في تحميل البيانات
+              </p>
+              <p className="text-sm text-[color:rgba(244,244,245,0.72)]">
                 تعذر تحميل بيانات لوحة التحكم حالياً. حاول مرة أخرى بعد قليل.
               </p>
             </div>
@@ -444,7 +446,7 @@ export default function MerchantDashboard() {
                   {formatCurrency(bookedSales)}
                 </p>
               </div>
-              <Wallet className="h-5 w-5 text-blue-600" />
+              <Wallet className="h-5 w-5 text-[var(--accent-blue)]" />
             </div>
           </CardContent>
         </Card>
@@ -459,7 +461,7 @@ export default function MerchantDashboard() {
                   {formatCurrency(deliveredRevenue)}
                 </p>
               </div>
-              <Truck className="h-5 w-5 text-emerald-600" />
+              <Truck className="h-5 w-5 text-[var(--accent-success)]" />
             </div>
           </CardContent>
         </Card>
@@ -480,7 +482,7 @@ export default function MerchantDashboard() {
                   </p>
                 ) : null}
               </div>
-              <DollarSign className="h-5 w-5 text-amber-600" />
+              <DollarSign className="h-5 w-5 text-[var(--accent-warning)]" />
             </div>
           </CardContent>
         </Card>
@@ -493,7 +495,7 @@ export default function MerchantDashboard() {
                   {formatCurrency(refundsAmount)}
                 </p>
               </div>
-              <RotateCcw className="h-5 w-5 text-rose-600" />
+              <RotateCcw className="h-5 w-5 text-[var(--accent-danger)]" />
             </div>
           </CardContent>
         </Card>
@@ -506,7 +508,7 @@ export default function MerchantDashboard() {
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <RotateCcw className="h-4 w-4 text-green-500" />
+                <RotateCcw className="h-4 w-4 text-[var(--accent-success)]" />
                 السلات المستردة
               </CardTitle>
               {!hasPro && <Lock className="h-4 w-4 text-muted-foreground" />}
@@ -524,7 +526,7 @@ export default function MerchantDashboard() {
               </div>
             ) : data.premium ? (
               <div className="space-y-1">
-                <p className="text-2xl font-bold text-green-600">
+                <p className="text-2xl font-bold text-[var(--accent-success)]">
                   {data.premium.recoveredCarts.count}
                 </p>
                 <p className="text-xs text-muted-foreground">
@@ -545,7 +547,7 @@ export default function MerchantDashboard() {
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <Truck className="h-4 w-4 text-red-500" />
+                <Truck className="h-4 w-4 text-[var(--accent-danger)]" />
                 إخفاقات التوصيل
               </CardTitle>
               {!hasPro && <Lock className="h-4 w-4 text-muted-foreground" />}
@@ -563,7 +565,7 @@ export default function MerchantDashboard() {
               </div>
             ) : data.premium ? (
               <div className="space-y-2">
-                <p className="text-2xl font-bold text-red-600">
+                <p className="text-2xl font-bold text-[var(--accent-danger)]">
                   {data.premium.deliveryFailures.count}
                 </p>
                 {data.premium.deliveryFailures.reasons.length > 0 && (
@@ -598,7 +600,7 @@ export default function MerchantDashboard() {
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <Wallet className="h-4 w-4 text-blue-500" />
+                <Wallet className="h-4 w-4 text-[var(--accent-blue)]" />
                 ملخص مالي
               </CardTitle>
               {!hasFinance && (
@@ -622,7 +624,7 @@ export default function MerchantDashboard() {
                   <span className="text-xs text-muted-foreground">
                     الربح التقديري
                   </span>
-                  <span className="font-semibold text-green-600">
+                  <span className="font-semibold text-[var(--accent-success)]">
                     {formatCurrency(data.premium.financeSummary.profitEstimate)}
                   </span>
                 </div>
@@ -635,7 +637,7 @@ export default function MerchantDashboard() {
                   </span>
                 </div>
                 {data.premium.financeSummary.spendingAlert && (
-                  <div className="flex items-center gap-1 text-amber-600 text-xs">
+                  <div className="flex items-center gap-1 text-xs text-[var(--accent-warning)]">
                     <AlertTriangle className="h-3 w-3" />
                     <span>تنبيه: المصاريف تتجاوز الإيرادات</span>
                   </div>
@@ -674,7 +676,7 @@ export default function MerchantDashboard() {
         <Card className="app-data-card">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <TrendingUp className="h-4 w-4 text-blue-500" />
+              <TrendingUp className="h-4 w-4 text-[var(--accent-blue)]" />
               استخدام الخطة الحالية
               {subUsage && (
                 <Badge variant="outline" className="text-xs mr-auto">
@@ -698,10 +700,10 @@ export default function MerchantDashboard() {
                     <div
                       className={`h-full rounded-full transition-all ${
                         subUsage.tokenPct >= 90
-                          ? "bg-red-500"
+                          ? "bg-[var(--accent-danger)]"
                           : subUsage.tokenPct >= 70
-                            ? "bg-amber-400"
-                            : "bg-blue-500"
+                            ? "bg-[var(--accent-warning)]"
+                            : "bg-[var(--accent-blue)]"
                       }`}
                       style={{ width: `${Math.min(subUsage.tokenPct, 100)}%` }}
                     />
@@ -719,10 +721,10 @@ export default function MerchantDashboard() {
                     <div
                       className={`h-full rounded-full transition-all ${
                         subUsage.conversationPct >= 90
-                          ? "bg-red-500"
+                          ? "bg-[var(--accent-danger)]"
                           : subUsage.conversationPct >= 70
-                            ? "bg-amber-400"
-                            : "bg-green-500"
+                            ? "bg-[var(--accent-warning)]"
+                            : "bg-[var(--accent-success)]"
                       }`}
                       style={{
                         width: `${Math.min(subUsage.conversationPct, 100)}%`,
@@ -746,10 +748,10 @@ export default function MerchantDashboard() {
         </Card>
 
         {/* Daily AI Brief */}
-        <Card className="border-purple-100">
+        <Card className="app-data-card border-[color:rgba(59,130,246,0.22)]">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <DollarSign className="h-4 w-4 text-purple-500" />
+              <DollarSign className="h-4 w-4 text-[var(--accent-blue)]" />
               تقرير AI اليومي
             </CardTitle>
           </CardHeader>

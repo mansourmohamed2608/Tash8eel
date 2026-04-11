@@ -472,7 +472,7 @@ export default function FeatureRequestsPage() {
                         <div className="space-y-3">
                           {quote.status === "QUOTED" && (
                             <div className="flex flex-wrap items-center gap-2 rounded-md border border-dashed border-green-200 bg-green-50 p-3 text-sm">
-                              <div className="text-green-700 font-semibold">
+                              <div className="font-semibold text-[var(--accent-success)]">
                                 تم التسعير - هل تريد قبول العرض؟
                               </div>
                               <Button

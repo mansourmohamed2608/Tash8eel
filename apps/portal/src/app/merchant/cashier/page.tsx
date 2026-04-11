@@ -2040,7 +2040,7 @@ export default function CashierPage() {
         <header className="cashier-command-bar mb-3">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-[18px] bg-[var(--accent)] text-white shadow-[0_18px_40px_-24px_color-mix(in_srgb,var(--accent)_84%,black)]">
+              <div className="flex h-12 w-12 items-center justify-center rounded-[18px] border border-[var(--accent)]/25 bg-[var(--accent-muted)] text-[var(--accent)]">
                 <ShoppingCart className="h-5 w-5" />
               </div>
               <div>
@@ -2196,7 +2196,7 @@ export default function CashierPage() {
                       key={product.id}
                       type="button"
                       onClick={() => addToCart(product)}
-                      className="flex min-h-[132px] flex-col justify-between rounded-[22px] border border-[color:color-mix(in_srgb,var(--border-strong)_86%,transparent)] bg-[color:color-mix(in_srgb,var(--surface)_98%,transparent)] p-3 text-right transition-all duration-150 ease-in-out hover:-translate-y-0.5 hover:border-[color:color-mix(in_srgb,var(--accent)_22%,var(--border-strong))] hover:shadow-[0_20px_38px_-28px_rgba(15,23,42,0.45)]"
+                      className="flex min-h-[132px] flex-col justify-between rounded-[22px] border border-[color:color-mix(in_srgb,var(--border-strong)_86%,transparent)] bg-[color:color-mix(in_srgb,var(--surface)_98%,transparent)] p-3 text-right transition-all duration-150 ease-in-out hover:-translate-y-0.5 hover:border-[color:color-mix(in_srgb,var(--accent)_22%,var(--border-strong))]"
                     >
                       <div>
                         <p className="line-clamp-2 text-sm font-semibold text-slate-900">
@@ -2212,10 +2212,10 @@ export default function CashierPage() {
                         )}
                       </div>
                       <div className="mt-2 flex items-center justify-between gap-3">
-                        <span className="text-sm font-bold text-emerald-700">
+                        <span className="text-sm font-bold text-[var(--accent-success)]">
                           {formatCurrency(product.unitPrice)}
                         </span>
-                        <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+                        <span className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[var(--accent-success)]/25 bg-[var(--accent-success)]/12 text-[var(--accent-success)]">
                           <Plus className="h-4 w-4" />
                         </span>
                       </div>
@@ -2245,19 +2245,19 @@ export default function CashierPage() {
             </CardHeader>
             <CardContent className="min-h-0 flex-1 overflow-y-auto space-y-3">
               {lastCreatedOrder ? (
-                <div className="space-y-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+                <div className="space-y-3 rounded-2xl border border-[var(--accent-success)]/25 bg-[var(--accent-success)]/10 p-4">
                   <div className="flex items-start gap-2">
-                    <CheckCircle2 className="mt-0.5 h-5 w-5 text-emerald-600" />
+                    <CheckCircle2 className="mt-0.5 h-5 w-5 text-[var(--accent-success)]" />
                     <div>
-                      <p className="text-base font-semibold text-emerald-900">
+                      <p className="text-base font-semibold text-[var(--accent-success)]">
                         تم تنفيذ الطلب بنجاح
                       </p>
-                      <p className="text-sm text-emerald-800">
+                      <p className="text-sm text-[var(--text-secondary)]">
                         رقم الطلب: {lastCreatedOrder.orderNumber}
                       </p>
                     </div>
                   </div>
-                  <div className="space-y-1 rounded-xl bg-white/80 p-3 text-sm">
+                  <div className="space-y-1 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface-2)] p-3 text-sm">
                     <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                       <span className="text-muted-foreground">الإجمالي</span>
                       <span className="font-semibold">
@@ -2439,8 +2439,8 @@ export default function CashierPage() {
 
                     {selectedBranchId ? (
                       currentRegister ? (
-                        <div className="mt-3 flex flex-col gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs sm:flex-row sm:flex-wrap sm:items-center">
-                          <Badge className="rounded-full bg-emerald-600 text-white hover:bg-emerald-600">
+                        <div className="mt-3 flex flex-col gap-2 rounded-lg border border-[var(--accent-success)]/25 bg-[var(--accent-success)]/10 px-3 py-2 text-xs sm:flex-row sm:flex-wrap sm:items-center">
+                          <Badge className="rounded-full border border-[var(--accent-success)]/25 bg-[var(--accent-success)]/15 text-[var(--accent-success)] hover:bg-[var(--accent-success)]/15">
                             جلسة مفتوحة
                           </Badge>
                           <span>
@@ -2469,7 +2469,7 @@ export default function CashierPage() {
                           </span>
                         </div>
                       ) : (
-                        <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                        <div className="mt-3 rounded-lg border border-[var(--accent-warning)]/25 bg-[var(--accent-warning)]/10 px-3 py-2 text-xs text-[var(--accent-warning)]">
                           لا توجد جلسة POS مفتوحة لهذا الفرع حالياً.
                           {posSettings.requireActiveRegisterSession
                             ? " لن تستطيع تنفيذ البيع قبل فتح الجلسة."
@@ -2519,7 +2519,7 @@ export default function CashierPage() {
                       </div>
 
                       {currentDraftId ? (
-                        <div className="mb-3 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-900">
+                        <div className="mb-3 rounded-lg border border-[var(--accent-blue)]/25 bg-[var(--accent-blue)]/10 px-3 py-2 text-xs text-[var(--accent-blue)]">
                           يوجد طلب جاري مرتبط بالمسودة الحالية. أي تعديل في
                           السلة سيُحفظ عليها عند التنفيذ أو التحديث.
                         </div>
@@ -2542,7 +2542,7 @@ export default function CashierPage() {
                               className={cn(
                                 "rounded-xl border px-3 py-2",
                                 currentDraftId === draft.id
-                                  ? "border-blue-300 bg-blue-50"
+                                  ? "border-[var(--accent-blue)]/25 bg-[var(--accent-blue)]/10"
                                   : "bg-muted/20",
                               )}
                             >
@@ -2572,7 +2572,7 @@ export default function CashierPage() {
                                   <Button
                                     type="button"
                                     variant="ghost"
-                                    className="h-8 w-full rounded-full px-3 text-xs text-red-600 hover:text-red-700 sm:w-auto"
+                                    className="h-8 w-full rounded-full px-3 text-xs text-[var(--accent-danger)] hover:text-[var(--accent-danger)] sm:w-auto"
                                     onClick={async () => {
                                       if (!apiKey) return;
                                       await merchantApi.deletePosDraft(
@@ -2824,7 +2824,7 @@ export default function CashierPage() {
                             <button
                               type="button"
                               onClick={() => removeCartItem(index)}
-                              className="rounded-full p-1 text-muted-foreground transition hover:bg-red-50 hover:text-red-600"
+                              className="rounded-full p-1 text-muted-foreground transition hover:bg-[var(--accent-danger)]/10 hover:text-[var(--accent-danger)]"
                               aria-label="حذف عنصر"
                             >
                               <Trash2 className="h-4 w-4" />
@@ -2879,7 +2879,7 @@ export default function CashierPage() {
                   </div>
 
                   <div className="space-y-2 rounded-2xl border bg-background p-3">
-                    <div className="space-y-2 rounded-xl border border-dashed border-emerald-200 bg-emerald-50/60 p-3">
+                    <div className="space-y-2 rounded-xl border border-dashed border-[var(--accent-success)]/25 bg-[var(--accent-success)]/10 p-3">
                       <label className="block text-xs font-medium text-muted-foreground">
                         ابحث عن عميل موجود
                       </label>
@@ -2905,7 +2905,7 @@ export default function CashierPage() {
                               key={customer.customerId}
                               type="button"
                               onClick={() => applySelectedCustomer(customer)}
-                              className="w-full rounded-lg border bg-white px-3 py-2 text-right transition hover:border-emerald-300 hover:bg-emerald-50"
+                              className="w-full rounded-lg border bg-[var(--bg-surface-2)] px-3 py-2 text-right transition hover:border-[var(--accent-success)]/25 hover:bg-[var(--accent-success)]/10"
                             >
                               <div className="flex items-center justify-between gap-2">
                                 <div>
@@ -2943,8 +2943,8 @@ export default function CashierPage() {
                       ) : null}
 
                       {selectedCustomer ? (
-                        <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-white px-3 py-2 text-xs">
-                          <Badge className="rounded-full bg-emerald-600 text-white hover:bg-emerald-600">
+                        <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-[var(--bg-surface-2)] px-3 py-2 text-xs">
+                          <Badge className="rounded-full border border-[var(--accent-success)]/25 bg-[var(--accent-success)]/15 text-[var(--accent-success)] hover:bg-[var(--accent-success)]/15">
                             عميل مرتبط
                           </Badge>
                           <span>{selectedCustomer.name}</span>
@@ -3007,7 +3007,7 @@ export default function CashierPage() {
                               className={cn(
                                 "flex h-9 items-center justify-center gap-1 rounded-lg border text-xs font-medium transition",
                                 isActive
-                                  ? "border-emerald-600 bg-emerald-50 text-emerald-700"
+                                  ? "border-[var(--accent-success)]/25 bg-[var(--accent-success)]/10 text-[var(--accent-success)]"
                                   : "border-border text-muted-foreground hover:bg-muted",
                               )}
                             >
@@ -3020,7 +3020,7 @@ export default function CashierPage() {
                     </div>
 
                     {selectedTableId && deliveryType === "dine_in" ? (
-                      <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-900">
+                      <div className="rounded-lg border border-[var(--accent-blue)]/25 bg-[var(--accent-blue)]/10 px-3 py-2 text-xs text-[var(--accent-blue)]">
                         الطلب الحالي مرتبط بطاولة{" "}
                         {posTables.find((table) => table.id === selectedTableId)
                           ?.name || "داخل الفرع"}
@@ -3146,8 +3146,8 @@ export default function CashierPage() {
                             className={cn(
                               "font-medium",
                               remainingBalance > 0
-                                ? "text-amber-700"
-                                : "text-emerald-700",
+                                ? "text-[var(--accent-warning)]"
+                                : "text-[var(--accent-success)]",
                             )}
                           >
                             {formatCurrency(remainingBalance)}
@@ -3212,7 +3212,7 @@ export default function CashierPage() {
                     </div>
                     <div className="mt-1 flex flex-col gap-1 text-sm sm:flex-row sm:items-center sm:justify-between">
                       <span className="text-muted-foreground">الخصم</span>
-                      <span className="font-medium text-red-600">
+                      <span className="font-medium text-[var(--accent-danger)]">
                         -{formatCurrency(discount)}
                       </span>
                     </div>
@@ -3233,7 +3233,7 @@ export default function CashierPage() {
                       <span>{formatCurrency(totalPaid)}</span>
                     </div>
                     {remainingBalance > 0 ? (
-                      <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                      <div className="mt-2 rounded-lg border border-[var(--accent-warning)]/25 bg-[var(--accent-warning)]/10 px-3 py-2 text-xs text-[var(--accent-warning)]">
                         ما زال هناك مبلغ متبقٍ قبل تنفيذ الطلب:{" "}
                         {formatCurrency(remainingBalance)}
                       </div>

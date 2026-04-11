@@ -60,11 +60,31 @@ const EVENT_TYPE_CONFIG: Record<
   string,
   { label: string; icon: React.ElementType; color: string }
 > = {
-  subscription: { label: "اشتراك", icon: CreditCard, color: "text-blue-500" },
-  addon: { label: "إضافة", icon: ArrowUpRight, color: "text-purple-500" },
-  payment: { label: "دفعة", icon: DollarSign, color: "text-green-500" },
-  refund: { label: "استرداد", icon: ArrowDownRight, color: "text-orange-500" },
-  credit: { label: "رصيد", icon: DollarSign, color: "text-cyan-500" },
+  subscription: {
+    label: "اشتراك",
+    icon: CreditCard,
+    color: "text-[var(--accent-blue)]",
+  },
+  addon: {
+    label: "إضافة",
+    icon: ArrowUpRight,
+    color: "text-[var(--accent-gold)]",
+  },
+  payment: {
+    label: "دفعة",
+    icon: DollarSign,
+    color: "text-[var(--accent-success)]",
+  },
+  refund: {
+    label: "استرداد",
+    icon: ArrowDownRight,
+    color: "text-[var(--accent-danger)]",
+  },
+  credit: {
+    label: "رصيد",
+    icon: DollarSign,
+    color: "text-[var(--text-secondary)]",
+  },
 };
 
 const STATUS_CONFIG: Record<
@@ -363,7 +383,7 @@ export default function BillingPage() {
       />
 
       {/* Current Subscription */}
-      <Card className="app-data-card bg-gradient-to-l from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 border-blue-200 dark:border-blue-800/50 mb-6">
+      <Card className="app-data-card mb-6 border-[color:rgba(59,130,246,0.22)] bg-[color:rgba(59,130,246,0.08)]">
         <CardContent className="p-6">
           {summary?.subscription ? (
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -449,10 +469,10 @@ export default function BillingPage() {
       {/* Quick Actions */}
       <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-3">
         <Link href="/merchant/plan">
-          <Card className="app-data-card hover:border-primary/50 transition-colors cursor-pointer h-full">
+          <Card className="app-data-card h-full cursor-pointer transition-colors hover:border-[color:rgba(232,197,71,0.22)]">
             <CardContent className="p-4 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-950/50 flex items-center justify-center">
-                <CreditCard className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-[var(--radius-md)] border border-[color:rgba(59,130,246,0.22)] bg-[color:rgba(59,130,246,0.12)]">
+                <CreditCard className="h-5 w-5 text-[color:var(--accent-blue)]" />
               </div>
               <div>
                 <p className="font-medium text-foreground">إدارة الاشتراك</p>
@@ -464,10 +484,10 @@ export default function BillingPage() {
           </Card>
         </Link>
         <Link href="/merchant/plan#calculator">
-          <Card className="app-data-card hover:border-primary/50 transition-colors cursor-pointer h-full">
+          <Card className="app-data-card h-full cursor-pointer transition-colors hover:border-[color:rgba(232,197,71,0.22)]">
             <CardContent className="p-4 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-green-100 dark:bg-green-950/50 flex items-center justify-center">
-                <DollarSign className="h-5 w-5 text-green-600 dark:text-green-400" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-[var(--radius-md)] border border-[color:rgba(34,197,94,0.22)] bg-[color:rgba(34,197,94,0.12)]">
+                <DollarSign className="h-5 w-5 text-[color:var(--accent-success)]" />
               </div>
               <div>
                 <p className="font-medium text-foreground">حاسبة الأسعار</p>
@@ -479,10 +499,10 @@ export default function BillingPage() {
           </Card>
         </Link>
         <Link href="/merchant/plan#usage">
-          <Card className="app-data-card hover:border-primary/50 transition-colors cursor-pointer h-full">
+          <Card className="app-data-card h-full cursor-pointer transition-colors hover:border-[color:rgba(232,197,71,0.22)]">
             <CardContent className="p-4 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-purple-100 dark:bg-purple-950/50 flex items-center justify-center">
-                <FileText className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-[var(--radius-md)] border border-[color:rgba(232,197,71,0.22)] bg-[color:var(--accent-gold-dim)]">
+                <FileText className="h-5 w-5 text-[color:var(--accent-gold)]" />
               </div>
               <div>
                 <p className="font-medium text-foreground">بيانات الاستخدام</p>
@@ -507,7 +527,7 @@ export default function BillingPage() {
         </div>
 
         {events.length === 0 ? (
-          <Card>
+          <Card className="app-data-card">
             <CardContent className="p-12 text-center">
               <FileText className="h-12 w-12 text-muted-foreground/50 mx-auto mb-4" />
               <p className="text-lg font-medium text-foreground">
@@ -528,10 +548,10 @@ export default function BillingPage() {
               const TypeIcon = typeConfig.icon;
               const StatusIcon = statusConfig.icon;
               return (
-                <Card key={event.id}>
+                <Card key={event.id} className="app-data-card">
                   <CardContent className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex items-start gap-4 sm:items-center">
-                      <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-muted">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-[var(--radius-md)] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-2)]">
                         <TypeIcon className={cn("h-5 w-5", typeConfig.color)} />
                       </div>
                       <div>
@@ -552,7 +572,7 @@ export default function BillingPage() {
                         className={cn(
                           "font-bold text-lg",
                           event.type === "refund" || event.type === "credit"
-                            ? "text-green-600 dark:text-green-400"
+                            ? "text-[color:var(--accent-success)]"
                             : "text-foreground",
                         )}
                       >

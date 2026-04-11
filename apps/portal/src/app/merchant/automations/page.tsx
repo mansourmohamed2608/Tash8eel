@@ -84,44 +84,87 @@ interface RunLog {
 // ─── Icon map ─────────────────────────────────────────────────────────────────
 
 const ICONS: Record<string, React.ReactNode> = {
-  SUPPLIER_LOW_STOCK: <Bell className="w-5 h-5 text-amber-500" />,
-  REENGAGEMENT_AUTO: <MessageSquare className="w-5 h-5 text-blue-500" />,
-  REVIEW_REQUEST: <Star className="w-5 h-5 text-yellow-500" />,
-  NEW_CUSTOMER_WELCOME: <UserPlus className="w-5 h-5 text-green-500" />,
+  SUPPLIER_LOW_STOCK: (
+    <Bell className="h-5 w-5 text-[color:var(--accent-warning)]" />
+  ),
+  REENGAGEMENT_AUTO: (
+    <MessageSquare className="h-5 w-5 text-[color:var(--accent-blue)]" />
+  ),
+  REVIEW_REQUEST: <Star className="h-5 w-5 text-[color:var(--accent-gold)]" />,
+  NEW_CUSTOMER_WELCOME: (
+    <UserPlus className="h-5 w-5 text-[color:var(--accent-success)]" />
+  ),
   // New
-  CHURN_PREVENTION: <TrendingDown className="w-5 h-5 text-purple-500" />,
-  QUOTE_FOLLOWUP: <FileText className="w-5 h-5 text-cyan-500" />,
-  LOYALTY_MILESTONE: <Gift className="w-5 h-5 text-pink-500" />,
-  EXPENSE_SPIKE_ALERT: <TrendingUp className="w-5 h-5 text-red-500" />,
-  DELIVERY_SLA_BREACH: <Truck className="w-5 h-5 text-orange-500" />,
-  TOKEN_USAGE_WARNING: <Cpu className="w-5 h-5 text-slate-500" />,
-  AI_ANOMALY_DETECTION: <Brain className="w-5 h-5 text-violet-500" />,
-  SEASONAL_STOCK_PREP: <CalendarDays className="w-5 h-5 text-teal-500" />,
-  SENTIMENT_MONITOR: <MessageCircle className="w-5 h-5 text-rose-500" />,
-  LEAD_SCORE: <Target className="w-5 h-5 text-indigo-500" />,
-  AUTO_VIP_TAG: <Crown className="w-5 h-5 text-yellow-600" />,
-  AT_RISK_TAG: <ShieldAlert className="w-5 h-5 text-orange-600" />,
-  HIGH_RETURN_FLAG: <RotateCcw className="w-5 h-5 text-red-600" />,
+  CHURN_PREVENTION: (
+    <TrendingDown className="h-5 w-5 text-[color:var(--accent-warning)]" />
+  ),
+  QUOTE_FOLLOWUP: (
+    <FileText className="h-5 w-5 text-[color:var(--accent-blue)]" />
+  ),
+  LOYALTY_MILESTONE: (
+    <Gift className="h-5 w-5 text-[color:var(--accent-gold)]" />
+  ),
+  EXPENSE_SPIKE_ALERT: (
+    <TrendingUp className="h-5 w-5 text-[color:var(--accent-danger)]" />
+  ),
+  DELIVERY_SLA_BREACH: (
+    <Truck className="h-5 w-5 text-[color:var(--accent-warning)]" />
+  ),
+  TOKEN_USAGE_WARNING: (
+    <Cpu className="h-5 w-5 text-[color:var(--text-secondary)]" />
+  ),
+  AI_ANOMALY_DETECTION: (
+    <Brain className="h-5 w-5 text-[color:var(--accent-blue)]" />
+  ),
+  SEASONAL_STOCK_PREP: (
+    <CalendarDays className="h-5 w-5 text-[color:var(--accent-success)]" />
+  ),
+  SENTIMENT_MONITOR: <MessageCircle className="h-5 w-5 text-[color:#fca5a5]" />,
+  LEAD_SCORE: <Target className="h-5 w-5 text-[color:#93c5fd]" />,
+  AUTO_VIP_TAG: <Crown className="h-5 w-5 text-[color:var(--accent-gold)]" />,
+  AT_RISK_TAG: (
+    <ShieldAlert className="h-5 w-5 text-[color:var(--accent-warning)]" />
+  ),
+  HIGH_RETURN_FLAG: (
+    <RotateCcw className="h-5 w-5 text-[color:var(--accent-danger)]" />
+  ),
 };
 
 const COLORS: Record<string, string> = {
-  SUPPLIER_LOW_STOCK: "border-amber-200 bg-amber-50",
-  REENGAGEMENT_AUTO: "border-blue-200 bg-blue-50",
-  REVIEW_REQUEST: "border-yellow-200 bg-yellow-50",
-  NEW_CUSTOMER_WELCOME: "border-green-200 bg-green-50",
-  CHURN_PREVENTION: "border-purple-200 bg-purple-50",
-  QUOTE_FOLLOWUP: "border-cyan-200 bg-cyan-50",
-  LOYALTY_MILESTONE: "border-pink-200 bg-pink-50",
-  EXPENSE_SPIKE_ALERT: "border-red-200 bg-red-50",
-  DELIVERY_SLA_BREACH: "border-orange-200 bg-orange-50",
-  TOKEN_USAGE_WARNING: "border-slate-200 bg-slate-50",
-  AI_ANOMALY_DETECTION: "border-violet-200 bg-violet-50",
-  SEASONAL_STOCK_PREP: "border-teal-200 bg-teal-50",
-  SENTIMENT_MONITOR: "border-rose-200 bg-rose-50",
-  LEAD_SCORE: "border-indigo-200 bg-indigo-50",
-  AUTO_VIP_TAG: "border-yellow-300 bg-yellow-50",
-  AT_RISK_TAG: "border-orange-300 bg-orange-50",
-  HIGH_RETURN_FLAG: "border-red-300 bg-red-50",
+  SUPPLIER_LOW_STOCK:
+    "border-[color:rgba(245,158,11,0.24)] bg-[color:rgba(245,158,11,0.08)]",
+  REENGAGEMENT_AUTO:
+    "border-[color:rgba(59,130,246,0.22)] bg-[color:rgba(59,130,246,0.08)]",
+  REVIEW_REQUEST:
+    "border-[color:rgba(232,197,71,0.24)] bg-[color:var(--accent-gold-dim)]",
+  NEW_CUSTOMER_WELCOME:
+    "border-[color:rgba(34,197,94,0.22)] bg-[color:rgba(34,197,94,0.08)]",
+  CHURN_PREVENTION:
+    "border-[color:rgba(245,158,11,0.2)] bg-[color:rgba(245,158,11,0.06)]",
+  QUOTE_FOLLOWUP:
+    "border-[color:rgba(59,130,246,0.2)] bg-[color:rgba(59,130,246,0.06)]",
+  LOYALTY_MILESTONE:
+    "border-[color:rgba(232,197,71,0.2)] bg-[color:rgba(232,197,71,0.08)]",
+  EXPENSE_SPIKE_ALERT:
+    "border-[color:rgba(239,68,68,0.26)] bg-[color:rgba(239,68,68,0.08)]",
+  DELIVERY_SLA_BREACH:
+    "border-[color:rgba(245,158,11,0.22)] bg-[color:rgba(245,158,11,0.07)]",
+  TOKEN_USAGE_WARNING:
+    "border-[color:var(--border-default)] bg-[color:var(--bg-surface-2)]",
+  AI_ANOMALY_DETECTION:
+    "border-[color:rgba(59,130,246,0.2)] bg-[color:rgba(59,130,246,0.06)]",
+  SEASONAL_STOCK_PREP:
+    "border-[color:rgba(34,197,94,0.18)] bg-[color:rgba(34,197,94,0.06)]",
+  SENTIMENT_MONITOR:
+    "border-[color:rgba(239,68,68,0.18)] bg-[color:rgba(239,68,68,0.05)]",
+  LEAD_SCORE:
+    "border-[color:rgba(59,130,246,0.18)] bg-[color:rgba(59,130,246,0.05)]",
+  AUTO_VIP_TAG:
+    "border-[color:rgba(232,197,71,0.24)] bg-[color:var(--accent-gold-dim)]",
+  AT_RISK_TAG:
+    "border-[color:rgba(245,158,11,0.24)] bg-[color:rgba(245,158,11,0.08)]",
+  HIGH_RETURN_FLAG:
+    "border-[color:rgba(239,68,68,0.26)] bg-[color:rgba(239,68,68,0.08)]",
 };
 
 // ─── Config fields per automation type ────────────────────────────────────────
@@ -740,8 +783,8 @@ export default function AutomationsPage() {
       </div>
 
       {error && (
-        <Card className="app-data-card border-red-200 bg-red-50">
-          <CardContent className="pt-4 flex gap-2 items-center text-red-700">
+        <Card className="app-data-card border-[color:rgba(239,68,68,0.3)] bg-[color:rgba(239,68,68,0.08)]">
+          <CardContent className="flex items-center gap-2 pt-4 text-[color:#fca5a5]">
             <AlertCircle className="w-4 h-4 shrink-0" />
             {error}
           </CardContent>
@@ -752,7 +795,7 @@ export default function AutomationsPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
         <Card className="app-data-card text-center">
           <CardContent className="pt-4 pb-3">
-            <p className="text-2xl font-bold text-green-600">
+            <p className="text-2xl font-bold text-[color:var(--accent-success)]">
               {automations.filter((a) => a.isEnabled).length}
             </p>
             <p className="text-xs text-muted-foreground mt-1">أتمتة مفعّلة</p>
@@ -768,7 +811,7 @@ export default function AutomationsPage() {
         </Card>
         <Card className="app-data-card text-center">
           <CardContent className="pt-4 pb-3">
-            <p className="text-2xl font-bold text-green-600">
+            <p className="text-2xl font-bold text-[color:var(--accent-success)]">
               {logs.filter((l) => l.status === "success").length}
             </p>
             <p className="text-xs text-muted-foreground mt-1">تشغيل ناجح</p>
@@ -776,7 +819,7 @@ export default function AutomationsPage() {
         </Card>
         <Card className="app-data-card text-center">
           <CardContent className="pt-4 pb-3">
-            <p className="text-2xl font-bold text-red-500">
+            <p className="text-2xl font-bold text-[color:var(--accent-danger)]">
               {logs.filter((l) => l.status === "error").length}
             </p>
             <p className="text-xs text-muted-foreground mt-1">أخطاء</p>
@@ -839,9 +882,9 @@ export default function AutomationsPage() {
                     })}
                     <span className="flex items-center gap-1 mr-2">
                       {lastLog.status === "success" ? (
-                        <CheckCircle className="w-3.5 h-3.5 text-green-500" />
+                        <CheckCircle className="w-3.5 h-3.5 text-[color:var(--accent-success)]" />
                       ) : (
-                        <XCircle className="w-3.5 h-3.5 text-red-500" />
+                        <XCircle className="w-3.5 h-3.5 text-[color:var(--accent-danger)]" />
                       )}
                       {lastLog.messages_sent} رسالة من {lastLog.targets_found}
                     </span>
@@ -980,7 +1023,7 @@ export default function AutomationsPage() {
                         {log.status === "success" ? (
                           <Badge
                             variant="outline"
-                            className="text-green-700 border-green-300"
+                            className="border-[color:rgba(34,197,94,0.28)] text-[color:#86efac]"
                           >
                             <CheckCircle className="w-3 h-3 ml-1" />
                             نجح
@@ -988,7 +1031,7 @@ export default function AutomationsPage() {
                         ) : (
                           <Badge
                             variant="outline"
-                            className="text-red-700 border-red-300"
+                            className="border-[color:rgba(239,68,68,0.3)] text-[color:#fca5a5]"
                           >
                             <XCircle className="w-3 h-3 ml-1" />
                             خطأ
@@ -1036,7 +1079,7 @@ export default function AutomationsPage() {
                             {log.status === "success" ? (
                               <Badge
                                 variant="outline"
-                                className="text-green-700 border-green-300"
+                                className="border-[color:rgba(34,197,94,0.28)] text-[color:#86efac]"
                               >
                                 <CheckCircle className="w-3 h-3 ml-1" />
                                 نجح
@@ -1044,7 +1087,7 @@ export default function AutomationsPage() {
                             ) : (
                               <Badge
                                 variant="outline"
-                                className="text-red-700 border-red-300"
+                                className="border-[color:rgba(239,68,68,0.3)] text-[color:#fca5a5]"
                               >
                                 <XCircle className="w-3 h-3 ml-1" />
                                 خطأ

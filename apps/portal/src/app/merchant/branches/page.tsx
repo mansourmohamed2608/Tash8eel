@@ -303,10 +303,10 @@ export default function BranchesPage() {
         <Card className="app-data-card">
           <CardContent className="p-4">
             <div className="flex items-center gap-2 text-muted-foreground text-sm mb-1">
-              <CheckCircle className="h-4 w-4 text-green-500" />
+              <CheckCircle className="h-4 w-4 text-[var(--accent-success)]" />
               فروع نشطة
             </div>
-            <p className="text-2xl font-bold text-green-600">
+            <p className="text-2xl font-bold text-[var(--accent-success)]">
               {branches.filter((b) => b.is_active).length}
             </p>
           </CardContent>
@@ -314,10 +314,10 @@ export default function BranchesPage() {
         <Card className="app-data-card">
           <CardContent className="p-4">
             <div className="flex items-center gap-2 text-muted-foreground text-sm mb-1">
-              <XCircle className="h-4 w-4 text-red-400" />
+              <XCircle className="h-4 w-4 text-[var(--accent-danger)]" />
               فروع معطلة
             </div>
-            <p className="text-2xl font-bold text-red-500">
+            <p className="text-2xl font-bold text-[var(--accent-danger)]">
               {branches.filter((b) => !b.is_active).length}
             </p>
           </CardContent>
@@ -356,7 +356,7 @@ export default function BranchesPage() {
             <Card
               key={branch.id}
               className={cn(
-                "app-data-card relative overflow-hidden transition-shadow hover:shadow-md",
+                "app-data-card relative overflow-hidden transition-colors hover:bg-[var(--bg-surface-2)]",
                 !branch.is_active && "opacity-60",
               )}
             >
@@ -376,9 +376,9 @@ export default function BranchesPage() {
                     {branch.is_default && (
                       <Badge
                         variant="secondary"
-                        className="text-xs bg-amber-100 text-amber-700 border-amber-200"
+                        className="border-[var(--accent-warning)]/20 bg-[var(--accent-warning)]/10 text-xs text-[var(--accent-warning)]"
                       >
-                        <Star className="h-3 w-3 ml-1 fill-amber-500 text-amber-500" />
+                        <Star className="ml-1 h-3 w-3 fill-[var(--accent-warning)] text-[var(--accent-warning)]" />
                         افتراضي
                       </Badge>
                     )}
@@ -387,8 +387,8 @@ export default function BranchesPage() {
                       className={cn(
                         "text-xs",
                         branch.is_active
-                          ? "bg-green-100 text-green-700 border-green-200"
-                          : "bg-gray-100 text-gray-500",
+                          ? "border-[var(--accent-success)]/20 bg-[var(--accent-success)]/10 text-[var(--accent-success)]"
+                          : "border-[var(--border-default)] bg-[var(--bg-surface-2)] text-muted-foreground",
                       )}
                     >
                       {branch.is_active ? "نشط" : "معطل"}

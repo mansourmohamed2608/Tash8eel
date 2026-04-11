@@ -89,22 +89,22 @@ export default function HelpCenterPage() {
         summary.totalCustomers > 0) && (
         <div className="flex flex-wrap gap-3">
           {summary.totalProducts > 0 && (
-            <Badge variant="secondary" className="text-sm py-1 px-3">
+            <Badge variant="secondary" className="px-3 py-1 text-sm">
               {summary.totalProducts} منتج
             </Badge>
           )}
           {summary.totalOrders > 0 && (
-            <Badge variant="secondary" className="text-sm py-1 px-3">
+            <Badge variant="secondary" className="px-3 py-1 text-sm">
               {summary.totalOrders} طلب
             </Badge>
           )}
           {summary.totalCustomers > 0 && (
-            <Badge variant="secondary" className="text-sm py-1 px-3">
+            <Badge variant="secondary" className="px-3 py-1 text-sm">
               {summary.totalCustomers} عميل
             </Badge>
           )}
           {summary.unreadNotifications > 0 && (
-            <Badge variant="destructive" className="text-sm py-1 px-3">
+            <Badge className="border-[color:rgba(239,68,68,0.3)] bg-[color:rgba(239,68,68,0.1)] px-3 py-1 text-sm text-[color:#fca5a5]">
               {summary.unreadNotifications} إشعار غير مقروء
             </Badge>
           )}
@@ -115,10 +115,10 @@ export default function HelpCenterPage() {
         {sections.map((section: any) => {
           const Icon = ICON_MAP[section.icon] ?? BookOpen;
           return (
-            <Card key={section.id}>
+            <Card key={section.id} className="app-data-card">
               <CardHeader className="pb-2">
                 <CardTitle className="flex items-center gap-2 text-base">
-                  <Icon className="h-5 w-5 text-primary shrink-0" />
+                  <Icon className="h-5 w-5 shrink-0 text-[color:var(--accent-gold)]" />
                   {section.title}
                 </CardTitle>
               </CardHeader>
@@ -130,7 +130,9 @@ export default function HelpCenterPage() {
                   <p
                     className={cn(
                       "text-xs font-medium",
-                      section.hasData ? "text-green-700" : "text-amber-600",
+                      section.hasData
+                        ? "text-[color:#86efac]"
+                        : "text-[color:#fcd34d]",
                     )}
                   >
                     {section.metric}

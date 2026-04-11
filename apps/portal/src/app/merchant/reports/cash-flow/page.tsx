@@ -116,8 +116,10 @@ export default function CashFlowPage() {
     return (
       <div className="space-y-6 p-4 sm:p-6">
         <PageHeader title="التدفق النقدي" />
-        <Card className="border-red-200 bg-red-50">
-          <CardContent className="pt-6 text-red-700">{error}</CardContent>
+        <Card className="app-data-card border-[var(--accent-danger)]/20 bg-[var(--accent-danger)]/12">
+          <CardContent className="pt-6 text-[var(--accent-danger)]">
+            {error}
+          </CardContent>
         </Card>
       </div>
     );
@@ -153,7 +155,7 @@ export default function CashFlowPage() {
         }
       />
 
-      <Card>
+      <Card className="app-data-card">
         <CardHeader>
           <CardTitle>فلاتر الفترة</CardTitle>
           <CardDescription>
@@ -224,12 +226,14 @@ export default function CashFlowPage() {
         <StatCard
           title="الإيرادات المتوقعة"
           value={formatCurrency(summary.projectedMonthlyRevenue)}
-          icon={<TrendingUp className="h-5 w-5 text-green-600" />}
+          icon={<TrendingUp className="h-5 w-5 text-[var(--accent-success)]" />}
         />
         <StatCard
           title="المصروفات المتوقعة"
           value={formatCurrency(summary.projectedMonthlyExpenses)}
-          icon={<TrendingDown className="h-5 w-5 text-red-600" />}
+          icon={
+            <TrendingDown className="h-5 w-5 text-[var(--accent-danger)]" />
+          }
         />
         <StatCard
           title="صافي التدفق المتوقع"
@@ -249,7 +253,7 @@ export default function CashFlowPage() {
         />
       </KPIGrid>
 
-      <Card className="border-blue-200 bg-blue-50/60">
+      <Card className="app-data-card border-[var(--accent-blue)]/20 bg-[var(--accent-blue)]/10">
         <CardHeader>
           <CardTitle>الوضع الفعلي للفترة المحددة</CardTitle>
           <CardDescription>
@@ -261,22 +265,30 @@ export default function CashFlowPage() {
             <StatCard
               title="الإيرادات المحققة"
               value={formatCurrency(realizedRevenue)}
-              icon={<DollarSign className="h-5 w-5 text-green-600" />}
+              icon={
+                <DollarSign className="h-5 w-5 text-[var(--accent-success)]" />
+              }
             />
             <StatCard
               title="المبيعات المحجوزة"
               value={formatCurrency(bookedSales)}
-              icon={<TrendingUp className="h-5 w-5 text-blue-600" />}
+              icon={
+                <TrendingUp className="h-5 w-5 text-[var(--accent-blue)]" />
+              }
             />
             <StatCard
               title="قيد التحصيل"
               value={formatCurrency(pendingCollections)}
-              icon={<Activity className="h-5 w-5 text-amber-600" />}
+              icon={
+                <Activity className="h-5 w-5 text-[var(--accent-warning)]" />
+              }
             />
             <StatCard
               title="المرتجعات"
               value={formatCurrency(refundsAmount)}
-              icon={<TrendingDown className="h-5 w-5 text-red-600" />}
+              icon={
+                <TrendingDown className="h-5 w-5 text-[var(--accent-danger)]" />
+              }
             />
             <StatCard
               title="صافي التدفق الفعلي"
@@ -304,7 +316,7 @@ export default function CashFlowPage() {
         />
       </div>
 
-      <Card>
+      <Card className="app-data-card">
         <CardHeader>
           <CardTitle>التفاصيل اليومية</CardTitle>
           <CardDescription>
@@ -318,19 +330,19 @@ export default function CashFlowPage() {
                 <div key={i} className="rounded-lg border p-4 text-sm">
                   <div className="font-medium">{f.date}</div>
                   <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
-                    <div className="text-green-600">
+                    <div className="text-[var(--accent-success)]">
                       <span className="text-muted-foreground">الإيرادات:</span>{" "}
                       {formatCurrency(f.projectedRevenue)}
                     </div>
-                    <div className="text-red-600">
+                    <div className="text-[var(--accent-danger)]">
                       <span className="text-muted-foreground">المصروفات:</span>{" "}
                       {formatCurrency(f.projectedExpenses)}
                     </div>
                     <div
                       className={
                         f.netCashFlow >= 0
-                          ? "font-medium text-green-700"
-                          : "font-medium text-red-700"
+                          ? "font-medium text-[var(--accent-success)]"
+                          : "font-medium text-[var(--accent-danger)]"
                       }
                     >
                       <span className="text-muted-foreground">الصافي:</span>{" "}
@@ -342,7 +354,7 @@ export default function CashFlowPage() {
             </div>
             <div className="hidden md:block">
               <table className="w-full text-sm">
-                <thead className="sticky top-0 border-b bg-white">
+                <thead className="sticky top-0 border-b bg-[var(--bg-surface-2)]">
                   <tr className="text-right">
                     <th className="p-2">التاريخ</th>
                     <th className="p-2">الإيرادات</th>
@@ -352,16 +364,19 @@ export default function CashFlowPage() {
                 </thead>
                 <tbody>
                   {forecast.map((f: any, i: number) => (
-                    <tr key={i} className="border-b hover:bg-gray-50">
+                    <tr
+                      key={i}
+                      className="border-b border-[var(--border-subtle)] hover:bg-[var(--bg-surface-2)]"
+                    >
                       <td className="p-2">{f.date}</td>
-                      <td className="p-2 text-green-600">
+                      <td className="p-2 text-[var(--accent-success)]">
                         {formatCurrency(f.projectedRevenue)}
                       </td>
-                      <td className="p-2 text-red-600">
+                      <td className="p-2 text-[var(--accent-danger)]">
                         {formatCurrency(f.projectedExpenses)}
                       </td>
                       <td
-                        className={`p-2 font-medium ${f.netCashFlow >= 0 ? "text-green-700" : "text-red-700"}`}
+                        className={`p-2 font-medium ${f.netCashFlow >= 0 ? "text-[var(--accent-success)]" : "text-[var(--accent-danger)]"}`}
                       >
                         {formatCurrency(f.netCashFlow)}
                       </td>

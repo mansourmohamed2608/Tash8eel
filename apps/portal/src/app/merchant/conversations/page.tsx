@@ -172,10 +172,10 @@ function ConversationChannelIcon({
   if (normalized === "messenger") {
     return (
       <span
-        className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-blue-100"
+        className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-[var(--accent-blue)]/20 bg-[var(--accent-blue)]/12"
         title="Messenger"
       >
-        <MessageSquare className="h-3.5 w-3.5 text-blue-600" />
+        <MessageSquare className="h-3.5 w-3.5 text-[var(--accent-blue)]" />
       </span>
     );
   }
@@ -183,20 +183,22 @@ function ConversationChannelIcon({
   if (normalized === "instagram") {
     return (
       <span
-        className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-br from-fuchsia-500 via-rose-500 to-amber-400"
+        className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-[var(--accent-gold)]/20 bg-[var(--accent-gold)]/12"
         title="Instagram"
       >
-        <span className="text-[9px] font-bold text-white leading-none">IG</span>
+        <span className="text-[9px] font-bold leading-none text-[var(--accent-gold)]">
+          IG
+        </span>
       </span>
     );
   }
 
   return (
     <span
-      className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-green-100"
+      className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-[var(--accent-success)]/20 bg-[var(--accent-success)]/12"
       title="WhatsApp"
     >
-      <MessageCircle className="h-3.5 w-3.5 text-green-600" />
+      <MessageCircle className="h-3.5 w-3.5 text-[var(--accent-success)]" />
     </span>
   );
 }
@@ -206,16 +208,23 @@ function LeadScoreBadge({ score }: { score?: "HOT" | "WARM" | "COLD" | null }) {
   if (!score) return null;
 
   const config = {
-    HOT: { icon: Flame, color: "bg-red-500 text-white", label: "🔥 ساخن" },
+    HOT: {
+      icon: Flame,
+      color:
+        "border border-[var(--accent-danger)]/25 bg-[var(--accent-danger)]/15 text-[var(--accent-danger)]",
+      label: "ساخن",
+    },
     WARM: {
       icon: Thermometer,
-      color: "bg-orange-500 text-white",
-      label: "🌡️ دافئ",
+      color:
+        "border border-[var(--accent-warning)]/25 bg-[var(--accent-warning)]/15 text-[var(--accent-warning)]",
+      label: "دافئ",
     },
     COLD: {
       icon: Snowflake,
-      color: "bg-blue-500 text-white",
-      label: "❄️ بارد",
+      color:
+        "border border-[var(--accent-blue)]/25 bg-[var(--accent-blue)]/15 text-[var(--accent-blue)]",
+      label: "بارد",
     },
   };
 
@@ -236,13 +245,13 @@ function AddressConfidenceBadge({ confidence }: { confidence?: number }) {
 
   const color =
     confidence >= 80
-      ? "bg-green-500"
+      ? "border border-[var(--accent-success)]/25 bg-[var(--accent-success)]/15 text-[var(--accent-success)]"
       : confidence >= 50
-        ? "bg-yellow-500"
-        : "bg-red-500";
+        ? "border border-[var(--accent-warning)]/25 bg-[var(--accent-warning)]/15 text-[var(--accent-warning)]"
+        : "border border-[var(--accent-danger)]/25 bg-[var(--accent-danger)]/15 text-[var(--accent-danger)]";
 
   return (
-    <Badge className={cn("text-xs text-white", color)}>
+    <Badge className={cn("text-xs", color)}>
       <MapPin className="h-3 w-3 ml-1" />
       {confidence}%
     </Badge>
@@ -663,8 +672,8 @@ export default function ConversationsPage() {
         </Card>
         <Card className="app-data-card">
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 bg-blue-500/10 rounded-lg">
-              <Clock className="h-5 w-5 text-blue-500" />
+            <div className="rounded-lg border border-[var(--accent-blue)]/20 bg-[var(--accent-blue)]/10 p-2">
+              <Clock className="h-5 w-5 text-[var(--accent-blue)]" />
             </div>
             <div>
               <p className="text-2xl font-bold">{stats.active}</p>
@@ -674,8 +683,8 @@ export default function ConversationsPage() {
         </Card>
         <Card className="app-data-card">
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 bg-red-500/10 rounded-lg">
-              <UserCheck className="h-5 w-5 text-red-500" />
+            <div className="rounded-lg border border-[var(--accent-danger)]/20 bg-[var(--accent-danger)]/10 p-2">
+              <UserCheck className="h-5 w-5 text-[var(--accent-danger)]" />
             </div>
             <div>
               <p className="text-2xl font-bold">{stats.humanTakeover}</p>
@@ -685,8 +694,8 @@ export default function ConversationsPage() {
         </Card>
         <Card className="app-data-card">
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 bg-green-500/10 rounded-lg">
-              <CheckCircle className="h-5 w-5 text-green-500" />
+            <div className="rounded-lg border border-[var(--accent-success)]/20 bg-[var(--accent-success)]/10 p-2">
+              <CheckCircle className="h-5 w-5 text-[var(--accent-success)]" />
             </div>
             <div>
               <p className="text-2xl font-bold">{stats.completed}</p>
@@ -699,7 +708,7 @@ export default function ConversationsPage() {
       {/* Main Content - Split View */}
       <div className="grid min-h-0 grid-cols-1 gap-4 xl:h-[calc(100vh-10rem)] xl:min-h-[52rem] xl:grid-cols-[380px_minmax(0,1fr)] 2xl:grid-cols-[440px_minmax(0,1fr)]">
         {/* Conversations List */}
-        <Card className="app-data-card h-full overflow-hidden border-border/70 shadow-sm">
+        <Card className="app-data-card h-full overflow-hidden border-border/70">
           <CardHeader className="border-b bg-muted/20 pb-3">
             <div className="space-y-3">
               <div className="relative">
@@ -840,7 +849,7 @@ export default function ConversationsPage() {
         </Card>
 
         {/* Chat View */}
-        <Card className="flex min-h-[28rem] flex-col overflow-hidden border-border/70 shadow-sm xl:h-full xl:min-h-0">
+        <Card className="flex min-h-[28rem] flex-col overflow-hidden border-border/70 xl:h-full xl:min-h-0">
           {selectedConversation ? (
             <>
               {/* Chat Header */}
@@ -950,7 +959,7 @@ export default function ConversationsPage() {
               </CardHeader>
 
               {/* Messages Area */}
-              <CardContent className="min-h-0 flex-1 overflow-hidden bg-[linear-gradient(180deg,rgba(59,130,246,0.03),transparent_28%)] p-0">
+              <CardContent className="min-h-0 flex-1 overflow-hidden bg-[color:color-mix(in_srgb,var(--bg-surface-2)_35%,transparent)] p-0">
                 <ScrollArea className="h-full px-5 py-5">
                   {loadingMessages ? (
                     <div className="flex items-center justify-center h-full">
@@ -997,7 +1006,7 @@ export default function ConversationsPage() {
                             </Avatar>
                             <div
                               className={cn(
-                                "max-w-[88%] rounded-2xl px-4 py-3 shadow-sm sm:max-w-[82%] xl:max-w-[78%]",
+                                "max-w-[88%] rounded-2xl px-4 py-3 sm:max-w-[82%] xl:max-w-[78%]",
                                 isOutbound
                                   ? "rounded-br-md bg-primary text-primary-foreground"
                                   : "rounded-bl-md border border-border/60 bg-background",

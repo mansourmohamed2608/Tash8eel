@@ -17,6 +17,8 @@ import { CardSkeleton } from "@/components/ui/skeleton";
 import {
   Bot,
   Check,
+  Camera,
+  Mic,
   Lock,
   Zap,
   Package,
@@ -37,6 +39,7 @@ import {
   Globe,
   Shield,
   Lightbulb,
+  Users,
 } from "lucide-react";
 import { merchantApi } from "@/lib/client";
 import { useMerchant } from "@/hooks/use-merchant";
@@ -75,17 +78,6 @@ const AGENT_ICONS: Record<string, React.ElementType> = {
   CONTENT_AGENT: FileText,
   SALES_AGENT: ShoppingCart,
   CREATIVE_AGENT: Palette,
-};
-
-const AGENT_EMOJIS: Record<string, string> = {
-  OPS_AGENT: "🔄",
-  INVENTORY_AGENT: "📦",
-  FINANCE_AGENT: "💰",
-  MARKETING_AGENT: "📢",
-  SUPPORT_AGENT: "🎧",
-  CONTENT_AGENT: "✍️",
-  SALES_AGENT: "📊",
-  CREATIVE_AGENT: "🎨",
 };
 
 const AI_CAPABILITIES = [
@@ -306,7 +298,7 @@ export default function AgentsPage() {
             <p className="text-sm text-muted-foreground">
               الوكلاء المفعلة الآن
             </p>
-            <p className="mt-1 text-2xl font-bold text-blue-700">
+            <p className="mt-1 text-2xl font-bold text-[var(--accent-blue)]">
               {enabledCount || 0}
             </p>
             <p className="mt-2 text-xs text-muted-foreground">
@@ -317,7 +309,7 @@ export default function AgentsPage() {
         <Card className="app-data-card border-[color:color-mix(in_srgb,var(--success)_18%,var(--border-strong))] bg-[var(--success-muted)]">
           <CardContent className="p-4">
             <p className="text-sm text-muted-foreground">المتاح في الخطة</p>
-            <p className="mt-1 text-2xl font-bold text-emerald-700">
+            <p className="mt-1 text-2xl font-bold text-[var(--accent-success)]">
               {availableCount}
             </p>
             <p className="mt-2 text-xs text-muted-foreground">
@@ -328,7 +320,7 @@ export default function AgentsPage() {
         <Card className="app-data-card">
           <CardContent className="p-4">
             <p className="text-sm text-muted-foreground">مجالات الذكاء</p>
-            <p className="mt-1 text-2xl font-bold text-violet-700">
+            <p className="mt-1 text-2xl font-bold text-[var(--accent-gold)]">
               {categoriesCount}
             </p>
             <p className="mt-2 text-xs text-muted-foreground">
@@ -339,7 +331,7 @@ export default function AgentsPage() {
         <Card className="app-data-card border-[color:color-mix(in_srgb,var(--warning)_18%,var(--border-strong))] bg-[var(--warning-muted)]">
           <CardContent className="p-4">
             <p className="text-sm text-muted-foreground">قدرات قادمة</p>
-            <p className="mt-1 text-2xl font-bold text-amber-700">
+            <p className="mt-1 text-2xl font-bold text-[var(--accent-warning)]">
               {comingSoonCount}
             </p>
             <p className="mt-2 text-xs text-muted-foreground">
@@ -354,8 +346,8 @@ export default function AgentsPage() {
         <Card className="app-data-card">
           <CardContent className="p-4 text-center">
             <div className="flex items-center justify-center gap-2 mb-1">
-              <Activity className="h-4 w-4 text-green-500" />
-              <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+              <Activity className="h-4 w-4 text-[color:var(--accent-success)]" />
+              <p className="text-2xl font-bold text-[color:var(--accent-success)]">
                 {AI_CAPABILITIES.length}
               </p>
             </div>
@@ -365,8 +357,8 @@ export default function AgentsPage() {
         <Card className="app-data-card">
           <CardContent className="p-4 text-center">
             <div className="flex items-center justify-center gap-2 mb-1">
-              <Bot className="h-4 w-4 text-blue-500" />
-              <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+              <Bot className="h-4 w-4 text-[var(--accent-blue)]" />
+              <p className="text-2xl font-bold text-[color:var(--accent-blue)]">
                 {enabledCount || 1}
               </p>
             </div>
@@ -376,8 +368,8 @@ export default function AgentsPage() {
         <Card className="app-data-card">
           <CardContent className="p-4 text-center">
             <div className="flex items-center justify-center gap-2 mb-1">
-              <Sparkles className="h-4 w-4 text-purple-500" />
-              <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+              <Sparkles className="h-4 w-4 text-[var(--accent-gold)]" />
+              <p className="text-2xl font-bold text-[var(--accent-gold)]">
                 متقدم
               </p>
             </div>
@@ -387,8 +379,8 @@ export default function AgentsPage() {
         <Card className="app-data-card">
           <CardContent className="p-4 text-center">
             <div className="flex items-center justify-center gap-2 mb-1">
-              <Globe className="h-4 w-4 text-amber-500" />
-              <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">
+              <Globe className="h-4 w-4 text-[var(--accent-warning)]" />
+              <p className="text-2xl font-bold text-[var(--accent-warning)]">
                 {currentPlan}
               </p>
             </div>
@@ -415,7 +407,7 @@ export default function AgentsPage() {
           <Card className="app-data-card">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Brain className="h-5 w-5 text-blue-500" />
+                <Brain className="h-5 w-5 text-[var(--accent-blue)]" />
                 كيف يعمل الذكاء الاصطناعي في متجرك
               </CardTitle>
               <CardDescription>
@@ -424,16 +416,16 @@ export default function AgentsPage() {
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="p-4 rounded-xl bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800">
+                <div className="rounded-xl border border-[var(--accent-success)]/25 bg-[var(--accent-success)]/10 p-4">
                   <div className="flex items-start gap-3">
-                    <div className="h-10 w-10 rounded-lg bg-green-500/20 flex items-center justify-center text-lg">
-                      💬
+                    <div className="flex h-10 w-10 items-center justify-center rounded-[var(--radius-md)] border border-[color:rgba(34,197,94,0.22)] bg-[color:rgba(34,197,94,0.12)]">
+                      <MessageSquare className="h-5 w-5 text-[color:var(--accent-success)]" />
                     </div>
                     <div className="flex-1">
-                      <h4 className="font-medium text-green-800 dark:text-green-300 mb-1">
+                      <h4 className="mb-1 font-medium text-[var(--accent-success)]">
                         بوت واتساب ذكي
                       </h4>
-                      <p className="text-sm text-green-700/80 dark:text-green-400/80">
+                      <p className="text-sm text-[var(--text-secondary)]">
                         يتحدث بالعامية المصرية مع عملاءك ← يأخذ الطلبات ← يتفاوض
                         ← يؤكد ويحجز التوصيل
                       </p>
@@ -441,7 +433,7 @@ export default function AgentsPage() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="mt-2 text-green-600 dark:text-green-400 p-0 h-auto"
+                          className="mt-2 h-auto p-0 text-[color:var(--accent-success)]"
                         >
                           عرض المحادثات →
                         </Button>
@@ -449,32 +441,32 @@ export default function AgentsPage() {
                     </div>
                   </div>
                 </div>
-                <div className="p-4 rounded-xl bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800">
+                <div className="rounded-xl border border-[var(--accent-blue)]/25 bg-[var(--accent-blue)]/10 p-4">
                   <div className="flex items-start gap-3">
-                    <div className="h-10 w-10 rounded-lg bg-blue-500/20 flex items-center justify-center text-lg">
-                      🎙️
+                    <div className="flex h-10 w-10 items-center justify-center rounded-[var(--radius-md)] border border-[color:rgba(59,130,246,0.22)] bg-[color:rgba(59,130,246,0.12)]">
+                      <Mic className="h-5 w-5 text-[color:var(--accent-blue)]" />
                     </div>
                     <div className="flex-1">
-                      <h4 className="font-medium text-blue-800 dark:text-blue-300 mb-1">
+                      <h4 className="mb-1 font-medium text-[var(--accent-blue)]">
                         مساعد الأوامر
                       </h4>
-                      <p className="text-sm text-blue-700/80 dark:text-blue-400/80">
+                      <p className="text-sm text-[var(--text-secondary)]">
                         قوله "دفعت 500 للكهربا" أو "زوّد التيشيرت 10" - يفهم
                         ويحول لإجراءات فوراً
                       </p>
                     </div>
                   </div>
                 </div>
-                <div className="p-4 rounded-xl bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800">
+                <div className="rounded-xl border border-[var(--accent-gold)]/25 bg-[var(--accent-gold)]/10 p-4">
                   <div className="flex items-start gap-3">
-                    <div className="h-10 w-10 rounded-lg bg-purple-500/20 flex items-center justify-center text-lg">
-                      📸
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-[var(--accent-gold)]/25 bg-[var(--accent-gold)]/12">
+                      <Camera className="h-5 w-5 text-[var(--accent-gold)]" />
                     </div>
                     <div className="flex-1">
-                      <h4 className="font-medium text-purple-800 dark:text-purple-300 mb-1">
+                      <h4 className="mb-1 font-medium text-[var(--accent-gold)]">
                         قراءة الصور والإيصالات
                       </h4>
-                      <p className="text-sm text-purple-700/80 dark:text-purple-400/80">
+                      <p className="text-sm text-[var(--text-secondary)]">
                         يقرأ إيصالات الدفع ويستخرج البيانات تلقائياً - يحلل صور
                         المنتجات للكتالوج
                       </p>
@@ -482,7 +474,7 @@ export default function AgentsPage() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="mt-2 text-purple-600 dark:text-purple-400 p-0 h-auto"
+                          className="mt-2 h-auto p-0 text-[var(--accent-gold)]"
                         >
                           إثباتات الدفع →
                         </Button>
@@ -490,16 +482,16 @@ export default function AgentsPage() {
                     </div>
                   </div>
                 </div>
-                <div className="p-4 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
+                <div className="rounded-xl border border-[var(--accent-warning)]/25 bg-[var(--accent-warning)]/10 p-4">
                   <div className="flex items-start gap-3">
-                    <div className="h-10 w-10 rounded-lg bg-amber-500/20 flex items-center justify-center text-lg">
-                      📊
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-[var(--accent-warning)]/25 bg-[var(--accent-warning)]/12">
+                      <BarChart3 className="h-5 w-5 text-[var(--accent-warning)]" />
                     </div>
                     <div className="flex-1">
-                      <h4 className="font-medium text-amber-800 dark:text-amber-300 mb-1">
+                      <h4 className="mb-1 font-medium text-[var(--accent-warning)]">
                         تحليلات وتقارير ذكية
                       </h4>
-                      <p className="text-sm text-amber-700/80 dark:text-amber-400/80">
+                      <p className="text-sm text-[var(--text-secondary)]">
                         ملخص CFO أسبوعي - كشف الأنماط الشاذة - رؤى ذكية في كل
                         صفحة
                       </p>
@@ -507,7 +499,7 @@ export default function AgentsPage() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="mt-2 text-amber-600 dark:text-amber-400 p-0 h-auto"
+                          className="mt-2 h-auto p-0 text-[var(--accent-warning)]"
                         >
                           تقرير CFO →
                         </Button>
@@ -547,11 +539,12 @@ export default function AgentsPage() {
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-l from-indigo-50 to-blue-50 dark:from-indigo-950/30 dark:to-blue-950/30 border-indigo-200 dark:border-indigo-800/50">
+          <Card className="app-data-card border-[color:rgba(59,130,246,0.22)] bg-[color:rgba(59,130,246,0.08)]">
             <CardContent className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h3 className="font-bold text-lg flex items-center gap-2">
-                  👥 المهام الجماعية للوكلاء
+                  <Users className="h-5 w-5 text-[color:var(--accent-blue)]" />
+                  المهام الجماعية للوكلاء
                 </h3>
                 <p className="text-muted-foreground text-sm mt-1">
                   وزّع العمل على عدة وكلاء ليعملوا معاً بالتوازي على مهام معقدة
@@ -569,11 +562,11 @@ export default function AgentsPage() {
         {/* Agents Tab */}
         <TabsContent value="agents" className="space-y-4">
           {currentPlan && (
-            <div className="flex flex-col gap-4 rounded-xl border border-blue-200 bg-gradient-to-l from-blue-50 to-purple-50 p-4 dark:border-blue-800/50 dark:from-blue-950/30 dark:to-purple-950/30 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-4 rounded-[var(--radius-lg)] border border-[color:rgba(59,130,246,0.22)] bg-[color:rgba(59,130,246,0.08)] p-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="font-medium">
                   خطتك الحالية:{" "}
-                  <span className="text-blue-600 dark:text-blue-300 font-bold">
+                  <span className="font-bold text-[color:var(--accent-blue)]">
                     {currentPlan}
                   </span>
                 </p>
@@ -613,22 +606,22 @@ export default function AgentsPage() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {agents.map((agent) => {
-                const emoji = AGENT_EMOJIS[agent.id] || "🤖";
+                const AgentIcon = AGENT_ICONS[agent.id] || Bot;
                 const isComingSoon = agent.status === "coming_soon";
                 const isBeta = agent.status === "beta";
                 const isNotSellable = !agent.sellable;
                 return (
                   <Card
                     key={agent.id}
-                    className={`border transition-all ${agent.isEnabled ? "border-green-200 dark:border-green-800/50 bg-green-50/50 dark:bg-green-950/10" : isComingSoon ? "opacity-60" : ""}`}
+                    className={`border transition-all ${agent.isEnabled ? "border-[var(--accent-success)]/25 bg-[var(--accent-success)]/10" : isComingSoon ? "opacity-60" : ""}`}
                   >
                     <CardHeader className="pb-3">
                       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                         <div className="flex items-center gap-3">
                           <div
-                            className={`w-10 h-10 rounded-lg flex items-center justify-center text-lg ${agent.isEnabled ? "bg-green-100 dark:bg-green-900/40" : "bg-muted"}`}
+                            className={`flex h-10 w-10 items-center justify-center rounded-lg ${agent.isEnabled ? "border border-[var(--accent-success)]/25 bg-[var(--accent-success)]/12 text-[var(--accent-success)]" : "border border-[var(--border-subtle)] bg-muted text-[var(--text-secondary)]"}`}
                           >
-                            {emoji}
+                            <AgentIcon className="h-5 w-5" />
                           </div>
                           <div>
                             <CardTitle className="text-base">
@@ -642,7 +635,7 @@ export default function AgentsPage() {
                         {agent.isEnabled ? (
                           <Badge
                             variant="outline"
-                            className="text-green-600 dark:text-green-400 border-green-300 text-xs"
+                            className="border-[var(--accent-success)]/25 bg-[var(--accent-success)]/12 text-[var(--accent-success)] text-xs"
                           >
                             <Check className="h-3 w-3 ml-1" />
                             مفعّل
@@ -650,7 +643,7 @@ export default function AgentsPage() {
                         ) : isBeta ? (
                           <Badge
                             variant="outline"
-                            className="text-purple-600 dark:text-purple-400 border-purple-300 text-xs"
+                            className="border-[var(--accent-gold)]/25 bg-[var(--accent-gold)]/12 text-[var(--accent-gold)] text-xs"
                           >
                             <Sparkles className="h-3 w-3 ml-1" />
                             تجريبي
@@ -676,13 +669,13 @@ export default function AgentsPage() {
                           {agent.features.slice(0, 4).map((f) => (
                             <span
                               key={f}
-                              className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground"
+                              className="rounded-[var(--radius-sm)] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-2)] px-2 py-0.5 text-[10px] text-muted-foreground"
                             >
                               {f}
                             </span>
                           ))}
                           {agent.features.length > 4 && (
-                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                            <span className="rounded-[var(--radius-sm)] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-2)] px-2 py-0.5 text-[10px] text-muted-foreground">
                               +{agent.features.length - 4}
                             </span>
                           )}
@@ -704,8 +697,8 @@ export default function AgentsPage() {
                       </div>
                       <div className="pt-3 border-t">
                         {agent.isIncludedInPlan ? (
-                          <p className="text-xs text-green-600 dark:text-green-400">
-                            ✅ مضمن في خطتك
+                          <p className="text-xs text-[color:var(--accent-success)]">
+                            مضمن في خطتك
                           </p>
                         ) : isComingSoon ? (
                           <p className="text-xs text-muted-foreground">
@@ -713,7 +706,7 @@ export default function AgentsPage() {
                             {isNotSellable ? " وغير جاهز للبيع حالياً" : ""}
                           </p>
                         ) : !agent.subscriptionEnabled ? (
-                          <p className="text-xs text-amber-600 dark:text-amber-400">
+                          <p className="text-xs text-[var(--accent-warning)]">
                             غير قابل للتفعيل حالياً من سجل القدرات
                           </p>
                         ) : (
@@ -721,7 +714,7 @@ export default function AgentsPage() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="text-blue-500 p-0 h-auto text-xs"
+                              className="h-auto p-0 text-xs text-[var(--accent-blue)]"
                             >
                               ترقية لتفعيل →
                             </Button>
@@ -741,7 +734,7 @@ export default function AgentsPage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-purple-500" />
+                <Sparkles className="h-5 w-5 text-[var(--accent-gold)]" />
                 القدرات الذكية المفعّلة
               </CardTitle>
               <CardDescription>
@@ -757,8 +750,8 @@ export default function AgentsPage() {
                       key={i}
                       className="flex items-start gap-3 p-3 rounded-lg border hover:bg-muted/50 transition-all"
                     >
-                      <div className="h-9 w-9 rounded-lg bg-blue-50 dark:bg-blue-950/30 flex items-center justify-center shrink-0">
-                        <Icon className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[var(--accent-blue)]/20 bg-[var(--accent-blue)]/10">
+                        <Icon className="h-4 w-4 text-[color:var(--accent-blue)]" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-0.5">
@@ -772,7 +765,7 @@ export default function AgentsPage() {
                         </p>
                       </div>
                       <div className="shrink-0">
-                        <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+                        <div className="h-2 w-2 rounded-full bg-[color:var(--accent-success)] animate-pulse" />
                       </div>
                     </div>
                   );
@@ -790,7 +783,7 @@ export default function AgentsPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="p-4 rounded-lg bg-muted/50">
                   <div className="flex items-center gap-2 mb-2">
-                    <Brain className="h-5 w-5 text-blue-500" />
+                    <Brain className="h-5 w-5 text-[var(--accent-blue)]" />
                     <h4 className="font-medium">المحادثات والتحليل</h4>
                   </div>
                   <p className="text-sm text-muted-foreground mb-2">
@@ -805,7 +798,7 @@ export default function AgentsPage() {
                 </div>
                 <div className="p-4 rounded-lg bg-muted/50">
                   <div className="flex items-center gap-2 mb-2">
-                    <Eye className="h-5 w-5 text-purple-500" />
+                    <Eye className="h-5 w-5 text-[var(--accent-gold)]" />
                     <h4 className="font-medium">تحليل الصور والمستندات</h4>
                   </div>
                   <p className="text-sm text-muted-foreground mb-2">

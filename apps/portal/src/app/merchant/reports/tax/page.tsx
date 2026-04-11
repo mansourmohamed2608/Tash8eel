@@ -157,8 +157,10 @@ export default function TaxReportPage() {
       </Card>
 
       {error && (
-        <Card className="border-red-200 bg-red-50">
-          <CardContent className="pt-6 text-red-700">{error}</CardContent>
+        <Card className="border-[var(--accent-danger)]/20 bg-[var(--accent-danger)]/10">
+          <CardContent className="pt-6 text-[var(--accent-danger)]">
+            {error}
+          </CardContent>
         </Card>
       )}
 
@@ -261,19 +263,19 @@ export default function TaxReportPage() {
                       </div>
                       <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                         <span>ضريبة المبيعات</span>
-                        <span className="text-red-600">
+                        <span className="text-[var(--accent-danger)]">
                           {formatCurrency(vatOnSales)}
                         </span>
                       </div>
                       <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                         <span>ضريبة المشتريات</span>
-                        <span className="text-green-600">
+                        <span className="text-[var(--accent-success)]">
                           {formatCurrency(-vatOnPurchases)}
                         </span>
                       </div>
                       <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                         <span>ضريبة الاسترجاعات</span>
-                        <span className="text-green-600">
+                        <span className="text-[var(--accent-success)]">
                           {formatCurrency(-vatOnRefunds)}
                         </span>
                       </div>
@@ -297,8 +299,8 @@ export default function TaxReportPage() {
                         <span
                           className={
                             netVatPayable >= 0
-                              ? "text-red-600"
-                              : "text-green-600"
+                              ? "text-[var(--accent-danger)]"
+                              : "text-[var(--accent-success)]"
                           }
                         >
                           {formatCurrency(netVatPayable)}

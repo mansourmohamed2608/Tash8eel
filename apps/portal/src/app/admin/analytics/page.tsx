@@ -395,11 +395,11 @@ export default function AnalyticsPage() {
                                 className={cn(
                                   "w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold",
                                   index === 0
-                                    ? "bg-yellow-100 text-yellow-700"
+                                    ? "bg-[var(--accent-gold)]/12 text-[var(--accent-gold)]"
                                     : index === 1
-                                      ? "bg-gray-100 text-gray-700"
+                                      ? "bg-[var(--bg-surface-2)] text-[var(--text-secondary)]"
                                       : index === 2
-                                        ? "bg-orange-100 text-orange-700"
+                                        ? "bg-[var(--accent-warning)]/12 text-[var(--accent-warning)]"
                                         : "bg-muted text-muted-foreground",
                                 )}
                               >
@@ -462,7 +462,9 @@ export default function AnalyticsPage() {
                       <div
                         className={cn(
                           "flex items-center gap-1 text-sm",
-                          metric.change > 0 ? "text-green-600" : "text-red-600",
+                          metric.change > 0
+                            ? "text-[var(--accent-success)]"
+                            : "text-[var(--accent-danger)]",
                         )}
                       >
                         {metric.change > 0 ? "+" : ""}
@@ -503,8 +505,8 @@ export default function AnalyticsPage() {
                             className={cn(
                               "text-xs",
                               metric.change >= 0
-                                ? "text-green-600"
-                                : "text-red-600",
+                                ? "text-[var(--accent-success)]"
+                                : "text-[var(--accent-danger)]",
                             )}
                           >
                             {metric.change >= 0 ? "+" : ""}

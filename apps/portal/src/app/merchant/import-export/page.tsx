@@ -497,13 +497,13 @@ export default function BulkOperationsPage() {
     switch (status) {
       case "COMPLETED":
         return (
-          <Badge className="bg-green-500">
+          <Badge className="border-[color:rgba(34,197,94,0.28)] bg-[color:rgba(34,197,94,0.1)] text-[color:#86efac]">
             <CheckCircle className="w-3 h-3 mr-1" /> مكتمل
           </Badge>
         );
       case "PROCESSING":
         return (
-          <Badge className="bg-blue-500">
+          <Badge className="border-[color:rgba(59,130,246,0.26)] bg-[color:rgba(59,130,246,0.12)] text-[color:#93c5fd]">
             <RefreshCw className="w-3 h-3 mr-1 animate-spin" /> جاري المعالجة
           </Badge>
         );
@@ -609,7 +609,7 @@ export default function BulkOperationsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+        <Loader2 className="h-8 w-8 animate-spin text-[color:var(--accent-blue)]" />
       </div>
     );
   }
@@ -682,7 +682,7 @@ export default function BulkOperationsPage() {
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <FileUp className="h-5 w-5 text-green-500" />
+                    <FileUp className="h-5 w-5 text-[var(--accent-success)]" />
                     استيراد{" "}
                     {tab === "products"
                       ? "المنتجات"
@@ -716,7 +716,7 @@ export default function BulkOperationsPage() {
                   {selectedFile && (
                     <div className="flex flex-col gap-3 rounded-lg bg-muted p-3 sm:flex-row sm:items-center sm:justify-between">
                       <div className="flex min-w-0 items-center gap-2">
-                        <FileSpreadsheet className="h-5 w-5 text-green-500" />
+                        <FileSpreadsheet className="h-5 w-5 text-[var(--accent-success)]" />
                         <span className="truncate text-sm">
                           {selectedFile.name}
                         </span>
@@ -819,7 +819,7 @@ export default function BulkOperationsPage() {
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <FileDown className="h-5 w-5 text-blue-500" />
+                    <FileDown className="h-5 w-5 text-[var(--accent-blue)]" />
                     تصدير{" "}
                     {tab === "products"
                       ? "المنتجات"
@@ -906,7 +906,9 @@ export default function BulkOperationsPage() {
                         </div>
                         <div>
                           {field.required ? (
-                            <Badge className="bg-red-500">مطلوب</Badge>
+                            <Badge className="border-[color:rgba(239,68,68,0.3)] bg-[color:rgba(239,68,68,0.1)] text-[color:#fca5a5]">
+                              مطلوب
+                            </Badge>
                           ) : (
                             <Badge variant="outline">اختياري</Badge>
                           )}
@@ -937,7 +939,9 @@ export default function BulkOperationsPage() {
                           <TableCell>{field.label}</TableCell>
                           <TableCell>
                             {field.required ? (
-                              <Badge className="bg-red-500">مطلوب</Badge>
+                              <Badge className="border-[color:rgba(239,68,68,0.3)] bg-[color:rgba(239,68,68,0.1)] text-[color:#fca5a5]">
+                                مطلوب
+                              </Badge>
                             ) : (
                               <Badge variant="outline">اختياري</Badge>
                             )}
@@ -998,12 +1002,18 @@ export default function BulkOperationsPage() {
                     <div className="flex flex-col gap-3">
                       <div className="flex flex-wrap items-center gap-2">
                         {op.operationType === "IMPORT" ? (
-                          <Badge variant="outline" className="bg-green-50">
+                          <Badge
+                            variant="outline"
+                            className="border-[color:rgba(34,197,94,0.26)] bg-[color:rgba(34,197,94,0.08)] text-[color:#86efac]"
+                          >
                             <FileUp className="w-3 h-3 mr-1" />
                             استيراد
                           </Badge>
                         ) : (
-                          <Badge variant="outline" className="bg-blue-50">
+                          <Badge
+                            variant="outline"
+                            className="border-[color:rgba(59,130,246,0.26)] bg-[color:rgba(59,130,246,0.1)] text-[color:#93c5fd]"
+                          >
                             <FileDown className="w-3 h-3 mr-1" />
                             تصدير
                           </Badge>
@@ -1017,7 +1027,7 @@ export default function BulkOperationsPage() {
                         <div>{getStatusBadge(op.status)}</div>
                         {op.status === "FAILED" && op.failureReason && (
                           <p
-                            className="text-[11px] text-red-500"
+                            className="text-[11px] text-[color:#fca5a5]"
                             title={op.failureReason}
                           >
                             {op.failureReason}
@@ -1031,13 +1041,13 @@ export default function BulkOperationsPage() {
                         </span>
                       </div>
                       <div className="text-sm">
-                        <span className="text-green-600">
+                        <span className="text-[color:var(--accent-success)]">
                           {op.successCount} ✓
                         </span>
                         {op.errorCount > 0 && (
                           <>
                             <span className="text-muted-foreground"> / </span>
-                            <span className="text-red-600">
+                            <span className="text-[color:var(--accent-danger)]">
                               {op.errorCount} ✗
                             </span>
                           </>
@@ -1059,7 +1069,7 @@ export default function BulkOperationsPage() {
                                 size="sm"
                                 onClick={() => setSelectedOperation(op)}
                               >
-                                <AlertCircle className="h-4 w-4 text-red-500" />
+                                <AlertCircle className="h-4 w-4 text-[color:var(--accent-danger)]" />
                               </Button>
                             </DialogTrigger>
                             <DialogContent className="max-h-[90vh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-2xl">
@@ -1092,7 +1102,7 @@ export default function BulkOperationsPage() {
                                     <p className="mt-2 text-xs text-muted-foreground">
                                       الخطأ
                                     </p>
-                                    <p className="text-sm text-red-600">
+                                    <p className="text-sm text-[color:#fca5a5]">
                                       {error.message ||
                                         error.error ||
                                         "خطأ غير محدد"}
@@ -1118,7 +1128,7 @@ export default function BulkOperationsPage() {
                                         <TableCell className="font-mono">
                                           {error.field || "-"}
                                         </TableCell>
-                                        <TableCell className="text-red-600">
+                                        <TableCell className="text-[color:#fca5a5]">
                                           {error.message ||
                                             error.error ||
                                             "خطأ غير محدد"}
@@ -1184,12 +1194,18 @@ export default function BulkOperationsPage() {
                       <TableRow key={op.id}>
                         <TableCell>
                           {op.operationType === "IMPORT" ? (
-                            <Badge variant="outline" className="bg-green-50">
+                            <Badge
+                              variant="outline"
+                              className="border-[color:rgba(34,197,94,0.26)] bg-[color:rgba(34,197,94,0.08)] text-[color:#86efac]"
+                            >
                               <FileUp className="w-3 h-3 mr-1" />
                               استيراد
                             </Badge>
                           ) : (
-                            <Badge variant="outline" className="bg-blue-50">
+                            <Badge
+                              variant="outline"
+                              className="border-[color:rgba(59,130,246,0.26)] bg-[color:rgba(59,130,246,0.1)] text-[color:#93c5fd]"
+                            >
                               <FileDown className="w-3 h-3 mr-1" />
                               تصدير
                             </Badge>
@@ -1203,7 +1219,7 @@ export default function BulkOperationsPage() {
                           {getStatusBadge(op.status)}
                           {op.status === "FAILED" && op.failureReason && (
                             <p
-                              className="text-[11px] text-red-500 mt-1 max-w-[180px] truncate"
+                              className="mt-1 max-w-[180px] truncate text-[11px] text-[color:#fca5a5]"
                               title={op.failureReason}
                             >
                               {op.failureReason}
@@ -1220,7 +1236,7 @@ export default function BulkOperationsPage() {
                         </TableCell>
                         <TableCell>
                           <div className="text-sm">
-                            <span className="text-green-600">
+                            <span className="text-[color:var(--accent-success)]">
                               {op.successCount} ✓
                             </span>
                             {op.errorCount > 0 && (
@@ -1229,7 +1245,7 @@ export default function BulkOperationsPage() {
                                   {" "}
                                   /{" "}
                                 </span>
-                                <span className="text-red-600">
+                                <span className="text-[color:var(--accent-danger)]">
                                   {op.errorCount} ✗
                                 </span>
                               </>
@@ -1241,7 +1257,7 @@ export default function BulkOperationsPage() {
                               {op.errors.slice(0, 2).map((err, i) => (
                                 <p
                                   key={i}
-                                  className="text-[11px] text-red-500 truncate max-w-[200px]"
+                                  className="max-w-[200px] truncate text-[11px] text-[color:#fca5a5]"
                                   title={`صف ${err.row}: ${err.field ? err.field + " - " : ""}${err.message || err.error || ""}`}
                                 >
                                   صف {err.row}:{" "}
@@ -1277,7 +1293,7 @@ export default function BulkOperationsPage() {
                                     size="icon"
                                     onClick={() => setSelectedOperation(op)}
                                   >
-                                    <AlertCircle className="h-4 w-4 text-red-500" />
+                                    <AlertCircle className="h-4 w-4 text-[color:var(--accent-danger)]" />
                                   </Button>
                                 </DialogTrigger>
                                 <DialogContent className="max-h-[90vh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-2xl">
@@ -1307,7 +1323,7 @@ export default function BulkOperationsPage() {
                                             <TableCell className="font-mono">
                                               {error.field || "-"}
                                             </TableCell>
-                                            <TableCell className="text-red-600">
+                                            <TableCell className="text-[color:#fca5a5]">
                                               {error.message ||
                                                 error.error ||
                                                 "خطأ غير محدد"}

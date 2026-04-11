@@ -560,7 +560,7 @@ function MerchantLayoutContent({ children }: { children: React.ReactNode }) {
           )}
         >
           {isDemo && (!isCashierRoute || showCashierChrome) && (
-            <div className="mb-4 rounded-[18px] border border-amber-300/80 bg-amber-50/90 px-4 py-3 text-sm text-amber-800 shadow-[0_12px_24px_rgba(217,119,6,0.08)] dark:border-amber-700/70 dark:bg-amber-900/20 dark:text-amber-200">
+            <div className="mb-4 rounded-[18px] border border-[var(--accent-warning)]/30 bg-[var(--accent-warning)]/10 px-4 py-3 text-sm text-[var(--accent-warning)]">
               <strong>وضع العرض التجريبي:</strong> البيانات المعروضة للتجربة
               فقط.{" "}
               <a href="/login" className="underline font-medium">

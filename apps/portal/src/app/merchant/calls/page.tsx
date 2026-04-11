@@ -545,7 +545,7 @@ export default function CallsPage() {
         <Card>
           <CardContent className="pt-6">
             <p className="text-sm text-muted-foreground">تمت بواسطة الذكاء</p>
-            <p className="mt-1 text-2xl font-bold text-blue-600">
+            <p className="mt-1 text-2xl font-bold text-[var(--accent-blue)]">
               {stats.aiHandled}
             </p>
           </CardContent>
@@ -553,7 +553,7 @@ export default function CallsPage() {
         <Card>
           <CardContent className="pt-6">
             <p className="text-sm text-muted-foreground">طلبات من المكالمات</p>
-            <p className="mt-1 text-2xl font-bold text-emerald-600">
+            <p className="mt-1 text-2xl font-bold text-[var(--accent-success)]">
               {stats.ordersFromCalls}
             </p>
           </CardContent>
@@ -561,7 +561,7 @@ export default function CallsPage() {
         <Card>
           <CardContent className="pt-6">
             <p className="text-sm text-muted-foreground">مكالمات فائتة</p>
-            <p className="mt-1 text-2xl font-bold text-amber-600">
+            <p className="mt-1 text-2xl font-bold text-[var(--accent-warning)]">
               {stats.missedCalls}
             </p>
           </CardContent>
@@ -588,7 +588,7 @@ export default function CallsPage() {
               const isAi = String(call.handledBy || "").toLowerCase() === "ai";
 
               return (
-                <div key={call.id} className="rounded-lg border p-4 space-y-3">
+                <div key={call.id} className="app-data-card space-y-3 p-4">
                   <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                     <div className="space-y-1">
                       <p className="text-sm font-semibold">
@@ -606,8 +606,8 @@ export default function CallsPage() {
                         variant="secondary"
                         className={
                           isAi
-                            ? "bg-blue-100 text-blue-700"
-                            : "bg-emerald-100 text-emerald-700"
+                            ? "border border-[var(--accent-blue)]/25 bg-[var(--accent-blue)]/12 text-[var(--accent-blue)]"
+                            : "border border-[var(--accent-success)]/25 bg-[var(--accent-success)]/12 text-[var(--accent-success)]"
                         }
                       >
                         {isAi ? (
@@ -625,7 +625,7 @@ export default function CallsPage() {
                       </Badge>
 
                       {call.orderNumber ? (
-                        <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">
+                        <Badge className="border border-[var(--accent-success)]/25 bg-[var(--accent-success)]/12 text-[var(--accent-success)] hover:bg-[var(--accent-success)]/12">
                           طلب #{call.orderNumber}
                         </Badge>
                       ) : (
@@ -683,7 +683,7 @@ export default function CallsPage() {
 
       {activeCall && (
         <Button
-          className="fixed bottom-6 left-6 z-50 rounded-full shadow-xl h-12 px-5"
+          className="fixed bottom-6 left-6 z-50 h-12 px-5"
           onClick={() => setCreateOrderOpen(true)}
         >
           <ShoppingCart className="ml-2 h-4 w-4" />
@@ -745,7 +745,7 @@ export default function CallsPage() {
                 />
 
                 {productSearch.trim().length > 0 && (
-                  <div className="absolute z-20 mt-1 w-full rounded-md border bg-background shadow-md max-h-56 overflow-y-auto">
+                  <div className="absolute z-20 mt-1 max-h-56 w-full overflow-y-auto rounded-md border border-[var(--border-default)] bg-[var(--bg-surface-2)]">
                     {catalogLoading ? (
                       <div className="px-3 py-2 text-sm text-muted-foreground flex items-center gap-2">
                         <Loader2 className="h-4 w-4 animate-spin" />

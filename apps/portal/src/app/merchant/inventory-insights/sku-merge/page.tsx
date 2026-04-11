@@ -100,16 +100,16 @@ export default function SkuMergePage() {
       />
 
       {error && (
-        <Card className="border-red-200 bg-red-50">
-          <CardContent className="py-4 text-red-700 text-sm">
+        <Card className="border-[var(--accent-danger)]/20 bg-[var(--accent-danger)]/10">
+          <CardContent className="py-4 text-sm text-[var(--accent-danger)]">
             {error}
           </CardContent>
         </Card>
       )}
 
       {successMessage && (
-        <Card className="border-green-200 bg-green-50">
-          <CardContent className="py-4 text-green-700 text-sm">
+        <Card className="border-[var(--accent-success)]/20 bg-[var(--accent-success)]/10">
+          <CardContent className="py-4 text-sm text-[var(--accent-success)]">
             {successMessage}
           </CardContent>
         </Card>
@@ -119,14 +119,14 @@ export default function SkuMergePage() {
         <StatCard
           title="تكرارات محتملة"
           value={duplicates.length.toString()}
-          icon={<Copy className="h-5 w-5 text-amber-600" />}
+          icon={<Copy className="h-5 w-5 text-[var(--accent-warning)]" />}
         />
       </KPIGrid>
 
       {duplicates.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
-            <CheckCircle className="h-12 w-12 text-green-500 mb-4" />
+            <CheckCircle className="mb-4 h-12 w-12 text-[var(--accent-success)]" />
             <p className="text-lg font-medium">لا توجد تكرارات</p>
             <p className="text-muted-foreground">جميع الأصناف فريدة</p>
           </CardContent>
@@ -143,8 +143,8 @@ export default function SkuMergePage() {
             {duplicates.map((dup: any, i: number) => (
               <div key={i} className="border rounded-lg p-4">
                 <div className="mb-3 grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <div className="bg-red-50 rounded p-3">
-                    <div className="text-sm text-red-600 font-medium mb-1">
+                  <div className="rounded p-3 border border-[var(--accent-danger)]/20 bg-[var(--accent-danger)]/10">
+                    <div className="mb-1 text-sm font-medium text-[var(--accent-danger)]">
                       المصدر (سيتم إلغاء تفعيله)
                     </div>
                     <div className="font-medium">{dup.itemA.name}</div>
@@ -153,8 +153,8 @@ export default function SkuMergePage() {
                       {formatCurrency(dup.itemA.price)}
                     </div>
                   </div>
-                  <div className="bg-green-50 rounded p-3">
-                    <div className="text-sm text-green-600 font-medium mb-1">
+                  <div className="rounded p-3 border border-[var(--accent-success)]/20 bg-[var(--accent-success)]/10">
+                    <div className="mb-1 text-sm font-medium text-[var(--accent-success)]">
                       الهدف (سيحتفظ بالمخزون)
                     </div>
                     <div className="font-medium">{dup.itemB.name}</div>

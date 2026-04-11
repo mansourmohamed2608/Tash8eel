@@ -972,10 +972,10 @@ export default function KnowledgeBasePage() {
         <Card className="border-amber-200 bg-amber-50/60">
           <CardContent className="p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="font-medium text-amber-900">
+              <p className="font-medium text-[var(--accent-warning)]">
                 استكمال قاعدة المعرفة
               </p>
-              <p className="text-sm text-amber-800">
+              <p className="text-sm text-[var(--text-secondary)]">
                 نسبة اكتمالك الحالية {checklistPercent}% - أكمل النقاط لتحسين
                 دقة ردود الذكاء الاصطناعي.
               </p>
@@ -1017,9 +1017,9 @@ export default function KnowledgeBasePage() {
             {checklistItems.map((item, idx) => (
               <div key={idx} className="flex items-center gap-2 text-sm">
                 {item.done ? (
-                  <CheckCircle className="h-4 w-4 text-green-600" />
+                  <CheckCircle className="h-4 w-4 text-[var(--accent-success)]" />
                 ) : (
-                  <AlertTriangle className="h-4 w-4 text-amber-500" />
+                  <AlertTriangle className="h-4 w-4 text-[var(--accent-warning)]" />
                 )}
                 <span
                   className={
@@ -1092,7 +1092,7 @@ export default function KnowledgeBasePage() {
                 <p className="text-sm text-muted-foreground">عناصر الكتالوج</p>
                 <p className="text-2xl font-bold">{stats.menuItems}</p>
               </div>
-              <Package className="h-8 w-8 text-orange-500" />
+              <Package className="h-8 w-8 text-[var(--accent-warning)]" />
             </div>
           </CardContent>
         </Card>
@@ -1101,11 +1101,11 @@ export default function KnowledgeBasePage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">متاح للبيع</p>
-                <p className="text-2xl font-bold text-green-600">
+                <p className="text-2xl font-bold text-[var(--accent-success)]">
                   {stats.availableItems}
                 </p>
               </div>
-              <CheckCircle className="h-8 w-8 text-green-500" />
+              <CheckCircle className="h-8 w-8 text-[var(--accent-success)]" />
             </div>
           </CardContent>
         </Card>
@@ -1116,7 +1116,7 @@ export default function KnowledgeBasePage() {
                 <p className="text-sm text-muted-foreground">الأسئلة الشائعة</p>
                 <p className="text-2xl font-bold">{stats.faqs}</p>
               </div>
-              <HelpCircle className="h-8 w-8 text-blue-500" />
+              <HelpCircle className="h-8 w-8 text-[var(--accent-blue)]" />
             </div>
           </CardContent>
         </Card>
@@ -1125,11 +1125,11 @@ export default function KnowledgeBasePage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">أسئلة مفعّلة</p>
-                <p className="text-2xl font-bold text-green-600">
+                <p className="text-2xl font-bold text-[var(--accent-success)]">
                   {stats.activeFaqs}
                 </p>
               </div>
-              <MessageSquare className="h-8 w-8 text-purple-500" />
+              <MessageSquare className="h-8 w-8 text-[var(--accent-gold)]" />
             </div>
           </CardContent>
         </Card>
@@ -1356,7 +1356,7 @@ export default function KnowledgeBasePage() {
                           {item.category}
                         </Badge>
                         {item.has_recipe && (
-                          <Badge className="mr-1 bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 text-xs">
+                          <Badge className="mr-1 border-0 bg-[var(--accent-warning)]/15 text-xs text-[var(--accent-warning)]">
                             <ChefHat className="h-3 w-3 ml-1" />
                             وصفة
                           </Badge>
@@ -1371,7 +1371,7 @@ export default function KnowledgeBasePage() {
                           disabled={!canEdit}
                           className={
                             item.has_recipe
-                              ? "text-orange-600"
+                              ? "text-[var(--accent-warning)]"
                               : "text-muted-foreground"
                           }
                         >
@@ -1408,7 +1408,7 @@ export default function KnowledgeBasePage() {
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <ChefHat className="h-5 w-5 text-orange-500" />
+                    <ChefHat className="h-5 w-5 text-[var(--accent-warning)]" />
                     <CardTitle className="text-base">
                       وصفة: {recipeItem.name}
                     </CardTitle>
@@ -1490,7 +1490,7 @@ export default function KnowledgeBasePage() {
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <div className="flex-1">
                         <div className="mb-1 flex flex-wrap items-center gap-2">
-                          <HelpCircle className="h-4 w-4 text-blue-500" />
+                          <HelpCircle className="h-4 w-4 text-[var(--accent-blue)]" />
                           <h4 className="font-medium">{faq.question}</h4>
                           <Badge variant="outline">{faq.category}</Badge>
                           {!faq.isActive && (
@@ -2251,7 +2251,7 @@ export default function KnowledgeBasePage() {
               <div className="max-h-40 overflow-y-auto space-y-2 text-sm text-muted-foreground">
                 {autoFaqs.slice(0, 6).map((faq) => (
                   <div key={faq.id} className="flex items-start gap-2">
-                    <CheckCircle className="h-4 w-4 text-green-600 mt-0.5" />
+                    <CheckCircle className="mt-0.5 h-4 w-4 text-[var(--accent-success)]" />
                     <span>{faq.question}</span>
                   </div>
                 ))}

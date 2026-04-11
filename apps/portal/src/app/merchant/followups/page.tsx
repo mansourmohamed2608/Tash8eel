@@ -67,31 +67,31 @@ const FOLLOWUP_CONFIG: Record<
 > = {
   cod_collection: {
     label: "تحصيل الدفع عند الاستلام",
-    color: "bg-orange-100 text-orange-800",
+    color: "bg-[var(--accent-warning)]/12 text-[var(--accent-warning)]",
     icon: Banknote,
     description: "طلبات تم تسليمها ولم يتم تحصيل مبلغ COD",
   },
   feedback_request: {
     label: "طلب تقييم",
-    color: "bg-blue-100 text-blue-800",
+    color: "bg-[var(--accent-blue)]/12 text-[var(--accent-blue)]",
     icon: Star,
     description: "طلبات تم تسليمها منذ 3+ أيام بدون تقييم",
   },
   delivery_check: {
     label: "التحقق من التسليم",
-    color: "bg-purple-100 text-purple-800",
+    color: "bg-[var(--accent-gold)]/12 text-[var(--accent-gold)]",
     icon: Truck,
     description: "طلبات مشحونة منذ 5+ أيام بدون تحديث",
   },
   abandoned_cart: {
     label: "السلات المتروكة",
-    color: "bg-amber-100 text-amber-800",
+    color: "bg-[var(--accent-warning)]/12 text-[var(--accent-warning)]",
     icon: ClipboardList,
     description: "عملاء توقفوا قبل إكمال الطلب وتحتاج محادثاتهم متابعة",
   },
   general: {
     label: "متابعة عامة",
-    color: "bg-gray-100 text-gray-800",
+    color: "bg-[var(--bg-surface-2)] text-[var(--text-secondary)]",
     icon: ClipboardList,
     description: "متابعات أخرى",
   },
@@ -400,7 +400,7 @@ export default function FollowupsPage() {
                   return (
                     <div
                       key={followup.id}
-                      className="rounded-[22px] border border-[color:color-mix(in_srgb,var(--border-strong)_86%,transparent)] bg-[color:color-mix(in_srgb,var(--surface)_96%,transparent)] p-4 shadow-[0_16px_34px_-28px_rgba(15,23,42,0.4)]"
+                      className="rounded-[22px] border border-[color:color-mix(in_srgb,var(--border-strong)_86%,transparent)] bg-[color:color-mix(in_srgb,var(--surface)_96%,transparent)] p-4"
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
@@ -490,7 +490,7 @@ export default function FollowupsPage() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="gap-1 w-full text-green-600 hover:bg-green-50 hover:text-green-700 sm:w-auto"
+                          className="w-full gap-1 text-[var(--accent-success)] hover:bg-[var(--accent-success)]/10 hover:text-[var(--accent-success)] sm:w-auto"
                           onClick={() => void handleMarkComplete(followup.id)}
                           disabled={completingId === followup.id}
                         >
@@ -606,7 +606,7 @@ export default function FollowupsPage() {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="gap-1 text-green-600 hover:text-green-700 hover:bg-green-50"
+                                className="gap-1 text-[var(--accent-success)] hover:bg-[var(--accent-success)]/10 hover:text-[var(--accent-success)]"
                                 onClick={() =>
                                   void handleMarkComplete(followup.id)
                                 }

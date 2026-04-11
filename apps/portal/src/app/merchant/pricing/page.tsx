@@ -315,7 +315,7 @@ export default function MerchantPricingPage() {
               <div className="flex flex-wrap items-center gap-2">
                 <div className="text-base font-semibold">{plan.nameAr}</div>
                 {plan.cashierPromoEligible ? (
-                  <Badge className="bg-emerald-600 text-white">
+                  <Badge className="border-0 bg-[var(--accent-success)]/15 text-[var(--accent-success)]">
                     Cashier promo
                   </Badge>
                 ) : null}
@@ -344,12 +344,12 @@ export default function MerchantPricingPage() {
       </Card>
 
       {chatOnlyPlan ? (
-        <Card className="app-data-card border-2 border-cyan-300 bg-cyan-50/40">
+        <Card className="app-data-card border-2 border-[var(--accent-blue)]/20 bg-[var(--accent-blue)]/10">
           <CardHeader>
             <div className="flex flex-wrap items-center gap-2">
               <CardTitle>{chatOnlyPlan.nameAr}</CardTitle>
               <Badge variant="secondary">Narrower chat product</Badge>
-              <Badge className="bg-cyan-600 text-white">
+              <Badge className="border-0 bg-[var(--accent-blue)]/15 text-[var(--accent-blue)]">
                 Higher chat capacity than Starter
               </Badge>
             </div>
@@ -435,7 +435,7 @@ export default function MerchantPricingPage() {
                     <Badge variant="secondary">Chat-only</Badge>
                   ) : null}
                   {plan.cashierPromoEligible ? (
-                    <Badge className="bg-emerald-600 text-white">
+                    <Badge className="border-0 bg-[var(--accent-success)]/15 text-[var(--accent-success)]">
                       Cashier promo
                     </Badge>
                   ) : null}

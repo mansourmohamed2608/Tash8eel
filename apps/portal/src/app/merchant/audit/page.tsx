@@ -164,14 +164,14 @@ const buildChangesFromValues = (
 };
 
 const actionColors: Record<string, string> = {
-  CREATE: "bg-green-500",
-  UPDATE: "bg-blue-500",
-  DELETE: "bg-red-500",
-  VIEW: "bg-gray-500",
-  LOGIN: "bg-purple-500",
-  LOGOUT: "bg-purple-300",
-  EXPORT: "bg-yellow-500",
-  IMPORT: "bg-cyan-500",
+  CREATE: "border-0 bg-[var(--accent-success)]/15 text-[var(--accent-success)]",
+  UPDATE: "border-0 bg-[var(--accent-blue)]/15 text-[var(--accent-blue)]",
+  DELETE: "border-0 bg-[var(--accent-danger)]/15 text-[var(--accent-danger)]",
+  VIEW: "border-0 bg-[var(--bg-surface-3)] text-[var(--text-secondary)]",
+  LOGIN: "border-0 bg-[var(--accent-gold)]/15 text-[var(--accent-gold)]",
+  LOGOUT: "border-0 bg-[var(--accent-warning)]/15 text-[var(--accent-warning)]",
+  EXPORT: "border-0 bg-[var(--accent-warning)]/15 text-[var(--accent-warning)]",
+  IMPORT: "border-0 bg-[var(--accent-blue)]/15 text-[var(--accent-blue)]",
 };
 
 const actionLabels: Record<string, string> = {
@@ -584,7 +584,7 @@ export default function AuditPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+        <Loader2 className="h-8 w-8 animate-spin text-[var(--accent-blue)]" />
       </div>
     );
   }
@@ -720,7 +720,7 @@ export default function AuditPage() {
             <CardTitle className="text-sm font-medium">
               التغييرات اليوم
             </CardTitle>
-            <Activity className="h-4 w-4 text-blue-500" />
+            <Activity className="h-4 w-4 text-[var(--accent-blue)]" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
@@ -736,7 +736,7 @@ export default function AuditPage() {
             <CardTitle className="text-sm font-medium">
               المستخدمون النشطون
             </CardTitle>
-            <Users className="h-4 w-4 text-green-500" />
+            <Users className="h-4 w-4 text-[var(--accent-success)]" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
@@ -745,10 +745,10 @@ export default function AuditPage() {
             <p className="text-xs text-muted-foreground">هذا الأسبوع</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="app-data-card">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">عمليات الحذف</CardTitle>
-            <FileText className="h-4 w-4 text-red-500" />
+            <FileText className="h-4 w-4 text-[var(--accent-danger)]" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
@@ -1045,9 +1045,7 @@ export default function AuditPage() {
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0 space-y-1">
                           <div className="flex items-center gap-2">
-                            <Badge className={`${actionColor} text-white`}>
-                              {actionLabel}
-                            </Badge>
+                            <Badge className={actionColor}>{actionLabel}</Badge>
                             <span className="text-xs text-muted-foreground">
                               {formatTimeSince(log.timestamp)}
                             </span>
@@ -1086,9 +1084,7 @@ export default function AuditPage() {
                                     الإجراء
                                   </label>
                                   <div className="mt-1">
-                                    <Badge
-                                      className={`${actionColor} text-white`}
-                                    >
+                                    <Badge className={actionColor}>
                                       {actionLabel}
                                     </Badge>
                                   </div>
@@ -1148,11 +1144,11 @@ export default function AuditPage() {
                                         <span className="font-medium break-all">
                                           {change.field}:
                                         </span>
-                                        <span className="break-words text-red-600 line-through">
+                                        <span className="break-words text-[var(--accent-danger)] line-through">
                                           {formatChangeValue(change.from)}
                                         </span>
                                         <span>→</span>
-                                        <span className="break-words text-green-600">
+                                        <span className="break-words text-[var(--accent-success)]">
                                           {formatChangeValue(change.to)}
                                         </span>
                                       </div>
@@ -1257,9 +1253,7 @@ export default function AuditPage() {
                       return (
                         <TableRow key={log.id}>
                           <TableCell className="text-center align-middle w-24">
-                            <Badge className={`${actionColor} text-white`}>
-                              {actionLabel}
-                            </Badge>
+                            <Badge className={actionColor}>{actionLabel}</Badge>
                           </TableCell>
                           <TableCell className="text-right w-56">
                             <div className="flex w-full items-center gap-2 text-right flex-row-reverse">
@@ -1303,7 +1297,7 @@ export default function AuditPage() {
                           </TableCell>
                           <TableCell className="text-right w-40">
                             <div className="flex w-full items-center gap-2 text-right flex-row-reverse">
-                              <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white text-xs font-bold">
+                              <div className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--accent-blue)]/30 bg-[var(--accent-blue)]/10 text-xs font-bold text-[var(--accent-blue)]">
                                 {isSystem ? (
                                   <Server className="h-4 w-4" />
                                 ) : (
@@ -1376,9 +1370,7 @@ export default function AuditPage() {
                                         الإجراء
                                       </label>
                                       <div className="mt-1">
-                                        <Badge
-                                          className={`${actionColor} text-white`}
-                                        >
+                                        <Badge className={actionColor}>
                                           {actionLabel}
                                         </Badge>
                                       </div>
@@ -1502,11 +1494,11 @@ export default function AuditPage() {
                                             <span className="font-medium break-all">
                                               {change.field}:
                                             </span>
-                                            <span className="break-words text-red-600 line-through">
+                                            <span className="break-words text-[var(--accent-danger)] line-through">
                                               {formatChangeValue(change.from)}
                                             </span>
                                             <span>→</span>
-                                            <span className="break-words text-green-600">
+                                            <span className="break-words text-[var(--accent-success)]">
                                               {formatChangeValue(change.to)}
                                             </span>
                                           </div>
@@ -1597,7 +1589,7 @@ export default function AuditPage() {
                 {safeSummary.byAction.map((item) => (
                   <div key={item.action} className="flex items-center gap-3">
                     <Badge
-                      className={`${actionColors[item.action]} text-white w-20 justify-center`}
+                      className={`${actionColors[item.action]} w-20 justify-center`}
                     >
                       {actionLabels[item.action]}
                     </Badge>
@@ -1667,7 +1659,7 @@ export default function AuditPage() {
                       key={staff.staffId}
                       className="flex items-center gap-3 p-3 bg-muted rounded-lg"
                     >
-                      <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full border border-[var(--accent-blue)]/30 bg-[var(--accent-blue)]/10 font-bold text-[var(--accent-blue)]">
                         {staff.name.charAt(0)}
                       </div>
                       <div className="flex-1">

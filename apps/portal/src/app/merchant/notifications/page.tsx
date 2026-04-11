@@ -122,11 +122,11 @@ const getNotificationIcon = (type: string) => {
 const getPriorityColor = (priority: string) => {
   switch (priority) {
     case "URGENT":
-      return "bg-red-100 text-red-800 border-red-200";
+      return "bg-[var(--accent-danger)]/12 text-[var(--accent-danger)] border-[var(--accent-danger)]/20";
     case "HIGH":
-      return "bg-orange-100 text-orange-800 border-orange-200";
+      return "bg-[var(--accent-warning)]/12 text-[var(--accent-warning)] border-[var(--accent-warning)]/20";
     case "MEDIUM":
-      return "bg-blue-100 text-blue-800 border-blue-200";
+      return "bg-[var(--accent-blue)]/12 text-[var(--accent-blue)] border-[var(--accent-blue)]/20";
     default:
       return "bg-muted text-muted-foreground border";
   }
@@ -480,10 +480,10 @@ export default function NotificationsPage() {
       />
 
       {error && (
-        <Card className="border-destructive bg-destructive/10">
+        <Card className="border-[var(--accent-danger)]/20 bg-[var(--accent-danger)]/10">
           <CardContent className="py-4 flex items-center gap-2">
-            <AlertCircle className="w-5 h-5 text-destructive" />
-            <span className="text-destructive">{error}</span>
+            <AlertCircle className="w-5 h-5 text-[var(--accent-danger)]" />
+            <span className="text-[var(--accent-danger)]">{error}</span>
           </CardContent>
         </Card>
       )}
@@ -645,9 +645,9 @@ export default function NotificationsPage() {
         {/* Settings Tab */}
         <TabsContent value="settings" className="space-y-6">
           {preferencesDirty && (
-            <Card className="border-amber-200 bg-amber-50/60">
+            <Card className="border-[var(--accent-warning)]/20 bg-[var(--accent-warning)]/10">
               <CardContent className="py-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex items-center gap-2 text-amber-800">
+                <div className="flex items-center gap-2 text-[var(--accent-warning)]">
                   <AlertCircle className="w-4 h-4" />
                   <span>لديك تغييرات غير محفوظة</span>
                 </div>
@@ -677,8 +677,8 @@ export default function NotificationsPage() {
             </Card>
           )}
 
-          <Card className="border-blue-200 bg-blue-50/50">
-            <CardContent className="py-3 text-sm text-blue-900">
+          <Card className="border-[var(--accent-blue)]/20 bg-[var(--accent-blue)]/10">
+            <CardContent className="py-3 text-sm text-[var(--accent-blue)]">
               أدخل بريدك ورقم واتساب فقط. إعدادات مزوّد البريد والواتساب تُدار
               مركزياً بواسطة النظام.
             </CardContent>
@@ -850,7 +850,7 @@ export default function NotificationsPage() {
           {merchantSettingsDirty && (
             <Card className="border-amber-200 bg-amber-50/60">
               <CardContent className="py-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex items-center gap-2 text-amber-800">
+                <div className="flex items-center gap-2 text-[var(--accent-warning)]">
                   <AlertCircle className="w-4 h-4" />
                   <span>لديك تغييرات غير محفوظة في إشعارات التشغيل</span>
                 </div>

@@ -76,8 +76,8 @@ export default function FifoValuationPage() {
             </Button>
           }
         />
-        <Card className="border-red-200 bg-red-50">
-          <CardContent className="py-6 text-red-700 text-sm">
+        <Card className="border-[var(--accent-danger)]/20 bg-[var(--accent-danger)]/10">
+          <CardContent className="py-6 text-sm text-[var(--accent-danger)]">
             {error}
           </CardContent>
         </Card>
@@ -130,8 +130,8 @@ export default function FifoValuationPage() {
       />
 
       {usingEstimatedMethod && (
-        <Card className="border-amber-200 bg-amber-50">
-          <CardContent className="py-4 flex items-start gap-2 text-amber-900 text-sm">
+        <Card className="border-[var(--accent-warning)]/20 bg-[var(--accent-warning)]/10">
+          <CardContent className="flex items-start gap-2 py-4 text-sm text-[var(--text-secondary)]">
             <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
             <p>
               لا توجد طبقات FIFO كافية، لذلك يعرض النظام تقديراً من تكلفة
@@ -146,17 +146,17 @@ export default function FifoValuationPage() {
         <StatCard
           title="قيمة التكلفة"
           value={formatCurrency(calculatedSummary.totalCostValue)}
-          icon={<DollarSign className="h-5 w-5 text-blue-600" />}
+          icon={<DollarSign className="h-5 w-5 text-[var(--accent-blue)]" />}
         />
         <StatCard
           title="قيمة المخزون بسعر البيع"
           value={formatCurrency(calculatedSummary.totalRetailValue)}
-          icon={<TrendingUp className="h-5 w-5 text-green-600" />}
+          icon={<TrendingUp className="h-5 w-5 text-[var(--accent-success)]" />}
         />
         <StatCard
           title="هامش الربح التقديري"
           value={`${calculatedSummary.overallMarginPct || 0}%`}
-          icon={<BarChart3 className="h-5 w-5 text-purple-600" />}
+          icon={<BarChart3 className="h-5 w-5 text-[var(--accent-gold)]" />}
         />
         <StatCard
           title="عدد الأكواد (SKU)"
@@ -165,8 +165,8 @@ export default function FifoValuationPage() {
         />
       </KPIGrid>
 
-      <Card className="border-blue-200 bg-blue-50">
-        <CardContent className="py-3 text-xs text-blue-900">
+      <Card className="border-[var(--accent-blue)]/20 bg-[var(--accent-blue)]/10">
+        <CardContent className="py-3 text-xs text-[var(--text-secondary)]">
           هذه الصفحة تحسب قيمة المخزون الحالية، وليست إجمالي الإيرادات المحققة
           من الطلبات. الأرقام أعلى الصفحة محسوبة من نفس صفوف الجدول أدناه.
         </CardContent>

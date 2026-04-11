@@ -63,7 +63,7 @@ function ChangeChip({ value }: { value: number | null }) {
   const positive = value >= 0;
   return (
     <span
-      className={`text-xs font-semibold ${positive ? "text-green-600" : "text-red-500"}`}
+      className={`text-xs font-semibold ${positive ? "text-[var(--accent-success)]" : "text-[var(--accent-danger)]"}`}
     >
       {positive ? "▲" : "▼"} {Math.abs(value).toFixed(1)}%
     </span>
@@ -258,7 +258,7 @@ export default function BranchPLPage() {
             <Card>
               <CardContent className="pt-4">
                 <p className="text-xs text-muted-foreground">إجمالي المصاريف</p>
-                <p className="text-2xl font-bold mt-1 text-red-600">
+                <p className="mt-1 text-2xl font-bold text-[var(--accent-danger)]">
                   {formatCurrency(exp?.totalExpenses)}
                 </p>
               </CardContent>
@@ -271,7 +271,7 @@ export default function BranchPLPage() {
               <CardContent className="pt-4">
                 <p className="text-xs text-muted-foreground">صافي الربح</p>
                 <p
-                  className={`text-2xl font-bold mt-1 ${prof?.netProfit >= 0 ? "text-green-600" : "text-red-600"}`}
+                  className={`mt-1 text-2xl font-bold ${prof?.netProfit >= 0 ? "text-[var(--accent-success)]" : "text-[var(--accent-danger)]"}`}
                 >
                   {formatCurrency(prof?.netProfit)}
                 </p>
@@ -292,13 +292,13 @@ export default function BranchPLPage() {
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
-                <TrendingUp className="h-4 w-4 text-green-600" />
+                <TrendingUp className="h-4 w-4 text-[var(--accent-success)]" />
                 الإيرادات
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
               <div className="space-y-3 p-4 md:hidden">
-                <Card className="border-none shadow-none">
+                <Card className="border-[var(--border-subtle)] bg-[var(--bg-surface-2)]">
                   <CardContent className="space-y-3 p-0 text-sm">
                     <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                       <span className="font-medium">إجمالي الإيرادات</span>
@@ -312,7 +312,7 @@ export default function BranchPLPage() {
                     </div>
                     <div className="flex flex-col gap-1 text-xs sm:flex-row sm:items-center sm:justify-between">
                       <span className="text-muted-foreground">الخصومات</span>
-                      <span className="text-red-500">
+                      <span className="text-[var(--accent-danger)]">
                         ({formatCurrency(rev?.discounts)})
                       </span>
                     </div>
@@ -348,7 +348,7 @@ export default function BranchPLPage() {
                         الخصومات
                       </TableCell>
                       <TableCell />
-                      <TableCell className="text-right text-red-500">
+                      <TableCell className="text-right text-[var(--accent-danger)]">
                         ({formatCurrency(rev?.discounts)})
                       </TableCell>
                     </TableRow>
@@ -389,7 +389,7 @@ export default function BranchPLPage() {
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
-                <TrendingDown className="h-4 w-4 text-red-500" />
+                <TrendingDown className="h-4 w-4 text-[var(--accent-danger)]" />
                 المصاريف
               </CardTitle>
             </CardHeader>
@@ -467,7 +467,7 @@ export default function BranchPLPage() {
                 </div>
                 <div className="flex flex-col gap-1 text-sm sm:flex-row sm:items-center sm:justify-between">
                   <span className="font-medium">إجمالي المصاريف</span>
-                  <span className="text-red-500">
+                  <span className="text-[var(--accent-danger)]">
                     ({formatCurrency(exp?.totalExpenses)})
                   </span>
                 </div>
@@ -475,7 +475,9 @@ export default function BranchPLPage() {
                   <span>صافي الربح</span>
                   <span
                     className={
-                      prof?.netProfit >= 0 ? "text-green-600" : "text-red-600"
+                      prof?.netProfit >= 0
+                        ? "text-[var(--accent-success)]"
+                        : "text-[var(--accent-danger)]"
                     }
                   >
                     {formatCurrency(prof?.netProfit)}
@@ -514,7 +516,7 @@ export default function BranchPLPage() {
                       <TableCell className="font-medium">
                         إجمالي المصاريف
                       </TableCell>
-                      <TableCell className="text-right text-red-500">
+                      <TableCell className="text-right text-[var(--accent-danger)]">
                         ({formatCurrency(exp?.totalExpenses)})
                       </TableCell>
                     </TableRow>
@@ -522,7 +524,7 @@ export default function BranchPLPage() {
                     <TableRow className="bg-muted/40 font-bold text-base">
                       <TableCell>صافي الربح</TableCell>
                       <TableCell
-                        className={`text-right ${prof?.netProfit >= 0 ? "text-green-600" : "text-red-600"}`}
+                        className={`text-right ${prof?.netProfit >= 0 ? "text-[var(--accent-success)]" : "text-[var(--accent-danger)]"}`}
                       >
                         {formatCurrency(prof?.netProfit)}
                       </TableCell>

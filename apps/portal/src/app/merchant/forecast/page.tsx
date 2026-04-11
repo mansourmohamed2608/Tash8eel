@@ -62,17 +62,26 @@ function getDefaultWhatIfParams(
 // ─── Urgency badge helper ─────────────────────────────────────────────────────
 const UrgencyBadge = ({ urgency }: { urgency: string }) => {
   const map: Record<string, { label: string; cls: string }> = {
-    critical: { label: "حرج", cls: "bg-red-100 text-red-700 border-red-200" },
+    critical: {
+      label: "حرج",
+      cls: "border-[var(--accent-danger)]/25 bg-[var(--accent-danger)]/12 text-[var(--accent-danger)]",
+    },
     high: {
       label: "مرتفع",
-      cls: "bg-orange-100 text-orange-700 border-orange-200",
+      cls: "border-[var(--accent-warning)]/25 bg-[var(--accent-warning)]/12 text-[var(--accent-warning)]",
     },
     medium: {
       label: "متوسط",
-      cls: "bg-yellow-100 text-yellow-700 border-yellow-200",
+      cls: "border-[var(--accent-warning)]/25 bg-[var(--accent-warning)]/12 text-[var(--accent-warning)]",
     },
-    low: { label: "منخفض", cls: "bg-blue-100 text-blue-700 border-blue-200" },
-    ok: { label: "جيد", cls: "bg-green-100 text-green-700 border-green-200" },
+    low: {
+      label: "منخفض",
+      cls: "border-[var(--accent-blue)]/25 bg-[var(--accent-blue)]/12 text-[var(--accent-blue)]",
+    },
+    ok: {
+      label: "جيد",
+      cls: "border-[var(--accent-success)]/25 bg-[var(--accent-success)]/12 text-[var(--accent-success)]",
+    },
   };
   const { label, cls } = map[urgency] ?? map.ok;
   return (
@@ -88,10 +97,14 @@ const UrgencyBadge = ({ urgency }: { urgency: string }) => {
 const ConfidenceBar = ({ value }: { value: number }) => {
   const pct = Math.round(value * 100);
   const color =
-    pct >= 75 ? "bg-green-500" : pct >= 50 ? "bg-yellow-500" : "bg-red-400";
+    pct >= 75
+      ? "bg-[var(--accent-success)]"
+      : pct >= 50
+        ? "bg-[var(--accent-warning)]"
+        : "bg-[var(--accent-danger)]";
   return (
-    <div className="flex items-center gap-2 text-xs text-gray-500">
-      <div className="w-20 h-1.5 rounded-full bg-gray-200 overflow-hidden">
+    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+      <div className="h-1.5 w-20 overflow-hidden rounded-full bg-[var(--bg-surface-3)]">
         <div
           className={cn("h-full rounded-full", color)}
           style={{ width: `${pct}%` }}
@@ -148,8 +161,10 @@ export default function ForecastPage() {
   // Load data
   const moduleNotice = (key: string, text: string) =>
     moduleErrors[key] ? (
-      <Card className="border border-amber-200 bg-amber-50 shadow-none">
-        <CardContent className="p-3 text-sm text-amber-800">{text}</CardContent>
+      <Card className="border border-[var(--accent-warning)]/20 bg-[var(--accent-warning)]/12">
+        <CardContent className="p-3 text-sm text-[var(--accent-warning)]">
+          {text}
+        </CardContent>
       </Card>
     ) : null;
 
@@ -442,36 +457,41 @@ export default function ForecastPage() {
             {
               label: "حرج",
               value: demandData.summary.critical,
-              color: "text-red-600",
+              color: "text-[var(--accent-danger)]",
               icon: AlertTriangle,
             },
             {
               label: "مرتفع",
               value: demandData.summary.high,
-              color: "text-orange-600",
+              color: "text-[var(--accent-warning)]",
               icon: TrendingDown,
             },
             {
               label: "عملاء معرضون للاضطراب",
               value: churnData?.summary?.critical ?? 0,
-              color: "text-purple-600",
+              color: "text-[var(--accent-gold)]",
               icon: Users,
             },
             {
               label: "توصيات توريد",
               value: replenishment?.total ?? 0,
-              color: "text-blue-600",
+              color: "text-[var(--accent-blue)]",
               icon: PackageX,
             },
           ].map((s) => (
-            <Card key={s.label} className="border-0 shadow-sm">
+            <Card key={s.label} className="app-data-card">
               <CardContent className="p-4 flex items-center gap-3">
-                <div className={cn("p-2 rounded-lg bg-gray-100", s.color)}>
+                <div
+                  className={cn(
+                    "rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface-2)] p-2",
+                    s.color,
+                  )}
+                >
                   <s.icon className="w-5 h-5" />
                 </div>
                 <div>
                   <p className="text-2xl font-bold">{s.value}</p>
-                  <p className="text-xs text-gray-500">{s.label}</p>
+                  <p className="text-xs text-muted-foreground">{s.label}</p>
                 </div>
               </CardContent>
             </Card>
@@ -536,14 +556,14 @@ export default function ForecastPage() {
                 <SelectItem value="ok">جيد</SelectItem>
               </SelectContent>
             </Select>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-muted-foreground">
               {demandData?.total ?? 0} منتج
             </p>
           </div>
 
           {/* Product history chart */}
           {selectedProduct && productHistory && (
-            <Card className="border-0 shadow-sm">
+            <Card className="app-data-card">
               <CardHeader>
                 <CardTitle className="text-base">
                   {productHistory.productName} - تاريخ المبيعات والتوقعات
@@ -551,7 +571,7 @@ export default function ForecastPage() {
               </CardHeader>
               <CardContent>
                 {historyLoading ? (
-                  <div className="h-48 flex items-center justify-center text-gray-400">
+                  <div className="h-48 flex items-center justify-center text-muted-foreground">
                     جاري التحميل...
                   </div>
                 ) : (
@@ -581,11 +601,11 @@ export default function ForecastPage() {
                       <p className="font-bold text-lg">
                         {formatNumber(s.value)}
                       </p>
-                      <p className="text-xs text-gray-500">{s.label}</p>
+                      <p className="text-xs text-muted-foreground">{s.label}</p>
                     </div>
                   ))}
                 </div>
-                <div className="mt-3 flex flex-col gap-2 text-sm text-gray-500 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
+                <div className="mt-3 flex flex-col gap-2 text-sm text-muted-foreground sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
                   <span>دقة النموذج:</span>
                   <ConfidenceBar value={productHistory.confidence} />
                   <span>MAPE: {productHistory.mape7d}%</span>
@@ -596,7 +616,7 @@ export default function ForecastPage() {
 
           {/* Product table */}
           {!demandData?.items?.length ? (
-            <div className="py-12 text-center text-gray-400">
+            <div className="py-12 text-center text-muted-foreground">
               لا توجد بيانات - قم بتشغيل أول دورة تنبؤ أولاً
             </div>
           ) : (
@@ -605,7 +625,7 @@ export default function ForecastPage() {
                 {(demandData?.items ?? []).map((item: any) => (
                   <Card
                     key={item.productId}
-                    className="cursor-pointer border-0 shadow-sm"
+                    className="app-data-card cursor-pointer"
                     onClick={() => loadProductHistory(item.productId)}
                   >
                     <CardContent className="space-y-4 p-4">
@@ -614,7 +634,7 @@ export default function ForecastPage() {
                           <p className="truncate font-medium">
                             {item.productName}
                           </p>
-                          <p className="mt-1 text-xs text-gray-500">
+                          <p className="mt-1 text-xs text-muted-foreground">
                             المخزون الحالي: {formatNumber(item.currentStock)}
                           </p>
                         </div>
@@ -623,13 +643,13 @@ export default function ForecastPage() {
 
                       <div className="grid grid-cols-2 gap-3 text-sm">
                         <div>
-                          <p className="text-gray-500">أيام للنفاد</p>
+                          <p className="text-muted-foreground">أيام للنفاد</p>
                           <p
                             className={cn(
                               "font-medium",
                               item.daysUntilStockout !== null &&
                                 item.daysUntilStockout <= 7
-                                ? "text-red-600"
+                                ? "text-[var(--accent-danger)]"
                                 : "",
                             )}
                           >
@@ -639,27 +659,27 @@ export default function ForecastPage() {
                           </p>
                         </div>
                         <div>
-                          <p className="text-gray-500">توقع 7 أيام</p>
+                          <p className="text-muted-foreground">توقع 7 أيام</p>
                           <p className="font-medium">
                             {formatNumber(item.forecast7d)}
                           </p>
                         </div>
                         <div>
-                          <p className="text-gray-500">توقع 30 يوم</p>
+                          <p className="text-muted-foreground">توقع 30 يوم</p>
                           <p className="font-medium">
                             {formatNumber(item.forecast30d)}
                           </p>
                         </div>
                         <div>
-                          <p className="text-gray-500">الاتجاه</p>
+                          <p className="text-muted-foreground">الاتجاه</p>
                           <span
                             className={cn(
                               "flex items-center gap-1 text-xs",
                               item.trendPct >= 10
-                                ? "text-green-600"
+                                ? "text-[var(--accent-success)]"
                                 : item.trendPct <= -10
-                                  ? "text-red-600"
-                                  : "text-gray-500",
+                                  ? "text-[var(--accent-danger)]"
+                                  : "text-muted-foreground",
                             )}
                           >
                             {item.trendPct >= 10 ? (
@@ -674,7 +694,9 @@ export default function ForecastPage() {
                       </div>
 
                       <div>
-                        <p className="mb-1 text-xs text-gray-500">الثقة</p>
+                        <p className="mb-1 text-xs text-muted-foreground">
+                          الثقة
+                        </p>
                         <ConfidenceBar value={item.confidence} />
                       </div>
 
@@ -697,7 +719,7 @@ export default function ForecastPage() {
               <div className="hidden overflow-x-auto md:block">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b bg-gray-50 text-gray-600">
+                    <tr className="border-b border-[var(--border-subtle)] bg-[var(--bg-surface-2)] text-muted-foreground">
                       <th className="px-3 py-2 text-right">المنتج</th>
                       <th className="px-3 py-2 text-center">المخزون</th>
                       <th className="px-3 py-2 text-center">أيام للنفاد</th>
@@ -713,7 +735,7 @@ export default function ForecastPage() {
                     {(demandData?.items ?? []).map((item: any) => (
                       <tr
                         key={item.productId}
-                        className="cursor-pointer border-b hover:bg-gray-50"
+                        className="cursor-pointer border-b border-[var(--border-subtle)] hover:bg-[var(--bg-surface-2)]"
                         onClick={() => loadProductHistory(item.productId)}
                       >
                         <td className="max-w-[180px] truncate px-3 py-2 font-medium">
@@ -727,7 +749,7 @@ export default function ForecastPage() {
                             <span
                               className={cn(
                                 item.daysUntilStockout <= 7
-                                  ? "font-semibold text-red-600"
+                                  ? "font-semibold text-[var(--accent-danger)]"
                                   : "",
                               )}
                             >
@@ -748,10 +770,10 @@ export default function ForecastPage() {
                             className={cn(
                               "flex items-center justify-center gap-1 text-xs",
                               item.trendPct >= 10
-                                ? "text-green-600"
+                                ? "text-[var(--accent-success)]"
                                 : item.trendPct <= -10
-                                  ? "text-red-600"
-                                  : "text-gray-500",
+                                  ? "text-[var(--accent-danger)]"
+                                  : "text-muted-foreground",
                             )}
                           >
                             {item.trendPct >= 10 ? (
@@ -770,7 +792,7 @@ export default function ForecastPage() {
                           <ConfidenceBar value={item.confidence} />
                         </td>
                         <td
-                          className="px-3 py-2 text-center text-xs text-blue-600 hover:underline"
+                          className="px-3 py-2 text-center text-xs text-[var(--accent-blue)] hover:underline"
                           onClick={(e) => {
                             e.stopPropagation();
                             loadProductHistory(item.productId);
@@ -790,23 +812,23 @@ export default function ForecastPage() {
         {/* ─── REPLENISHMENT TAB ─────────────────────────────────────────── */}
         <TabsContent value="replenishment" className="space-y-4">
           {moduleNotice("replenishment", "بيانات التوريد غير متاحة مؤقتاً.")}
-          <h3 className="text-sm font-medium text-gray-700">
+          <h3 className="text-sm font-medium text-primary">
             توصيات أوامر الشراء المعلقة
           </h3>
           {!replenishment?.items?.length ? (
-            <div className="text-center py-12 text-gray-400">
+            <div className="py-12 text-center text-muted-foreground">
               لا توجد توصيات معلقة
             </div>
           ) : (
             <div className="space-y-3">
               {(replenishment?.items ?? []).map((item: any) => (
-                <Card key={item.id} className="border-0 shadow-sm">
+                <Card key={item.id} className="app-data-card">
                   <CardContent className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex-1">
                       <p className="font-medium">
                         {item.product_name ?? item.product_id}
                       </p>
-                      <div className="mt-1 flex flex-wrap gap-3 text-xs text-gray-500">
+                      <div className="mt-1 flex flex-wrap gap-3 text-xs text-muted-foreground">
                         <span>
                           توصية: <b>{formatNumber(item.recommended_qty)}</b>{" "}
                           وحدة
@@ -819,7 +841,7 @@ export default function ForecastPage() {
                           مخزون أمان: <b>{formatNumber(item.safety_stock)}</b>
                         </span>
                         {item.est_stockout_date && (
-                          <span className="text-red-500">
+                          <span className="text-[var(--accent-danger)]">
                             نفاد متوقع:{" "}
                             <b>
                               {new Date(
@@ -839,7 +861,7 @@ export default function ForecastPage() {
                         onClick={() => handleApprove(item.id)}
                         className="w-full sm:w-auto"
                       >
-                        <CheckSquare className="w-4 h-4 ml-1 text-green-600" />
+                        <CheckSquare className="ml-1 h-4 w-4 text-[var(--accent-success)]" />
                         موافقة
                       </Button>
                     </div>
@@ -860,17 +882,17 @@ export default function ForecastPage() {
                   {
                     label: "الرصيد الحالي (تقريبي)",
                     value: formatCurrency(cashflow.currentBalance),
-                    color: "text-blue-600",
+                    color: "text-[var(--accent-blue)]",
                   },
                   {
                     label: "متوسط الواردات اليومي",
                     value: formatCurrency(cashflow.avgDailyInflow),
-                    color: "text-green-600",
+                    color: "text-[var(--accent-success)]",
                   },
                   {
                     label: "متوسط الصادرات اليومي",
                     value: formatCurrency(cashflow.avgDailyOutflow),
-                    color: "text-red-600",
+                    color: "text-[var(--accent-danger)]",
                   },
                   {
                     label: "أيام الاحتياطي",
@@ -880,22 +902,24 @@ export default function ForecastPage() {
                         : "كافٍ",
                     color:
                       cashflow.runwayDays !== null && cashflow.runwayDays < 30
-                        ? "text-red-600"
-                        : "text-green-600",
+                        ? "text-[var(--accent-danger)]"
+                        : "text-[var(--accent-success)]",
                   },
                 ].map((s) => (
-                  <Card key={s.label} className="border-0 shadow-sm">
+                  <Card key={s.label} className="app-data-card">
                     <CardContent className="p-4">
                       <p className={cn("text-xl font-bold", s.color)}>
                         {s.value}
                       </p>
-                      <p className="text-xs text-gray-500 mt-1">{s.label}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {s.label}
+                      </p>
                     </CardContent>
                   </Card>
                 ))}
               </div>
 
-              <Card className="border-0 shadow-sm">
+              <Card className="app-data-card">
                 <CardHeader>
                   <CardTitle className="text-base">
                     توقع التدفق النقدي - 30 يوم
@@ -915,21 +939,23 @@ export default function ForecastPage() {
               </Card>
 
               {cashflow.riskDays?.length > 0 && (
-                <Card className="border-0 shadow-sm border-l-4 border-l-red-400">
+                <Card className="border border-[var(--accent-danger)]/20 bg-[var(--accent-danger)]/10">
                   <CardContent className="p-4">
-                    <p className="font-medium text-red-700 text-sm mb-2 flex items-center gap-2">
-                      <AlertTriangle className="w-4 h-4" /> أيام تحذير
+                    <p className="mb-2 flex items-center gap-2 text-sm font-medium text-[var(--accent-danger)]">
+                      <AlertTriangle className="h-4 w-4" /> أيام تحذير
                     </p>
                     <div className="space-y-1">
                       {cashflow.riskDays.slice(0, 5).map((rd: any) => (
                         <div
                           key={rd.date}
-                          className="text-xs text-gray-600 flex justify-between"
+                          className="flex justify-between text-xs text-secondary"
                         >
                           <span>
                             {new Date(rd.date).toLocaleDateString("ar-SA")}
                           </span>
-                          <span className="text-red-500">{rd.reason}</span>
+                          <span className="text-[var(--accent-danger)]">
+                            {rd.reason}
+                          </span>
                         </div>
                       ))}
                     </div>
@@ -945,10 +971,10 @@ export default function ForecastPage() {
           {moduleNotice("churn", "تحليل اضطراب العملاء غير متاح حالياً.")}
           <div className="grid grid-cols-3 gap-4 mb-2">
             {churnByRisk.map((r) => (
-              <Card key={r.name} className="border-0 shadow-sm text-center">
+              <Card key={r.name} className="app-data-card text-center">
                 <CardContent className="p-4">
                   <p className="text-2xl font-bold">{r.count}</p>
-                  <p className="text-xs text-gray-500">{r.name}</p>
+                  <p className="text-xs text-muted-foreground">{r.name}</p>
                 </CardContent>
               </Card>
             ))}
@@ -957,7 +983,7 @@ export default function ForecastPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b bg-gray-50 text-gray-600">
+                <tr className="border-b border-[var(--border-subtle)] bg-[var(--bg-surface-2)] text-muted-foreground">
                   <th className="px-3 py-2 text-right">العميل</th>
                   <th className="px-3 py-2 text-center">أيام منذ آخر طلب</th>
                   <th className="px-3 py-2 text-center">دورة الطلب</th>
@@ -968,10 +994,15 @@ export default function ForecastPage() {
               </thead>
               <tbody>
                 {(churnData?.items ?? []).map((c: any) => (
-                  <tr key={c.customerId} className="border-b hover:bg-gray-50">
+                  <tr
+                    key={c.customerId}
+                    className="border-b border-[var(--border-subtle)] hover:bg-[var(--bg-surface-2)]"
+                  >
                     <td className="px-3 py-2">
                       <p className="font-medium">{c.customerName}</p>
-                      <p className="text-xs text-gray-400">{c.customerPhone}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {c.customerPhone}
+                      </p>
                     </td>
                     <td className="px-3 py-2 text-center">
                       {c.daysSinceLastOrder}
@@ -984,10 +1015,10 @@ export default function ForecastPage() {
                         className={cn(
                           "font-semibold",
                           c.churnProbability >= 0.8
-                            ? "text-red-600"
+                            ? "text-[var(--accent-danger)]"
                             : c.churnProbability >= 0.5
-                              ? "text-orange-500"
-                              : "text-yellow-600",
+                              ? "text-[var(--accent-warning)]"
+                              : "text-[var(--accent-gold)]",
                         )}
                       >
                         {Math.round(c.churnProbability * 100)}%
@@ -996,7 +1027,7 @@ export default function ForecastPage() {
                     <td className="px-3 py-2 text-center">
                       {formatCurrency(c.lifetimeValue)}
                     </td>
-                    <td className="px-3 py-2 text-xs text-gray-600">
+                    <td className="px-3 py-2 text-xs text-secondary">
                       {c.recommendedAction}
                     </td>
                   </tr>
@@ -1004,7 +1035,7 @@ export default function ForecastPage() {
               </tbody>
             </table>
             {!churnData?.items?.length && (
-              <div className="text-center py-12 text-gray-400">
+              <div className="py-12 text-center text-muted-foreground">
                 لا توجد بيانات
               </div>
             )}
@@ -1017,7 +1048,7 @@ export default function ForecastPage() {
           {workforce && (
             <>
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                <Card className="border-0 shadow-sm">
+                <Card className="app-data-card">
                   <CardHeader>
                     <CardTitle className="text-sm">
                       متوسط الرسائل حسب اليوم
@@ -1031,7 +1062,7 @@ export default function ForecastPage() {
                     />
                   </CardContent>
                 </Card>
-                <Card className="border-0 shadow-sm">
+                <Card className="app-data-card">
                   <CardHeader>
                     <CardTitle className="text-sm">
                       متوسط الرسائل حسب الساعة
@@ -1047,7 +1078,7 @@ export default function ForecastPage() {
                 </Card>
               </div>
 
-              <Card className="border-0 shadow-sm">
+              <Card className="app-data-card">
                 <CardHeader>
                   <CardTitle className="text-sm">
                     توقعات الأسبوع القادم
@@ -1058,9 +1089,9 @@ export default function ForecastPage() {
                     {(workforce.nextSevenDays ?? []).map((d: any) => (
                       <div
                         key={d.date}
-                        className="text-center p-2 rounded bg-gray-50"
+                        className="rounded bg-[var(--bg-surface-2)] p-2 text-center"
                       >
-                        <p className="text-xs text-gray-500">
+                        <p className="text-xs text-muted-foreground">
                           {new Date(d.date).toLocaleDateString("ar-SA", {
                             weekday: "short",
                           })}
@@ -1068,11 +1099,11 @@ export default function ForecastPage() {
                         <p className="font-semibold mt-1">
                           {d.forecastMessages}
                         </p>
-                        <p className="text-xs text-gray-400">رسالة</p>
+                        <p className="text-xs text-muted-foreground">رسالة</p>
                       </div>
                     ))}
                   </div>
-                  <p className="text-xs text-gray-400 mt-3">
+                  <p className="mt-3 text-xs text-muted-foreground">
                     أوقات الذروة: <b>{workforce.peakDay}</b> الساعة{" "}
                     <b>{workforce.peakHour}:00</b>
                   </p>
@@ -1085,16 +1116,16 @@ export default function ForecastPage() {
         {/* ─── WHAT-IF TAB ───────────────────────────────────────────────── */}
         <TabsContent value="whatif" className="space-y-4">
           {whatIfError && (
-            <Card className="border border-amber-200 bg-amber-50 shadow-none">
-              <CardContent className="p-3 text-sm text-amber-800">
+            <Card className="border border-[var(--accent-warning)]/20 bg-[var(--accent-warning)]/12">
+              <CardContent className="p-3 text-sm text-[var(--accent-warning)]">
                 {whatIfError}
               </CardContent>
             </Card>
           )}
-          <Card className="border-0 shadow-sm">
+          <Card className="app-data-card">
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
-                <Brain className="w-5 h-5 text-purple-500" />
+                <Brain className="h-5 w-5 text-[var(--accent-gold)]" />
                 محاكي السيناريوهات
               </CardTitle>
             </CardHeader>
@@ -1146,7 +1177,7 @@ export default function ForecastPage() {
                     }
                     className="w-full"
                   />
-                  <p className="text-xs text-gray-400">
+                  <p className="text-xs text-muted-foreground">
                     المرونة السعرية المفترضة: -1.5 (1% ارتفاع سعر → 1.5% تراجع
                     حجم)
                   </p>
@@ -1278,8 +1309,8 @@ export default function ForecastPage() {
                   className={cn(
                     "p-4 rounded-lg border",
                     whatIfResult.delta >= 0
-                      ? "bg-green-50 border-green-200"
-                      : "bg-red-50 border-red-200",
+                      ? "bg-[var(--accent-success)]/12 border-[var(--accent-success)]/20"
+                      : "bg-[var(--accent-danger)]/12 border-[var(--accent-danger)]/20",
                   )}
                 >
                   <p className="font-semibold text-sm mb-3">
@@ -1290,35 +1321,35 @@ export default function ForecastPage() {
                       <p className="text-lg font-bold">
                         {formatNumber(whatIfResult.baselineValue)}
                       </p>
-                      <p className="text-xs text-gray-500">الأساس</p>
+                      <p className="text-xs text-muted-foreground">الأساس</p>
                     </div>
                     <div>
                       <p
                         className={cn(
                           "text-lg font-bold",
                           whatIfResult.delta >= 0
-                            ? "text-green-600"
-                            : "text-red-600",
+                            ? "text-[var(--accent-success)]"
+                            : "text-[var(--accent-danger)]",
                         )}
                       >
                         {whatIfResult.delta >= 0 ? "+" : ""}
                         {formatNumber(whatIfResult.delta)}
                       </p>
-                      <p className="text-xs text-gray-500">التغيير</p>
+                      <p className="text-xs text-muted-foreground">التغيير</p>
                     </div>
                     <div>
                       <p className="text-lg font-bold">
                         {formatNumber(whatIfResult.adjustedValue)}
                       </p>
-                      <p className="text-xs text-gray-500">المتوقع</p>
+                      <p className="text-xs text-muted-foreground">المتوقع</p>
                     </div>
                   </div>
                   <p
                     className={cn(
                       "text-center text-sm mt-2 font-medium",
                       whatIfResult.deltaPct >= 0
-                        ? "text-green-600"
-                        : "text-red-600",
+                        ? "text-[var(--accent-success)]"
+                        : "text-[var(--accent-danger)]",
                     )}
                   >
                     {whatIfResult.deltaPct >= 0 ? "+" : ""}
@@ -1361,20 +1392,22 @@ export default function ForecastPage() {
                   good: true,
                 },
               ].map((m) => (
-                <Card key={m.label} className="border-0 shadow-sm">
+                <Card key={m.label} className="app-data-card">
                   <CardContent className="p-4">
                     <div className="mb-1 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                      <span className="text-xs text-gray-500 font-mono">
+                      <span className="text-xs font-mono text-muted-foreground">
                         {m.label}
                       </span>
                       {m.good ? (
-                        <CheckCircle className="w-4 h-4 text-green-500" />
+                        <CheckCircle className="h-4 w-4 text-[var(--accent-success)]" />
                       ) : (
-                        <AlertTriangle className="w-4 h-4 text-orange-400" />
+                        <AlertTriangle className="h-4 w-4 text-[var(--accent-warning)]" />
                       )}
                     </div>
                     <p className="text-2xl font-bold">{m.value}</p>
-                    <p className="text-xs text-gray-400">{m.description}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {m.description}
+                    </p>
                   </CardContent>
                 </Card>
               ))}
@@ -1382,7 +1415,7 @@ export default function ForecastPage() {
           )}
 
           {metrics?.history?.length > 0 && (
-            <Card className="border-0 shadow-sm">
+            <Card className="app-data-card">
               <CardHeader>
                 <CardTitle className="text-sm">سجل دقة النموذج</CardTitle>
               </CardHeader>
@@ -1390,7 +1423,7 @@ export default function ForecastPage() {
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="border-b bg-gray-50 text-gray-600">
+                      <tr className="border-b border-[var(--border-subtle)] bg-[var(--bg-surface-2)] text-muted-foreground">
                         <th className="px-3 py-2 text-right">النوع</th>
                         <th className="px-3 py-2 text-center">MAPE</th>
                         <th className="px-3 py-2 text-center">WMAPE</th>
@@ -1401,7 +1434,10 @@ export default function ForecastPage() {
                     </thead>
                     <tbody>
                       {metrics.history.map((h: any, i: number) => (
-                        <tr key={i} className="border-b hover:bg-gray-50">
+                        <tr
+                          key={i}
+                          className="border-b border-[var(--border-subtle)] hover:bg-[var(--bg-surface-2)]"
+                        >
                           <td className="px-3 py-2 font-mono text-xs">
                             {h.forecast_type}
                           </td>
@@ -1411,7 +1447,7 @@ export default function ForecastPage() {
                           <td className="px-3 py-2 text-center">
                             {h.sample_size}
                           </td>
-                          <td className="px-3 py-2 text-center text-gray-400 text-xs">
+                          <td className="px-3 py-2 text-center text-xs text-muted-foreground">
                             {h.computed_at
                               ? new Date(h.computed_at).toLocaleDateString(
                                   "ar-SA",
@@ -1428,8 +1464,8 @@ export default function ForecastPage() {
           )}
 
           {!metrics?.latest && (
-            <div className="text-center py-16 text-gray-400">
-              <Brain className="w-10 h-10 mx-auto mb-3 opacity-30" />
+            <div className="py-16 text-center text-muted-foreground">
+              <Brain className="mx-auto mb-3 h-10 w-10 opacity-30" />
               <p>لا توجد مقاييس بعد - تعمل الدورة الليلية على حساب الدقة</p>
             </div>
           )}

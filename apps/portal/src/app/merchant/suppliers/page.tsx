@@ -630,7 +630,7 @@ export default function SuppliersPage() {
           onClick={() => openSupplierLookup("external")}
           className="w-full sm:w-auto"
         >
-          <Sparkles className="w-4 h-4 ml-1 text-purple-500" />
+          <Sparkles className="ml-1 h-4 w-4 text-[var(--accent-gold)]" />
           اكتشف موردين جدد
         </Button>
         <Button
@@ -646,10 +646,10 @@ export default function SuppliersPage() {
 
       {/* Auto-discovered supplier suggestions banner */}
       {autoSuggestions.length > 0 && (
-        <Card className="app-data-card border-purple-200 bg-purple-50/50">
+        <Card className="app-data-card border-[var(--accent-gold)]/20 bg-[var(--accent-gold-dim)]">
           <CardContent className="pt-4 pb-3">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex items-center gap-2 text-purple-800">
+              <div className="flex items-center gap-2 text-[var(--accent-gold)]">
                 <Sparkles className="w-4 h-4 shrink-0" />
                 <span className="font-medium text-sm">
                   الذكاء الاصطناعي اكتشف {autoSuggestions.length} مورّد محتمل
@@ -659,7 +659,7 @@ export default function SuppliersPage() {
               <Button
                 size="sm"
                 variant="outline"
-                className="w-full border-purple-300 text-purple-700 hover:bg-purple-100 sm:w-auto"
+                className="w-full border-[var(--accent-gold)]/25 text-[var(--accent-gold)] hover:bg-[var(--accent-gold-dim)] sm:w-auto"
                 onClick={() => {
                   openSupplierLookup("external", autoSuggestions.slice(0, 8));
                 }}
@@ -674,8 +674,8 @@ export default function SuppliersPage() {
 
       {/* Error */}
       {error && (
-        <Card className="app-data-card border-red-200 bg-red-50">
-          <CardContent className="pt-4 flex gap-2 items-center text-red-700">
+        <Card className="app-data-card border-[var(--accent-danger)]/20 bg-[var(--accent-danger)]/12">
+          <CardContent className="flex items-center gap-2 pt-4 text-[var(--accent-danger)]">
             <AlertCircle className="w-4 h-4 shrink-0" />
             {error}
           </CardContent>
@@ -703,7 +703,7 @@ export default function SuppliersPage() {
             ref={(node) => {
               supplierCardRefs.current[s.id] = node;
             }}
-            className={`app-data-card relative ${!s.is_active ? "opacity-60" : ""} ${highlightedSupplierId === s.id ? "ring-2 ring-blue-500 shadow-lg" : ""}`}
+            className={`app-data-card relative ${!s.is_active ? "opacity-60" : ""} ${highlightedSupplierId === s.id ? "border-[var(--accent-blue)]" : ""}`}
           >
             <CardHeader className="pb-2">
               <div className="flex items-start justify-between gap-2">
@@ -740,7 +740,7 @@ export default function SuppliersPage() {
               {/* Contact info */}
               <div className="flex flex-wrap gap-2 text-sm">
                 {s.whatsapp_phone && (
-                  <span className="flex items-center gap-1 text-green-700">
+                  <span className="flex items-center gap-1 text-[var(--accent-success)]">
                     <MessageSquare className="w-3.5 h-3.5" />
                     {s.whatsapp_phone}
                   </span>
@@ -757,7 +757,7 @@ export default function SuppliersPage() {
               <div className="flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2">
                 <div className="flex items-center gap-2">
                   {s.auto_notify_low_stock ? (
-                    <Bell className="w-4 h-4 text-amber-500" />
+                    <Bell className="w-4 h-4 text-[var(--accent-warning)]" />
                   ) : (
                     <BellOff className="w-4 h-4 text-muted-foreground" />
                   )}
@@ -798,7 +798,7 @@ export default function SuppliersPage() {
 
               {/* No WA phone warning */}
               {!s.whatsapp_phone && !s.phone && (
-                <div className="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 rounded px-2 py-1.5">
+                <div className="flex items-center gap-2 rounded px-2 py-1.5 text-xs text-[var(--accent-warning)] bg-[var(--accent-warning)]/12">
                   <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                   <span>لا يوجد رقم واتساب – </span>
                   <button
@@ -1042,7 +1042,7 @@ export default function SuppliersPage() {
             </div>
 
             {/* Auto-notify section */}
-            <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 space-y-3">
+            <div className="space-y-3 rounded-lg border border-[var(--accent-warning)]/20 bg-[var(--accent-warning)]/12 p-4">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="font-medium text-sm">
@@ -1122,7 +1122,7 @@ export default function SuppliersPage() {
           </DialogHeader>
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">
-              <MessageSquare className="w-3.5 h-3.5 inline ml-1 text-green-600" />
+              <MessageSquare className="ml-1 inline h-3.5 w-3.5 text-[var(--accent-success)]" />
               {msgTarget?.whatsapp_phone || msgTarget?.phone}
             </p>
             <Textarea
@@ -1196,9 +1196,9 @@ export default function SuppliersPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               {discoverMode === "internal" ? (
-                <Search className="w-5 h-5 text-blue-600" />
+                <Search className="h-5 w-5 text-[var(--accent-blue)]" />
               ) : (
-                <Sparkles className="w-5 h-5 text-purple-500" />
+                <Sparkles className="h-5 w-5 text-[var(--accent-gold)]" />
               )}
               {discoverMode === "internal"
                 ? "ابحث في مورديك"
@@ -1341,7 +1341,7 @@ export default function SuppliersPage() {
             )}
 
           {discoverMessage && (
-            <div className="rounded-lg border bg-amber-50 px-3 py-2 text-sm text-amber-900">
+            <div className="rounded-lg border border-[var(--accent-warning)]/20 bg-[var(--accent-warning)]/12 px-3 py-2 text-sm text-[var(--accent-warning)]">
               {discoverMessage}
             </div>
           )}
@@ -1349,7 +1349,7 @@ export default function SuppliersPage() {
           {discoverResults.length > 0 && (
             <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
               <div
-                className={`rounded-lg border px-3 py-2 text-xs font-medium ${discoverMode === "internal" ? "border-blue-200 bg-blue-50 text-blue-800" : "border-purple-200 bg-purple-50 text-purple-800"}`}
+                className={`rounded-lg border px-3 py-2 text-xs font-medium ${discoverMode === "internal" ? "border-[var(--accent-blue)]/20 bg-[var(--accent-blue)]/12 text-[var(--accent-blue)]" : "border-[var(--accent-gold)]/20 bg-[var(--accent-gold-dim)] text-[var(--accent-gold)]"}`}
               >
                 {discoverMode === "internal"
                   ? "نتائج من داخل نظامك"
@@ -1379,7 +1379,7 @@ export default function SuppliersPage() {
                       )}
                       {r.rating != null && (
                         <p className="text-xs flex items-center gap-1 mt-0.5">
-                          <Star className="w-3 h-3 text-yellow-500" />
+                          <Star className="h-3 w-3 text-[var(--accent-gold)]" />
                           {r.rating}
                           {r.totalRatings != null && (
                             <span className="text-muted-foreground">
@@ -1389,7 +1389,7 @@ export default function SuppliersPage() {
                         </p>
                       )}
                       {r.searchTip && (
-                        <p className="text-xs text-blue-600 mt-1">
+                        <p className="mt-1 text-xs text-[var(--accent-blue)]">
                           💡 {r.searchTip}
                         </p>
                       )}
@@ -1405,7 +1405,7 @@ export default function SuppliersPage() {
                         </p>
                       )}
                       {r.matchReasons && r.matchReasons.length > 0 && (
-                        <p className="text-xs text-blue-700 mt-1">
+                        <p className="mt-1 text-xs text-[var(--accent-blue)]">
                           {r.matchReasons.join(" · ")}
                         </p>
                       )}

@@ -177,7 +177,7 @@ export default function AiAuditPage() {
             <p className="text-sm text-muted-foreground">
               إجمالي القرارات المعروضة
             </p>
-            <p className="mt-1 text-2xl font-bold text-purple-700">
+            <p className="mt-1 text-2xl font-bold text-[var(--accent-gold)]">
               {decisions.length}
             </p>
             <p className="mt-2 text-xs text-muted-foreground">
@@ -189,7 +189,7 @@ export default function AiAuditPage() {
         <Card className="app-data-card border-[color:color-mix(in_srgb,var(--accent)_18%,var(--border-strong))] bg-[var(--accent-muted)]">
           <CardContent className="p-4">
             <p className="text-sm text-muted-foreground">أنواع القرارات</p>
-            <p className="mt-1 text-2xl font-bold text-blue-700">
+            <p className="mt-1 text-2xl font-bold text-[var(--accent-blue)]">
               {decisionTypes}
             </p>
             <p className="mt-2 text-xs text-muted-foreground">
@@ -200,7 +200,7 @@ export default function AiAuditPage() {
         <Card className="app-data-card border-[color:color-mix(in_srgb,var(--success)_18%,var(--border-strong))] bg-[var(--success-muted)]">
           <CardContent className="p-4">
             <p className="text-sm text-muted-foreground">متوسط الثقة</p>
-            <p className="mt-1 text-2xl font-bold text-emerald-700">
+            <p className="mt-1 text-2xl font-bold text-[var(--accent-success)]">
               {avgConfidence}%
             </p>
             <p className="mt-2 text-xs text-muted-foreground">
@@ -211,7 +211,7 @@ export default function AiAuditPage() {
         <Card className="app-data-card border-[color:color-mix(in_srgb,var(--warning)_18%,var(--border-strong))] bg-[var(--warning-muted)]">
           <CardContent className="p-4">
             <p className="text-sm text-muted-foreground">الوكلاء المشاركون</p>
-            <p className="mt-1 text-2xl font-bold text-amber-700">
+            <p className="mt-1 text-2xl font-bold text-[var(--accent-warning)]">
               {agentsInLog}
             </p>
             <p className="mt-2 text-xs text-muted-foreground">
@@ -227,19 +227,19 @@ export default function AiAuditPage() {
           value={stats
             .reduce((s: number, st: any) => s + parseInt(st.count), 0)
             .toString()}
-          icon={<Brain className="h-5 w-5 text-purple-600" />}
+          icon={<Brain className="h-5 w-5 text-[var(--accent-gold)]" />}
         />
         <StatCard
           title="أنواع القرارات"
           value={new Set(
             stats.map((s: any) => s.decision_type),
           ).size.toString()}
-          icon={<Activity className="h-5 w-5 text-blue-600" />}
+          icon={<Activity className="h-5 w-5 text-[var(--accent-blue)]" />}
         />
         <StatCard
           title="وكلاء نشطون"
           value={new Set(stats.map((s: any) => s.agent_type)).size.toString()}
-          icon={<Shield className="h-5 w-5 text-green-600" />}
+          icon={<Shield className="h-5 w-5 text-[var(--accent-success)]" />}
         />
       </KPIGrid>
 

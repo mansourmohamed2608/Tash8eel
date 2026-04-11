@@ -650,7 +650,7 @@ export default function InventoryInsightsPage() {
       case "warning":
       case "medium":
         return (
-          <Badge className="bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300">
+          <Badge className="border border-[var(--accent-warning)]/25 bg-[var(--accent-warning)]/12 text-[var(--accent-warning)]">
             تحذير
           </Badge>
         );
@@ -732,9 +732,17 @@ export default function InventoryInsightsPage() {
   ) => {
     if (status === "critical") return <Badge variant="destructive">حرج</Badge>;
     if (status === "warning")
-      return <Badge className="bg-yellow-100 text-yellow-700">تحذير</Badge>;
+      return (
+        <Badge className="border border-[var(--accent-warning)]/25 bg-[var(--accent-warning)]/12 text-[var(--accent-warning)]">
+          تحذير
+        </Badge>
+      );
     if (status === "good")
-      return <Badge className="bg-green-100 text-green-700">جيد</Badge>;
+      return (
+        <Badge className="border border-[var(--accent-success)]/25 bg-[var(--accent-success)]/12 text-[var(--accent-success)]">
+          جيد
+        </Badge>
+      );
     return <Badge variant="outline">محايد</Badge>;
   };
 
@@ -1669,9 +1677,9 @@ export default function InventoryInsightsPage() {
         </CardContent>
       </Card>
 
-      <Card className="border-blue-200 bg-blue-50/50 dark:border-blue-800 dark:bg-blue-950/20">
+      <Card className="app-data-card border-[var(--accent-blue)]/20 bg-[var(--accent-blue)]/10">
         <CardContent className="pt-4">
-          <p className="text-sm text-blue-900 dark:text-blue-200">
+          <p className="text-sm text-[var(--accent-blue)]">
             هذه الصفحة تعرض الصورة الكاملة للمخزون: من أين دخلت الكميات، أين
             خرجت، وما تكلفة الشراء الشهرية لكل صنف.
           </p>
@@ -1682,17 +1690,17 @@ export default function InventoryInsightsPage() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Card
           className={
-            criticalCount > 0 ? "border-red-300 dark:border-red-800" : ""
+            criticalCount > 0 ? "border-[var(--accent-danger)]/25" : ""
           }
         >
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
               <AlertTriangle
-                className={`h-8 w-8 ${criticalCount > 0 ? "text-red-500" : "text-muted-foreground"}`}
+                className={`h-8 w-8 ${criticalCount > 0 ? "text-[var(--accent-danger)]" : "text-muted-foreground"}`}
               />
               <div>
                 <p className="text-sm text-muted-foreground">منتجات حرجة</p>
-                <p className="text-2xl font-bold text-red-600">
+                <p className="text-2xl font-bold text-[var(--accent-danger)]">
                   {criticalCount}
                 </p>
               </div>
@@ -1702,7 +1710,7 @@ export default function InventoryInsightsPage() {
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <ArrowDown className="h-8 w-8 text-yellow-500" />
+              <ArrowDown className="h-8 w-8 text-[var(--accent-warning)]" />
               <div>
                 <p className="text-sm text-muted-foreground">تحذيرات تخزين</p>
                 <p className="text-2xl font-bold">{warningCount}</p>
@@ -1713,7 +1721,7 @@ export default function InventoryInsightsPage() {
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <Repeat className="h-8 w-8 text-blue-500" />
+              <Repeat className="h-8 w-8 text-[var(--accent-blue)]" />
               <div>
                 <p className="text-sm text-muted-foreground">بدائل متاحة</p>
                 <p className="text-2xl font-bold">{substitutions.length}</p>
@@ -1724,7 +1732,7 @@ export default function InventoryInsightsPage() {
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <Brain className="h-8 w-8 text-purple-500" />
+              <Brain className="h-8 w-8 text-[var(--accent-gold)]" />
               <div>
                 <p className="text-sm text-muted-foreground">توصيات نشطة</p>
                 <p className="text-2xl font-bold">
@@ -1742,10 +1750,10 @@ export default function InventoryInsightsPage() {
           className={cn(
             "border",
             aiStatus.budgetExhausted
-              ? "border-orange-300 bg-orange-50 dark:border-orange-800 dark:bg-orange-950/30"
+              ? "border-[var(--accent-warning)]/20 bg-[var(--accent-warning)]/12"
               : aiStatus.error === "AI_TEMPORARILY_UNAVAILABLE"
-                ? "border-yellow-300 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-950/30"
-                : "border-blue-300 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30",
+                ? "border-[var(--accent-warning)]/20 bg-[var(--accent-warning)]/12"
+                : "border-[var(--accent-blue)]/20 bg-[var(--accent-blue)]/10",
           )}
         >
           <CardContent className="p-4 flex items-center gap-3">
@@ -1753,10 +1761,10 @@ export default function InventoryInsightsPage() {
               className={cn(
                 "h-5 w-5 shrink-0",
                 aiStatus.budgetExhausted
-                  ? "text-orange-500"
+                  ? "text-[var(--accent-warning)]"
                   : aiStatus.error === "AI_TEMPORARILY_UNAVAILABLE"
-                    ? "text-yellow-500"
-                    : "text-blue-500",
+                    ? "text-[var(--accent-warning)]"
+                    : "text-[var(--accent-blue)]",
               )}
             />
             <div className="flex-1">
@@ -1777,7 +1785,7 @@ export default function InventoryInsightsPage() {
             </div>
             <a
               href="/merchant/plan"
-              className="shrink-0 text-xs font-medium bg-primary text-primary-foreground rounded-md px-3 py-1.5 hover:bg-primary/90 transition-colors"
+              className="shrink-0 rounded-md bg-[var(--accent-gold)] px-3 py-1.5 text-xs font-medium text-[var(--bg-base)] transition-opacity hover:opacity-90"
             >
               ترقية الباقة
             </a>
@@ -1786,7 +1794,7 @@ export default function InventoryInsightsPage() {
       )}
 
       {error && (
-        <div className="bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3 text-sm text-yellow-700 dark:text-yellow-300">
+        <div className="rounded-lg border border-[var(--accent-warning)]/20 bg-[var(--accent-warning)]/12 p-3 text-sm text-[var(--accent-warning)]">
           {error}
         </div>
       )}
@@ -1942,9 +1950,9 @@ export default function InventoryInsightsPage() {
                             <span
                               className={
                                 item.daysUntilStockout <= 2
-                                  ? "text-red-600 font-bold"
+                                  ? "text-[var(--accent-danger)] font-bold"
                                   : item.daysUntilStockout <= 7
-                                    ? "text-yellow-600 font-bold"
+                                    ? "text-[var(--accent-warning)] font-bold"
                                     : ""
                               }
                             >
@@ -1987,7 +1995,7 @@ export default function InventoryInsightsPage() {
               <Card key={`${item.productId || "substitute"}-${index}`}>
                 <CardHeader>
                   <CardTitle className="text-base flex items-center gap-2">
-                    <Package className="h-4 w-4 text-orange-500" />
+                    <Package className="h-4 w-4 text-[var(--accent-warning)]" />
                     {item.productName}
                   </CardTitle>
                   <CardDescription>{item.reason}</CardDescription>
@@ -2056,7 +2064,7 @@ export default function InventoryInsightsPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
-                  <Card>
+                  <Card className="app-data-card">
                     <CardContent className="pt-4">
                       <p className="text-xs text-muted-foreground">
                         إجمالي الحركات
@@ -2066,7 +2074,7 @@ export default function InventoryInsightsPage() {
                       </p>
                     </CardContent>
                   </Card>
-                  <Card>
+                  <Card className="app-data-card">
                     <CardContent className="pt-4">
                       <p className="text-xs text-muted-foreground">SKU متأثر</p>
                       <p className="text-xl font-bold">
@@ -2079,7 +2087,7 @@ export default function InventoryInsightsPage() {
                       <p className="text-xs text-muted-foreground">
                         إجمالي الداخل
                       </p>
-                      <p className="text-xl font-bold text-green-600">
+                      <p className="text-xl font-bold text-[var(--accent-success)]">
                         {formatQty(movementTrace.summary?.totalInbound || 0)}
                       </p>
                     </CardContent>
@@ -2089,7 +2097,7 @@ export default function InventoryInsightsPage() {
                       <p className="text-xs text-muted-foreground">
                         إجمالي الخارج
                       </p>
-                      <p className="text-xl font-bold text-red-600">
+                      <p className="text-xl font-bold text-[var(--accent-danger)]">
                         {formatQty(movementTrace.summary?.totalOutbound || 0)}
                       </p>
                     </CardContent>
@@ -2100,7 +2108,7 @@ export default function InventoryInsightsPage() {
                         صافي التأثير
                       </p>
                       <p
-                        className={`text-xl font-bold ${(movementTrace.summary?.netOnHandImpact || 0) >= 0 ? "text-green-600" : "text-red-600"}`}
+                        className={`text-xl font-bold ${(movementTrace.summary?.netOnHandImpact || 0) >= 0 ? "text-[var(--accent-success)]" : "text-[var(--accent-danger)]"}`}
                       >
                         {formatQty(movementTrace.summary?.netOnHandImpact || 0)}
                       </p>
@@ -2130,14 +2138,14 @@ export default function InventoryInsightsPage() {
                           <TableCell className="text-center">
                             {row.count}
                           </TableCell>
-                          <TableCell className="text-center text-green-600">
+                          <TableCell className="text-center text-[var(--accent-success)]">
                             {formatQty(row.inbound)}
                           </TableCell>
-                          <TableCell className="text-center text-red-600">
+                          <TableCell className="text-center text-[var(--accent-danger)]">
                             {formatQty(row.outbound)}
                           </TableCell>
                           <TableCell
-                            className={`text-center font-medium ${row.net >= 0 ? "text-green-600" : "text-red-600"}`}
+                            className={`text-center font-medium ${row.net >= 0 ? "text-[var(--accent-success)]" : "text-[var(--accent-danger)]"}`}
                           >
                             {formatQty(row.net)}
                           </TableCell>
@@ -2202,7 +2210,7 @@ export default function InventoryInsightsPage() {
                             {formatQty(m.quantity)}
                           </TableCell>
                           <TableCell
-                            className={`text-center font-medium ${m.onHandImpact >= 0 ? "text-green-600" : "text-red-600"}`}
+                            className={`text-center font-medium ${m.onHandImpact >= 0 ? "text-[var(--accent-success)]" : "text-[var(--accent-danger)]"}`}
                           >
                             {formatQty(m.onHandImpact)}
                           </TableCell>
@@ -2224,7 +2232,7 @@ export default function InventoryInsightsPage() {
           {loading ? (
             <TableSkeleton />
           ) : (
-            <Card>
+            <Card className="app-data-card">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <MapPin className="h-5 w-5" />
@@ -2237,7 +2245,7 @@ export default function InventoryInsightsPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
-                  <Card>
+                  <Card className="app-data-card">
                     <CardContent className="pt-4">
                       <p className="text-xs text-muted-foreground">
                         عدد المواقع
@@ -2247,42 +2255,42 @@ export default function InventoryInsightsPage() {
                       </p>
                     </CardContent>
                   </Card>
-                  <Card>
+                  <Card className="app-data-card">
                     <CardContent className="pt-4">
                       <p className="text-xs text-muted-foreground">
                         مواقع تحتاج نقل
                       </p>
-                      <p className="text-xl font-bold text-orange-600">
+                      <p className="text-xl font-bold text-[var(--accent-warning)]">
                         {locationBalance.summary?.locationsNeedTransfer || 0}
                       </p>
                     </CardContent>
                   </Card>
-                  <Card>
+                  <Card className="app-data-card">
                     <CardContent className="pt-4">
                       <p className="text-xs text-muted-foreground">
                         مواقع تحتاج شراء
                       </p>
-                      <p className="text-xl font-bold text-red-600">
+                      <p className="text-xl font-bold text-[var(--accent-danger)]">
                         {locationBalance.summary?.locationsNeedPurchase || 0}
                       </p>
                     </CardContent>
                   </Card>
-                  <Card>
+                  <Card className="app-data-card">
                     <CardContent className="pt-4">
                       <p className="text-xs text-muted-foreground">
                         فرص نقل داخلي
                       </p>
-                      <p className="text-xl font-bold text-blue-600">
+                      <p className="text-xl font-bold text-[var(--accent-blue)]">
                         {locationBalance.summary?.transferRecommendations || 0}
                       </p>
                     </CardContent>
                   </Card>
-                  <Card>
+                  <Card className="app-data-card">
                     <CardContent className="pt-4">
                       <p className="text-xs text-muted-foreground">
                         طلبات شراء مقترحة
                       </p>
-                      <p className="text-xl font-bold text-purple-600">
+                      <p className="text-xl font-bold text-[var(--accent-gold)]">
                         {locationBalance.summary?.purchaseRecommendations || 0}
                       </p>
                     </CardContent>
@@ -2381,7 +2389,7 @@ export default function InventoryInsightsPage() {
                 )}
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  <Card>
+                  <Card className="app-data-card">
                     <CardHeader className="pb-2">
                       <CardTitle className="text-base flex items-center gap-2">
                         <ArrowRightLeft className="h-4 w-4" />
@@ -2400,7 +2408,7 @@ export default function InventoryInsightsPage() {
                           .map((rec, index) => (
                             <div
                               key={`${rec.variantId}-${rec.fromLocationId}-${rec.toLocationId}-${index}`}
-                              className="rounded border p-2 text-sm"
+                              className="rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--bg-surface-2)] p-2 text-sm"
                             >
                               <p className="font-medium">
                                 {rec.productName} ({rec.sku})
@@ -2415,7 +2423,7 @@ export default function InventoryInsightsPage() {
                     </CardContent>
                   </Card>
 
-                  <Card>
+                  <Card className="app-data-card">
                     <CardHeader className="pb-2">
                       <CardTitle className="text-base flex items-center gap-2">
                         <ShoppingCart className="h-4 w-4" />
@@ -2434,7 +2442,7 @@ export default function InventoryInsightsPage() {
                           .map((rec, index) => (
                             <div
                               key={`${rec.variantId}-${rec.locationId}-${index}`}
-                              className="rounded border p-2 text-sm"
+                              className="rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--bg-surface-2)] p-2 text-sm"
                             >
                               <p className="font-medium">
                                 {rec.productName} ({rec.sku})
@@ -2458,7 +2466,7 @@ export default function InventoryInsightsPage() {
           {loading ? (
             <TableSkeleton />
           ) : (
-            <Card>
+            <Card className="app-data-card">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Package className="h-5 w-5" />
@@ -2471,7 +2479,7 @@ export default function InventoryInsightsPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <Card>
+                  <Card className="app-data-card">
                     <CardContent className="pt-4">
                       <p className="text-xs text-muted-foreground">
                         عدد الطلبات المرتبطة بحركات مخزون
@@ -2481,7 +2489,7 @@ export default function InventoryInsightsPage() {
                       </p>
                     </CardContent>
                   </Card>
-                  <Card>
+                  <Card className="app-data-card">
                     <CardContent className="pt-4">
                       <p className="text-xs text-muted-foreground">
                         إجمالي الوحدات المستهلكة
@@ -2493,7 +2501,7 @@ export default function InventoryInsightsPage() {
                       </p>
                     </CardContent>
                   </Card>
-                  <Card>
+                  <Card className="app-data-card">
                     <CardContent className="pt-4">
                       <p className="text-xs text-muted-foreground">
                         تكلفة تقديرية للاستهلاك
@@ -2576,7 +2584,7 @@ export default function InventoryInsightsPage() {
           {loading ? (
             <TableSkeleton />
           ) : (
-            <Card>
+            <Card className="app-data-card">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <DollarSign className="h-5 w-5" />
@@ -2589,7 +2597,7 @@ export default function InventoryInsightsPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
-                  <Card>
+                  <Card className="app-data-card">
                     <CardContent className="pt-4">
                       <p className="text-xs text-muted-foreground">
                         المستهدف العام للتكلفة %
@@ -2609,7 +2617,7 @@ export default function InventoryInsightsPage() {
                       />
                     </CardContent>
                   </Card>
-                  <Card>
+                  <Card className="app-data-card">
                     <CardContent className="pt-4">
                       <p className="text-xs text-muted-foreground">
                         حد التحذير (+%)
@@ -2629,7 +2637,7 @@ export default function InventoryInsightsPage() {
                       />
                     </CardContent>
                   </Card>
-                  <Card>
+                  <Card className="app-data-card">
                     <CardContent className="pt-4">
                       <p className="text-xs text-muted-foreground">
                         حد الحرج (+%)
@@ -2649,7 +2657,7 @@ export default function InventoryInsightsPage() {
                       />
                     </CardContent>
                   </Card>
-                  <Card>
+                  <Card className="app-data-card">
                     <CardContent className="pt-4">
                       <p className="text-xs text-muted-foreground">
                         الهدر المسموح %
@@ -2669,7 +2677,7 @@ export default function InventoryInsightsPage() {
                       />
                     </CardContent>
                   </Card>
-                  <Card>
+                  <Card className="app-data-card">
                     <CardContent className="pt-4">
                       <p className="text-xs text-muted-foreground">
                         العائد المستهدف %
@@ -2710,12 +2718,12 @@ export default function InventoryInsightsPage() {
                       <p className="text-xs text-muted-foreground">
                         COGS (تكلفة البضاعة)
                       </p>
-                      <p className="text-xl font-bold text-red-600">
+                      <p className="text-xl font-bold text-[var(--accent-danger)]">
                         {formatCurrency(costControl.outboundCost)}
                       </p>
                     </CardContent>
                   </Card>
-                  <Card>
+                  <Card className="app-data-card">
                     <CardContent className="pt-4">
                       <p className="text-xs text-muted-foreground">
                         Actual Cost %
@@ -2725,7 +2733,7 @@ export default function InventoryInsightsPage() {
                       </p>
                     </CardContent>
                   </Card>
-                  <Card>
+                  <Card className="app-data-card">
                     <CardContent className="pt-4">
                       <p className="text-xs text-muted-foreground">
                         Target Cost %
@@ -2735,7 +2743,7 @@ export default function InventoryInsightsPage() {
                       </p>
                     </CardContent>
                   </Card>
-                  <Card>
+                  <Card className="app-data-card">
                     <CardContent className="pt-4">
                       <p className="text-xs text-muted-foreground">
                         Variance %
@@ -2745,18 +2753,18 @@ export default function InventoryInsightsPage() {
                           "text-xl font-bold",
                           costControl.overall.variancePct >=
                             costSettings.criticalDeltaPct
-                            ? "text-red-600"
+                            ? "text-[var(--accent-danger)]"
                             : costControl.overall.variancePct >=
                                 costSettings.warningDeltaPct
-                              ? "text-yellow-600"
-                              : "text-green-600",
+                              ? "text-[var(--accent-warning)]"
+                              : "text-[var(--accent-success)]",
                         )}
                       >
                         {formatQty(costControl.overall.variancePct)}%
                       </p>
                     </CardContent>
                   </Card>
-                  <Card>
+                  <Card className="app-data-card">
                     <CardContent className="pt-4">
                       <p className="text-xs text-muted-foreground">
                         Variance (EGP)
@@ -2765,8 +2773,8 @@ export default function InventoryInsightsPage() {
                         className={cn(
                           "text-xl font-bold",
                           costControl.overall.varianceAmount > 0
-                            ? "text-red-600"
-                            : "text-green-600",
+                            ? "text-[var(--accent-danger)]"
+                            : "text-[var(--accent-success)]",
                         )}
                       >
                         {formatCurrency(costControl.overall.varianceAmount)}
@@ -2776,15 +2784,15 @@ export default function InventoryInsightsPage() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                  <Card>
+                  <Card className="app-data-card">
                     <CardContent className="pt-4">
                       <div className="flex items-center gap-2">
-                        <AlertTriangle className="h-4 w-4 text-orange-500" />
+                        <AlertTriangle className="h-4 w-4 text-[var(--accent-warning)]" />
                         <p className="text-xs text-muted-foreground">
                           الهدر الفعلي
                         </p>
                       </div>
-                      <p className="text-xl font-bold text-orange-600">
+                      <p className="text-xl font-bold text-[var(--accent-warning)]">
                         {formatQty(costControl.wasteYield.actualWastePct)}%
                       </p>
                       <p className="text-xs text-muted-foreground mt-1">
@@ -2793,10 +2801,10 @@ export default function InventoryInsightsPage() {
                       </p>
                     </CardContent>
                   </Card>
-                  <Card>
+                  <Card className="app-data-card">
                     <CardContent className="pt-4">
                       <div className="flex items-center gap-2">
-                        <Factory className="h-4 w-4 text-blue-500" />
+                        <Factory className="h-4 w-4 text-[var(--accent-blue)]" />
                         <p className="text-xs text-muted-foreground">
                           العائد التشغيلي
                         </p>
@@ -2810,7 +2818,7 @@ export default function InventoryInsightsPage() {
                       </p>
                     </CardContent>
                   </Card>
-                  <Card>
+                  <Card className="app-data-card">
                     <CardContent className="pt-4">
                       <p className="text-xs text-muted-foreground">
                         إجمالي الفاقد (وحدة)
@@ -2820,19 +2828,19 @@ export default function InventoryInsightsPage() {
                       </p>
                     </CardContent>
                   </Card>
-                  <Card>
+                  <Card className="app-data-card">
                     <CardContent className="pt-4">
                       <p className="text-xs text-muted-foreground">
                         تكلفة الفاقد
                       </p>
-                      <p className="text-xl font-bold text-red-600">
+                      <p className="text-xl font-bold text-[var(--accent-danger)]">
                         {formatCurrency(costControl.wasteYield.totalWasteCost)}
                       </p>
                     </CardContent>
                   </Card>
                 </div>
 
-                <Card className="border-blue-200 bg-blue-50/40">
+                <Card className="app-data-card border-[var(--accent-blue)]/20 bg-[var(--accent-blue)]/10">
                   <CardHeader className="pb-2">
                     <CardTitle className="text-base flex items-center gap-2">
                       <Gauge className="h-4 w-4" />
@@ -2851,10 +2859,10 @@ export default function InventoryInsightsPage() {
                           className={cn(
                             "rounded-md border p-3 text-sm",
                             alert.level === "critical"
-                              ? "border-red-300 bg-red-50"
+                              ? "border-[var(--accent-danger)]/20 bg-[var(--accent-danger)]/12"
                               : alert.level === "warning"
-                                ? "border-yellow-300 bg-yellow-50"
-                                : "border-blue-300 bg-blue-50",
+                                ? "border-[var(--accent-warning)]/20 bg-[var(--accent-warning)]/12"
+                                : "border-[var(--accent-blue)]/20 bg-[var(--accent-blue)]/10",
                           )}
                         >
                           <p className="font-semibold">{alert.title}</p>
@@ -2868,7 +2876,7 @@ export default function InventoryInsightsPage() {
                 </Card>
 
                 {!!costControl.recommendations.length && (
-                  <Card>
+                  <Card className="app-data-card">
                     <CardHeader className="pb-2">
                       <CardTitle className="text-base flex items-center gap-2">
                         <Target className="h-4 w-4" />
@@ -2879,7 +2887,7 @@ export default function InventoryInsightsPage() {
                       {costControl.recommendations.map((item) => (
                         <div
                           key={item.sku}
-                          className="rounded border p-2 text-sm"
+                          className="rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--bg-surface-2)] p-2 text-sm"
                         >
                           <p className="font-medium">
                             {item.productName} ({item.sku})
@@ -2896,7 +2904,7 @@ export default function InventoryInsightsPage() {
                 )}
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  <Card>
+                  <Card className="app-data-card">
                     <CardHeader className="pb-2">
                       <CardTitle className="text-base">
                         مستهدفات حسب الفئة
@@ -2970,7 +2978,7 @@ export default function InventoryInsightsPage() {
                     </CardContent>
                   </Card>
 
-                  <Card>
+                  <Card className="app-data-card">
                     <CardHeader className="pb-2">
                       <CardTitle className="text-base">
                         مستهدفات حسب الموقع
@@ -3050,7 +3058,7 @@ export default function InventoryInsightsPage() {
                     لا توجد بيانات كافية لحساب Cost Control في الفترة الحالية
                   </div>
                 ) : (
-                  <Card>
+                  <Card className="app-data-card">
                     <CardHeader className="pb-2">
                       <CardTitle className="text-base">
                         تفاصيل حسب SKU
@@ -3104,7 +3112,7 @@ export default function InventoryInsightsPage() {
                               <TableCell className="text-center">
                                 {formatCurrency(row.salesAmount)}
                               </TableCell>
-                              <TableCell className="text-center text-red-600">
+                              <TableCell className="text-center text-[var(--accent-danger)]">
                                 {formatCurrency(row.cogs)}
                               </TableCell>
                               <TableCell className="text-center">
@@ -3118,11 +3126,11 @@ export default function InventoryInsightsPage() {
                                   "text-center font-medium",
                                   row.variancePct >=
                                     costSettings.criticalDeltaPct
-                                    ? "text-red-600"
+                                    ? "text-[var(--accent-danger)]"
                                     : row.variancePct >=
                                         costSettings.warningDeltaPct
-                                      ? "text-yellow-600"
-                                      : "text-green-600",
+                                      ? "text-[var(--accent-warning)]"
+                                      : "text-[var(--accent-success)]",
                                 )}
                               >
                                 {formatQty(row.variancePct)}%
@@ -3131,8 +3139,8 @@ export default function InventoryInsightsPage() {
                                 className={cn(
                                   "text-center font-medium",
                                   row.varianceAmount > 0
-                                    ? "text-red-600"
-                                    : "text-green-600",
+                                    ? "text-[var(--accent-danger)]"
+                                    : "text-[var(--accent-success)]",
                                 )}
                               >
                                 {formatCurrency(row.varianceAmount)}
@@ -3218,7 +3226,7 @@ export default function InventoryInsightsPage() {
                             <TableCell className="text-center">
                               {formatQty(Math.abs(movement.onHandImpact || 0))}
                             </TableCell>
-                            <TableCell className="text-center font-medium text-red-600">
+                            <TableCell className="text-center font-medium text-[var(--accent-danger)]">
                               {formatCurrency(
                                 movement.estimatedCostImpact || 0,
                               )}
@@ -3362,7 +3370,7 @@ export default function InventoryInsightsPage() {
         >
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <MessageSquare className="h-5 w-5 text-blue-500" />
+              <MessageSquare className="h-5 w-5 text-[var(--accent-blue)]" />
               إرسال طلب للمورّد عبر واتساب
             </DialogTitle>
             <DialogDescription>
@@ -3436,7 +3444,7 @@ ${itemsText}
                     } catch {}
                     setGeneratingSupplierMsg(false);
                   }}
-                  className="text-purple-700 border-purple-300 hover:bg-purple-50"
+                  className="border-[var(--accent-gold)]/30 bg-[var(--accent-gold)]/10 text-[var(--accent-gold)] hover:bg-[var(--accent-gold)]/15"
                 >
                   {generatingSupplierMsg ? (
                     <Loader2 className="h-3 w-3 animate-spin ml-1" />
@@ -3456,13 +3464,13 @@ ${itemsText}
             </div>
 
             {supplierSendError && (
-              <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 dark:bg-red-950 p-3 rounded-lg">
+              <div className="flex items-center gap-2 rounded-[var(--radius-md)] border border-[var(--accent-danger)]/20 bg-[var(--accent-danger)]/10 p-3 text-sm text-[var(--accent-danger)]">
                 <AlertTriangle className="h-4 w-4 shrink-0" />
                 {supplierSendError}
               </div>
             )}
             {supplierSendResult && (
-              <div className="flex items-center gap-2 text-sm text-green-600 bg-green-50 dark:bg-green-950 p-3 rounded-lg">
+              <div className="flex items-center gap-2 rounded-[var(--radius-md)] border border-[var(--accent-success)]/20 bg-[var(--accent-success)]/10 p-3 text-sm text-[var(--accent-success)]">
                 <CheckCircle2 className="h-4 w-4 shrink-0" />
                 {supplierSendResult}
               </div>

@@ -125,31 +125,36 @@ const segmentConfig: Record<
 > = {
   VIP: {
     label: "VIP",
-    color: "bg-yellow-500",
+    color:
+      "border border-[var(--accent-gold)]/25 bg-[var(--accent-gold)]/15 text-[var(--accent-gold)]",
     icon: Crown,
     description: "5+ طلبات، 1000+ إنفاق، نشط آخر 30 يوم",
   },
   LOYAL: {
     label: "مخلص",
-    color: "bg-purple-500",
+    color:
+      "border border-[var(--accent-blue)]/25 bg-[var(--accent-blue)]/15 text-[var(--accent-blue)]",
     icon: Heart,
     description: "3+ طلبات، نشط آخر 60 يوم",
   },
   REGULAR: {
     label: "منتظم",
-    color: "bg-blue-500",
+    color:
+      "border border-[var(--border-default)] bg-[var(--bg-surface-3)] text-[var(--text-secondary)]",
     icon: UserCheck,
     description: "1-2 طلب، نشط آخر 90 يوم",
   },
   NEW: {
     label: "جديد (بدون طلب)",
-    color: "bg-green-500",
+    color:
+      "border border-[var(--accent-success)]/25 bg-[var(--accent-success)]/15 text-[var(--accent-success)]",
     icon: Star,
     description: "تمت إضافته كعميل لكن بدون طلبات حتى الآن",
   },
   AT_RISK: {
     label: "معرض للخسارة",
-    color: "bg-red-500",
+    color:
+      "border border-[var(--accent-danger)]/25 bg-[var(--accent-danger)]/15 text-[var(--accent-danger)]",
     icon: UserX,
     description: "غير نشط أكثر من 90 يوم",
   },
@@ -168,9 +173,10 @@ const localizeTierName = (tierName?: string | null): string | null => {
 };
 
 const churnRiskColors: Record<string, string> = {
-  LOW: "bg-green-100 text-green-800",
-  MEDIUM: "bg-yellow-100 text-yellow-800",
-  HIGH: "bg-red-100 text-red-800",
+  LOW: "border border-[var(--accent-success)]/25 bg-[var(--accent-success)]/12 text-[var(--accent-success)]",
+  MEDIUM:
+    "border border-[var(--accent-warning)]/25 bg-[var(--accent-warning)]/12 text-[var(--accent-warning)]",
+  HIGH: "border border-[var(--accent-danger)]/25 bg-[var(--accent-danger)]/12 text-[var(--accent-danger)]",
 };
 
 const ORDER_STATUS_AR: Record<string, string> = {
@@ -185,14 +191,14 @@ const ORDER_STATUS_AR: Record<string, string> = {
 const orderStatusBadgeClass = (status?: string): string => {
   switch (status) {
     case "DELIVERED":
-      return "text-green-600 border-green-200";
+      return "text-[var(--accent-success)] border-[var(--accent-success)]/25";
     case "CONFIRMED":
-      return "text-blue-600 border-blue-200";
+      return "text-[var(--accent-blue)] border-[var(--accent-blue)]/25";
     case "SHIPPED":
     case "OUT_FOR_DELIVERY":
-      return "text-purple-600 border-purple-200";
+      return "text-[var(--accent-gold)] border-[var(--accent-gold)]/25";
     case "CANCELLED":
-      return "text-red-600 border-red-200";
+      return "text-[var(--accent-danger)] border-[var(--accent-danger)]/25";
     default:
       return "text-muted-foreground";
   }
@@ -460,8 +466,9 @@ export default function CustomersPage() {
               <Card
                 key={key}
                 className={cn(
-                  "app-data-card cursor-pointer transition-all hover:shadow-md",
-                  segmentFilter === key && "ring-2 ring-primary",
+                  "app-data-card cursor-pointer transition-colors hover:border-[var(--border-active)]",
+                  segmentFilter === key &&
+                    "border-[var(--accent-gold)] bg-[var(--accent-gold-dim)]",
                 )}
                 onClick={() =>
                   setSegmentFilter(segmentFilter === key ? "all" : key)
@@ -469,13 +476,7 @@ export default function CustomersPage() {
               >
                 <CardContent className="p-4">
                   <div className="flex items-center gap-3">
-                    <div
-                      className={cn(
-                        "p-2 rounded-lg",
-                        config.color,
-                        "text-white",
-                      )}
-                    >
+                    <div className={cn("rounded-lg p-2", config.color)}>
                       <Icon className="h-5 w-5" />
                     </div>
                     <div>
@@ -545,8 +546,8 @@ export default function CustomersPage() {
                     >
                       <CardContent className="space-y-3 p-4 text-sm">
                         <div className="flex items-start gap-3">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
-                            <span className="text-lg font-bold text-primary">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-full border border-[var(--accent-gold)]/25 bg-[var(--accent-gold-dim)]">
+                            <span className="text-lg font-bold text-[var(--accent-gold)]">
                               {customer.name.charAt(0)}
                             </span>
                           </div>
@@ -572,7 +573,7 @@ export default function CustomersPage() {
                           </Button>
                         </div>
                         <div className="flex flex-wrap gap-2">
-                          <Badge className={cn(config.color, "text-white")}>
+                          <Badge className={config.color}>
                             <Icon className="ml-1 h-3 w-3" />
                             {config.label}
                           </Badge>
@@ -606,7 +607,7 @@ export default function CustomersPage() {
                             {(customer.daysSinceLastOrder ?? 0) > 60 && (
                               <Badge
                                 variant="outline"
-                                className="mt-1 border-red-200 text-xs text-red-500"
+                                className="mt-1 border-[var(--accent-danger)]/25 text-xs text-[var(--accent-danger)]"
                               >
                                 <AlertTriangle className="ml-1 h-3 w-3" />
                                 {customer.daysSinceLastOrder} يوم
@@ -643,8 +644,8 @@ export default function CustomersPage() {
                         >
                           <TableCell>
                             <div className="flex items-center gap-3">
-                              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
-                                <span className="text-lg font-bold text-primary">
+                              <div className="flex h-10 w-10 items-center justify-center rounded-full border border-[var(--accent-gold)]/25 bg-[var(--accent-gold-dim)]">
+                                <span className="text-lg font-bold text-[var(--accent-gold)]">
                                   {customer.name.charAt(0)}
                                 </span>
                               </div>
@@ -661,7 +662,7 @@ export default function CustomersPage() {
                             </div>
                           </TableCell>
                           <TableCell>
-                            <Badge className={cn(config.color, "text-white")}>
+                            <Badge className={config.color}>
                               <Icon className="ml-1 h-3 w-3" />
                               {config.label}
                             </Badge>
@@ -707,7 +708,7 @@ export default function CustomersPage() {
                             {(customer.daysSinceLastOrder ?? 0) > 60 && (
                               <Badge
                                 variant="outline"
-                                className="mt-1 border-red-200 text-xs text-red-500"
+                                className="mt-1 border-[var(--accent-danger)]/25 text-xs text-[var(--accent-danger)]"
                               >
                                 <AlertTriangle className="ml-1 h-3 w-3" />
                                 {customer.daysSinceLastOrder} يوم
@@ -742,8 +743,8 @@ export default function CustomersPage() {
         <DialogContent className="max-h-[90vh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-3xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-                <span className="text-xl font-bold text-primary">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full border border-[var(--accent-gold)]/25 bg-[var(--accent-gold-dim)]">
+                <span className="text-xl font-bold text-[var(--accent-gold)]">
                   {selectedCustomer?.name.charAt(0)}
                 </span>
               </div>
@@ -783,7 +784,7 @@ export default function CustomersPage() {
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
                   <Card>
                     <CardContent className="p-4 text-center">
-                      <ShoppingBag className="h-6 w-6 mx-auto text-primary mb-2" />
+                      <ShoppingBag className="mx-auto mb-2 h-6 w-6 text-[var(--accent-gold)]" />
                       <p className="text-2xl font-bold">
                         {customerInsights.profile.totalOrders}
                       </p>
@@ -792,7 +793,7 @@ export default function CustomersPage() {
                   </Card>
                   <Card>
                     <CardContent className="p-4 text-center">
-                      <DollarSign className="h-6 w-6 mx-auto text-green-500 mb-2" />
+                      <DollarSign className="mx-auto mb-2 h-6 w-6 text-[var(--accent-success)]" />
                       <p className="text-2xl font-bold">
                         {formatCurrency(customerInsights.profile.totalSpent)}
                       </p>
@@ -801,7 +802,7 @@ export default function CustomersPage() {
                   </Card>
                   <Card>
                     <CardContent className="p-4 text-center">
-                      <TrendingUp className="h-6 w-6 mx-auto text-blue-500 mb-2" />
+                      <TrendingUp className="mx-auto mb-2 h-6 w-6 text-[var(--accent-blue)]" />
                       <p className="text-2xl font-bold">
                         {formatCurrency(customerInsights.profile.avgOrderValue)}
                       </p>
@@ -812,7 +813,7 @@ export default function CustomersPage() {
                   </Card>
                   <Card>
                     <CardContent className="p-4 text-center">
-                      <Crown className="h-6 w-6 mx-auto text-yellow-500 mb-2" />
+                      <Crown className="mx-auto mb-2 h-6 w-6 text-[var(--accent-gold)]" />
                       <p className="text-2xl font-bold">
                         {formatCurrency(customerInsights.insights.clv)}
                       </p>
@@ -874,8 +875,8 @@ export default function CustomersPage() {
                               className="flex flex-col gap-3 rounded-lg bg-muted/50 p-3 sm:flex-row sm:items-center sm:justify-between"
                             >
                               <div className="flex items-center gap-3">
-                                <div className="p-2 bg-primary/10 rounded">
-                                  <ShoppingBag className="h-4 w-4 text-primary" />
+                                <div className="rounded border border-[var(--accent-gold)]/25 bg-[var(--accent-gold-dim)] p-2">
+                                  <ShoppingBag className="h-4 w-4 text-[var(--accent-gold)]" />
                                 </div>
                                 <div>
                                   <p className="font-medium">
@@ -920,7 +921,7 @@ export default function CustomersPage() {
                         className={cn(
                           segmentConfig[customerInsights.insights.segment]
                             ?.color,
-                          "text-white text-lg px-3 py-1",
+                          "text-[var(--text-primary)] text-lg px-3 py-1",
                         )}
                       >
                         {
@@ -947,10 +948,10 @@ export default function CustomersPage() {
                             className={cn(
                               "text-2xl font-bold",
                               customerInsights.insights.riskScore >= 50
-                                ? "text-red-600"
+                                ? "text-[var(--accent-danger)]"
                                 : customerInsights.insights.riskScore >= 25
-                                  ? "text-amber-600"
-                                  : "text-green-600",
+                                  ? "text-[var(--accent-warning)]"
+                                  : "text-[var(--accent-success)]",
                             )}
                           >
                             {customerInsights.insights.riskScore}%
@@ -983,7 +984,7 @@ export default function CustomersPage() {
                                     key={idx}
                                     className="flex items-center gap-1"
                                   >
-                                    <AlertTriangle className="h-3 w-3 text-amber-500" />
+                                    <AlertTriangle className="h-3 w-3 text-[var(--accent-warning)]" />
                                     {factor}
                                   </li>
                                 ),

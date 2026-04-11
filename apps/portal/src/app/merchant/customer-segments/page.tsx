@@ -509,7 +509,7 @@ export default function CustomerSegmentsPage() {
       )}
 
       {error && (
-        <div className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg p-3 text-sm text-red-700 dark:text-red-300">
+        <div className="rounded-lg border border-[var(--accent-danger)]/20 bg-[var(--accent-danger)]/10 p-3 text-sm text-[var(--accent-danger)]">
           {error}
         </div>
       )}
@@ -577,7 +577,7 @@ export default function CustomerSegmentsPage() {
                       <Button
                         variant="outline"
                         size="sm"
-                        className="w-full text-green-600 hover:text-green-800 sm:w-auto"
+                        className="w-full text-[var(--accent-success)] hover:text-[var(--accent-success)] sm:w-auto"
                         onClick={() => openBroadcastDialog(seg)}
                       >
                         <Megaphone className="ml-1 h-4 w-4" />
@@ -595,7 +595,7 @@ export default function CustomerSegmentsPage() {
                       <Button
                         variant="outline"
                         size="sm"
-                        className="w-full text-red-500 hover:text-red-700 sm:w-auto"
+                        className="w-full text-[var(--accent-danger)] hover:text-[var(--accent-danger)] sm:w-auto"
                         onClick={() => setDeleteId(seg.id)}
                       >
                         <Trash2 className="ml-1 h-4 w-4" />
@@ -681,7 +681,7 @@ export default function CustomerSegmentsPage() {
                               size="sm"
                               onClick={() => openBroadcastDialog(seg)}
                               title="إرسال رسالة للشريحة"
-                              className="text-green-600 hover:text-green-800"
+                              className="text-[var(--accent-success)] hover:text-[var(--accent-success)]"
                             >
                               <Megaphone className="h-4 w-4" />
                             </Button>
@@ -698,7 +698,7 @@ export default function CustomerSegmentsPage() {
                               size="sm"
                               onClick={() => setDeleteId(seg.id)}
                               title="حذف"
-                              className="text-red-500 hover:text-red-700"
+                              className="text-[var(--accent-danger)] hover:text-[var(--accent-danger)]"
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -860,7 +860,7 @@ export default function CustomerSegmentsPage() {
                         variant="ghost"
                         size="sm"
                         onClick={() => removeRule(idx)}
-                        className="text-red-500 hover:text-red-700 shrink-0"
+                        className="shrink-0 text-[var(--accent-danger)] hover:text-[var(--accent-danger)]"
                       >
                         <Trash2 className="h-3 w-3" />
                       </Button>
@@ -870,7 +870,9 @@ export default function CustomerSegmentsPage() {
               </div>
             </div>
 
-            {formError && <p className="text-sm text-red-600">{formError}</p>}
+            {formError && (
+              <p className="text-sm text-[var(--accent-danger)]">{formError}</p>
+            )}
           </div>
 
           <DialogFooter className="gap-2 flex-col sm:flex-row">
@@ -1059,7 +1061,7 @@ export default function CustomerSegmentsPage() {
             <AlertDialogAction
               onClick={handleDelete}
               disabled={deleting}
-              className="w-full bg-red-600 hover:bg-red-700 sm:w-auto"
+              className="w-full bg-[var(--accent-danger)] text-[var(--text-primary)] hover:brightness-110 sm:w-auto"
             >
               {deleting && <Loader2 className="h-4 w-4 ml-2 animate-spin" />}
               حذف
@@ -1086,7 +1088,7 @@ export default function CustomerSegmentsPage() {
         >
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Megaphone className="h-5 w-5 text-green-600" />
+              <Megaphone className="h-5 w-5 text-[var(--accent-success)]" />
               إرسال رسالة للشريحة
             </DialogTitle>
             <DialogDescription>
@@ -1098,16 +1100,16 @@ export default function CustomerSegmentsPage() {
 
           {broadcastResult ? (
             <div className="space-y-3 py-4">
-              <div className="bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg p-4 text-center">
-                <p className="text-lg font-bold text-green-700 dark:text-green-300">
+              <div className="rounded-lg border border-[var(--accent-success)]/20 bg-[var(--accent-success)]/10 p-4 text-center">
+                <p className="text-lg font-bold text-[var(--accent-success)]">
                   تم الإرسال بنجاح ✓
                 </p>
-                <p className="text-sm text-green-600 dark:text-green-400 mt-1">
+                <p className="mt-1 text-sm text-[var(--accent-success)]">
                   تم إرسال {broadcastResult.sentCount} من{" "}
                   {broadcastResult.recipientCount} رسالة
                 </p>
                 {broadcastResult.failCount > 0 && (
-                  <p className="text-xs text-red-500 mt-1">
+                  <p className="mt-1 text-xs text-[var(--accent-danger)]">
                     فشل إرسال {broadcastResult.failCount} رسالة
                   </p>
                 )}
@@ -1174,7 +1176,7 @@ export default function CustomerSegmentsPage() {
                     !broadcastTitle.trim() ||
                     !broadcastMessage.trim()
                   }
-                  className="bg-green-600 hover:bg-green-700"
+                  className="bg-[var(--accent-success)] text-[var(--bg-base)] hover:brightness-110"
                 >
                   {broadcasting && (
                     <Loader2 className="h-4 w-4 ml-2 animate-spin" />

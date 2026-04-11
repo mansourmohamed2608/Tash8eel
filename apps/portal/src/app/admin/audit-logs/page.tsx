@@ -77,21 +77,34 @@ const actionLabels: Record<string, string> = {
 };
 
 const actionColors: Record<string, string> = {
-  created: "bg-green-100 text-green-800",
-  updated: "bg-blue-100 text-blue-800",
-  deleted: "bg-red-100 text-red-800",
-  activated: "bg-green-100 text-green-800",
-  deactivated: "bg-yellow-100 text-yellow-800",
-  cancelled: "bg-red-100 text-red-800",
-  replayed: "bg-purple-100 text-purple-800",
-  success: "bg-green-100 text-green-800",
-  failed: "bg-red-100 text-red-800",
-  rotated: "bg-blue-100 text-blue-800",
+  created:
+    "border-[color:rgba(34,197,94,0.28)] bg-[color:rgba(34,197,94,0.1)] text-[color:#86efac]",
+  updated:
+    "border-[color:rgba(59,130,246,0.26)] bg-[color:rgba(59,130,246,0.12)] text-[color:#93c5fd]",
+  deleted:
+    "border-[color:rgba(239,68,68,0.3)] bg-[color:rgba(239,68,68,0.1)] text-[color:#fca5a5]",
+  activated:
+    "border-[color:rgba(34,197,94,0.28)] bg-[color:rgba(34,197,94,0.1)] text-[color:#86efac]",
+  deactivated:
+    "border-[color:rgba(245,158,11,0.28)] bg-[color:rgba(245,158,11,0.12)] text-[color:#fcd34d]",
+  cancelled:
+    "border-[color:rgba(239,68,68,0.3)] bg-[color:rgba(239,68,68,0.1)] text-[color:#fca5a5]",
+  replayed:
+    "border-[color:rgba(232,197,71,0.24)] bg-[color:var(--accent-gold-dim)] text-[color:var(--accent-gold)]",
+  success:
+    "border-[color:rgba(34,197,94,0.28)] bg-[color:rgba(34,197,94,0.1)] text-[color:#86efac]",
+  failed:
+    "border-[color:rgba(239,68,68,0.3)] bg-[color:rgba(239,68,68,0.1)] text-[color:#fca5a5]",
+  rotated:
+    "border-[color:rgba(59,130,246,0.26)] bg-[color:rgba(59,130,246,0.12)] text-[color:#93c5fd]",
 };
 
 const getActionColor = (action: string): string => {
   const verb = action.split(".")[1];
-  return actionColors[verb] || "bg-gray-100 text-gray-800";
+  return (
+    actionColors[verb] ||
+    "border-[color:var(--border-default)] bg-[color:var(--bg-surface-2)] text-[color:var(--text-secondary)]"
+  );
 };
 
 export default function AuditLogsPage() {
@@ -261,7 +274,7 @@ export default function AuditLogsPage() {
                 <p className="text-sm text-muted-foreground">إجمالي السجلات</p>
                 <p className="text-2xl font-bold">{logs.length}</p>
               </div>
-              <FileText className="h-8 w-8 text-primary-600" />
+              <FileText className="h-8 w-8 text-[color:var(--accent-gold)]" />
             </div>
           </CardContent>
         </Card>
@@ -274,7 +287,7 @@ export default function AuditLogsPage() {
                   {logs.filter((l) => l.actor.type === "admin").length}
                 </p>
               </div>
-              <User className="h-8 w-8 text-blue-600" />
+              <User className="h-8 w-8 text-[color:var(--accent-blue)]" />
             </div>
           </CardContent>
         </Card>
@@ -287,7 +300,7 @@ export default function AuditLogsPage() {
                   {logs.filter((l) => l.actor.type === "merchant").length}
                 </p>
               </div>
-              <Activity className="h-8 w-8 text-green-600" />
+              <Activity className="h-8 w-8 text-[color:var(--accent-success)]" />
             </div>
           </CardContent>
         </Card>
@@ -300,7 +313,7 @@ export default function AuditLogsPage() {
                   {logs.filter((l) => l.actor.type === "system").length}
                 </p>
               </div>
-              <Clock className="h-8 w-8 text-purple-600" />
+              <Clock className="h-8 w-8 text-[color:var(--accent-warning)]" />
             </div>
           </CardContent>
         </Card>
@@ -415,7 +428,7 @@ export default function AuditLogsPage() {
               </div>
               <div className="hidden overflow-x-auto md:block">
                 <table className="w-full">
-                  <thead className="bg-muted/50 border-b">
+                  <thead className="border-b bg-[color:var(--bg-surface-2)]">
                     <tr>
                       <th className="text-right p-4 font-medium text-sm">
                         الحدث
@@ -439,7 +452,10 @@ export default function AuditLogsPage() {
                   </thead>
                   <tbody className="divide-y">
                     {paginatedLogs.map((log) => (
-                      <tr key={log.id} className="hover:bg-muted/30">
+                      <tr
+                        key={log.id}
+                        className="transition-colors hover:bg-[color:var(--bg-surface-2)]"
+                      >
                         <td className="p-4">
                           <Badge
                             className={cn(
@@ -454,12 +470,12 @@ export default function AuditLogsPage() {
                           <div className="flex items-center gap-2">
                             <div
                               className={cn(
-                                "w-8 h-8 rounded-full flex items-center justify-center text-xs",
+                                "flex h-8 w-8 items-center justify-center rounded-[var(--radius-sm)] border text-xs",
                                 log.actor.type === "admin"
-                                  ? "bg-blue-100 text-blue-700"
+                                  ? "border-[color:rgba(59,130,246,0.24)] bg-[color:rgba(59,130,246,0.12)] text-[color:#93c5fd]"
                                   : log.actor.type === "merchant"
-                                    ? "bg-green-100 text-green-700"
-                                    : "bg-purple-100 text-purple-700",
+                                    ? "border-[color:rgba(34,197,94,0.26)] bg-[color:rgba(34,197,94,0.1)] text-[color:#86efac]"
+                                    : "border-[color:rgba(232,197,71,0.22)] bg-[color:var(--accent-gold-dim)] text-[color:var(--accent-gold)]",
                               )}
                             >
                               {log.actor.type === "admin"
@@ -554,7 +570,7 @@ export default function AuditLogsPage() {
                 </div>
               </div>
 
-              <div className="p-4 rounded-lg bg-muted/50 space-y-3">
+              <div className="space-y-3 rounded-[var(--radius-md)] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-2)] p-4">
                 <h4 className="font-medium">المنفذ</h4>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
@@ -574,7 +590,7 @@ export default function AuditLogsPage() {
                 </div>
               </div>
 
-              <div className="p-4 rounded-lg bg-muted/50 space-y-3">
+              <div className="space-y-3 rounded-[var(--radius-md)] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-2)] p-4">
                 <h4 className="font-medium">الهدف</h4>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
@@ -596,7 +612,7 @@ export default function AuditLogsPage() {
                 </div>
               </div>
 
-              <div className="p-4 rounded-lg bg-muted/50 space-y-3">
+              <div className="space-y-3 rounded-[var(--radius-md)] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-2)] p-4">
                 <h4 className="font-medium">معلومات الجلسة</h4>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>

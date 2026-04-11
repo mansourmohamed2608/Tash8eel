@@ -869,7 +869,7 @@ export function Sidebar({
       {/* Mobile menu button */}
       <button
         onClick={() => setMobileOpen(true)}
-        className="lg:hidden fixed top-4 right-4 z-50 inline-flex h-11 w-11 items-center justify-center rounded-[14px] border border-border/80 bg-card/95 shadow-[0_18px_48px_rgba(15,23,42,0.08)] backdrop-blur"
+        className="lg:hidden fixed top-4 right-4 z-50 inline-flex h-11 w-11 items-center justify-center rounded-[12px] border border-[var(--border-default)] bg-[color:var(--bg-surface-1)] text-[var(--text-secondary)] backdrop-blur transition duration-150 ease-in hover:border-[var(--border-active)] hover:text-[var(--text-primary)]"
         aria-label="فتح القائمة الجانبية"
         aria-expanded={mobileOpen}
         aria-controls="main-sidebar"
@@ -881,7 +881,7 @@ export function Sidebar({
       {/* Mobile overlay */}
       {mobileOpen && (
         <div
-          className="lg:hidden fixed inset-0 z-40 bg-slate-950/40 backdrop-blur-sm"
+          className="lg:hidden fixed inset-0 z-40 bg-[rgba(10,10,11,0.72)] backdrop-blur-sm"
           onClick={() => setMobileOpen(false)}
         />
       )}
@@ -916,14 +916,14 @@ export function Sidebar({
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setMobileOpen(false)}
-                className="lg:hidden inline-flex h-10 w-10 items-center justify-center rounded-[12px] border border-border/70 bg-background/70 text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+                className="lg:hidden inline-flex h-10 w-10 items-center justify-center rounded-[12px] border border-[var(--border-default)] bg-[var(--bg-surface-2)] text-[var(--text-secondary)] transition duration-150 ease-in hover:border-[var(--border-active)] hover:text-[var(--text-primary)]"
                 aria-label="إغلاق القائمة الجانبية"
               >
                 <X className="h-5 w-5" aria-hidden="true" />
               </button>
               <button
                 onClick={() => setCollapsed(!collapsed)}
-                className="hidden lg:inline-flex h-10 w-10 items-center justify-center rounded-[12px] border border-border/70 bg-background/70 text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+                className="hidden lg:inline-flex h-10 w-10 items-center justify-center rounded-[12px] border border-[var(--border-default)] bg-[var(--bg-surface-2)] text-[var(--text-secondary)] transition duration-150 ease-in hover:border-[var(--border-active)] hover:text-[var(--text-primary)]"
                 aria-label={collapsed ? "توسيع القائمة" : "تصغير القائمة"}
                 aria-expanded={!collapsed}
               >
@@ -975,13 +975,13 @@ export function Sidebar({
                         });
                       }}
                       className={cn(
-                        "h-12 w-full rounded-[16px] px-4 text-sm font-bold transition-all duration-150 ease-in-out",
+                        "h-12 w-full rounded-[12px] px-4 text-sm font-bold transition-all duration-150 ease-in-out",
                         collapsed
                           ? "flex items-center justify-center"
                           : "flex flex-row-reverse items-center justify-between",
                         isActiveSection
-                          ? "bg-primary/10 text-primary shadow-[inset_0_0_0_1px_rgba(31,111,255,0.12)]"
-                          : "text-foreground hover:bg-accent/50",
+                          ? "border border-[var(--border-default)] bg-[var(--accent-gold-dim)] text-[var(--text-primary)]"
+                          : "border border-transparent text-[var(--text-secondary)] hover:bg-[var(--bg-surface-2)] hover:text-[var(--text-primary)]",
                       )}
                       aria-expanded={isExpanded}
                       aria-controls={`section-${section.id}`}
@@ -1044,8 +1044,8 @@ export function Sidebar({
                                     <TooltipTrigger asChild>
                                       <div
                                         className={cn(
-                                          "flex items-center gap-3 rounded-[14px] border border-transparent px-3 py-2.5 text-[13px] font-medium",
-                                          "cursor-not-allowed text-muted-foreground/45",
+                                          "flex items-center gap-3 rounded-[12px] border border-transparent px-3 py-2.5 text-[13px] font-medium",
+                                          "cursor-not-allowed text-[color:rgba(161,161,170,0.45)]",
                                         )}
                                       >
                                         <item.icon className="h-4 w-4 flex-shrink-0 opacity-45" />
@@ -1073,10 +1073,10 @@ export function Sidebar({
                                   href={item.href}
                                   aria-current={isActive ? "page" : undefined}
                                   className={cn(
-                                    "flex items-center gap-3 rounded-[14px] border px-3 py-2.5 text-[13px] font-semibold transition-all duration-150 ease-in-out",
+                                    "flex items-center gap-3 rounded-[12px] border px-3 py-2.5 text-[13px] font-semibold transition-all duration-150 ease-in-out",
                                     isActive
-                                      ? "border-primary/20 bg-primary/10 text-primary shadow-[0_14px_32px_rgba(31,111,255,0.08)]"
-                                      : "border-transparent text-muted-foreground hover:border-border/70 hover:bg-background/80 hover:text-foreground",
+                                      ? "border-[var(--border-default)] bg-[var(--accent-gold-dim)] text-[var(--text-primary)]"
+                                      : "border-transparent text-[var(--text-secondary)] hover:border-[var(--border-subtle)] hover:bg-[var(--bg-surface-2)] hover:text-[var(--text-primary)]",
                                   )}
                                 >
                                   <item.icon className="h-4 w-4 flex-shrink-0" />
@@ -1144,11 +1144,11 @@ export function Sidebar({
                       aria-current={isActive ? "page" : undefined}
                       aria-label={collapsed ? item.label : undefined}
                       className={cn(
-                        "flex items-center gap-3 rounded-[14px] border px-3 py-2.5 text-sm font-semibold transition-all duration-150 ease-in-out",
+                        "flex items-center gap-3 rounded-[12px] border px-3 py-2.5 text-sm font-semibold transition-all duration-150 ease-in-out",
                         collapsed && "justify-center",
                         isActive
-                          ? "border-primary/20 bg-primary/10 text-primary"
-                          : "border-transparent text-muted-foreground hover:border-border/70 hover:bg-background/80 hover:text-foreground",
+                          ? "border-[var(--border-default)] bg-[var(--accent-gold-dim)] text-[var(--text-primary)]"
+                          : "border-transparent text-[var(--text-secondary)] hover:border-[var(--border-subtle)] hover:bg-[var(--bg-surface-2)] hover:text-[var(--text-primary)]",
                       )}
                     >
                       <item.icon className="h-5 w-5 flex-shrink-0" />
@@ -1185,7 +1185,7 @@ export function Sidebar({
             {!collapsed && (
               <Button
                 variant="ghost"
-                className="mt-3 w-full justify-center border border-border/70 bg-background/70 text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+                className="mt-3 w-full justify-center border border-[var(--border-default)] bg-transparent text-[var(--text-secondary)] hover:border-[var(--accent-danger)] hover:bg-transparent hover:text-[var(--accent-danger)]"
                 onClick={() => signOut({ callbackUrl: "/login" })}
               >
                 <LogOut className="h-4 w-4 ml-2" />
@@ -1237,10 +1237,10 @@ interface TopBarProps {
 
 export function TopBar({ role, collapsed }: TopBarProps) {
   return (
-    <header className="app-topbar-shell sticky top-0 z-30 flex h-16 items-center px-4 lg:px-6">
+    <header className="app-topbar-shell sticky top-0 z-30 flex h-14 items-center px-4 lg:px-5">
       <div className="app-shell-main flex w-full items-center justify-between">
         {/* Page title area - right side in RTL */}
-        <h1 className="text-lg font-bold tracking-[-0.02em] text-foreground lg:hidden">
+        <h1 className="text-[16px] font-bold tracking-[-0.02em] text-[var(--text-primary)] lg:hidden">
           لوحة التحكم
         </h1>
         <div className="hidden lg:block" />

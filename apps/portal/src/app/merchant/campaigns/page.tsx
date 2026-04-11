@@ -259,8 +259,8 @@ export default function WinbackCampaignsPage() {
       description:
         "إرسال عروض خاصة عبر واتساب للعملاء الذين لم يطلبوا منذ فترة",
       icon: UserMinus,
-      color: "text-orange-500",
-      bgColor: "bg-orange-50 dark:bg-orange-950",
+      color: "text-[var(--accent-warning)]",
+      bgColor: "bg-[var(--accent-warning)]/12",
       available: true,
       channel: "واتساب",
     },
@@ -271,8 +271,8 @@ export default function WinbackCampaignsPage() {
       description:
         "إرسال رسائل ترويجية موسمية لشريحة مختارة من العملاء (عيد، تخفيضات، مناسبات)",
       icon: Sparkles,
-      color: "text-green-500",
-      bgColor: "bg-green-50 dark:bg-green-950",
+      color: "text-[var(--accent-success)]",
+      bgColor: "bg-[var(--accent-success)]/12",
       available: true,
       channel: "واتساب",
     },
@@ -283,8 +283,8 @@ export default function WinbackCampaignsPage() {
       description:
         "إرسال رسائل تذكيرية مع كود خصم للعملاء الذين توقفوا عن الطلب",
       icon: Zap,
-      color: "text-blue-500",
-      bgColor: "bg-blue-50 dark:bg-blue-950",
+      color: "text-[var(--accent-blue)]",
+      bgColor: "bg-[var(--accent-blue)]/12",
       available: true,
       channel: "واتساب",
     },
@@ -294,8 +294,8 @@ export default function WinbackCampaignsPage() {
       titleEn: "Loyalty Reward",
       description: "إرسال خصومات حصرية لأفضل العملاء كمكافأة على ولائهم",
       icon: Gift,
-      color: "text-purple-500",
-      bgColor: "bg-purple-50 dark:bg-purple-950",
+      color: "text-[var(--accent-gold)]",
+      bgColor: "bg-[var(--accent-gold-dim)]",
       available: false,
       channel: "واتساب",
     },
@@ -305,8 +305,8 @@ export default function WinbackCampaignsPage() {
       titleEn: "Instagram Campaign",
       description: "إرسال رسائل ترويجية عبر Instagram Direct لمتابعيك",
       icon: MessageSquare,
-      color: "text-pink-500",
-      bgColor: "bg-pink-50 dark:bg-pink-950",
+      color: "text-[var(--accent-gold)]",
+      bgColor: "bg-[var(--accent-gold)]/12",
       available: false,
       channel: "إنستغرام",
     },
@@ -316,8 +316,8 @@ export default function WinbackCampaignsPage() {
       titleEn: "Facebook Campaign",
       description: "إرسال رسائل ترويجية عبر Messenger لمتابعي صفحتك",
       icon: Share2,
-      color: "text-blue-600",
-      bgColor: "bg-blue-50 dark:bg-blue-950",
+      color: "text-[var(--accent-blue)]",
+      bgColor: "bg-[var(--accent-blue)]/12",
       available: false,
       channel: "فيسبوك",
     },
@@ -377,10 +377,10 @@ export default function WinbackCampaignsPage() {
 
       {/* WhatsApp Status */}
       {!waReady && (
-        <Card className="border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20">
+        <Card className="app-data-card border-[var(--accent-warning)]/20 bg-[var(--accent-warning)]/12">
           <CardContent className="p-4 flex items-center gap-3">
-            <AlertCircle className="h-5 w-5 text-amber-600 shrink-0" />
-            <p className="text-sm text-amber-800 dark:text-amber-300">
+            <AlertCircle className="h-5 w-5 shrink-0 text-[var(--accent-warning)]" />
+            <p className="text-sm text-[var(--accent-warning)]">
               يجب تفعيل واتساب أولاً لإرسال الحملات. أضف رقم واتساب الأعمال في
               الإعدادات ← الإشعارات.
             </p>
@@ -388,9 +388,9 @@ export default function WinbackCampaignsPage() {
         </Card>
       )}
       {waReady && waNumber && (
-        <Card className="border-green-200 dark:border-green-800">
+        <Card className="app-data-card border-[var(--accent-success)]/20">
           <CardContent className="p-4 flex items-center gap-3">
-            <MessageSquare className="h-5 w-5 text-green-600" />
+            <MessageSquare className="h-5 w-5 text-[var(--accent-success)]" />
             <div className="flex-1">
               <p className="text-sm font-medium">
                 واتساب جاهز{" "}
@@ -417,7 +417,7 @@ export default function WinbackCampaignsPage() {
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <Users className="h-8 w-8 text-blue-500" />
+              <Users className="h-8 w-8 text-[var(--accent-blue)]" />
               <div>
                 <p className="text-sm text-muted-foreground">عملاء مستهدفون</p>
                 <p className="text-2xl font-bold">-</p>
@@ -431,7 +431,7 @@ export default function WinbackCampaignsPage() {
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <MessageSquare className="h-8 w-8 text-green-500" />
+              <MessageSquare className="h-8 w-8 text-[var(--accent-success)]" />
               <div>
                 <p className="text-sm text-muted-foreground">رسائل مرسلة</p>
                 <p className="text-2xl font-bold">
@@ -444,7 +444,7 @@ export default function WinbackCampaignsPage() {
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <TrendingUp className="h-8 w-8 text-purple-500" />
+              <TrendingUp className="h-8 w-8 text-[var(--accent-gold)]" />
               <div>
                 <p className="text-sm text-muted-foreground">معدل الاستجابة</p>
                 <p className="text-2xl font-bold">-</p>
@@ -458,7 +458,7 @@ export default function WinbackCampaignsPage() {
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <Percent className="h-8 w-8 text-orange-500" />
+              <Percent className="h-8 w-8 text-[var(--accent-warning)]" />
               <div>
                 <p className="text-sm text-muted-foreground">الخصم الحالي</p>
                 <p className="text-2xl font-bold">{discountPercent}%</p>
@@ -469,10 +469,10 @@ export default function WinbackCampaignsPage() {
       </div>
 
       {/* AI Audience Picker */}
-      <Card className="border-purple-100 bg-gradient-to-br from-purple-50 to-white dark:from-purple-950/30 dark:to-background">
+      <Card className="app-data-card border-[var(--accent-gold)]/20 bg-[var(--accent-gold-dim)]">
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-purple-500" />
+            <Sparkles className="h-5 w-5 text-[var(--accent-gold)]" />
             اقتراح الجمهور بالذكاء الاصطناعي
           </CardTitle>
           <CardDescription>
@@ -508,7 +508,7 @@ export default function WinbackCampaignsPage() {
                 <div>
                   <p className="font-medium text-sm">
                     الشريحة المقترحة:{" "}
-                    <span className="text-purple-600">
+                    <span className="text-[var(--accent-gold)]">
                       {aiAudienceResult.segmentName}
                     </span>
                   </p>
@@ -544,7 +544,7 @@ export default function WinbackCampaignsPage() {
         {campaignTypes.map((type) => (
           <Card
             key={type.id}
-            className={`relative ${!type.available ? "opacity-60" : "cursor-pointer hover:shadow-md transition-shadow"}`}
+            className={`app-data-card relative ${!type.available ? "opacity-60" : "cursor-pointer transition-colors hover:border-[var(--border-active)]"}`}
             onClick={
               type.available
                 ? () => {
@@ -593,12 +593,12 @@ export default function WinbackCampaignsPage() {
 
       {/* Previous Results */}
       {result && (
-        <Card className="border-green-200 dark:border-green-800">
+        <Card className="app-data-card border-[var(--accent-success)]/20">
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <CheckCircle2 className="h-6 w-6 text-green-500" />
+              <CheckCircle2 className="h-6 w-6 text-[var(--accent-success)]" />
               <div>
-                <p className="font-medium text-green-700 dark:text-green-300">
+                <p className="font-medium text-[var(--accent-success)]">
                   تم إرسال الحملة بنجاح!
                 </p>
                 <p className="text-sm text-muted-foreground">
@@ -619,7 +619,7 @@ export default function WinbackCampaignsPage() {
         >
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <UserMinus className="h-5 w-5 text-orange-500" />
+              <UserMinus className="h-5 w-5 text-[var(--accent-warning)]" />
               حملة استعادة العملاء
             </DialogTitle>
             <DialogDescription>
@@ -690,7 +690,7 @@ export default function WinbackCampaignsPage() {
                     } catch {}
                     setGeneratingMsg(false);
                   }}
-                  className="text-purple-700 border-purple-300 hover:bg-purple-50"
+                  className="border-[var(--accent-gold)]/25 text-[var(--accent-gold)] hover:bg-[var(--accent-gold-dim)]"
                 >
                   {generatingMsg ? (
                     <Loader2 className="h-3 w-3 animate-spin ml-1" />
@@ -712,14 +712,14 @@ export default function WinbackCampaignsPage() {
             </div>
 
             {error && (
-              <div className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950 p-3 rounded-lg">
+              <div className="flex items-center gap-2 rounded-lg bg-[var(--accent-danger)]/12 p-3 text-sm text-[var(--accent-danger)]">
                 <AlertTriangle className="h-4 w-4 flex-shrink-0" />
                 {error}
               </div>
             )}
 
             {result && (
-              <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-950 p-3 rounded-lg">
+              <div className="flex items-center gap-2 rounded-lg bg-[var(--accent-success)]/12 p-3 text-sm text-[var(--accent-success)]">
                 <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
                 تم إرسال {result.sent} رسالة بنجاح!
               </div>
@@ -794,7 +794,7 @@ export default function WinbackCampaignsPage() {
         >
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-green-500" />
+              <Sparkles className="h-5 w-5 text-[var(--accent-gold)]" />
               حملة موسمية
             </DialogTitle>
             <DialogDescription>
@@ -875,7 +875,7 @@ export default function WinbackCampaignsPage() {
                     } catch {}
                     setGeneratingSeasonalMsg(false);
                   }}
-                  className="w-full text-purple-700 border-purple-300 hover:bg-purple-50 sm:w-auto"
+                  className="w-full border-[var(--accent-gold)]/25 text-[var(--accent-gold)] hover:bg-[var(--accent-gold-dim)] sm:w-auto"
                 >
                   {generatingSeasonalMsg ? (
                     <Loader2 className="h-3 w-3 animate-spin ml-1" />
@@ -897,13 +897,13 @@ export default function WinbackCampaignsPage() {
             </div>
 
             {seasonalError && (
-              <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 dark:bg-red-950 p-3 rounded-lg">
+              <div className="flex items-center gap-2 rounded-lg bg-[var(--accent-danger)]/12 p-3 text-sm text-[var(--accent-danger)]">
                 <AlertTriangle className="h-4 w-4 shrink-0" />
                 {seasonalError}
               </div>
             )}
             {seasonalResult && (
-              <div className="flex items-center gap-2 text-sm text-green-600 bg-green-50 dark:bg-green-950 p-3 rounded-lg">
+              <div className="flex items-center gap-2 rounded-lg bg-[var(--accent-success)]/12 p-3 text-sm text-[var(--accent-success)]">
                 <CheckCircle2 className="h-4 w-4 shrink-0" />
                 تم إرسال {seasonalResult.sent} رسالة من{" "}
                 {seasonalResult.totalTargeted} عميل
@@ -949,7 +949,7 @@ export default function WinbackCampaignsPage() {
         >
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Zap className="h-5 w-5 text-blue-500" />
+              <Zap className="h-5 w-5 text-[var(--accent-blue)]" />
               حملة إعادة التفاعل
             </DialogTitle>
             <DialogDescription>
@@ -1014,7 +1014,7 @@ export default function WinbackCampaignsPage() {
                     } catch {}
                     setGeneratingReengageMsg(false);
                   }}
-                  className="text-purple-700 border-purple-300 hover:bg-purple-50"
+                  className="border-[var(--accent-gold)]/25 text-[var(--accent-gold)] hover:bg-[var(--accent-gold-dim)]"
                 >
                   {generatingReengageMsg ? (
                     <Loader2 className="h-3 w-3 animate-spin ml-1" />
@@ -1037,13 +1037,13 @@ export default function WinbackCampaignsPage() {
             </div>
 
             {reengagementError && (
-              <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 dark:bg-red-950 p-3 rounded-lg">
+              <div className="flex items-center gap-2 rounded-lg bg-[var(--accent-danger)]/12 p-3 text-sm text-[var(--accent-danger)]">
                 <AlertTriangle className="h-4 w-4 shrink-0" />
                 {reengagementError}
               </div>
             )}
             {reengagementResult && (
-              <div className="flex items-center gap-2 text-sm text-green-600 bg-green-50 dark:bg-green-950 p-3 rounded-lg">
+              <div className="flex items-center gap-2 rounded-lg bg-[var(--accent-success)]/12 p-3 text-sm text-[var(--accent-success)]">
                 <CheckCircle2 className="h-4 w-4 shrink-0" />
                 تم إرسال {reengagementResult.sent} رسالة من{" "}
                 {reengagementResult.totalTargeted} عميل
