@@ -18,7 +18,7 @@ import { AlertBanner, EmptyState } from "@/components/ui/alerts";
 import { CardSkeleton } from "@/components/ui/skeleton";
 import { useMerchant } from "@/hooks/use-merchant";
 import { merchantApi } from "@/lib/client";
-import { formatCurrency } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useRoleAccess } from "@/hooks/use-role-access";
 import {
