@@ -26,6 +26,7 @@ import {
   Check,
   CreditCard,
   Layers,
+  MessageSquare,
   RefreshCw,
   ShieldCheck,
 } from "lucide-react";
@@ -261,7 +262,13 @@ const HIDDEN_USAGE_METRICS = new Set(["TOKENS"]);
 
 const HIDDEN_USAGE_PACK_CODES = new Set(["AI_CAPACITY_L", "AI_CAPACITY_XL"]);
 
-const NON_SELECTABLE_PLAN_CODES = new Set(["TRIAL", "CUSTOM"]);
+const FULL_PLATFORM_PLAN_CODES = new Set([
+  "STARTER",
+  "BASIC",
+  "GROWTH",
+  "PRO",
+  "ENTERPRISE",
+]);
 
 const DEFAULT_USAGE_THRESHOLDS = {
   attention: 70,
@@ -300,22 +307,63 @@ const USAGE_BAND_BAR_CLASSES: Record<string, string> = {
   unlimited: "bg-[var(--accent-blue)]",
 };
 
-const STARTER_INCLUDED_FEATURES = [
-  "الرد التلقائي الذكي على رسائل واتساب",
-  "إدارة الطلبات والمبيعات",
-  "كتالوج المنتجات",
-  "المخزون الأساسي",
-  "قاعدة المعرفة",
-  "التقارير الأساسية",
-  "عضوان في الفريق",
-  "فرع واحد",
-];
+const PLAN_CARD_HIGHLIGHTS: Record<string, string[]> = {
+  STARTER: [
+    "محادثات العملاء + ردود AI",
+    "إدارة الطلبات والكتالوج",
+    "مخزون أساسي + مالية أساسية",
+    "Webhooks + إشعارات + تفريغ صوتي",
+    "Ops Agent",
+    "الكاشير مجاني 30 يوم",
+  ],
+  BASIC: [
+    "كل ما في Starter",
+    "الكاشير / POS دائم",
+    "مخزون كامل + موردون",
+    "API Access + CRM",
+    "1 فرع + 1 POS",
+    "Ops + Inventory + Finance",
+  ],
+  GROWTH: [
+    "كل ما في Basic",
+    "الفريق والصلاحيات",
+    "الولاء + الشرائح",
+    "الأتمتة",
+    "2 فرع + 2 POS",
+    "Ops + Inventory + Finance",
+  ],
+  PRO: [
+    "كل ما في Growth",
+    "KPI + Audit Logs + Forecasting",
+    "تقارير مالية متقدمة",
+    "Inventory Insights",
+    "5 فروع + 5 POS",
+    "Ops + Inventory + Finance",
+  ],
+  ENTERPRISE: [
+    "كل ما في Pro",
+    "تكاملات مخصصة + SLA",
+    "أهلية تفعيل المكالمات الصوتية",
+    "هيكل فروع / POS مخصص",
+    "Ops + Inventory + Finance",
+  ],
+  CHAT_ONLY: [
+    "واتساب + فيسبوك / ماسنجر",
+    "ردود AI للعملاء",
+    "سجل المحادثات",
+    "Routing / Tagging أساسي",
+    "بدون وحدات تشغيل كاملة",
+  ],
+};
 
-const STARTER_UPGRADE_FEATURES = [
-  "الكوبايلوت (متاح من الباقة الأساسية)",
-  "الرسائل الصوتية والملفات (متاح من الباقة الأساسية)",
-  "تحليلات الذكاء الاصطناعي المتقدمة (متاح من باقة النمو)",
-  "التقارير المالية المتقدمة (متاح من باقة النمو)",
+const CHAT_ONLY_EXCLUDED_LABELS = [
+  "المخزون",
+  "المالية",
+  "الكاشير / POS",
+  "الفروع",
+  "الولاء",
+  "الأتمتة",
+  "التقارير المتقدمة",
 ];
 
 function localizePlanName(code?: string, fallbackName?: string): string {
@@ -452,14 +500,6 @@ function getOverageRate(bundle: any, currency: string): number | null {
     return value > 0 ? value : null;
   }
   return null;
-}
-
-function getModelBadgeText(planCode?: string): string {
-  const normalized = String(planCode || "").toUpperCase();
-  if (normalized === "STARTER" || normalized === "BASIC") {
-    return "AI: GPT-4o-mini";
-  }
-  return "AI: GPT-4o + 4o-mini";
 }
 
 export default function PlanPage() {
@@ -928,15 +968,14 @@ export default function PlanPage() {
       <div className="space-y-3">
         <div className="flex items-center gap-2">
           <ShieldCheck className="h-4 w-4 text-primary" />
-          <h2 className="text-lg font-semibold">الباقات الجاهزة</h2>
+          <h2 className="text-lg font-semibold">باقات التشغيل الكاملة</h2>
         </div>
 
         <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-5">
           {(catalog.bundles || [])
             .filter((bundle: any) => {
               const code = String(bundle?.code || "").toUpperCase();
-              const isCurrent = currentPlan === code;
-              return isCurrent || !NON_SELECTABLE_PLAN_CODES.has(code);
+              return FULL_PLATFORM_PLAN_CODES.has(code);
             })
             .map((bundle: any) => {
               const cyclePriceMap = mapPricesByCycle(bundle.prices);
@@ -953,16 +992,26 @@ export default function PlanPage() {
                 regionCode,
               );
               const overageRate = getOverageRate(bundle, currency);
-              const visibleLimits = Object.entries(bundle.limits || {}).filter(
-                ([key]) =>
-                  !HIDDEN_LIMIT_KEYS.has(key) &&
-                  key !== "messagesPerMonth" &&
-                  key !== "monthlyConversationsEgypt" &&
-                  key !== "monthlyConversationsGulf" &&
-                  key !== "monthlyConversationsIncluded" &&
-                  key !== "overageRateAed" &&
-                  key !== "overageRateSar",
+              const monthlyMessages = Number(
+                conversationLimit ||
+                  bundle?.limits?.messagesPerMonth ||
+                  bundle?.limits?.monthlyConversationsIncluded ||
+                  0,
               );
+              const dailyMessages =
+                monthlyMessages > 0 ? Math.round(monthlyMessages / 30) : null;
+              const aiRepliesPerDay = Number(
+                bundle?.limits?.dailyAiResponses ||
+                  bundle?.limits?.aiCallsPerDay ||
+                  0,
+              );
+              const highlights =
+                PLAN_CARD_HIGHLIGHTS[normalizedPlanCode] ||
+                (bundle.features || [])
+                  .slice(0, 6)
+                  .map((feature: any) =>
+                    localizeFeatureLabel(feature.key, feature.label),
+                  );
               return (
                 <Card
                   key={bundle.code}
@@ -978,9 +1027,6 @@ export default function PlanPage() {
                     <p className="text-sm text-muted-foreground">
                       {localizePlanDescription(bundle.code, bundle.description)}
                     </p>
-                    <Badge variant="secondary" className="w-fit text-xs">
-                      {getModelBadgeText(bundle.code)}
-                    </Badge>
                     {selectedCyclePrice ? (
                       <div>
                         <p className="text-2xl font-bold">
@@ -1012,61 +1058,53 @@ export default function PlanPage() {
                     ) : null}
                   </CardHeader>
                   <CardContent className="space-y-3">
-                    <div className="space-y-1">
-                      {visibleLimits.map(([key, value]) => (
-                        <div
-                          key={key}
-                          className="flex flex-col gap-1 text-xs sm:flex-row sm:justify-between sm:gap-2"
-                        >
-                          <span className="text-muted-foreground">
-                            {LIMIT_LABELS[key] || key}
-                          </span>
-                          <span className="font-medium">
-                            {Number(value).toLocaleString("ar-EG")}
-                          </span>
-                        </div>
-                      ))}
+                    <div className="grid grid-cols-2 gap-2 rounded-md border bg-muted/10 p-2 text-xs">
+                      <div>
+                        <p className="text-muted-foreground">الرسائل / يوم</p>
+                        <p className="font-semibold">
+                          {dailyMessages
+                            ? dailyMessages.toLocaleString("ar-EG")
+                            : "-"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">الرسائل / شهر</p>
+                        <p className="font-semibold">
+                          {monthlyMessages.toLocaleString("ar-EG")}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">ردود AI / يوم</p>
+                        <p className="font-semibold">
+                          {aiRepliesPerDay.toLocaleString("ar-EG")}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">الفروع / POS</p>
+                        <p className="font-semibold">
+                          {Number(bundle?.limits?.branches || 0).toLocaleString(
+                            "ar-EG",
+                          )}{" "}
+                          /{" "}
+                          {Number(
+                            bundle?.limits?.posConnections ||
+                              bundle?.limits?.pos_connections ||
+                              0,
+                          ).toLocaleString("ar-EG")}
+                        </p>
+                      </div>
                     </div>
 
                     <div className="space-y-1">
-                      {normalizedPlanCode === "STARTER" ? (
-                        <>
-                          <p className="text-sm font-medium">
-                            ما يشمله الباقة المبتدئة
-                          </p>
-                          {STARTER_INCLUDED_FEATURES.map((line) => (
-                            <p key={line} className="text-xs">
-                              {line}
-                            </p>
-                          ))}
-                          <div className="border-t pt-2" />
-                          {STARTER_UPGRADE_FEATURES.map((line) => (
-                            <p
-                              key={line}
-                              className="text-xs text-muted-foreground"
-                            >
-                              {line}
-                            </p>
-                          ))}
-                        </>
-                      ) : (
-                        (bundle.features || [])
-                          .slice(0, 9)
-                          .map((feature: any) => (
-                            <p
-                              key={feature.key}
-                              className="flex items-center gap-2 text-xs"
-                            >
-                              <Check className="h-3 w-3 text-emerald-600" />
-                              <span>
-                                {localizeFeatureLabel(
-                                  feature.key,
-                                  feature.label,
-                                )}
-                              </span>
-                            </p>
-                          ))
-                      )}
+                      {highlights.slice(0, 6).map((line: string) => (
+                        <p
+                          key={line}
+                          className="flex items-center gap-2 text-xs"
+                        >
+                          <Check className="h-3 w-3 text-emerald-600" />
+                          <span>{line}</span>
+                        </p>
+                      ))}
                     </div>
 
                     <Button
@@ -1087,6 +1125,147 @@ export default function PlanPage() {
             })}
         </div>
       </div>
+
+      {(() => {
+        const chatOnlyBundle = (catalog?.bundles || []).find(
+          (bundle: any) =>
+            String(bundle?.code || "").toUpperCase() === "CHAT_ONLY",
+        );
+        if (!chatOnlyBundle) return null;
+
+        const cyclePriceMap = mapPricesByCycle(chatOnlyBundle.prices);
+        const selectedCyclePrice = cyclePriceMap.get(Number(cycleMonths));
+        const normalizedCode = String(chatOnlyBundle.code || "").toUpperCase();
+        const isCurrent = currentPlan === normalizedCode;
+        const canSelect = canEdit && !isCurrent && Boolean(selectedCyclePrice);
+
+        const conversationLimit = getConversationLimit(
+          chatOnlyBundle,
+          regionCode,
+        );
+        const monthlyMessages = Number(
+          conversationLimit ||
+            chatOnlyBundle?.limits?.messagesPerMonth ||
+            chatOnlyBundle?.limits?.monthlyConversationsIncluded ||
+            0,
+        );
+        const dailyMessages =
+          monthlyMessages > 0 ? Math.round(monthlyMessages / 30) : null;
+        const aiRepliesPerDay = Number(
+          chatOnlyBundle?.limits?.dailyAiResponses ||
+            chatOnlyBundle?.limits?.aiCallsPerDay ||
+            0,
+        );
+
+        return (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <MessageSquare className="h-4 w-4 text-primary" />
+              <h2 className="text-lg font-semibold">باقة الدردشة فقط</h2>
+            </div>
+
+            <Card className="border-[var(--accent-blue)]/40 bg-[var(--bg-surface-2)]">
+              <CardHeader className="space-y-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <CardTitle>
+                    {localizePlanName(chatOnlyBundle.code, chatOnlyBundle.name)}
+                  </CardTitle>
+                  <Badge variant="secondary">منتج تواصل فقط</Badge>
+                  <Badge className="border-0 bg-[var(--accent-blue)]/15 text-[var(--accent-blue)]">
+                    سعة رسائل أعلى من الباقة المبتدئة
+                  </Badge>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  باقة أضيق وظيفيًا من الباقة المبتدئة لكنها أعلى في سعة
+                  الرسائل.
+                </p>
+                {selectedCyclePrice ? (
+                  <p className="text-2xl font-bold">
+                    {toCurrency(
+                      selectedCyclePrice.effectiveMonthlyCents,
+                      selectedCyclePrice.currency,
+                    )}
+                  </p>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    لا يوجد سعر لهذه الدولة
+                  </p>
+                )}
+              </CardHeader>
+
+              <CardContent className="grid gap-4 lg:grid-cols-[1.2fr,0.8fr]">
+                <div className="space-y-3">
+                  <div>
+                    <p className="mb-1 text-sm font-medium">يشمل</p>
+                    <div className="space-y-1">
+                      {(PLAN_CARD_HIGHLIGHTS.CHAT_ONLY || []).map((line) => (
+                        <p
+                          key={line}
+                          className="flex items-center gap-2 text-xs"
+                        >
+                          <Check className="h-3 w-3 text-emerald-600" />
+                          <span>{line}</span>
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="mb-1 text-sm font-medium">لا يشمل</p>
+                    <div className="space-y-1">
+                      {CHAT_ONLY_EXCLUDED_LABELS.map((line) => (
+                        <p
+                          key={line}
+                          className="flex items-center gap-2 text-xs text-muted-foreground"
+                        >
+                          <span>—</span>
+                          <span>{line}</span>
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-3 rounded-md border bg-background/80 p-3 text-xs">
+                  <div>
+                    <p className="text-muted-foreground">الرسائل / يوم</p>
+                    <p className="font-semibold">
+                      {dailyMessages
+                        ? dailyMessages.toLocaleString("ar-EG")
+                        : "-"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">الرسائل / شهر</p>
+                    <p className="font-semibold">
+                      {monthlyMessages.toLocaleString("ar-EG")}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">ردود AI / يوم</p>
+                    <p className="font-semibold">
+                      {aiRepliesPerDay.toLocaleString("ar-EG")}
+                    </p>
+                  </div>
+
+                  <Button
+                    className="w-full"
+                    disabled={!canSelect}
+                    onClick={() => handleSubscribeBundle(chatOnlyBundle.code)}
+                  >
+                    <CreditCard className="mr-2 h-4 w-4" />
+                    {isCurrent
+                      ? "الباقة الحالية"
+                      : selectedCyclePrice
+                        ? "ابدأ بباقة الدردشة"
+                        : "غير متاحة حالياً"}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        );
+      })()}
 
       <div className="space-y-3">
         <div className="flex items-center gap-2">

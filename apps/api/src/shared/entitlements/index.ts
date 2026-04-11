@@ -1289,12 +1289,12 @@ export const LIVE_PURCHASABLE_AGENTS: AgentType[] = [
 export const PUBLIC_PRICING_PLANS: PublicPricingPlan[] = [
   {
     id: "STARTER",
-    nameAr: "Starter",
+    nameAr: "الباقة المبتدئة",
     nameEn: "Starter",
     monthlyPriceEgp: 999,
     isFullPlatformPlan: true,
-    bestFor: "البداية مع تشغيل أساسي ومحادثات مبيعات",
-    mainValue: "منصة كاملة للدخول: محادثات + طلبات + كتالوج + دفع أساسي",
+    bestFor: "للتجار في بداية التشغيل بمنصة كاملة خفيفة",
+    mainValue: "تشغيل كامل أساسي: محادثات + طلبات + كتالوج + مدفوعات أساسية",
     includedFeatures: [
       "OMNICHANNEL_INBOX",
       "WHATSAPP_META",
@@ -1337,12 +1337,12 @@ export const PUBLIC_PRICING_PLANS: PublicPricingPlan[] = [
   },
   {
     id: "BASIC",
-    nameAr: "Basic",
+    nameAr: "الباقة الأساسية",
     nameEn: "Basic",
     monthlyPriceEgp: 2200,
     isFullPlatformPlan: true,
-    bestFor: "تشغيل يومي فعلي مع مخزون ومدفوعات وربط API",
-    mainValue: "يشمل الكاشير الدائم والمخزون الكامل ووكيلي المخزون والمالية",
+    bestFor: "للتشغيل اليومي النشط مع أدوات عمليات فعلية",
+    mainValue: "يشمل الكاشير الدائم + المخزون الكامل + API + الوكلاء الثلاثة",
     includedFeatures: [
       "EVERYTHING_IN_STARTER",
       "CASHIER_POS",
@@ -1375,12 +1375,12 @@ export const PUBLIC_PRICING_PLANS: PublicPricingPlan[] = [
   },
   {
     id: "GROWTH",
-    nameAr: "Growth",
+    nameAr: "باقة النمو",
     nameEn: "Growth",
     monthlyPriceEgp: 4800,
     isFullPlatformPlan: true,
-    bestFor: "الفرق النامية التي تحتاج تشغيل فريق وأتمتة وولاء",
-    mainValue: "يشمل الفريق والولاء والشرائح والعمل التلقائي عبر فروع متعددة",
+    bestFor: "للفرق النامية التي تحتاج فريقًا وأتمتة وولاء",
+    mainValue: "يشمل RBAC + الولاء + الشرائح + الأتمتة عبر فروع متعددة",
     includedFeatures: [
       "EVERYTHING_IN_BASIC",
       "TEAM_RBAC",
@@ -1403,12 +1403,12 @@ export const PUBLIC_PRICING_PLANS: PublicPricingPlan[] = [
   },
   {
     id: "PRO",
-    nameAr: "Pro",
+    nameAr: "الباقة الاحترافية",
     nameEn: "Pro",
     monthlyPriceEgp: 10000,
     isFullPlatformPlan: true,
-    bestFor: "تشغيل احترافي مع تقارير مالية ومخزنية متقدمة",
-    mainValue: "يشمل KPI وسجل التدقيق والتنبؤات وتقارير CFO",
+    bestFor: "للعمليات متعددة الفروع مع تحليلات وإدارة متقدمة",
+    mainValue: "يشمل KPI + Audit Logs + Forecasting + تقارير CFO متقدمة",
     includedFeatures: [
       "EVERYTHING_IN_GROWTH",
       "KPI_DASHBOARD",
@@ -1437,12 +1437,12 @@ export const PUBLIC_PRICING_PLANS: PublicPricingPlan[] = [
   },
   {
     id: "ENTERPRISE",
-    nameAr: "Enterprise",
+    nameAr: "الباقة المؤسسية",
     nameEn: "Enterprise",
     monthlyPriceEgp: 21500,
     isFullPlatformPlan: true,
-    bestFor: "المؤسسات التي تحتاج تكاملات مخصصة وضمانات تشغيلية",
-    mainValue: "يشمل تكاملات مخصصة وSLA وأهلية تفعيل المكالمات الصوتية",
+    bestFor: "للشركات الكبيرة والعمليات المعقدة",
+    mainValue: "تكاملات مخصصة + SLA + أهلية تفعيل المكالمات + هيكل مخصص",
     includedFeatures: [
       "EVERYTHING_IN_PRO",
       "CUSTOM_INTEGRATIONS",
@@ -1471,12 +1471,12 @@ export const PUBLIC_PRICING_PLANS: PublicPricingPlan[] = [
   },
   {
     id: "CHAT_ONLY",
-    nameAr: "Chat Only",
+    nameAr: "باقة الدردشة فقط",
     nameEn: "Chat Only",
     monthlyPriceEgp: 1000,
     isFullPlatformPlan: false,
-    bestFor: "فرق البيع والمحادثات التي لا تحتاج منصة تشغيل كاملة",
-    mainValue: "سعة محادثات أعلى من Starter لكن بدون وحدات التشغيل الأوسع",
+    bestFor: "للتجار الذين يريدون قناة محادثات ذكية فقط",
+    mainValue: "أضيق من Starter وظيفيًا، لكن بسعة رسائل أعلى للدردشة",
     includedFeatures: [
       "WHATSAPP_META",
       "MESSENGER_INSTAGRAM",
@@ -1780,11 +1780,11 @@ export const ENTERPRISE_PRICING_FLOORS: EnterprisePricingFloor[] = [
 ];
 
 export const PUBLIC_PRICING_NOTES = [
-  "الرسائل = إجمالي الرسائل المعالجة داخل المنصة: رسائل العميل الواردة + ردود الذكاء الاصطناعي الصادرة.",
-  "رسوم قوالب واتساب المدفوعة تُحاسب بشكل منفصل كتكلفة تمرير.",
-  "دقائق المكالمات تُحاسب بشكل منفصل عند التفعيل.",
-  "الكاشير مجاني لأول 30 يوم للاشتراكات المدفوعة الجديدة على الخطط الكاملة فقط.",
-  "الوكلاء القابلون للشراء حالياً هم فقط: Ops Agent وInventory Agent وFinance Agent.",
+  "الرسائل = إجمالي الرسائل المُدارة داخل المنصة.",
+  "تشمل رسائل العملاء + ردود الذكاء الاصطناعي.",
+  "رسوم قوالب واتساب المدفوعة تُحاسب بشكل منفصل (Usage / Wallet-Based).",
+  "دقائق المكالمات لا تشملها الباقات القياسية.",
+  "الكاشير مجاني لأول 30 يومًا في الاشتراكات الجديدة المؤهلة.",
 ];
 
 export function getPublicPricingCatalog() {
