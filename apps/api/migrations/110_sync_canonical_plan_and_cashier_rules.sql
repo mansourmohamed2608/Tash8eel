@@ -89,14 +89,24 @@ BEGIN
 END;
 $$;
 
--- 3) Keep billing_plans feature arrays aligned with cashier policy
+-- 3) Keep billing_plans features aligned with cashier policy
+-- Compatible with both TEXT[] and JSONB schemas (legacy drift-safe).
 DO $$
+DECLARE
+  features_data_type TEXT;
 BEGIN
-  IF EXISTS (
-    SELECT 1
-    FROM information_schema.columns
-    WHERE table_name = 'billing_plans' AND column_name = 'features'
-  ) THEN
+  SELECT c.data_type
+  INTO features_data_type
+  FROM information_schema.columns c
+  WHERE c.table_name = 'billing_plans'
+    AND c.column_name = 'features'
+  LIMIT 1;
+
+  IF features_data_type IS NULL THEN
+    RETURN;
+  END IF;
+
+  IF features_data_type = 'ARRAY' THEN
     UPDATE billing_plans
     SET features = array_remove(COALESCE(features, ARRAY[]::text[]), 'CASHIER_POS'),
         updated_at = NOW()
@@ -107,6 +117,35 @@ BEGIN
       WHEN 'CASHIER_POS' = ANY(COALESCE(features, ARRAY[]::text[]))
         THEN COALESCE(features, ARRAY[]::text[])
       ELSE array_append(COALESCE(features, ARRAY[]::text[]), 'CASHIER_POS')
+    END,
+    updated_at = NOW()
+    WHERE UPPER(code) IN ('BASIC', 'GROWTH', 'PRO', 'ENTERPRISE');
+  ELSIF features_data_type = 'jsonb' THEN
+    UPDATE billing_plans
+    SET features = CASE
+      WHEN features IS NULL THEN '[]'::jsonb
+      WHEN jsonb_typeof(features) = 'array' THEN (
+        SELECT COALESCE(jsonb_agg(value), '[]'::jsonb)
+        FROM jsonb_array_elements_text(features) AS value
+        WHERE value <> 'CASHIER_POS'
+      )
+      WHEN jsonb_typeof(features) = 'object' THEN features - 'CASHIER_POS'
+      ELSE features
+    END,
+    updated_at = NOW()
+    WHERE UPPER(code) IN ('TRIAL', 'STARTER', 'CHAT_ONLY', 'CUSTOM');
+
+    UPDATE billing_plans
+    SET features = CASE
+      WHEN features IS NULL THEN '["CASHIER_POS"]'::jsonb
+      WHEN jsonb_typeof(features) = 'array' THEN
+        CASE
+          WHEN features ? 'CASHIER_POS' THEN features
+          ELSE features || '["CASHIER_POS"]'::jsonb
+        END
+      WHEN jsonb_typeof(features) = 'object' THEN
+        jsonb_set(features, '{CASHIER_POS}', 'true'::jsonb, true)
+      ELSE features
     END,
     updated_at = NOW()
     WHERE UPPER(code) IN ('BASIC', 'GROWTH', 'PRO', 'ENTERPRISE');
