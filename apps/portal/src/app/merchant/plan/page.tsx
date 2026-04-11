@@ -94,7 +94,9 @@ const USAGE_STATUS_LABELS: Record<string, string> = {
 };
 
 const PLAN_NAME_AR: Record<string, string> = {
+  TRIAL: "التجربة",
   STARTER: "باقة المبتدئ",
+  CHAT_ONLY: "باقة المحادثات فقط",
   BASIC: "باقة الأساسي",
   GROWTH: "باقة النمو",
   PRO: "الباقة الاحترافية",
@@ -102,8 +104,11 @@ const PLAN_NAME_AR: Record<string, string> = {
 };
 
 const PLAN_DESC_AR: Record<string, string> = {
+  TRIAL: "وضع تجريبي بحدود منخفضة للتجربة الأولية.",
   STARTER:
     "واتساب ذكي لاستقبال الطلبات والرد التلقائي - يشمل 1,200 محادثة/شهر في مصر",
+  CHAT_ONLY:
+    "واتساب مدعوم بالذكاء الاصطناعي للمحادثات فقط دون وحدات تشغيل متقدمة.",
   BASIC: "كل أساسيات التشغيل + الدفع والمخزون - يشمل 1,500 محادثة/شهر في مصر",
   GROWTH: "تشغيل متقدم مع الفريق والبث والولاء - يشمل 3,500 محادثة/شهر في مصر",
   PRO: "للعمليات المتقدمة والفروع المتعددة - يشمل 8,000 محادثة/شهر في مصر",
@@ -183,6 +188,7 @@ const FEATURE_LABELS_AR: Record<string, string> = {
   CONVERSATIONS: "المحادثات",
   ORDERS: "الطلبات",
   CATALOG: "الكتالوج",
+  CASHIER_POS: "الكاشير",
   INVENTORY: "المخزون الأساسي",
   REPORTS: "التقارير المالية الأساسية",
   NOTIFICATIONS: "الإشعارات",
@@ -254,6 +260,8 @@ const HIDDEN_LIMIT_KEYS = new Set(["tokenBudgetDaily", "monthlyAiCapacity"]);
 const HIDDEN_USAGE_METRICS = new Set(["TOKENS"]);
 
 const HIDDEN_USAGE_PACK_CODES = new Set(["AI_CAPACITY_L", "AI_CAPACITY_XL"]);
+
+const NON_SELECTABLE_PLAN_CODES = new Set(["TRIAL", "CUSTOM"]);
 
 const DEFAULT_USAGE_THRESHOLDS = {
   attention: 70,
@@ -924,139 +932,159 @@ export default function PlanPage() {
         </div>
 
         <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-5">
-          {(catalog.bundles || []).map((bundle: any) => {
-            const cyclePriceMap = mapPricesByCycle(bundle.prices);
-            const selectedCyclePrice = cyclePriceMap.get(Number(cycleMonths));
-            const isCurrent =
-              currentPlan === String(bundle.code || "").toUpperCase();
-            const normalizedPlanCode = String(bundle.code || "").toUpperCase();
-            const conversationLimit = getConversationLimit(bundle, regionCode);
-            const overageRate = getOverageRate(bundle, currency);
-            const visibleLimits = Object.entries(bundle.limits || {}).filter(
-              ([key]) =>
-                !HIDDEN_LIMIT_KEYS.has(key) &&
-                key !== "messagesPerMonth" &&
-                key !== "monthlyConversationsEgypt" &&
-                key !== "monthlyConversationsGulf" &&
-                key !== "monthlyConversationsIncluded" &&
-                key !== "overageRateAed" &&
-                key !== "overageRateSar",
-            );
-            return (
-              <Card
-                key={bundle.code}
-                className={isCurrent ? "border-primary" : ""}
-              >
-                <CardHeader className="space-y-2">
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <CardTitle>
-                      {localizePlanName(bundle.code, bundle.name)}
-                    </CardTitle>
-                    {isCurrent ? <Badge>الباقة الحالية</Badge> : null}
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    {localizePlanDescription(bundle.code, bundle.description)}
-                  </p>
-                  <Badge variant="secondary" className="w-fit text-xs">
-                    {getModelBadgeText(bundle.code)}
-                  </Badge>
-                  {selectedCyclePrice ? (
-                    <div>
-                      <p className="text-2xl font-bold">
-                        {toCurrency(
-                          selectedCyclePrice.effectiveMonthlyCents,
-                          selectedCyclePrice.currency,
-                        )}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        شهري فعلي ({cycleMonths} شهر)
-                      </p>
+          {(catalog.bundles || [])
+            .filter((bundle: any) => {
+              const code = String(bundle?.code || "").toUpperCase();
+              const isCurrent = currentPlan === code;
+              return isCurrent || !NON_SELECTABLE_PLAN_CODES.has(code);
+            })
+            .map((bundle: any) => {
+              const cyclePriceMap = mapPricesByCycle(bundle.prices);
+              const selectedCyclePrice = cyclePriceMap.get(Number(cycleMonths));
+              const isCurrent =
+                currentPlan === String(bundle.code || "").toUpperCase();
+              const hasPrice = Boolean(selectedCyclePrice);
+              const canSelect = canEdit && !isCurrent && hasPrice;
+              const normalizedPlanCode = String(
+                bundle.code || "",
+              ).toUpperCase();
+              const conversationLimit = getConversationLimit(
+                bundle,
+                regionCode,
+              );
+              const overageRate = getOverageRate(bundle, currency);
+              const visibleLimits = Object.entries(bundle.limits || {}).filter(
+                ([key]) =>
+                  !HIDDEN_LIMIT_KEYS.has(key) &&
+                  key !== "messagesPerMonth" &&
+                  key !== "monthlyConversationsEgypt" &&
+                  key !== "monthlyConversationsGulf" &&
+                  key !== "monthlyConversationsIncluded" &&
+                  key !== "overageRateAed" &&
+                  key !== "overageRateSar",
+              );
+              return (
+                <Card
+                  key={bundle.code}
+                  className={isCurrent ? "border-primary" : ""}
+                >
+                  <CardHeader className="space-y-2">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <CardTitle>
+                        {localizePlanName(bundle.code, bundle.name)}
+                      </CardTitle>
+                      {isCurrent ? <Badge>الباقة الحالية</Badge> : null}
                     </div>
-                  ) : (
                     <p className="text-sm text-muted-foreground">
-                      لا يوجد سعر لهذه الدولة
+                      {localizePlanDescription(bundle.code, bundle.description)}
                     </p>
-                  )}
-                  {conversationLimit ? (
-                    <div className="rounded-md border bg-muted/20 p-2 text-xs">
-                      <p className="font-medium">
-                        {currency === "AED" || currency === "SAR"
-                          ? `يشمل ${conversationLimit.toLocaleString("ar-EG")} محادثة - بعدها ${overageRate ?? 0} ${currency} لكل محادثة إضافية`
-                          : `يشمل ${conversationLimit.toLocaleString("ar-EG")} محادثة`}
-                        <span className="mr-1" title={CONVERSATION_TOOLTIP}>
-                          ℹ️
-                        </span>
-                      </p>
-                    </div>
-                  ) : null}
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="space-y-1">
-                    {visibleLimits.map(([key, value]) => (
-                      <div
-                        key={key}
-                        className="flex flex-col gap-1 text-xs sm:flex-row sm:justify-between sm:gap-2"
-                      >
-                        <span className="text-muted-foreground">
-                          {LIMIT_LABELS[key] || key}
-                        </span>
-                        <span className="font-medium">
-                          {Number(value).toLocaleString("ar-EG")}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="space-y-1">
-                    {normalizedPlanCode === "STARTER" ? (
-                      <>
-                        <p className="text-sm font-medium">
-                          ما يشمله الباقة المبتدئة
+                    <Badge variant="secondary" className="w-fit text-xs">
+                      {getModelBadgeText(bundle.code)}
+                    </Badge>
+                    {selectedCyclePrice ? (
+                      <div>
+                        <p className="text-2xl font-bold">
+                          {toCurrency(
+                            selectedCyclePrice.effectiveMonthlyCents,
+                            selectedCyclePrice.currency,
+                          )}
                         </p>
-                        {STARTER_INCLUDED_FEATURES.map((line) => (
-                          <p key={line} className="text-xs">
-                            {line}
-                          </p>
-                        ))}
-                        <div className="border-t pt-2" />
-                        {STARTER_UPGRADE_FEATURES.map((line) => (
-                          <p
-                            key={line}
-                            className="text-xs text-muted-foreground"
-                          >
-                            {line}
-                          </p>
-                        ))}
-                      </>
+                        <p className="text-xs text-muted-foreground">
+                          شهري فعلي ({cycleMonths} شهر)
+                        </p>
+                      </div>
                     ) : (
-                      (bundle.features || [])
-                        .slice(0, 9)
-                        .map((feature: any) => (
-                          <p
-                            key={feature.key}
-                            className="flex items-center gap-2 text-xs"
-                          >
-                            <Check className="h-3 w-3 text-emerald-600" />
-                            <span>
-                              {localizeFeatureLabel(feature.key, feature.label)}
-                            </span>
-                          </p>
-                        ))
+                      <p className="text-sm text-muted-foreground">
+                        لا يوجد سعر لهذه الدولة
+                      </p>
                     )}
-                  </div>
+                    {conversationLimit ? (
+                      <div className="rounded-md border bg-muted/20 p-2 text-xs">
+                        <p className="font-medium">
+                          {currency === "AED" || currency === "SAR"
+                            ? `يشمل ${conversationLimit.toLocaleString("ar-EG")} محادثة - بعدها ${overageRate ?? 0} ${currency} لكل محادثة إضافية`
+                            : `يشمل ${conversationLimit.toLocaleString("ar-EG")} محادثة`}
+                          <span className="mr-1" title={CONVERSATION_TOOLTIP}>
+                            ℹ️
+                          </span>
+                        </p>
+                      </div>
+                    ) : null}
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="space-y-1">
+                      {visibleLimits.map(([key, value]) => (
+                        <div
+                          key={key}
+                          className="flex flex-col gap-1 text-xs sm:flex-row sm:justify-between sm:gap-2"
+                        >
+                          <span className="text-muted-foreground">
+                            {LIMIT_LABELS[key] || key}
+                          </span>
+                          <span className="font-medium">
+                            {Number(value).toLocaleString("ar-EG")}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
 
-                  <Button
-                    className="w-full"
-                    disabled={!canEdit || isCurrent}
-                    onClick={() => handleSubscribeBundle(bundle.code)}
-                  >
-                    <CreditCard className="mr-2 h-4 w-4" />
-                    {isCurrent ? "الباقة الحالية" : "اختيار الباقة"}
-                  </Button>
-                </CardContent>
-              </Card>
-            );
-          })}
+                    <div className="space-y-1">
+                      {normalizedPlanCode === "STARTER" ? (
+                        <>
+                          <p className="text-sm font-medium">
+                            ما يشمله الباقة المبتدئة
+                          </p>
+                          {STARTER_INCLUDED_FEATURES.map((line) => (
+                            <p key={line} className="text-xs">
+                              {line}
+                            </p>
+                          ))}
+                          <div className="border-t pt-2" />
+                          {STARTER_UPGRADE_FEATURES.map((line) => (
+                            <p
+                              key={line}
+                              className="text-xs text-muted-foreground"
+                            >
+                              {line}
+                            </p>
+                          ))}
+                        </>
+                      ) : (
+                        (bundle.features || [])
+                          .slice(0, 9)
+                          .map((feature: any) => (
+                            <p
+                              key={feature.key}
+                              className="flex items-center gap-2 text-xs"
+                            >
+                              <Check className="h-3 w-3 text-emerald-600" />
+                              <span>
+                                {localizeFeatureLabel(
+                                  feature.key,
+                                  feature.label,
+                                )}
+                              </span>
+                            </p>
+                          ))
+                      )}
+                    </div>
+
+                    <Button
+                      className="w-full"
+                      disabled={!canSelect}
+                      onClick={() => handleSubscribeBundle(bundle.code)}
+                    >
+                      <CreditCard className="mr-2 h-4 w-4" />
+                      {isCurrent
+                        ? "الباقة الحالية"
+                        : hasPrice
+                          ? "اختيار الباقة"
+                          : "غير متاحة حالياً"}
+                    </Button>
+                  </CardContent>
+                </Card>
+              );
+            })}
         </div>
       </div>
 

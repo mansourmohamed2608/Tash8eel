@@ -29,6 +29,15 @@ import {
   planOrder,
 } from "./billing.helpers";
 
+const SELLABLE_BUNDLE_CODES = new Set<PlanType>([
+  "STARTER",
+  "CHAT_ONLY",
+  "BASIC",
+  "GROWTH",
+  "PRO",
+  "ENTERPRISE",
+]);
+
 @ApiTags("Billing")
 @Controller("v1/portal/billing")
 @UseGuards(MerchantApiKeyGuard, RolesGuard)
@@ -61,6 +70,11 @@ export class BillingSubscriptionsController {
     const planCode = String(body?.planCode || "").toUpperCase();
     if (!merchantId) throw new BadRequestException("merchantId is required");
     if (!planCode) throw new BadRequestException("planCode is required");
+    if (!SELLABLE_BUNDLE_CODES.has(planCode as PlanType)) {
+      throw new BadRequestException(
+        `Plan ${planCode} cannot be subscribed from this endpoint`,
+      );
+    }
 
     const regionCode = normalizeRegion(body?.regionCode);
     const cycleMonths = normalizeCycle(body?.cycleMonths);
@@ -136,6 +150,11 @@ export class BillingSubscriptionsController {
        LIMIT 1`,
       [planRow.id, regionCode, cycleMonths],
     );
+    if (!planPrice.rows[0]) {
+      throw new BadRequestException(
+        `Pricing is not configured for plan ${planCode} in region ${regionCode} (${cycleMonths} month cycle)`,
+      );
+    }
     const limits = toLimitsFromPlanRow(planRow);
     const cashierProvisioning = resolveCashierProvisioning({
       planCode,
