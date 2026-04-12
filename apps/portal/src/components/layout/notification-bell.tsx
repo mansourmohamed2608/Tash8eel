@@ -33,13 +33,13 @@ interface Notification {
 const getPriorityStyles = (priority: string) => {
   switch (priority) {
     case "URGENT":
-      return "border-l-4 border-l-red-500 bg-red-50";
+      return "border-l-4 border-l-[var(--accent-danger)] bg-[color:rgba(239,68,68,0.10)]";
     case "HIGH":
-      return "border-l-4 border-l-orange-500 bg-orange-50";
+      return "border-l-4 border-l-[var(--accent-warning)] bg-[color:rgba(245,158,11,0.10)]";
     case "MEDIUM":
-      return "border-l-4 border-l-blue-500 bg-blue-50";
+      return "border-l-4 border-l-[var(--accent-blue)] bg-[color:rgba(59,130,246,0.10)]";
     default:
-      return "border-l-4 border-l-gray-300 bg-gray-50";
+      return "border-l-4 border-l-[var(--border-default)] bg-[var(--bg-surface-2)]";
   }
 };
 

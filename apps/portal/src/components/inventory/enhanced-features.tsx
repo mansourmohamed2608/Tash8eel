@@ -73,9 +73,9 @@ export function MovementHistory({ movements, itemName }: MovementHistoryProps) {
       case "out":
         return <TrendingDown className="h-4 w-4 text-red-500" />;
       case "adjustment":
-        return <RefreshCw className="h-4 w-4 text-blue-500" />;
+        return <RefreshCw className="h-4 w-4 text-[var(--accent-blue)]" />;
       case "transfer":
-        return <ArrowLeftRight className="h-4 w-4 text-purple-500" />;
+        return <ArrowLeftRight className="h-4 w-4 text-[var(--accent-gold)]" />;
       default:
         return <Package className="h-4 w-4" />;
     }
@@ -83,10 +83,10 @@ export function MovementHistory({ movements, itemName }: MovementHistoryProps) {
 
   const getTypeBadge = (type: string) => {
     const variants: Record<string, string> = {
-      in: "bg-green-100 text-green-800",
-      out: "bg-red-100 text-red-800",
-      adjustment: "bg-blue-100 text-blue-800",
-      transfer: "bg-purple-100 text-purple-800",
+      in: "bg-[color:rgba(34,197,94,0.12)] text-[var(--accent-success)]",
+      out: "bg-[color:rgba(239,68,68,0.12)] text-[var(--accent-danger)]",
+      adjustment: "bg-[color:rgba(59,130,246,0.12)] text-[var(--accent-blue)]",
+      transfer: "bg-[color:rgba(232,197,71,0.12)] text-[var(--accent-gold)]",
     };
     const labels: Record<string, string> = {
       in: "إضافة",
@@ -95,7 +95,13 @@ export function MovementHistory({ movements, itemName }: MovementHistoryProps) {
       transfer: "نقل",
     };
     return (
-      <Badge className={cn("text-xs", variants[type] || "bg-gray-100")}>
+      <Badge
+        className={cn(
+          "text-xs",
+          variants[type] ||
+            "bg-[var(--bg-surface-2)] text-[var(--text-secondary)]",
+        )}
+      >
         {labels[type] || type}
       </Badge>
     );
@@ -594,8 +600,8 @@ export function InventorySummaryCards({
       <Card>
         <CardContent className="p-4">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-purple-100">
-              <BarChart3 className="h-5 w-5 text-purple-600" />
+            <div className="rounded-lg bg-[var(--accent-gold-dim)] p-2">
+              <BarChart3 className="h-5 w-5 text-[var(--accent-gold)]" />
             </div>
             <div>
               <p className="text-sm text-muted-foreground">صحة المخزون</p>

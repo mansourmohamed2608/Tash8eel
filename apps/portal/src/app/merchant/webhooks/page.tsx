@@ -59,10 +59,6 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { portalApi } from "@/lib/client";
-import {
-  AiInsightsCard,
-  generateWebhooksInsights,
-} from "@/components/ai/ai-insights-card";
 
 interface WebhookConfig {
   id: string;
@@ -423,19 +419,6 @@ export default function WebhooksPage() {
         </div>
       ) : (
         <>
-          {/* AI Webhooks Insights */}
-          <AiInsightsCard
-            title="مساعد تكاملات نقاط البيع"
-            insights={generateWebhooksInsights({
-              totalWebhooks: webhooks.length,
-              activeWebhooks: webhooks.filter((w) => w.isActive).length,
-              failureCount: webhooks.reduce(
-                (sum, w) => sum + (w.failureCount || 0),
-                0,
-              ),
-            })}
-            loading={loading}
-          />
           <PageHeader
             title="تكاملات نقاط البيع"
             description="إدارة تكاملات POS وإشعارات الأحداث"
@@ -563,6 +546,21 @@ export default function WebhooksPage() {
               </div>
             }
           />
+          <div className="flex flex-wrap gap-2">
+            {[
+              `إجمالي التكاملات: ${webhooks.length}`,
+              `التكاملات النشطة: ${webhooks.filter((w) => w.isActive).length}`,
+              `معدّل النجاح: ${successRate}%`,
+              `إخفاقات تحتاج مراجعة: ${totalFailure}`,
+            ].map((chip) => (
+              <div
+                key={chip}
+                className="inline-flex h-8 items-center rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs text-[var(--text-secondary)]"
+              >
+                {chip}
+              </div>
+            ))}
+          </div>
 
           {/* Stats Cards */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">

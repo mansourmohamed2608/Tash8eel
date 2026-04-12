@@ -1415,7 +1415,7 @@ export default function KnowledgeBasePage() {
 
           {/* Recipe Management Panel */}
           {recipeItem && (
-            <Card className="border-orange-200 dark:border-orange-800">
+            <Card className="border-[var(--accent-warning)]/20 bg-[color:rgba(245,158,11,0.06)]">
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">

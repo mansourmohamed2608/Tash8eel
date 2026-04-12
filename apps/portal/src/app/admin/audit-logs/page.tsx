@@ -226,44 +226,26 @@ export default function AuditLogsPage() {
         }
       />
 
-      <section className="app-hero-band">
-        <div className="app-hero-band__grid">
-          <div>
-            <p className="app-hero-band__eyebrow">مراقبة وتدقيق</p>
-            <h2 className="app-hero-band__title">
-              راجع كل تغيير مؤثر في النظام مع توزيع واضح حسب الجهة المنفذة
-            </h2>
-            <p className="app-hero-band__copy">
-              هذه الصفحة تمنحك طبقة متابعة تشغيلية تساعد على التحقيق السريع،
-              تتبع الإجراءات الحساسة، والتأكد من سلامة النشاط الإداري والتجاري.
-            </p>
-          </div>
-          <div className="app-hero-band__metrics">
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">
-                إجمالي السجلات
-              </span>
-              <strong className="app-hero-band__metric-value">
-                {logs.length}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">نشاط المدراء</span>
-              <strong className="app-hero-band__metric-value">
-                {logs.filter((l) => l.actor.type === "admin").length}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">
-                النتائج المطابقة
-              </span>
-              <strong className="app-hero-band__metric-value">
-                {filteredLogs.length}
-              </strong>
-            </div>
-          </div>
+      <div className="flex flex-wrap gap-2">
+        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
+          <span className="text-muted-foreground">إجمالي السجلات</span>
+          <span className="font-mono text-[var(--accent-gold)]">
+            {logs.length}
+          </span>
         </div>
-      </section>
+        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
+          <span className="text-muted-foreground">نشاط المدراء</span>
+          <span className="font-mono text-[var(--accent-blue)]">
+            {logs.filter((l) => l.actor.type === "admin").length}
+          </span>
+        </div>
+        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
+          <span className="text-muted-foreground">النتائج المطابقة</span>
+          <span className="font-mono text-foreground">
+            {filteredLogs.length}
+          </span>
+        </div>
+      </div>
 
       {/* Stats Summary */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">

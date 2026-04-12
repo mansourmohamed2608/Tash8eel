@@ -64,10 +64,6 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { portalApi } from "@/lib/client";
-import {
-  AiInsightsCard,
-  generateImportExportInsights,
-} from "@/components/ai/ai-insights-card";
 
 interface BulkOperation {
   id: string;
@@ -631,16 +627,25 @@ export default function BulkOperationsPage() {
         }
       />
 
-      {/* AI Import/Export Insights */}
-      <AiInsightsCard
-        title="مساعد الاستيراد والتصدير"
-        insights={generateImportExportInsights({
-          totalOperations: operations.length,
-          failedOperations: operations.filter((op) => op.status === "FAILED")
-            .length,
-        })}
-        loading={loading}
-      />
+      <div className="flex flex-wrap gap-2">
+        {[
+          `إجمالي العمليات: ${operations.length}`,
+          `قيد التنفيذ: ${
+            operations.filter((op) => op.status === "PROCESSING").length
+          }`,
+          `مكتملة: ${
+            operations.filter((op) => op.status === "COMPLETED").length
+          }`,
+          `فاشلة: ${operations.filter((op) => op.status === "FAILED").length}`,
+        ].map((chip) => (
+          <div
+            key={chip}
+            className="inline-flex h-8 items-center rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs text-[var(--text-secondary)]"
+          >
+            {chip}
+          </div>
+        ))}
+      </div>
 
       <Tabs value={activeTab} onValueChange={handleTabChange}>
         <TabsList className="grid h-auto w-full grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">

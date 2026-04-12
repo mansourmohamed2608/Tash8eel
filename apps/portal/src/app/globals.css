@@ -364,6 +364,20 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
     color: var(--text-primary);
   }
 
+  .cashier-command-bar__stat-label {
+    color: var(--text-muted);
+    font-size: 11px;
+    line-height: 1.5;
+  }
+
+  .cashier-command-bar__stat-value {
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    font-size: 14px;
+    font-weight: 800;
+    line-height: 1.4;
+  }
+
   .app-ghost-action {
     height: 40px;
     padding-inline: 14px;

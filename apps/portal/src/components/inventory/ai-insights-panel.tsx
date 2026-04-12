@@ -136,13 +136,13 @@ export function AIInsightsPanel({
   const getUrgencyColor = (urgency: string) => {
     switch (urgency) {
       case "critical":
-        return "bg-red-100 text-red-800 border-red-200";
+        return "bg-[color:rgba(239,68,68,0.12)] text-[var(--accent-danger)] border-[var(--accent-danger)]/20";
       case "high":
-        return "bg-orange-100 text-orange-800 border-orange-200";
+        return "bg-[color:rgba(245,158,11,0.12)] text-[var(--accent-warning)] border-[var(--accent-warning)]/20";
       case "medium":
-        return "bg-yellow-100 text-yellow-800 border-yellow-200";
+        return "bg-[color:rgba(245,158,11,0.10)] text-[var(--accent-warning)] border-[var(--accent-warning)]/16";
       default:
-        return "bg-green-100 text-green-800 border-green-200";
+        return "bg-[color:rgba(34,197,94,0.12)] text-[var(--accent-success)] border-[var(--accent-success)]/20";
     }
   };
 
@@ -187,8 +187,8 @@ export function AIInsightsPanel({
           className={cn(
             "flex items-center gap-3 rounded-lg p-4 border",
             aiStatus.budgetExhausted || aiStatus.error === "AI_QUOTA_EXHAUSTED"
-              ? "bg-orange-50 border-orange-200 text-orange-800"
-              : "bg-slate-50 border-slate-200 text-slate-700",
+              ? "bg-[color:rgba(245,158,11,0.10)] border-[var(--accent-warning)]/20 text-[var(--text-primary)]"
+              : "bg-[var(--bg-surface-2)] border-[var(--border-default)] text-[var(--text-primary)]",
           )}
         >
           <AlertTriangle className="h-5 w-5 flex-shrink-0" />
@@ -249,7 +249,7 @@ export function AIInsightsPanel({
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-lg flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-purple-500" />
+                <Sparkles className="h-5 w-5 text-[var(--accent-gold)]" />
                 توصيات إعادة التخزين الذكية
               </CardTitle>
               <Button
@@ -274,7 +274,7 @@ export function AIInsightsPanel({
                 restockRecs.map((rec) => (
                   <div
                     key={rec.variantId}
-                    className="border rounded-lg p-4 space-y-3 hover:shadow-md transition-shadow"
+                    className="space-y-3 rounded-lg border border-[var(--border-default)] p-4 transition-colors hover:bg-[var(--bg-surface-2)]"
                   >
                     <div className="flex items-start justify-between">
                       <div>
@@ -300,10 +300,10 @@ export function AIInsightsPanel({
 
                     {/* AI Explanation */}
                     {rec.ai && (
-                      <div className="bg-purple-50 rounded-lg p-3 border border-purple-100">
+                      <div className="rounded-lg border border-[var(--accent-gold)]/20 bg-[var(--accent-gold-dim)] p-3">
                         <div className="flex items-start gap-2">
-                          <Sparkles className="h-4 w-4 text-purple-500 mt-0.5 flex-shrink-0" />
-                          <p className="text-sm text-purple-900">
+                          <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-[var(--accent-gold)]" />
+                          <p className="text-sm text-[var(--text-primary)]">
                             {rec.ai.explanationAr}
                           </p>
                         </div>
@@ -398,10 +398,10 @@ export function AIInsightsPanel({
                     </div>
 
                     {group.merchantMessageAr && (
-                      <div className="bg-blue-50 rounded-lg p-3 border border-blue-100">
+                      <div className="rounded-lg border border-[var(--accent-blue)]/20 bg-[var(--accent-blue-dim)] p-3">
                         <div className="flex items-start gap-2">
-                          <Sparkles className="h-4 w-4 text-blue-500 mt-0.5 flex-shrink-0" />
-                          <p className="text-sm text-blue-900">
+                          <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-[var(--accent-blue)]" />
+                          <p className="text-sm text-[var(--text-primary)]">
                             {group.merchantMessageAr}
                           </p>
                         </div>

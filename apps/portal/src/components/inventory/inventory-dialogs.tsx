@@ -105,8 +105,8 @@ export function StockUpdateDialog({
         </DialogHeader>
         <div className="space-y-4">
           {selectedVariant && (
-            <div className="p-2 bg-blue-50 rounded-lg text-sm">
-              <span className="text-blue-600">متغير: </span>
+            <div className="rounded-lg bg-[var(--accent-blue-dim)] p-2 text-sm">
+              <span className="text-[var(--accent-blue)]">متغير: </span>
               <span className="font-mono">{selectedVariant.sku}</span>
             </div>
           )}
@@ -610,12 +610,12 @@ export function VariantDialog({
             />
           </div>
           {isEdit && editVariant && (
-            <div className="p-3 bg-blue-50 rounded-lg">
-              <p className="text-sm text-blue-800">
+            <div className="rounded-lg bg-[var(--accent-blue-dim)] p-3">
+              <p className="text-sm text-[var(--text-primary)]">
                 الكمية الحالية:{" "}
                 <strong>{editVariant.quantity_on_hand || 0}</strong>
               </p>
-              <p className="text-xs text-blue-600 mt-1">
+              <p className="mt-1 text-xs text-[var(--text-secondary)]">
                 لتعديل الكمية، استخدم زر تعديل المخزون
               </p>
             </div>

@@ -136,9 +136,9 @@ export function RecipesTab() {
       </div>
 
       {/* Info banner */}
-      <div className="bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-800 rounded-lg p-3 text-sm text-orange-800 dark:text-orange-300">
+      <div className="rounded-lg border border-[var(--accent-warning)]/20 bg-[color:rgba(245,158,11,0.10)] p-3 text-sm text-[var(--text-primary)]">
         <p className="font-medium mb-1">نظام الوصفات (المطاعم)</p>
-        <p>
+        <p className="text-[var(--text-secondary)]">
           اربط اصناف القائمة (مثل برجر، شاورما) بالمكونات الفعلية من المخزون.
           عند كل طلب، يتم خصم المكونات تلقائيا. عند الغاء الطلب، يتم ارجاعها.
         </p>
@@ -157,7 +157,7 @@ export function RecipesTab() {
           {filteredItems.map((item) => (
             <Card
               key={item.id}
-              className="cursor-pointer hover:border-orange-300 dark:hover:border-orange-600 transition-colors"
+              className="cursor-pointer transition-colors hover:border-[var(--accent-warning)]/30"
               onClick={() => setSelectedItem(item)}
             >
               <CardContent className="p-4">

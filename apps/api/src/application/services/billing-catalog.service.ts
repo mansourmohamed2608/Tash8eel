@@ -75,6 +75,54 @@ export interface BillingCatalogResponse {
   usagePacks: CatalogUsagePack[];
 }
 
+const TIER_ORDER: Record<string, number> = {
+  S: 1,
+  M: 2,
+  L: 3,
+  XL: 4,
+  XXL: 5,
+};
+
+const ADD_ON_MEANING_ALIAS: Record<string, string> = {
+  TEAM_UPTO3: "TEAM_UP_TO_3",
+  TEAM_UP_TO_3: "TEAM_UP_TO_3",
+  POS_INTEGRATIONS_BASIC: "POS_BASIC",
+  POS_BASIC: "POS_BASIC",
+  POS_INTEGRATIONS_ADVANCED: "POS_ADV",
+  POS_ADV: "POS_ADV",
+  MULTI_BRANCH_EXTRA: "MULTI_BRANCH_PER_1",
+  MULTI_BRANCH: "MULTI_BRANCH_PER_1",
+  MULTI_BRANCH_PER_1: "MULTI_BRANCH_PER_1",
+};
+
+const ADD_ON_CODE_PREFERENCE: string[] = [
+  "TEAM_UP_TO_3",
+  "POS_BASIC",
+  "POS_ADV",
+  "MULTI_BRANCH_PER_1",
+  "API_WEBHOOKS",
+  "FOLLOWUP_AUTOMATIONS",
+  "AUTONOMOUS_AGENT",
+  "PROACTIVE_ALERTS",
+  "KPI_DASHBOARD",
+  "AUDIT_LOGS",
+  "INVENTORY_BASIC",
+  "FINANCE_BASIC",
+];
+
+const USAGE_CODE_PREFIX_PREFERENCE: string[] = [
+  "AI_BOOST_",
+  "PROOF_",
+  "VOICE_",
+  "TEMPLATE_",
+  "MAPS_",
+  "INAPP_AI_TOPUP_",
+  "AI_CAPACITY_",
+  "PROOF_CHECKS_",
+  "VOICE_MINUTES_",
+  "PAID_TEMPLATES_",
+];
+
 @Injectable()
 export class BillingCatalogService {
   private readonly logger = new Logger(BillingCatalogService.name);
@@ -257,22 +305,55 @@ export class BillingCatalogService {
         usagePacksResult.rows[0]?.currency ||
         this.defaultCurrency(regionCode);
 
-      const addOns = addOnsResult.rows.map((row) => this.mapAddOnRow(row));
-      const usagePacks = usagePacksResult.rows.map((row) =>
+      const rawAddOns = addOnsResult.rows.map((row) => this.mapAddOnRow(row));
+      const rawUsagePacks = usagePacksResult.rows.map((row) =>
         this.mapUsagePackRow(row, currency),
       );
 
-      const bundleCapacityAddOns = addOns.filter(
-        (addOn) =>
-          addOn.addonType === "CAPACITY" &&
-          (addOn.scope === "BUNDLE" || addOn.scope === "BOTH"),
+      const addOns = this.dedupeAddOnsByMeaning(rawAddOns);
+      const usagePacks = this.dedupeUsagePacksByMeaning(rawUsagePacks, {
+        collapseByTier: true,
+      });
+
+      const bundleCapacityAddOns = this.dedupeAddOnsByMeaning(
+        addOns.filter(
+          (addOn) =>
+            addOn.addonType === "CAPACITY" &&
+            (addOn.scope === "BUNDLE" || addOn.scope === "BOTH"),
+        ),
       );
+      const bundleAddOnMeaningKeys = new Set(
+        bundleCapacityAddOns.map((addOn) => this.buildAddOnMeaningKey(addOn)),
+      );
+      const bundleUsagePacks = usagePacks.filter(
+        (usagePack) => !this.isByoOnlyUsageMetric(usagePack.metricKey),
+      );
+      const bundleUsageMeaningKeys = new Set(
+        bundleUsagePacks.map((usagePack) =>
+          this.buildUsagePackMeaningKey(usagePack, true),
+        ),
+      );
+
+      const byoUsagePacks = usagePacks.filter((usagePack) => {
+        if (this.isByoOnlyUsageMetric(usagePack.metricKey)) {
+          return true;
+        }
+        const meaningKey = this.buildUsagePackMeaningKey(usagePack, true);
+        return !bundleUsageMeaningKeys.has(meaningKey);
+      });
+
       const byoCoreAddOn =
         addOns.find((addOn) => addOn.code === "PLATFORM_CORE") || null;
-      const byoFeatureAddOns = addOns.filter(
+      const byoFeatureAddOns = this.dedupeAddOnsByMeaning(
+        addOns.filter(
+          (addOn) =>
+            addOn.code !== "PLATFORM_CORE" &&
+            (addOn.scope === "BYO" || addOn.scope === "BOTH"),
+        ),
+      );
+      const byoFeatureAddOnsWithoutOverlap = byoFeatureAddOns.filter(
         (addOn) =>
-          addOn.code !== "PLATFORM_CORE" &&
-          (addOn.scope === "BYO" || addOn.scope === "BOTH"),
+          !bundleAddOnMeaningKeys.has(this.buildAddOnMeaningKey(addOn)),
       );
 
       return {
@@ -332,16 +413,16 @@ export class BillingCatalogService {
         })),
         bundleAddOns: {
           capacityAddOns: bundleCapacityAddOns,
-          usagePacks,
+          usagePacks: bundleUsagePacks,
         },
         byo: {
           coreAddOn: byoCoreAddOn,
-          featureAddOns: byoFeatureAddOns,
-          usagePacks,
+          featureAddOns: byoFeatureAddOnsWithoutOverlap,
+          usagePacks: byoUsagePacks,
         },
         // Legacy compatibility
         addOns,
-        usagePacks,
+        usagePacks: bundleUsagePacks,
       };
     } catch (error) {
       if (this.isMissingRelationError(error)) {
@@ -694,6 +775,266 @@ export class BillingCatalogService {
         row.price_cents === null ? null : Number(row.price_cents || 0),
       currency: row.currency || fallbackCurrency,
     };
+  }
+
+  private dedupeAddOnsByMeaning(addOns: CatalogAddOn[]): CatalogAddOn[] {
+    const deduped = new Map<string, CatalogAddOn>();
+    for (const addOn of addOns || []) {
+      const key = this.buildAddOnMeaningKey(addOn);
+      const current = deduped.get(key);
+      if (!current) {
+        deduped.set(key, addOn);
+        continue;
+      }
+      if (this.shouldPreferAddOnCandidate(addOn, current)) {
+        deduped.set(key, addOn);
+      }
+    }
+
+    return Array.from(deduped.values()).sort((a, b) => {
+      const aName = String(a.name || a.code);
+      const bName = String(b.name || b.code);
+      return aName.localeCompare(bName);
+    });
+  }
+
+  private dedupeUsagePacksByMeaning(
+    packs: CatalogUsagePack[],
+    options: { collapseByTier?: boolean } = {},
+  ): CatalogUsagePack[] {
+    const deduped = new Map<string, CatalogUsagePack>();
+    for (const pack of packs || []) {
+      const key = this.buildUsagePackMeaningKey(
+        pack,
+        options.collapseByTier === true,
+      );
+      const current = deduped.get(key);
+      if (!current) {
+        deduped.set(key, pack);
+        continue;
+      }
+      if (this.shouldPreferUsagePackCandidate(pack, current)) {
+        deduped.set(key, pack);
+      }
+    }
+
+    return Array.from(deduped.values()).sort((a, b) => {
+      const familyCompare = this.normalizeUsageMetricFamily(
+        a.metricKey,
+      ).localeCompare(this.normalizeUsageMetricFamily(b.metricKey));
+      if (familyCompare !== 0) return familyCompare;
+
+      const tierCompare =
+        (TIER_ORDER[this.normalizeTierCode(a.tierCode)] || 99) -
+        (TIER_ORDER[this.normalizeTierCode(b.tierCode)] || 99);
+      if (tierCompare !== 0) return tierCompare;
+
+      return (
+        this.getUsagePackPrimaryUnits(a) - this.getUsagePackPrimaryUnits(b)
+      );
+    });
+  }
+
+  private buildAddOnMeaningKey(addOn: CatalogAddOn): string {
+    const code = String(addOn.code || "").toUpperCase();
+    const aliased = ADD_ON_MEANING_ALIAS[code] || code;
+    if (ADD_ON_MEANING_ALIAS[code]) {
+      return aliased;
+    }
+
+    const features = [...(addOn.featureEnables || [])]
+      .map((entry) => String(entry || "").toUpperCase())
+      .filter(Boolean)
+      .sort()
+      .join(",");
+    const floorKey = Object.entries(addOn.limitFloorUpdates || {})
+      .map(([key, value]) => `${key}:${Number(value || 0)}`)
+      .sort()
+      .join("|");
+    const incrementsKey = Object.entries(addOn.limitIncrements || {})
+      .map(([key, value]) => `${key}:${Number(value || 0)}`)
+      .sort()
+      .join("|");
+
+    const meaningSignature = [
+      String(addOn.addonType || "FEATURE").toUpperCase(),
+      features,
+      floorKey,
+      incrementsKey,
+    ].join("::");
+
+    // Prefer merchant-facing outcome signatures over raw SKU codes.
+    if (features || floorKey || incrementsKey) {
+      return meaningSignature;
+    }
+
+    return `CODE::${aliased}`;
+  }
+
+  private buildUsagePackMeaningKey(
+    usagePack: CatalogUsagePack,
+    collapseByTier = false,
+  ): string {
+    const family = this.normalizeUsageMetricFamily(usagePack.metricKey);
+    const tier = this.normalizeTierCode(usagePack.tierCode);
+    if (collapseByTier) {
+      return `${family}|${tier}`;
+    }
+    return `${family}|${tier}|${this.getUsagePackPrimaryUnits(usagePack)}`;
+  }
+
+  private getUsagePackPrimaryUnits(usagePack: CatalogUsagePack): number {
+    const metricFamily = this.normalizeUsageMetricFamily(usagePack.metricKey);
+    const deltas = usagePack.limitDeltas || {};
+
+    if (metricFamily === "AI_REPLIES") {
+      return Math.max(
+        0,
+        Number(usagePack.includedAiCallsPerDay ?? deltas.aiCallsPerDay ?? 0),
+      );
+    }
+
+    if (metricFamily === "MESSAGES") {
+      return Math.max(
+        0,
+        Number(
+          deltas.totalMessagesPerMonth ??
+            deltas.messagesPerMonth ??
+            deltas.monthlyConversationsIncluded ??
+            usagePack.includedUnits ??
+            0,
+        ),
+      );
+    }
+
+    if (metricFamily === "PAYMENT_PROOF_SCANS") {
+      return Math.max(
+        0,
+        Number(
+          deltas.paymentProofScansPerMonth ?? usagePack.includedUnits ?? 0,
+        ),
+      );
+    }
+
+    if (metricFamily === "VOICE_TRANSCRIPTION") {
+      return Math.max(
+        0,
+        Number(deltas.voiceMinutesPerMonth ?? usagePack.includedUnits ?? 0),
+      );
+    }
+
+    if (metricFamily === "PAID_TEMPLATES") {
+      return Math.max(
+        0,
+        Number(deltas.paidTemplatesPerMonth ?? usagePack.includedUnits ?? 0),
+      );
+    }
+
+    if (metricFamily === "MAP_LOOKUPS") {
+      return Math.max(
+        0,
+        Number(deltas.mapsLookupsPerMonth ?? usagePack.includedUnits ?? 0),
+      );
+    }
+
+    return Math.max(0, Number(usagePack.includedUnits ?? 0));
+  }
+
+  private normalizeUsageMetricFamily(metricKey: string): string {
+    const normalized = String(metricKey || "OTHER")
+      .toUpperCase()
+      .trim();
+    if (normalized === "AI_CAPACITY") return "AI_REPLIES";
+    if (normalized === "VOICE_MINUTES") return "VOICE_TRANSCRIPTION";
+    return normalized || "OTHER";
+  }
+
+  private normalizeTierCode(tierCode: string): string {
+    const normalized = String(tierCode || "S")
+      .toUpperCase()
+      .trim();
+    if (normalized in TIER_ORDER) return normalized;
+    return "S";
+  }
+
+  private addOnPreferenceRank(code: string): number {
+    const normalized = String(code || "").toUpperCase();
+    const index = ADD_ON_CODE_PREFERENCE.indexOf(normalized);
+    return index === -1 ? Number.MAX_SAFE_INTEGER : index;
+  }
+
+  private usageCodePreferenceRank(code: string): number {
+    const normalized = String(code || "").toUpperCase();
+    for (let index = 0; index < USAGE_CODE_PREFIX_PREFERENCE.length; index++) {
+      if (normalized.startsWith(USAGE_CODE_PREFIX_PREFERENCE[index])) {
+        return index;
+      }
+    }
+    return Number.MAX_SAFE_INTEGER;
+  }
+
+  private addOnMonthlyPriceHint(addOn: CatalogAddOn): number {
+    const cycleOne = (addOn.prices || []).find(
+      (price) => price.cycleMonths === 1,
+    );
+    if (cycleOne) {
+      return Number(cycleOne.effectiveMonthlyCents || Number.MAX_SAFE_INTEGER);
+    }
+    const allPrices = (addOn.prices || []).map((price) =>
+      Number(price.effectiveMonthlyCents || Number.MAX_SAFE_INTEGER),
+    );
+    return allPrices.length ? Math.min(...allPrices) : Number.MAX_SAFE_INTEGER;
+  }
+
+  private shouldPreferAddOnCandidate(
+    candidate: CatalogAddOn,
+    current: CatalogAddOn,
+  ): boolean {
+    const candidateRank = this.addOnPreferenceRank(candidate.code);
+    const currentRank = this.addOnPreferenceRank(current.code);
+    if (candidateRank !== currentRank) {
+      return candidateRank < currentRank;
+    }
+
+    const candidateScope =
+      candidate.scope === "BOTH" ? 1 : candidate.scope === "BUNDLE" ? 2 : 3;
+    const currentScope =
+      current.scope === "BOTH" ? 1 : current.scope === "BUNDLE" ? 2 : 3;
+    if (candidateScope !== currentScope) {
+      return candidateScope < currentScope;
+    }
+
+    return (
+      this.addOnMonthlyPriceHint(candidate) <
+      this.addOnMonthlyPriceHint(current)
+    );
+  }
+
+  private shouldPreferUsagePackCandidate(
+    candidate: CatalogUsagePack,
+    current: CatalogUsagePack,
+  ): boolean {
+    const candidateRank = this.usageCodePreferenceRank(candidate.code);
+    const currentRank = this.usageCodePreferenceRank(current.code);
+    if (candidateRank !== currentRank) {
+      return candidateRank < currentRank;
+    }
+
+    const candidateUnits = this.getUsagePackPrimaryUnits(candidate);
+    const currentUnits = this.getUsagePackPrimaryUnits(current);
+    if (candidateUnits !== currentUnits) {
+      return candidateUnits > currentUnits;
+    }
+
+    const candidatePrice = Number(
+      candidate.priceCents ?? Number.MAX_SAFE_INTEGER,
+    );
+    const currentPrice = Number(current.priceCents ?? Number.MAX_SAFE_INTEGER);
+    return candidatePrice < currentPrice;
+  }
+
+  private isByoOnlyUsageMetric(metricKey: string): boolean {
+    return this.normalizeUsageMetricFamily(metricKey) === "IN_APP_AI_ACTIONS";
   }
 
   private normalizeScope(raw: unknown): AddOnScope {

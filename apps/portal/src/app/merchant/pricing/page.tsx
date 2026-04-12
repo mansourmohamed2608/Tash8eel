@@ -27,6 +27,8 @@ import {
 
 type PricingPayload = Awaited<ReturnType<typeof merchantApi.getPricing>>;
 type PricingPlan = PricingPayload["catalog"]["plans"][number];
+type PricingFeatureAddOn = PricingPayload["catalog"]["featureAddOns"][number];
+type PricingUsagePack = PricingPayload["catalog"]["usagePacks"][number];
 
 const FULL_PLATFORM_ORDER = [
   "STARTER",
@@ -98,6 +100,46 @@ const CURATED_FEATURE_ADDON_ORDER = [
 ] as const;
 
 const CURATED_FEATURE_ADDON_SET = new Set(CURATED_FEATURE_ADDON_ORDER);
+
+const FEATURE_MEANING_ALIAS: Record<string, string> = {
+  inventory: "inventory",
+  inventory_basic: "inventory",
+  inventory_full: "inventory",
+  api_access: "api_access",
+  api_webhooks: "api_access",
+  automations: "automations",
+  followup_automations: "automations",
+  autonomous_agent: "automations",
+  forecasting: "forecasting",
+  cashier_pos: "cashier_pos",
+  pos_basic: "cashier_pos",
+  pos_adv: "cashier_pos",
+  team_rbac: "team_rbac",
+  team_up_to_3: "team_rbac",
+  team_upto3: "team_rbac",
+  loyalty: "loyalty",
+  kpi_dashboard: "kpi_dashboard",
+  audit_logs: "audit_logs",
+  branch_pack_plus_1: "branch_pack_plus_1",
+  multi_branch_per_1: "branch_pack_plus_1",
+  multi_branch_extra: "branch_pack_plus_1",
+  pos_connection_plus_1: "pos_connection_plus_1",
+  pos_integrations_basic: "pos_connection_plus_1",
+};
+
+const USAGE_FAMILY_ORDER: Record<string, number> = {
+  AI_REPLIES: 1,
+  MESSAGES: 2,
+  PAYMENT_PROOF_SCANS: 3,
+  VOICE_TRANSCRIPTION: 4,
+};
+
+const TIER_ORDER: Record<string, number> = {
+  S: 1,
+  M: 2,
+  L: 3,
+  XL: 4,
+};
 
 const CAPABILITY_LABELS: Record<string, string> = {
   OMNICHANNEL_INBOX: "صندوق الرسائل الموحد",
@@ -262,6 +304,84 @@ function getDisplayQuotas(plan: {
   };
 }
 
+function normalizeFeatureMeaning(code: string) {
+  const normalized = String(code || "")
+    .toLowerCase()
+    .trim();
+  return FEATURE_MEANING_ALIAS[normalized] || normalized;
+}
+
+function parseUsageUnits(item: PricingUsagePack): number {
+  const code = String(item.code || "").toLowerCase();
+  let match = code.match(/ai_plus_(\d+)_per_day/);
+  if (match) return Number(match[1] || 0);
+
+  match = code.match(/messages_plus_(\d+)k_month/);
+  if (match) return Number(match[1] || 0) * 1000;
+
+  match = code.match(/proof_scans_plus_(\d+)/);
+  if (match) return Number(match[1] || 0);
+
+  match = code.match(/transcription_minutes_plus_(\d+)/);
+  if (match) return Number(match[1] || 0);
+
+  const nameDigits = String(item.nameAr || "").match(/\d[\d,]*/);
+  if (nameDigits) {
+    return Number(String(nameDigits[0]).replaceAll(",", "")) || 0;
+  }
+  return 0;
+}
+
+function normalizeUsageFamily(item: PricingUsagePack): string {
+  const code = String(item.code || "").toLowerCase();
+  if (code.startsWith("ai_plus_")) return "AI_REPLIES";
+  if (code.startsWith("messages_plus_")) return "MESSAGES";
+  if (code.startsWith("proof_scans_plus_")) return "PAYMENT_PROOF_SCANS";
+  if (code.startsWith("transcription_minutes_plus_")) {
+    return "VOICE_TRANSCRIPTION";
+  }
+  return "OTHER";
+}
+
+function normalizeUsageTier(item: PricingUsagePack): string {
+  const family = normalizeUsageFamily(item);
+  const units = parseUsageUnits(item);
+
+  if (family === "AI_REPLIES") {
+    if (units <= 100) return "S";
+    if (units <= 250) return "M";
+    if (units <= 500) return "L";
+    return "XL";
+  }
+
+  if (family === "MESSAGES") {
+    if (units <= 25_000) return "S";
+    if (units <= 50_000) return "M";
+    if (units <= 100_000) return "L";
+    return "XL";
+  }
+
+  if (family === "PAYMENT_PROOF_SCANS") {
+    if (units <= 50) return "S";
+    if (units <= 100) return "M";
+    return "L";
+  }
+
+  if (family === "VOICE_TRANSCRIPTION") {
+    if (units <= 100) return "S";
+    if (units <= 250) return "M";
+    return "L";
+  }
+
+  return "S";
+}
+
+function buildUsageMeaningKey(item: PricingUsagePack): string {
+  const family = normalizeUsageFamily(item);
+  const tier = normalizeUsageTier(item);
+  return ["usage", family, tier, "M1", "PUBLIC", "MERCHANT"].join("|");
+}
+
 function supportsFeature(planId: string, key: string) {
   const map: Record<string, Record<string, boolean>> = {
     STARTER: {
@@ -383,31 +503,72 @@ export default function MerchantPricingPage() {
     const order = new Map<string, number>(
       CURATED_FEATURE_ADDON_ORDER.map((code, index) => [code, index]),
     );
-    const deduped = new Map<
-      (typeof CURATED_FEATURE_ADDON_ORDER)[number],
-      PricingPayload["catalog"]["featureAddOns"][number]
-    >();
+    const deduped = new Map<string, PricingFeatureAddOn>();
     for (const item of pricing?.catalog?.featureAddOns || []) {
-      const code = item.code as (typeof CURATED_FEATURE_ADDON_ORDER)[number];
+      const code = String(
+        item.code || "",
+      ) as (typeof CURATED_FEATURE_ADDON_ORDER)[number];
       if (!CURATED_FEATURE_ADDON_SET.has(code)) continue;
-      if (!deduped.has(code)) deduped.set(code, item);
+
+      const meaningKey = normalizeFeatureMeaning(code);
+      const current = deduped.get(meaningKey);
+      if (!current) {
+        deduped.set(meaningKey, item);
+        continue;
+      }
+
+      const currentPrice = Number(
+        current.monthlyPriceEgp || Number.MAX_SAFE_INTEGER,
+      );
+      const candidatePrice = Number(
+        item.monthlyPriceEgp || Number.MAX_SAFE_INTEGER,
+      );
+      if (candidatePrice < currentPrice) {
+        deduped.set(meaningKey, item);
+      }
     }
+
     return Array.from(deduped.values()).sort(
       (a, b) =>
-        (order.get(a.code) ?? Number.MAX_SAFE_INTEGER) -
-        (order.get(b.code) ?? Number.MAX_SAFE_INTEGER),
+        (order.get(String(a.code || "")) ?? Number.MAX_SAFE_INTEGER) -
+        (order.get(String(b.code || "")) ?? Number.MAX_SAFE_INTEGER),
     );
   }, [pricing]);
 
   const curatedUsagePacks = useMemo(() => {
-    const deduped = new Map<
-      string,
-      PricingPayload["catalog"]["usagePacks"][number]
-    >();
+    const deduped = new Map<string, PricingUsagePack>();
     for (const item of pricing?.catalog?.usagePacks || []) {
-      if (!deduped.has(item.code)) deduped.set(item.code, item);
+      const key = buildUsageMeaningKey(item);
+      const current = deduped.get(key);
+      if (!current) {
+        deduped.set(key, item);
+        continue;
+      }
+
+      const currentPrice = Number(
+        current.monthlyPriceEgp || Number.MAX_SAFE_INTEGER,
+      );
+      const candidatePrice = Number(
+        item.monthlyPriceEgp || Number.MAX_SAFE_INTEGER,
+      );
+      if (candidatePrice < currentPrice) {
+        deduped.set(key, item);
+      }
     }
-    return Array.from(deduped.values());
+
+    return Array.from(deduped.values()).sort((a, b) => {
+      const familyCompare =
+        (USAGE_FAMILY_ORDER[normalizeUsageFamily(a)] || 99) -
+        (USAGE_FAMILY_ORDER[normalizeUsageFamily(b)] || 99);
+      if (familyCompare !== 0) return familyCompare;
+
+      const tierCompare =
+        (TIER_ORDER[normalizeUsageTier(a)] || 99) -
+        (TIER_ORDER[normalizeUsageTier(b)] || 99);
+      if (tierCompare !== 0) return tierCompare;
+
+      return parseUsageUnits(a) - parseUsageUnits(b);
+    });
   }, [pricing]);
 
   const handlePlanAction = async (planId: string) => {

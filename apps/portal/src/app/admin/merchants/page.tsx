@@ -236,48 +236,32 @@ export default function MerchantsPage() {
         }
       />
 
-      <section className="app-hero-band">
-        <div className="app-hero-band__grid">
-          <div className="space-y-4">
-            <span className="app-hero-band__eyebrow">Merchant Management</span>
-            <div className="space-y-3">
-              <h2 className="app-hero-band__title">
-                تحكم كامل في حسابات التجار، تفعيلهم، وتصنيفهم دون مغادرة اللوحة.
-              </h2>
-              <p className="app-hero-band__copy">
-                هذه الصفحة مبنية للإدارة التشغيلية اليومية: مراجعة النشاط، فلترة
-                التجار، إنشاء حسابات جديدة، وتعطيل أو حذف الحسابات عند الحاجة.
-              </p>
-            </div>
-          </div>
-          <div className="app-hero-band__metrics">
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">إجمالي التجار</span>
-              <strong className="app-hero-band__metric-value">
-                {merchants.length}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">نشط</span>
-              <strong className="app-hero-band__metric-value">
-                {merchants.filter((m) => m.isActive).length}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">معطل</span>
-              <strong className="app-hero-band__metric-value">
-                {merchants.filter((m) => !m.isActive).length}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">نتائج الفلتر</span>
-              <strong className="app-hero-band__metric-value">
-                {filteredMerchants.length}
-              </strong>
-            </div>
-          </div>
+      <div className="flex flex-wrap gap-2">
+        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
+          <span className="text-muted-foreground">إجمالي التجار</span>
+          <span className="font-mono text-[var(--accent-gold)]">
+            {merchants.length}
+          </span>
         </div>
-      </section>
+        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
+          <span className="text-muted-foreground">نشط</span>
+          <span className="font-mono text-[var(--accent-success)]">
+            {merchants.filter((m) => m.isActive).length}
+          </span>
+        </div>
+        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
+          <span className="text-muted-foreground">معطل</span>
+          <span className="font-mono text-[var(--accent-danger)]">
+            {merchants.filter((m) => !m.isActive).length}
+          </span>
+        </div>
+        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
+          <span className="text-muted-foreground">نتائج الفلتر</span>
+          <span className="font-mono text-foreground">
+            {filteredMerchants.length}
+          </span>
+        </div>
+      </div>
 
       {/* Stats Summary */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

@@ -188,64 +188,33 @@ export default function AnalyticsPage() {
         }
       />
 
-      <section className="app-hero-band">
-        <div className="app-hero-band__grid">
-          <div className="space-y-4">
-            <span className="app-hero-band__eyebrow">Platform Analytics</span>
-            <div className="space-y-3">
-              <h2 className="app-hero-band__title">
-                اقرأ الأداء الكلي للمنصة ثم انزل مباشرة إلى التجار والوكلاء
-                والساعات الأكثر نشاطاً.
-              </h2>
-              <p className="app-hero-band__copy">
-                هذه الصفحة مبنية كلوحة قرار، لا كصفحة تقارير تقليدية. كل قسم
-                يجيب على سؤال تشغيل واضح: أين النمو، من يقود الإيراد، ما أداء
-                الوكلاء، ومتى تتركز الذروة.
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <Badge variant="info">الفترة: {period}</Badge>
-              <Badge variant="secondary">
-                الإيراد المحقق: {formatCurrency(realizedPlatformRevenue)}
-              </Badge>
-            </div>
-          </div>
-          <div className="app-hero-band__metrics">
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">
-                الإيراد المحقق
-              </span>
-              <strong className="app-hero-band__metric-value">
-                {formatCurrency(realizedPlatformRevenue)}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">
-                إجمالي الطلبات
-              </span>
-              <strong className="app-hero-band__metric-value">
-                {formatNumber(platformStats.totalOrders)}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">
-                التجار النشطون
-              </span>
-              <strong className="app-hero-band__metric-value">
-                {platformStats.activeMerchants}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">
-                إجمالي المحادثات
-              </span>
-              <strong className="app-hero-band__metric-value">
-                {formatNumber(platformStats.totalConversations)}
-              </strong>
-            </div>
-          </div>
+      <div className="flex flex-wrap gap-2">
+        <Badge variant="info">الفترة: {period}</Badge>
+        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
+          <span className="text-muted-foreground">الإيراد المحقق</span>
+          <span className="font-mono text-[var(--accent-gold)]">
+            {formatCurrency(realizedPlatformRevenue)}
+          </span>
         </div>
-      </section>
+        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
+          <span className="text-muted-foreground">إجمالي الطلبات</span>
+          <span className="font-mono text-[var(--accent-blue)]">
+            {formatNumber(platformStats.totalOrders)}
+          </span>
+        </div>
+        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
+          <span className="text-muted-foreground">التجار النشطون</span>
+          <span className="font-mono text-foreground">
+            {platformStats.activeMerchants}
+          </span>
+        </div>
+        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
+          <span className="text-muted-foreground">إجمالي المحادثات</span>
+          <span className="font-mono text-[var(--accent-success)]">
+            {formatNumber(platformStats.totalConversations)}
+          </span>
+        </div>
+      </div>
 
       {/* Platform KPIs */}
       <KPIGrid>

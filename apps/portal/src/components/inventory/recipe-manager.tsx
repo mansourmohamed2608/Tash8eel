@@ -334,7 +334,7 @@ export function RecipeManager({
                     onChange={(e) =>
                       handleUpdateIngredient(ing.id, "unit", e.target.value)
                     }
-                    className="h-7 text-xs w-full rounded border bg-white dark:bg-gray-900 px-1"
+                    className="h-7 w-full rounded border border-[var(--border-default)] bg-[var(--bg-surface-1)] px-1 text-xs text-[var(--text-primary)]"
                   >
                     {UNITS.map((u) => (
                       <option key={u.value} value={u.value}>
@@ -399,8 +399,8 @@ export function RecipeManager({
 
         {/* Availability details */}
         {availability?.ingredients && availability.ingredients.length > 0 && (
-          <div className="border rounded-lg p-3 bg-blue-50 dark:bg-blue-950/20">
-            <h4 className="text-sm font-medium text-blue-800 dark:text-blue-300 mb-2">
+          <div className="rounded-lg border border-[var(--accent-blue)]/20 bg-[var(--accent-blue-dim)] p-3">
+            <h4 className="mb-2 text-sm font-medium text-[var(--accent-blue)]">
               حالة المخزون للمكونات
             </h4>
             <div className="space-y-1">
@@ -411,7 +411,7 @@ export function RecipeManager({
                 >
                   <span>{ing.name}</span>
                   <div className="flex items-center gap-3">
-                    <span className="text-gray-500">
+                    <span className="text-[var(--text-secondary)]">
                       متوفر: {ing.stockOnHand}{" "}
                       {UNITS.find((u) => u.value === ing.unit)?.label ||
                         ing.unit}
@@ -440,7 +440,7 @@ export function RecipeManager({
 
         {/* Add ingredient form */}
         {showAddForm ? (
-          <div className="border rounded-lg p-4 bg-white dark:bg-gray-900 space-y-3">
+          <div className="space-y-3 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface-1)] p-4">
             <h4 className="text-sm font-semibold">اضافة مكون جديد</h4>
             <div className="grid grid-cols-2 gap-3">
               <div className="relative" ref={dropdownRef}>
@@ -448,8 +448,8 @@ export function RecipeManager({
                   اختر مكون من المخزون
                 </label>
                 {selectedInventoryItem ? (
-                  <div className="flex items-center gap-2 h-9 px-3 border rounded-md bg-green-50 dark:bg-green-900/20 text-sm">
-                    <Check className="h-4 w-4 text-green-600 flex-shrink-0" />
+                  <div className="flex h-9 items-center gap-2 rounded-md border border-[var(--accent-success)]/20 bg-[color:rgba(34,197,94,0.10)] px-3 text-sm">
+                    <Check className="h-4 w-4 shrink-0 text-[var(--accent-success)]" />
                     <span className="truncate font-medium">
                       {selectedInventoryItem.name}
                     </span>
@@ -480,7 +480,7 @@ export function RecipeManager({
                   </div>
                 ) : (
                   <div className="relative">
-                    <Search className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Search className="absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]" />
                     <Input
                       value={inventorySearch}
                       onChange={(e) => {
@@ -494,13 +494,13 @@ export function RecipeManager({
                   </div>
                 )}
                 {showInventoryDropdown && !selectedInventoryItem && (
-                  <div className="absolute z-50 top-full mt-1 w-full bg-white dark:bg-gray-900 border rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                  <div className="absolute top-full z-50 mt-1 max-h-48 w-full overflow-y-auto rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface-1)]">
                     {inventoryItems.length > 0 ? (
                       inventoryItems.map((item) => (
                         <button
                           key={item.id}
                           type="button"
-                          className="w-full text-right px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center justify-between text-sm border-b last:border-b-0"
+                          className="flex w-full items-center justify-between border-b border-[var(--border-subtle)] px-3 py-2 text-right text-sm hover:bg-[var(--bg-surface-2)] last:border-b-0"
                           onClick={() => {
                             setSelectedInventoryItem(item);
                             setNewIngredient({
@@ -514,7 +514,7 @@ export function RecipeManager({
                           }}
                         >
                           <div className="flex items-center gap-2">
-                            <Package className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                            <Package className="h-4 w-4 shrink-0 text-[var(--text-muted)]" />
                             <div>
                               <span className="font-medium">{item.name}</span>
                               {item.sku && (
@@ -571,7 +571,7 @@ export function RecipeManager({
                   onChange={(e) =>
                     setNewIngredient({ ...newIngredient, unit: e.target.value })
                   }
-                  className="h-9 text-sm w-full rounded border bg-white dark:bg-gray-800 px-2"
+                  className="h-9 w-full rounded border border-[var(--border-default)] bg-[var(--bg-surface-1)] px-2 text-sm text-[var(--text-primary)]"
                 >
                   {UNITS.map((u) => (
                     <option key={u.value} value={u.value}>

@@ -135,56 +135,36 @@ export default function AdminDashboard() {
         }
       />
 
-      <section className="app-hero-band">
-        <div className="app-hero-band__grid">
-          <div className="space-y-4">
-            <span className="app-hero-band__eyebrow">Platform Control</span>
-            <div className="space-y-3">
-              <h2 className="app-hero-band__title">
-                راقب المنصة على مستوى التجار، الطلبات، المحادثات، والخدمات من
-                نفس الشاشة.
-              </h2>
-              <p className="app-hero-band__copy">
-                هذه الواجهة تعطيك قراءة سريعة عن حالة النظام، وتلفت انتباهك إلى
-                أحداث DLQ والمشكلات التشغيلية قبل أن تتحول إلى أثر واضح على
-                التجار أو العملاء.
-              </p>
-            </div>
-          </div>
-          <div className="app-hero-band__metrics">
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">صحة النظام</span>
-              <strong className="app-hero-band__metric-value">
-                {metrics.systemHealth === "healthy"
-                  ? "مستقر"
-                  : metrics.systemHealth === "degraded"
-                    ? "متراجع"
-                    : "حرج"}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">
-                التجار النشطون
-              </span>
-              <strong className="app-hero-band__metric-value">
-                {metrics.activeMerchants}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">طلبات اليوم</span>
-              <strong className="app-hero-band__metric-value">
-                {metrics.ordersToday}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">DLQ المعلق</span>
-              <strong className="app-hero-band__metric-value">
-                {metrics.dlqPending}
-              </strong>
-            </div>
-          </div>
+      <div className="flex flex-wrap gap-2">
+        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
+          <span className="text-muted-foreground">صحة النظام</span>
+          <span className="font-mono text-[var(--accent-gold)]">
+            {metrics.systemHealth === "healthy"
+              ? "مستقر"
+              : metrics.systemHealth === "degraded"
+                ? "متراجع"
+                : "حرج"}
+          </span>
         </div>
-      </section>
+        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
+          <span className="text-muted-foreground">التجار النشطون</span>
+          <span className="font-mono text-[var(--accent-blue)]">
+            {metrics.activeMerchants}
+          </span>
+        </div>
+        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
+          <span className="text-muted-foreground">طلبات اليوم</span>
+          <span className="font-mono text-foreground">
+            {metrics.ordersToday}
+          </span>
+        </div>
+        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
+          <span className="text-muted-foreground">DLQ المعلق</span>
+          <span className="font-mono text-[var(--accent-warning)]">
+            {metrics.dlqPending}
+          </span>
+        </div>
+      </div>
 
       {/* System Health Alert */}
       {metrics.systemHealth !== "healthy" && (

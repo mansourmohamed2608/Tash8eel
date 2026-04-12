@@ -2047,10 +2047,7 @@ export default function CashierPage() {
                 <p className="text-lg font-black tracking-[-0.02em] text-[var(--text-primary)]">
                   {merchantName}
                 </p>
-                <p className="text-sm text-[var(--text-muted)]">
-                  مساحة تشغيل سريعة للكاشير، المبيعات، الجلسات، والطباعة من شاشة
-                  واحدة.
-                </p>
+                <p className="text-sm text-[var(--text-muted)]">وضع الكاشير</p>
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -2079,8 +2076,10 @@ export default function CashierPage() {
           </div>
           <div className="cashier-command-bar__stats">
             <div className="cashier-command-bar__stat">
-              <span className="app-hero-band__metric-label">حالة الجلسة</span>
-              <strong className="app-hero-band__metric-value">
+              <span className="cashier-command-bar__stat-label">
+                حالة الجلسة
+              </span>
+              <strong className="cashier-command-bar__stat-value">
                 {registerLoading
                   ? "جارٍ التحقق..."
                   : currentRegister?.status === "open"
@@ -2089,24 +2088,28 @@ export default function CashierPage() {
               </strong>
             </div>
             <div className="cashier-command-bar__stat">
-              <span className="app-hero-band__metric-label">نوع الخدمة</span>
-              <strong className="app-hero-band__metric-value">
+              <span className="cashier-command-bar__stat-label">
+                نوع الخدمة
+              </span>
+              <strong className="cashier-command-bar__stat-value">
                 {DELIVERY_OPTIONS.find((option) => option.key === deliveryType)
                   ?.label || "استلام"}
               </strong>
             </div>
             <div className="cashier-command-bar__stat">
-              <span className="app-hero-band__metric-label">وسيلة الدفع</span>
-              <strong className="app-hero-band__metric-value">
+              <span className="cashier-command-bar__stat-label">
+                وسيلة الدفع
+              </span>
+              <strong className="cashier-command-bar__stat-value">
                 {PAYMENT_OPTIONS.find((option) => option.key === paymentMethod)
                   ?.label || "نقدي"}
               </strong>
             </div>
             <div className="cashier-command-bar__stat">
-              <span className="app-hero-band__metric-label">
+              <span className="cashier-command-bar__stat-label">
                 الإجمالي الحالي
               </span>
-              <strong className="app-hero-band__metric-value">
+              <strong className="cashier-command-bar__stat-value">
                 {formatCurrency(totalAfterDiscount)}
               </strong>
             </div>
@@ -2653,9 +2656,9 @@ export default function CashierPage() {
                                 className={cn(
                                   "rounded-xl border p-3",
                                   isSelected
-                                    ? "border-blue-300 bg-blue-50"
+                                    ? "border-[var(--accent-blue)]/20 bg-[var(--accent-blue-dim)]"
                                     : isOccupied
-                                      ? "border-amber-300 bg-amber-50"
+                                      ? "border-[var(--accent-warning)]/20 bg-[color:rgba(245,158,11,0.10)]"
                                       : "bg-muted/20",
                                 )}
                               >

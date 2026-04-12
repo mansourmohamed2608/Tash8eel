@@ -95,7 +95,7 @@ function urgencyBg(u: string) {
     case "critical":
       return "bg-[var(--accent-danger)]/10 border-[var(--accent-danger)]/20";
     case "high":
-      return "bg-orange-50 border-orange-200";
+      return "bg-[var(--accent-warning)]/10 border-[var(--accent-warning)]/20";
     case "medium":
       return "bg-[var(--accent-warning)]/10 border-[var(--accent-warning)]/20";
     default:
@@ -322,46 +322,21 @@ export default function ForecastPage() {
         }
       />
 
-      <section className="app-hero-band">
-        <div className="app-hero-band__grid">
-          <div>
-            <p className="app-hero-band__eyebrow">توقع وتشغيل</p>
-            <h2 className="app-hero-band__title">
-              تعرف على الأصناف المعرضة للنفاد قبل أن تتحول إلى خسارة مبيعات
-            </h2>
-            <p className="app-hero-band__copy">
-              يجمع هذا التقرير معدل الطلب، سرعة الاستهلاك، واتجاه التغير ليمنح
-              الفريق قائمة أولوية واضحة لإعادة الطلب والتوزيع.
-            </p>
+      <div className="flex flex-wrap gap-2">
+        {[
+          `الأصناف المحللة: ${items.length}`,
+          `خطر خلال 7 أيام: ${nearStockout}`,
+          `إعادة طلب مقترحة: ${Math.round(totalReorderSuggested)}`,
+          `آخر حساب: ${computedAt ? "محدث" : "غير متوفر"}`,
+        ].map((chip) => (
+          <div
+            key={chip}
+            className="inline-flex h-8 items-center rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs text-[var(--text-secondary)]"
+          >
+            {chip}
           </div>
-          <div className="app-hero-band__metrics">
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">
-                الأصناف المحللة
-              </span>
-              <strong className="app-hero-band__metric-value">
-                {items.length}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">
-                خطر خلال 7 أيام
-              </span>
-              <strong className="app-hero-band__metric-value">
-                {nearStockout}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">
-                إعادة طلب مقترحة
-              </span>
-              <strong className="app-hero-band__metric-value">
-                {Math.round(totalReorderSuggested)}
-              </strong>
-            </div>
-          </div>
-        </div>
-      </section>
+        ))}
+      </div>
 
       {/* ── Summary strip ──────────────────────────────────────────────── */}
       {items.length > 0 && (
@@ -698,7 +673,7 @@ export default function ForecastPage() {
                         </p>
                       </div>
 
-                      <div className="rounded-md border bg-blue-50 px-2.5 py-2">
+                      <div className="rounded-md border border-[var(--accent-blue)]/20 bg-[var(--accent-blue-dim)] px-2.5 py-2">
                         <p className="text-muted-foreground">
                           إعادة الطلب المقترحة
                         </p>

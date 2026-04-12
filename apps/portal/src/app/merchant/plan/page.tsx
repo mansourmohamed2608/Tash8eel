@@ -81,11 +81,14 @@ const LIMIT_LABELS: Record<string, string> = {
 
 const METRIC_LABELS: Record<string, string> = {
   AI_CAPACITY: "ردود الذكاء الاصطناعي / يوم",
+  AI_REPLIES: "ردود الذكاء الاصطناعي / يوم",
   MESSAGES: "الرسائل / شهر",
   PAYMENT_PROOF_SCANS: "فحوصات إثبات الدفع / شهر",
   VOICE_MINUTES: "الدقائق الصوتية / شهر",
+  VOICE_TRANSCRIPTION: "الدقائق الصوتية / شهر",
   PAID_TEMPLATES: "القوالب المدفوعة / شهر",
   MAP_LOOKUPS: "استعلامات الخرائط / شهر",
+  IN_APP_AI_ACTIONS: "إجراءات الذكاء الاصطناعي داخل النظام / شهر",
   OTHER: "أخرى",
 };
 
@@ -355,12 +358,59 @@ const ENTERPRISE_CUSTOM_ITEMS = [
 
 const CURATED_USAGE_METRICS = new Set([
   "AI_CAPACITY",
+  "AI_REPLIES",
   "MESSAGES",
   "PAYMENT_PROOF_SCANS",
+  "VOICE_TRANSCRIPTION",
   "VOICE_MINUTES",
   "PAID_TEMPLATES",
   "MAP_LOOKUPS",
 ]);
+
+const TIER_ORDER: Record<string, number> = {
+  S: 1,
+  M: 2,
+  L: 3,
+  XL: 4,
+};
+
+const ADDON_MEANING_ALIAS: Record<string, string> = {
+  TEAM_UPTO3: "TEAM_UP_TO_3",
+  TEAM_UP_TO_3: "TEAM_UP_TO_3",
+  POS_INTEGRATIONS_BASIC: "POS_BASIC",
+  POS_BASIC: "POS_BASIC",
+  POS_INTEGRATIONS_ADVANCED: "POS_ADV",
+  POS_ADV: "POS_ADV",
+  MULTI_BRANCH_EXTRA: "MULTI_BRANCH_PER_1",
+  MULTI_BRANCH: "MULTI_BRANCH_PER_1",
+  MULTI_BRANCH_PER_1: "MULTI_BRANCH_PER_1",
+};
+
+const ADDON_CODE_PREFERENCE = [
+  "TEAM_UP_TO_3",
+  "POS_BASIC",
+  "POS_ADV",
+  "MULTI_BRANCH_PER_1",
+  "API_WEBHOOKS",
+  "FOLLOWUP_AUTOMATIONS",
+  "AUTONOMOUS_AGENT",
+  "PROACTIVE_ALERTS",
+  "KPI_DASHBOARD",
+  "AUDIT_LOGS",
+];
+
+const USAGE_CODE_PREFIX_PREFERENCE = [
+  "AI_BOOST_",
+  "PROOF_",
+  "VOICE_",
+  "TEMPLATE_",
+  "MAPS_",
+  "INAPP_AI_TOPUP_",
+  "AI_CAPACITY_",
+  "PROOF_CHECKS_",
+  "VOICE_MINUTES_",
+  "PAID_TEMPLATES_",
+];
 
 const DEFAULT_USAGE_THRESHOLDS = {
   attention: 70,
@@ -598,9 +648,9 @@ function getUsagePackPrimaryDelta(pack: any): {
   metric: string;
   units: number;
 } {
-  const metric = String(pack?.metricKey || "OTHER").toUpperCase();
+  const metric = normalizeUsageMetricFamily(pack?.metricKey);
   const deltas = getUsagePackDeltas(pack);
-  if (metric === "AI_CAPACITY") {
+  if (metric === "AI_REPLIES") {
     return {
       metric,
       units: Math.max(
@@ -633,7 +683,7 @@ function getUsagePackPrimaryDelta(pack: any): {
       ),
     };
   }
-  if (metric === "VOICE_MINUTES") {
+  if (metric === "VOICE_TRANSCRIPTION") {
     return {
       metric,
       units: Math.max(
@@ -670,37 +720,186 @@ function getCuratedUsagePackLabel(pack: any): string {
   const { metric, units } = getUsagePackPrimaryDelta(pack);
   const formatted = units.toLocaleString("ar-EG");
 
-  if (metric === "AI_CAPACITY") return `زيادة ${formatted} رد AI يوميًا`;
+  if (metric === "AI_REPLIES") return `زيادة ${formatted} رد AI يوميًا`;
   if (metric === "MESSAGES") return `+${formatted} رسالة شهريًا`;
   if (metric === "PAYMENT_PROOF_SCANS") return `+${formatted} فحص شهريًا`;
-  if (metric === "VOICE_MINUTES") return `+${formatted} دقيقة شهريًا`;
+  if (metric === "VOICE_TRANSCRIPTION") return `+${formatted} دقيقة شهريًا`;
   if (metric === "PAID_TEMPLATES") return `+${formatted} قالب مدفوع شهريًا`;
   if (metric === "MAP_LOOKUPS") return `+${formatted} استخدام خرائط شهريًا`;
+  if (metric === "IN_APP_AI_ACTIONS") {
+    return `+${formatted} إجراء AI داخل النظام شهريًا`;
+  }
 
   const localized = localizeUsagePackName(pack?.code, pack?.name);
   return localized;
 }
 
-function dedupeAndSortUsagePacks(packs: any[]): any[] {
+function normalizeUsageMetricFamily(metricKey: unknown): string {
+  const normalized = String(metricKey || "OTHER")
+    .toUpperCase()
+    .trim();
+  if (normalized === "AI_CAPACITY") return "AI_REPLIES";
+  if (normalized === "VOICE_MINUTES") return "VOICE_TRANSCRIPTION";
+  return normalized || "OTHER";
+}
+
+function normalizeTierCode(tierCode: unknown): string {
+  const normalized = String(tierCode || "S")
+    .toUpperCase()
+    .trim();
+  return normalized in TIER_ORDER ? normalized : "S";
+}
+
+function getUsageCodePreferenceRank(code: unknown): number {
+  const normalized = String(code || "").toUpperCase();
+  for (let index = 0; index < USAGE_CODE_PREFIX_PREFERENCE.length; index++) {
+    if (normalized.startsWith(USAGE_CODE_PREFIX_PREFERENCE[index])) {
+      return index;
+    }
+  }
+  return Number.MAX_SAFE_INTEGER;
+}
+
+function getAddOnCodePreferenceRank(code: unknown): number {
+  const normalized = String(code || "").toUpperCase();
+  const index = ADDON_CODE_PREFERENCE.indexOf(normalized);
+  return index === -1 ? Number.MAX_SAFE_INTEGER : index;
+}
+
+function buildUsagePackMeaningKey(pack: any, collapseByTier = false): string {
+  const family = normalizeUsageMetricFamily(pack?.metricKey);
+  const tier = normalizeTierCode(pack?.tierCode);
+  if (collapseByTier) {
+    return `${family}|${tier}`;
+  }
+  const units = getUsagePackPrimaryDelta(pack).units;
+  return `${family}|${tier}|${units}`;
+}
+
+function buildAddOnMeaningKey(addOn: any): string {
+  const code = String(addOn?.code || "").toUpperCase();
+  if (ADDON_MEANING_ALIAS[code]) {
+    return ADDON_MEANING_ALIAS[code];
+  }
+
+  const features = [...(addOn?.featureEnables || [])]
+    .map((entry) => String(entry || "").toUpperCase())
+    .filter(Boolean)
+    .sort()
+    .join(",");
+  const floor = Object.entries(addOn?.limitFloorUpdates || {})
+    .map(([key, value]) => `${key}:${Number(value || 0)}`)
+    .sort()
+    .join("|");
+  const increments = Object.entries(addOn?.limitIncrements || {})
+    .map(([key, value]) => `${key}:${Number(value || 0)}`)
+    .sort()
+    .join("|");
+
+  const meaningSignature = [
+    String(addOn?.addonType || "FEATURE").toUpperCase(),
+    features,
+    floor,
+    increments,
+  ].join("::");
+
+  if (features || floor || increments) {
+    return meaningSignature;
+  }
+
+  return `CODE::${code}`;
+}
+
+function shouldPreferUsagePackCandidate(candidate: any, current: any): boolean {
+  const candidateRank = getUsageCodePreferenceRank(candidate?.code);
+  const currentRank = getUsageCodePreferenceRank(current?.code);
+  if (candidateRank !== currentRank) {
+    return candidateRank < currentRank;
+  }
+
+  const candidateUnits = getUsagePackPrimaryDelta(candidate).units;
+  const currentUnits = getUsagePackPrimaryDelta(current).units;
+  if (candidateUnits !== currentUnits) {
+    return candidateUnits > currentUnits;
+  }
+
+  const candidatePrice = Number(
+    candidate?.priceCents ?? Number.MAX_SAFE_INTEGER,
+  );
+  const currentPrice = Number(current?.priceCents ?? Number.MAX_SAFE_INTEGER);
+  return candidatePrice < currentPrice;
+}
+
+function shouldPreferAddOnCandidate(candidate: any, current: any): boolean {
+  const candidateRank = getAddOnCodePreferenceRank(candidate?.code);
+  const currentRank = getAddOnCodePreferenceRank(current?.code);
+  if (candidateRank !== currentRank) {
+    return candidateRank < currentRank;
+  }
+
+  const candidatePrice = Number(
+    mapPricesByCycle(candidate?.prices || []).get(1)?.effectiveMonthlyCents ??
+      Number.MAX_SAFE_INTEGER,
+  );
+  const currentPrice = Number(
+    mapPricesByCycle(current?.prices || []).get(1)?.effectiveMonthlyCents ??
+      Number.MAX_SAFE_INTEGER,
+  );
+  return candidatePrice < currentPrice;
+}
+
+function dedupeAndSortUsagePacks(
+  packs: any[],
+  options: { collapseByTier?: boolean } = {},
+): any[] {
   const deduped = new Map<string, any>();
   for (const pack of packs || []) {
-    const label = getCuratedUsagePackLabel(pack);
-    const current = deduped.get(label);
+    const key = buildUsagePackMeaningKey(pack, options.collapseByTier === true);
+    const current = deduped.get(key);
     if (!current) {
-      deduped.set(label, pack);
+      deduped.set(key, pack);
       continue;
     }
-    const currentPrice = Number(current?.priceCents || Number.MAX_SAFE_INTEGER);
-    const nextPrice = Number(pack?.priceCents || Number.MAX_SAFE_INTEGER);
-    if (nextPrice < currentPrice) {
-      deduped.set(label, pack);
+    if (shouldPreferUsagePackCandidate(pack, current)) {
+      deduped.set(key, pack);
     }
   }
 
   return Array.from(deduped.values()).sort((a, b) => {
+    const familyCompare = normalizeUsageMetricFamily(
+      a?.metricKey,
+    ).localeCompare(normalizeUsageMetricFamily(b?.metricKey));
+    if (familyCompare !== 0) return familyCompare;
+
+    const tierCompare =
+      (TIER_ORDER[normalizeTierCode(a?.tierCode)] || 99) -
+      (TIER_ORDER[normalizeTierCode(b?.tierCode)] || 99);
+    if (tierCompare !== 0) return tierCompare;
+
     const aUnits = getUsagePackPrimaryDelta(a).units;
     const bUnits = getUsagePackPrimaryDelta(b).units;
     return aUnits - bUnits;
+  });
+}
+
+function dedupeAndSortAddOnsByMeaning(addOns: any[]): any[] {
+  const deduped = new Map<string, any>();
+  for (const addOn of addOns || []) {
+    const key = buildAddOnMeaningKey(addOn);
+    const current = deduped.get(key);
+    if (!current) {
+      deduped.set(key, addOn);
+      continue;
+    }
+    if (shouldPreferAddOnCandidate(addOn, current)) {
+      deduped.set(key, addOn);
+    }
+  }
+
+  return Array.from(deduped.values()).sort((a, b) => {
+    const aName = localizeAddOnName(a?.code, a?.name);
+    const bName = localizeAddOnName(b?.code, b?.name);
+    return aName.localeCompare(bName, "ar");
   });
 }
 
@@ -758,27 +957,35 @@ export default function PlanPage() {
   }, [catalog, currentPlan]);
 
   const curatedFeatureAddOns = useMemo(() => {
-    const deduped = new Map<string, any>();
-    for (const addOn of (catalog?.bundleAddOns?.capacityAddOns || []).filter(
-      (item: any) => item?.isActive !== false,
-    )) {
-      const code = String(addOn.code || "").toUpperCase();
-      if (!CURATED_FEATURE_ADDON_CODES.has(code)) continue;
-      if (!deduped.has(code)) deduped.set(code, addOn);
-    }
-
-    return Array.from(deduped.values()).sort((a, b) => {
-      const aName = localizeAddOnName(a.code, a.name);
-      const bName = localizeAddOnName(b.code, b.name);
-      return aName.localeCompare(bName, "ar");
-    });
+    const source = (catalog?.bundleAddOns?.capacityAddOns || []).filter(
+      (item: any) => {
+        if (item?.isActive === false) return false;
+        const code = String(item?.code || "").toUpperCase();
+        return CURATED_FEATURE_ADDON_CODES.has(code);
+      },
+    );
+    return dedupeAndSortAddOnsByMeaning(source);
   }, [catalog]);
+
+  const curatedFeatureMeaningKeys = useMemo(() => {
+    const keys = new Set<string>();
+    for (const addOn of curatedFeatureAddOns) {
+      keys.add(buildAddOnMeaningKey(addOn));
+    }
+    return keys;
+  }, [curatedFeatureAddOns]);
 
   const byoAddOns = useMemo(() => {
-    const core = catalog?.byo?.coreAddOn ? [catalog.byo.coreAddOn] : [];
-    const rest = catalog?.byo?.featureAddOns || [];
-    return [...core, ...rest];
-  }, [catalog]);
+    const source = (catalog?.byo?.featureAddOns || []).filter((item: any) => {
+      if (item?.isActive === false) return false;
+      const code = String(item?.code || "").toUpperCase();
+      return code !== "PLATFORM_CORE";
+    });
+
+    return dedupeAndSortAddOnsByMeaning(source).filter(
+      (addOn) => !curatedFeatureMeaningKeys.has(buildAddOnMeaningKey(addOn)),
+    );
+  }, [catalog, curatedFeatureMeaningKeys]);
 
   const bundleUsagePacksByMetric = useMemo(() => {
     const groups: Record<string, any[]> = {};
@@ -790,7 +997,7 @@ export default function PlanPage() {
       ) {
         continue;
       }
-      const key = getUsagePackPrimaryDelta(usagePack).metric;
+      const key = normalizeUsageMetricFamily(usagePack.metricKey);
       if (HIDDEN_USAGE_METRICS.has(key) || !CURATED_USAGE_METRICS.has(key)) {
         continue;
       }
@@ -799,11 +1006,23 @@ export default function PlanPage() {
     }
 
     for (const key of Object.keys(groups)) {
-      groups[key] = dedupeAndSortUsagePacks(groups[key]);
+      groups[key] = dedupeAndSortUsagePacks(groups[key], {
+        collapseByTier: true,
+      });
     }
 
     return groups;
   }, [catalog]);
+
+  const curatedUsageMeaningKeys = useMemo(() => {
+    const keys = new Set<string>();
+    for (const packs of Object.values(bundleUsagePacksByMetric)) {
+      for (const pack of packs || []) {
+        keys.add(buildUsagePackMeaningKey(pack, true));
+      }
+    }
+    return keys;
+  }, [bundleUsagePacksByMetric]);
 
   const byoUsagePacksByMetric = useMemo(() => {
     const groups: Record<string, any[]> = {};
@@ -815,12 +1034,26 @@ export default function PlanPage() {
       ) {
         continue;
       }
-      const key = String(usagePack.metricKey || "OTHER");
+      const key = normalizeUsageMetricFamily(usagePack.metricKey);
+      const meaningKey = buildUsagePackMeaningKey(usagePack, true);
+      if (
+        CURATED_USAGE_METRICS.has(key) &&
+        curatedUsageMeaningKeys.has(meaningKey)
+      ) {
+        continue;
+      }
       groups[key] = groups[key] || [];
       groups[key].push(usagePack);
     }
+
+    for (const key of Object.keys(groups)) {
+      groups[key] = dedupeAndSortUsagePacks(groups[key], {
+        collapseByTier: true,
+      });
+    }
+
     return groups;
-  }, [catalog]);
+  }, [catalog, curatedUsageMeaningKeys]);
 
   const loadCatalog = useCallback(async () => {
     if (!apiKey) return;
@@ -1757,12 +1990,15 @@ export default function PlanPage() {
             <CardContent className="space-y-6">
               <div className="space-y-3">
                 <h3 className="font-medium">إضافات BYO (تخضع لخصم الدورة)</h3>
-                <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
-                  {(byoAddOns || [])
-                    .filter((addon: any) => addon?.isActive !== false)
-                    .map((addOn: any) => {
+                {byoAddOns.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    لا توجد إضافات مخصصة إضافية بعد استبعاد العناصر المكررة مع
+                    المسار القياسي.
+                  </p>
+                ) : (
+                  <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
+                    {byoAddOns.map((addOn: any) => {
                       const checked = Number(byoAddOnQty[addOn.code] || 0) > 0;
-                      const isCore = addOn.code === "PLATFORM_CORE";
                       const normalizedAddOnCode = String(
                         addOn.code || "",
                       ).toUpperCase();
@@ -1794,7 +2030,6 @@ export default function PlanPage() {
                                   )}
                                 </p>
                               </div>
-                              {isCore ? <Badge>إلزامي</Badge> : null}
                             </div>
 
                             <div className="flex flex-col gap-1 text-xs sm:flex-row sm:items-center sm:justify-between">
@@ -1813,7 +2048,6 @@ export default function PlanPage() {
                               <div className="flex items-center gap-2">
                                 <Checkbox
                                   checked={checked}
-                                  disabled={isCore}
                                   onCheckedChange={(nextChecked) => {
                                     const enabled = nextChecked === true;
                                     setByoAddOnQty((prev) => ({
@@ -1864,7 +2098,8 @@ export default function PlanPage() {
                         </Card>
                       );
                     })}
-                </div>
+                  </div>
+                )}
               </div>
 
               <div className="space-y-3">
@@ -1872,133 +2107,138 @@ export default function PlanPage() {
                 <p className="text-xs text-muted-foreground">
                   لكل فئة اختر باقة واحدة فقط. الرقم = تكرار نفس الباقة شهريًا.
                 </p>
-                <div className="space-y-4">
-                  {Object.entries(byoUsagePacksByMetric).map(
-                    ([metric, packs]) => (
-                      <div key={metric} className="space-y-2">
-                        <p className="text-sm font-medium">
-                          {METRIC_LABELS[metric] || metric}
-                        </p>
-                        <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4">
-                          {(packs || []).map((pack: any) => {
-                            const checked =
-                              Number(byoPackQty[pack.code] || 0) > 0;
-                            const quantity = Math.max(
-                              1,
-                              Number(byoPackQty[pack.code] || 1),
-                            );
-                            const benefitLines = usagePackBenefitLines(
-                              pack,
-                              quantity,
-                            );
-                            return (
-                              <Card
-                                key={pack.code}
-                                className={checked ? "border-primary" : ""}
-                              >
-                                <CardContent className="space-y-2 pt-4">
-                                  <p className="font-medium text-sm">
-                                    {localizeUsagePackName(
-                                      pack.code,
-                                      pack.name,
-                                    )}
-                                  </p>
-                                  <div className="flex flex-col gap-1 text-xs sm:flex-row sm:items-center sm:justify-between">
-                                    <span>شهري</span>
-                                    <span className="font-medium">
-                                      {pack.priceCents
-                                        ? toCurrency(
-                                            pack.priceCents,
-                                            pack.currency || currency,
-                                          )
-                                        : "-"}
-                                    </span>
-                                  </div>
-                                  <div className="rounded-md border bg-muted/20 p-2">
-                                    <p className="text-[11px] text-muted-foreground">
-                                      ماذا تضيف هذه الباقة:
+                {Object.keys(byoUsagePacksByMetric).length === 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    لا توجد باقات استخدام إضافية تتجاوز المعروض في المسار
+                    القياسي.
+                  </p>
+                ) : (
+                  <div className="space-y-4">
+                    {Object.entries(byoUsagePacksByMetric).map(
+                      ([metric, packs]) => (
+                        <div key={metric} className="space-y-2">
+                          <p className="text-sm font-medium">
+                            {METRIC_LABELS[metric] || metric}
+                          </p>
+                          <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4">
+                            {(packs || []).map((pack: any) => {
+                              const checked =
+                                Number(byoPackQty[pack.code] || 0) > 0;
+                              const quantity = Math.max(
+                                1,
+                                Number(byoPackQty[pack.code] || 1),
+                              );
+                              const benefitLines = usagePackBenefitLines(
+                                pack,
+                                quantity,
+                              );
+                              return (
+                                <Card
+                                  key={pack.code}
+                                  className={checked ? "border-primary" : ""}
+                                >
+                                  <CardContent className="space-y-2 pt-4">
+                                    <p className="font-medium text-sm">
+                                      {getCuratedUsagePackLabel(pack)}
                                     </p>
-                                    {quantity > 1 ? (
+                                    <div className="flex flex-col gap-1 text-xs sm:flex-row sm:items-center sm:justify-between">
+                                      <span>شهري</span>
+                                      <span className="font-medium">
+                                        {pack.priceCents
+                                          ? toCurrency(
+                                              pack.priceCents,
+                                              pack.currency || currency,
+                                            )
+                                          : "-"}
+                                      </span>
+                                    </div>
+                                    <div className="rounded-md border bg-muted/20 p-2">
                                       <p className="text-[11px] text-muted-foreground">
-                                        القيم بعد تطبيق الكمية الحالية (
-                                        {quantity}
-                                        ).
+                                        ماذا تضيف هذه الباقة:
                                       </p>
-                                    ) : null}
-                                    {benefitLines.length > 0 ? (
-                                      benefitLines.map((line) => (
-                                        <p
-                                          key={line}
-                                          className="text-[11px] font-medium"
-                                        >
-                                          {line}
+                                      {quantity > 1 ? (
+                                        <p className="text-[11px] text-muted-foreground">
+                                          القيم بعد تطبيق الكمية الحالية (
+                                          {quantity}
+                                          ).
                                         </p>
-                                      ))
-                                    ) : (
-                                      <p className="text-[11px] text-muted-foreground">
-                                        لا توجد تفاصيل زيادة متاحة.
-                                      </p>
-                                    )}
-                                  </div>
-                                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                                    <div className="flex items-center gap-2">
-                                      <Checkbox
-                                        checked={checked}
-                                        onCheckedChange={(nextChecked) => {
-                                          const enabled = nextChecked === true;
-                                          setByoPackQty((prev) => {
-                                            const next = { ...prev };
-                                            const codesInMetric = (
-                                              packs || []
-                                            ).map((item: any) =>
-                                              String(item.code),
-                                            );
-                                            if (enabled) {
-                                              for (const c of codesInMetric) {
-                                                if (c !== pack.code) {
-                                                  next[c] = 0;
-                                                }
-                                              }
-                                              next[pack.code] = Math.max(
-                                                1,
-                                                Number(prev[pack.code] || 1),
+                                      ) : null}
+                                      {benefitLines.length > 0 ? (
+                                        benefitLines.map((line) => (
+                                          <p
+                                            key={line}
+                                            className="text-[11px] font-medium"
+                                          >
+                                            {line}
+                                          </p>
+                                        ))
+                                      ) : (
+                                        <p className="text-[11px] text-muted-foreground">
+                                          لا توجد تفاصيل زيادة متاحة.
+                                        </p>
+                                      )}
+                                    </div>
+                                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                      <div className="flex items-center gap-2">
+                                        <Checkbox
+                                          checked={checked}
+                                          onCheckedChange={(nextChecked) => {
+                                            const enabled =
+                                              nextChecked === true;
+                                            setByoPackQty((prev) => {
+                                              const next = { ...prev };
+                                              const codesInMetric = (
+                                                packs || []
+                                              ).map((item: any) =>
+                                                String(item.code),
                                               );
-                                            } else {
-                                              next[pack.code] = 0;
-                                            }
-                                            return next;
-                                          });
+                                              if (enabled) {
+                                                for (const c of codesInMetric) {
+                                                  if (c !== pack.code) {
+                                                    next[c] = 0;
+                                                  }
+                                                }
+                                                next[pack.code] = Math.max(
+                                                  1,
+                                                  Number(prev[pack.code] || 1),
+                                                );
+                                              } else {
+                                                next[pack.code] = 0;
+                                              }
+                                              return next;
+                                            });
+                                          }}
+                                        />
+                                        <span className="text-xs">اختيار</span>
+                                      </div>
+                                      <Input
+                                        type="number"
+                                        min={1}
+                                        className="h-8 w-full sm:w-20"
+                                        disabled={!checked}
+                                        value={quantity}
+                                        onChange={(event) => {
+                                          const quantity = Math.max(
+                                            1,
+                                            Number(event.target.value || 1),
+                                          );
+                                          setByoPackQty((prev) => ({
+                                            ...prev,
+                                            [pack.code]: quantity,
+                                          }));
                                         }}
                                       />
-                                      <span className="text-xs">اختيار</span>
                                     </div>
-                                    <Input
-                                      type="number"
-                                      min={1}
-                                      className="h-8 w-full sm:w-20"
-                                      disabled={!checked}
-                                      value={quantity}
-                                      onChange={(event) => {
-                                        const quantity = Math.max(
-                                          1,
-                                          Number(event.target.value || 1),
-                                        );
-                                        setByoPackQty((prev) => ({
-                                          ...prev,
-                                          [pack.code]: quantity,
-                                        }));
-                                      }}
-                                    />
-                                  </div>
-                                </CardContent>
-                              </Card>
-                            );
-                          })}
+                                  </CardContent>
+                                </Card>
+                              );
+                            })}
+                          </div>
                         </div>
-                      </div>
-                    ),
-                  )}
-                </div>
+                      ),
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center">

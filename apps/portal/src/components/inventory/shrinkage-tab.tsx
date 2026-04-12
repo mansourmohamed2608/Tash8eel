@@ -53,8 +53,8 @@ export function ShrinkageTab({
         </Card>
         <Card>
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 bg-blue-500/10 rounded-lg">
-              <Package className="h-5 w-5 text-blue-500" />
+            <div className="rounded-lg bg-[var(--accent-blue-dim)] p-2">
+              <Package className="h-5 w-5 text-[var(--accent-blue)]" />
             </div>
             <div>
               <p className="text-2xl font-bold">

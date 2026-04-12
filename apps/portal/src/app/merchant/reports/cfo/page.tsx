@@ -41,11 +41,6 @@ import { formatCurrency, formatNumber, cn } from "@/lib/utils";
 import { useMerchant } from "@/hooks/use-merchant";
 import portalApi from "@/lib/client";
 import {
-  AiInsightsCard,
-  generateCfoInsights,
-} from "@/components/ai/ai-insights-card";
-import { SmartAnalysisButton } from "@/components/ai/smart-analysis-button";
-import {
   REPORTING_PERIOD_OPTIONS,
   getStoredReportingDays,
   setStoredReportingDays,
@@ -600,26 +595,6 @@ export default function CFOBriefPage() {
           </p>
         </CardContent>
       </Card>
-
-      {/* AI CFO Insights */}
-      <AiInsightsCard
-        title="تحليلات الذكاء الاصطناعي للمدير المالي"
-        insights={generateCfoInsights({
-          revenue: realizedRevenue,
-          expenses: metrics.totalExpenses,
-          profit: metrics.netCashFlow,
-          orderCount: metrics.realizedOrders,
-          aov: metrics.averageOrderValue,
-          codPercentage:
-            metrics.pendingCOD > 0 && realizedRevenue > 0
-              ? (metrics.pendingCOD / realizedRevenue) * 100
-              : 0,
-          uniqueCustomers: metrics.totalCustomers,
-        })}
-      />
-
-      {/* GPT-Powered Smart Analysis */}
-      <SmartAnalysisButton context="cfo" />
 
       {/* Alerts Section */}
       {metrics.alerts.length > 0 && (
