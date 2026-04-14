@@ -35,10 +35,27 @@ function createMockPool() {
 describe("FinanceReportsController", () => {
   let controller: FinanceReportsController;
   let pool: ReturnType<typeof createMockPool>;
+  let commerceFactsService: {
+    buildFinanceSummary: jest.Mock;
+  };
 
   beforeEach(() => {
     pool = createMockPool();
-    controller = new FinanceReportsController(pool as any);
+    commerceFactsService = {
+      buildFinanceSummary: jest.fn().mockResolvedValue({
+        realizedRevenue: 50000,
+        bookedSales: 50000,
+        deliveredRevenue: 50000,
+        pendingCollections: 0,
+        refundsAmount: 0,
+        netCashFlow: 0,
+        totalOrders: 200,
+      }),
+    };
+    controller = new FinanceReportsController(
+      pool as any,
+      commerceFactsService as any,
+    );
   });
 
   describe("POST /:merchantId/tax-report", () => {

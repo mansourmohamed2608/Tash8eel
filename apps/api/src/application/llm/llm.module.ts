@@ -12,6 +12,10 @@ import { MerchantContextService } from "./merchant-context.service";
 import { EmbeddingService } from "./embedding.service";
 import { VectorSearchService } from "./vector-search.service";
 import { MessageRouterService } from "./message-router.service";
+import { PlannerContextAssemblerService } from "./planner-context-assembler.service";
+import { CopilotActionRegistryService } from "./copilot-action-registry.service";
+import { PlannerOrchestrationService } from "./planner-orchestration.service";
+import { ControlPlaneGovernanceService } from "./control-plane-governance.service";
 import { RepositoriesModule } from "../../infrastructure/repositories";
 import { DatabaseModule } from "../../infrastructure/database/database.module";
 import { SharedAiModule } from "../shared/shared-ai.module";
@@ -31,6 +35,10 @@ import { SharedAiModule } from "../shared/shared-ai.module";
     EmbeddingService,
     VectorSearchService,
     MessageRouterService,
+    PlannerContextAssemblerService,
+    CopilotActionRegistryService,
+    PlannerOrchestrationService,
+    ControlPlaneGovernanceService,
   ],
   exports: [
     LlmService,
@@ -45,6 +53,10 @@ import { SharedAiModule } from "../shared/shared-ai.module";
     EmbeddingService,
     VectorSearchService,
     MessageRouterService,
+    PlannerContextAssemblerService,
+    CopilotActionRegistryService,
+    PlannerOrchestrationService,
+    ControlPlaneGovernanceService,
   ],
 })
 export class LlmModule {}

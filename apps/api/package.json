@@ -26,7 +26,9 @@
     "db:seed": "ts-node -r tsconfig-paths/register src/cli/seed.ts",
     "db:seed:clean": "ts-node -r tsconfig-paths/register src/cli/seed.ts --clean",
     "dlq:replay": "ts-node src/cli/dlq-replay.ts",
-    "seed": "ts-node -r tsconfig-paths/register src/cli/seed.ts"
+    "seed": "ts-node -r tsconfig-paths/register src/cli/seed.ts",
+    "verify:foundations:migrations": "node scripts/verify-foundation-migrations.js",
+    "smoke:staging:foundations": "node scripts/staging-smoke-foundations.js"
   },
   "dependencies": {
     "@nestjs/common": "^10.3.0",

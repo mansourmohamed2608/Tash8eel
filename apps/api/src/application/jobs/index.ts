@@ -4,4 +4,6 @@ export * from "./weekly-report.scheduler";
 export * from "./delivery-status.poller";
 export * from "./message-delivery.worker";
 export * from "./merchant-deletion.scheduler";
+export * from "./inventory-reservation-reconciliation.scheduler";
+export * from "./connector-runtime-worker.scheduler";
 export * from "./jobs.module";

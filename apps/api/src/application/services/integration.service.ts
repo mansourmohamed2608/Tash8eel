@@ -3,10 +3,27 @@ import { Pool } from "pg";
 import * as crypto from "crypto";
 import { DATABASE_POOL } from "../../infrastructure/database/database.module";
 
-export type IntegrationEventType =
-  | "order.created"
-  | "payment.received"
-  | "test.ping";
+export const INTEGRATION_EVENT_TAXONOMY = [
+  "order.created",
+  "order.updated",
+  "order.cancelled",
+  "order.status_changed",
+  "payment.received",
+  "shipment.status_changed",
+  "inventory.adjusted",
+  "catalog.updated",
+  "customer.updated",
+  "refund.created",
+  "test.ping",
+] as const;
+
+export type IntegrationEventType = (typeof INTEGRATION_EVENT_TAXONOMY)[number];
+
+export function isIntegrationEventType(
+  value: string,
+): value is IntegrationEventType {
+  return (INTEGRATION_EVENT_TAXONOMY as readonly string[]).includes(value);
+}
 
 export interface IntegrationEndpoint {
   id: string;
@@ -160,8 +177,24 @@ export class IntegrationService {
     error?: string,
   ) {
     await this.pool.query(
-      `INSERT INTO integration_events (endpoint_id, merchant_id, event_type, payload, status, error)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
+      `INSERT INTO integration_events (
+         endpoint_id,
+         merchant_id,
+         event_type,
+         payload,
+         status,
+         error,
+         processed_at
+       )
+       VALUES (
+         $1,
+         $2,
+         $3,
+         $4,
+         $5,
+         $6,
+         CASE WHEN UPPER($5) IN ('PROCESSED', 'FAILED') THEN NOW() ELSE NULL END
+       )`,
       [
         endpointId,
         merchantId,
@@ -347,6 +380,38 @@ export class IntegrationService {
         "PROCESSED",
       );
       return { success: true, message: "Payment applied" };
+    }
+
+    const runtimeScaffoldEvents = new Set<IntegrationEventType>([
+      "order.updated",
+      "order.cancelled",
+      "order.status_changed",
+      "shipment.status_changed",
+      "inventory.adjusted",
+      "catalog.updated",
+      "customer.updated",
+      "refund.created",
+    ]);
+
+    if (runtimeScaffoldEvents.has(eventType)) {
+      await this.recordEvent(
+        endpointId,
+        merchantId,
+        eventType,
+        {
+          ...payload,
+          _runtimeMode: "foundation_scaffold",
+          _note:
+            "Accepted by Connector Runtime v2 foundation. Domain-specific mutation handlers will be added incrementally.",
+        },
+        "PROCESSED",
+      );
+
+      return {
+        success: true,
+        message:
+          "Event accepted by runtime scaffold; domain mutation handler pending",
+      };
     }
 
     await this.recordEvent(

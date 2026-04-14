@@ -111,6 +111,14 @@ interface HealthStatus {
   agentHealth: Map<string, boolean>;
 }
 
+type PlannerTriggerType = "EVENT" | "SCHEDULED" | "ON_DEMAND" | "ESCALATION";
+
+interface TriggerGovernanceDecision {
+  allowed: boolean;
+  triggerType: PlannerTriggerType;
+  reason?: string;
+}
+
 @Injectable()
 export class OrchestratorService implements OnModuleInit, OnModuleDestroy {
   private readonly nestLogger = new Logger(OrchestratorService.name);
@@ -451,7 +459,7 @@ export class OrchestratorService implements OnModuleInit, OnModuleDestroy {
         // Priority: 1 = urgent, 2 = high, 3 = normal, 4 = low
         const result = await client.query(
           `SELECT id, agent_type, task_type, merchant_id, correlation_id, 
-                  priority, input, retry_count, scheduled_at, created_at
+                  priority, status, input, retry_count, timeout_at, scheduled_at, created_at, updated_at
            FROM agent_tasks
            WHERE status = 'PENDING'
              AND (scheduled_at IS NULL OR scheduled_at <= NOW())
@@ -473,7 +481,34 @@ export class OrchestratorService implements OnModuleInit, OnModuleDestroy {
         }
 
         for (const row of result.rows) {
-          const task = this.mapRowToTask(row);
+          const taskInput = this.parseTaskInput(row.input);
+          const triggerDecision = this.evaluateTaskTriggerGovernance({
+            taskType: row.task_type,
+            correlationId: row.correlation_id,
+            scheduledAt: row.scheduled_at,
+            taskInput,
+          });
+
+          if (!triggerDecision.allowed) {
+            logger.warn("Task blocked by trigger governance", {
+              taskId: row.id,
+              taskType: row.task_type,
+              triggerType: triggerDecision.triggerType,
+              reason: triggerDecision.reason,
+            });
+
+            await client.query(
+              `UPDATE agent_tasks SET status = 'CANCELLED', error = $2, updated_at = NOW() WHERE id = $1`,
+              [
+                row.id,
+                triggerDecision.reason ||
+                  "Task blocked by trigger governance policy",
+              ],
+            );
+            continue;
+          }
+
+          const task = this.mapRowToTask(row, taskInput);
           const agent = this.agents.get(task.agentType);
 
           if (!agent) {
@@ -798,7 +833,7 @@ export class OrchestratorService implements OnModuleInit, OnModuleDestroy {
         const backoffMs = Math.pow(2, newRetryCount) * 1000;
         await this.pool.query(
           `UPDATE agent_tasks SET status = 'PENDING', retry_count = $2, error = $3, 
-           updated_at = NOW(), created_at = NOW() + make_interval(secs := $4 / 1000.0)
+           updated_at = NOW(), scheduled_at = NOW() + make_interval(secs := $4 / 1000.0)
            WHERE id = $1`,
           [task.id, newRetryCount, err.message, backoffMs],
         );
@@ -848,7 +883,10 @@ export class OrchestratorService implements OnModuleInit, OnModuleDestroy {
       metrics.tasksProcessed;
   }
 
-  private mapRowToTask(row: any): AgentTask {
+  private mapRowToTask(
+    row: any,
+    parsedInput?: Record<string, unknown>,
+  ): AgentTask {
     return {
       id: row.id,
       agentType: this.normalizeAgentType(row.agent_type),
@@ -857,13 +895,224 @@ export class OrchestratorService implements OnModuleInit, OnModuleDestroy {
       correlationId: row.correlation_id,
       priority: row.priority,
       status: row.status,
-      input: typeof row.input === "string" ? JSON.parse(row.input) : row.input,
+      input: parsedInput || this.parseTaskInput(row.input),
       retryCount: row.retry_count || 0,
       maxRetries: 3,
       timeoutAt: row.timeout_at,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };
+  }
+
+  private parseTaskInput(rawInput: unknown): Record<string, unknown> {
+    if (rawInput && typeof rawInput === "object" && !Array.isArray(rawInput)) {
+      return rawInput as Record<string, unknown>;
+    }
+
+    if (typeof rawInput === "string") {
+      try {
+        const parsed = JSON.parse(rawInput);
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+          return parsed as Record<string, unknown>;
+        }
+      } catch {
+        return {};
+      }
+    }
+
+    return {};
+  }
+
+  private evaluateTaskTriggerGovernance(input: {
+    taskType: string;
+    correlationId?: string | null;
+    scheduledAt?: Date | null;
+    taskInput: Record<string, unknown>;
+  }): TriggerGovernanceDecision {
+    const triggerType = this.resolveTaskTriggerType(input);
+
+    if (
+      this.isAlwaysOnLoopRequest(
+        input.taskType,
+        input.correlationId,
+        input.taskInput,
+      )
+    ) {
+      return {
+        allowed: false,
+        triggerType,
+        reason:
+          "Autonomous/always-on loop requests are blocked; use explicit event, scheduled, on-demand, or escalation triggers",
+      };
+    }
+
+    return {
+      allowed: true,
+      triggerType,
+    };
+  }
+
+  private resolveTaskTriggerType(input: {
+    taskType: string;
+    correlationId?: string | null;
+    scheduledAt?: Date | null;
+    taskInput: Record<string, unknown>;
+  }): PlannerTriggerType {
+    const explicitTrigger = this.extractExplicitTriggerType(input.taskInput);
+    if (explicitTrigger) {
+      return explicitTrigger;
+    }
+
+    if (input.scheduledAt) {
+      return "SCHEDULED";
+    }
+
+    const taskType = String(input.taskType || "").toLowerCase();
+    if (taskType.includes("escalation")) {
+      return "ESCALATION";
+    }
+    if (taskType.includes("event") || taskType.includes("webhook")) {
+      return "EVENT";
+    }
+
+    const correlation = String(input.correlationId || "").toLowerCase();
+    if (correlation.includes("escalation")) {
+      return "ESCALATION";
+    }
+    if (correlation.includes("event") || correlation.includes("webhook")) {
+      return "EVENT";
+    }
+
+    if (this.toBoolean(input.taskInput["escalated"])) {
+      return "ESCALATION";
+    }
+
+    if (
+      this.toBoolean(input.taskInput["eventDriven"]) ||
+      this.toBoolean(input.taskInput["fromEvent"])
+    ) {
+      return "EVENT";
+    }
+
+    return "ON_DEMAND";
+  }
+
+  private extractExplicitTriggerType(
+    taskInput: Record<string, unknown>,
+  ): PlannerTriggerType | null {
+    const candidates: string[] = [];
+    const pushCandidate = (value: unknown) => {
+      if (typeof value === "string" && value.trim().length > 0) {
+        candidates.push(value.trim().toLowerCase());
+      }
+    };
+
+    pushCandidate(taskInput["triggerType"]);
+    pushCandidate(taskInput["trigger_type"]);
+    pushCandidate(taskInput["executionTrigger"]);
+
+    const meta = this.toRecord(taskInput["meta"]);
+    if (meta) {
+      pushCandidate(meta["triggerType"]);
+      pushCandidate(meta["trigger_type"]);
+      pushCandidate(meta["executionTrigger"]);
+    }
+
+    for (const candidate of candidates) {
+      if (
+        candidate.includes("schedule") ||
+        candidate.includes("cron") ||
+        candidate.includes("timer")
+      ) {
+        return "SCHEDULED";
+      }
+
+      if (
+        candidate.includes("event") ||
+        candidate.includes("webhook") ||
+        candidate.includes("signal")
+      ) {
+        return "EVENT";
+      }
+
+      if (candidate.includes("escalation")) {
+        return "ESCALATION";
+      }
+
+      if (
+        candidate.includes("on_demand") ||
+        candidate.includes("ondemand") ||
+        candidate.includes("manual") ||
+        candidate.includes("portal")
+      ) {
+        return "ON_DEMAND";
+      }
+    }
+
+    return null;
+  }
+
+  private isAlwaysOnLoopRequest(
+    taskType: string,
+    correlationId: string | null | undefined,
+    taskInput: Record<string, unknown>,
+  ): boolean {
+    const fragments = [
+      "always",
+      "always_on",
+      "always-on",
+      "autonomous",
+      "continuous",
+      "daemon",
+      "heartbeat",
+      "watch",
+      "poll",
+      "loop",
+    ];
+
+    const haystacks = [
+      String(taskType || "").toLowerCase(),
+      String(correlationId || "").toLowerCase(),
+      String(taskInput["mode"] || "").toLowerCase(),
+      String(taskInput["executionMode"] || "").toLowerCase(),
+    ];
+
+    const hasLoopFragment = haystacks.some((value) =>
+      fragments.some((fragment) => value.includes(fragment)),
+    );
+    if (hasLoopFragment) {
+      return true;
+    }
+
+    return (
+      this.toBoolean(taskInput["alwaysOn"]) ||
+      this.toBoolean(taskInput["autonomous"]) ||
+      this.toBoolean(taskInput["continuous"])
+    );
+  }
+
+  private toRecord(value: unknown): Record<string, unknown> | null {
+    if (value && typeof value === "object" && !Array.isArray(value)) {
+      return value as Record<string, unknown>;
+    }
+    return null;
+  }
+
+  private toBoolean(value: unknown): boolean {
+    if (typeof value === "boolean") {
+      return value;
+    }
+
+    if (typeof value === "string") {
+      const normalized = value.trim().toLowerCase();
+      return ["1", "true", "yes", "enabled"].includes(normalized);
+    }
+
+    if (typeof value === "number") {
+      return value === 1;
+    }
+
+    return false;
   }
 
   private normalizeAgentType(value: string): AgentType {

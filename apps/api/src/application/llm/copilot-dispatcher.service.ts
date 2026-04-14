@@ -49,12 +49,59 @@ export class CopilotDispatcherService {
     pendingAction: PendingAction,
   ): Promise<DispatchResult> {
     const { intent, command } = pendingAction;
+    const executionCacheKey = this.getExecutionCacheKey(
+      merchantId,
+      pendingAction.id,
+    );
 
     logger.info("Executing copilot action", { merchantId, intent });
 
-    try {
-      let result: DispatchResult;
+    const inlineStoredResult = this.coerceDispatchResult(
+      pendingAction.executionResult,
+      intent,
+    );
+    if (inlineStoredResult) {
+      return withMessage(inlineStoredResult);
+    }
 
+    const cachedState = await this.readExecutionCacheState(
+      executionCacheKey,
+      intent,
+    );
+    if (cachedState.kind === "cached") {
+      return withMessage(cachedState.result);
+    }
+    if (cachedState.kind === "in_progress") {
+      return withMessage({
+        success: false,
+        intent,
+        action: "IN_PROGRESS",
+        replyAr: "يتم تنفيذ هذا الإجراء حالياً. انتظر لحظات ثم أعد المحاولة.",
+      });
+    }
+
+    const lockAcquired = await this.acquireExecutionLease(executionCacheKey);
+    if (!lockAcquired) {
+      const retryState = await this.readExecutionCacheState(
+        executionCacheKey,
+        intent,
+      );
+      if (retryState.kind === "cached") {
+        return withMessage(retryState.result);
+      }
+      return withMessage({
+        success: false,
+        intent,
+        action: "IN_PROGRESS",
+        replyAr: "يتم تنفيذ هذا الإجراء حالياً. انتظر لحظات ثم أعد المحاولة.",
+      });
+    }
+
+    await this.updateApprovalExecutionState(pendingAction.id, "executing");
+
+    let result: DispatchResult;
+
+    try {
       switch (intent) {
         // === Finance Actions ===
         case "ADD_EXPENSE":
@@ -142,27 +189,26 @@ export class CopilotDispatcherService {
         newValues: { intent, success: result.success },
         metadata: { source: "copilot", pendingActionId: pendingAction.id },
       });
-
-      // Update pending action with result
-      await this.pool.query(
-        `UPDATE copilot_pending_actions 
-         SET execution_result = $1, updated_at = NOW() 
-         WHERE id = $2`,
-        [JSON.stringify(result), pendingAction.id],
-      );
-
-      // Ensure message is set
-      return withMessage(result);
     } catch (error) {
       logger.error("Copilot action execution failed", error as Error);
-      return withMessage({
+      result = {
         success: false,
         intent,
         action: "ERROR",
         error: (error as Error).message,
         replyAr: "حدث خطأ أثناء تنفيذ الأمر",
-      });
+      };
     }
+
+    await this.persistExecutionResult(pendingAction.id, result);
+    await this.saveExecutionCache(executionCacheKey, result);
+    await this.updateApprovalExecutionState(
+      pendingAction.id,
+      result.success ? "executed_success" : "executed_failed",
+      result,
+    );
+
+    return withMessage(result);
   }
 
   /**
@@ -209,6 +255,155 @@ export class CopilotDispatcherService {
           replyAr: "هذا الاستعلام غير مدعوم",
         });
     }
+  }
+
+  private getExecutionCacheKey(merchantId: string, actionId: string): string {
+    return `copilot:action:${merchantId}:${actionId}`;
+  }
+
+  private async readExecutionCacheState(
+    key: string,
+    fallbackIntent: CopilotIntent,
+  ): Promise<
+    | { kind: "none" }
+    | { kind: "in_progress" }
+    | { kind: "cached"; result: DispatchResult }
+  > {
+    try {
+      const result = await this.pool.query<{ response_body: any }>(
+        `SELECT response_body
+         FROM idempotency_records
+         WHERE key = $1
+           AND expires_at > NOW()
+         LIMIT 1`,
+        [key],
+      );
+
+      const body = result.rows[0]?.response_body;
+      if (!body) {
+        return { kind: "none" };
+      }
+      if (body.__inProgress === true) {
+        return { kind: "in_progress" };
+      }
+
+      const cached = this.coerceDispatchResult(body, fallbackIntent);
+      if (cached) {
+        return { kind: "cached", result: cached };
+      }
+      return { kind: "none" };
+    } catch {
+      return { kind: "none" };
+    }
+  }
+
+  private async acquireExecutionLease(key: string): Promise<boolean> {
+    try {
+      const result = await this.pool.query(
+        `INSERT INTO idempotency_records (key, merchant_id, response_body)
+         VALUES ($1, NULL, '{"__inProgress": true}'::jsonb)
+         ON CONFLICT (key) DO NOTHING
+         RETURNING key`,
+        [key],
+      );
+      return result.rows.length > 0;
+    } catch {
+      return true;
+    }
+  }
+
+  private async saveExecutionCache(
+    key: string,
+    result: DispatchResult,
+  ): Promise<void> {
+    try {
+      await this.pool.query(
+        `INSERT INTO idempotency_records (key, merchant_id, response_body)
+         VALUES ($1, NULL, $2::jsonb)
+         ON CONFLICT (key) DO UPDATE
+         SET response_body = EXCLUDED.response_body`,
+        [key, JSON.stringify(result)],
+      );
+    } catch {
+      // non-fatal cache write failure
+    }
+  }
+
+  private async persistExecutionResult(
+    actionId: string,
+    result: DispatchResult,
+  ): Promise<void> {
+    try {
+      await this.pool.query(
+        `UPDATE copilot_pending_actions
+         SET execution_result = $1,
+             updated_at = NOW()
+         WHERE id = $2`,
+        [JSON.stringify(result), actionId],
+      );
+    } catch (error) {
+      logger.warn("Failed to persist pending action execution result", {
+        actionId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  private async updateApprovalExecutionState(
+    actionId: string,
+    status: "executing" | "executed_success" | "executed_failed",
+    result?: DispatchResult,
+  ): Promise<void> {
+    try {
+      await this.pool.query(
+        `UPDATE copilot_action_approvals
+         SET status = $2,
+             executing_at = CASE
+               WHEN $2 = 'executing' THEN COALESCE(executing_at, NOW())
+               ELSE executing_at
+             END,
+             executed_at = CASE
+               WHEN $2 IN ('executed_success', 'executed_failed') THEN COALESCE(executed_at, NOW())
+               ELSE executed_at
+             END,
+             execution_result = COALESCE($3::jsonb, execution_result),
+             updated_at = NOW()
+         WHERE action_id = $1`,
+        [actionId, status, result ? JSON.stringify(result) : null],
+      );
+    } catch {
+      // non-fatal when migration is not applied yet
+    }
+  }
+
+  private coerceDispatchResult(
+    raw: unknown,
+    fallbackIntent: CopilotIntent,
+  ): DispatchResult | null {
+    if (!raw || typeof raw !== "object") {
+      return null;
+    }
+
+    const payload = raw as Record<string, unknown>;
+    const intent = (payload.intent as CopilotIntent) || fallbackIntent;
+    const action = String(payload.action || "UNKNOWN");
+    const replyAr = String(
+      payload.replyAr || payload.message || "تم تنفيذ الإجراء مسبقاً",
+    );
+
+    return {
+      success: Boolean(payload.success),
+      intent,
+      action,
+      replyAr,
+      message:
+        typeof payload.message === "string" ? payload.message : undefined,
+      data:
+        payload.data && typeof payload.data === "object"
+          ? (payload.data as Record<string, unknown>)
+          : undefined,
+      error: typeof payload.error === "string" ? payload.error : undefined,
+    };
   }
 
   // ============= Finance Actions =============

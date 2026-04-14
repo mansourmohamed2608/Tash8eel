@@ -210,6 +210,11 @@ export const navigationSections: NavigationSection[] = [
         icon: "info",
       },
       {
+        label: "تشغيل الإقفال الشهري",
+        href: "/merchant/reports/monthly-close",
+        icon: "shield",
+      },
+      {
         label: "حزمة المحاسب",
         href: "/merchant/reports/accountant",
         icon: "dollar-sign",

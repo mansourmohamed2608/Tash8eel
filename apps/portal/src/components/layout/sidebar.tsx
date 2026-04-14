@@ -330,6 +330,12 @@ const merchantNavItems: NavItem[] = [
 
   // OTHER (أخيراً)
   { href: "/merchant/assistant", label: "مساعد التاجر", icon: Bot },
+  {
+    href: "/merchant/command-center",
+    label: "غرفة القيادة",
+    icon: Activity,
+    minRole: "MANAGER",
+  },
   { href: "/merchant/agents", label: "مركز الذكاء", icon: Cpu },
   { href: "/merchant/agent-activity", label: "سجل نشاط الوكلاء", icon: Brain },
   {
@@ -417,6 +423,7 @@ const MERCHANT_SECTION_CONFIG: MerchantSidebarSection[] = [
         href: "/merchant/audit/ai-decisions",
         label: "سجل قرارات الذكاء",
       },
+      { href: "/merchant/command-center", label: "غرفة القيادة" },
       { href: "/merchant/agent-activity", label: "سجل نشاط الوكلاء" },
       { href: "/merchant/agents", label: "مركز الذكاء" },
       { href: "/merchant/teams", label: "المهام الجماعية للوكلاء" },
@@ -428,18 +435,32 @@ const MERCHANT_SECTION_CONFIG: MerchantSidebarSection[] = [
     icon: ShoppingCart,
     items: [
       { href: "/merchant/orders", label: "الطلبات" },
+      { href: "/merchant/followups", label: "المتابعات" },
+      { href: "/merchant/delivery-drivers", label: "سائقو التوصيل" },
+      { href: "/merchant/feature-requests", label: "اقتراحات وعروض السعر" },
+    ],
+  },
+  {
+    id: "cashier",
+    label: "الكاشير",
+    icon: Banknote,
+    items: [
       {
         href: "/merchant/cashier",
         label: "الكاشير",
         featureKey: "cashier",
       },
+    ],
+  },
+  {
+    id: "finance",
+    label: "المالية والاشتراك",
+    icon: Receipt,
+    items: [
       { href: "/merchant/billing", label: "الفواتير" },
       { href: "/merchant/payments/cod", label: "تحصيل عند الاستلام" },
       { href: "/merchant/payments/proofs", label: "إثبات الدفع" },
-      { href: "/merchant/plan", label: "خطي والأسعار" },
-      { href: "/merchant/followups", label: "المتابعات" },
-      { href: "/merchant/delivery-drivers", label: "سائقو التوصيل" },
-      { href: "/merchant/feature-requests", label: "اقتراحات وعروض السعر" },
+      { href: "/merchant/plan", label: "خطتي والأسعار" },
     ],
   },
   {

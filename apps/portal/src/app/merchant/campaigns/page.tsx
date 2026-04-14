@@ -46,7 +46,7 @@ import {
   UserMinus,
   TrendingUp,
   MessageSquare,
-  Percent,
+  PhoneCall,
   Calendar,
   Loader2,
   CheckCircle2,
@@ -58,15 +58,83 @@ import {
   Share2,
   Sparkles,
 } from "lucide-react";
-import { authenticatedFetch } from "@/lib/client";
+import portalApi, { authenticatedFetch, merchantApi } from "@/lib/client";
 import { useMerchant } from "@/hooks/use-merchant";
-import portalApi from "@/lib/client";
 import { useLocalStorageState } from "@/hooks/use-local-storage-state";
 
 interface CampaignResult {
   sent: number;
   totalTargeted: number;
   message: string;
+}
+
+interface CampaignPerformanceSummary {
+  generatedAt: string;
+  windowDays: number;
+  campaignType: "ALL" | "WIN_BACK" | "SEASONAL" | "REENGAGEMENT";
+  totals: {
+    campaigns: number;
+    targeted: number;
+    sent: number;
+    failed: number;
+    successRatePct: number;
+    avgAudienceSize: number;
+  };
+  byType: Array<{
+    type: string;
+    campaigns: number;
+    targeted: number;
+    sent: number;
+    failed: number;
+    successRatePct: number;
+  }>;
+  recentCampaigns: Array<{
+    id: string;
+    createdAt: string;
+    type: string;
+    label: string;
+    targeted: number;
+    sent: number;
+    failed: number;
+    successRatePct: number;
+    metadata?: {
+      code?: string | null;
+      recipientFilter?: string | null;
+      inactiveDays?: number | null;
+      discountPercent?: number | null;
+      validDays?: number | null;
+    };
+  }>;
+}
+
+type CallbackBridgeStatus =
+  | "DRAFT"
+  | "APPROVED"
+  | "EXECUTING"
+  | "EXECUTED"
+  | "CANCELLED";
+
+interface CallbackBridgeDraft {
+  id: string;
+  status: CallbackBridgeStatus;
+  createdAt?: string;
+  approvedAt?: string | null;
+  executedAt?: string | null;
+  targetCount: number;
+  sentCount?: number;
+  failedCount?: number;
+  messageTemplate: string;
+  discountCode?: string | null;
+  inactiveDays: number;
+  callbackDueBefore?: string | null;
+}
+
+interface CallbackBridgeRecipient {
+  callId: string;
+  workflowEventId?: string | null;
+  customerPhone: string;
+  customerName?: string | null;
+  callbackDueAt?: string | null;
 }
 
 export default function WinbackCampaignsPage() {
@@ -124,6 +192,40 @@ export default function WinbackCampaignsPage() {
   );
   const [generatingReengageMsg, setGeneratingReengageMsg] = useState(false);
 
+  const [performanceLoading, setPerformanceLoading] = useState(false);
+  const [performanceError, setPerformanceError] = useState<string | null>(null);
+  const [performanceSummary, setPerformanceSummary] =
+    useState<CampaignPerformanceSummary | null>(null);
+  const [opsRefreshNonce, setOpsRefreshNonce] = useState(0);
+  const [callbackActionability, setCallbackActionability] = useState<{
+    callbackRequested: number;
+    callbackDueSoon: number;
+    openHighPriority: number;
+  }>({
+    callbackRequested: 0,
+    callbackDueSoon: 0,
+    openHighPriority: 0,
+  });
+  const [callbackBridgeActorId, setCallbackBridgeActorId] =
+    useState("ops-supervisor");
+  const [callbackBridgeApprovalNote, setCallbackBridgeApprovalNote] =
+    useState("");
+  const [callbackBridgeDraft, setCallbackBridgeDraft] =
+    useState<CallbackBridgeDraft | null>(null);
+  const [callbackBridgeRecipients, setCallbackBridgeRecipients] = useState<
+    CallbackBridgeRecipient[]
+  >([]);
+  const [callbackBridgeOpen, setCallbackBridgeOpen] = useState(false);
+  const [callbackBridgeBusy, setCallbackBridgeBusy] = useState(false);
+  const [callbackBridgeError, setCallbackBridgeError] = useState<string | null>(
+    null,
+  );
+  const [callbackBridgeInfo, setCallbackBridgeInfo] = useState<string | null>(
+    null,
+  );
+  const [callbackBridgeExecutionErrors, setCallbackBridgeExecutionErrors] =
+    useState<Array<{ phone: string; error: string }>>([]);
+
   // AI audience suggestion state
   const [aiAudienceGoal, setAiAudienceGoal] = useState("");
   const [aiAudienceLoading, setAiAudienceLoading] = useState(false);
@@ -166,6 +268,113 @@ export default function WinbackCampaignsPage() {
         /* WA status check non-blocking */
       });
   }, [apiKey]);
+
+  useEffect(() => {
+    if (!apiKey) {
+      setPerformanceSummary(null);
+      setPerformanceError(null);
+      setCallbackActionability({
+        callbackRequested: 0,
+        callbackDueSoon: 0,
+        openHighPriority: 0,
+      });
+      return;
+    }
+
+    let cancelled = false;
+    const loadCampaignOps = async () => {
+      setPerformanceLoading(true);
+      setPerformanceError(null);
+      try {
+        const [summaryRaw, followUpRaw] = await Promise.all([
+          portalApi.getCampaignPerformanceSummary({
+            days: 30,
+            campaignType: "ALL",
+            limit: 8,
+          }),
+          merchantApi.getCallFollowUpQueue(merchantId, apiKey, {
+            limit: 200,
+            offset: 0,
+            hours: 168,
+            includeResolved: true,
+            handledBy: "all",
+          }),
+        ]);
+
+        if (cancelled) return;
+
+        const summary = summaryRaw as CampaignPerformanceSummary;
+        setPerformanceSummary(summary);
+
+        const queueRows = Array.isArray(followUpRaw?.queue)
+          ? followUpRaw.queue
+          : [];
+        const now = Date.now();
+        const callbackDueSoonCutoff = now + 24 * 60 * 60 * 1000;
+
+        const callbackRequested = queueRows.filter(
+          (row) =>
+            String((row as any)?.disposition || "")
+              .trim()
+              .toUpperCase() === "CALLBACK_REQUESTED",
+        ).length;
+
+        const callbackDueSoon = queueRows.filter((row) => {
+          const disposition = String((row as any)?.disposition || "")
+            .trim()
+            .toUpperCase();
+          if (disposition !== "CALLBACK_REQUESTED") return false;
+
+          const rawDueAt = String((row as any)?.callbackDueAt || "").trim();
+          if (!rawDueAt) return false;
+
+          const epoch = new Date(rawDueAt).getTime();
+          if (!Number.isFinite(epoch)) return false;
+
+          return epoch <= callbackDueSoonCutoff;
+        }).length;
+
+        const openHighPriority = queueRows.filter((row) => {
+          const workflowState = String((row as any)?.workflowState || "OPEN")
+            .trim()
+            .toUpperCase();
+          const priority = String((row as any)?.priority || "")
+            .trim()
+            .toLowerCase();
+          return workflowState !== "RESOLVED" && priority === "high";
+        }).length;
+
+        setCallbackActionability({
+          callbackRequested,
+          callbackDueSoon,
+          openHighPriority,
+        });
+      } catch (error) {
+        if (cancelled) return;
+        setPerformanceSummary(null);
+        setPerformanceError(
+          error instanceof Error
+            ? error.message
+            : "تعذر تحميل مؤشرات تشغيل الحملات",
+        );
+        setCallbackActionability({
+          callbackRequested: 0,
+          callbackDueSoon: 0,
+          openHighPriority: 0,
+        });
+      } finally {
+        if (!cancelled) {
+          setPerformanceLoading(false);
+        }
+      }
+    };
+
+    void loadCampaignOps();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [apiKey, merchantId, opsRefreshNonce]);
 
   const handleCreateCampaign = useCallback(async () => {
     setSending(true);
@@ -245,6 +454,142 @@ export default function WinbackCampaignsPage() {
       setSendingReengagement(false);
     }
   }, [reengageMsg, reengageInactiveDays, reengageCode]);
+
+  const handleCreateCallbackBridgeDraft = useCallback(async () => {
+    const actorId = callbackBridgeActorId.trim();
+    if (!actorId) {
+      setCallbackBridgeError("أدخل معرف المشغل أولاً");
+      return;
+    }
+
+    setCallbackBridgeBusy(true);
+    setCallbackBridgeError(null);
+    setCallbackBridgeInfo(null);
+    setCallbackBridgeExecutionErrors([]);
+
+    try {
+      const data = await portalApi.createCallbackCampaignBridgeDraft({
+        actorId,
+        dueWithinHours: 24,
+        maxRecipients: 200,
+        inactiveDays: reengageInactiveDays,
+        messageTemplate: reengageMsg,
+        discountCode: reengageCode || undefined,
+      });
+
+      if (!data.created || !data.bridge) {
+        setCallbackBridgeDraft(null);
+        setCallbackBridgeRecipients([]);
+        setCallbackBridgeInfo(data.reason || "لا توجد حالات مؤهلة حاليًا");
+        setCallbackBridgeOpen(true);
+        return;
+      }
+
+      setCallbackBridgeDraft({
+        id: data.bridge.id,
+        status: data.bridge.status,
+        createdAt: data.bridge.createdAt,
+        targetCount: data.bridge.targetCount,
+        messageTemplate: data.bridge.messageTemplate,
+        discountCode: data.bridge.discountCode,
+        inactiveDays: data.bridge.inactiveDays,
+        callbackDueBefore: data.bridge.callbackDueBefore,
+      });
+      setCallbackBridgeRecipients(data.recipients || []);
+      setCallbackBridgeInfo(
+        `تم تجهيز مسودة تضم ${data.bridge.targetCount} عميل. يلزم اعتماد صريح قبل التنفيذ.`,
+      );
+      setCallbackBridgeOpen(true);
+    } catch (err: any) {
+      setCallbackBridgeError(err?.message || "تعذر إنشاء مسودة جسر المعاودة");
+      setCallbackBridgeOpen(true);
+    } finally {
+      setCallbackBridgeBusy(false);
+    }
+  }, [callbackBridgeActorId, reengageCode, reengageInactiveDays, reengageMsg]);
+
+  const handleApproveCallbackBridgeDraft = useCallback(async () => {
+    const actorId = callbackBridgeActorId.trim();
+    if (!actorId || !callbackBridgeDraft?.id) {
+      setCallbackBridgeError("تعذر اعتماد المسودة: بيانات غير مكتملة");
+      return;
+    }
+
+    setCallbackBridgeBusy(true);
+    setCallbackBridgeError(null);
+    setCallbackBridgeInfo(null);
+    try {
+      const data = await portalApi.approveCallbackCampaignBridgeDraft(
+        callbackBridgeDraft.id,
+        {
+          actorId,
+          note: callbackBridgeApprovalNote || undefined,
+        },
+      );
+
+      setCallbackBridgeDraft((prev) =>
+        prev
+          ? {
+              ...prev,
+              status: data.bridge.status,
+              approvedAt: data.bridge.approvedAt,
+            }
+          : prev,
+      );
+      setCallbackBridgeInfo("تم اعتماد المسودة ويمكن التنفيذ الآن.");
+    } catch (err: any) {
+      setCallbackBridgeError(err?.message || "فشل اعتماد المسودة");
+    } finally {
+      setCallbackBridgeBusy(false);
+    }
+  }, [
+    callbackBridgeActorId,
+    callbackBridgeApprovalNote,
+    callbackBridgeDraft?.id,
+  ]);
+
+  const handleExecuteCallbackBridgeDraft = useCallback(async () => {
+    const actorId = callbackBridgeActorId.trim();
+    if (!actorId || !callbackBridgeDraft?.id) {
+      setCallbackBridgeError("تعذر تنفيذ المسودة: بيانات غير مكتملة");
+      return;
+    }
+
+    setCallbackBridgeBusy(true);
+    setCallbackBridgeError(null);
+    setCallbackBridgeInfo(null);
+    setCallbackBridgeExecutionErrors([]);
+    try {
+      const data = await portalApi.executeCallbackCampaignBridgeDraft(
+        callbackBridgeDraft.id,
+        {
+          actorId,
+        },
+      );
+
+      setCallbackBridgeDraft((prev) =>
+        prev
+          ? {
+              ...prev,
+              status: data.bridge.status,
+              executedAt: data.bridge.executedAt,
+              targetCount: data.bridge.targetCount,
+              sentCount: data.bridge.sentCount,
+              failedCount: data.bridge.failedCount,
+            }
+          : prev,
+      );
+      setCallbackBridgeExecutionErrors(data.sampleErrors || []);
+      setCallbackBridgeInfo(
+        `تم التنفيذ: ${data.bridge.sentCount} نجحت و${data.bridge.failedCount} فشلت.`,
+      );
+      setOpsRefreshNonce((value) => value + 1);
+    } catch (err: any) {
+      setCallbackBridgeError(err?.message || "فشل تنفيذ المسودة");
+    } finally {
+      setCallbackBridgeBusy(false);
+    }
+  }, [callbackBridgeActorId, callbackBridgeDraft?.id]);
 
   const campaignTypes = [
     {
@@ -340,6 +685,11 @@ export default function WinbackCampaignsPage() {
     },
   ];
 
+  const campaignTotals = performanceSummary?.totals || null;
+  const recentCampaignRows =
+    performanceSummary?.recentCampaigns.slice(0, 4) || [];
+  const byTypeRows = performanceSummary?.byType.slice(0, 3) || [];
+
   return (
     <div className="space-y-6 p-4 sm:p-6">
       <PageHeader
@@ -423,9 +773,13 @@ export default function WinbackCampaignsPage() {
               <Users className="h-8 w-8 text-[var(--accent-blue)]" />
               <div>
                 <p className="text-sm text-muted-foreground">عملاء مستهدفون</p>
-                <p className="text-2xl font-bold">-</p>
+                <p className="text-2xl font-bold">
+                  {campaignTotals
+                    ? campaignTotals.targeted.toLocaleString("ar-EG")
+                    : "٠"}
+                </p>
                 <p className="text-xs text-muted-foreground">
-                  أنشئ حملة لمعرفة العدد
+                  آخر {performanceSummary?.windowDays || 30} يوم
                 </p>
               </div>
             </div>
@@ -438,7 +792,12 @@ export default function WinbackCampaignsPage() {
               <div>
                 <p className="text-sm text-muted-foreground">رسائل مرسلة</p>
                 <p className="text-2xl font-bold">
-                  {result?.sent?.toLocaleString("ar-EG") || "٠"}
+                  {campaignTotals
+                    ? campaignTotals.sent.toLocaleString("ar-EG")
+                    : result?.sent?.toLocaleString("ar-EG") || "٠"}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  فشل التسليم: {campaignTotals ? campaignTotals.failed : 0}
                 </p>
               </div>
             </div>
@@ -450,9 +809,14 @@ export default function WinbackCampaignsPage() {
               <TrendingUp className="h-8 w-8 text-[var(--accent-gold)]" />
               <div>
                 <p className="text-sm text-muted-foreground">معدل الاستجابة</p>
-                <p className="text-2xl font-bold">-</p>
+                <p className="text-2xl font-bold">
+                  {campaignTotals
+                    ? `${campaignTotals.successRatePct.toLocaleString("ar-EG")}%`
+                    : "-"}
+                </p>
                 <p className="text-xs text-muted-foreground">
-                  ستظهر بعد الإرسال
+                  متوسط الجمهور:{" "}
+                  {campaignTotals ? campaignTotals.avgAudienceSize : 0}
                 </p>
               </div>
             </div>
@@ -461,15 +825,302 @@ export default function WinbackCampaignsPage() {
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <Percent className="h-8 w-8 text-[var(--accent-warning)]" />
+              <PhoneCall className="h-8 w-8 text-[var(--accent-warning)]" />
               <div>
-                <p className="text-sm text-muted-foreground">الخصم الحالي</p>
-                <p className="text-2xl font-bold">{discountPercent}%</p>
+                <p className="text-sm text-muted-foreground">فرص المعاودة</p>
+                <p className="text-2xl font-bold">
+                  {callbackActionability.callbackRequested.toLocaleString(
+                    "ar-EG",
+                  )}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  خلال 24 ساعة: {callbackActionability.callbackDueSoon} • عالية
+                  الأولوية: {callbackActionability.openHighPriority}
+                </p>
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
+
+      {performanceError ? (
+        <Card className="app-data-card border-[var(--accent-warning)]/20 bg-[var(--accent-warning)]/12">
+          <CardContent className="p-4 text-sm text-[var(--accent-warning)]">
+            {performanceError}
+          </CardContent>
+        </Card>
+      ) : null}
+
+      <Card className="app-data-card border-[var(--accent-blue)]/20">
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <TrendingUp className="h-5 w-5 text-[var(--accent-blue)]" />
+            نضج تشغيل الحملات
+          </CardTitle>
+          <CardDescription>
+            قياس التنفيذ الفعلي للحملات مع ربط فرص المعاودة القادمة من العمليات.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {performanceLoading ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              جاري تحميل مؤشرات تشغيل الحملات...
+            </div>
+          ) : performanceSummary ? (
+            <>
+              <div className="flex flex-wrap gap-2">
+                {byTypeRows.length > 0 ? (
+                  byTypeRows.map((row) => (
+                    <Badge key={row.type} variant="outline" className="text-xs">
+                      {row.type}: {row.successRatePct}% ({row.campaigns})
+                    </Badge>
+                  ))
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    لا توجد بيانات أنواع حملات كافية حتى الآن.
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                {recentCampaignRows.length > 0 ? (
+                  recentCampaignRows.map((campaign) => (
+                    <div
+                      key={campaign.id}
+                      className="rounded-md border border-[var(--border-default)] p-2 text-xs"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="font-medium">{campaign.label}</p>
+                        <Badge variant="secondary">{campaign.type}</Badge>
+                      </div>
+                      <p className="mt-1 text-muted-foreground">
+                        مستهدف {campaign.targeted} • مرسل {campaign.sent} • نجاح{" "}
+                        {campaign.successRatePct}%
+                      </p>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    لم يتم تسجيل حملات حديثة خلال النافذة المحددة.
+                  </p>
+                )}
+              </div>
+
+              {callbackActionability.callbackRequested > 0 ? (
+                <div className="space-y-3 rounded-md border border-[var(--accent-blue)]/25 bg-[var(--accent-blue)]/12 p-3">
+                  <p className="text-xs text-[var(--accent-blue)]">
+                    يوجد {callbackActionability.callbackRequested} عميل بطلب
+                    معاودة اتصال. يمكن تحويل الحالات المؤهلة إلى مسودة حملة
+                    إعادة تفاعل مع اعتماد صريح قبل التنفيذ.
+                  </p>
+
+                  <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+                    <Input
+                      value={callbackBridgeActorId}
+                      onChange={(e) => setCallbackBridgeActorId(e.target.value)}
+                      placeholder="معرف المشغل المسؤول"
+                      dir="ltr"
+                    />
+                    <Button
+                      onClick={handleCreateCallbackBridgeDraft}
+                      disabled={
+                        callbackBridgeBusy ||
+                        !waReady ||
+                        callbackActionability.callbackRequested <= 0
+                      }
+                      className="w-full sm:w-auto"
+                    >
+                      {callbackBridgeBusy ? (
+                        <>
+                          <Loader2 className="h-4 w-4 ml-2 animate-spin" />
+                          جاري إنشاء المسودة...
+                        </>
+                      ) : (
+                        <>
+                          <PhoneCall className="h-4 w-4 ml-2" />
+                          إنشاء مسودة جسر المعاودة
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
+            </>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              لا توجد بيانات تشغيل حملات كافية حتى الآن.
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
+      <Dialog open={callbackBridgeOpen} onOpenChange={setCallbackBridgeOpen}>
+        <DialogContent
+          className="max-h-[90vh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-2xl"
+          dir="rtl"
+        >
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <PhoneCall className="h-5 w-5 text-[var(--accent-blue)]" />
+              جسر المعاودة إلى حملة إعادة التفاعل
+            </DialogTitle>
+            <DialogDescription>
+              تحويل الحالات المؤهلة إلى مسودة حملات مع اعتماد صريح قبل التنفيذ.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            {callbackBridgeInfo ? (
+              <div className="rounded-md border border-[var(--accent-blue)]/25 bg-[var(--accent-blue)]/12 p-3 text-xs text-[var(--accent-blue)]">
+                {callbackBridgeInfo}
+              </div>
+            ) : null}
+
+            {callbackBridgeError ? (
+              <div className="rounded-md border border-[var(--accent-danger)]/25 bg-[var(--accent-danger)]/12 p-3 text-xs text-[var(--accent-danger)]">
+                {callbackBridgeError}
+              </div>
+            ) : null}
+
+            {callbackBridgeDraft ? (
+              <div className="space-y-3">
+                <div className="grid gap-2 text-xs sm:grid-cols-2">
+                  <div className="rounded-md border p-2">
+                    <p className="text-muted-foreground">حالة المسودة</p>
+                    <p className="font-semibold">
+                      {callbackBridgeDraft.status}
+                    </p>
+                  </div>
+                  <div className="rounded-md border p-2">
+                    <p className="text-muted-foreground">العملاء المستهدفون</p>
+                    <p className="font-semibold">
+                      {callbackBridgeDraft.targetCount.toLocaleString("ar-EG")}
+                    </p>
+                  </div>
+                  <div className="rounded-md border p-2">
+                    <p className="text-muted-foreground">كود الخصم</p>
+                    <p className="font-semibold" dir="ltr">
+                      {callbackBridgeDraft.discountCode || "-"}
+                    </p>
+                  </div>
+                  <div className="rounded-md border p-2">
+                    <p className="text-muted-foreground">حد عدم النشاط</p>
+                    <p className="font-semibold">
+                      {callbackBridgeDraft.inactiveDays.toLocaleString("ar-EG")}{" "}
+                      يوم
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>ملاحظة الاعتماد (اختياري)</Label>
+                  <Textarea
+                    value={callbackBridgeApprovalNote}
+                    onChange={(e) =>
+                      setCallbackBridgeApprovalNote(e.target.value)
+                    }
+                    rows={2}
+                    placeholder="سبب أو ملاحظة تنفيذ الحملة"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <p className="text-xs font-medium">
+                    عينة المستلمين المرتبطين بالأحداث
+                  </p>
+                  <div className="max-h-56 space-y-2 overflow-y-auto rounded-md border p-2">
+                    {callbackBridgeRecipients.length > 0 ? (
+                      callbackBridgeRecipients.slice(0, 20).map((recipient) => (
+                        <div
+                          key={`${recipient.callId}:${recipient.customerPhone}`}
+                          className="rounded-md border p-2 text-xs"
+                        >
+                          <p className="font-medium">
+                            {recipient.customerName || "عميل"} •{" "}
+                            {recipient.customerPhone}
+                          </p>
+                          <p className="text-muted-foreground" dir="ltr">
+                            Call: {recipient.callId}
+                          </p>
+                          <p className="text-muted-foreground" dir="ltr">
+                            Event: {recipient.workflowEventId || "-"}
+                          </p>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-xs text-muted-foreground">
+                        لا توجد عناصر مستلمين في هذه المسودة.
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {callbackBridgeDraft.status === "EXECUTED" ? (
+                  <div className="rounded-md border border-[var(--accent-success)]/25 bg-[var(--accent-success)]/12 p-3 text-xs text-[var(--accent-success)]">
+                    التنفيذ النهائي: نجحت {callbackBridgeDraft.sentCount || 0}{" "}
+                    وفشلت {callbackBridgeDraft.failedCount || 0}
+                  </div>
+                ) : null}
+
+                {callbackBridgeExecutionErrors.length > 0 ? (
+                  <div className="space-y-1 rounded-md border border-[var(--accent-warning)]/25 bg-[var(--accent-warning)]/12 p-3 text-xs text-[var(--accent-warning)]">
+                    <p className="font-medium">أخطاء تنفيذ (عينة):</p>
+                    {callbackBridgeExecutionErrors.map((item, index) => (
+                      <p key={`${item.phone}:${index}`} dir="ltr">
+                        {item.phone}: {item.error}
+                      </p>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+
+          <DialogFooter className="flex-col gap-2 sm:flex-row">
+            <Button
+              variant="outline"
+              onClick={() => setCallbackBridgeOpen(false)}
+              disabled={callbackBridgeBusy}
+              className="w-full sm:w-auto"
+            >
+              إغلاق
+            </Button>
+            {callbackBridgeDraft?.status === "DRAFT" ? (
+              <Button
+                onClick={handleApproveCallbackBridgeDraft}
+                disabled={callbackBridgeBusy || !callbackBridgeActorId.trim()}
+                className="w-full sm:w-auto"
+              >
+                {callbackBridgeBusy ? (
+                  <>
+                    <Loader2 className="h-4 w-4 ml-2 animate-spin" />
+                    جاري الاعتماد...
+                  </>
+                ) : (
+                  "اعتماد المسودة"
+                )}
+              </Button>
+            ) : null}
+            {callbackBridgeDraft?.status === "APPROVED" ? (
+              <Button
+                onClick={handleExecuteCallbackBridgeDraft}
+                disabled={callbackBridgeBusy || !callbackBridgeActorId.trim()}
+                className="w-full sm:w-auto"
+              >
+                {callbackBridgeBusy ? (
+                  <>
+                    <Loader2 className="h-4 w-4 ml-2 animate-spin" />
+                    جاري التنفيذ...
+                  </>
+                ) : (
+                  "تنفيذ الحملة"
+                )}
+              </Button>
+            ) : null}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* AI Audience Picker */}
       <Card className="app-data-card border-[var(--accent-gold)]/20 bg-[var(--accent-gold-dim)]">

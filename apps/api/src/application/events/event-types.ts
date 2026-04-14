@@ -21,6 +21,15 @@ export const EVENT_TYPES = {
   STOCK_ADJUSTED: "StockAdjusted",
   STOCK_LOW: "StockLow",
   STOCK_RESERVED: "StockReserved",
+  // POS planner visibility events
+  POS_REGISTER_OPENED: "PosRegisterOpened",
+  POS_REGISTER_CLOSED: "PosRegisterClosed",
+  POS_DRAFT_CREATED: "PosDraftCreated",
+  POS_DRAFT_UPDATED: "PosDraftUpdated",
+  POS_DRAFT_SUSPENDED: "PosDraftSuspended",
+  POS_DRAFT_RESUMED: "PosDraftResumed",
+  POS_DRAFT_CHECKED_OUT: "PosDraftCheckedOut",
+  POS_ORDER_CREATED: "PosOrderCreated",
   // Finance events (Phase H)
   DAILY_PROFIT_CALCULATED: "DailyProfitCalculated",
   SPENDING_ALERT: "SpendingAlert",

@@ -35,6 +35,7 @@ import {
 import { TranscriptionAdapterFactory } from "../../application/adapters/transcription.adapter";
 import { CopilotAiService } from "../../application/llm/copilot-ai.service";
 import { CopilotDispatcherService } from "../../application/llm/copilot-dispatcher.service";
+import { PlannerOrchestrationService } from "../../application/llm/planner-orchestration.service";
 import { DriverStatusService } from "../../application/services/driver-status.service";
 
 @ApiTags("Webhooks")
@@ -42,6 +43,7 @@ import { DriverStatusService } from "../../application/services/driver-status.se
 export class TwilioWebhookController {
   private readonly logger = new Logger(TwilioWebhookController.name);
   private readonly validateSignature: boolean;
+  private readonly twilioWhatsAppEnabled: boolean;
 
   constructor(
     private readonly configService: ConfigService,
@@ -54,21 +56,25 @@ export class TwilioWebhookController {
     private readonly productOcrService: ProductOcrService,
     private readonly copilotAiService: CopilotAiService,
     private readonly copilotDispatcher: CopilotDispatcherService,
+    private readonly plannerOrchestration: PlannerOrchestrationService,
   ) {
     this.validateSignature =
       this.configService.get<string>("TWILIO_VALIDATE_SIGNATURE") !== "false";
+    this.twilioWhatsAppEnabled =
+      this.configService.get<string>("TWILIO_WHATSAPP_ENABLED", "false") ===
+      "true";
   }
 
   /**
-   * Handle incoming WhatsApp messages from Twilio
+   * Handle incoming WhatsApp messages from Twilio (legacy compatibility only)
    * POST /v1/webhooks/twilio/whatsapp
    */
   @Post("whatsapp")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: "Twilio WhatsApp webhook endpoint",
+    summary: "Twilio WhatsApp webhook endpoint (legacy/disabled by default)",
     description:
-      "Receives incoming WhatsApp messages from Twilio. Supports text, voice notes, and location messages.",
+      "Legacy compatibility endpoint. Messaging backbone is Meta. Enable TWILIO_WHATSAPP_ENABLED=true only for temporary migrations.",
   })
   @ApiResponse({ status: 200, description: "Message processed successfully" })
   @ApiResponse({ status: 400, description: "Invalid payload" })
@@ -78,6 +84,14 @@ export class TwilioWebhookController {
     @Res() res: Response,
     @Headers("x-twilio-signature") twilioSignature: string,
   ): Promise<void> {
+    if (!this.twilioWhatsAppEnabled) {
+      this.logger.warn(
+        "Twilio WhatsApp webhook called while disabled. Messaging backbone is Meta.",
+      );
+      res.type("text/xml").send("<Response></Response>");
+      return;
+    }
+
     const correlationId = uuidv4();
     const startTime = Date.now();
 
@@ -413,7 +427,15 @@ export class TwilioWebhookController {
         merchantId,
         senderId: parsed.fromNumber,
         text: effectiveText,
+        messageType: parsed.isVoiceNote
+          ? "audio"
+          : parsed.hasLocation
+            ? "location"
+            : parsed.hasMedia
+              ? "image"
+              : "text",
         providerMessageId: parsed.messageSid,
+        destinationPhone: parsed.toNumber || undefined,
         // Only pass voiceNote if transcription wasn't attempted in this controller
         // This prevents double transcription attempts
         correlationId,
@@ -483,14 +505,15 @@ export class TwilioWebhookController {
   }
 
   /**
-   * Handle Twilio status callbacks (message delivery status updates)
+   * Handle Twilio status callbacks (legacy WhatsApp delivery updates)
    * POST /v1/webhooks/twilio/status
    */
   @Post("status")
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: "Twilio message status callback",
-    description: "Receives message status updates (delivered, failed, etc.)",
+    summary: "Twilio message status callback (legacy/disabled by default)",
+    description:
+      "Legacy compatibility endpoint for Twilio WhatsApp delivery updates. Messaging backbone is Meta.",
   })
   @ApiResponse({ status: 200, description: "Status processed" })
   async handleStatusCallback(
@@ -498,6 +521,14 @@ export class TwilioWebhookController {
     @Res() res: Response,
     @Headers("x-twilio-signature") twilioSignature: string,
   ): Promise<void> {
+    if (!this.twilioWhatsAppEnabled) {
+      this.logger.warn(
+        "Twilio message status callback called while disabled. Messaging backbone is Meta.",
+      );
+      res.status(200).send("OK");
+      return;
+    }
+
     const correlationId = uuidv4();
 
     try {
@@ -914,8 +945,8 @@ export class TwilioWebhookController {
       const lowerInput = inputText.toLowerCase().trim();
 
       // Check if user is responding to pending action
-      const pendingActions = await this.pool.query(
-        `SELECT id, intent, command FROM copilot_pending_actions 
+      const pendingActions = await this.pool.query<{ id: string }>(
+        `SELECT id::text as id FROM copilot_pending_actions 
          WHERE merchant_id = $1 AND status = 'pending' AND expires_at > NOW()
          ORDER BY created_at DESC LIMIT 1`,
         [merchantId],
@@ -925,13 +956,46 @@ export class TwilioWebhookController {
         const pendingAction = pendingActions.rows[0];
 
         if (confirmKeywords.some((kw) => lowerInput.includes(kw))) {
+          if (!(await this.isApprovalsStorageReady())) {
+            return "⚠️ لا يمكن تنفيذ أمر Copilot الآن لأن بيانات الموافقات غير مهيأة. يرجى تطبيق migration 113 أولاً.";
+          }
+
+          const pendingActionRecord =
+            await this.copilotAiService.getPendingAction(
+              pendingAction.id,
+              merchantId,
+            );
+          if (!pendingActionRecord) {
+            return "⚠️ تعذر العثور على الإجراء المعلّق. أعد إرسال الطلب.";
+          }
+
+          const plannerDecision =
+            await this.plannerOrchestration.evaluatePendingAction(
+              merchantId,
+              pendingActionRecord,
+            );
+          if (!plannerDecision.allowed) {
+            return this.formatPlannerBlockedMessage(plannerDecision.reasons);
+          }
+
           // Confirm the action
           const result = await this.copilotAiService.confirmAction(
             merchantId,
             pendingAction.id,
             true,
           );
-          return result.message;
+
+          if (!result.success) {
+            return result.message;
+          }
+
+          const executeResult = await this.copilotDispatcher.execute(
+            merchantId,
+            pendingActionRecord,
+          );
+          return (
+            executeResult.replyAr ?? executeResult.message ?? result.message
+          );
         }
 
         if (cancelKeywords.some((kw) => lowerInput.includes(kw))) {
@@ -964,11 +1028,21 @@ export class TwilioWebhookController {
 
       // For query intents, execute immediately
       if (parseResult.command && !parseResult.requiresConfirmation) {
+        const plannerDecision = await this.plannerOrchestration.evaluateCommand(
+          merchantId,
+          parseResult.command,
+          "whatsapp",
+        );
+
+        if (!plannerDecision.allowed) {
+          return this.formatPlannerBlockedMessage(plannerDecision.reasons);
+        }
+
         const queryResult = await this.copilotDispatcher.executeQuery(
           merchantId,
           parseResult.command,
         );
-        return queryResult.message ?? "";
+        return queryResult.replyAr ?? queryResult.message ?? "";
       }
 
       return parseResult.message;
@@ -981,5 +1055,26 @@ export class TwilioWebhookController {
       });
       return "⚠️ حدث خطأ أثناء معالجة طلبك. يرجى المحاولة لاحقاً.";
     }
+  }
+
+  private async isApprovalsStorageReady(): Promise<boolean> {
+    try {
+      const check = await this.pool.query<{ ready: boolean | string }>(
+        `SELECT to_regclass('public.copilot_action_approvals') IS NOT NULL as ready`,
+      );
+      const raw = check.rows[0]?.ready;
+      return raw === true || raw === "t" || raw === "true";
+    } catch {
+      return false;
+    }
+  }
+
+  private formatPlannerBlockedMessage(reasons: string[]): string {
+    const firstReason =
+      Array.isArray(reasons) && reasons.length > 0 ? reasons[0] : null;
+    if (!firstReason) {
+      return "⚠️ تم منع تنفيذ الطلب مؤقتاً بواسطة سياسة التخطيط التشغيلية.";
+    }
+    return `⚠️ تم منع تنفيذ الطلب مؤقتاً بواسطة سياسة التخطيط التشغيلية: ${firstReason}`;
   }
 }

@@ -700,6 +700,49 @@ export const merchantApi = {
     );
   },
 
+  async getCashierCopilotSuggestions(
+    apiKey: string,
+    payload?: {
+      draftId?: string;
+      branchId?: string;
+      query?: string;
+    },
+  ) {
+    return apiFetch<{
+      success: boolean;
+      generatedAt: string;
+      contextDigest: {
+        todayCashierOrders: number;
+        todayCashierRevenue: number;
+        pendingApprovals: number;
+        openRegisters: number;
+        activeDrafts: number;
+        forecastRisks: {
+          lowConfidencePredictions: number;
+          staleRuns: number;
+          highUrgencyReplenishments: number;
+        };
+      };
+      suggestions: Array<{
+        id: string;
+        type: "alert" | "insight" | "action";
+        priority: "high" | "medium" | "low";
+        title: string;
+        body: string;
+        action?: {
+          kind: string;
+          label: string;
+          payload?: Record<string, unknown>;
+          requiresApproval?: boolean;
+        };
+      }>;
+    }>("/v1/portal/pos/copilot/suggestions", {
+      method: "POST",
+      apiKey,
+      body: JSON.stringify(payload || {}),
+    });
+  },
+
   async listPosTables(apiKey: string, branchId?: string) {
     const params = new URLSearchParams();
     if (branchId) params.set("branchId", branchId);
@@ -853,6 +896,254 @@ export const merchantApi = {
       missedCalls: number;
       ordersFromCalls: number;
     }>(`/v1/portal/calls/stats?days=${safeDays}`, { apiKey });
+  },
+
+  async getCallFollowUpQueue(
+    merchantId: string,
+    apiKey: string,
+    options?: {
+      limit?: number;
+      offset?: number;
+      hours?: number;
+      includeResolved?: boolean;
+      handledBy?: "all" | "ai" | "staff";
+    },
+  ) {
+    const params = new URLSearchParams();
+    if (options?.limit !== undefined)
+      params.set("limit", String(options.limit));
+    if (options?.offset !== undefined)
+      params.set("offset", String(options.offset));
+    if (options?.hours !== undefined)
+      params.set("hours", String(options.hours));
+    if (options?.includeResolved !== undefined) {
+      params.set("includeResolved", options.includeResolved ? "true" : "false");
+    }
+    if (options?.handledBy) params.set("handledBy", options.handledBy);
+
+    const qs = params.toString();
+    return apiFetch<{
+      windowHours: number;
+      includeResolved: boolean;
+      handledBy: "all" | "ai" | "staff";
+      total: number;
+      queue: Array<{
+        callId: string;
+        callSid?: string;
+        customerPhone: string;
+        startedAt?: string;
+        endedAt?: string | null;
+        durationSeconds?: number | null;
+        handledBy?: string;
+        status?: string;
+        orderId?: string | null;
+        recordingUrl?: string | null;
+        missedAttempts: number;
+        lastAttemptAt?: string | null;
+        ageMinutes: number;
+        priority: "high" | "medium" | "low";
+        requiresRecovery: boolean;
+        workflowState: "OPEN" | "CLAIMED" | "ASSIGNED" | "RESOLVED";
+        claimedBy?: string | null;
+        assignedTo?: string | null;
+        disposition?:
+          | "ORDER_CREATED"
+          | "CALLBACK_REQUESTED"
+          | "NO_ANSWER"
+          | "NOT_INTERESTED"
+          | "ESCALATED"
+          | null;
+        callbackDueAt?: string | null;
+        workflowUpdatedAt?: string | null;
+      }>;
+    }>(`/v1/portal/calls/follow-up-queue${qs ? `?${qs}` : ""}`, { apiKey });
+  },
+
+  async claimCallFollowUpQueueItem(
+    merchantId: string,
+    apiKey: string,
+    callId: string,
+    payload: {
+      actorId: string;
+      note?: string;
+    },
+  ) {
+    return apiFetch<{
+      callId: string;
+      workflowState: "OPEN" | "CLAIMED" | "ASSIGNED" | "RESOLVED";
+      claimedBy?: string | null;
+      assignedTo?: string | null;
+      disposition?:
+        | "ORDER_CREATED"
+        | "CALLBACK_REQUESTED"
+        | "NO_ANSWER"
+        | "NOT_INTERESTED"
+        | "ESCALATED"
+        | null;
+      callbackDueAt?: string | null;
+      resolvedAt?: string | null;
+      updatedAt?: string;
+      action: "CLAIM" | "ASSIGN" | "RESOLVE";
+      actorId: string;
+      note?: string | null;
+      campaignCallbackCandidate: boolean;
+    }>(`/v1/portal/calls/follow-up-queue/${encodeURIComponent(callId)}/claim`, {
+      method: "POST",
+      apiKey,
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async assignCallFollowUpQueueItem(
+    merchantId: string,
+    apiKey: string,
+    callId: string,
+    payload: {
+      actorId: string;
+      assigneeId: string;
+      note?: string;
+    },
+  ) {
+    return apiFetch<{
+      callId: string;
+      workflowState: "OPEN" | "CLAIMED" | "ASSIGNED" | "RESOLVED";
+      claimedBy?: string | null;
+      assignedTo?: string | null;
+      disposition?:
+        | "ORDER_CREATED"
+        | "CALLBACK_REQUESTED"
+        | "NO_ANSWER"
+        | "NOT_INTERESTED"
+        | "ESCALATED"
+        | null;
+      callbackDueAt?: string | null;
+      resolvedAt?: string | null;
+      updatedAt?: string;
+      action: "CLAIM" | "ASSIGN" | "RESOLVE";
+      actorId: string;
+      note?: string | null;
+      campaignCallbackCandidate: boolean;
+    }>(
+      `/v1/portal/calls/follow-up-queue/${encodeURIComponent(callId)}/assign`,
+      {
+        method: "POST",
+        apiKey,
+        body: JSON.stringify(payload),
+      },
+    );
+  },
+
+  async resolveCallFollowUpQueueItem(
+    merchantId: string,
+    apiKey: string,
+    callId: string,
+    payload: {
+      actorId: string;
+      disposition:
+        | "ORDER_CREATED"
+        | "CALLBACK_REQUESTED"
+        | "NO_ANSWER"
+        | "NOT_INTERESTED"
+        | "ESCALATED";
+      note?: string;
+      callbackDelayMinutes?: number;
+    },
+  ) {
+    return apiFetch<{
+      callId: string;
+      workflowState: "OPEN" | "CLAIMED" | "ASSIGNED" | "RESOLVED";
+      claimedBy?: string | null;
+      assignedTo?: string | null;
+      disposition?:
+        | "ORDER_CREATED"
+        | "CALLBACK_REQUESTED"
+        | "NO_ANSWER"
+        | "NOT_INTERESTED"
+        | "ESCALATED"
+        | null;
+      callbackDueAt?: string | null;
+      resolvedAt?: string | null;
+      updatedAt?: string;
+      action: "CLAIM" | "ASSIGN" | "RESOLVE";
+      actorId: string;
+      note?: string | null;
+      campaignCallbackCandidate: boolean;
+    }>(
+      `/v1/portal/calls/follow-up-queue/${encodeURIComponent(callId)}/resolve`,
+      {
+        method: "POST",
+        apiKey,
+        body: JSON.stringify(payload),
+      },
+    );
+  },
+
+  async getCallAgentPerformance(
+    merchantId: string,
+    apiKey: string,
+    options?: {
+      days?: number;
+      limit?: number;
+      handledBy?: "all" | "ai" | "staff";
+    },
+  ) {
+    const params = new URLSearchParams();
+    if (options?.days !== undefined) params.set("days", String(options.days));
+    if (options?.limit !== undefined)
+      params.set("limit", String(options.limit));
+    if (options?.handledBy) params.set("handledBy", options.handledBy);
+
+    const qs = params.toString();
+    return apiFetch<{
+      periodDays: number;
+      handledBy: "all" | "ai" | "staff";
+      totalCalls: number;
+      completedCalls: number;
+      missedCalls: number;
+      ordersFromCalls: number;
+      completionRatePct: number;
+      missedRatePct: number;
+      conversionRatePct: number;
+      agents: any[];
+    }>(`/v1/portal/calls/agent-performance${qs ? `?${qs}` : ""}`, { apiKey });
+  },
+
+  async getCallQueueHealth(
+    merchantId: string,
+    apiKey: string,
+    options?: {
+      windowMinutes?: number;
+      activeGraceMinutes?: number;
+    },
+  ) {
+    const params = new URLSearchParams();
+    if (options?.windowMinutes !== undefined) {
+      params.set("windowMinutes", String(options.windowMinutes));
+    }
+    if (options?.activeGraceMinutes !== undefined) {
+      params.set("activeGraceMinutes", String(options.activeGraceMinutes));
+    }
+
+    const qs = params.toString();
+    return apiFetch<{
+      windowMinutes: number;
+      activeGraceMinutes: number;
+      callsInWindow: number;
+      callsInPreviousWindow: number;
+      callVolumeTrendPct: number;
+      completedInWindow: number;
+      missedInWindow: number;
+      activeLive: number;
+      oldestLiveSeconds: number;
+      avgDurationSeconds: number;
+      aiHandledInWindow: number;
+      staffHandledInWindow: number;
+      staffCoveragePct: number;
+      serviceLevelPct: number;
+      missedRatePct: number;
+      pressureScore: number;
+      healthState: "stable" | "elevated" | "critical";
+    }>(`/v1/portal/calls/queue-health${qs ? `?${qs}` : ""}`, { apiKey });
   },
 
   async getConversations(merchantId: string, apiKey: string, status?: string) {
@@ -1794,6 +2085,89 @@ export const merchantApi = {
     }>(`/v1/portal/copilot/history?limit=${limit}`, { apiKey });
   },
 
+  async copilotApprovals(
+    apiKey: string,
+    params?: {
+      status?: string;
+      intent?: string;
+      limit?: number;
+      offset?: number;
+    },
+  ) {
+    const query = new URLSearchParams();
+    if (params?.status) query.set("status", params.status);
+    if (params?.intent) query.set("intent", params.intent);
+    if (params?.limit !== undefined) query.set("limit", String(params.limit));
+    if (params?.offset !== undefined)
+      query.set("offset", String(params.offset));
+
+    return apiFetch<{
+      success: boolean;
+      approvals: Array<{
+        actionId: string;
+        intent: string;
+        source: string;
+        status: string;
+        actorRole: string | null;
+        actorId: string | null;
+        previewSummary: string | null;
+        commandPreview: Record<string, any> | null;
+        expiresAt: string | null;
+        details: Record<string, any>;
+        executionResult: Record<string, any> | null;
+        riskTier: "low" | "medium" | "high" | "critical";
+        timeline: {
+          pendingAt: string | null;
+          confirmedAt: string | null;
+          deniedAt: string | null;
+          cancelledAt: string | null;
+          expiredAt: string | null;
+          executingAt: string | null;
+          executedAt: string | null;
+          updatedAt: string | null;
+        };
+      }>;
+      pagination: {
+        total: number;
+        limit: number;
+        offset: number;
+      };
+    }>(
+      `/v1/portal/copilot/approvals${query.toString() ? `?${query.toString()}` : ""}`,
+      { apiKey },
+    );
+  },
+
+  async copilotApproval(apiKey: string, actionId: string) {
+    return apiFetch<{
+      success: boolean;
+      approval: {
+        actionId: string;
+        intent: string;
+        source: string;
+        status: string;
+        actorRole: string | null;
+        actorId: string | null;
+        previewSummary: string | null;
+        commandPreview: Record<string, any> | null;
+        expiresAt: string | null;
+        details: Record<string, any>;
+        executionResult: Record<string, any> | null;
+        riskTier: "low" | "medium" | "high" | "critical";
+        timeline: {
+          pendingAt: string | null;
+          confirmedAt: string | null;
+          deniedAt: string | null;
+          cancelledAt: string | null;
+          expiredAt: string | null;
+          executingAt: string | null;
+          executedAt: string | null;
+          updatedAt: string | null;
+        };
+      };
+    }>(`/v1/portal/copilot/approvals/${actionId}`, { apiKey });
+  },
+
   async copilotStatus(apiKey: string) {
     return apiFetch<{
       ai: {
@@ -2410,6 +2784,98 @@ export const merchantApi = {
         body: JSON.stringify({ reason }),
       },
     );
+  },
+
+  async getReservationReconciliation(
+    merchantId: string,
+    apiKey: string,
+    options?: {
+      includeDetails?: boolean;
+      limit?: number;
+    },
+  ) {
+    const includeDetails = options?.includeDetails ?? true;
+    const limit = options?.limit ?? 50;
+    const query = new URLSearchParams({
+      includeDetails: String(includeDetails),
+      limit: String(limit),
+    });
+
+    return apiFetch<{
+      generatedAt: string;
+      summary: {
+        totalVariants: number;
+        activeReservations: number;
+        activeReservationQuantity: number;
+        expiredActiveReservations: number;
+        expiredActiveQuantity: number;
+        totalVariantReserved: number;
+        driftedVariants: number;
+        totalDriftQuantity: number;
+      };
+      variantDrift: Array<{
+        variantId: string;
+        variantReserved: number;
+        expectedReserved: number;
+        delta: number;
+      }>;
+    }>(
+      `/v1/inventory/${merchantId}/reservations/reconciliation?${query.toString()}`,
+      {
+        apiKey,
+      },
+    );
+  },
+
+  async repairReservationReconciliation(
+    merchantId: string,
+    apiKey: string,
+    options?: {
+      dryRun?: boolean;
+      includeVariantDetails?: boolean;
+      variantLimit?: number;
+    },
+  ) {
+    return apiFetch<{
+      success: boolean;
+      dryRun: boolean;
+      generatedAt: string;
+      operations: Record<string, number>;
+      before: {
+        totalVariants: number;
+        activeReservations: number;
+        activeReservationQuantity: number;
+        expiredActiveReservations: number;
+        expiredActiveQuantity: number;
+        totalVariantReserved: number;
+        driftedVariants: number;
+        totalDriftQuantity: number;
+      };
+      after?: {
+        totalVariants: number;
+        activeReservations: number;
+        activeReservationQuantity: number;
+        expiredActiveReservations: number;
+        expiredActiveQuantity: number;
+        totalVariantReserved: number;
+        driftedVariants: number;
+        totalDriftQuantity: number;
+      };
+      variantDrift: Array<{
+        variantId: string;
+        variantReserved: number;
+        expectedReserved: number;
+        delta: number;
+      }>;
+    }>(`/v1/inventory/${merchantId}/reservations/reconciliation/repair`, {
+      method: "POST",
+      apiKey,
+      body: JSON.stringify({
+        dryRun: options?.dryRun,
+        includeVariantDetails: options?.includeVariantDetails,
+        variantLimit: options?.variantLimit,
+      }),
+    });
   },
 
   // Analytics API
@@ -4512,6 +4978,199 @@ export const portalApi = {
     );
   },
 
+  getErpRuntimeHealth: () =>
+    authenticatedFetch<any>("/api/v1/portal/integrations/erp/runtime/health"),
+
+  processErpRuntimeQueue: (data?: { limit?: number; endpointId?: string }) =>
+    authenticatedFetch<any>("/api/v1/portal/integrations/erp/runtime/process", {
+      method: "POST",
+      body: data || {},
+    }),
+
+  getErpRuntimeDlq: (params?: { limit?: number; offset?: number }) => {
+    const query = new URLSearchParams();
+    if (params?.limit) query.set("limit", String(params.limit));
+    if (params?.offset) query.set("offset", String(params.offset));
+    return authenticatedFetch<any>(
+      `/api/v1/portal/integrations/erp/runtime/dlq${query.toString() ? `?${query}` : ""}`,
+    );
+  },
+
+  retryOpenErpRuntimeDlq: (data?: { limit?: number; endpointId?: string }) =>
+    authenticatedFetch<any>(
+      "/api/v1/portal/integrations/erp/runtime/dlq/retry-open",
+      {
+        method: "POST",
+        body: data || {},
+      },
+    ),
+
+  getDeliverySlaBreaches: (params?: {
+    branchId?: string;
+    limit?: number;
+    offset?: number;
+    includeRecovered?: boolean;
+  }) => {
+    const query = new URLSearchParams();
+    if (params?.branchId) query.set("branchId", params.branchId);
+    if (params?.limit) query.set("limit", String(params.limit));
+    if (params?.offset) query.set("offset", String(params.offset));
+    if (params?.includeRecovered) query.set("includeRecovered", "true");
+    return authenticatedFetch<any>(
+      `/api/v1/portal/delivery/ops/sla-breaches${query.toString() ? `?${query}` : ""}`,
+    );
+  },
+
+  executeDeliverySlaEscalation: (
+    breachEventId: string,
+    data?: { escalatedBy?: string; note?: string },
+  ) =>
+    authenticatedFetch<any>(
+      `/api/v1/portal/delivery/ops/sla-breaches/${breachEventId}/escalate`,
+      {
+        method: "POST",
+        body: data || {},
+      },
+    ),
+
+  executeOpenDeliverySlaEscalations: (data?: {
+    branchId?: string;
+    limit?: number;
+    escalatedBy?: string;
+    note?: string;
+  }) =>
+    authenticatedFetch<any>(
+      "/api/v1/portal/delivery/ops/sla-breaches/escalate-open",
+      {
+        method: "POST",
+        body: data || {},
+      },
+    ),
+
+  acknowledgeDeliverySlaBreach: (
+    breachEventId: string,
+    data?: { acknowledgedBy?: string; note?: string },
+  ) =>
+    authenticatedFetch<any>(
+      `/api/v1/portal/delivery/ops/sla-breaches/${breachEventId}/ack`,
+      {
+        method: "POST",
+        body: data || {},
+      },
+    ),
+
+  getControlPlaneCommandCenterOverview: () =>
+    authenticatedFetch<any>(
+      "/api/v1/portal/control-plane/command-center/overview",
+    ),
+
+  getControlPlaneCommandCenterFeed: (limit = 25) =>
+    authenticatedFetch<any>(
+      `/api/v1/portal/control-plane/command-center/feed?limit=${Math.max(5, Math.min(limit, 100))}`,
+    ),
+
+  getControlPlaneExecutionVisibility: (params?: {
+    status?: "STARTED" | "COMPLETED" | "FAILED" | "SKIPPED";
+    triggerType?: "EVENT" | "SCHEDULED" | "ON_DEMAND" | "ESCALATION";
+    triggerKey?: string;
+    limit?: number;
+    offset?: number;
+  }) => {
+    const query = new URLSearchParams();
+    if (params?.status) query.set("status", params.status);
+    if (params?.triggerType) query.set("triggerType", params.triggerType);
+    if (params?.triggerKey) query.set("triggerKey", params.triggerKey);
+    if (params?.limit) query.set("limit", String(params.limit));
+    if (params?.offset) query.set("offset", String(params.offset));
+    return authenticatedFetch<any>(
+      `/api/v1/portal/control-plane/command-center/execution-visibility${query.toString() ? `?${query}` : ""}`,
+    );
+  },
+
+  getControlPlaneCopilotApprovals: (params?: {
+    status?: string;
+    intent?: string;
+    limit?: number;
+    offset?: number;
+  }) => {
+    const query = new URLSearchParams();
+    if (params?.status) query.set("status", params.status);
+    if (params?.intent) query.set("intent", params.intent.trim().toUpperCase());
+    if (params?.limit) query.set("limit", String(params.limit));
+    if (params?.offset) query.set("offset", String(params.offset));
+    return authenticatedFetch<any>(
+      `/api/v1/portal/copilot/approvals${query.toString() ? `?${query}` : ""}`,
+    );
+  },
+
+  getControlPlanePlannerRuns: (params?: {
+    status?: "STARTED" | "COMPLETED" | "FAILED" | "SKIPPED";
+    triggerType?: "EVENT" | "SCHEDULED" | "ON_DEMAND" | "ESCALATION";
+    triggerKey?: string;
+    limit?: number;
+    offset?: number;
+  }) => {
+    const query = new URLSearchParams();
+    if (params?.status) query.set("status", params.status);
+    if (params?.triggerType) query.set("triggerType", params.triggerType);
+    if (params?.triggerKey) query.set("triggerKey", params.triggerKey);
+    if (params?.limit) query.set("limit", String(params.limit));
+    if (params?.offset) query.set("offset", String(params.offset));
+    return authenticatedFetch<any>(
+      `/api/v1/portal/control-plane/planner-runs${query.toString() ? `?${query}` : ""}`,
+    );
+  },
+
+  getControlPlanePlannerRunDrilldown: (runId: string) =>
+    authenticatedFetch<any>(
+      `/api/v1/portal/control-plane/planner-runs/${runId}/drilldown`,
+    ),
+
+  getControlPlanePlannerRunReplayPreview: (runId: string) =>
+    authenticatedFetch<any>(
+      `/api/v1/portal/control-plane/planner-runs/${runId}/replay-preview`,
+    ),
+
+  replayControlPlanePlannerRun: (
+    runId: string,
+    data?: {
+      reason?: string;
+      dryRun?: boolean;
+      confirmReplay?: boolean;
+      previewToken?: string;
+    },
+  ) =>
+    authenticatedFetch<any>(
+      `/api/v1/portal/control-plane/planner-runs/${runId}/replay`,
+      {
+        method: "POST",
+        body: data || {},
+      },
+    ),
+
+  acknowledgeControlPlanePlannerRunTriage: (
+    runId: string,
+    data: {
+      recommendedAction:
+        | "MONITOR"
+        | "REPLAY_RUN"
+        | "REVIEW_PENDING_APPROVALS"
+        | "ADJUST_TRIGGER_BUDGET"
+        | "RETRY_CONNECTOR_DLQ"
+        | "EXECUTE_DELIVERY_ESCALATIONS";
+      ackStatus?: "acknowledged" | "deferred";
+      note: string;
+      metadata?: Record<string, any>;
+    },
+  ) =>
+    authenticatedFetch<any>(
+      `/api/v1/portal/control-plane/planner-runs/${runId}/triage-ack`,
+      {
+        method: "POST",
+        body: data,
+      },
+    ),
+
   // Audit Logs
   getAuditLogs: (params?: {
     action?: string;
@@ -5643,6 +6302,173 @@ export const portalApi = {
       },
     ),
 
+  // Monthly Close Governance
+  getMonthlyClosePacket: (year: number, month: number) =>
+    authenticatedFetch<{
+      packetId: string | null;
+      year: number;
+      month: number;
+      periodStart: string;
+      periodEnd: string;
+      packetHash: string;
+      confidenceScore: number;
+      requiresApproval: boolean;
+      requiresSecondApproval: boolean;
+      riskTier: "normal" | "high";
+      riskReasons: string[];
+      closeReady: boolean;
+      blockers: Array<{
+        code: string;
+        severity: "critical" | "warning" | "info";
+        message: string;
+        value: number;
+      }>;
+      metrics: Record<string, number>;
+    }>(
+      `/api/v1/portal/finance/monthly-close/${Math.trunc(year)}/${Math.trunc(month)}/packet`,
+    ),
+
+  closeMonthlyClosePeriod: (
+    year: number,
+    month: number,
+    payload: {
+      packetHash: string;
+      lockAfterClose?: boolean;
+      notes?: string;
+      approval?: {
+        force: boolean;
+        approvedBy: string;
+        reason: string;
+        secondApprovedBy?: string;
+        secondReason?: string;
+      };
+      evidence?: Array<{
+        referenceId: string;
+        category: string;
+        uri?: string;
+        checksum?: string;
+        note?: string;
+        uploadedBy?: string;
+        uploadedAt?: string;
+      }>;
+    },
+  ) =>
+    authenticatedFetch<{
+      success: boolean;
+      closeId: string;
+      year: number;
+      month: number;
+      status: "OPEN" | "CLOSED" | "LOCKED";
+      packetHash: string;
+      confidenceScore: number;
+      blockers: Array<{
+        code: string;
+        severity: "critical" | "warning" | "info";
+        message: string;
+        value: number;
+      }>;
+      requiresApproval: boolean;
+      requiresSecondApproval: boolean;
+      approvalGranted: boolean;
+      secondApprovalGranted: boolean;
+      riskTier: "normal" | "high";
+      riskReasons: string[];
+      evidenceCount: number;
+    }>(
+      `/api/v1/portal/finance/monthly-close/${Math.trunc(year)}/${Math.trunc(month)}/close`,
+      {
+        method: "POST",
+        body: payload,
+      },
+    ),
+
+  reopenMonthlyClosePeriod: (
+    year: number,
+    month: number,
+    payload: {
+      notes?: string;
+      approval: {
+        force: boolean;
+        approvedBy: string;
+        reason: string;
+        secondApprovedBy?: string;
+        secondReason?: string;
+      };
+      evidence?: Array<{
+        referenceId: string;
+        category: string;
+        uri?: string;
+        checksum?: string;
+        note?: string;
+        uploadedBy?: string;
+        uploadedAt?: string;
+      }>;
+    },
+  ) =>
+    authenticatedFetch<{
+      success: boolean;
+      closeId: string;
+      year: number;
+      month: number;
+      status: "OPEN";
+      approvalGranted: boolean;
+      evidenceCount: number;
+    }>(
+      `/api/v1/portal/finance/monthly-close/${Math.trunc(year)}/${Math.trunc(month)}/reopen`,
+      {
+        method: "POST",
+        body: payload,
+      },
+    ),
+
+  getMonthlyCloseLedger: (
+    year: number,
+    month: number,
+    params?: { limit?: number; offset?: number },
+  ) => {
+    const query = new URLSearchParams();
+    if (typeof params?.limit === "number" && Number.isFinite(params.limit)) {
+      query.set("limit", String(Math.trunc(params.limit)));
+    }
+    if (typeof params?.offset === "number" && Number.isFinite(params.offset)) {
+      query.set("offset", String(Math.trunc(params.offset)));
+    }
+    const qs = query.toString();
+    return authenticatedFetch<{
+      ledgerAvailable: boolean;
+      year: number;
+      month: number;
+      limit: number;
+      offset: number;
+      items: Array<{
+        id: string;
+        close_id: string | null;
+        packet_id: string | null;
+        year: number;
+        month: number;
+        action_type: "PACKET_GENERATED" | "CLOSE" | "LOCK" | "REOPEN";
+        snapshot_hash: string | null;
+        confidence_score: number;
+        blockers: Array<{
+          code: string;
+          severity: "critical" | "warning" | "info";
+          message: string;
+          value: number;
+        }>;
+        requires_approval: boolean;
+        approval_granted: boolean;
+        approval_actor: string | null;
+        approval_reason: string | null;
+        acted_by: string | null;
+        acted_role: string | null;
+        metadata: Record<string, unknown>;
+        created_at: string;
+      }>;
+    }>(
+      `/api/v1/portal/finance/monthly-close/${Math.trunc(year)}/${Math.trunc(month)}/ledger${qs ? `?${qs}` : ""}`,
+    );
+  },
+
   // Customer Segments
   getCustomerSegments: () =>
     authenticatedFetch<{ segments: any[]; total: number }>(
@@ -5733,6 +6559,163 @@ export const portalApi = {
       method: "POST",
       body: options || {},
     }),
+
+  // --- Campaign Performance Summary ---
+  getCampaignPerformanceSummary: (options?: {
+    days?: number;
+    campaignType?: "ALL" | "WIN_BACK" | "SEASONAL" | "REENGAGEMENT";
+    limit?: number;
+  }) => {
+    const params = new URLSearchParams();
+    if (options?.days !== undefined) params.set("days", String(options.days));
+    if (options?.campaignType) params.set("campaignType", options.campaignType);
+    if (options?.limit !== undefined)
+      params.set("limit", String(options.limit));
+    const query = params.toString();
+
+    return authenticatedFetch<{
+      generatedAt: string;
+      windowDays: number;
+      campaignType: "ALL" | "WIN_BACK" | "SEASONAL" | "REENGAGEMENT";
+      totals: {
+        campaigns: number;
+        targeted: number;
+        sent: number;
+        failed: number;
+        successRatePct: number;
+        avgAudienceSize: number;
+      };
+      byType: Array<{
+        type: string;
+        campaigns: number;
+        targeted: number;
+        sent: number;
+        failed: number;
+        successRatePct: number;
+      }>;
+      daily: Array<{
+        date: string;
+        campaigns: number;
+        sent: number;
+        failed: number;
+        successRatePct: number;
+      }>;
+      recentCampaigns: Array<{
+        id: string;
+        createdAt: string;
+        type: string;
+        label: string;
+        targeted: number;
+        sent: number;
+        failed: number;
+        successRatePct: number;
+        metadata?: {
+          code?: string | null;
+          recipientFilter?: string | null;
+          inactiveDays?: number | null;
+          discountPercent?: number | null;
+          validDays?: number | null;
+        };
+      }>;
+      auditDataAvailable?: boolean;
+    }>(
+      `/api/v1/portal/campaigns/performance-summary${query ? `?${query}` : ""}`,
+    );
+  },
+
+  // --- Callback Campaign Bridge ---
+  createCallbackCampaignBridgeDraft: (options: {
+    actorId: string;
+    dueWithinHours?: number;
+    maxRecipients?: number;
+    inactiveDays?: number;
+    messageTemplate?: string;
+    discountCode?: string;
+  }) =>
+    authenticatedFetch<{
+      created: boolean;
+      approvalRequired: boolean;
+      reason?: string;
+      callbackDueBefore?: string;
+      totalEligible?: number;
+      bridge?: {
+        id: string;
+        status: "DRAFT" | "APPROVED" | "EXECUTING" | "EXECUTED" | "CANCELLED";
+        createdAt: string;
+        createdBy: string;
+        messageTemplate: string;
+        discountCode?: string | null;
+        inactiveDays: number;
+        callbackDueBefore?: string | null;
+        targetCount: number;
+      };
+      recipients?: Array<{
+        callId: string;
+        workflowEventId?: string | null;
+        customerPhone: string;
+        customerName?: string | null;
+        callbackDueAt?: string | null;
+      }>;
+    }>("/api/v1/portal/calls/callback-campaign-bridge/drafts", {
+      method: "POST",
+      body: options,
+    }),
+
+  approveCallbackCampaignBridgeDraft: (
+    draftId: string,
+    options: {
+      actorId: string;
+      note?: string;
+    },
+  ) =>
+    authenticatedFetch<{
+      approved: boolean;
+      bridge: {
+        id: string;
+        status: "DRAFT" | "APPROVED" | "EXECUTING" | "EXECUTED" | "CANCELLED";
+        approvedAt?: string | null;
+        approvedBy: string;
+        messageTemplate: string;
+        discountCode?: string | null;
+        inactiveDays: number;
+        callbackDueBefore?: string | null;
+        targetCount: number;
+      };
+    }>(
+      `/api/v1/portal/calls/callback-campaign-bridge/drafts/${encodeURIComponent(draftId)}/approve`,
+      {
+        method: "POST",
+        body: options,
+      },
+    ),
+
+  executeCallbackCampaignBridgeDraft: (
+    draftId: string,
+    options: {
+      actorId: string;
+    },
+  ) =>
+    authenticatedFetch<{
+      executed: boolean;
+      bridge: {
+        id: string;
+        status: "DRAFT" | "APPROVED" | "EXECUTING" | "EXECUTED" | "CANCELLED";
+        executedAt?: string | null;
+        targetCount: number;
+        sentCount: number;
+        failedCount: number;
+      };
+      sampleErrors: Array<{
+        phone: string;
+        error: string;
+      }>;
+    }>(
+      `/api/v1/portal/calls/callback-campaign-bridge/drafts/${encodeURIComponent(draftId)}/execute`,
+      {
+        method: "POST",
+        body: options,
+      },
+    ),
 
   // --- Seasonal Campaign ---
   createSeasonalCampaign: (options: {

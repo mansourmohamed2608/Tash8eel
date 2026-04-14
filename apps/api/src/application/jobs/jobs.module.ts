@@ -16,6 +16,8 @@ import { AutomationScheduler } from "./automation.scheduler";
 import { MerchantDeletionScheduler } from "./merchant-deletion.scheduler";
 import { ForecastModule } from "../forecasting/forecast.module";
 import { OverageService } from "../services/overage.service";
+import { InventoryReservationReconciliationScheduler } from "./inventory-reservation-reconciliation.scheduler";
+import { ConnectorRuntimeWorkerScheduler } from "./connector-runtime-worker.scheduler";
 
 @Module({
   imports: [
@@ -37,6 +39,8 @@ import { OverageService } from "../services/overage.service";
     SubscriptionExpiryScheduler,
     AutomationScheduler,
     MerchantDeletionScheduler,
+    InventoryReservationReconciliationScheduler,
+    ConnectorRuntimeWorkerScheduler,
     OverageService,
   ],
   exports: [
@@ -48,6 +52,8 @@ import { OverageService } from "../services/overage.service";
     SubscriptionExpiryScheduler,
     AutomationScheduler,
     MerchantDeletionScheduler,
+    InventoryReservationReconciliationScheduler,
+    ConnectorRuntimeWorkerScheduler,
     OverageService,
     ForecastModule,
   ],

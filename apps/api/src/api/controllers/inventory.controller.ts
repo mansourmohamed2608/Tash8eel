@@ -190,6 +190,44 @@ export class ReserveStockDto {
   expiresInMinutes?: number;
 }
 
+export class RepairReservationDriftDto {
+  @IsBoolean()
+  @IsOptional()
+  dryRun?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  includeVariantDetails?: boolean;
+
+  @IsNumber()
+  @Min(1)
+  @IsOptional()
+  variantLimit?: number;
+}
+
+type InventoryQueryRunner = {
+  query: (sql: string, params?: any[]) => Promise<{ rows: any[] }>;
+};
+
+type ReservationReconciliationSnapshot = {
+  summary: {
+    totalVariants: number;
+    activeReservations: number;
+    activeReservationQuantity: number;
+    expiredActiveReservations: number;
+    expiredActiveQuantity: number;
+    totalVariantReserved: number;
+    driftedVariants: number;
+    totalDriftQuantity: number;
+  };
+  variantDrift: Array<{
+    variantId: string;
+    variantReserved: number;
+    expectedReserved: number;
+    delta: number;
+  }>;
+};
+
 class BulkStockUpdateItem {
   @IsString()
   variantId!: string;
@@ -300,6 +338,7 @@ export class BulkImportDto {
 @Controller("v1/inventory")
 export class InventoryController {
   private readonly logger = new Logger(InventoryController.name);
+  private readonly reservationSweepInFlight = new Set<string>();
 
   constructor(
     @Inject(DATABASE_POOL) private readonly pool: Pool,
@@ -576,7 +615,7 @@ export class InventoryController {
   }
 
   private async adjustLocationReserved(
-    client: { query: (sql: string, params?: any[]) => Promise<any> },
+    client: InventoryQueryRunner,
     merchantId: string,
     variantId: string,
     delta: number,
@@ -610,7 +649,7 @@ export class InventoryController {
          VALUES ($1, $2, $3, 0, $4)
          ON CONFLICT (merchant_id, variant_id, location_id)
          DO UPDATE SET
-           quantity_reserved = inventory_stock_by_location.quantity_reserved + $4,
+           quantity_reserved = GREATEST(inventory_stock_by_location.quantity_reserved, 0) + $4,
            updated_at = NOW()`,
         [merchantId, variantId, locationId, delta],
       );
@@ -619,6 +658,385 @@ export class InventoryController {
         return;
       }
       throw error;
+    }
+  }
+
+  private parseBooleanFlag(
+    value: string | boolean | undefined,
+    defaultValue: boolean,
+  ): boolean {
+    if (typeof value === "boolean") return value;
+    if (typeof value !== "string") return defaultValue;
+
+    const normalized = value.trim().toLowerCase();
+    if (["1", "true", "yes", "on"].includes(normalized)) return true;
+    if (["0", "false", "no", "off"].includes(normalized)) return false;
+    return defaultValue;
+  }
+
+  private clampPositiveInt(
+    value: number | string | undefined,
+    fallback: number,
+    max = 200,
+  ): number {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
+    return Math.min(Math.floor(parsed), max);
+  }
+
+  private async getVariantReservationDriftRows(
+    queryRunner: InventoryQueryRunner,
+    merchantId: string,
+    limit: number,
+  ): Promise<ReservationReconciliationSnapshot["variantDrift"]> {
+    const driftResult = await queryRunner.query(
+      `WITH active_reservation_totals AS (
+         SELECT variant_id, COALESCE(SUM(quantity), 0)::int AS total_reserved
+         FROM stock_reservations
+         WHERE merchant_id = $1 AND status = 'active' AND expires_at > NOW()
+         GROUP BY variant_id
+       ),
+       variant_totals AS (
+         SELECT
+           v.id AS variant_id,
+           COALESCE(v.quantity_reserved, 0)::int AS variant_reserved,
+           GREATEST(COALESCE(art.total_reserved, 0), 0)::int AS expected_reserved
+         FROM inventory_variants v
+         LEFT JOIN active_reservation_totals art ON art.variant_id = v.id
+         WHERE v.merchant_id = $1
+       )
+       SELECT
+         variant_id,
+         variant_reserved,
+         expected_reserved,
+         (variant_reserved - expected_reserved)::int AS delta
+       FROM variant_totals
+       WHERE variant_reserved <> expected_reserved
+       ORDER BY ABS(variant_reserved - expected_reserved) DESC, variant_id
+       LIMIT $2`,
+      [merchantId, limit],
+    );
+
+    return driftResult.rows.map((row) => ({
+      variantId: row.variant_id,
+      variantReserved: Number(row.variant_reserved || 0),
+      expectedReserved: Number(row.expected_reserved || 0),
+      delta: Number(row.delta || 0),
+    }));
+  }
+
+  private async getReservationReconciliationSnapshot(
+    queryRunner: InventoryQueryRunner,
+    merchantId: string,
+    includeVariantDetails: boolean,
+    variantLimit: number,
+  ): Promise<ReservationReconciliationSnapshot> {
+    try {
+      const summaryResult = await queryRunner.query(
+        `WITH active_reservation_totals AS (
+           SELECT variant_id, COALESCE(SUM(quantity), 0)::int AS total_reserved
+           FROM stock_reservations
+           WHERE merchant_id = $1 AND status = 'active' AND expires_at > NOW()
+           GROUP BY variant_id
+         ),
+         variant_totals AS (
+           SELECT
+             v.id,
+             COALESCE(v.quantity_reserved, 0)::int AS variant_reserved,
+             GREATEST(COALESCE(art.total_reserved, 0), 0)::int AS expected_reserved
+           FROM inventory_variants v
+           LEFT JOIN active_reservation_totals art ON art.variant_id = v.id
+           WHERE v.merchant_id = $1
+         ),
+         reservation_stats AS (
+           SELECT
+             COUNT(*) FILTER (WHERE status = 'active' AND expires_at > NOW())::int AS active_reservations,
+             COALESCE(SUM(quantity) FILTER (WHERE status = 'active' AND expires_at > NOW()), 0)::int AS active_reservation_quantity,
+             COUNT(*) FILTER (WHERE status = 'active' AND expires_at <= NOW())::int AS expired_active_reservations,
+             COALESCE(SUM(quantity) FILTER (WHERE status = 'active' AND expires_at <= NOW()), 0)::int AS expired_active_quantity
+           FROM stock_reservations
+           WHERE merchant_id = $1
+         ),
+         variant_stats AS (
+           SELECT
+             COUNT(*)::int AS total_variants,
+             COALESCE(SUM(GREATEST(variant_reserved, 0)), 0)::int AS total_variant_reserved,
+             COUNT(*) FILTER (WHERE variant_reserved <> expected_reserved)::int AS drifted_variants,
+             COALESCE(SUM(ABS(variant_reserved - expected_reserved)), 0)::int AS total_drift_quantity
+           FROM variant_totals
+         )
+         SELECT
+           variant_stats.total_variants,
+           reservation_stats.active_reservations,
+           reservation_stats.active_reservation_quantity,
+           reservation_stats.expired_active_reservations,
+           reservation_stats.expired_active_quantity,
+           variant_stats.total_variant_reserved,
+           variant_stats.drifted_variants,
+           variant_stats.total_drift_quantity
+         FROM variant_stats, reservation_stats`,
+        [merchantId],
+      );
+
+      const summaryRow = summaryResult.rows[0] || {};
+      const variantDrift = includeVariantDetails
+        ? await this.getVariantReservationDriftRows(
+            queryRunner,
+            merchantId,
+            variantLimit,
+          )
+        : [];
+
+      return {
+        summary: {
+          totalVariants: Number(summaryRow.total_variants || 0),
+          activeReservations: Number(summaryRow.active_reservations || 0),
+          activeReservationQuantity: Number(
+            summaryRow.active_reservation_quantity || 0,
+          ),
+          expiredActiveReservations: Number(
+            summaryRow.expired_active_reservations || 0,
+          ),
+          expiredActiveQuantity: Number(
+            summaryRow.expired_active_quantity || 0,
+          ),
+          totalVariantReserved: Number(summaryRow.total_variant_reserved || 0),
+          driftedVariants: Number(summaryRow.drifted_variants || 0),
+          totalDriftQuantity: Number(summaryRow.total_drift_quantity || 0),
+        },
+        variantDrift,
+      };
+    } catch (error: any) {
+      if (error?.code !== "42P01" && error?.code !== "42703") {
+        throw error;
+      }
+
+      // Older merchant schemas can miss reservations tables/columns.
+      const fallbackVariants = await queryRunner.query(
+        `SELECT
+           COUNT(*)::int AS total_variants,
+           COALESCE(SUM(GREATEST(COALESCE(quantity_reserved, 0), 0)), 0)::int AS total_variant_reserved
+         FROM inventory_variants
+         WHERE merchant_id = $1`,
+        [merchantId],
+      );
+      const row = fallbackVariants.rows[0] || {};
+
+      return {
+        summary: {
+          totalVariants: Number(row.total_variants || 0),
+          activeReservations: 0,
+          activeReservationQuantity: 0,
+          expiredActiveReservations: 0,
+          expiredActiveQuantity: 0,
+          totalVariantReserved: Number(row.total_variant_reserved || 0),
+          driftedVariants: 0,
+          totalDriftQuantity: 0,
+        },
+        variantDrift: [],
+      };
+    }
+  }
+
+  private async releaseExpiredReservations(
+    queryRunner: InventoryQueryRunner,
+    merchantId: string,
+    variantId?: string,
+  ): Promise<{
+    expiredReservations: number;
+    affectedVariants: number;
+    releasedQuantity: number;
+  }> {
+    const params: unknown[] = [merchantId];
+    let variantFilter = "";
+    if (variantId) {
+      params.push(variantId);
+      variantFilter = ` AND variant_id = $${params.length}`;
+    }
+
+    try {
+      const expiredAgg = await queryRunner.query(
+        `SELECT
+           variant_id,
+           COUNT(*)::int AS reservation_count,
+           COALESCE(SUM(quantity), 0)::int AS quantity
+         FROM stock_reservations
+         WHERE merchant_id = $1
+           AND status = 'active'
+           AND expires_at <= NOW()
+           ${variantFilter}
+         GROUP BY variant_id`,
+        params,
+      );
+
+      if (expiredAgg.rows.length === 0) {
+        return {
+          expiredReservations: 0,
+          affectedVariants: 0,
+          releasedQuantity: 0,
+        };
+      }
+
+      await queryRunner.query(
+        `UPDATE stock_reservations
+         SET status = 'expired',
+             released_at = NOW()
+         WHERE merchant_id = $1
+           AND status = 'active'
+           AND expires_at <= NOW()
+           ${variantFilter}`,
+        params,
+      );
+
+      let releasedQuantity = 0;
+      let expiredReservations = 0;
+
+      for (const row of expiredAgg.rows) {
+        const variantReleased = Number(row.quantity || 0);
+        const reservationCount = Number(row.reservation_count || 0);
+        releasedQuantity += variantReleased;
+        expiredReservations += reservationCount;
+
+        if (variantReleased <= 0) continue;
+
+        await queryRunner.query(
+          `UPDATE inventory_variants
+           SET quantity_reserved = GREATEST(quantity_reserved - $1, 0),
+               updated_at = NOW()
+           WHERE merchant_id = $2 AND id = $3`,
+          [variantReleased, merchantId, row.variant_id],
+        );
+
+        await this.adjustLocationReserved(
+          queryRunner,
+          merchantId,
+          row.variant_id,
+          -variantReleased,
+          false,
+        );
+      }
+
+      return {
+        expiredReservations,
+        affectedVariants: expiredAgg.rows.length,
+        releasedQuantity,
+      };
+    } catch (error: any) {
+      if (error?.code === "42P01" || error?.code === "42703") {
+        return {
+          expiredReservations: 0,
+          affectedVariants: 0,
+          releasedQuantity: 0,
+        };
+      }
+      throw error;
+    }
+  }
+
+  private async syncVariantReservedAgainstActiveReservations(
+    queryRunner: InventoryQueryRunner,
+    merchantId: string,
+  ): Promise<number> {
+    try {
+      const updateResult = await queryRunner.query(
+        `WITH active_reservation_totals AS (
+           SELECT variant_id, COALESCE(SUM(quantity), 0)::int AS total_reserved
+           FROM stock_reservations
+           WHERE merchant_id = $1 AND status = 'active' AND expires_at > NOW()
+           GROUP BY variant_id
+         ),
+         expected_reserved AS (
+           SELECT
+             v.id AS variant_id,
+             GREATEST(COALESCE(art.total_reserved, 0), 0)::int AS expected_reserved
+           FROM inventory_variants v
+           LEFT JOIN active_reservation_totals art ON art.variant_id = v.id
+           WHERE v.merchant_id = $1
+         )
+         UPDATE inventory_variants v
+         SET quantity_reserved = er.expected_reserved,
+             updated_at = NOW()
+         FROM expected_reserved er
+         WHERE v.id = er.variant_id
+           AND v.merchant_id = $1
+           AND COALESCE(v.quantity_reserved, 0) <> er.expected_reserved
+         RETURNING v.id`,
+        [merchantId],
+      );
+
+      return updateResult.rows.length;
+    } catch (error: any) {
+      if (error?.code === "42P01" || error?.code === "42703") {
+        return 0;
+      }
+      throw error;
+    }
+  }
+
+  private async syncVariantReservedAgainstActiveReservationsForVariant(
+    queryRunner: InventoryQueryRunner,
+    merchantId: string,
+    variantId: string,
+  ): Promise<void> {
+    try {
+      await queryRunner.query(
+        `WITH active_reservation_totals AS (
+           SELECT GREATEST(COALESCE(SUM(quantity), 0), 0)::int AS total_reserved
+           FROM stock_reservations
+           WHERE merchant_id = $1
+             AND variant_id = $2
+             AND status = 'active'
+             AND expires_at > NOW()
+         )
+         UPDATE inventory_variants v
+         SET quantity_reserved = art.total_reserved,
+             updated_at = NOW()
+         FROM active_reservation_totals art
+         WHERE v.merchant_id = $1
+           AND v.id = $2
+           AND COALESCE(v.quantity_reserved, 0) <> art.total_reserved`,
+        [merchantId, variantId],
+      );
+    } catch (error: any) {
+      if (error?.code === "42P01" || error?.code === "42703") {
+        return;
+      }
+      throw error;
+    }
+  }
+
+  private triggerReservationHealthSweep(merchantId: string): void {
+    if (!merchantId || process.env.NODE_ENV === "test") return;
+    if (this.reservationSweepInFlight.has(merchantId)) return;
+
+    this.reservationSweepInFlight.add(merchantId);
+    setTimeout(() => {
+      void this.runReservationHealthSweep(merchantId);
+    }, 0);
+  }
+
+  private async runReservationHealthSweep(merchantId: string): Promise<void> {
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      await this.releaseExpiredReservations(client, merchantId);
+      await this.syncVariantReservedAgainstActiveReservations(
+        client,
+        merchantId,
+      );
+      await client.query("COMMIT");
+    } catch (error) {
+      try {
+        await client.query("ROLLBACK");
+      } catch {
+        // noop
+      }
+      this.logger.warn(
+        `Reservation health sweep failed for merchant ${merchantId}: ${(error as Error).message}`,
+      );
+    } finally {
+      client.release();
+      this.reservationSweepInFlight.delete(merchantId);
     }
   }
 
@@ -1672,8 +2090,15 @@ export class InventoryController {
     try {
       await client.query("BEGIN");
 
+      await this.releaseExpiredReservations(client, merchantId, dto.variantId);
+      await this.syncVariantReservedAgainstActiveReservationsForVariant(
+        client,
+        merchantId,
+        dto.variantId,
+      );
+
       const available = await client.query(
-        `SELECT (quantity_on_hand - COALESCE(quantity_reserved, 0)) as quantity_available FROM inventory_variants WHERE id = $1 AND merchant_id = $2 FOR UPDATE`,
+        `SELECT (quantity_on_hand - GREATEST(COALESCE(quantity_reserved, 0), 0)) as quantity_available FROM inventory_variants WHERE id = $1 AND merchant_id = $2 FOR UPDATE`,
         [dto.variantId, merchantId],
       );
 
@@ -1682,6 +2107,7 @@ export class InventoryController {
       }
 
       if (available.rows[0].quantity_available < dto.quantity) {
+        await client.query("ROLLBACK");
         return {
           success: false,
           reason: "insufficient_stock",
@@ -1709,8 +2135,11 @@ export class InventoryController {
       );
 
       await client.query(
-        "UPDATE inventory_variants SET quantity_reserved = quantity_reserved + $1 WHERE id = $2",
-        [dto.quantity, dto.variantId],
+        `UPDATE inventory_variants
+         SET quantity_reserved = GREATEST(COALESCE(quantity_reserved, 0), 0) + $1,
+             updated_at = NOW()
+         WHERE id = $2 AND merchant_id = $3`,
+        [dto.quantity, dto.variantId, merchantId],
       );
       await this.adjustLocationReserved(
         client,
@@ -1721,6 +2150,7 @@ export class InventoryController {
       );
 
       await client.query("COMMIT");
+      this.triggerReservationHealthSweep(merchantId);
 
       return {
         success: true,
@@ -1755,28 +2185,44 @@ export class InventoryController {
       }
 
       const reservation = res.rows[0];
+      const reservationQuantity = Number(reservation.quantity || 0);
+
+      await this.releaseExpiredReservations(
+        client,
+        merchantId,
+        reservation.variant_id,
+      );
 
       await client.query(
-        `UPDATE stock_reservations SET status = 'confirmed', confirmed_at = NOW() WHERE id = $1`,
-        [reservationId],
+        `UPDATE stock_reservations
+         SET status = 'confirmed', confirmed_at = NOW()
+         WHERE id = $1 AND merchant_id = $2 AND status = 'active'`,
+        [reservationId, merchantId],
       );
 
       await client.query(
         `UPDATE inventory_variants 
-         SET quantity_on_hand = quantity_on_hand - $1,
-             quantity_reserved = quantity_reserved - $1
-         WHERE id = $2`,
-        [reservation.quantity, reservation.variant_id],
+         SET quantity_on_hand = GREATEST(COALESCE(quantity_on_hand, 0) - $1, 0),
+             quantity_reserved = GREATEST(COALESCE(quantity_reserved, 0) - $1, 0),
+             updated_at = NOW()
+         WHERE id = $2 AND merchant_id = $3`,
+        [reservationQuantity, reservation.variant_id, merchantId],
       );
       await this.adjustLocationReserved(
         client,
         merchantId,
         reservation.variant_id,
-        -reservation.quantity,
+        -reservationQuantity,
         true,
+      );
+      await this.syncVariantReservedAgainstActiveReservationsForVariant(
+        client,
+        merchantId,
+        reservation.variant_id,
       );
 
       await client.query("COMMIT");
+      this.triggerReservationHealthSweep(merchantId);
 
       return { success: true, reservationId };
     } catch (error) {
@@ -1808,27 +2254,159 @@ export class InventoryController {
       }
 
       const reservation = res.rows[0];
+      const reservationQuantity = Number(reservation.quantity || 0);
 
-      await client.query(
-        `UPDATE stock_reservations SET status = 'released', released_at = NOW(), release_reason = $1 WHERE id = $2`,
-        [body.reason || "API release", reservationId],
+      await this.releaseExpiredReservations(
+        client,
+        merchantId,
+        reservation.variant_id,
       );
 
       await client.query(
-        "UPDATE inventory_variants SET quantity_reserved = quantity_reserved - $1 WHERE id = $2",
-        [reservation.quantity, reservation.variant_id],
+        `UPDATE stock_reservations
+         SET status = 'released', released_at = NOW(), release_reason = $1
+         WHERE id = $2 AND merchant_id = $3 AND status = 'active'`,
+        [body.reason || "API release", reservationId, merchantId],
+      );
+
+      await client.query(
+        `UPDATE inventory_variants
+         SET quantity_reserved = GREATEST(COALESCE(quantity_reserved, 0) - $1, 0),
+             updated_at = NOW()
+         WHERE id = $2 AND merchant_id = $3`,
+        [reservationQuantity, reservation.variant_id, merchantId],
       );
       await this.adjustLocationReserved(
         client,
         merchantId,
         reservation.variant_id,
-        -reservation.quantity,
+        -reservationQuantity,
         false,
+      );
+      await this.syncVariantReservedAgainstActiveReservationsForVariant(
+        client,
+        merchantId,
+        reservation.variant_id,
+      );
+
+      await client.query("COMMIT");
+      this.triggerReservationHealthSweep(merchantId);
+
+      return { success: true, reservationId };
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  @Get(":merchantId/reservations/reconciliation")
+  @ApiOperation({
+    summary: "Get reservation drift and expiry reconciliation snapshot",
+  })
+  @ApiQuery({ name: "includeDetails", required: false, type: String })
+  @ApiQuery({ name: "limit", required: false, type: Number })
+  async getReservationReconciliation(
+    @Param("merchantId") merchantId: string,
+    @Query("includeDetails") includeDetails?: string,
+    @Query("limit") limit?: string,
+  ) {
+    const includeVariantDetails = this.parseBooleanFlag(includeDetails, true);
+    const variantLimit = this.clampPositiveInt(limit, 50);
+
+    const snapshot = await this.getReservationReconciliationSnapshot(
+      this.pool,
+      merchantId,
+      includeVariantDetails,
+      variantLimit,
+    );
+
+    return {
+      generatedAt: new Date().toISOString(),
+      ...snapshot,
+    };
+  }
+
+  @Post(":merchantId/reservations/reconciliation/repair")
+  @ApiOperation({
+    summary:
+      "Release expired reservations and sync reserved totals to active reservations",
+  })
+  async repairReservationReconciliation(
+    @Param("merchantId") merchantId: string,
+    @Body() body: RepairReservationDriftDto,
+  ) {
+    const dryRun = body?.dryRun === true;
+    const includeVariantDetails =
+      typeof body?.includeVariantDetails === "boolean"
+        ? body.includeVariantDetails
+        : true;
+    const variantLimit = this.clampPositiveInt(body?.variantLimit, 50);
+
+    if (dryRun) {
+      const snapshot = await this.getReservationReconciliationSnapshot(
+        this.pool,
+        merchantId,
+        includeVariantDetails,
+        variantLimit,
+      );
+
+      return {
+        success: true,
+        dryRun: true,
+        generatedAt: new Date().toISOString(),
+        operations: {
+          expiredReservationsToRelease:
+            snapshot.summary.expiredActiveReservations,
+          expiredQuantityToRelease: snapshot.summary.expiredActiveQuantity,
+          variantsToAdjust: snapshot.summary.driftedVariants,
+        },
+        before: snapshot.summary,
+        variantDrift: snapshot.variantDrift,
+      };
+    }
+
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+
+      const before = await this.getReservationReconciliationSnapshot(
+        client,
+        merchantId,
+        false,
+        variantLimit,
+      );
+
+      const expired = await this.releaseExpiredReservations(client, merchantId);
+      const variantsAdjusted =
+        await this.syncVariantReservedAgainstActiveReservations(
+          client,
+          merchantId,
+        );
+
+      const after = await this.getReservationReconciliationSnapshot(
+        client,
+        merchantId,
+        includeVariantDetails,
+        variantLimit,
       );
 
       await client.query("COMMIT");
 
-      return { success: true, reservationId };
+      return {
+        success: true,
+        dryRun: false,
+        generatedAt: new Date().toISOString(),
+        operations: {
+          expiredReservationsReleased: expired.expiredReservations,
+          expiredQuantityReleased: expired.releasedQuantity,
+          variantsAdjusted,
+        },
+        before: before.summary,
+        after: after.summary,
+        variantDrift: after.variantDrift,
+      };
     } catch (error) {
       await client.query("ROLLBACK");
       throw error;

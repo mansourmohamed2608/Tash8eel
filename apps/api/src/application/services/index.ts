@@ -11,4 +11,7 @@ export * from "./usage-guard.service";
 export * from "./billing-catalog.service";
 export * from "./merchant-deletion.service";
 export * from "./voice-ai.service";
+export * from "./delivery-execution.service";
+export * from "./connector-runtime.service";
+export * from "./hq-governance.service";
 export * from "./services.module";

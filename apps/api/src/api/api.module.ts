@@ -35,6 +35,8 @@ import { PortalDeliveryController } from "./controllers/portal-delivery.controll
 import { PortalInventoryController } from "./controllers/portal-inventory.controller";
 import { PortalCatalogController } from "./controllers/portal-catalog.controller";
 import { PortalKnowledgeBaseController } from "./controllers/portal-knowledge-base.controller";
+import { HqGovernanceController } from "./controllers/hq-governance.controller";
+import { ControlPlaneController } from "./controllers/control-plane.controller";
 // Billing sub-controllers (replaced billing.controller.ts)
 import { BillingPlansController } from "./controllers/billing-plans.controller";
 import { BillingCheckoutController } from "./controllers/billing-checkout.controller";
@@ -125,6 +127,8 @@ import { CopilotPlanGuard } from "../shared/guards/copilot-plan.guard";
     PortalInventoryController,
     PortalCatalogController,
     PortalKnowledgeBaseController,
+    HqGovernanceController,
+    ControlPlaneController,
     InventoryController,
     MetaWebhookController,
     InternalAiController,

@@ -27,6 +27,10 @@ import { RagRetrievalService } from "./rag-retrieval.service";
 import { MerchantDeletionService } from "./merchant-deletion.service";
 import { VoiceAiService } from "./voice-ai.service";
 import { CommerceFactsService } from "./commerce-facts.service";
+import { CashierCopilotService } from "./cashier-copilot.service";
+import { DeliveryExecutionService } from "./delivery-execution.service";
+import { ConnectorRuntimeService } from "./connector-runtime.service";
+import { HqGovernanceService } from "./hq-governance.service";
 import { IdempotencyService } from "../../shared/services/idempotency.service";
 import { AiMetricsService } from "../../shared/services/ai-metrics.service";
 
@@ -78,6 +82,10 @@ import { SharedAiModule } from "../shared/shared-ai.module";
     MerchantDeletionService,
     VoiceAiService,
     CommerceFactsService,
+    CashierCopilotService,
+    DeliveryExecutionService,
+    ConnectorRuntimeService,
+    HqGovernanceService,
     IdempotencyService,
     AiMetricsService,
   ],
@@ -107,6 +115,10 @@ import { SharedAiModule } from "../shared/shared-ai.module";
     MerchantDeletionService,
     VoiceAiService,
     CommerceFactsService,
+    CashierCopilotService,
+    DeliveryExecutionService,
+    ConnectorRuntimeService,
+    HqGovernanceService,
     IdempotencyService,
     AiMetricsService,
     SharedAiModule,

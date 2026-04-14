@@ -46,6 +46,28 @@ export interface CopilotConfirmResult {
   error?: string;
 }
 
+export type CopilotApprovalState =
+  | "pending"
+  | "confirmed"
+  | "denied"
+  | "cancelled"
+  | "expired"
+  | "executing"
+  | "executed_success"
+  | "executed_failed";
+
+interface RecordApprovalStateParams {
+  actionId: string;
+  merchantId: string;
+  state: CopilotApprovalState;
+  intent?: CopilotIntent;
+  source?: "portal" | "whatsapp";
+  actorRole?: string;
+  actorId?: string;
+  details?: Record<string, unknown>;
+  executionResult?: Record<string, unknown>;
+}
+
 @Injectable()
 export class CopilotAiService {
   private client: OpenAI;
@@ -247,6 +269,13 @@ export class CopilotAiService {
     }
 
     if (pending.status !== "pending") {
+      await this.recordApprovalState({
+        actionId,
+        merchantId,
+        state: pending.status as "confirmed" | "cancelled" | "expired",
+        intent: pending.intent,
+        source: pending.source,
+      });
       const statusMessages: Record<string, string> = {
         confirmed: "✅ تم تنفيذ هذا الأمر بالفعل",
         cancelled: "❌ تم إلغاء هذا الأمر",
@@ -261,6 +290,13 @@ export class CopilotAiService {
 
     if (new Date() > pending.expiresAt) {
       await this.updatePendingActionStatus(actionId, "expired");
+      await this.recordApprovalState({
+        actionId,
+        merchantId,
+        state: "expired",
+        intent: pending.intent,
+        source: pending.source,
+      });
       return {
         success: false,
         message: "⏱️ انتهت صلاحية الأمر. يرجى إعادة إرسال الطلب.",
@@ -270,6 +306,13 @@ export class CopilotAiService {
 
     if (!confirm) {
       await this.updatePendingActionStatus(actionId, "cancelled");
+      await this.recordApprovalState({
+        actionId,
+        merchantId,
+        state: "cancelled",
+        intent: pending.intent,
+        source: pending.source,
+      });
       return {
         success: true,
         message: "❌ تم إلغاء الأمر",
@@ -277,35 +320,20 @@ export class CopilotAiService {
       };
     }
 
-    // Mark as confirmed and execute via dispatcher
+    // Mark as confirmed. Execution is owned by the caller (controller/dispatcher)
+    // to avoid duplicate side effects across different confirmation paths.
     await this.updatePendingActionStatus(actionId, "confirmed");
-
-    // Get the command from pending action and execute it
-    const command = pending.command as CopilotCommand;
-    const dispatcher = await this.getDispatcher();
-
-    if (dispatcher) {
-      const result = await dispatcher.execute(merchantId, command);
-
-      // Update history with result
-      await this.pool.query(
-        `UPDATE copilot_history SET action_taken = true, action_result = $1 
-         WHERE merchant_id = $2 AND command->>'intent' = $3
-         ORDER BY created_at DESC LIMIT 1`,
-        [result, merchantId, command.intent],
-      );
-
-      return {
-        success: true,
-        message: result.message || "✅ تم تنفيذ الأمر بنجاح",
-        action: "confirmed",
-        result,
-      };
-    }
+    await this.recordApprovalState({
+      actionId,
+      merchantId,
+      state: "confirmed",
+      intent: pending.intent,
+      source: pending.source,
+    });
 
     return {
       success: true,
-      message: "✅ تم تأكيد الأمر",
+      message: "✅ تم تأكيد الأمر وجاهز للتنفيذ",
       action: "confirmed",
     };
   }
@@ -421,6 +449,184 @@ export class CopilotAiService {
       source: row.source,
       executionResult: row.execution_result,
     };
+  }
+
+  async recordApprovalState(params: RecordApprovalStateParams): Promise<void> {
+    try {
+      const seed = await this.resolveApprovalSeed(
+        params.actionId,
+        params.merchantId,
+        params.intent,
+        params.source,
+      );
+
+      if (!seed.intent || !seed.source) {
+        return;
+      }
+
+      const details = params.details || {};
+      const now = new Date();
+      // `pending_at` is NOT NULL; seed it on first insert for any lifecycle state.
+      const pendingAt = now;
+      const confirmedAt = params.state === "confirmed" ? now : null;
+      const deniedAt = params.state === "denied" ? now : null;
+      const cancelledAt = params.state === "cancelled" ? now : null;
+      const expiredAt = params.state === "expired" ? now : null;
+      const executingAt = params.state === "executing" ? now : null;
+      const executedAt =
+        params.state === "executed_success" ||
+        params.state === "executed_failed"
+          ? now
+          : null;
+
+      await this.pool.query(
+        `INSERT INTO copilot_action_approvals (
+           action_id,
+           merchant_id,
+           intent,
+           source,
+           status,
+           pending_at,
+           confirmed_at,
+           denied_at,
+           cancelled_at,
+           expired_at,
+           executing_at,
+           executed_at,
+           actor_role,
+           actor_id,
+           details,
+           execution_result
+         ) VALUES (
+           $1,
+           $2,
+           $3,
+           $4,
+           $5,
+           $6,
+           $7,
+           $8,
+           $9,
+           $10,
+           $11,
+           $12,
+           $13,
+           $14,
+           $15::jsonb,
+           $16::jsonb
+         )
+         ON CONFLICT (action_id) DO UPDATE SET
+           status = EXCLUDED.status,
+           actor_role = COALESCE(EXCLUDED.actor_role, copilot_action_approvals.actor_role),
+           actor_id = COALESCE(EXCLUDED.actor_id, copilot_action_approvals.actor_id),
+           details = CASE
+             WHEN EXCLUDED.details = '{}'::jsonb
+               THEN copilot_action_approvals.details
+             ELSE copilot_action_approvals.details || EXCLUDED.details
+           END,
+           execution_result = COALESCE(EXCLUDED.execution_result, copilot_action_approvals.execution_result),
+           pending_at = CASE
+             WHEN EXCLUDED.status = 'pending'
+               THEN COALESCE(copilot_action_approvals.pending_at, NOW())
+             ELSE copilot_action_approvals.pending_at
+           END,
+           confirmed_at = CASE
+             WHEN EXCLUDED.status = 'confirmed'
+               THEN COALESCE(copilot_action_approvals.confirmed_at, NOW())
+             ELSE copilot_action_approvals.confirmed_at
+           END,
+           denied_at = CASE
+             WHEN EXCLUDED.status = 'denied'
+               THEN COALESCE(copilot_action_approvals.denied_at, NOW())
+             ELSE copilot_action_approvals.denied_at
+           END,
+           cancelled_at = CASE
+             WHEN EXCLUDED.status = 'cancelled'
+               THEN COALESCE(copilot_action_approvals.cancelled_at, NOW())
+             ELSE copilot_action_approvals.cancelled_at
+           END,
+           expired_at = CASE
+             WHEN EXCLUDED.status = 'expired'
+               THEN COALESCE(copilot_action_approvals.expired_at, NOW())
+             ELSE copilot_action_approvals.expired_at
+           END,
+           executing_at = CASE
+             WHEN EXCLUDED.status = 'executing'
+               THEN COALESCE(copilot_action_approvals.executing_at, NOW())
+             ELSE copilot_action_approvals.executing_at
+           END,
+           executed_at = CASE
+             WHEN EXCLUDED.status IN ('executed_success', 'executed_failed')
+               THEN COALESCE(copilot_action_approvals.executed_at, NOW())
+             ELSE copilot_action_approvals.executed_at
+           END,
+           updated_at = NOW()`,
+        [
+          params.actionId,
+          params.merchantId,
+          seed.intent,
+          seed.source,
+          params.state,
+          pendingAt,
+          confirmedAt,
+          deniedAt,
+          cancelledAt,
+          expiredAt,
+          executingAt,
+          executedAt,
+          params.actorRole || null,
+          params.actorId || null,
+          JSON.stringify(details),
+          params.executionResult
+            ? JSON.stringify(params.executionResult)
+            : null,
+        ],
+      );
+    } catch (error) {
+      logger.warn("Failed to persist copilot approval state", {
+        actionId: params.actionId,
+        state: params.state,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  private async resolveApprovalSeed(
+    actionId: string,
+    merchantId: string,
+    intent?: CopilotIntent,
+    source?: "portal" | "whatsapp",
+  ): Promise<{
+    intent: CopilotIntent | null;
+    source: "portal" | "whatsapp" | null;
+  }> {
+    if (intent && source) {
+      return { intent, source };
+    }
+
+    try {
+      const result = await this.pool.query<{
+        intent: CopilotIntent;
+        source: "portal" | "whatsapp";
+      }>(
+        `SELECT intent, source
+         FROM copilot_pending_actions
+         WHERE id = $1 AND merchant_id = $2
+         LIMIT 1`,
+        [actionId, merchantId],
+      );
+
+      const row = result.rows[0];
+      return {
+        intent: intent || row?.intent || null,
+        source: source || row?.source || null,
+      };
+    } catch {
+      return {
+        intent: intent || null,
+        source: source || null,
+      };
+    }
   }
 
   // ============= Private Methods =============
@@ -783,6 +989,14 @@ export class CopilotAiService {
         source,
       ],
     );
+
+    await this.recordApprovalState({
+      actionId: id,
+      merchantId,
+      state: "pending",
+      intent: command.intent,
+      source,
+    });
 
     return id;
   }

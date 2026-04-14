@@ -19,8 +19,8 @@ import {
   Req,
   BadRequestException,
   NotFoundException,
-  ForbiddenException,
   Inject,
+  ServiceUnavailableException,
 } from "@nestjs/common";
 import {
   ApiTags,
@@ -39,6 +39,8 @@ import {
   CACHE_TTL,
 } from "../../infrastructure/cache/ai-cache.service";
 import { CopilotDispatcherService } from "../../application/llm/copilot-dispatcher.service";
+import { CopilotActionRegistryService } from "../../application/llm/copilot-action-registry.service";
+import { PlannerOrchestrationService } from "../../application/llm/planner-orchestration.service";
 import { TranscriptionAdapterFactory } from "../../application/adapters/transcription.adapter";
 import { AuditService } from "../../application/services/audit.service";
 import { UsageGuardService } from "../../application/services/usage-guard.service";
@@ -53,6 +55,7 @@ import {
   getRoleRequirementMessage,
   StaffRole,
 } from "../../application/llm/copilot-schema";
+import { evaluateCopilotActionRisk } from "../../application/llm/copilot-risk-policy";
 
 interface CopilotMessageDto {
   message: string;
@@ -79,10 +82,17 @@ interface CopilotConfirmDto {
   description: "Merchant API key",
 })
 export class CopilotController {
+  private approvalStorageCheckCache: {
+    ready: boolean;
+    checkedAt: number;
+  } | null = null;
+
   constructor(
     @Inject(DATABASE_POOL) private readonly pool: Pool,
     private readonly copilotAiService: CopilotAiService,
     private readonly dispatcherService: CopilotDispatcherService,
+    private readonly actionRegistry: CopilotActionRegistryService,
+    private readonly plannerOrchestration: PlannerOrchestrationService,
     private readonly transcriptionFactory: TranscriptionAdapterFactory,
     private readonly auditService: AuditService,
     private readonly aiCache: AiCacheService,
@@ -248,6 +258,33 @@ export class CopilotController {
 
     // If it's a query (non-destructive), execute immediately (with cache)
     if (!DESTRUCTIVE_INTENTS.includes(command.intent)) {
+      const plannerDecision = await this.plannerOrchestration.evaluateCommand(
+        merchantId,
+        command,
+        "portal",
+      );
+      if (!plannerDecision.allowed) {
+        await consumeTokenUsage(
+          "تم منع تنفيذ الاستعلام مؤقتاً بواسطة سياسة التخطيط التشغيلية.",
+          command.intent,
+        );
+        return {
+          success: false,
+          intent: command.intent,
+          confidence: command.confidence,
+          missing_fields: command.missing_fields || [],
+          needs_confirmation: false,
+          confirmation_text: null,
+          action: {
+            type: "planner_blocked",
+            params: command.entities || {},
+          },
+          user_message:
+            "⚠️ تم منع تنفيذ هذا الطلب مؤقتاً بواسطة سياسة التخطيط التشغيلية.",
+          planner_decision: plannerDecision,
+        };
+      }
+
       // Check cache first — prevents different data on page refresh
       const cacheKey = this.aiCache.getCopilotCacheKey(
         merchantId,
@@ -535,6 +572,35 @@ export class CopilotController {
 
     // Same logic as text command
     if (!DESTRUCTIVE_INTENTS.includes(command.intent)) {
+      const plannerDecision = await this.plannerOrchestration.evaluateCommand(
+        merchantId,
+        command,
+        "portal",
+      );
+      if (!plannerDecision.allowed) {
+        await consumeTokenUsage(
+          "تم منع تنفيذ الاستعلام مؤقتاً بواسطة سياسة التخطيط التشغيلية.",
+          command.intent,
+        );
+
+        return {
+          success: false,
+          intent: command.intent,
+          confidence: command.confidence ?? 1,
+          missing_fields: command.missing_fields || [],
+          needs_confirmation: false,
+          confirmation_text: null,
+          action: {
+            type: "planner_blocked",
+            params: command.entities || {},
+          },
+          user_message:
+            "⚠️ تم منع تنفيذ هذا الطلب مؤقتاً بواسطة سياسة التخطيط التشغيلية.",
+          transcription: transcription.text,
+          planner_decision: plannerDecision,
+        };
+      }
+
       const queryResult = await this.dispatcherService.executeQuery(
         merchantId,
         command,
@@ -615,12 +681,57 @@ export class CopilotController {
     if (!pendingAction) {
       throw new NotFoundException("Pending action not found");
     }
+    const riskProfile = evaluateCopilotActionRisk(pendingAction.intent);
+    const actionDefinition = this.actionRegistry.getDefinition(
+      pendingAction.intent,
+    );
+
+    if (!dto.confirm) {
+      const cancelResult = await this.copilotAiService.confirmAction(
+        merchantId,
+        dto.actionId,
+        false,
+      );
+
+      if (!cancelResult.success) {
+        const messages: Record<string, string> = {
+          not_found: "الإجراء غير موجود",
+          expired: "انتهت صلاحية الإجراء",
+          cancelled: "تم إلغاء الإجراء",
+        };
+
+        return {
+          success: false,
+          intent: pendingAction.intent,
+          confidence: 1,
+          missing_fields: [],
+          needs_confirmation: false,
+          confirmation_text: null,
+          action: { type: cancelResult.action, params: {} },
+          user_message: messages[cancelResult.action] || "حدث خطأ",
+          risk_tier: riskProfile.tier,
+          compensation_hints: actionDefinition.compensationHints,
+        };
+      }
+
+      return {
+        success: true,
+        intent: pendingAction.intent,
+        confidence: 1,
+        missing_fields: [],
+        needs_confirmation: false,
+        confirmation_text: null,
+        action: { type: "cancelled", params: {} },
+        user_message: "❌ تم إلغاء الإجراء",
+        risk_tier: riskProfile.tier,
+        compensation_hints: actionDefinition.compensationHints,
+      };
+    }
+
+    await this.ensureApprovalsStorageReady();
 
     // RBAC: Re-check permission before execution (defense in depth)
-    if (
-      dto.confirm &&
-      !hasPermissionForIntent(userRole, pendingAction.intent)
-    ) {
+    if (!hasPermissionForIntent(userRole, pendingAction.intent)) {
       const roleMessage = getRoleRequirementMessage(pendingAction.intent);
 
       await this.auditService.log({
@@ -632,6 +743,22 @@ export class CopilotController {
           userRole,
           actionId: dto.actionId,
           source: "portal_confirm",
+          riskTier: riskProfile.tier,
+          requiresManagerReview: riskProfile.requiresManagerReview,
+        },
+      });
+
+      await this.copilotAiService.recordApprovalState({
+        actionId: dto.actionId,
+        merchantId,
+        state: "denied",
+        intent: pendingAction.intent,
+        source: pendingAction.source,
+        actorRole: userRole,
+        actorId: String(req?.staffId || "").trim() || undefined,
+        details: {
+          reason: "RBAC_DENIED",
+          requiredRole: getRoleRequirementMessage(pendingAction.intent),
         },
       });
 
@@ -648,14 +775,100 @@ export class CopilotController {
         },
         user_message: `⛔ ${roleMessage}`,
         roleRequired: true,
+        risk_tier: riskProfile.tier,
+        compensation_hints: actionDefinition.compensationHints,
       };
     }
 
-    // Confirm the action
+    const preconditionCheck = await this.actionRegistry.evaluatePreconditions(
+      merchantId,
+      pendingAction.command,
+    );
+    if (!preconditionCheck.ok) {
+      await this.copilotAiService.recordApprovalState({
+        actionId: dto.actionId,
+        merchantId,
+        state: "denied",
+        intent: pendingAction.intent,
+        source: pendingAction.source,
+        actorRole: userRole,
+        actorId: String(req?.staffId || "").trim() || undefined,
+        details: {
+          reason: "PRECONDITION_FAILED",
+          failures: preconditionCheck.failures,
+          advisories: preconditionCheck.advisories,
+        },
+      });
+
+      return {
+        success: false,
+        intent: pendingAction.intent,
+        confidence: 1,
+        missing_fields: [],
+        needs_confirmation: false,
+        confirmation_text: null,
+        action: {
+          type: "precondition_failed",
+          params: pendingAction.command.entities || {},
+        },
+        user_message:
+          "⚠️ تعذّر التنفيذ لأن بيانات الأمر غير مكتملة أو غير صالحة",
+        precondition_failures: preconditionCheck.failures,
+        precondition_advisories: preconditionCheck.advisories,
+        risk_tier: riskProfile.tier,
+        compensation_hints: actionDefinition.compensationHints,
+        compensation: actionDefinition.compensation,
+      };
+    }
+
+    const plannerDecision =
+      await this.plannerOrchestration.evaluatePendingAction(
+        merchantId,
+        pendingAction,
+      );
+
+    if (!plannerDecision.allowed) {
+      await this.copilotAiService.recordApprovalState({
+        actionId: dto.actionId,
+        merchantId,
+        state: "denied",
+        intent: pendingAction.intent,
+        source: pendingAction.source,
+        actorRole: userRole,
+        actorId: String(req?.staffId || "").trim() || undefined,
+        details: {
+          reason: "PLANNER_ORCHESTRATION_BLOCK",
+          failures: plannerDecision.reasons,
+          advisories: plannerDecision.advisories,
+          contextDigest: plannerDecision.contextDigest,
+        },
+      });
+
+      return {
+        success: false,
+        intent: pendingAction.intent,
+        confidence: 1,
+        missing_fields: [],
+        needs_confirmation: false,
+        confirmation_text: null,
+        action: {
+          type: "planner_blocked",
+          params: pendingAction.command.entities || {},
+        },
+        user_message:
+          "⚠️ تم منع التنفيذ مؤقتاً بواسطة سياسة التخطيط التشغيلية. راجع الأسباب ثم أعد المحاولة.",
+        planner_decision: plannerDecision,
+        risk_tier: riskProfile.tier,
+        compensation_hints: actionDefinition.compensationHints,
+        compensation: actionDefinition.compensation,
+      };
+    }
+
+    // Confirm only after planner + precondition gates pass
     const confirmResult = await this.copilotAiService.confirmAction(
       merchantId,
       dto.actionId,
-      dto.confirm,
+      true,
     );
 
     if (!confirmResult.success) {
@@ -674,19 +887,8 @@ export class CopilotController {
         confirmation_text: null,
         action: { type: confirmResult.action, params: {} },
         user_message: messages[confirmResult.action] || "حدث خطأ",
-      };
-    }
-
-    if (!dto.confirm) {
-      return {
-        success: true,
-        intent: pendingAction.intent,
-        confidence: 1,
-        missing_fields: [],
-        needs_confirmation: false,
-        confirmation_text: null,
-        action: { type: "cancelled", params: {} },
-        user_message: "❌ تم إلغاء الإجراء",
+        risk_tier: riskProfile.tier,
+        compensation_hints: actionDefinition.compensationHints,
       };
     }
 
@@ -706,6 +908,9 @@ export class CopilotController {
         intent: pendingAction.intent,
         actionId: dto.actionId,
         success: executeResult.success,
+        riskTier: riskProfile.tier,
+        requiresManagerReview: riskProfile.requiresManagerReview,
+        requiresExplicitApproval: riskProfile.requiresExplicitApproval,
       },
       metadata: { source: "copilot_confirm" },
     });
@@ -728,6 +933,178 @@ export class CopilotController {
       },
       user_message: executeResult.replyAr,
       data: executeResult.data,
+      risk_tier: riskProfile.tier,
+      action_contract: {
+        intent: actionDefinition.intent,
+        destructive: actionDefinition.destructive,
+        preconditions: actionDefinition.preconditions,
+        compensation_hints: actionDefinition.compensationHints,
+        compensation: actionDefinition.compensation,
+      },
+      planner_decision: plannerDecision,
+    };
+  }
+
+  /**
+   * GET /v1/portal/copilot/approvals
+   * Read approval/execution lifecycle records with pagination
+   */
+  @Get("approvals")
+  @ApiOperation({ summary: "List copilot approval lifecycle records" })
+  @ApiResponse({ status: 200, description: "Approval records" })
+  async listApprovals(
+    @Query("status") status?: string,
+    @Query("intent") intent?: string,
+    @Query("limit") limit?: string,
+    @Query("offset") offset?: string,
+    @Req() req?: any,
+  ) {
+    const merchantId = req?.merchantId;
+    if (!merchantId) {
+      throw new BadRequestException("Merchant context missing");
+    }
+
+    await this.ensureApprovalsStorageReady();
+
+    const statuses = String(status || "")
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean);
+    const normalizedIntent = String(intent || "")
+      .trim()
+      .toUpperCase();
+    const parsedLimit = Number.parseInt(String(limit || "30"), 10);
+    const parsedOffset = Number.parseInt(String(offset || "0"), 10);
+    const safeLimit = Number.isFinite(parsedLimit)
+      ? Math.max(1, Math.min(parsedLimit, 100))
+      : 30;
+    const safeOffset = Number.isFinite(parsedOffset)
+      ? Math.max(0, parsedOffset)
+      : 0;
+
+    const whereClauses: string[] = [`a.merchant_id = $1`];
+    const values: any[] = [merchantId];
+
+    if (statuses.length > 0) {
+      values.push(statuses);
+      whereClauses.push(`a.status = ANY($${values.length}::text[])`);
+    }
+
+    if (normalizedIntent) {
+      values.push(normalizedIntent);
+      whereClauses.push(`a.intent = $${values.length}`);
+    }
+
+    const whereSql = whereClauses.join(" AND ");
+
+    values.push(safeLimit);
+    values.push(safeOffset);
+    const limitParam = values.length - 1;
+    const offsetParam = values.length;
+
+    const rows = await this.pool.query<any>(
+      `SELECT
+         a.action_id::text as action_id,
+         a.intent,
+         a.source,
+         a.status,
+         a.actor_role,
+         a.actor_id,
+         a.details,
+         a.execution_result,
+         a.pending_at,
+         a.confirmed_at,
+         a.denied_at,
+         a.cancelled_at,
+         a.expired_at,
+         a.executing_at,
+         a.executed_at,
+         a.updated_at,
+         p.command,
+         p.expires_at
+       FROM copilot_action_approvals a
+       LEFT JOIN copilot_pending_actions p
+         ON p.id = a.action_id
+       WHERE ${whereSql}
+       ORDER BY a.updated_at DESC
+       LIMIT $${limitParam}
+       OFFSET $${offsetParam}`,
+      values,
+    );
+
+    const countValues = values.slice(0, values.length - 2);
+    const count = await this.pool.query<{ count: string }>(
+      `SELECT COUNT(*)::text as count
+       FROM copilot_action_approvals a
+       WHERE ${whereSql}`,
+      countValues,
+    );
+
+    return {
+      success: true,
+      approvals: rows.rows.map((row) => this.mapApprovalRow(row)),
+      pagination: {
+        total: Number(count.rows[0]?.count || 0),
+        limit: safeLimit,
+        offset: safeOffset,
+      },
+    };
+  }
+
+  /**
+   * GET /v1/portal/copilot/approvals/:actionId
+   * Read single approval/execution lifecycle record
+   */
+  @Get("approvals/:actionId")
+  @ApiOperation({ summary: "Get a copilot approval lifecycle record" })
+  @ApiResponse({ status: 200, description: "Approval record" })
+  async getApprovalByActionId(
+    @Param("actionId") actionId: string,
+    @Req() req: any,
+  ) {
+    const merchantId = req?.merchantId;
+    if (!merchantId) {
+      throw new BadRequestException("Merchant context missing");
+    }
+
+    await this.ensureApprovalsStorageReady();
+
+    const row = await this.pool.query<any>(
+      `SELECT
+         a.action_id::text as action_id,
+         a.intent,
+         a.source,
+         a.status,
+         a.actor_role,
+         a.actor_id,
+         a.details,
+         a.execution_result,
+         a.pending_at,
+         a.confirmed_at,
+         a.denied_at,
+         a.cancelled_at,
+         a.expired_at,
+         a.executing_at,
+         a.executed_at,
+         a.updated_at,
+         p.command,
+         p.expires_at
+       FROM copilot_action_approvals a
+       LEFT JOIN copilot_pending_actions p
+         ON p.id = a.action_id
+       WHERE a.merchant_id = $1
+         AND a.action_id::text = $2
+       LIMIT 1`,
+      [merchantId, actionId],
+    );
+
+    if (!row.rows.length) {
+      throw new NotFoundException("Approval record not found");
+    }
+
+    return {
+      success: true,
+      approval: this.mapApprovalRow(row.rows[0]),
     };
   }
 
@@ -845,6 +1222,45 @@ export class CopilotController {
 
   // ============= Private Helpers =============
 
+  private async ensureApprovalsStorageReady(): Promise<void> {
+    const ready = await this.isApprovalsStorageReady();
+    if (!ready) {
+      throw new ServiceUnavailableException({
+        success: false,
+        error: "APPROVALS_SCHEMA_MISSING",
+        message:
+          "Approval storage is unavailable. Apply migration 113 before running approval-gated copilot actions.",
+      });
+    }
+  }
+
+  private async isApprovalsStorageReady(): Promise<boolean> {
+    const now = Date.now();
+    if (
+      this.approvalStorageCheckCache &&
+      now - this.approvalStorageCheckCache.checkedAt < 30_000
+    ) {
+      return this.approvalStorageCheckCache.ready;
+    }
+
+    let ready = false;
+    try {
+      const check = await this.pool.query<{ ready: boolean | string }>(
+        `SELECT to_regclass('public.copilot_action_approvals') IS NOT NULL as ready`,
+      );
+      const raw = check.rows[0]?.ready;
+      ready = raw === true || raw === "t" || raw === "true";
+    } catch {
+      ready = false;
+    }
+
+    this.approvalStorageCheckCache = {
+      ready,
+      checkedAt: now,
+    };
+    return ready;
+  }
+
   private estimateTokenUsage(
     userText: string,
     history: Array<{ role: "user" | "assistant"; content: string }>,
@@ -880,5 +1296,38 @@ export class CopilotController {
       // On error, allow the call (fail open for UX)
       return { allowed: true, used: 0, limit: -1 };
     }
+  }
+
+  private mapApprovalRow(row: any) {
+    const command = row?.command || {};
+    const previewSummary =
+      command?.preview?.summary_ar || command?.reply_ar || null;
+
+    return {
+      actionId: String(row?.action_id || ""),
+      intent: String(row?.intent || "UNKNOWN"),
+      source: String(row?.source || "portal"),
+      status: String(row?.status || "pending"),
+      actorRole: row?.actor_role || null,
+      actorId: row?.actor_id || null,
+      previewSummary,
+      commandPreview: command?.preview || null,
+      expiresAt: row?.expires_at || null,
+      details: row?.details || {},
+      executionResult: row?.execution_result || null,
+      timeline: {
+        pendingAt: row?.pending_at || null,
+        confirmedAt: row?.confirmed_at || null,
+        deniedAt: row?.denied_at || null,
+        cancelledAt: row?.cancelled_at || null,
+        expiredAt: row?.expired_at || null,
+        executingAt: row?.executing_at || null,
+        executedAt: row?.executed_at || null,
+        updatedAt: row?.updated_at || null,
+      },
+      riskTier: evaluateCopilotActionRisk(
+        String(row?.intent || "UNKNOWN") as any,
+      ).tier,
+    };
   }
 }

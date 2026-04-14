@@ -40,6 +40,16 @@ export const PeriodQuerySchema = z.object({
   periodDays: safePeriodDays,
 });
 
+export const CashRunwayRiskQuerySchema = z.object({
+  periodDays: z.coerce.number().int().min(7).max(180).default(30),
+  cashReserve: z.coerce.number().min(0).max(1_000_000_000).default(0),
+  overdueDays: z.coerce.number().int().min(1).max(180).default(14),
+});
+
+export const VarianceHealthQuerySchema = z.object({
+  periodDays: z.coerce.number().int().min(7).max(180).default(30),
+});
+
 // ============================================================================
 // Advanced Inventory Schemas
 // ============================================================================

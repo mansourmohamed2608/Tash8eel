@@ -72,6 +72,10 @@ import {
   generateInventoryInsights,
 } from "@/components/ai/ai-insights-card";
 
+type ReservationReconciliationSnapshot = Awaited<
+  ReturnType<typeof merchantApi.getReservationReconciliation>
+>;
+
 export default function InventoryPage() {
   const { merchantId, apiKey } = useMerchant();
   const router = useRouter();
@@ -161,6 +165,16 @@ export default function InventoryPage() {
   const [shrinkageLoadError, setShrinkageLoadError] = useState<string | null>(
     null,
   );
+  const [reservationReconciliation, setReservationReconciliation] =
+    useState<ReservationReconciliationSnapshot | null>(null);
+  const [
+    loadingReservationReconciliation,
+    setLoadingReservationReconciliation,
+  ] = useState(false);
+  const [
+    repairingReservationReconciliation,
+    setRepairingReservationReconciliation,
+  ] = useState(false);
   const itemsPerPage = 10;
   const { toast } = useToast();
   const { isConnected, on } = useWebSocket({
@@ -179,6 +193,13 @@ export default function InventoryPage() {
   const coerceNumber = (value: any): number | null => {
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : null;
+  };
+
+  const formatDateTime = (value?: string) => {
+    if (!value) return "-";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "-";
+    return date.toLocaleString("ar-SA");
   };
 
   const showError = (description: string) => {
@@ -380,6 +401,42 @@ export default function InventoryPage() {
       setRefreshing(false);
     },
     [merchantId, apiKey],
+  );
+
+  const loadReservationReconciliation = useCallback(
+    async (showFailureToast = false) => {
+      if (!merchantId || !apiKey) return null;
+
+      setLoadingReservationReconciliation(true);
+      try {
+        const snapshot = await merchantApi.getReservationReconciliation(
+          merchantId,
+          apiKey,
+          {
+            includeDetails: true,
+            limit: 20,
+          },
+        );
+        setReservationReconciliation(snapshot);
+        return snapshot;
+      } catch (error) {
+        console.error("Failed to load reservation reconciliation:", error);
+        if (showFailureToast) {
+          toast({
+            title: "خطأ",
+            description:
+              error instanceof Error
+                ? error.message
+                : "تعذر تحميل حالة حجوزات المخزون",
+            variant: "destructive",
+          });
+        }
+        return null;
+      } finally {
+        setLoadingReservationReconciliation(false);
+      }
+    },
+    [merchantId, apiKey, toast],
   );
 
   // Load warehouse locations
@@ -617,11 +674,86 @@ export default function InventoryPage() {
     [pathname, router, searchParams],
   );
 
+  const runReservationReconciliationRepair = async (dryRun: boolean) => {
+    if (!merchantId || !apiKey) return;
+    if (!dryRun && !canEdit) {
+      showError("لا تملك صلاحية تنفيذ إصلاح الحجوزات");
+      return;
+    }
+
+    setRepairingReservationReconciliation(true);
+    try {
+      const result = await merchantApi.repairReservationReconciliation(
+        merchantId,
+        apiKey,
+        {
+          dryRun,
+          includeVariantDetails: true,
+          variantLimit: 20,
+        },
+      );
+
+      setReservationReconciliation({
+        generatedAt: result.generatedAt,
+        summary: result.after ?? result.before,
+        variantDrift: result.variantDrift || [],
+      });
+
+      const operations = result.operations || {};
+      const expiredReservations = Number(
+        operations["expiredReservationsReleased"] ??
+          operations["expiredReservationsToRelease"] ??
+          0,
+      );
+      const expiredQuantity = Number(
+        operations["expiredQuantityReleased"] ??
+          operations["expiredQuantityToRelease"] ??
+          0,
+      );
+      const variantsAdjusted = Number(
+        operations["variantsAdjusted"] ?? operations["variantsToAdjust"] ?? 0,
+      );
+
+      toast({
+        title: dryRun ? "نتيجة المعاينة" : "تم تنفيذ الإصلاح",
+        description: dryRun
+          ? `المتوقع تحرير ${expiredReservations} حجز وتعديل ${variantsAdjusted} متغير`
+          : `تم تحرير ${expiredReservations} حجز (${expiredQuantity} وحدة) وتعديل ${variantsAdjusted} متغير`,
+      });
+
+      if (!dryRun) {
+        await Promise.all([
+          loadData(currentPage, searchQuery),
+          loadStockByLocation(),
+          activeTab === "shrinkage" ? loadShrinkageData() : Promise.resolve(),
+          loadReservationReconciliation(),
+        ]);
+      }
+    } catch (error) {
+      showError(
+        getErrorMessage(
+          error,
+          dryRun
+            ? "تعذر تشغيل معاينة إصلاح الحجوزات"
+            : "تعذر تنفيذ إصلاح حجوزات المخزون",
+        ),
+      );
+    } finally {
+      setRepairingReservationReconciliation(false);
+    }
+  };
+
   useEffect(() => {
     loadData();
     loadWarehouseLocations();
     loadStockByLocation();
-  }, [loadData, loadWarehouseLocations, loadStockByLocation]);
+    loadReservationReconciliation();
+  }, [
+    loadData,
+    loadWarehouseLocations,
+    loadStockByLocation,
+    loadReservationReconciliation,
+  ]);
 
   useEffect(() => {
     const tab = searchParams.get("tab");
@@ -639,7 +771,15 @@ export default function InventoryPage() {
     if (activeTab === "shrinkage") {
       loadShrinkageData();
     }
-  }, [activeTab, loadShrinkageData, loadStockByLocation]);
+    if (activeTab === "inventory") {
+      loadReservationReconciliation();
+    }
+  }, [
+    activeTab,
+    loadReservationReconciliation,
+    loadShrinkageData,
+    loadStockByLocation,
+  ]);
 
   // Handle search with debounce
   useEffect(() => {
@@ -656,6 +796,9 @@ export default function InventoryPage() {
       loadData(currentPage, searchQuery),
       loadStockByLocation(),
       activeTab === "shrinkage" ? loadShrinkageData() : Promise.resolve(),
+      activeTab === "inventory"
+        ? loadReservationReconciliation()
+        : Promise.resolve(),
     ]);
   };
 
@@ -664,6 +807,9 @@ export default function InventoryPage() {
       loadData(currentPage, searchQuery),
       loadStockByLocation(),
       activeTab === "shrinkage" ? loadShrinkageData() : Promise.resolve(),
+      activeTab === "inventory"
+        ? loadReservationReconciliation()
+        : Promise.resolve(),
     ]).catch((refreshError) => {
       console.error("Realtime inventory refresh failed:", refreshError);
     });
@@ -671,6 +817,7 @@ export default function InventoryPage() {
     activeTab,
     currentPage,
     loadData,
+    loadReservationReconciliation,
     loadShrinkageData,
     loadStockByLocation,
     searchQuery,
@@ -1461,6 +1608,13 @@ export default function InventoryPage() {
     `نفد المخزون: ${outOfStockCount}`,
     `قيمة المخزون: ${formatCurrency(safeInventoryValue)}`,
   ];
+  const reservationSummary = reservationReconciliation?.summary;
+  const reservationDriftRows = reservationReconciliation?.variantDrift || [];
+  const hasReservationDrift =
+    !!reservationSummary &&
+    (Number(reservationSummary.driftedVariants || 0) > 0 ||
+      Number(reservationSummary.expiredActiveReservations || 0) > 0 ||
+      Math.abs(Number(reservationSummary.totalDriftQuantity || 0)) > 0);
 
   return (
     <div className="space-y-8 animate-fadeIn p-4 sm:p-6">
@@ -1578,6 +1732,160 @@ export default function InventoryPage() {
           totalValue: safeInventoryValue,
         })}
       />
+      <Card
+        className={cn(
+          "app-data-card",
+          hasReservationDrift &&
+            "border-[color:rgba(245,158,11,0.35)] bg-[color:rgba(245,158,11,0.08)]",
+        )}
+      >
+        <CardHeader className="pb-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <CardTitle className="text-base">سلامة حجوزات المخزون</CardTitle>
+              <p className="text-xs text-muted-foreground mt-1">
+                متابعة الانجراف بين الحجوزات النشطة والكميات المحجوزة على
+                المتغيرات
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => loadReservationReconciliation(true)}
+                disabled={
+                  loadingReservationReconciliation ||
+                  repairingReservationReconciliation
+                }
+              >
+                <RefreshCw
+                  className={cn(
+                    "h-4 w-4",
+                    (loadingReservationReconciliation ||
+                      repairingReservationReconciliation) &&
+                      "animate-spin",
+                  )}
+                />
+                تحديث
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => runReservationReconciliationRepair(true)}
+                disabled={
+                  loadingReservationReconciliation ||
+                  repairingReservationReconciliation
+                }
+              >
+                معاينة الإصلاح
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => runReservationReconciliationRepair(false)}
+                disabled={
+                  isReadOnly ||
+                  !canEdit ||
+                  loadingReservationReconciliation ||
+                  repairingReservationReconciliation
+                }
+              >
+                تنفيذ الإصلاح
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {reservationSummary ? (
+            <>
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] p-3 text-sm">
+                  <p className="text-xs text-muted-foreground">
+                    متغيرات منحرفة
+                  </p>
+                  <p className="text-lg font-semibold mt-1">
+                    {Number(reservationSummary.driftedVariants || 0)}
+                  </p>
+                </div>
+                <div className="rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] p-3 text-sm">
+                  <p className="text-xs text-muted-foreground">حجوزات منتهية</p>
+                  <p className="text-lg font-semibold mt-1">
+                    {Number(reservationSummary.expiredActiveReservations || 0)}
+                  </p>
+                </div>
+                <div className="rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] p-3 text-sm">
+                  <p className="text-xs text-muted-foreground">
+                    إجمالي الانجراف
+                  </p>
+                  <p className="text-lg font-semibold mt-1">
+                    {Number(reservationSummary.totalDriftQuantity || 0)}
+                  </p>
+                </div>
+                <div className="rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] p-3 text-sm">
+                  <p className="text-xs text-muted-foreground">حجوزات نشطة</p>
+                  <p className="text-lg font-semibold mt-1">
+                    {Number(reservationSummary.activeReservations || 0)}
+                  </p>
+                </div>
+              </div>
+
+              <AlertBanner
+                type={hasReservationDrift ? "warning" : "success"}
+                title={
+                  hasReservationDrift ? "تم رصد انحراف" : "الحجوزات مستقرة"
+                }
+                message={
+                  hasReservationDrift
+                    ? "يمكن تشغيل المعاينة أولاً ثم تنفيذ الإصلاح لتسوية الحقول المحجوزة وتحرير الحجوزات المنتهية."
+                    : "لا توجد فروقات بين الحجوزات النشطة وكميات الحجز على المتغيرات حالياً."
+                }
+              />
+
+              {reservationDriftRows.length > 0 && (
+                <div className="rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] p-3">
+                  <p className="text-xs text-muted-foreground mb-2">
+                    أعلى المتغيرات انحرافاً
+                  </p>
+                  <div className="space-y-1 text-xs">
+                    {reservationDriftRows.slice(0, 5).map((row) => (
+                      <div
+                        key={row.variantId}
+                        className="flex items-center justify-between gap-3"
+                      >
+                        <span className="truncate text-[var(--text-secondary)]">
+                          {row.variantId}
+                        </span>
+                        <span className="whitespace-nowrap text-[var(--text-primary)]">
+                          {Number(row.variantReserved)} ←{" "}
+                          {Number(row.expectedReserved)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <p className="text-[11px] text-muted-foreground">
+                آخر تحديث:{" "}
+                {formatDateTime(reservationReconciliation.generatedAt)}
+              </p>
+            </>
+          ) : (
+            <div className="flex items-center justify-between gap-3 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] p-3 text-sm text-[var(--text-secondary)]">
+              <span>
+                لا توجد بيانات بعد. قم بتحديث الحالة لقراءة سلامة الحجوزات.
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => loadReservationReconciliation(true)}
+                disabled={loadingReservationReconciliation}
+              >
+                تحديث الآن
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
       {/* Tab Navigation */}
       <div className="flex border-b border-[var(--border-subtle)]">
         <button
