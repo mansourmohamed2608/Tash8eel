@@ -924,7 +924,7 @@ export function Sidebar({
             {!collapsed && (
               <div className="min-w-0">
                 <p className="app-page-header-eyebrow">Workspace</p>
-                <h1 className="mt-2 truncate text-[1.15rem] font-bold tracking-[-0.02em] text-foreground">
+                <h1 className="mt-2 truncate text-[1.15rem] font-bold text-foreground">
                   {title}
                 </h1>
                 {merchantName && (
@@ -1261,7 +1261,7 @@ export function TopBar({ role, collapsed }: TopBarProps) {
     <header className="app-topbar-shell sticky top-0 z-30 flex h-14 items-center px-4 lg:px-5">
       <div className="app-shell-main flex w-full items-center justify-between">
         {/* Page title area - right side in RTL */}
-        <h1 className="text-[16px] font-bold tracking-[-0.02em] text-[var(--text-primary)] lg:hidden">
+        <h1 className="text-[16px] font-bold text-[var(--text-primary)] lg:hidden">
           لوحة التحكم
         </h1>
         <div className="hidden lg:block" />

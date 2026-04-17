@@ -3,12 +3,12 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const badgeVariants = cva(
-  "inline-flex min-h-8 items-center gap-1.5 rounded-full border px-3 py-1 text-[0.6875rem] font-bold tracking-[0.04em] text-slate-800 transition-all duration-150 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background",
+  "inline-flex min-h-8 items-center gap-1.5 rounded-full border px-3 py-1 text-[0.6875rem] font-semibold transition-all duration-150 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background",
   {
     variants: {
       variant: {
         default:
-          "border-transparent bg-[var(--accent)] text-white shadow-[0_10px_24px_-16px_color-mix(in_srgb,var(--accent)_86%,black)]",
+          "border-transparent bg-[var(--brand-blue)] text-white shadow-[0_10px_24px_-16px_color-mix(in_srgb,var(--brand-blue)_86%,black)]",
         secondary:
           "border-[color:color-mix(in_srgb,var(--border-strong)_84%,transparent)] bg-[color:color-mix(in_srgb,var(--surface-muted)_92%,transparent)] text-[var(--text-primary)]",
         destructive:
@@ -17,7 +17,7 @@ const badgeVariants = cva(
           "border-[color:color-mix(in_srgb,var(--success)_18%,var(--border-strong))] bg-[var(--success-muted)] text-[var(--success)]",
         warning:
           "border-[color:color-mix(in_srgb,var(--warning)_18%,var(--border-strong))] bg-[var(--warning-muted)] text-[var(--warning)]",
-        info: "border-[color:color-mix(in_srgb,var(--accent)_18%,var(--border-strong))] bg-[var(--accent-muted)] text-[var(--accent)]",
+        info: "border-[color:color-mix(in_srgb,var(--brand-blue)_18%,var(--border-strong))] bg-[var(--accent-muted)] text-[var(--brand-blue)]",
         outline:
           "border-[color:color-mix(in_srgb,var(--border-strong)_88%,transparent)] bg-transparent text-[var(--text-muted)]",
       },

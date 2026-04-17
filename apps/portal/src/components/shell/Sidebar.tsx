@@ -94,7 +94,7 @@ export function Sidebar({
               transition={{ duration: 0.16, ease: "easeInOut" }}
               className="min-w-0"
             >
-              <p className="text-[9px] font-semibold uppercase tracking-[0.1em] text-[var(--text-muted)]">
+              <p className="text-[9px] font-semibold text-[var(--text-muted)]">
                 Workspace
               </p>
               <p className="mt-1 text-[15px] font-bold text-[var(--text-primary)]">

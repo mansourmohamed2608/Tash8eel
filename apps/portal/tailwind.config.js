@@ -16,16 +16,6 @@ module.exports = {
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
-          50: "#eff6ff",
-          100: "#dbeafe",
-          200: "#bfdbfe",
-          300: "#93c5fd",
-          400: "#60a5fa",
-          500: "#3b82f6",
-          600: "#2563eb",
-          700: "#1d4ed8",
-          800: "#1e40af",
-          900: "#1e3a8a",
         },
         secondary: {
           DEFAULT: "hsl(var(--secondary))",
@@ -51,6 +41,31 @@ module.exports = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        // Brand palette — TASH8EEL_BRAND_IDENTITY_PACKAGE.md
+        brand: {
+          blue: "#2D6BE4",
+          navy: "#1A2B4A",
+          ai: "#1AAFA0",
+          "ai-bg": "#E8F6F5",
+        },
+        // Semantic status palette
+        status: {
+          success: "#1A7A4A",
+          "success-bg": "#EBF7F1",
+          warning: "#B45309",
+          "warning-bg": "#FFF7EB",
+          danger: "#C0291D",
+          "danger-bg": "#FEF0EE",
+        },
+        // Neutral scale
+        neutral: {
+          900: "#1C1E23",
+          700: "#3D4250",
+          500: "#6B7280",
+          300: "#C4C7D0",
+          150: "#E4E6EC",
+          50: "#F3F4F7",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -58,8 +73,16 @@ module.exports = {
         sm: "calc(var(--radius) - 4px)",
       },
       fontFamily: {
-        arabic: ["Cairo", "sans-serif"],
-        sans: ["Cairo", "sans-serif"],
+        // Arabic-first: IBM Plex Arabic covers all Arabic + Latin glyphs
+        arabic: ["var(--font-ibm-plex-arabic)", "sans-serif"],
+        sans: [
+          "var(--font-ibm-plex-arabic)",
+          "var(--font-ibm-plex-sans)",
+          "sans-serif",
+        ],
+        // IBM Plex Sans as Latin companion — English-only contexts
+        latin: ["var(--font-ibm-plex-sans)", "sans-serif"],
+        mono: ["var(--font-jetbrains-mono)", "monospace"],
       },
       keyframes: {
         "accordion-down": {

@@ -16,7 +16,7 @@ const SelectTrigger = React.forwardRef<
   <SelectPrimitive.Trigger
     ref={ref}
     className={cn(
-      "flex h-11 w-full items-center justify-between rounded-[14px] border border-[color:color-mix(in_srgb,var(--border-strong)_88%,transparent)] bg-[color:color-mix(in_srgb,var(--surface)_96%,transparent)] px-[14px] py-[10px] text-sm font-medium text-[var(--text-primary)] ring-offset-background transition-all duration-150 ease-in-out placeholder:text-[var(--text-muted)] hover:border-[color:color-mix(in_srgb,var(--text-muted)_26%,var(--border-strong))] focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:border-[color:color-mix(in_srgb,var(--accent)_40%,var(--border-strong))] disabled:cursor-not-allowed disabled:opacity-40 [&>span]:line-clamp-1",
+      "flex h-11 w-full items-center justify-between rounded-[14px] border border-[color:color-mix(in_srgb,var(--border-strong)_88%,transparent)] bg-[color:color-mix(in_srgb,var(--surface)_96%,transparent)] px-[14px] py-[10px] text-sm font-medium text-[var(--text-primary)] ring-offset-background transition-all duration-150 ease-in-out placeholder:text-[var(--text-muted)] hover:border-[color:color-mix(in_srgb,var(--text-muted)_26%,var(--border-strong))] focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:border-[color:color-mix(in_srgb,var(--brand-blue)_40%,var(--border-strong))] disabled:cursor-not-allowed disabled:opacity-40 [&>span]:line-clamp-1",
       className,
     )}
     {...props}
@@ -103,7 +103,7 @@ const SelectLabel = React.forwardRef<
   <SelectPrimitive.Label
     ref={ref}
     className={cn(
-      "px-3 py-2 text-[0.6875rem] font-bold tracking-[0.08em] text-[var(--text-muted)]",
+      "px-3 py-2 text-[0.6875rem] font-semibold text-[var(--text-muted)]",
       className,
     )}
     {...props}

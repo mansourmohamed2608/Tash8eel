@@ -2351,7 +2351,7 @@ export default function CashierPage() {
                 <ShoppingCart className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-lg font-black tracking-[-0.02em] text-[var(--text-primary)]">
+                <p className="text-lg font-bold text-[var(--text-primary)]">
                   {merchantName}
                 </p>
                 <p className="text-sm text-[var(--text-muted)]">وضع الكاشير</p>
