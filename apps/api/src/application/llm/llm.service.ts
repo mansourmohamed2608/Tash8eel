@@ -5,6 +5,7 @@ import { createLogger } from "../../shared/logging/logger";
 import { MERCHANT_REPOSITORY, IMerchantRepository } from "../../domain/ports";
 import { AiMetricsService } from "../../shared/services/ai-metrics.service";
 import { NotificationsService } from "../services/notifications.service";
+import { UsageGuardService } from "../services/usage-guard.service";
 import { Merchant } from "../../domain/entities/merchant.entity";
 import { Conversation } from "../../domain/entities/conversation.entity";
 import { CatalogItem } from "../../domain/entities/catalog.entity";
@@ -281,6 +282,7 @@ export class LlmService {
     @Inject(forwardRef(() => NotificationsService))
     private readonly notificationsService: NotificationsService,
     private readonly merchantContextService: MerchantContextService,
+    private readonly usageGuard: UsageGuardService,
   ) {
     const apiKey = this.configService.get<string>("OPENAI_API_KEY") || "";
 
@@ -343,17 +345,56 @@ export class LlmService {
       customerMessage,
     } = context;
 
-    // Check token budget
+    // Check per-merchant AI call rate limit (aiCallsPerDay / aiRepliesPerDay)
+    const quotaCheck = await this.usageGuard.checkCustomerAiReplyQuota(
+      merchant.id,
+    );
+    if (!quotaCheck.allowed) {
+      logger.warn("AI reply quota exhausted — returning fallback response", {
+        merchantId: merchant.id,
+        blockingMetric: quotaCheck.blockingMetric,
+      });
+      this.fireBudgetExhaustedNotification(merchant.id);
+      return this.createFallbackResponse(context, "budget_exhausted");
+    }
+
+    // Check token budget — hard stop, not advisory
     const budgetCheck = await this.checkTokenBudget(merchant);
     if (!budgetCheck.hasRemaining) {
-      logger.warn("Token budget exceeded; continuing with AI response", {
+      logger.warn("Token budget exhausted — returning fallback response", {
         merchantId: merchant.id,
         remaining: budgetCheck.remaining,
       });
       this.fireBudgetExhaustedNotification(merchant.id);
+      return this.createFallbackResponse(context, "budget_exhausted");
     }
 
     try {
+      // ── Off-topic pre-filter ─────────────────────────────────────────────
+      // Skip LLM + DB context assembly entirely for messages that are clearly
+      // unrelated to the merchant's business (sports, jokes, weather, etc.).
+      // Zero tokens spent; route always returns the same polite one-liner.
+      if (this.isObviouslyOffTopic(customerMessage)) {
+        logger.info("Off-topic message — skipping LLM call", {
+          merchantId: merchant.id,
+          conversationId: conversation.id,
+        });
+        return createLlmResult(
+          {
+            actionType: ActionType.ASK_CLARIFYING_QUESTION,
+            reply_ar: `أنا هنا بس لمساعدتك في ${merchant.name} 😊`,
+            confidence: 1.0,
+            extracted_entities: null,
+            missing_slots: null,
+            negotiation: null,
+            reasoning: "off_topic_pre_filter",
+            delivery_fee: null,
+          },
+          0,
+          false,
+        );
+      }
+
       const previousState = this.extractConversationState(recentMessages);
       const currentState = this.extractConversationState(
         this.buildStateMessages(recentMessages, conversation, customerMessage),
@@ -380,16 +421,14 @@ export class LlmService {
         currentState,
       );
 
-      console.log("=== AI CONTEXT DEBUG ===");
-      console.log("System prompt length:", systemPrompt.length);
-      console.log("Products in context:", merchantContext.productCount);
-      console.log("KB entries in context:", merchantContext.kbCount);
-      console.log(
-        "Conversation history messages:",
-        merchantContext.historyCount,
-      );
-      console.log("Customer message:", customerMessage);
-      console.log("========================");
+      logger.debug("AI context built", {
+        merchantId: merchant.id,
+        conversationId: conversation.id,
+        systemPromptLength: systemPrompt.length,
+        productCount: merchantContext.productCount,
+        kbCount: merchantContext.kbCount,
+        historyCount: merchantContext.historyCount,
+      });
 
       const _aiCallStart = Date.now(); // BL-004 metric latency
       const response = await withTimeout(
@@ -432,13 +471,37 @@ export class LlmService {
         latencyMs: Date.now() - _aiCallStart,
       });
 
-      // Check confidence threshold
+      // ── Confidence guard ────────────────────────────────────────────────
+      // For low-confidence responses, block actions that have irreversible
+      // side-effects (order creation, cart mutation, delivery booking).
+      // Downgrade to ASK_CLARIFYING_QUESTION so the customer confirms intent
+      // before the system commits to any state change.
       if (validated.confidence < 0.5) {
-        logger.warn("Low confidence response", {
-          merchantId: merchant.id,
-          confidence: validated.confidence,
-        });
-        // Still use the response but log for monitoring
+        const HIGH_STAKES_ACTIONS = new Set<ActionType>([
+          ActionType.CREATE_ORDER,
+          ActionType.CONFIRM_ORDER,
+          ActionType.ORDER_CONFIRMED,
+          ActionType.UPDATE_CART,
+          ActionType.BOOK_DELIVERY,
+        ]);
+        if (HIGH_STAKES_ACTIONS.has(validated.actionType)) {
+          logger.warn(
+            "Low confidence on high-stakes action — downgrading to clarifying question",
+            {
+              merchantId: merchant.id,
+              confidence: validated.confidence,
+              originalAction: validated.actionType,
+            },
+          );
+          validated.actionType = ActionType.ASK_CLARIFYING_QUESTION;
+          validated.reasoning = `low_confidence_guard:${validated.reasoning ?? "unknown"}`;
+        } else {
+          logger.warn("Low confidence response", {
+            merchantId: merchant.id,
+            confidence: validated.confidence,
+            action: validated.actionType,
+          });
+        }
       }
 
       return this.finalizeLlmResult(
