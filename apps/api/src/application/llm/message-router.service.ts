@@ -220,6 +220,22 @@ export class MessageRouterService {
       return welcomeMessage || "أهلاً! كيف أقدر أساعدك اليوم؟ 😊";
     }
 
+    // Escalation intent: return brand-voice handoff immediately so the
+    // commerce shortcuts below cannot hijack an explicit request for a human.
+    if (this.containsAny(normalized, this.escalationKeywords)) {
+      return this.pickRandom([
+        "هتابع موضوعك مع الفريق المختص وهيتواصلوا معاك في أقرب وقت.",
+        "خليني أوصّل طلبك للشخص المسؤول عشان يساعدك بشكل أفضل.",
+        "هحوّلك للمسؤول المختص حالاً للاهتمام بطلبك.",
+      ]);
+    }
+
+    // Complaint intent: let the LLM handle it fully — do NOT short-circuit
+    // with a price or order-status reply. Return null to pass through.
+    if (this.containsAny(normalized, this.complaintKeywords)) {
+      return null;
+    }
+
     if (this.containsAny(normalized, this.orderStatusKeywords)) {
       const orderStatusReply = await this.getLatestOrderStatusReply(
         merchantId,

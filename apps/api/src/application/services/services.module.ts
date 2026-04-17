@@ -33,6 +33,7 @@ import { ConnectorRuntimeService } from "./connector-runtime.service";
 import { HqGovernanceService } from "./hq-governance.service";
 import { IdempotencyService } from "../../shared/services/idempotency.service";
 import { AiMetricsService } from "../../shared/services/ai-metrics.service";
+import { KbChunkService } from "./kb-chunk.service";
 
 // Infrastructure dependencies
 import { RepositoriesModule } from "../../infrastructure/repositories/repositories.module";
@@ -88,6 +89,7 @@ import { SharedAiModule } from "../shared/shared-ai.module";
     HqGovernanceService,
     IdempotencyService,
     AiMetricsService,
+    KbChunkService,
   ],
   exports: [
     InboxService,
@@ -121,6 +123,7 @@ import { SharedAiModule } from "../shared/shared-ai.module";
     HqGovernanceService,
     IdempotencyService,
     AiMetricsService,
+    KbChunkService,
     SharedAiModule,
   ],
 })

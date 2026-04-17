@@ -11,8 +11,6 @@ import { CopilotActionRegistryService } from "./copilot-action-registry.service"
 
 @Injectable()
 export class PlannerContextAssemblerService {
-  private static readonly FORECAST_FRESHNESS_WINDOW_MS = 36 * 60 * 60 * 1000;
-
   constructor(
     @Inject(DATABASE_POOL) private readonly pool: Pool,
     private readonly actionRegistry: CopilotActionRegistryService,
@@ -79,10 +77,10 @@ export class PlannerContextAssemblerService {
       ]);
 
       return {
-        todayOrders: this.toSafeNumber(ordersResult.rows[0]?.today_orders),
-        todayRevenue: this.toSafeNumber(ordersResult.rows[0]?.today_revenue),
-        openConversations: this.toSafeNumber(
-          conversationsResult.rows[0]?.open_conversations,
+        todayOrders: Number(ordersResult.rows[0]?.today_orders || 0),
+        todayRevenue: Number(ordersResult.rows[0]?.today_revenue || 0),
+        openConversations: Number(
+          conversationsResult.rows[0]?.open_conversations || 0,
         ),
         pendingApprovals: 0,
       };
@@ -152,11 +150,11 @@ export class PlannerContextAssemblerService {
       const openRegistersByBranch = registers.rows.map((row) => ({
         registerId: row.register_id,
         branchId: row.branch_id,
-        openedAt: this.toSafeIsoDate(row.opened_at),
+        openedAt: row.opened_at?.toISOString?.() || new Date().toISOString(),
       }));
       const activeDraftsByBranch = drafts.rows.map((row) => ({
         branchId: row.branch_id || "unassigned",
-        draftsCount: this.toSafeNumber(row.drafts_count),
+        draftsCount: Number(row.drafts_count || 0),
       }));
 
       return {
@@ -165,11 +163,11 @@ export class PlannerContextAssemblerService {
           (sum, row) => sum + row.draftsCount,
           0,
         ),
-        todayCashierOrders: this.toSafeNumber(
-          cashierOrders.rows[0]?.today_cashier_orders,
+        todayCashierOrders: Number(
+          cashierOrders.rows[0]?.today_cashier_orders || 0,
         ),
-        todayCashierRevenue: this.toSafeNumber(
-          cashierOrders.rows[0]?.today_cashier_revenue,
+        todayCashierRevenue: Number(
+          cashierOrders.rows[0]?.today_cashier_revenue || 0,
         ),
         openRegistersByBranch,
         activeDraftsByBranch,
@@ -242,39 +240,21 @@ export class PlannerContextAssemblerService {
           ),
         ]);
 
-      const latestRunSnapshots = latestRuns.rows.map((row) => ({
-        forecastType: row.forecast_type,
-        status: row.status,
-        itemsComputed: this.toSafeNumber(row.items_computed),
-        computedAt: this.toSafeIsoDate(row.computed_at),
-        durationMs: row.duration_ms,
-        errorMessage: row.error_message,
-      }));
-
-      const now = Date.now();
-      const hasFreshRun = latestRunSnapshots.some((run) => {
-        const computedAtMs = Date.parse(run.computedAt);
-        if (!Number.isFinite(computedAtMs)) {
-          return false;
-        }
-
-        return (
-          now - computedAtMs <=
-          PlannerContextAssemblerService.FORECAST_FRESHNESS_WINDOW_MS
-        );
-      });
-
       return {
-        enabled: hasFreshRun,
-        latestRuns: latestRunSnapshots,
+        enabled: true,
+        latestRuns: latestRuns.rows.map((row) => ({
+          forecastType: row.forecast_type,
+          status: row.status,
+          itemsComputed: Number(row.items_computed || 0),
+          computedAt:
+            row.computed_at?.toISOString?.() || new Date().toISOString(),
+          durationMs: row.duration_ms,
+          errorMessage: row.error_message,
+        })),
         riskSignals: {
-          lowConfidencePredictions: this.toSafeNumber(
-            lowConfidence.rows[0]?.count,
-          ),
-          staleRuns: this.toSafeNumber(staleRuns.rows[0]?.count),
-          highUrgencyReplenishments: this.toSafeNumber(
-            highUrgency.rows[0]?.count,
-          ),
+          lowConfidencePredictions: Number(lowConfidence.rows[0]?.count || 0),
+          staleRuns: Number(staleRuns.rows[0]?.count || 0),
+          highUrgencyReplenishments: Number(highUrgency.rows[0]?.count || 0),
         },
       };
     } catch {
@@ -291,32 +271,9 @@ export class PlannerContextAssemblerService {
            AND status IN ('pending', 'confirmed', 'executing')`,
         [merchantId],
       );
-      return this.toSafeNumber(result.rows[0]?.count);
+      return Number(result.rows[0]?.count || 0);
     } catch {
       return 0;
     }
-  }
-
-  private toSafeNumber(value: unknown): number {
-    const parsed = Number(value ?? 0);
-    if (!Number.isFinite(parsed)) {
-      return 0;
-    }
-    return parsed;
-  }
-
-  private toSafeIsoDate(value: Date | string | null | undefined): string {
-    if (value instanceof Date) {
-      return value.toISOString();
-    }
-
-    if (typeof value === "string") {
-      const parsed = new Date(value);
-      if (Number.isFinite(parsed.getTime())) {
-        return parsed.toISOString();
-      }
-    }
-
-    return new Date().toISOString();
   }
 }

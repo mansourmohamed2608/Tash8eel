@@ -32,6 +32,7 @@ import {
   ArrowUpRight,
   Lock,
   Calendar,
+  Zap,
 } from "lucide-react";
 import {
   formatCurrency,
@@ -105,6 +106,15 @@ interface DashboardData {
     };
   };
 }
+
+const AGENT_LABELS: Record<string, string> = {
+  CHAT_AGENT: "وكيل المحادثات",
+  SALES_AGENT: "وكيل المبيعات",
+  FINANCE_AGENT: "وكيل الحسابات",
+  FOLLOWUP_AGENT: "وكيل المتابعات",
+  ORDERS_AGENT: "وكيل الطلبات",
+  VOICE_AGENT: "الوكيل الصوتي",
+};
 
 export default function MerchantDashboard() {
   const { merchantId, apiKey, isDemo, merchant } = useMerchant();
@@ -333,6 +343,144 @@ export default function MerchantDashboard() {
         }
       />
 
+      {/* ── 1. AI / Agent Operational Status ── */}
+      <section className="space-y-3">
+        <div className="flex items-center gap-2 px-1">
+          <Zap className="h-3.5 w-3.5 text-[var(--accent-gold)]" />
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+            حالة الذكاء الاصطناعي
+          </span>
+          {enabledAgentsUpper.length > 0 && (
+            <div className="flex items-center gap-1.5 mr-2">
+              {enabledAgentsUpper.slice(0, 5).map((agent) => (
+                <span
+                  key={agent}
+                  className="flex items-center gap-1 rounded-[4px] border border-[var(--accent-success)]/20 bg-[var(--accent-success)]/10 px-2 py-0.5 text-[10px] font-medium text-[var(--accent-success)]"
+                >
+                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--accent-success)]" />
+                  {AGENT_LABELS[agent] ?? agent}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          {/* Subscription Usage Bar */}
+          <Card className="app-data-card">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <TrendingUp className="h-4 w-4 text-[var(--accent-blue)]" />
+                استخدام الخطة الحالية
+                {subUsage && (
+                  <Badge variant="outline" className="text-xs mr-auto">
+                    {subUsage.planName}
+                  </Badge>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {subUsage ? (
+                <>
+                  <div>
+                    <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                      <span>الرسائل (توكن AI)</span>
+                      <span>
+                        {subUsage.tokensUsed.toLocaleString()} /{" "}
+                        {subUsage.tokenLimit.toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="h-2 rounded-full bg-muted overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all ${
+                          subUsage.tokenPct >= 90
+                            ? "bg-[var(--accent-danger)]"
+                            : subUsage.tokenPct >= 70
+                              ? "bg-[var(--accent-warning)]"
+                              : "bg-[var(--accent-blue)]"
+                        }`}
+                        style={{
+                          width: `${Math.min(subUsage.tokenPct, 100)}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                      <span>المحادثات هذا الشهر</span>
+                      <span>
+                        {subUsage.conversationsUsed} /{" "}
+                        {subUsage.conversationLimit}
+                      </span>
+                    </div>
+                    <div className="h-2 rounded-full bg-muted overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all ${
+                          subUsage.conversationPct >= 90
+                            ? "bg-[var(--accent-danger)]"
+                            : subUsage.conversationPct >= 70
+                              ? "bg-[var(--accent-warning)]"
+                              : "bg-[var(--accent-success)]"
+                        }`}
+                        style={{
+                          width: `${Math.min(subUsage.conversationPct, 100)}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                  {subUsage.periodEnd && (
+                    <p className="text-xs text-muted-foreground">
+                      تجديد الخطة:{" "}
+                      {new Date(subUsage.periodEnd).toLocaleDateString("ar-EG")}
+                    </p>
+                  )}
+                </>
+              ) : (
+                <div className="h-16 flex items-center justify-center text-xs text-muted-foreground animate-pulse">
+                  جارٍ تحميل بيانات الاستخدام...
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Daily AI Brief */}
+          <Card className="app-data-card border-[color:rgba(59,130,246,0.22)]">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <DollarSign className="h-4 w-4 text-[var(--accent-blue)]" />
+                تقرير AI اليومي
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {aiBrief ? (
+                <p
+                  className="text-sm text-muted-foreground leading-relaxed"
+                  dir="rtl"
+                >
+                  {aiBrief}
+                </p>
+              ) : (
+                <div className="h-16 flex items-center justify-center text-xs text-muted-foreground">
+                  {hasPro ? (
+                    <span className="animate-pulse">
+                      يجهز الذكاء الاصطناعي تقريره اليومي...
+                    </span>
+                  ) : (
+                    <Link
+                      href="/merchant/plan"
+                      className="text-primary hover:underline flex items-center gap-1"
+                    >
+                      ترقية للخطة الاحترافية{" "}
+                      <ArrowUpRight className="h-3 w-3" />
+                    </Link>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </section>
+
+      {/* ── 2. Live Operations Pulse ── */}
       <section className="overflow-hidden rounded-[var(--radius-md)] border border-[var(--border-subtle)] border-r-2 border-r-[var(--accent-gold)] bg-[var(--bg-surface-2)]">
         <div className="grid gap-0 lg:grid-cols-6">
           {statusRail.map((item, index) => (
@@ -631,119 +779,6 @@ export default function MerchantDashboard() {
                 <p className="text-xs">
                   تحقق من إعدادات المصروفات أو أعد التحديث.
                 </p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Subscription Usage + AI Brief Row */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        {/* Subscription Usage Bar */}
-        <Card className="app-data-card">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <TrendingUp className="h-4 w-4 text-[var(--accent-blue)]" />
-              استخدام الخطة الحالية
-              {subUsage && (
-                <Badge variant="outline" className="text-xs mr-auto">
-                  {subUsage.planName}
-                </Badge>
-              )}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {subUsage ? (
-              <>
-                <div>
-                  <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                    <span>الرسائل (توكن AI)</span>
-                    <span>
-                      {subUsage.tokensUsed.toLocaleString()} /{" "}
-                      {subUsage.tokenLimit.toLocaleString()}
-                    </span>
-                  </div>
-                  <div className="h-2 rounded-full bg-muted overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-all ${
-                        subUsage.tokenPct >= 90
-                          ? "bg-[var(--accent-danger)]"
-                          : subUsage.tokenPct >= 70
-                            ? "bg-[var(--accent-warning)]"
-                            : "bg-[var(--accent-blue)]"
-                      }`}
-                      style={{ width: `${Math.min(subUsage.tokenPct, 100)}%` }}
-                    />
-                  </div>
-                </div>
-                <div>
-                  <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                    <span>المحادثات هذا الشهر</span>
-                    <span>
-                      {subUsage.conversationsUsed} /{" "}
-                      {subUsage.conversationLimit}
-                    </span>
-                  </div>
-                  <div className="h-2 rounded-full bg-muted overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-all ${
-                        subUsage.conversationPct >= 90
-                          ? "bg-[var(--accent-danger)]"
-                          : subUsage.conversationPct >= 70
-                            ? "bg-[var(--accent-warning)]"
-                            : "bg-[var(--accent-success)]"
-                      }`}
-                      style={{
-                        width: `${Math.min(subUsage.conversationPct, 100)}%`,
-                      }}
-                    />
-                  </div>
-                </div>
-                {subUsage.periodEnd && (
-                  <p className="text-xs text-muted-foreground">
-                    تجديد الخطة:{" "}
-                    {new Date(subUsage.periodEnd).toLocaleDateString("ar-EG")}
-                  </p>
-                )}
-              </>
-            ) : (
-              <div className="h-16 flex items-center justify-center text-xs text-muted-foreground animate-pulse">
-                جارٍ تحميل بيانات الاستخدام...
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Daily AI Brief */}
-        <Card className="app-data-card border-[color:rgba(59,130,246,0.22)]">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <DollarSign className="h-4 w-4 text-[var(--accent-blue)]" />
-              تقرير AI اليومي
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {aiBrief ? (
-              <p
-                className="text-sm text-muted-foreground leading-relaxed"
-                dir="rtl"
-              >
-                {aiBrief}
-              </p>
-            ) : (
-              <div className="h-16 flex items-center justify-center text-xs text-muted-foreground">
-                {hasPro ? (
-                  <span className="animate-pulse">
-                    يجهز الذكاء الاصطناعي تقريره اليومي...
-                  </span>
-                ) : (
-                  <Link
-                    href="/merchant/plan"
-                    className="text-primary hover:underline flex items-center gap-1"
-                  >
-                    ترقية للخطة الاحترافية <ArrowUpRight className="h-3 w-3" />
-                  </Link>
-                )}
               </div>
             )}
           </CardContent>

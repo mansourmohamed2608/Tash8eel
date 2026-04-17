@@ -64,6 +64,8 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { portalApi } from "@/lib/client";
 import { Switch } from "@/components/ui/switch";
+import { EmptyState } from "@/components/ui/alerts";
+import { TableSkeleton } from "@/components/ui/skeleton";
 
 interface Driver {
   id: string;
@@ -575,29 +577,24 @@ export default function DeliveryDriversPage() {
         </CardHeader>
         <CardContent>
           {loading ? (
-            <div className="space-y-3">
-              {[...Array(3)].map((_, i) => (
-                <div key={i} className="h-16 bg-muted animate-pulse rounded" />
-              ))}
-            </div>
+            <TableSkeleton rows={3} columns={4} />
           ) : drivers.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              <Truck className="h-12 w-12 mx-auto mb-3 opacity-30" />
-              <p className="font-medium">لا يوجد سائقين بعد</p>
-              <p className="text-sm mt-1">
-                أضف سائقين ليتم إشعارهم تلقائياً عبر واتساب عند تعيينهم لطلب
-              </p>
-              <Button
-                className="mt-4"
-                onClick={() => {
-                  resetForm();
-                  setIsAddOpen(true);
-                }}
-              >
-                <UserPlus className="h-4 w-4" />
-                إضافة أول سائق
-              </Button>
-            </div>
+            <EmptyState
+              icon={<Truck className="h-6 w-6" />}
+              title="لا يوجد سائقين بعد"
+              description="أضف سائقين ليتم إشعارهم تلقائياً عبر واتساب عند تعيينهم لطلب."
+              action={
+                <Button
+                  onClick={() => {
+                    resetForm();
+                    setIsAddOpen(true);
+                  }}
+                >
+                  <UserPlus className="h-4 w-4" />
+                  إضافة أول سائق
+                </Button>
+              }
+            />
           ) : (
             <>
               <div className="space-y-3 md:hidden">

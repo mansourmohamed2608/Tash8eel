@@ -15,3 +15,4 @@ export * from "./dropdown-menu";
 export * from "./alerts";
 export * from "./stat-card";
 export * from "./data-table";
+export * from "./page-patterns";

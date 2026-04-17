@@ -1,5 +1,6 @@
 import {
   Controller,
+  Get,
   Inject,
   NotFoundException,
   Param,
@@ -265,6 +266,47 @@ export class PortalKnowledgeBaseController {
         ...contractByProvider[normalizedProvider],
       },
       checkedAt: new Date().toISOString(),
+    };
+  }
+
+  @Get("knowledge-base/status")
+  @RequireRole("MANAGER")
+  @ApiOperation({
+    summary: "KB chunk readiness",
+    description:
+      "Returns counts of active KB chunks and how many have embeddings. " +
+      "Use this to verify that a PUT /knowledge-base write has been projected and embedded.",
+  })
+  @ApiResponse({ status: 200, description: "Chunk readiness summary" })
+  async getKbStatus(@Req() req: Request): Promise<{
+    totalChunks: number;
+    withEmbedding: number;
+    withoutEmbedding: number;
+    ready: boolean;
+  }> {
+    const merchantId = getMerchantId(req);
+
+    const result = await this.pool.query<{
+      total: string;
+      with_embedding: string;
+    }>(
+      `SELECT
+         COUNT(*)                                    AS total,
+         COUNT(*) FILTER (WHERE embedding IS NOT NULL) AS with_embedding
+       FROM merchant_kb_chunks
+       WHERE merchant_id = $1
+         AND is_active = TRUE`,
+      [merchantId],
+    );
+
+    const total = parseInt(result.rows[0]?.total ?? "0", 10);
+    const withEmbedding = parseInt(result.rows[0]?.with_embedding ?? "0", 10);
+
+    return {
+      totalChunks: total,
+      withEmbedding,
+      withoutEmbedding: total - withEmbedding,
+      ready: total > 0,
     };
   }
 }

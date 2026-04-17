@@ -78,7 +78,7 @@ export function DashboardDataTable<T>({
               <th
                 key={column.key}
                 className={cn(
-                  "px-4 text-[11px] font-semibold uppercase tracking-[0.04em] text-[var(--text-secondary)]",
+                  "px-4 text-[11px] font-semibold text-[var(--text-secondary)]",
                   column.className,
                   column.mobileHidden && "hidden md:table-cell",
                 )}

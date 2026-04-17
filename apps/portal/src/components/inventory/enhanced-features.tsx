@@ -69,13 +69,15 @@ export function MovementHistory({ movements, itemName }: MovementHistoryProps) {
   const getTypeIcon = (type: string) => {
     switch (type) {
       case "in":
-        return <TrendingUp className="h-4 w-4 text-green-500" />;
+        return <TrendingUp className="h-4 w-4 text-[var(--accent-success)]" />;
       case "out":
-        return <TrendingDown className="h-4 w-4 text-red-500" />;
+        return <TrendingDown className="h-4 w-4 text-[var(--accent-danger)]" />;
       case "adjustment":
         return <RefreshCw className="h-4 w-4 text-[var(--accent-blue)]" />;
       case "transfer":
-        return <ArrowLeftRight className="h-4 w-4 text-[var(--accent-gold)]" />;
+        return (
+          <ArrowLeftRight className="h-4 w-4 text-[var(--accent-warning)]" />
+        );
       default:
         return <Package className="h-4 w-4" />;
     }
@@ -86,7 +88,7 @@ export function MovementHistory({ movements, itemName }: MovementHistoryProps) {
       in: "bg-[color:rgba(34,197,94,0.12)] text-[var(--accent-success)]",
       out: "bg-[color:rgba(239,68,68,0.12)] text-[var(--accent-danger)]",
       adjustment: "bg-[color:rgba(59,130,246,0.12)] text-[var(--accent-blue)]",
-      transfer: "bg-[color:rgba(232,197,71,0.12)] text-[var(--accent-gold)]",
+      transfer: "bg-[color:rgba(45,107,228,0.10)] text-[var(--brand-blue)]",
     };
     const labels: Record<string, string> = {
       in: "إضافة",
@@ -463,8 +465,10 @@ export function BulkImportDialog({
             />
             {file ? (
               <div className="space-y-2">
-                <FileSpreadsheet className="h-12 w-12 mx-auto text-green-500" />
-                <p className="font-medium text-green-700">{file.name}</p>
+                <FileSpreadsheet className="h-12 w-12 mx-auto text-[var(--accent-success)]" />
+                <p className="font-medium text-[var(--accent-success)]">
+                  {file.name}
+                </p>
                 <p className="text-sm text-muted-foreground">
                   {(file.size / 1024).toFixed(1)} KB
                 </p>
@@ -542,9 +546,9 @@ export function InventorySummaryCards({
   }
 
   const getHealthColor = (score: number) => {
-    if (score >= 80) return "text-green-500";
-    if (score >= 60) return "text-yellow-500";
-    return "text-red-500";
+    if (score >= 80) return "text-[var(--accent-success)]";
+    if (score >= 60) return "text-[var(--accent-warning)]";
+    return "text-[var(--accent-danger)]";
   };
 
   const formatCurrency = (value: number) => {
@@ -807,19 +811,19 @@ export function StockLevel({
 
   const statusConfig = {
     out: {
-      color: "bg-red-500",
+      color: "bg-[var(--accent-danger)]",
       label: "نفد",
-      badge: "bg-red-100 text-red-700",
+      badge: "bg-[var(--danger-muted)] text-[var(--accent-danger)]",
     },
     low: {
-      color: "bg-yellow-500",
+      color: "bg-[var(--accent-warning)]",
       label: "منخفض",
-      badge: "bg-yellow-100 text-yellow-700",
+      badge: "bg-[var(--warning-muted)] text-[var(--accent-warning)]",
     },
     ok: {
-      color: "bg-green-500",
+      color: "bg-[var(--accent-success)]",
       label: "متوفر",
-      badge: "bg-green-100 text-green-700",
+      badge: "bg-[var(--success-muted)] text-[var(--accent-success)]",
     },
   };
 

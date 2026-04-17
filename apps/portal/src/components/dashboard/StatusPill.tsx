@@ -4,14 +4,14 @@ type StatusVariant = "success" | "warning" | "danger" | "info" | "default";
 
 const styles: Record<StatusVariant, string> = {
   success:
-    "bg-[rgba(34,197,94,0.15)] text-[var(--accent-success)] border-[rgba(34,197,94,0.25)]",
+    "bg-[var(--success-muted)] text-[var(--accent-success)] border-[color:color-mix(in_srgb,var(--accent-success)_20%,transparent)]",
   warning:
-    "bg-[rgba(245,158,11,0.15)] text-[var(--accent-warning)] border-[rgba(245,158,11,0.25)]",
+    "bg-[var(--warning-muted)] text-[var(--accent-warning)] border-[color:color-mix(in_srgb,var(--accent-warning)_20%,transparent)]",
   danger:
-    "bg-[rgba(239,68,68,0.15)] text-[var(--accent-danger)] border-[rgba(239,68,68,0.25)]",
-  info: "bg-[rgba(59,130,246,0.15)] text-[var(--accent-blue)] border-[rgba(59,130,246,0.25)]",
+    "bg-[var(--danger-muted)] text-[var(--accent-danger)] border-[color:color-mix(in_srgb,var(--accent-danger)_20%,transparent)]",
+  info: "bg-[var(--info-muted)] text-[var(--info)] border-[color:color-mix(in_srgb,var(--info)_20%,transparent)]",
   default:
-    "bg-[rgba(255,255,255,0.08)] text-[var(--text-secondary)] border-[var(--border-default)]",
+    "bg-[var(--bg-surface-2)] text-[var(--text-secondary)] border-[var(--border-default)]",
 };
 
 export function StatusPill({

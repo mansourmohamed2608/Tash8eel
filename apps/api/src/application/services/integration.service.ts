@@ -177,24 +177,8 @@ export class IntegrationService {
     error?: string,
   ) {
     await this.pool.query(
-      `INSERT INTO integration_events (
-         endpoint_id,
-         merchant_id,
-         event_type,
-         payload,
-         status,
-         error,
-         processed_at
-       )
-       VALUES (
-         $1,
-         $2,
-         $3,
-         $4,
-         $5,
-         $6,
-         CASE WHEN UPPER($5) IN ('PROCESSED', 'FAILED') THEN NOW() ELSE NULL END
-       )`,
+      `INSERT INTO integration_events (endpoint_id, merchant_id, event_type, payload, status, error)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
       [
         endpointId,
         merchantId,

@@ -100,8 +100,8 @@ export default function SignupPage() {
               </div>
             </div>
           </div>
-          <p className="text-[10px] tracking-[0.16em] text-[var(--text-muted)]">
-            MERCHANT OPERATING SYSTEM
+          <p className="text-[10px] text-[var(--text-muted)]">
+            Merchant Operating System
           </p>
         </section>
 
@@ -112,9 +112,7 @@ export default function SignupPage() {
                 <div className="inline-flex h-14 w-14 items-center justify-center rounded-[18px] border border-[var(--border-default)] bg-[var(--bg-surface-2)] text-[var(--accent-gold)]">
                   <Store className="h-7 w-7" />
                 </div>
-                <h1 className="text-[24px] font-extrabold tracking-[-0.02em]">
-                  إنشاء حساب جديد
-                </h1>
+                <h1 className="text-[24px] font-bold">إنشاء حساب جديد</h1>
                 <p className="text-sm leading-7 text-[var(--text-secondary)]">
                   أدخل بيانات نشاطك لبدء التجربة المجانية.
                 </p>

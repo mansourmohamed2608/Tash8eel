@@ -23,6 +23,7 @@ import { merchantApi } from "@/lib/client";
 import { useMerchant } from "@/hooks/use-merchant";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
+import { ErrorState } from "@/components/ui/alerts";
 
 interface BillingEvent {
   id: string;
@@ -294,16 +295,11 @@ export default function BillingPage() {
           title="الفواتير"
           description="عرض تفاصيل الفواتير والمدفوعات"
         />
-        <Card className="mt-6">
-          <CardContent className="p-8 text-center">
-            <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
-            <p className="text-lg font-medium text-foreground">{error}</p>
-            <Button onClick={fetchBilling} variant="outline" className="mt-4">
-              <RefreshCw className="h-4 w-4 ml-2" />
-              إعادة المحاولة
-            </Button>
-          </CardContent>
-        </Card>
+        <ErrorState
+          title="خطأ في تحميل بيانات الفواتير"
+          message={error}
+          onRetry={fetchBilling}
+        />
       </div>
     );
   }
