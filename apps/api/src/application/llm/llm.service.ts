@@ -5,7 +5,6 @@ import { createLogger } from "../../shared/logging/logger";
 import { MERCHANT_REPOSITORY, IMerchantRepository } from "../../domain/ports";
 import { AiMetricsService } from "../../shared/services/ai-metrics.service";
 import { NotificationsService } from "../services/notifications.service";
-import { UsageGuardService } from "../services/usage-guard.service";
 import { Merchant } from "../../domain/entities/merchant.entity";
 import { Conversation } from "../../domain/entities/conversation.entity";
 import { CatalogItem } from "../../domain/entities/catalog.entity";
@@ -282,7 +281,6 @@ export class LlmService {
     @Inject(forwardRef(() => NotificationsService))
     private readonly notificationsService: NotificationsService,
     private readonly merchantContextService: MerchantContextService,
-    private readonly usageGuard: UsageGuardService,
   ) {
     const apiKey = this.configService.get<string>("OPENAI_API_KEY") || "";
 
@@ -345,56 +343,17 @@ export class LlmService {
       customerMessage,
     } = context;
 
-    // Check per-merchant AI call rate limit (aiCallsPerDay / aiRepliesPerDay)
-    const quotaCheck = await this.usageGuard.checkCustomerAiReplyQuota(
-      merchant.id,
-    );
-    if (!quotaCheck.allowed) {
-      logger.warn("AI reply quota exhausted — returning fallback response", {
-        merchantId: merchant.id,
-        blockingMetric: quotaCheck.blockingMetric,
-      });
-      this.fireBudgetExhaustedNotification(merchant.id);
-      return this.createFallbackResponse(context, "budget_exhausted");
-    }
-
-    // Check token budget — hard stop, not advisory
+    // Check token budget
     const budgetCheck = await this.checkTokenBudget(merchant);
     if (!budgetCheck.hasRemaining) {
-      logger.warn("Token budget exhausted — returning fallback response", {
+      logger.warn("Token budget exceeded; continuing with AI response", {
         merchantId: merchant.id,
         remaining: budgetCheck.remaining,
       });
       this.fireBudgetExhaustedNotification(merchant.id);
-      return this.createFallbackResponse(context, "budget_exhausted");
     }
 
     try {
-      // ── Off-topic pre-filter ─────────────────────────────────────────────
-      // Skip LLM + DB context assembly entirely for messages that are clearly
-      // unrelated to the merchant's business (sports, jokes, weather, etc.).
-      // Zero tokens spent; route always returns the same polite one-liner.
-      if (this.isObviouslyOffTopic(customerMessage)) {
-        logger.info("Off-topic message — skipping LLM call", {
-          merchantId: merchant.id,
-          conversationId: conversation.id,
-        });
-        return createLlmResult(
-          {
-            actionType: ActionType.ASK_CLARIFYING_QUESTION,
-            reply_ar: `أنا هنا بس لمساعدتك في ${merchant.name} 😊`,
-            confidence: 1.0,
-            extracted_entities: null,
-            missing_slots: null,
-            negotiation: null,
-            reasoning: "off_topic_pre_filter",
-            delivery_fee: null,
-          },
-          0,
-          false,
-        );
-      }
-
       const previousState = this.extractConversationState(recentMessages);
       const currentState = this.extractConversationState(
         this.buildStateMessages(recentMessages, conversation, customerMessage),
@@ -421,14 +380,16 @@ export class LlmService {
         currentState,
       );
 
-      logger.debug("AI context built", {
-        merchantId: merchant.id,
-        conversationId: conversation.id,
-        systemPromptLength: systemPrompt.length,
-        productCount: merchantContext.productCount,
-        kbCount: merchantContext.kbCount,
-        historyCount: merchantContext.historyCount,
-      });
+      console.log("=== AI CONTEXT DEBUG ===");
+      console.log("System prompt length:", systemPrompt.length);
+      console.log("Products in context:", merchantContext.productCount);
+      console.log("KB entries in context:", merchantContext.kbCount);
+      console.log(
+        "Conversation history messages:",
+        merchantContext.historyCount,
+      );
+      console.log("Customer message:", customerMessage);
+      console.log("========================");
 
       const _aiCallStart = Date.now(); // BL-004 metric latency
       const response = await withTimeout(
@@ -471,37 +432,13 @@ export class LlmService {
         latencyMs: Date.now() - _aiCallStart,
       });
 
-      // ── Confidence guard ────────────────────────────────────────────────
-      // For low-confidence responses, block actions that have irreversible
-      // side-effects (order creation, cart mutation, delivery booking).
-      // Downgrade to ASK_CLARIFYING_QUESTION so the customer confirms intent
-      // before the system commits to any state change.
+      // Check confidence threshold
       if (validated.confidence < 0.5) {
-        const HIGH_STAKES_ACTIONS = new Set<ActionType>([
-          ActionType.CREATE_ORDER,
-          ActionType.CONFIRM_ORDER,
-          ActionType.ORDER_CONFIRMED,
-          ActionType.UPDATE_CART,
-          ActionType.BOOK_DELIVERY,
-        ]);
-        if (HIGH_STAKES_ACTIONS.has(validated.actionType)) {
-          logger.warn(
-            "Low confidence on high-stakes action — downgrading to clarifying question",
-            {
-              merchantId: merchant.id,
-              confidence: validated.confidence,
-              originalAction: validated.actionType,
-            },
-          );
-          validated.actionType = ActionType.ASK_CLARIFYING_QUESTION;
-          validated.reasoning = `low_confidence_guard:${validated.reasoning ?? "unknown"}`;
-        } else {
-          logger.warn("Low confidence response", {
-            merchantId: merchant.id,
-            confidence: validated.confidence,
-            action: validated.actionType,
-          });
-        }
+        logger.warn("Low confidence response", {
+          merchantId: merchant.id,
+          confidence: validated.confidence,
+        });
+        // Still use the response but log for monitoring
       }
 
       return this.finalizeLlmResult(
@@ -1333,7 +1270,35 @@ ${customerMessage}
       }
     }
 
-    if (addressOrPaymentTooEarly) {
+    // For questions the structured classifier did not match, try the merchant's
+    // KB FAQ index. This covers materials, turnaround, policies, and any other
+    // FAQ that was explicitly seeded. Only fires when there is no active cart
+    // progress (i.e., discovery/new conversation) so we don't interrupt an
+    // in-progress order flow.
+    if (
+      !questionType &&
+      currentState.stage === "discovery" &&
+      !this.isOrderIntentMessage(
+        this.normalizeArabicText(context.customerMessage),
+      )
+    ) {
+      const kbAnswer = this.lookupKbFaqByMessage(
+        context.merchant,
+        context.customerMessage,
+      );
+      if (kbAnswer) {
+        next.actionType = ActionType.ASK_CLARIFYING_QUESTION;
+        next.reply_ar = kbAnswer;
+        next.reasoning = "kb_faq_match";
+        return next;
+      }
+    }
+
+    const isEscalationAction =
+      next.actionType === ActionType.ESCALATE ||
+      next.actionType === ActionType.ESCALATE_TO_HUMAN;
+
+    if (addressOrPaymentTooEarly && !isEscalationAction) {
       const stageReply = this.buildStageProgressReply(
         context,
         previousState,
@@ -1868,18 +1833,23 @@ ${customerMessage}
     }
 
     if (currentState.stage === "item_confirmation") {
-      if (!hint) {
-        return "حددلي المنتج اللي عايزه الأول وأنا أكمل معاك بالكمية والتفاصيل.";
+      // Only emit a stage-progress reply when we identified a real catalog item.
+      // Without a confirmed item, returning null lets the caller preserve the
+      // LLM's own reply rather than emitting the generic fallback label.
+      if (!item) {
+        return null;
       }
 
+      const displayHint = hint ?? item.nameAr ?? "المنتج ده";
+
       if (currentState.lastAskedFor === "size" || this.itemHasVariants(item)) {
-        const variantPrompt = this.buildVariantPrompt(item, hint);
+        const variantPrompt = this.buildVariantPrompt(item, displayHint);
         if (variantPrompt) {
           return variantPrompt;
         }
       }
 
-      return `${hint} تمام. محتاج كام قطعة؟`;
+      return `${displayHint} تمام. محتاج كام قطعة؟`;
     }
 
     if (currentState.stage === "delivery") {
@@ -2047,7 +2017,9 @@ ${customerMessage}
       }
     }
 
-    return bestMatch;
+    // Require a meaningful match: full substring (100) or enough token overlap.
+    // Pure noise hits (single short token, score <= 10-40) must not produce matches.
+    return bestScore >= 50 ? bestMatch : null;
   }
 
   private getVariantValues(
@@ -2155,6 +2127,49 @@ ${customerMessage}
     }
 
     return fallback;
+  }
+
+  /**
+   * General KB FAQ lookup by message token overlap.
+   * Scores each active FAQ by how many normalized 3+ char tokens from the
+   * customer message appear in the FAQ's question+answer text.
+   * Returns the best-matching answer only if at least 2 tokens overlap,
+   * ensuring the reply is meaningfully grounded in the merchant's KB.
+   */
+  private lookupKbFaqByMessage(
+    merchant: Merchant,
+    customerMessage: string,
+  ): string | null {
+    const kb = merchant.knowledgeBase;
+    if (!kb) return null;
+    const faqs = Array.isArray(kb.faqs) ? kb.faqs : [];
+    if (faqs.length === 0) return null;
+
+    const normalizedMsg = this.normalizeArabicText(customerMessage);
+    const tokens = normalizedMsg.split(" ").filter((t) => t.length >= 3);
+    if (tokens.length === 0) return null;
+
+    let bestScore = 0;
+    let bestAnswer: string | null = null;
+
+    for (const faq of faqs as Array<Record<string, unknown>>) {
+      if (faq.isActive === false) continue;
+      const q = String(faq.question || faq.q || "");
+      const a = String(faq.answer || faq.a || "");
+      if (!q || !a) continue;
+
+      const combined = this.normalizeArabicText(`${q} ${a}`);
+      let score = 0;
+      for (const token of tokens) {
+        if (combined.includes(token)) score++;
+      }
+      if (score >= 2 && score > bestScore) {
+        bestScore = score;
+        bestAnswer = a;
+      }
+    }
+
+    return bestAnswer;
   }
 
   private replyRequestsAddress(reply: string): boolean {
@@ -2939,6 +2954,13 @@ recentAgentActions: آخر 10 إجراءات اتخذها الوكلاء في آ
     return /عايز|عاوز|اطلب|أطلب|طلب|اشتري|شراء|عايزة|عاوزه/i.test(messageLower);
   }
 
+  private isEscalationOrComplaintMessage(messageLower: string): boolean {
+    const normalized = this.normalizeArabicText(messageLower);
+    return /مسوول|مدير|supervisor|manager|escalate|شكوي|شكوى|حقوقي|موظف|متضايق|زعلان|مشكله|مشكلة|problem|complaint/.test(
+      normalized,
+    );
+  }
+
   private extractProductHint(
     messageLower: string,
     catalogItems: CatalogItem[],
@@ -3028,7 +3050,21 @@ recentAgentActions: آخر 10 إجراءات اتخذها الوكلاء في آ
     }
 
     const hint = tokens.join(" ").trim();
-    return hint.length >= 2 ? hint : null;
+    if (hint.length < 2) {
+      return null;
+    }
+
+    // Only treat remaining tokens as a product hint if at least one of them
+    // actually overlaps a catalog item. This prevents policy/question/escalation
+    // messages from generating spurious product hints.
+    if (
+      catalogItems.length > 0 &&
+      !this.findCatalogItemByReference(catalogItems, hint)
+    ) {
+      return null;
+    }
+
+    return hint;
   }
 
   private buildFallbackOrderProgressReply(productHint: string): string {
@@ -3253,6 +3289,52 @@ recentAgentActions: آخر 10 إجراءات اتخذها الوكلاء في آ
       "تمام 🙌 قولي نوع المنتج أو الطلب اللي محتاجه وأنا أكمل معاك خطوة بخطوة.";
     const actionType = ActionType.ASK_CLARIFYING_QUESTION;
 
+    // Escalation / complaint: brand-voice handoff, never product template.
+    if (this.isEscalationOrComplaintMessage(messageLower)) {
+      const escalationReplies = [
+        "هتابع موضوعك مع الفريق المختص وهيتواصلوا معاك في أقرب وقت.",
+        "خليني أوصّل طلبك للشخص المسؤول عشان يساعدك بشكل أفضل.",
+        "هحوّلك للمسؤول المختص حالاً للاهتمام بطلبك.",
+      ];
+      reply =
+        escalationReplies[Math.floor(Math.random() * escalationReplies.length)];
+      return {
+        response: {
+          actionType: ActionType.ESCALATE,
+          reply_ar: reply,
+          confidence: 0.8,
+          extracted_entities: null,
+          missing_slots: null,
+          negotiation: null,
+          reasoning: "fallback_escalation_detected",
+          delivery_fee: null,
+        },
+        tokensUsed: 0,
+        llmUsed: false,
+      };
+    }
+
+    // Non-product questions: try KB FAQ before falling to templates.
+    if (!directQuestion && currentState.stage === "discovery") {
+      const kbAnswer = this.lookupKbFaqByMessage(merchant, customerMessage);
+      if (kbAnswer) {
+        return {
+          response: {
+            actionType,
+            reply_ar: kbAnswer,
+            confidence: 0.75,
+            extracted_entities: null,
+            missing_slots: null,
+            negotiation: null,
+            reasoning: "fallback_kb_faq_match",
+            delivery_fee: null,
+          },
+          tokensUsed: 0,
+          llmUsed: false,
+        };
+      }
+    }
+
     if (directQuestion) {
       reply =
         this.buildDirectQuestionAnswer(directQuestion, context, currentState, {
@@ -3269,7 +3351,10 @@ recentAgentActions: آخر 10 إجراءات اتخذها الوكلاء في آ
       reply = this.buildCartContentsReply(context, currentState);
     } else if (this.isCatalogInquiryMessage(messageLower)) {
       reply = this.buildFallbackCatalogReply(catalogItems, merchant.category);
-    } else if (currentState.stage === "item_confirmation") {
+    } else if (
+      currentState.stage === "item_confirmation" &&
+      !this.isEscalationOrComplaintMessage(messageLower)
+    ) {
       reply =
         this.buildStageProgressReply(context, previousState, currentState, {
           actionType,

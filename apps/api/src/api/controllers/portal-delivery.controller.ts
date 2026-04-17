@@ -10,11 +10,9 @@ import {
   ParseUUIDPipe,
   Post,
   Put,
-  Query,
   Req,
   UseGuards,
 } from "@nestjs/common";
-import { Type } from "class-transformer";
 import {
   ApiHeader,
   ApiOperation,
@@ -23,12 +21,8 @@ import {
   ApiTags,
 } from "@nestjs/swagger";
 import {
-  ArrayMaxSize,
-  ArrayMinSize,
   IsBoolean,
-  IsArray,
   IsIn,
-  IsInt,
   IsISO8601,
   IsNumber,
   IsObject,
@@ -170,22 +164,6 @@ class MarkPodDisputeDto {
   disputedAt?: string;
 }
 
-class ResolvePodDisputeDto {
-  @IsOptional()
-  @IsString()
-  @MaxLength(300)
-  resolutionNote?: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(64)
-  resolvedBy?: string;
-
-  @IsOptional()
-  @IsISO8601()
-  resolvedAt?: string;
-}
-
 class RecordLocationPingDto {
   @IsNumber()
   @Min(-90)
@@ -259,185 +237,6 @@ class RecordDeliverySlaEventDto {
   @IsOptional()
   @IsObject()
   metadata?: Record<string, any>;
-}
-
-class DeliveryOpsLiveBoardQueryDto {
-  @IsOptional()
-  @IsString()
-  @MaxLength(64)
-  branchId?: string;
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  @Max(200)
-  limit?: number;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(10)
-  includeCompleted?: string;
-}
-
-class DeliverySlaBreachesQueryDto {
-  @IsOptional()
-  @IsString()
-  @MaxLength(64)
-  branchId?: string;
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  @Max(200)
-  limit?: number;
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(0)
-  offset?: number;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(10)
-  includeRecovered?: string;
-}
-
-class DeliveryPodDisputesQueueQueryDto {
-  @IsOptional()
-  @IsString()
-  @MaxLength(64)
-  branchId?: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(16)
-  status?: string;
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  @Max(200)
-  limit?: number;
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(0)
-  offset?: number;
-}
-
-class ResolvePodDisputesBatchDto {
-  @IsArray()
-  @ArrayMinSize(1)
-  @ArrayMaxSize(100)
-  @IsString({ each: true })
-  podIds!: string[];
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(64)
-  resolvedBy?: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(300)
-  resolutionNote?: string;
-}
-
-class DeliveryDriverWorkloadQueryDto {
-  @IsOptional()
-  @IsString()
-  @MaxLength(64)
-  branchId?: string;
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  @Max(200)
-  limit?: number;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(10)
-  includeIdle?: string;
-}
-
-class DeliveryDriverExceptionQueueQueryDto {
-  @IsOptional()
-  @IsString()
-  @MaxLength(64)
-  branchId?: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(200)
-  exceptionTypes?: string;
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  @Max(200)
-  limit?: number;
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(0)
-  offset?: number;
-}
-
-class AcknowledgeSlaBreachDto {
-  @IsOptional()
-  @IsString()
-  @MaxLength(64)
-  acknowledgedBy?: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(300)
-  note?: string;
-}
-
-class ExecuteSlaEscalationDto {
-  @IsOptional()
-  @IsString()
-  @MaxLength(64)
-  escalatedBy?: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(300)
-  note?: string;
-}
-
-class ExecuteOpenSlaEscalationsDto {
-  @IsOptional()
-  @IsString()
-  @MaxLength(64)
-  branchId?: string;
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  @Max(100)
-  limit?: number;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(64)
-  escalatedBy?: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(300)
-  note?: string;
 }
 
 @ApiTags("Merchant Portal Compatibility")
@@ -762,27 +561,6 @@ export class PortalDeliveryController {
     });
   }
 
-  @Post("delivery/orders/:orderId/pod/:podId/resolve-dispute")
-  @RequireRole("MANAGER")
-  @ApiOperation({ summary: "Resolve delivery POD dispute" })
-  @ApiParam({ name: "orderId", description: "Order id or order number" })
-  @ApiParam({ name: "podId", description: "POD record id (UUID)" })
-  async resolvePodDispute(
-    @Req() req: Request,
-    @Param("orderId") orderId: string,
-    @Param("podId", new ParseUUIDPipe()) podId: string,
-    @Body() body: ResolvePodDisputeDto,
-  ) {
-    return this.deliveryExecutionService.resolvePodDispute({
-      merchantId: getMerchantId(req),
-      orderRef: orderId,
-      podId,
-      resolutionNote: body.resolutionNote,
-      resolvedBy: body.resolvedBy,
-      resolvedAt: body.resolvedAt,
-    });
-  }
-
   @Post("delivery/orders/:orderId/location")
   @RequireRole("MANAGER")
   @ApiOperation({ summary: "Record delivery live location ping (foundation)" })
@@ -856,158 +634,6 @@ export class PortalDeliveryController {
       getMerchantId(req),
       orderId,
     );
-  }
-
-  @Get("delivery/ops/live-board")
-  @RequireRole("MANAGER")
-  @ApiOperation({ summary: "Get delivery live board for branch operations" })
-  async getDeliveryOpsLiveBoard(
-    @Req() req: Request,
-    @Query() query: DeliveryOpsLiveBoardQueryDto,
-  ) {
-    return this.deliveryExecutionService.getOpsLiveBoard({
-      merchantId: getMerchantId(req),
-      branchId: query.branchId,
-      limit: query.limit ?? 50,
-      includeCompleted: toBoolean(query.includeCompleted, false),
-    });
-  }
-
-  @Get("delivery/ops/driver-workload")
-  @RequireRole("MANAGER")
-  @ApiOperation({ summary: "Get per-driver workload board for delivery ops" })
-  async getDeliveryDriverWorkloadBoard(
-    @Req() req: Request,
-    @Query() query: DeliveryDriverWorkloadQueryDto,
-  ) {
-    return this.deliveryExecutionService.getDriverWorkloadBoard({
-      merchantId: getMerchantId(req),
-      branchId: query.branchId,
-      limit: query.limit ?? 50,
-      includeIdle: toBoolean(query.includeIdle, false),
-    });
-  }
-
-  @Get("delivery/ops/driver-exceptions")
-  @RequireRole("MANAGER")
-  @ApiOperation({
-    summary: "List problematic active delivery orders grouped by driver",
-  })
-  async getDeliveryDriverExceptionQueue(
-    @Req() req: Request,
-    @Query() query: DeliveryDriverExceptionQueueQueryDto,
-  ) {
-    const parsedExceptionTypes = String(query.exceptionTypes || "")
-      .split(",")
-      .map((value) => value.trim())
-      .filter((value) => value.length > 0);
-
-    return this.deliveryExecutionService.getDriverExceptionQueue({
-      merchantId: getMerchantId(req),
-      branchId: query.branchId,
-      exceptionTypes: parsedExceptionTypes,
-      limit: query.limit ?? 50,
-      offset: query.offset ?? 0,
-    });
-  }
-
-  @Get("delivery/ops/pod-disputes")
-  @RequireRole("MANAGER")
-  @ApiOperation({ summary: "List POD disputes queue for delivery operations" })
-  async listDeliveryPodDisputesQueue(
-    @Req() req: Request,
-    @Query() query: DeliveryPodDisputesQueueQueryDto,
-  ) {
-    return this.deliveryExecutionService.listPodDisputesQueue({
-      merchantId: getMerchantId(req),
-      branchId: query.branchId,
-      status: query.status,
-      limit: query.limit ?? 50,
-      offset: query.offset ?? 0,
-    });
-  }
-
-  @Post("delivery/ops/pod-disputes/resolve-batch")
-  @RequireRole("MANAGER")
-  @ApiOperation({ summary: "Resolve POD disputes in batch" })
-  async resolveDeliveryPodDisputesBatch(
-    @Req() req: Request,
-    @Body() body: ResolvePodDisputesBatchDto,
-  ) {
-    return this.deliveryExecutionService.resolvePodDisputesBatch({
-      merchantId: getMerchantId(req),
-      podIds: body.podIds,
-      resolvedBy: body.resolvedBy,
-      resolutionNote: body.resolutionNote,
-    });
-  }
-
-  @Get("delivery/ops/sla-breaches")
-  @RequireRole("MANAGER")
-  @ApiOperation({ summary: "List delivery SLA breaches for triage" })
-  async getDeliverySlaBreaches(
-    @Req() req: Request,
-    @Query() query: DeliverySlaBreachesQueryDto,
-  ) {
-    return this.deliveryExecutionService.listSlaBreaches({
-      merchantId: getMerchantId(req),
-      branchId: query.branchId,
-      limit: query.limit ?? 50,
-      offset: query.offset ?? 0,
-      includeRecovered: toBoolean(query.includeRecovered, false),
-    });
-  }
-
-  @Post("delivery/ops/sla-breaches/:breachEventId/escalate")
-  @RequireRole("MANAGER")
-  @ApiOperation({ summary: "Execute delivery SLA escalation action" })
-  @ApiParam({ name: "breachEventId", description: "Breach event id (UUID)" })
-  async executeDeliverySlaEscalation(
-    @Req() req: Request,
-    @Param("breachEventId", new ParseUUIDPipe()) breachEventId: string,
-    @Body() body: ExecuteSlaEscalationDto,
-  ) {
-    return this.deliveryExecutionService.executeSlaEscalation({
-      merchantId: getMerchantId(req),
-      breachEventId,
-      escalatedBy: body.escalatedBy,
-      note: body.note,
-    });
-  }
-
-  @Post("delivery/ops/sla-breaches/escalate-open")
-  @RequireRole("MANAGER")
-  @ApiOperation({
-    summary: "Execute escalations for open delivery SLA breaches",
-  })
-  async executeOpenDeliverySlaEscalations(
-    @Req() req: Request,
-    @Body() body: ExecuteOpenSlaEscalationsDto,
-  ) {
-    return this.deliveryExecutionService.executeOpenSlaEscalations({
-      merchantId: getMerchantId(req),
-      branchId: body.branchId,
-      limit: body.limit,
-      escalatedBy: body.escalatedBy,
-      note: body.note,
-    });
-  }
-
-  @Post("delivery/ops/sla-breaches/:breachEventId/ack")
-  @RequireRole("MANAGER")
-  @ApiOperation({ summary: "Acknowledge delivery SLA breach triage event" })
-  @ApiParam({ name: "breachEventId", description: "Breach event id (UUID)" })
-  async acknowledgeDeliverySlaBreach(
-    @Req() req: Request,
-    @Param("breachEventId", new ParseUUIDPipe()) breachEventId: string,
-    @Body() body: AcknowledgeSlaBreachDto,
-  ) {
-    return this.deliveryExecutionService.acknowledgeSlaBreach({
-      merchantId: getMerchantId(req),
-      breachEventId,
-      acknowledgedBy: body.acknowledgedBy,
-      note: body.note,
-    });
   }
 
   /**

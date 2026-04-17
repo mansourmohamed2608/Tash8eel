@@ -6,7 +6,6 @@ import {
   Param,
   Post,
   Put,
-  Query,
   Req,
   UseGuards,
 } from "@nestjs/common";
@@ -40,8 +39,6 @@ const HQ_ROLE_SCOPES = [
   "MEMBER",
 ] as const;
 const HQ_SCOPE_STATUS = ["ACTIVE", "INACTIVE"] as const;
-const HQ_UNIT_STATUS = ["ACTIVE", "INACTIVE"] as const;
-const HQ_DESCENDANT_FORMATS = ["FLAT", "TREE", "flat", "tree"] as const;
 
 class CreateUnitDto {
   @IsIn(HQ_UNIT_TYPES)
@@ -95,26 +92,6 @@ class UpsertStaffScopeDto {
   status?: "ACTIVE" | "INACTIVE";
 }
 
-class MoveUnitDto {
-  @IsUUID()
-  newParentId!: string;
-}
-
-class SetUnitStatusDto {
-  @IsIn(HQ_UNIT_STATUS)
-  status!: "ACTIVE" | "INACTIVE";
-}
-
-class ListUnitDescendantsQueryDto {
-  @IsOptional()
-  @IsIn(HQ_DESCENDANT_FORMATS)
-  format?: "FLAT" | "TREE" | "flat" | "tree";
-
-  @IsOptional()
-  @IsString()
-  maxDepth?: string;
-}
-
 @ApiTags("HQ / Franchise Governance")
 @ApiSecurity("api-key")
 @ApiHeader({
@@ -135,13 +112,6 @@ export class HqGovernanceController {
     return this.hqGovernanceService.listUnits(getMerchantId(req));
   }
 
-  @Get("units/tree")
-  @RequireRole("MANAGER")
-  @ApiOperation({ summary: "Get org unit tree with aggregates" })
-  async getUnitTree(@Req() req: Request) {
-    return this.hqGovernanceService.getUnitTree(getMerchantId(req));
-  }
-
   @Post("units")
   @RequireRole("OWNER")
   @ApiOperation({ summary: "Create org unit (HQ/brand/region/branch)" })
@@ -154,39 +124,6 @@ export class HqGovernanceController {
       parentId: body.parentId,
       branchId: body.branchId,
       metadata: body.metadata,
-      enforceGovernanceLocks: true,
-    });
-  }
-
-  @Put("units/:unitId/move")
-  @RequireRole("OWNER")
-  @ApiOperation({ summary: "Move org unit under a new parent" })
-  async moveUnit(
-    @Req() req: Request,
-    @Param("unitId", new ParseUUIDPipe()) unitId: string,
-    @Body() body: MoveUnitDto,
-  ) {
-    return this.hqGovernanceService.moveUnit({
-      merchantId: getMerchantId(req),
-      unitId,
-      newParentId: body.newParentId,
-      enforceGovernanceLocks: true,
-    });
-  }
-
-  @Put("units/:unitId/status")
-  @RequireRole("OWNER")
-  @ApiOperation({ summary: "Set org unit status" })
-  async setUnitStatus(
-    @Req() req: Request,
-    @Param("unitId", new ParseUUIDPipe()) unitId: string,
-    @Body() body: SetUnitStatusDto,
-  ) {
-    return this.hqGovernanceService.setUnitStatus({
-      merchantId: getMerchantId(req),
-      unitId,
-      status: body.status,
-      enforceGovernanceLocks: true,
     });
   }
 
@@ -216,44 +153,6 @@ export class HqGovernanceController {
     );
   }
 
-  @Get("units/:unitId/descendants")
-  @RequireRole("MANAGER")
-  @ApiOperation({
-    summary: "List descendants for an org unit as flat list or tree",
-  })
-  async listUnitDescendants(
-    @Req() req: Request,
-    @Param("unitId", new ParseUUIDPipe()) unitId: string,
-    @Query() query: ListUnitDescendantsQueryDto,
-  ) {
-    const maxDepth =
-      query.maxDepth === undefined ? undefined : Number(query.maxDepth);
-
-    return this.hqGovernanceService.listUnitDescendants(
-      getMerchantId(req),
-      unitId,
-      {
-        format: query.format,
-        maxDepth,
-      },
-    );
-  }
-
-  @Get("units/:unitId/policies/conflicts")
-  @RequireRole("MANAGER")
-  @ApiOperation({
-    summary: "Get policy conflict insights across the org lineage",
-  })
-  async getPolicyConflictInsights(
-    @Req() req: Request,
-    @Param("unitId", new ParseUUIDPipe()) unitId: string,
-  ) {
-    return this.hqGovernanceService.getPolicyConflictInsights(
-      getMerchantId(req),
-      unitId,
-    );
-  }
-
   @Put("units/:unitId/policies/:policyKey")
   @RequireRole("OWNER")
   @ApiOperation({ summary: "Upsert policy binding with new version" })
@@ -274,8 +173,6 @@ export class HqGovernanceController {
       policyValue: body.policyValue || {},
       inheritanceMode: body.inheritanceMode,
       createdBy: staffId,
-      enforceAncestorLocks: true,
-      enforceGovernanceLocks: true,
     });
   }
 
@@ -305,7 +202,6 @@ export class HqGovernanceController {
       roleScope: body.roleScope,
       permissions: body.permissions,
       status: body.status,
-      enforceGovernanceLocks: true,
     });
   }
 }

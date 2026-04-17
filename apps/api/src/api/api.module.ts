@@ -35,7 +35,6 @@ import { PortalDeliveryController } from "./controllers/portal-delivery.controll
 import { PortalInventoryController } from "./controllers/portal-inventory.controller";
 import { PortalCatalogController } from "./controllers/portal-catalog.controller";
 import { PortalKnowledgeBaseController } from "./controllers/portal-knowledge-base.controller";
-import { PortalSecurityController } from "./controllers/portal-security.controller";
 import { HqGovernanceController } from "./controllers/hq-governance.controller";
 import { ControlPlaneController } from "./controllers/control-plane.controller";
 // Billing sub-controllers (replaced billing.controller.ts)
@@ -58,8 +57,6 @@ import { KpiController } from "./controllers/kpi.controller";
 import { AgentTeamsController } from "./controllers/agent-teams.controller";
 import { VoiceController } from "./controllers/voice.controller";
 import { PortalCallsController } from "./controllers/portal-calls.controller";
-import { PortalNotificationsController } from "./controllers/portal-notifications.controller";
-import { PortalSettingsController } from "./controllers/portal-settings.controller";
 import {
   FinanceReportsController,
   AdvancedInventoryController,
@@ -130,7 +127,6 @@ import { CopilotPlanGuard } from "../shared/guards/copilot-plan.guard";
     PortalInventoryController,
     PortalCatalogController,
     PortalKnowledgeBaseController,
-    PortalSecurityController,
     HqGovernanceController,
     ControlPlaneController,
     InventoryController,
@@ -147,8 +143,6 @@ import { CopilotPlanGuard } from "../shared/guards/copilot-plan.guard";
     KpiController,
     VoiceController,
     PortalCallsController,
-    PortalNotificationsController,
-    PortalSettingsController,
     EarlyAccessController,
     LoyaltyController,
     FeatureRequestsController,

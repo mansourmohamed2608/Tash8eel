@@ -1,25 +1,21 @@
 import type { Metadata } from "next";
-import {
-  IBM_Plex_Sans_Arabic,
-  IBM_Plex_Sans,
-  JetBrains_Mono,
-} from "next/font/google";
+import { Cairo, IBM_Plex_Sans_Arabic, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/providers/auth-provider";
 import { Toaster } from "@/components/ui/toaster";
 
-const arabicFont = IBM_Plex_Sans_Arabic({
+const headingFont = Cairo({
   subsets: ["arabic", "latin"],
-  weight: ["400", "500", "600", "700"],
+  weight: ["600", "700", "900"],
   display: "swap",
-  variable: "--font-ibm-plex-arabic",
+  variable: "--font-cairo",
 });
 
-const latinFont = IBM_Plex_Sans({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
+const bodyFont = IBM_Plex_Sans_Arabic({
+  subsets: ["arabic", "latin"],
+  weight: ["400", "500"],
   display: "swap",
-  variable: "--font-ibm-plex-sans",
+  variable: "--font-ibm-plex-arabic",
 });
 
 const monoFont = JetBrains_Mono({
@@ -44,7 +40,7 @@ export default async function RootLayout({
     <html lang="ar" dir="rtl">
       <head />
       <body
-        className={`${arabicFont.variable} ${latinFont.variable} ${monoFont.variable}`}
+        className={`${headingFont.variable} ${bodyFont.variable} ${monoFont.variable}`}
       >
         <AuthProvider>
           {children}

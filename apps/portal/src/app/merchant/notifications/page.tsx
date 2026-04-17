@@ -860,7 +860,7 @@ export default function NotificationsPage() {
           </Card>
 
           {merchantSettingsDirty && (
-            <Card className="border-[color:color-mix(in_srgb,var(--accent-warning)_20%,transparent)] bg-[var(--warning-muted)]">
+            <Card className="border-amber-200 bg-amber-50/60">
               <CardContent className="py-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-2 text-[var(--accent-warning)]">
                   <AlertCircle className="w-4 h-4" />

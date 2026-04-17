@@ -28,7 +28,6 @@ import {
   ApiBody,
 } from "@nestjs/swagger";
 import { Request } from "express";
-import { createHash } from "crypto";
 import { Pool, PoolClient } from "pg";
 import {
   IConversationRepository,
@@ -72,7 +71,10 @@ import {
   PaymentProof,
   PaymentLink,
 } from "../../application/services/payment.service";
-import { NotificationsService } from "../../application/services/notifications.service";
+import {
+  NotificationType,
+  NotificationsService,
+} from "../../application/services/notifications.service";
 import { AuditService } from "../../application/services/audit.service";
 import { StaffService } from "../../application/services/staff.service";
 import { CommerceFactsService } from "../../application/services/commerce-facts.service";
@@ -80,6 +82,7 @@ import { InventoryAiService } from "../../application/llm/inventory-ai.service";
 import { ForecastEngineService } from "../../application/forecasting/forecast-engine.service";
 import { MessageDeliveryService } from "../../application/services/message-delivery.service";
 import { CashierCopilotService } from "../../application/services/cashier-copilot.service";
+import { KbChunkService } from "../../application/services/kb-chunk.service";
 import { OutboxService } from "../../application/events/outbox.service";
 import { EVENT_TYPES } from "../../application/events/event-types";
 import {
@@ -152,81 +155,6 @@ type PortalFinanceSnapshot = {
   };
 };
 
-const COD_VARIANCE_ABS_APPROVAL_THRESHOLD = 5;
-const COD_VARIANCE_PCT_APPROVAL_THRESHOLD = 2;
-const COD_SETTLEMENT_MIN_CONFIDENCE_SCORE = 90;
-const MONTHLY_CLOSE_MIN_CONFIDENCE_SCORE = 92;
-const MONTHLY_CLOSE_SECOND_APPROVAL_CONFIDENCE_THRESHOLD = 85;
-const MONTHLY_CLOSE_BLOCKER_HEAVY_THRESHOLD = 3;
-const MONTHLY_CLOSE_MAX_EVIDENCE_REFERENCES = 20;
-const MONTHLY_CLOSE_LOCK_NAMESPACE = "monthly-close-governance";
-
-type CodFinanceApprovalPayload = {
-  force?: boolean;
-  approvedBy?: string;
-  reason?: string;
-};
-
-type CodFinanceActionInput = {
-  merchantId: string;
-  actionType: "ORDER_RECONCILE" | "ORDER_DISPUTE" | "STATEMENT_CLOSE";
-  statementId?: string | null;
-  orderId?: string | null;
-  expectedAmount?: number | null;
-  actualAmount?: number | null;
-  varianceAmount?: number | null;
-  confidenceScore: number;
-  requiresApproval: boolean;
-  approvalGranted: boolean;
-  approvalActor?: string | null;
-  approvalReason?: string | null;
-  actionNotes?: string | null;
-  actedBy?: string | null;
-  actedRole?: string | null;
-  metadata?: Record<string, any>;
-};
-
-type MonthlyCloseApprovalPayload = {
-  force?: boolean;
-  approvedBy?: string;
-  reason?: string;
-  secondApprovedBy?: string;
-  secondReason?: string;
-};
-
-type MonthlyCloseEvidenceReference = {
-  referenceId: string;
-  category: string;
-  uri?: string | null;
-  checksum?: string | null;
-  note?: string | null;
-  uploadedBy?: string | null;
-  uploadedAt?: string | null;
-};
-
-type MonthlyCloseBlocker = {
-  code: string;
-  severity: "critical" | "warning";
-  message: string;
-  value: number;
-};
-
-type MonthlyClosePacket = {
-  year: number;
-  month: number;
-  periodStart: string;
-  periodEnd: string;
-  packetHash: string;
-  confidenceScore: number;
-  requiresApproval: boolean;
-  requiresSecondApproval: boolean;
-  riskTier: "normal" | "high";
-  riskReasons: string[];
-  closeReady: boolean;
-  blockers: MonthlyCloseBlocker[];
-  metrics: Record<string, number>;
-};
-
 /**
  * Merchant Portal Controller
  *
@@ -276,6 +204,7 @@ export class MerchantPortalController {
     private readonly messageDeliveryService: MessageDeliveryService,
     private readonly outboxService: OutboxService,
     private readonly cashierCopilotService: CashierCopilotService,
+    private readonly kbChunkService: KbChunkService,
   ) {}
 
   /**
@@ -2428,29 +2357,6 @@ export class MerchantPortalController {
     return typeof value === "object" && !Array.isArray(value)
       ? (value as Record<string, any>)
       : {};
-  }
-
-  private parseBoundedInt(
-    value: unknown,
-    fallback: number,
-    min: number,
-    max: number,
-  ): number {
-    const parsed = Number(value);
-    if (!Number.isFinite(parsed)) return fallback;
-    return Math.min(max, Math.max(min, Math.floor(parsed)));
-  }
-
-  private parseBoundedNumber(
-    value: unknown,
-    fallback: number,
-    min: number,
-    max: number,
-  ): number {
-    const parsed = Number(value);
-    if (!Number.isFinite(parsed)) return fallback;
-    const bounded = Math.min(max, Math.max(min, parsed));
-    return Math.round(bounded * 100) / 100;
   }
 
   private normalizePortalOrderStatus(status: unknown): string {
@@ -6735,6 +6641,103 @@ export class MerchantPortalController {
     return { reports: filtered };
   }
 
+  @Get("notifications")
+  @RequiresFeature("NOTIFICATIONS")
+  @ApiOperation({ summary: "Get notifications for authenticated merchant" })
+  @ApiQuery({
+    name: "unreadOnly",
+    description: "Only unread notifications",
+    required: false,
+  })
+  @ApiQuery({
+    name: "limit",
+    description: "Max notifications",
+    required: false,
+  })
+  @ApiQuery({
+    name: "offset",
+    description: "Pagination offset",
+    required: false,
+  })
+  @ApiQuery({
+    name: "types",
+    description: "Comma-separated notification types",
+    required: false,
+  })
+  async getNotifications(
+    @Req() req: Request,
+    @Query("unreadOnly") unreadOnly?: string,
+    @Query("limit") limit?: string,
+    @Query("offset") offset?: string,
+    @Query("types") types?: string,
+  ): Promise<{ notifications: any[]; total: number; unreadCount: number }> {
+    const merchantId = this.getMerchantId(req);
+    const staffId = this.getSafeStaffId(req);
+    const parsedLimit = Number.parseInt(String(limit || ""), 10);
+    const parsedOffset = Number.parseInt(String(offset || ""), 10);
+    const parsedTypes = String(types || "")
+      .split(",")
+      .map((value) => value.trim().toUpperCase())
+      .filter(Boolean);
+
+    return this.notificationsService.getForMerchant(merchantId, staffId, {
+      unreadOnly: unreadOnly === "true",
+      limit: Number.isFinite(parsedLimit)
+        ? Math.min(Math.max(parsedLimit, 1), 200)
+        : 50,
+      offset: Number.isFinite(parsedOffset) ? Math.max(parsedOffset, 0) : 0,
+      types:
+        parsedTypes.length > 0
+          ? (parsedTypes as NotificationType[])
+          : undefined,
+    });
+  }
+
+  @RequireRole("AGENT")
+  @RequiresFeature("NOTIFICATIONS")
+  @Put("notifications/:notificationId/read")
+  @ApiOperation({ summary: "Mark a notification as read" })
+  async markNotificationRead(
+    @Req() req: Request,
+    @Param("notificationId") notificationId: string,
+  ): Promise<{ success: boolean }> {
+    const merchantId = this.getMerchantId(req);
+    await this.notificationsService.markAsRead(
+      merchantId,
+      notificationId,
+      this.getSafeStaffId(req),
+    );
+    return { success: true };
+  }
+
+  @RequireRole("AGENT")
+  @RequiresFeature("NOTIFICATIONS")
+  @Put("notifications/read-all")
+  @ApiOperation({ summary: "Mark all notifications as read" })
+  async markAllNotificationsRead(
+    @Req() req: Request,
+  ): Promise<{ success: boolean }> {
+    const merchantId = this.getMerchantId(req);
+    await this.notificationsService.markAllAsRead(
+      merchantId,
+      this.getSafeStaffId(req),
+    );
+    return { success: true };
+  }
+
+  @RequireRole("AGENT")
+  @RequiresFeature("NOTIFICATIONS")
+  @Delete("notifications/:notificationId")
+  @ApiOperation({ summary: "Delete a notification" })
+  async deleteNotification(
+    @Req() req: Request,
+    @Param("notificationId") notificationId: string,
+  ): Promise<{ success: boolean }> {
+    const merchantId = this.getMerchantId(req);
+    await this.notificationsService.delete(merchantId, notificationId);
+    return { success: true };
+  }
+
   @Get("followups")
   @UseGuards(MerchantApiKeyGuard, EntitlementGuard)
   @RequiresFeature("REPORTS")
@@ -7273,6 +7276,894 @@ export class MerchantPortalController {
         config: subscription.config,
       },
       message: "تم تحديث الإعدادات بنجاح",
+    };
+  }
+
+  // ============== MERCHANT SETTINGS ==============
+
+  @Get("settings")
+  @ApiOperation({
+    summary: "Get merchant settings",
+    description:
+      "Returns all merchant settings including business info, notifications, and preferences",
+  })
+  @ApiResponse({ status: 200, description: "Settings retrieved successfully" })
+  async getMerchantSettings(@Req() req: Request): Promise<any> {
+    const merchantId = this.getMerchantId(req);
+    const merchant = await this.merchantRepo.findById(merchantId);
+
+    if (!merchant) {
+      throw new NotFoundException("Merchant not found");
+    }
+
+    const pos = this.getMerchantPosSettings(merchant);
+
+    return {
+      business: {
+        name: merchant.name,
+        category: merchant.category,
+        city: merchant.city,
+        currency: merchant.currency,
+        language: merchant.language,
+      },
+      notifications: {
+        whatsappReportsEnabled:
+          (merchant as any).whatsappReportsEnabled || false,
+        reportPeriodsEnabled: (merchant as any).reportPeriodsEnabled || [
+          "daily",
+        ],
+        notificationPhone: (merchant as any).notificationPhone || null,
+        notificationEmail: (merchant as any).notificationEmail || null,
+        whatsappNumber: (merchant as any).whatsappNumber || null,
+        paymentRemindersEnabled:
+          (merchant as any).paymentRemindersEnabled ?? true,
+        lowStockAlertsEnabled: (merchant as any).lowStockAlertsEnabled ?? true,
+      },
+      preferences: {
+        timezone: (merchant as any).timezone || "Africa/Cairo",
+        workingHours: (merchant as any).workingHours || {
+          start: "09:00",
+          end: "21:00",
+        },
+        autoResponseEnabled: (merchant as any).autoResponseEnabled ?? true,
+        followupDelayMinutes: (merchant as any).followupDelayMinutes || 60,
+      },
+      payout: {
+        instapayAlias: (merchant as any).payoutInstapayAlias || null,
+        vodafoneCashNumber: (merchant as any).payoutVodafoneCash || null,
+        bankName: (merchant as any).payoutBankName || null,
+        bankAccountHolder: (merchant as any).payoutBankAccountHolder || null,
+        bankAccount: (merchant as any).payoutBankAccount || null,
+        bankIban: (merchant as any).payoutBankIban || null,
+        preferredMethod: (merchant as any).payoutPreferredMethod || "INSTAPAY",
+      },
+      pos,
+    };
+  }
+
+  @Put("settings")
+  @RequireRole("ADMIN")
+  @ApiOperation({
+    summary: "Update merchant settings",
+    description:
+      "Update merchant business info, notifications, and preferences",
+  })
+  @ApiBody({
+    schema: {
+      type: "object",
+      properties: {
+        business: {
+          type: "object",
+          properties: {
+            name: { type: "string" },
+            category: { type: "string" },
+            city: { type: "string" },
+          },
+        },
+        notifications: {
+          type: "object",
+          properties: {
+            whatsappReportsEnabled: { type: "boolean" },
+            reportPeriodsEnabled: { type: "array", items: { type: "string" } },
+            notificationPhone: { type: "string" },
+            notificationEmail: { type: "string" },
+            paymentRemindersEnabled: { type: "boolean" },
+            lowStockAlertsEnabled: { type: "boolean" },
+          },
+        },
+        preferences: {
+          type: "object",
+          properties: {
+            timezone: { type: "string" },
+            autoResponseEnabled: { type: "boolean" },
+            followupDelayMinutes: { type: "number" },
+          },
+        },
+        payout: {
+          type: "object",
+          properties: {
+            instapayAlias: { type: "string", nullable: true },
+            vodafoneCashNumber: { type: "string", nullable: true },
+            bankName: { type: "string", nullable: true },
+            bankAccountHolder: { type: "string", nullable: true },
+            bankAccount: { type: "string", nullable: true },
+            bankIban: { type: "string", nullable: true },
+            preferredMethod: {
+              type: "string",
+              enum: ["INSTAPAY", "VODAFONE_CASH", "BANK_TRANSFER"],
+            },
+          },
+        },
+        pos: {
+          type: "object",
+          properties: {
+            enabled: { type: "boolean" },
+            mode: { type: "string", enum: ["retail", "restaurant", "hybrid"] },
+            tablesEnabled: { type: "boolean" },
+            suspendedSalesEnabled: { type: "boolean" },
+            splitPaymentsEnabled: { type: "boolean" },
+            returnsEnabled: { type: "boolean" },
+            requireActiveRegisterSession: { type: "boolean" },
+            defaultServiceMode: {
+              type: "string",
+              enum: ["delivery", "pickup", "dine_in"],
+            },
+            thermalReceiptWidth: {
+              type: "string",
+              enum: ["58mm", "80mm", "a4"],
+            },
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 200, description: "Settings updated successfully" })
+  async updateMerchantSettings(
+    @Req() req: Request,
+    @Body()
+    body: {
+      business?: { name?: string; category?: string; city?: string };
+      notifications?: {
+        whatsappReportsEnabled?: boolean;
+        reportPeriodsEnabled?: string[];
+        notificationPhone?: string;
+        notificationEmail?: string;
+        whatsappNumber?: string;
+        paymentRemindersEnabled?: boolean;
+        lowStockAlertsEnabled?: boolean;
+      };
+      preferences?: {
+        timezone?: string;
+        autoResponseEnabled?: boolean;
+        followupDelayMinutes?: number;
+      };
+      payout?: {
+        instapayAlias?: string | null;
+        vodafoneCashNumber?: string | null;
+        bankName?: string | null;
+        bankAccountHolder?: string | null;
+        bankAccount?: string | null;
+        bankIban?: string | null;
+        preferredMethod?: "INSTAPAY" | "VODAFONE_CASH" | "BANK_TRANSFER";
+      };
+      pos?: {
+        enabled?: boolean;
+        mode?: "retail" | "restaurant" | "hybrid";
+        tablesEnabled?: boolean;
+        suspendedSalesEnabled?: boolean;
+        splitPaymentsEnabled?: boolean;
+        returnsEnabled?: boolean;
+        requireActiveRegisterSession?: boolean;
+        defaultServiceMode?: "delivery" | "pickup" | "dine_in";
+        thermalReceiptWidth?: "58mm" | "80mm" | "a4";
+      };
+    },
+  ): Promise<any> {
+    const merchantId = this.getMerchantId(req);
+    const merchant = await this.merchantRepo.findById(merchantId);
+
+    const updateEntries: Array<{ column: string; value: any }> = [];
+
+    if (body.business?.name)
+      updateEntries.push({ column: "name", value: body.business.name });
+    if (body.business?.category)
+      updateEntries.push({ column: "category", value: body.business.category });
+    if (body.business?.city)
+      updateEntries.push({ column: "city", value: body.business.city });
+    if (body.notifications?.paymentRemindersEnabled !== undefined) {
+      updateEntries.push({
+        column: "payment_reminders_enabled",
+        value: body.notifications.paymentRemindersEnabled,
+      });
+    }
+    if (body.notifications?.lowStockAlertsEnabled !== undefined) {
+      updateEntries.push({
+        column: "low_stock_alerts_enabled",
+        value: body.notifications.lowStockAlertsEnabled,
+      });
+    }
+    if (body.notifications?.whatsappReportsEnabled !== undefined) {
+      updateEntries.push({
+        column: "whatsapp_reports_enabled",
+        value: body.notifications.whatsappReportsEnabled,
+      });
+    }
+    if (body.notifications?.reportPeriodsEnabled !== undefined) {
+      updateEntries.push({
+        column: "report_periods_enabled",
+        value: body.notifications.reportPeriodsEnabled,
+      });
+    }
+    if (body.notifications?.notificationPhone !== undefined) {
+      updateEntries.push({
+        column: "notification_phone",
+        value: body.notifications.notificationPhone?.replace(/\s/g, "") || null,
+      });
+    }
+    if (body.notifications?.notificationEmail !== undefined) {
+      updateEntries.push({
+        column: "notification_email",
+        value: body.notifications.notificationEmail?.trim() || null,
+      });
+    }
+    if (body.notifications?.whatsappNumber !== undefined) {
+      updateEntries.push({
+        column: "whatsapp_number",
+        value: body.notifications.whatsappNumber?.replace(/\s/g, "") || null,
+      });
+    }
+    if (body.preferences?.timezone)
+      updateEntries.push({
+        column: "timezone",
+        value: body.preferences.timezone,
+      });
+    if (body.preferences?.autoResponseEnabled !== undefined) {
+      updateEntries.push({
+        column: "auto_response_enabled",
+        value: body.preferences.autoResponseEnabled,
+      });
+    }
+    if (body.preferences?.followupDelayMinutes !== undefined) {
+      updateEntries.push({
+        column: "followup_delay_minutes",
+        value: body.preferences.followupDelayMinutes,
+      });
+    }
+
+    // Payout settings (Egypt payment methods)
+    if (body.payout?.instapayAlias !== undefined) {
+      updateEntries.push({
+        column: "payout_instapay_alias",
+        value: body.payout.instapayAlias || null,
+      });
+    }
+    if (body.payout?.vodafoneCashNumber !== undefined) {
+      updateEntries.push({
+        column: "payout_vodafone_cash",
+        value: body.payout.vodafoneCashNumber || null,
+      });
+    }
+    if (body.payout?.bankName !== undefined) {
+      updateEntries.push({
+        column: "payout_bank_name",
+        value: body.payout.bankName || null,
+      });
+    }
+    if (body.payout?.bankAccountHolder !== undefined) {
+      updateEntries.push({
+        column: "payout_bank_account_holder",
+        value: body.payout.bankAccountHolder || null,
+      });
+    }
+    if (body.payout?.bankAccount !== undefined) {
+      updateEntries.push({
+        column: "payout_bank_account",
+        value: body.payout.bankAccount || null,
+      });
+    }
+    if (body.payout?.bankIban !== undefined) {
+      updateEntries.push({
+        column: "payout_bank_iban",
+        value: body.payout.bankIban || null,
+      });
+    }
+    if (body.payout?.preferredMethod !== undefined) {
+      updateEntries.push({
+        column: "payout_preferred_method",
+        value: body.payout.preferredMethod,
+      });
+    }
+
+    if (body.pos) {
+      await this.updateMerchantPosSettings(merchantId, merchant, body.pos);
+    }
+
+    const runUpdate = async (
+      entries: Array<{ column: string; value: any }>,
+    ) => {
+      if (entries.length === 0) return;
+      const sets = entries.map((entry, idx) => `${entry.column} = $${idx + 1}`);
+      const values = entries.map((entry) => entry.value);
+      sets.push("updated_at = NOW()");
+      values.push(merchantId);
+      await this.pool.query(
+        `UPDATE merchants SET ${sets.join(", ")} WHERE id = $${entries.length + 1}`,
+        values,
+      );
+    };
+
+    if (updateEntries.length > 0) {
+      let remaining = [...updateEntries];
+      while (remaining.length > 0) {
+        try {
+          await runUpdate(remaining);
+          break;
+        } catch (error: any) {
+          if (error?.code !== "42703") {
+            throw error;
+          }
+          const match = /column \"([^\"]+)\"/i.exec(error.message || "");
+          const missingColumn = match?.[1];
+          if (!missingColumn) throw error;
+          remaining = remaining.filter(
+            (entry) => entry.column !== missingColumn,
+          );
+          if (remaining.length === 0) break;
+        }
+      }
+    }
+
+    const sections: string[] = [];
+    if (body.business) sections.push("business");
+    if (body.notifications) sections.push("notifications");
+    if (body.preferences) sections.push("preferences");
+    if (body.payout) sections.push("payout");
+    if (body.pos) sections.push("pos");
+    if (sections.length > 0) {
+      await this.auditService.logFromRequest(
+        req,
+        "UPDATE",
+        "SETTINGS",
+        merchantId,
+        {
+          metadata: { sections },
+        },
+      );
+    }
+
+    return {
+      success: true,
+      message: "تم تحديث الإعدادات بنجاح",
+    };
+  }
+
+  // ============== NOTIFICATIONS CONFIG ==============
+
+  @Get("notifications/status")
+  @RequiresFeature("NOTIFICATIONS")
+  @ApiOperation({
+    summary: "Get notification delivery configuration status",
+    description:
+      "Returns SMTP/Meta Cloud API configuration availability for the merchant portal UI",
+  })
+  async getNotificationConfigStatus(@Req() req: Request): Promise<any> {
+    const merchantId = this.getMerchantId(req);
+    const status = this.notificationsService.getDeliveryConfigStatus();
+    const metaReady = status.whatsapp?.configured ?? false;
+
+    // Check if merchant has their own WhatsApp number + email registered
+    let merchantWhatsApp: string | null = null;
+    let merchantPhone: string | null = null;
+    let merchantEmail: string | null = null;
+    try {
+      // Self-heal: ensure notification_email column exists
+      await this.pool
+        .query(
+          `ALTER TABLE merchants ADD COLUMN IF NOT EXISTS notification_email VARCHAR(255)`,
+        )
+        .catch(() => {});
+      const res = await this.pool.query(
+        `SELECT whatsapp_number, notification_phone, notification_email FROM merchants WHERE id = $1`,
+        [merchantId],
+      );
+      merchantWhatsApp = res.rows?.[0]?.whatsapp_number || null;
+      merchantPhone = res.rows?.[0]?.notification_phone || null;
+      merchantEmail = res.rows?.[0]?.notification_email || null;
+    } catch {
+      /* column may not exist yet */
+    }
+
+    return {
+      whatsapp: {
+        configured: metaReady && !!merchantWhatsApp,
+        metaReady,
+        numberRegistered: !!merchantWhatsApp,
+        number: merchantWhatsApp || null,
+      },
+      preferences: {
+        notificationPhone: merchantPhone,
+        notificationEmail: merchantEmail,
+      },
+    };
+  }
+
+  @Post("notifications/broadcast")
+  @RequireRole("ADMIN")
+  @ApiOperation({ summary: "Send broadcast notification to customers" })
+  async sendBroadcastNotification(
+    @Req() req: Request,
+    @Body()
+    body: {
+      title: string;
+      message: string;
+      type: "promotional" | "transactional" | "reminder" | "update";
+      recipientFilter?: "all" | "vip" | "loyal" | "regular" | "at_risk" | "new";
+      recipientIds?: string[];
+    },
+  ): Promise<any> {
+    const merchantId = this.getMerchantId(req);
+    const { title, message, type, recipientFilter, recipientIds } = body;
+
+    if (!title?.trim() || !message?.trim()) {
+      throw new BadRequestException("العنوان والمحتوى مطلوبان");
+    }
+
+    // ── Load merchant info ──
+    const mcResult = await this.pool.query(
+      `SELECT name, config, whatsapp_number FROM merchants WHERE id = $1`,
+      [merchantId],
+    );
+    const merchantName = mcResult.rows?.[0]?.name || "التاجر";
+    const merchantCfg = mcResult.rows?.[0]?.config || {};
+    const senderName = merchantCfg.brandName || merchantName;
+    const merchantWhatsApp: string | null =
+      mcResult.rows?.[0]?.whatsapp_number || null;
+
+    const status = this.notificationsService.getDeliveryConfigStatus();
+    if (!status.whatsapp.configured) {
+      throw new BadRequestException(
+        "واتساب غير مهيأ — تواصل مع الدعم الفني لتفعيل خدمة الرسائل",
+      );
+    }
+    if (!merchantWhatsApp) {
+      throw new BadRequestException(
+        "لم يتم تسجيل رقم واتساب لحسابك بعد — أضف رقمك في الإعدادات",
+      );
+    }
+
+    // Get recipients — only those with phone numbers
+    let recipientQuery = `SELECT id, name, phone FROM customers WHERE merchant_id = $1 AND phone IS NOT NULL AND phone != ''`;
+    const params: any[] = [merchantId];
+
+    if (recipientIds?.length) {
+      recipientQuery += ` AND id = ANY($2)`;
+      params.push(recipientIds);
+    } else if (recipientFilter && recipientFilter !== "all") {
+      recipientQuery = `
+        WITH customer_stats AS (
+          SELECT c.id, c.name, c.phone,
+            COUNT(DISTINCT o.id) as total_orders,
+            COALESCE(SUM(o.total), 0) as total_spent,
+            EXTRACT(DAYS FROM NOW() - MAX(o.created_at)) as days_since_last_order
+          FROM customers c
+          LEFT JOIN orders o ON c.id = o.customer_id AND o.status NOT IN ('CANCELLED')
+          WHERE c.merchant_id = $1 AND c.phone IS NOT NULL AND c.phone != ''
+          GROUP BY c.id, c.name, c.phone
+        )
+        SELECT id, name, phone FROM customer_stats WHERE
+      `;
+      const segmentMap: Record<string, string> = {
+        vip: `total_orders >= 5 AND total_spent >= 1000 AND days_since_last_order < 30`,
+        loyal: `total_orders >= 3 AND days_since_last_order < 60`,
+        regular: `total_orders >= 1 AND days_since_last_order < 90`,
+        new: `total_orders = 0 OR days_since_last_order IS NULL`,
+        at_risk: `total_orders >= 1 AND days_since_last_order >= 90`,
+      };
+      recipientQuery += segmentMap[recipientFilter] || "1=1";
+    }
+
+    const recipientsResult = await this.pool.query(recipientQuery, params);
+    const recipients = recipientsResult.rows;
+
+    if (recipients.length === 0) {
+      throw new BadRequestException("لا يوجد عملاء مطابقون للإرسال");
+    }
+
+    // Store the broadcast record
+    const broadcastResult = await this.pool.query(
+      `INSERT INTO notifications (merchant_id, type, title, title_ar, message, message_ar, priority, channels, data)
+       VALUES ($1, $2, $3, $3, $4, $4, 'MEDIUM', '{WHATSAPP}', $5) RETURNING id`,
+      [
+        merchantId,
+        "SYSTEM_ALERT",
+        title,
+        message,
+        JSON.stringify({
+          broadcast: true,
+          type,
+          recipientCount: recipients.length,
+          filter: recipientFilter || "all",
+        }),
+      ],
+    );
+
+    // ── Send via WhatsApp ──
+    let sentCount = 0;
+    let failCount = 0;
+
+    for (const recipient of recipients) {
+      try {
+        const waBody = `*${title}*\n\n${message}\n\n— ${senderName}`;
+        await this.notificationsService.sendBroadcastWhatsApp(
+          recipient.phone,
+          waBody,
+          merchantWhatsApp,
+        );
+        sentCount++;
+      } catch (err) {
+        const error = err instanceof Error ? err : new Error(String(err));
+        failCount++;
+        this.logger.warn(`Failed to send to ${recipient.id}: ${error.message}`);
+      }
+    }
+
+    // Audit
+    await this.auditService.log({
+      merchantId,
+      action: "CREATE",
+      resource: "SETTINGS",
+      metadata: {
+        broadcast: true,
+        title,
+        channel: "WHATSAPP",
+        sentCount,
+        failCount,
+        recipientCount: recipients.length,
+      },
+      staffId: (req as any).staffId,
+    });
+
+    return {
+      success: true,
+      broadcastId: broadcastResult.rows[0].id,
+      recipientCount: recipients.length,
+      sentCount,
+      failCount,
+      message: `تم إرسال الرسالة إلى ${sentCount} مستلم`,
+    };
+  }
+
+  @Post("notifications/test")
+  @RequireRole("ADMIN")
+  @ApiOperation({
+    summary: "Send a test notification",
+    description:
+      "Sends a test email or WhatsApp message to verify configuration",
+  })
+  async sendTestNotification(
+    @Req() req: Request,
+    @Body() body: { channel: "EMAIL" | "WHATSAPP" | "PUSH"; target?: string },
+  ): Promise<any> {
+    const channel = body?.channel;
+    const target = body?.target?.trim() ?? "";
+    const merchantId = this.getMerchantId(req);
+
+    if (!channel) {
+      throw new BadRequestException("القناة مطلوبة");
+    }
+    if (channel !== "PUSH" && !target) {
+      throw new BadRequestException("الوجهة مطلوبة");
+    }
+
+    const status = this.notificationsService.getDeliveryConfigStatus();
+    if (channel === "EMAIL" && !status.smtp.configured) {
+      throw new BadRequestException("SMTP غير مهيأ");
+    }
+    if (channel === "WHATSAPP" && !status.whatsapp.configured) {
+      throw new BadRequestException("Meta WhatsApp Cloud API غير مهيأ");
+    }
+    if (
+      channel === "PUSH" &&
+      !status.push?.fcm?.configured &&
+      !status.push?.apns?.configured
+    ) {
+      throw new BadRequestException("Push غير مهيأ");
+    }
+
+    if (channel === "EMAIL") {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(target)) {
+        throw new BadRequestException("البريد الإلكتروني غير صحيح");
+      }
+    }
+
+    if (channel === "WHATSAPP") {
+      const phoneRegex = /^\+?[1-9]\d{9,14}$/;
+      if (!phoneRegex.test(target.replace(/\s/g, ""))) {
+        throw new BadRequestException("رقم واتساب غير صحيح");
+      }
+    }
+
+    const normalizedTarget =
+      channel === "WHATSAPP" ? target?.replace(/\s/g, "") : target;
+    await this.notificationsService.sendTest(
+      channel,
+      normalizedTarget,
+      merchantId,
+    );
+
+    return { success: true, message: "تم إرسال رسالة اختبار" };
+  }
+
+  // ============== PUSH SUBSCRIPTIONS (FCM/APNS/WEB) ==============
+
+  @Get("push-subscriptions")
+  @ApiOperation({ summary: "List push subscriptions for merchant" })
+  async listPushSubscriptions(@Req() req: Request): Promise<any> {
+    const merchantId = this.getMerchantId(req);
+
+    const result = await this.pool.query(
+      `SELECT id, provider, platform, endpoint, device_token, is_active, created_at
+       FROM push_subscriptions
+       WHERE merchant_id = $1 AND is_active = true
+       ORDER BY created_at DESC`,
+      [merchantId],
+    );
+
+    return { subscriptions: result.rows };
+  }
+
+  @RequireRole("AGENT")
+  @Post("push-subscriptions")
+  @ApiOperation({ summary: "Register a push subscription (FCM/APNS/Web Push)" })
+  async registerPushSubscription(
+    @Req() req: Request,
+    @Body()
+    body: {
+      provider?: "FCM" | "APNS" | "WEB_PUSH";
+      token?: string;
+      platform?: string;
+      userAgent?: string;
+      subscription?: { endpoint: string; keys?: Record<string, string> };
+      staffId?: string;
+    },
+  ): Promise<any> {
+    const merchantId = this.getMerchantId(req);
+    const provider = (body.provider || "FCM").toUpperCase() as
+      | "FCM"
+      | "APNS"
+      | "WEB_PUSH";
+
+    let endpoint = body.token?.trim() || "";
+    let keys = {};
+    if (provider === "WEB_PUSH") {
+      if (!body.subscription?.endpoint) {
+        throw new BadRequestException(
+          "Web push subscription endpoint is required",
+        );
+      }
+      endpoint = body.subscription.endpoint;
+      keys = body.subscription.keys || {};
+    }
+
+    if (!endpoint) {
+      throw new BadRequestException("Push token/endpoint is required");
+    }
+
+    const result = await this.pool.query(
+      `INSERT INTO push_subscriptions
+        (merchant_id, staff_id, endpoint, keys, user_agent, is_active, provider, platform, device_token)
+       VALUES ($1, $2, $3, $4, $5, true, $6, $7, $8)
+       ON CONFLICT (endpoint) DO UPDATE SET
+         merchant_id = EXCLUDED.merchant_id,
+         staff_id = EXCLUDED.staff_id,
+         keys = EXCLUDED.keys,
+         user_agent = EXCLUDED.user_agent,
+         is_active = true,
+         provider = EXCLUDED.provider,
+         platform = EXCLUDED.platform,
+         device_token = EXCLUDED.device_token
+       RETURNING id, provider, platform, endpoint, device_token, created_at`,
+      [
+        merchantId,
+        body.staffId || null,
+        endpoint,
+        JSON.stringify(keys),
+        body.userAgent || null,
+        provider,
+        body.platform || null,
+        provider === "WEB_PUSH" ? null : endpoint,
+      ],
+    );
+
+    return { subscription: result.rows[0] };
+  }
+
+  @RequireRole("AGENT")
+  @Delete("push-subscriptions/:id")
+  @ApiOperation({ summary: "Remove a push subscription" })
+  async removePushSubscription(
+    @Req() req: Request,
+    @Param("id") id: string,
+  ): Promise<any> {
+    const merchantId = this.getMerchantId(req);
+
+    await this.pool.query(
+      `UPDATE push_subscriptions SET is_active = false WHERE id = $1 AND merchant_id = $2`,
+      [id, merchantId],
+    );
+
+    return { success: true };
+  }
+
+  // ============== WHATSAPP REPORT SETTINGS ==============
+
+  @Get("settings/reports")
+  @RequiresFeature("REPORTS")
+  @ApiOperation({
+    summary: "Get WhatsApp report settings",
+    description:
+      "Returns the current WhatsApp report delivery settings for the merchant",
+  })
+  @ApiResponse({ status: 200, description: "Settings retrieved successfully" })
+  async getReportSettings(@Req() req: Request): Promise<any> {
+    const merchantId = this.getMerchantId(req);
+    const merchant = await this.merchantRepo.findById(merchantId);
+
+    if (!merchant) {
+      throw new NotFoundException("Merchant not found");
+    }
+
+    return {
+      whatsappReportsEnabled: (merchant as any).whatsappReportsEnabled || false,
+      reportPeriodsEnabled: (merchant as any).reportPeriodsEnabled || ["daily"],
+      notificationPhone: (merchant as any).notificationPhone || null,
+      availablePeriods: [
+        {
+          id: "daily",
+          name: "يومي",
+          description: "تقرير كل يوم الساعة 8 صباحاً",
+        },
+        {
+          id: "weekly",
+          name: "أسبوعي",
+          description: "تقرير كل أحد الساعة 9 صباحاً",
+        },
+        {
+          id: "monthly",
+          name: "شهري",
+          description: "تقرير أول كل شهر الساعة 9 صباحاً",
+        },
+      ],
+    };
+  }
+
+  @Post("settings/reports")
+  @RequiresFeature("REPORTS")
+  @RequireRole("ADMIN")
+  @ApiOperation({
+    summary: "Update WhatsApp report settings",
+    description: "Configure WhatsApp report delivery preferences",
+  })
+  @ApiBody({
+    schema: {
+      type: "object",
+      properties: {
+        whatsappReportsEnabled: {
+          type: "boolean",
+          description: "Enable/disable WhatsApp reports",
+        },
+        reportPeriodsEnabled: {
+          type: "array",
+          items: { type: "string", enum: ["daily", "weekly", "monthly"] },
+          description: "Which report periods to receive",
+        },
+        notificationPhone: {
+          type: "string",
+          description: "Phone number for reports (with country code)",
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 200, description: "Settings updated successfully" })
+  @ApiResponse({ status: 400, description: "Invalid settings" })
+  async updateReportSettings(
+    @Req() req: Request,
+    @Body()
+    body: {
+      whatsappReportsEnabled?: boolean;
+      reportPeriodsEnabled?: string[];
+      notificationPhone?: string;
+    },
+  ): Promise<any> {
+    const merchantId = this.getMerchantId(req);
+    const merchant = await this.merchantRepo.findById(merchantId);
+
+    if (!merchant) {
+      throw new NotFoundException("Merchant not found");
+    }
+
+    // Validate phone number if enabling reports
+    if (body.whatsappReportsEnabled && body.notificationPhone) {
+      const phoneRegex = /^\+?[1-9]\d{9,14}$/;
+      if (!phoneRegex.test(body.notificationPhone.replace(/\s/g, ""))) {
+        throw new BadRequestException(
+          "رقم الهاتف غير صحيح. يجب أن يحتوي على كود الدولة",
+        );
+      }
+    }
+
+    // Validate report periods
+    const validPeriods = ["daily", "weekly", "monthly"];
+    if (body.reportPeriodsEnabled) {
+      const invalidPeriods = body.reportPeriodsEnabled.filter(
+        (p) => !validPeriods.includes(p),
+      );
+      if (invalidPeriods.length > 0) {
+        throw new BadRequestException(
+          `فترات غير صحيحة: ${invalidPeriods.join(", ")}`,
+        );
+      }
+    }
+
+    // Update database directly (these fields are on merchants table)
+    const updates: string[] = [];
+    const values: (string | boolean | string[])[] = [];
+    let paramIndex = 1;
+
+    if (body.whatsappReportsEnabled !== undefined) {
+      updates.push(`whatsapp_reports_enabled = $${paramIndex++}`);
+      values.push(body.whatsappReportsEnabled);
+    }
+    if (body.reportPeriodsEnabled !== undefined) {
+      updates.push(`report_periods_enabled = $${paramIndex++}`);
+      values.push(body.reportPeriodsEnabled);
+    }
+    if (body.notificationPhone !== undefined) {
+      updates.push(`notification_phone = $${paramIndex++}`);
+      values.push(body.notificationPhone?.replace(/\s/g, "") || "");
+    }
+
+    if (updates.length > 0) {
+      updates.push(`updated_at = NOW()`);
+      values.push(merchantId);
+
+      await this.pool.query(
+        `UPDATE merchants SET ${updates.join(", ")} WHERE id = $${paramIndex}`,
+        values,
+      );
+    }
+
+    this.logger.log({
+      msg: "WhatsApp report settings updated",
+      merchantId,
+      settings: body,
+    });
+
+    await this.auditService.logFromRequest(
+      req,
+      "UPDATE",
+      "SETTINGS",
+      merchantId,
+      {
+        metadata: { sections: ["reports", "notifications"] },
+      },
+    );
+
+    return {
+      success: true,
+      message: body.whatsappReportsEnabled
+        ? "تم تفعيل التقارير عبر واتساب"
+        : "تم تحديث إعدادات التقارير",
+      settings: {
+        whatsappReportsEnabled:
+          body.whatsappReportsEnabled ??
+          (merchant as any).whatsappReportsEnabled,
+        reportPeriodsEnabled:
+          body.reportPeriodsEnabled ?? (merchant as any).reportPeriodsEnabled,
+        notificationPhone:
+          body.notificationPhone ?? (merchant as any).notificationPhone,
+      },
     };
   }
 
@@ -8439,420 +9330,6 @@ export class MerchantPortalController {
       totalTargeted: inactiveCustomers.rows.length,
       message: `تم إرسال حملة إعادة التفاعل إلى ${sentCount} عميل`,
     };
-  }
-
-  @Get("campaigns/audience-preview")
-  @RequiresFeature("LOYALTY")
-  @RequireRole("MANAGER")
-  @ApiOperation({
-    summary:
-      "Preview and estimate campaign audience using deterministic segment filters",
-  })
-  @ApiQuery({
-    name: "segment",
-    required: false,
-    enum: ["all", "vip", "loyal", "regular", "at_risk", "new"],
-  })
-  @ApiQuery({ name: "inactiveDays", required: false, type: Number })
-  @ApiQuery({ name: "minOrders", required: false, type: Number })
-  @ApiQuery({ name: "minTotalSpent", required: false, type: Number })
-  @ApiQuery({ name: "limit", required: false, type: Number })
-  async previewCampaignAudience(
-    @Req() req: Request,
-    @Query("segment") segment?: string,
-    @Query("inactiveDays") inactiveDays?: string,
-    @Query("minOrders") minOrders?: string,
-    @Query("minTotalSpent") minTotalSpent?: string,
-    @Query("limit") limit?: string,
-  ): Promise<any> {
-    const merchantId = this.getMerchantId(req);
-    const allowedSegments = new Set([
-      "all",
-      "vip",
-      "loyal",
-      "regular",
-      "at_risk",
-      "new",
-    ]);
-
-    const normalizedSegment = String(segment || "all")
-      .trim()
-      .toLowerCase();
-    if (!allowedSegments.has(normalizedSegment)) {
-      throw new BadRequestException(
-        "segment must be one of: all, vip, loyal, regular, at_risk, new",
-      );
-    }
-
-    const boundedInactiveDays = this.parseBoundedInt(inactiveDays, 90, 30, 365);
-    const boundedMinOrders = this.parseBoundedInt(minOrders, 0, 0, 100);
-    const boundedMinTotalSpent = this.parseBoundedNumber(
-      minTotalSpent,
-      0,
-      0,
-      1_000_000,
-    );
-    const sampleLimit = this.parseBoundedInt(limit, 20, 1, 100);
-
-    const params: any[] = [merchantId];
-    const filterConditions: string[] = [];
-
-    if (normalizedSegment === "vip") {
-      filterConditions.push(
-        "total_orders >= 5 AND total_spent >= 1000 AND COALESCE(days_since_last_order, 999999) < 30",
-      );
-    } else if (normalizedSegment === "loyal") {
-      filterConditions.push(
-        "total_orders >= 3 AND COALESCE(days_since_last_order, 999999) < 60",
-      );
-    } else if (normalizedSegment === "regular") {
-      filterConditions.push(
-        "total_orders >= 1 AND COALESCE(days_since_last_order, 999999) < 90",
-      );
-    } else if (normalizedSegment === "new") {
-      filterConditions.push(
-        "total_orders = 0 OR days_since_last_order IS NULL",
-      );
-    } else if (normalizedSegment === "at_risk") {
-      params.push(boundedInactiveDays);
-      filterConditions.push(
-        `total_orders >= 1 AND COALESCE(days_since_last_order, 0) >= $${params.length}`,
-      );
-    }
-
-    params.push(boundedMinOrders);
-    filterConditions.push(`total_orders >= $${params.length}`);
-
-    params.push(boundedMinTotalSpent);
-    filterConditions.push(`total_spent >= $${params.length}`);
-
-    const whereClause = filterConditions.length
-      ? filterConditions.map((condition) => `(${condition})`).join(" AND ")
-      : "1=1";
-
-    const estimateResult = await this.pool.query(
-      `WITH customer_stats AS (
-         SELECT
-           c.id,
-           c.name,
-           c.phone,
-           COUNT(DISTINCT o.id)::int as total_orders,
-           COALESCE(SUM(o.total), 0)::numeric as total_spent,
-           CASE
-             WHEN MAX(o.created_at) IS NULL THEN NULL
-             ELSE EXTRACT(DAY FROM NOW() - MAX(o.created_at))::int
-           END as days_since_last_order
-         FROM customers c
-         LEFT JOIN orders o
-           ON c.id = o.customer_id
-          AND o.status NOT IN ('CANCELLED')
-         WHERE c.merchant_id = $1
-         GROUP BY c.id, c.name, c.phone
-       )
-       SELECT
-         COUNT(*)::int as total_customers,
-         COUNT(*) FILTER (WHERE phone IS NOT NULL AND BTRIM(phone) <> '')::int as reachable_customers
-       FROM customer_stats
-       WHERE ${whereClause}`,
-      params,
-    );
-
-    const sampleParams = [...params, sampleLimit];
-    const sampleResult = await this.pool.query(
-      `WITH customer_stats AS (
-         SELECT
-           c.id,
-           c.name,
-           c.phone,
-           COUNT(DISTINCT o.id)::int as total_orders,
-           COALESCE(SUM(o.total), 0)::numeric as total_spent,
-           CASE
-             WHEN MAX(o.created_at) IS NULL THEN NULL
-             ELSE EXTRACT(DAY FROM NOW() - MAX(o.created_at))::int
-           END as days_since_last_order
-         FROM customers c
-         LEFT JOIN orders o
-           ON c.id = o.customer_id
-          AND o.status NOT IN ('CANCELLED')
-         WHERE c.merchant_id = $1
-         GROUP BY c.id, c.name, c.phone
-       )
-       SELECT
-         id,
-         name,
-         phone,
-         total_orders,
-         total_spent::text as total_spent,
-         days_since_last_order
-       FROM customer_stats
-       WHERE ${whereClause}
-         AND phone IS NOT NULL
-         AND BTRIM(phone) <> ''
-       ORDER BY total_spent DESC, total_orders DESC, id ASC
-       LIMIT $${sampleParams.length}`,
-      sampleParams,
-    );
-
-    const totalCustomers = Number(estimateResult.rows[0]?.total_customers || 0);
-    const reachableCustomers = Number(
-      estimateResult.rows[0]?.reachable_customers || 0,
-    );
-    const unreachableCustomers = Math.max(
-      0,
-      totalCustomers - reachableCustomers,
-    );
-    const reachableRatePct =
-      totalCustomers > 0
-        ? Math.round((reachableCustomers / totalCustomers) * 1000) / 10
-        : 0;
-
-    return {
-      generatedAt: new Date().toISOString(),
-      segment: normalizedSegment,
-      criteria: {
-        inactiveDays: boundedInactiveDays,
-        minOrders: boundedMinOrders,
-        minTotalSpent: boundedMinTotalSpent,
-      },
-      estimate: {
-        totalCustomers,
-        reachableCustomers,
-        unreachableCustomers,
-        reachableRatePct,
-      },
-      sampleRecipients: sampleResult.rows.map((row) => ({
-        id: row.id,
-        name: row.name || null,
-        phone: row.phone,
-        totalOrders: Number(row.total_orders || 0),
-        totalSpent: Number(row.total_spent || 0),
-        daysSinceLastOrder:
-          row.days_since_last_order === null
-            ? null
-            : Number(row.days_since_last_order),
-      })),
-    };
-  }
-
-  @Get("campaigns/performance-summary")
-  @RequiresFeature("LOYALTY")
-  @RequireRole("MANAGER")
-  @ApiOperation({
-    summary: "Campaign performance summary from auditable campaign events",
-  })
-  @ApiQuery({ name: "days", required: false, type: Number })
-  @ApiQuery({
-    name: "campaignType",
-    required: false,
-    enum: ["ALL", "WIN_BACK", "SEASONAL", "REENGAGEMENT"],
-  })
-  @ApiQuery({ name: "limit", required: false, type: Number })
-  async getCampaignPerformanceSummary(
-    @Req() req: Request,
-    @Query("days") days?: string,
-    @Query("campaignType") campaignType?: string,
-    @Query("limit") limit?: string,
-  ): Promise<any> {
-    const merchantId = this.getMerchantId(req);
-    const windowDays = this.parseBoundedInt(days, 30, 1, 180);
-    const recentLimit = this.parseBoundedInt(limit, 20, 1, 100);
-    const normalizedType = String(campaignType || "ALL")
-      .trim()
-      .toUpperCase();
-    const allowedTypes = new Set([
-      "ALL",
-      "WIN_BACK",
-      "SEASONAL",
-      "REENGAGEMENT",
-    ]);
-
-    if (!allowedTypes.has(normalizedType)) {
-      throw new BadRequestException(
-        "campaignType must be one of: ALL, WIN_BACK, SEASONAL, REENGAGEMENT",
-      );
-    }
-
-    const typeFilter = normalizedType === "ALL" ? "all" : normalizedType;
-    const campaignAuditWhere = `
-      WHERE merchant_id = $1
-        AND resource = 'CAMPAIGN'
-        AND action = 'CREATE'
-        AND created_at >= NOW() - ($2::int * INTERVAL '1 day')
-        AND ($3 = 'all' OR COALESCE(metadata->>'type', 'UNKNOWN') = $3)
-    `;
-
-    try {
-      const byTypeResult = await this.pool.query(
-        `SELECT
-           COALESCE(metadata->>'type', 'UNKNOWN') as campaign_type,
-           COUNT(*)::int as campaigns,
-           COALESCE(SUM(CASE WHEN COALESCE(metadata->>'targeted', '') ~ '^[0-9]+$' THEN (metadata->>'targeted')::int ELSE 0 END), 0)::int as targeted,
-           COALESCE(SUM(CASE WHEN COALESCE(metadata->>'sent', '') ~ '^[0-9]+$' THEN (metadata->>'sent')::int ELSE 0 END), 0)::int as sent,
-           COALESCE(SUM(CASE WHEN COALESCE(metadata->>'failed', '') ~ '^[0-9]+$' THEN (metadata->>'failed')::int ELSE 0 END), 0)::int as failed
-         FROM audit_logs
-         ${campaignAuditWhere}
-         GROUP BY campaign_type
-         ORDER BY campaigns DESC, campaign_type ASC`,
-        [merchantId, windowDays, typeFilter],
-      );
-
-      const dailyResult = await this.pool.query(
-        `SELECT
-           date_trunc('day', created_at)::date::text as day,
-           COUNT(*)::int as campaigns,
-           COALESCE(SUM(CASE WHEN COALESCE(metadata->>'sent', '') ~ '^[0-9]+$' THEN (metadata->>'sent')::int ELSE 0 END), 0)::int as sent,
-           COALESCE(SUM(CASE WHEN COALESCE(metadata->>'failed', '') ~ '^[0-9]+$' THEN (metadata->>'failed')::int ELSE 0 END), 0)::int as failed
-         FROM audit_logs
-         ${campaignAuditWhere}
-         GROUP BY day
-         ORDER BY day ASC`,
-        [merchantId, windowDays, typeFilter],
-      );
-
-      const recentResult = await this.pool.query(
-        `SELECT
-           id,
-           created_at,
-           COALESCE(metadata->>'type', 'UNKNOWN') as campaign_type,
-           COALESCE(NULLIF(metadata->>'title', ''), NULLIF(metadata->>'code', ''), COALESCE(metadata->>'type', 'CAMPAIGN')) as label,
-           CASE WHEN COALESCE(metadata->>'targeted', '') ~ '^[0-9]+$' THEN (metadata->>'targeted')::int ELSE 0 END as targeted,
-           CASE WHEN COALESCE(metadata->>'sent', '') ~ '^[0-9]+$' THEN (metadata->>'sent')::int ELSE 0 END as sent,
-           CASE WHEN COALESCE(metadata->>'failed', '') ~ '^[0-9]+$' THEN (metadata->>'failed')::int ELSE 0 END as failed,
-           metadata
-         FROM audit_logs
-         ${campaignAuditWhere}
-         ORDER BY created_at DESC
-         LIMIT $4`,
-        [merchantId, windowDays, typeFilter, recentLimit],
-      );
-
-      const byType = byTypeResult.rows.map((row) => {
-        const campaigns = Number(row.campaigns || 0);
-        const targeted = Number(row.targeted || 0);
-        const sent = Number(row.sent || 0);
-        const failed = Number(row.failed || 0);
-        const successRatePct =
-          targeted > 0 ? Math.round((sent / targeted) * 1000) / 10 : 0;
-
-        return {
-          type: row.campaign_type,
-          campaigns,
-          targeted,
-          sent,
-          failed,
-          successRatePct,
-        };
-      });
-
-      const totals = byType.reduce(
-        (acc, row) => {
-          acc.campaigns += row.campaigns;
-          acc.targeted += row.targeted;
-          acc.sent += row.sent;
-          acc.failed += row.failed;
-          return acc;
-        },
-        {
-          campaigns: 0,
-          targeted: 0,
-          sent: 0,
-          failed: 0,
-        },
-      );
-
-      const totalsWithRates = {
-        ...totals,
-        successRatePct:
-          totals.targeted > 0
-            ? Math.round((totals.sent / totals.targeted) * 1000) / 10
-            : 0,
-        avgAudienceSize:
-          totals.campaigns > 0
-            ? Math.round((totals.targeted / totals.campaigns) * 100) / 100
-            : 0,
-      };
-
-      return {
-        generatedAt: new Date().toISOString(),
-        windowDays,
-        campaignType: normalizedType,
-        totals: totalsWithRates,
-        byType,
-        daily: dailyResult.rows.map((row) => {
-          const sent = Number(row.sent || 0);
-          const failed = Number(row.failed || 0);
-          const attempts = sent + failed;
-          return {
-            date: row.day,
-            campaigns: Number(row.campaigns || 0),
-            sent,
-            failed,
-            successRatePct:
-              attempts > 0 ? Math.round((sent / attempts) * 1000) / 10 : 0,
-          };
-        }),
-        recentCampaigns: recentResult.rows.map((row) => {
-          const targeted = Number(row.targeted || 0);
-          const sent = Number(row.sent || 0);
-          const failed = Number(row.failed || 0);
-          const attempts = sent + failed;
-          const metadata = this.parseConfigObject(row.metadata);
-
-          return {
-            id: row.id,
-            createdAt: row.created_at,
-            type: row.campaign_type,
-            label: row.label,
-            targeted,
-            sent,
-            failed,
-            successRatePct:
-              targeted > 0
-                ? Math.round((sent / targeted) * 1000) / 10
-                : attempts > 0
-                  ? Math.round((sent / attempts) * 1000) / 10
-                  : 0,
-            metadata: {
-              code: metadata.code || null,
-              recipientFilter: metadata.recipientFilter || null,
-              inactiveDays:
-                metadata.inactiveDays === undefined
-                  ? null
-                  : Number(metadata.inactiveDays),
-              discountPercent:
-                metadata.discountPercent === undefined
-                  ? null
-                  : Number(metadata.discountPercent),
-              validDays:
-                metadata.validDays === undefined
-                  ? null
-                  : Number(metadata.validDays),
-            },
-          };
-        }),
-      };
-    } catch (err: any) {
-      if (err?.message?.includes("does not exist")) {
-        return {
-          generatedAt: new Date().toISOString(),
-          windowDays,
-          campaignType: normalizedType,
-          totals: {
-            campaigns: 0,
-            targeted: 0,
-            sent: 0,
-            failed: 0,
-            successRatePct: 0,
-            avgAudienceSize: 0,
-          },
-          byType: [],
-          daily: [],
-          recentCampaigns: [],
-          auditDataAvailable: false,
-        };
-      }
-      throw err;
-    }
   }
 
   // ═══════════════════════════════════════════════════════════════════════
@@ -12292,6 +12769,16 @@ export class MerchantPortalController {
       hasBusinessInfo: !!body.businessInfo,
     });
 
+    // Project JSONB into merchant_kb_chunks so embedding jobs can be queued.
+    // Fire-and-forget — sync is idempotent and any failure is non-critical here.
+    void this.kbChunkService.syncFromMerchantKb(merchantId).catch((err) => {
+      this.logger.warn({
+        msg: "KB chunk sync failed after knowledge-base update",
+        merchantId,
+        err: err instanceof Error ? err.message : String(err),
+      });
+    });
+
     return { success: true };
   }
 
@@ -12452,6 +12939,176 @@ export class MerchantPortalController {
     }
   }
 
+  // ============== SECURITY ==============
+
+  @Get("security/sessions")
+  @ApiOperation({ summary: "Get active sessions for current staff member" })
+  @ApiResponse({ status: 200, description: "Sessions retrieved" })
+  async getSessions(@Req() req: Request): Promise<any> {
+    const staffId = (req as any).staffId;
+    if (!staffId) {
+      // If accessed via API key without staff context, return empty
+      return { sessions: [] };
+    }
+
+    // Validate staffId is a valid UUID before querying
+    const uuidRegex =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(staffId)) {
+      return { sessions: [] };
+    }
+
+    const sessions = await this.staffService.getSessions(staffId);
+
+    // Mark current session
+    const currentSessionId = (req as any).sessionId;
+
+    return {
+      sessions: sessions.map((session) => ({
+        ...session,
+        isCurrent: session.id === currentSessionId,
+      })),
+    };
+  }
+
+  @RequireRole("AGENT")
+  @Delete("security/sessions/:sessionId")
+  @ApiOperation({ summary: "Revoke a specific session" })
+  @ApiParam({ name: "sessionId", description: "Session ID to revoke" })
+  @ApiResponse({ status: 200, description: "Session revoked" })
+  async revokeSession(
+    @Req() req: Request,
+    @Param("sessionId") sessionId: string,
+  ): Promise<any> {
+    const staffId = (req as any).staffId;
+    if (!staffId) {
+      throw new ForbiddenException("Staff authentication required");
+    }
+
+    await this.staffService.revokeSession(staffId, sessionId);
+
+    await this.auditService.log({
+      merchantId: this.getMerchantId(req),
+      staffId,
+      action: "SESSION_REVOKED",
+      resource: "STAFF",
+      resourceId: staffId,
+      metadata: { sessionId },
+    });
+
+    return { success: true };
+  }
+
+  @RequireRole("AGENT")
+  @Delete("security/sessions")
+  @ApiOperation({ summary: "Revoke all sessions except current" })
+  @ApiResponse({ status: 200, description: "All sessions revoked" })
+  async revokeAllSessions(@Req() req: Request): Promise<any> {
+    const staffId = (req as any).staffId;
+    if (!staffId) {
+      throw new ForbiddenException("Staff authentication required");
+    }
+
+    const currentSessionId = (req as any).sessionId;
+    const sessions = await this.staffService.getSessions(staffId);
+
+    let revoked = 0;
+    for (const session of sessions) {
+      if (session.id !== currentSessionId) {
+        await this.staffService.revokeSession(staffId, session.id);
+        revoked++;
+      }
+    }
+
+    await this.auditService.log({
+      merchantId: this.getMerchantId(req),
+      staffId,
+      action: "ALL_SESSIONS_REVOKED",
+      resource: "STAFF",
+      resourceId: staffId,
+      metadata: { revoked, kept: currentSessionId },
+    });
+
+    return { success: true, revoked };
+  }
+
+  @RequireRole("OWNER")
+  @Delete("sessions/all")
+  @ApiOperation({ summary: "Revoke all sessions for this merchant" })
+  @ApiResponse({ status: 200, description: "Merchant sessions revoked" })
+  async revokeAllMerchantSessions(@Req() req: Request): Promise<any> {
+    const merchantId = this.getMerchantId(req);
+    const staffId = (req as any).staffId;
+    const revoked =
+      await this.staffService.revokeAllMerchantSessions(merchantId);
+
+    await this.auditService.log({
+      merchantId,
+      staffId,
+      action: "ALL_SESSIONS_REVOKED",
+      resource: "MERCHANT",
+      resourceId: merchantId,
+      metadata: { scope: "merchant", revoked },
+    });
+
+    return { success: true, revoked };
+  }
+
+  @Get("security/audit")
+  @RequiresFeature("AUDIT_LOGS")
+  @ApiOperation({ summary: "Get security audit logs for current user" })
+  @ApiQuery({ name: "limit", required: false, type: Number })
+  @ApiQuery({ name: "offset", required: false, type: Number })
+  @ApiResponse({ status: 200, description: "Audit logs retrieved" })
+  async getSecurityAudit(
+    @Req() req: Request,
+    @Query("limit") limit?: string,
+    @Query("offset") offset?: string,
+  ): Promise<any> {
+    const merchantId = this.getMerchantId(req);
+    const staffId = (req as any).staffId;
+    const parsedLimit = Math.min(Number(limit) || 50, 200);
+    const parsedOffset = Number(offset) || 0;
+
+    // Validate staffId is a valid UUID, otherwise set to null for query
+    const uuidRegex =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const safeStaffId = staffId && uuidRegex.test(staffId) ? staffId : null;
+
+    // Get security-relevant audit entries
+    try {
+      const result = await this.pool.query(
+        `SELECT id, action, resource, resource_id, ip_address, user_agent, created_at, metadata
+         FROM audit_logs
+         WHERE merchant_id = $1 
+           AND ($2::uuid IS NULL OR staff_id = $2)
+           AND action IN ('LOGIN', 'LOGOUT', 'PASSWORD_CHANGED', 'SESSION_REVOKED', 'ALL_SESSIONS_REVOKED', 'API_KEY_ROTATED', 'PERMISSIONS_CHANGED')
+         ORDER BY created_at DESC
+         LIMIT $3 OFFSET $4`,
+        [merchantId, safeStaffId, parsedLimit, parsedOffset],
+      );
+
+      return {
+        logs: result.rows.map((row) => ({
+          id: row.id,
+          action: row.action,
+          resource: row.resource,
+          resourceId: row.resource_id,
+          ipAddress: row.ip_address,
+          userAgent: row.user_agent,
+          createdAt: row.created_at,
+          metadata: row.metadata,
+        })),
+      };
+    } catch (err: any) {
+      // Handle case where audit_logs table or resource column doesn't exist (migration 008 not run)
+      if (err?.message?.includes("does not exist")) {
+        return { logs: [] };
+      }
+      throw err;
+    }
+  }
+
   // ============== COD SUMMARY ==============
 
   @Get("cod/summary")
@@ -12511,45 +13168,18 @@ export class MerchantPortalController {
     const statementsResult = await this.pool.query(
       `SELECT 
         COUNT(*) as total_statements,
-        COUNT(*) FILTER (WHERE UPPER(COALESCE(status, '')) = 'RECONCILED') as reconciled_statements,
+        COUNT(*) FILTER (WHERE status = 'RECONCILED') as reconciled_statements,
         COALESCE(SUM(total_collected), 0) as total_collected,
         COALESCE(SUM(total_fees), 0) as total_fees,
         COALESCE(SUM(net_amount), 0) as net_received,
         COALESCE(SUM(matched_orders), 0) as matched_orders,
-        COALESCE(SUM(unmatched_orders), 0) as unmatched_orders,
-        (
-          SELECT s2.status
-          FROM cod_statement_imports s2
-          WHERE s2.merchant_id = $1
-          ORDER BY s2.created_at DESC
-          LIMIT 1
-        ) as latest_status
+        COALESCE(SUM(unmatched_orders), 0) as unmatched_orders
        FROM cod_statement_imports
        WHERE merchant_id = $1`,
       [merchantId],
     );
 
     const statements = statementsResult.rows[0];
-
-    const deliveredAmount = Number(orders.delivered_amount || 0);
-    const pendingAmount = Number(orders.pending_amount || 0);
-    const totalCollected = Number(statements.total_collected || 0);
-    const totalFees = Number(statements.total_fees || 0);
-    const netReceived = Number(statements.net_received || 0);
-    const matchedOrders = Number(statements.matched_orders || 0);
-    const unmatchedOrders = Number(statements.unmatched_orders || 0);
-
-    const settlementConfidence = this.buildCodSettlementConfidence({
-      totalOrders: Number(statements.total_statements || 0),
-      matchedOrders,
-      unmatchedOrders,
-      totalCollected,
-      totalFees,
-      netAmount: netReceived,
-      deliveredAmount,
-      pendingAmount,
-      currentStatus: String(statements.latest_status || "pending"),
-    });
 
     // Get recent COD orders (courier/tracking are in shipments table, not orders)
     const recentOrdersResult = await this.pool.query(
@@ -12577,13 +13207,12 @@ export class MerchantPortalController {
       reconciliation: {
         totalStatements: parseInt(statements.total_statements || 0),
         reconciledStatements: parseInt(statements.reconciled_statements || 0),
-        totalCollected,
-        totalFees,
-        netReceived,
-        matchedOrders,
-        unmatchedOrders,
+        totalCollected: parseFloat(statements.total_collected || 0),
+        totalFees: parseFloat(statements.total_fees || 0),
+        netReceived: parseFloat(statements.net_received || 0),
+        matchedOrders: parseInt(statements.matched_orders || 0),
+        unmatchedOrders: parseInt(statements.unmatched_orders || 0),
       },
-      settlementConfidence,
       recentOrders: recentOrdersResult.rows.map((row) => ({
         id: row.id,
         orderNumber: row.order_number,
@@ -12611,23 +13240,6 @@ export class MerchantPortalController {
           description: "Actual amount received",
         },
         notes: { type: "string", description: "Reconciliation notes" },
-        approval: {
-          type: "object",
-          properties: {
-            force: {
-              type: "boolean",
-              description: "Explicitly approve a high-variance reconciliation",
-            },
-            approvedBy: {
-              type: "string",
-              description: "Approver staff ID or operator identifier",
-            },
-            reason: {
-              type: "string",
-              description: "Why variance override is accepted",
-            },
-          },
-        },
       },
     },
   })
@@ -12635,16 +13247,9 @@ export class MerchantPortalController {
   async reconcileCodOrder(
     @Req() req: Request,
     @Param("orderId") orderId: string,
-    @Body()
-    body: {
-      amountReceived?: number;
-      notes?: string;
-      approval?: CodFinanceApprovalPayload;
-    },
+    @Body() body: { amountReceived?: number; notes?: string },
   ): Promise<any> {
     const merchantId = this.getMerchantId(req);
-    const actorId = String((req as any).staffId || "system");
-    const actorRole = String((req as any).staffRole || "MANAGER");
 
     // Verify order exists and is COD
     const orderResult = await this.pool.query(
@@ -12661,40 +13266,6 @@ export class MerchantPortalController {
       throw new BadRequestException("Order is not COD");
     }
 
-    const expectedAmount = Number(order.total || 0);
-    const actualAmount =
-      body.amountReceived === undefined
-        ? expectedAmount
-        : Number(body.amountReceived);
-    if (!Number.isFinite(actualAmount) || actualAmount < 0) {
-      throw new BadRequestException(
-        "amountReceived must be a non-negative number",
-      );
-    }
-
-    const varianceAmount = Number((actualAmount - expectedAmount).toFixed(2));
-    const variancePct =
-      expectedAmount > 0
-        ? Math.abs((varianceAmount / expectedAmount) * 100)
-        : 0;
-
-    const requiresApproval =
-      Math.abs(varianceAmount) >= COD_VARIANCE_ABS_APPROVAL_THRESHOLD ||
-      variancePct >= COD_VARIANCE_PCT_APPROVAL_THRESHOLD;
-    const approvalGranted = this.isCodApprovalGranted(body.approval);
-
-    if (requiresApproval && !approvalGranted) {
-      throw new ConflictException(
-        "COD reconciliation variance exceeds auto-safe threshold; explicit approval is required",
-      );
-    }
-
-    const confidenceScore = this.buildCodOrderReconciliationConfidence(
-      expectedAmount,
-      actualAmount,
-      approvalGranted,
-    );
-
     // Update order with reconciliation info
     await this.pool.query(
       `UPDATE orders SET 
@@ -12703,54 +13274,18 @@ export class MerchantPortalController {
         cod_amount_received = $1,
         cod_notes = $2
        WHERE id = $3`,
-      [actualAmount, body.notes, orderId],
+      [body.amountReceived ?? order.total, body.notes, orderId],
     );
-
-    await this.recordCodFinanceAction({
-      merchantId,
-      actionType: "ORDER_RECONCILE",
-      orderId,
-      expectedAmount,
-      actualAmount,
-      varianceAmount,
-      confidenceScore,
-      requiresApproval,
-      approvalGranted,
-      approvalActor: body.approval?.approvedBy || null,
-      approvalReason: body.approval?.reason || null,
-      actionNotes: body.notes || null,
-      actedBy: actorId,
-      actedRole: actorRole,
-      metadata: {
-        variancePct: Number(variancePct.toFixed(2)),
-      },
-    });
 
     await this.auditService.log({
       merchantId,
       action: "COD_ORDER_RECONCILED",
       resource: "ORDER",
       resourceId: orderId,
-      metadata: {
-        amountReceived: actualAmount,
-        expectedAmount,
-        varianceAmount,
-        variancePct: Number(variancePct.toFixed(2)),
-        notes: body.notes,
-        confidenceScore,
-        requiresApproval,
-        approvalGranted,
-        approval: body.approval || null,
-      },
+      metadata: { amountReceived: body.amountReceived, notes: body.notes },
     });
 
-    return {
-      success: true,
-      confidenceScore,
-      varianceAmount,
-      requiresApproval,
-      approvalGranted,
-    };
+    return { success: true };
   }
 
   @Post("cod/dispute/:orderId")
@@ -12777,8 +13312,6 @@ export class MerchantPortalController {
     body: { reason: string; expectedAmount?: number; actualAmount?: number },
   ): Promise<any> {
     const merchantId = this.getMerchantId(req);
-    const actorId = String((req as any).staffId || "system");
-    const actorRole = String((req as any).staffRole || "MANAGER");
 
     // Verify order exists
     const orderResult = await this.pool.query(
@@ -12800,38 +13333,6 @@ export class MerchantPortalController {
       [body.reason, orderId],
     );
 
-    const expectedAmount =
-      body.expectedAmount !== undefined
-        ? Number(body.expectedAmount)
-        : Number(orderResult.rows[0].total || 0);
-    const actualAmount =
-      body.actualAmount !== undefined ? Number(body.actualAmount) : null;
-    const varianceAmount =
-      actualAmount === null
-        ? null
-        : Number((actualAmount - expectedAmount).toFixed(2));
-
-    await this.recordCodFinanceAction({
-      merchantId,
-      actionType: "ORDER_DISPUTE",
-      orderId,
-      expectedAmount,
-      actualAmount,
-      varianceAmount,
-      confidenceScore: 0,
-      requiresApproval: false,
-      approvalGranted: false,
-      approvalActor: null,
-      approvalReason: null,
-      actionNotes: body.reason,
-      actedBy: actorId,
-      actedRole: actorRole,
-      metadata: {
-        expectedAmount,
-        actualAmount,
-      },
-    });
-
     await this.auditService.log({
       merchantId,
       action: "COD_ORDER_DISPUTED",
@@ -12841,1705 +13342,6 @@ export class MerchantPortalController {
     });
 
     return { success: true };
-  }
-
-  @Get("cod/reconciliation/actions")
-  @RequiresFeature("PAYMENTS")
-  @RequireRole("MANAGER")
-  @ApiOperation({ summary: "List deterministic COD reconciliation actions" })
-  @ApiQuery({ name: "actionType", required: false, type: "string" })
-  @ApiQuery({ name: "limit", required: false, type: Number })
-  @ApiQuery({ name: "offset", required: false, type: Number })
-  async listCodReconciliationActions(
-    @Req() req: Request,
-    @Query("actionType") actionType?: string,
-    @Query("limit") limit?: string,
-    @Query("offset") offset?: string,
-  ): Promise<any> {
-    const merchantId = this.getMerchantId(req);
-    const safeLimit = Math.max(1, Math.min(Number(limit) || 50, 200));
-    const safeOffset = Math.max(0, Number(offset) || 0);
-
-    const normalizedActionType = String(actionType || "")
-      .trim()
-      .toUpperCase();
-    const allowedTypes = [
-      "ORDER_RECONCILE",
-      "ORDER_DISPUTE",
-      "STATEMENT_CLOSE",
-    ];
-    const hasTypeFilter = allowedTypes.includes(normalizedActionType);
-
-    const params: any[] = [merchantId];
-    let actionFilter = "";
-
-    if (hasTypeFilter) {
-      params.push(normalizedActionType);
-      actionFilter = ` AND action_type = $${params.length}`;
-    }
-
-    params.push(safeLimit, safeOffset);
-
-    try {
-      const result = await this.pool.query(
-        `SELECT
-           id::text as id,
-           action_type,
-           statement_id::text as statement_id,
-           order_id::text as order_id,
-           expected_amount,
-           actual_amount,
-           variance_amount,
-           confidence_score,
-           requires_approval,
-           approval_granted,
-           approval_actor,
-           approval_reason,
-           action_notes,
-           acted_by,
-           acted_role,
-           metadata,
-           created_at
-         FROM cod_finance_actions
-         WHERE merchant_id = $1
-           ${actionFilter}
-         ORDER BY created_at DESC
-         LIMIT $${params.length - 1} OFFSET $${params.length}`,
-        params,
-      );
-
-      return {
-        ledgerAvailable: true,
-        items: result.rows,
-        limit: safeLimit,
-        offset: safeOffset,
-        filters: {
-          actionType: hasTypeFilter ? normalizedActionType : null,
-        },
-      };
-    } catch (error: any) {
-      const code = String(error?.code || "");
-      if (code === "42P01" || code === "42703") {
-        return {
-          ledgerAvailable: false,
-          items: [],
-          limit: safeLimit,
-          offset: safeOffset,
-          filters: {
-            actionType: hasTypeFilter ? normalizedActionType : null,
-          },
-        };
-      }
-      throw error;
-    }
-  }
-
-  @Post("cod/settlements/:statementId/close")
-  @RequiresFeature("PAYMENTS")
-  @RequireRole("ADMIN")
-  @ApiOperation({
-    summary: "Close COD settlement statement with confidence guard",
-  })
-  @ApiParam({ name: "statementId", description: "COD statement import ID" })
-  @ApiBody({
-    schema: {
-      type: "object",
-      properties: {
-        notes: {
-          type: "string",
-          description: "Operator notes for settlement close",
-        },
-        approval: {
-          type: "object",
-          properties: {
-            force: { type: "boolean" },
-            approvedBy: { type: "string" },
-            reason: { type: "string" },
-          },
-        },
-      },
-    },
-  })
-  async closeCodSettlementStatement(
-    @Req() req: Request,
-    @Param("statementId") statementId: string,
-    @Body() body: { notes?: string; approval?: CodFinanceApprovalPayload },
-  ): Promise<any> {
-    const merchantId = this.getMerchantId(req);
-    const actorId = String((req as any).staffId || "system");
-    const actorRole = String((req as any).staffRole || "ADMIN");
-
-    const statementResult = await this.pool.query<{
-      id: string;
-      status: string;
-      total_orders: string;
-      matched_orders: string;
-      unmatched_orders: string;
-      total_collected: string;
-      total_fees: string;
-      net_amount: string;
-    }>(
-      `SELECT
-         id::text as id,
-         status,
-         total_orders::text as total_orders,
-         matched_orders::text as matched_orders,
-         unmatched_orders::text as unmatched_orders,
-         total_collected::text as total_collected,
-         total_fees::text as total_fees,
-         net_amount::text as net_amount
-       FROM cod_statement_imports
-       WHERE merchant_id = $1
-         AND id::text = $2
-       LIMIT 1`,
-      [merchantId, statementId],
-    );
-
-    if (!statementResult.rows.length) {
-      throw new NotFoundException("COD statement not found");
-    }
-
-    const statement = statementResult.rows[0];
-    if (String(statement.status || "").toUpperCase() === "RECONCILED") {
-      throw new ConflictException("COD statement is already reconciled");
-    }
-
-    const confidence = this.buildCodSettlementConfidence({
-      totalOrders: Number(statement.total_orders || 0),
-      matchedOrders: Number(statement.matched_orders || 0),
-      unmatchedOrders: Number(statement.unmatched_orders || 0),
-      totalCollected: Number(statement.total_collected || 0),
-      totalFees: Number(statement.total_fees || 0),
-      netAmount: Number(statement.net_amount || 0),
-      deliveredAmount: 0,
-      pendingAmount: 0,
-      currentStatus: String(statement.status || "pending"),
-    });
-
-    const approvalGranted = this.isCodApprovalGranted(body.approval);
-    if (confidence.requiresApproval && !approvalGranted) {
-      throw new ConflictException(
-        "Settlement close requires explicit approval because confidence is below policy threshold",
-      );
-    }
-
-    await this.pool.query(
-      `UPDATE cod_statement_imports
-       SET status = 'reconciled',
-           reconciled_at = NOW()
-       WHERE merchant_id = $1
-         AND id::text = $2`,
-      [merchantId, statementId],
-    );
-
-    await this.recordCodFinanceAction({
-      merchantId,
-      actionType: "STATEMENT_CLOSE",
-      statementId,
-      expectedAmount: Number(statement.total_collected || 0),
-      actualAmount: Number(statement.net_amount || 0),
-      varianceAmount: Number(
-        (
-          Number(statement.total_collected || 0) -
-          Number(statement.total_fees || 0) -
-          Number(statement.net_amount || 0)
-        ).toFixed(2),
-      ),
-      confidenceScore: confidence.score,
-      requiresApproval: confidence.requiresApproval,
-      approvalGranted,
-      approvalActor: body.approval?.approvedBy || null,
-      approvalReason: body.approval?.reason || null,
-      actionNotes: body.notes || null,
-      actedBy: actorId,
-      actedRole: actorRole,
-      metadata: {
-        confidence,
-      },
-    });
-
-    await this.auditService.log({
-      merchantId,
-      action: "UPDATE",
-      resource: "cod_statement_imports",
-      resourceId: statementId,
-      metadata: {
-        domainAction: "COD_SETTLEMENT_CLOSED",
-        confidence,
-        requiresApproval: confidence.requiresApproval,
-        approvalGranted,
-        approval: body.approval || null,
-        notes: body.notes || null,
-      },
-    });
-
-    return {
-      success: true,
-      statementId,
-      status: "reconciled",
-      confidence,
-      approvalGranted,
-    };
-  }
-
-  private isCodApprovalGranted(approval?: CodFinanceApprovalPayload): boolean {
-    if (!approval || approval.force !== true) {
-      return false;
-    }
-
-    const approvedBy = String(approval.approvedBy || "").trim();
-    const reason = String(approval.reason || "").trim();
-    return approvedBy.length > 0 && reason.length >= 6;
-  }
-
-  private buildCodOrderReconciliationConfidence(
-    expectedAmount: number,
-    actualAmount: number,
-    approvalGranted: boolean,
-  ): number {
-    const expected = Math.max(0, Number(expectedAmount || 0));
-    const actual = Math.max(0, Number(actualAmount || 0));
-    const variance = Math.abs(actual - expected);
-    const variancePct = expected > 0 ? (variance / expected) * 100 : 0;
-
-    let score = 100;
-    score -= Math.min(60, variancePct * 2);
-
-    if (variance >= COD_VARIANCE_ABS_APPROVAL_THRESHOLD && !approvalGranted) {
-      score -= 20;
-    }
-
-    return Math.max(0, Math.min(100, Math.round(score)));
-  }
-
-  private buildCodSettlementConfidence(input: {
-    totalOrders: number;
-    matchedOrders: number;
-    unmatchedOrders: number;
-    totalCollected: number;
-    totalFees: number;
-    netAmount: number;
-    deliveredAmount: number;
-    pendingAmount: number;
-    currentStatus: string;
-  }) {
-    const totalOrders = Math.max(0, Number(input.totalOrders || 0));
-    const matchedOrders = Math.max(0, Number(input.matchedOrders || 0));
-    const unmatchedOrders = Math.max(0, Number(input.unmatchedOrders || 0));
-    const totalCollected = Math.max(0, Number(input.totalCollected || 0));
-    const totalFees = Math.max(0, Number(input.totalFees || 0));
-    const netAmount = Math.max(0, Number(input.netAmount || 0));
-    const deliveredAmount = Math.max(0, Number(input.deliveredAmount || 0));
-    const pendingAmount = Math.max(0, Number(input.pendingAmount || 0));
-
-    const arithmeticGap = Number(
-      (totalCollected - totalFees - netAmount).toFixed(2),
-    );
-    const deliveredGap = Number((deliveredAmount - totalCollected).toFixed(2));
-    const unmatchedRatePct =
-      totalOrders > 0
-        ? Number(((unmatchedOrders / totalOrders) * 100).toFixed(2))
-        : 0;
-
-    let score = 100;
-    score -= Math.min(55, unmatchedRatePct);
-
-    const arithmeticPenalty = Math.min(25, Math.abs(arithmeticGap));
-    score -= arithmeticPenalty;
-
-    if (Math.abs(deliveredGap) >= 1) {
-      score -= Math.min(
-        20,
-        (Math.abs(deliveredGap) / Math.max(deliveredAmount, 1)) * 100,
-      );
-    }
-
-    if (pendingAmount > 0) {
-      score -= Math.min(
-        15,
-        (pendingAmount / Math.max(totalCollected, 1)) * 100,
-      );
-    }
-
-    const normalizedStatus = String(input.currentStatus || "").toUpperCase();
-    if (normalizedStatus === "DISPUTED") {
-      score -= 10;
-    }
-
-    const boundedScore = Math.max(0, Math.min(100, Math.round(score)));
-    const requiresApproval =
-      boundedScore < COD_SETTLEMENT_MIN_CONFIDENCE_SCORE ||
-      unmatchedOrders > 0 ||
-      Math.abs(arithmeticGap) >= 1;
-
-    const blockers: string[] = [];
-    if (boundedScore < COD_SETTLEMENT_MIN_CONFIDENCE_SCORE) {
-      blockers.push("confidence_below_threshold");
-    }
-    if (unmatchedOrders > 0) {
-      blockers.push("unmatched_orders_present");
-    }
-    if (Math.abs(arithmeticGap) >= 1) {
-      blockers.push("collection_fee_net_mismatch");
-    }
-    if (pendingAmount > 0) {
-      blockers.push("pending_cod_amount_present");
-    }
-
-    return {
-      score: boundedScore,
-      threshold: COD_SETTLEMENT_MIN_CONFIDENCE_SCORE,
-      requiresApproval,
-      closeReady: blockers.length === 0,
-      blockers,
-      metrics: {
-        totalOrders,
-        matchedOrders,
-        unmatchedOrders,
-        unmatchedRatePct,
-        totalCollected,
-        totalFees,
-        netAmount,
-        arithmeticGap,
-        deliveredAmount,
-        deliveredGap,
-        pendingAmount,
-      },
-    };
-  }
-
-  private async recordCodFinanceAction(
-    input: CodFinanceActionInput,
-  ): Promise<void> {
-    try {
-      await this.pool.query(
-        `INSERT INTO cod_finance_actions (
-           merchant_id,
-           action_type,
-           statement_id,
-           order_id,
-           expected_amount,
-           actual_amount,
-           variance_amount,
-           confidence_score,
-           requires_approval,
-           approval_granted,
-           approval_actor,
-           approval_reason,
-           action_notes,
-           acted_by,
-           acted_role,
-           metadata
-         ) VALUES (
-           $1,
-           $2,
-           $3::uuid,
-           $4::uuid,
-           $5,
-           $6,
-           $7,
-           $8,
-           $9,
-           $10,
-           $11,
-           $12,
-           $13,
-           $14,
-           $15,
-           $16::jsonb
-         )`,
-        [
-          input.merchantId,
-          input.actionType,
-          input.statementId || null,
-          input.orderId || null,
-          input.expectedAmount ?? null,
-          input.actualAmount ?? null,
-          input.varianceAmount ?? null,
-          Math.max(
-            0,
-            Math.min(100, Math.round(Number(input.confidenceScore || 0))),
-          ),
-          input.requiresApproval === true,
-          input.approvalGranted === true,
-          input.approvalActor || null,
-          input.approvalReason || null,
-          input.actionNotes || null,
-          input.actedBy || null,
-          input.actedRole || null,
-          JSON.stringify(input.metadata || {}),
-        ],
-      );
-    } catch (error: any) {
-      const code = String(error?.code || "");
-      if (code === "42P01" || code === "42703") {
-        return;
-      }
-      throw error;
-    }
-  }
-
-  // ============== MONTHLY CLOSE GOVERNANCE ==============
-
-  @Get("finance/monthly-close/:year/:month/packet")
-  @RequiresFeature("REPORTS")
-  @RequireRole("MANAGER")
-  @ApiOperation({ summary: "Generate deterministic monthly close packet" })
-  @ApiParam({ name: "year", description: "Close year (YYYY)" })
-  @ApiParam({ name: "month", description: "Close month (1-12)" })
-  async getMonthlyClosePacket(
-    @Req() req: Request,
-    @Param("year") year: string,
-    @Param("month") month: string,
-  ): Promise<any> {
-    const merchantId = this.getMerchantId(req);
-    const actorId = String((req as any).staffId || "system");
-    const actorRole = String((req as any).staffRole || "MANAGER");
-    const period = this.parseMonthlyClosePeriod(year, month);
-
-    const packet = await this.buildMonthlyClosePacket(
-      merchantId,
-      period.year,
-      period.month,
-    );
-
-    const persisted = await this.persistMonthlyClosePacket(
-      merchantId,
-      packet,
-      actorId,
-    );
-
-    if (persisted.inserted && persisted.packetId) {
-      await this.recordMonthlyCloseLedger({
-        merchantId,
-        year: packet.year,
-        month: packet.month,
-        actionType: "PACKET_GENERATED",
-        packetId: persisted.packetId,
-        packetHash: packet.packetHash,
-        confidenceScore: packet.confidenceScore,
-        blockers: packet.blockers,
-        requiresApproval: packet.requiresApproval,
-        approvalGranted: false,
-        actedBy: actorId,
-        actedRole: actorRole,
-        metadata: {
-          riskTier: packet.riskTier,
-          riskReasons: packet.riskReasons,
-          requiresSecondApproval: packet.requiresSecondApproval,
-        },
-      });
-    }
-
-    return {
-      packetId: persisted.packetId,
-      ...packet,
-    };
-  }
-
-  @Post("finance/monthly-close/:year/:month/close")
-  @RequiresFeature("REPORTS")
-  @RequireRole("ADMIN")
-  @ApiOperation({
-    summary: "Close month using deterministic packet + governance policy",
-  })
-  @ApiParam({ name: "year", description: "Close year (YYYY)" })
-  @ApiParam({ name: "month", description: "Close month (1-12)" })
-  @ApiBody({
-    schema: {
-      type: "object",
-      required: ["packetHash"],
-      properties: {
-        packetHash: {
-          type: "string",
-          description: "Deterministic packet hash from /packet endpoint",
-        },
-        lockAfterClose: {
-          type: "boolean",
-          description: "When true, close status becomes LOCKED (default true)",
-        },
-        notes: {
-          type: "string",
-          description: "Close notes",
-        },
-        approval: {
-          type: "object",
-          properties: {
-            force: { type: "boolean" },
-            approvedBy: { type: "string" },
-            reason: { type: "string" },
-            secondApprovedBy: { type: "string" },
-            secondReason: { type: "string" },
-          },
-        },
-        evidence: {
-          type: "array",
-          items: {
-            type: "object",
-            properties: {
-              referenceId: { type: "string" },
-              category: { type: "string" },
-              uri: { type: "string" },
-              checksum: { type: "string" },
-              note: { type: "string" },
-              uploadedBy: { type: "string" },
-              uploadedAt: { type: "string" },
-            },
-          },
-        },
-      },
-    },
-  })
-  async closeMonthWithGovernance(
-    @Req() req: Request,
-    @Param("year") year: string,
-    @Param("month") month: string,
-    @Body()
-    body: {
-      packetHash: string;
-      lockAfterClose?: boolean;
-      notes?: string;
-      approval?: MonthlyCloseApprovalPayload;
-      evidence?: MonthlyCloseEvidenceReference[];
-    },
-  ): Promise<any> {
-    const merchantId = this.getMerchantId(req);
-    const actorId = String((req as any).staffId || "system");
-    const actorRole = String((req as any).staffRole || "ADMIN");
-    const period = this.parseMonthlyClosePeriod(year, month);
-
-    const requestedPacketHash = String(body?.packetHash || "")
-      .trim()
-      .toLowerCase();
-    if (!requestedPacketHash) {
-      throw new BadRequestException("packetHash is required");
-    }
-
-    return this.withMonthlyCloseLock(
-      merchantId,
-      period.year,
-      period.month,
-      async () => {
-        const packet = await this.buildMonthlyClosePacket(
-          merchantId,
-          period.year,
-          period.month,
-        );
-
-        if (packet.packetHash !== requestedPacketHash) {
-          throw new ConflictException(
-            "Monthly close packet hash mismatch. Regenerate packet before closing.",
-          );
-        }
-
-        const evidence = this.normalizeMonthlyCloseEvidence(
-          body.evidence,
-          actorId,
-        );
-        if (!evidence.length) {
-          throw new ConflictException(
-            "At least one evidence reference is required before monthly close",
-          );
-        }
-
-        const persisted = await this.persistMonthlyClosePacket(
-          merchantId,
-          packet,
-          actorId,
-        );
-
-        const approvalGranted = this.isMonthlyCloseApprovalGranted(
-          body.approval,
-        );
-        if (
-          (packet.requiresApproval || packet.requiresSecondApproval) &&
-          !approvalGranted
-        ) {
-          throw new ConflictException(
-            "Monthly close requires explicit approval because blockers are present or confidence is below threshold",
-          );
-        }
-
-        const secondApprovalGranted = this.isMonthlyCloseSecondApprovalGranted(
-          body.approval,
-          body.approval?.approvedBy,
-          actorId,
-        );
-        if (packet.requiresSecondApproval && !secondApprovalGranted) {
-          throw new ConflictException(
-            "Monthly close requires a distinct second approver for high-risk periods",
-          );
-        }
-
-        const existing = await this.pool.query<{ id: string; status: string }>(
-          `SELECT id::text as id, status
-           FROM monthly_closes
-           WHERE merchant_id = $1 AND year = $2 AND month = $3
-           LIMIT 1`,
-          [merchantId, period.year, period.month],
-        );
-
-        const existingStatus = String(
-          existing.rows[0]?.status || "",
-        ).toUpperCase();
-        if (existingStatus === "LOCKED") {
-          throw new ConflictException(
-            "Monthly close is LOCKED. Reopen is required before applying a new close.",
-          );
-        }
-        if (existingStatus === "CLOSED") {
-          throw new ConflictException(
-            "Monthly close is already CLOSED. Reopen is required before re-closing.",
-          );
-        }
-
-        const finalStatus = body.lockAfterClose === false ? "CLOSED" : "LOCKED";
-
-        const closeResult = await this.pool.query<{
-          id: string;
-          status: string;
-          closed_at: Date | null;
-        }>(
-          `INSERT INTO monthly_closes (
-             merchant_id,
-             year,
-             month,
-             period_start,
-             period_end,
-             total_revenue,
-             total_orders,
-             completed_orders,
-             cancelled_orders,
-             total_expenses,
-             net_profit,
-             cod_expected,
-             cod_collected,
-             cod_outstanding,
-             status,
-             closed_at,
-             closed_by,
-             notes,
-             updated_at
-           ) VALUES (
-             $1,
-             $2,
-             $3,
-             $4::date,
-             $5::date,
-             $6,
-             $7,
-             $8,
-             $9,
-             $10,
-             $11,
-             $12,
-             $13,
-             $14,
-             $15,
-             NOW(),
-             $16,
-             $17,
-             NOW()
-           )
-           ON CONFLICT (merchant_id, year, month)
-           DO UPDATE SET
-             period_start = EXCLUDED.period_start,
-             period_end = EXCLUDED.period_end,
-             total_revenue = EXCLUDED.total_revenue,
-             total_orders = EXCLUDED.total_orders,
-             completed_orders = EXCLUDED.completed_orders,
-             cancelled_orders = EXCLUDED.cancelled_orders,
-             total_expenses = EXCLUDED.total_expenses,
-             net_profit = EXCLUDED.net_profit,
-             cod_expected = EXCLUDED.cod_expected,
-             cod_collected = EXCLUDED.cod_collected,
-             cod_outstanding = EXCLUDED.cod_outstanding,
-             status = EXCLUDED.status,
-             closed_at = EXCLUDED.closed_at,
-             closed_by = EXCLUDED.closed_by,
-             notes = EXCLUDED.notes,
-             updated_at = NOW()
-           RETURNING
-             id::text as id,
-             status,
-             closed_at`,
-          [
-            merchantId,
-            period.year,
-            period.month,
-            packet.periodStart,
-            packet.periodEnd,
-            Number(packet.metrics.realizedRevenue || 0),
-            Number(packet.metrics.totalOrders || 0),
-            Number(packet.metrics.deliveredOrders || 0),
-            Number(packet.metrics.cancelledOrders || 0),
-            Number(packet.metrics.totalExpenses || 0),
-            Number(packet.metrics.netCashFlow || 0),
-            Number(packet.metrics.codExpected || 0),
-            Number(packet.metrics.codCollected || 0),
-            Number(packet.metrics.codOutstanding || 0),
-            finalStatus,
-            actorId,
-            body.notes || null,
-          ],
-        );
-
-        const closeId = String(
-          closeResult.rows[0]?.id || existing.rows[0]?.id || "",
-        );
-
-        await this.recordMonthlyCloseLedger({
-          merchantId,
-          closeId,
-          year: packet.year,
-          month: packet.month,
-          actionType: "CLOSE",
-          packetId: persisted.packetId,
-          packetHash: packet.packetHash,
-          confidenceScore: packet.confidenceScore,
-          blockers: packet.blockers,
-          requiresApproval: packet.requiresApproval,
-          approvalGranted,
-          approvalActor: body.approval?.approvedBy || null,
-          approvalReason: body.approval?.reason || null,
-          actedBy: actorId,
-          actedRole: actorRole,
-          metadata: {
-            finalStatus,
-            notes: body.notes || null,
-            riskTier: packet.riskTier,
-            riskReasons: packet.riskReasons,
-            requiresSecondApproval: packet.requiresSecondApproval,
-            secondApproval: {
-              granted: secondApprovalGranted,
-              approvedBy: body.approval?.secondApprovedBy || null,
-              reason: body.approval?.secondReason || null,
-            },
-            evidence,
-            evidenceCount: evidence.length,
-          },
-        });
-
-        if (finalStatus === "LOCKED") {
-          await this.recordMonthlyCloseLedger({
-            merchantId,
-            closeId,
-            year: packet.year,
-            month: packet.month,
-            actionType: "LOCK",
-            packetId: persisted.packetId,
-            packetHash: packet.packetHash,
-            confidenceScore: packet.confidenceScore,
-            blockers: packet.blockers,
-            requiresApproval: packet.requiresApproval,
-            approvalGranted,
-            approvalActor: body.approval?.approvedBy || null,
-            approvalReason: body.approval?.reason || null,
-            actedBy: actorId,
-            actedRole: actorRole,
-            metadata: {
-              reason: "lock_after_close",
-              riskTier: packet.riskTier,
-              riskReasons: packet.riskReasons,
-              requiresSecondApproval: packet.requiresSecondApproval,
-              secondApproval: {
-                granted: secondApprovalGranted,
-                approvedBy: body.approval?.secondApprovedBy || null,
-                reason: body.approval?.secondReason || null,
-              },
-              evidence,
-              evidenceCount: evidence.length,
-            },
-          });
-        }
-
-        await this.auditService.log({
-          merchantId,
-          action: "UPDATE",
-          resource: "REPORT",
-          resourceId: closeId || `${period.year}-${period.month}`,
-          metadata: {
-            domainAction: "MONTHLY_CLOSE",
-            year: period.year,
-            month: period.month,
-            packetHash: packet.packetHash,
-            confidenceScore: packet.confidenceScore,
-            blockers: packet.blockers,
-            requiresApproval: packet.requiresApproval,
-            requiresSecondApproval: packet.requiresSecondApproval,
-            approvalGranted,
-            secondApprovalGranted,
-            approval: body.approval || null,
-            finalStatus,
-            evidenceCount: evidence.length,
-            riskTier: packet.riskTier,
-            riskReasons: packet.riskReasons,
-          },
-        });
-
-        return {
-          success: true,
-          closeId,
-          year: period.year,
-          month: period.month,
-          status: finalStatus,
-          packetHash: packet.packetHash,
-          confidenceScore: packet.confidenceScore,
-          blockers: packet.blockers,
-          requiresApproval: packet.requiresApproval,
-          requiresSecondApproval: packet.requiresSecondApproval,
-          approvalGranted,
-          secondApprovalGranted,
-          riskTier: packet.riskTier,
-          riskReasons: packet.riskReasons,
-          evidenceCount: evidence.length,
-        };
-      },
-    );
-  }
-
-  @Post("finance/monthly-close/:year/:month/reopen")
-  @RequiresFeature("REPORTS")
-  @RequireRole("ADMIN")
-  @ApiOperation({
-    summary: "Reopen a previously closed/locked month with explicit approval",
-  })
-  @ApiParam({ name: "year", description: "Close year (YYYY)" })
-  @ApiParam({ name: "month", description: "Close month (1-12)" })
-  @ApiBody({
-    schema: {
-      type: "object",
-      properties: {
-        notes: { type: "string" },
-        approval: {
-          type: "object",
-          properties: {
-            force: { type: "boolean" },
-            approvedBy: { type: "string" },
-            reason: { type: "string" },
-          },
-        },
-        evidence: {
-          type: "array",
-          items: {
-            type: "object",
-            properties: {
-              referenceId: { type: "string" },
-              category: { type: "string" },
-              uri: { type: "string" },
-              checksum: { type: "string" },
-              note: { type: "string" },
-              uploadedBy: { type: "string" },
-              uploadedAt: { type: "string" },
-            },
-          },
-        },
-      },
-    },
-  })
-  async reopenMonthlyCloseWithGovernance(
-    @Req() req: Request,
-    @Param("year") year: string,
-    @Param("month") month: string,
-    @Body()
-    body: {
-      notes?: string;
-      approval?: MonthlyCloseApprovalPayload;
-      evidence?: MonthlyCloseEvidenceReference[];
-    },
-  ): Promise<any> {
-    const merchantId = this.getMerchantId(req);
-    const actorId = String((req as any).staffId || "system");
-    const actorRole = String((req as any).staffRole || "ADMIN");
-    const period = this.parseMonthlyClosePeriod(year, month);
-    const approvalGranted = this.isMonthlyCloseApprovalGranted(body.approval);
-    const evidence = this.normalizeMonthlyCloseEvidence(body.evidence, actorId);
-
-    if (!approvalGranted) {
-      throw new ConflictException(
-        "Monthly close reopen requires explicit approval payload",
-      );
-    }
-    if (!evidence.length) {
-      throw new ConflictException(
-        "At least one evidence reference is required before monthly close reopen",
-      );
-    }
-
-    return this.withMonthlyCloseLock(
-      merchantId,
-      period.year,
-      period.month,
-      async () => {
-        const existing = await this.pool.query<{
-          id: string;
-          status: string;
-        }>(
-          `SELECT id::text as id, status
-           FROM monthly_closes
-           WHERE merchant_id = $1 AND year = $2 AND month = $3
-           LIMIT 1`,
-          [merchantId, period.year, period.month],
-        );
-
-        if (!existing.rows.length) {
-          throw new NotFoundException("Monthly close not found");
-        }
-
-        const existingStatus = String(
-          existing.rows[0].status || "",
-        ).toUpperCase();
-        if (existingStatus === "OPEN") {
-          throw new ConflictException("Monthly close is already OPEN");
-        }
-
-        await this.pool.query(
-          `UPDATE monthly_closes
-           SET status = 'OPEN',
-               closed_at = NULL,
-               closed_by = NULL,
-               notes = $4,
-               updated_at = NOW()
-           WHERE merchant_id = $1 AND year = $2 AND month = $3`,
-          [merchantId, period.year, period.month, body.notes || null],
-        );
-
-        await this.recordMonthlyCloseLedger({
-          merchantId,
-          closeId: existing.rows[0].id,
-          year: period.year,
-          month: period.month,
-          actionType: "REOPEN",
-          packetId: null,
-          packetHash: null,
-          confidenceScore: 0,
-          blockers: [],
-          requiresApproval: true,
-          approvalGranted: true,
-          approvalActor: body.approval?.approvedBy || null,
-          approvalReason: body.approval?.reason || null,
-          actedBy: actorId,
-          actedRole: actorRole,
-          metadata: {
-            previousStatus: existingStatus,
-            notes: body.notes || null,
-            evidence,
-            evidenceCount: evidence.length,
-          },
-        });
-
-        await this.auditService.log({
-          merchantId,
-          action: "UPDATE",
-          resource: "REPORT",
-          resourceId: existing.rows[0].id,
-          metadata: {
-            domainAction: "MONTHLY_CLOSE_REOPEN",
-            year: period.year,
-            month: period.month,
-            previousStatus: existingStatus,
-            approval: body.approval || null,
-            evidenceCount: evidence.length,
-          },
-        });
-
-        return {
-          success: true,
-          closeId: existing.rows[0].id,
-          year: period.year,
-          month: period.month,
-          status: "OPEN",
-          approvalGranted: true,
-          evidenceCount: evidence.length,
-        };
-      },
-    );
-  }
-
-  @Get("finance/monthly-close/:year/:month/ledger")
-  @RequiresFeature("REPORTS")
-  @RequireRole("MANAGER")
-  @ApiOperation({
-    summary: "List immutable monthly close governance ledger entries",
-  })
-  @ApiParam({ name: "year", description: "Close year (YYYY)" })
-  @ApiParam({ name: "month", description: "Close month (1-12)" })
-  @ApiQuery({ name: "limit", required: false, type: Number })
-  @ApiQuery({ name: "offset", required: false, type: Number })
-  async listMonthlyCloseLedger(
-    @Req() req: Request,
-    @Param("year") year: string,
-    @Param("month") month: string,
-    @Query("limit") limit?: string,
-    @Query("offset") offset?: string,
-  ): Promise<any> {
-    const merchantId = this.getMerchantId(req);
-    const period = this.parseMonthlyClosePeriod(year, month);
-    const safeLimit = Math.max(1, Math.min(Number(limit) || 50, 200));
-    const safeOffset = Math.max(0, Number(offset) || 0);
-
-    try {
-      const rows = await this.pool.query(
-        `SELECT
-           id::text as id,
-           close_id::text as close_id,
-           packet_id::text as packet_id,
-           year,
-           month,
-           action_type,
-           snapshot_hash,
-           confidence_score,
-           blockers,
-           requires_approval,
-           approval_granted,
-           approval_actor,
-           approval_reason,
-           acted_by,
-           acted_role,
-           metadata,
-           created_at
-         FROM monthly_close_governance_ledger
-         WHERE merchant_id = $1
-           AND year = $2
-           AND month = $3
-         ORDER BY created_at DESC
-         LIMIT $4 OFFSET $5`,
-        [merchantId, period.year, period.month, safeLimit, safeOffset],
-      );
-
-      return {
-        ledgerAvailable: true,
-        year: period.year,
-        month: period.month,
-        limit: safeLimit,
-        offset: safeOffset,
-        items: rows.rows,
-      };
-    } catch (error: any) {
-      const code = String(error?.code || "");
-      if (code === "42P01" || code === "42703") {
-        return {
-          ledgerAvailable: false,
-          year: period.year,
-          month: period.month,
-          limit: safeLimit,
-          offset: safeOffset,
-          items: [],
-        };
-      }
-      throw error;
-    }
-  }
-
-  private parseMonthlyClosePeriod(yearRaw: string, monthRaw: string) {
-    const year = Number(yearRaw);
-    const month = Number(monthRaw);
-
-    if (!Number.isInteger(year) || year < 2000 || year > 2100) {
-      throw new BadRequestException(
-        "year must be an integer between 2000 and 2100",
-      );
-    }
-    if (!Number.isInteger(month) || month < 1 || month > 12) {
-      throw new BadRequestException(
-        "month must be an integer between 1 and 12",
-      );
-    }
-
-    return { year, month };
-  }
-
-  private resolveMonthlyClosePeriodBounds(year: number, month: number) {
-    const periodStart = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0, 0));
-    const periodEnd = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
-    return {
-      periodStart,
-      periodEnd,
-    };
-  }
-
-  private async buildMonthlyClosePacket(
-    merchantId: string,
-    year: number,
-    month: number,
-  ): Promise<MonthlyClosePacket> {
-    const { periodStart, periodEnd } = this.resolveMonthlyClosePeriodBounds(
-      year,
-      month,
-    );
-
-    const snapshot = await this.buildPortalFinanceSnapshot(
-      merchantId,
-      periodStart,
-      periodEnd,
-    );
-
-    let openRegisterSessions = 0;
-    try {
-      const openRegisters = await this.pool.query<{ count: string }>(
-        `SELECT COUNT(*)::text as count
-         FROM pos_register_sessions
-         WHERE merchant_id = $1
-           AND UPPER(COALESCE(status, 'OPEN')) = 'OPEN'`,
-        [merchantId],
-      );
-      openRegisterSessions = Number(openRegisters.rows[0]?.count || 0);
-    } catch (error: any) {
-      const code = String(error?.code || "");
-      if (code !== "42P01" && code !== "42703") {
-        throw error;
-      }
-    }
-
-    let codStatementsTotal = 0;
-    let reconciledCodStatements = 0;
-    let codUnmatchedOrders = 0;
-    let codCollected = 0;
-
-    try {
-      const codStats = await this.pool.query<{
-        total_statements: string;
-        reconciled_statements: string;
-        unmatched_orders: string;
-        total_collected: string;
-      }>(
-        `SELECT
-           COUNT(*)::text as total_statements,
-           COUNT(*) FILTER (WHERE UPPER(COALESCE(status, '')) = 'RECONCILED')::text as reconciled_statements,
-           COALESCE(SUM(unmatched_orders), 0)::text as unmatched_orders,
-           COALESCE(SUM(total_collected), 0)::text as total_collected
-         FROM cod_statement_imports
-         WHERE merchant_id = $1
-           AND statement_date >= $2::date
-           AND statement_date <= $3::date`,
-        [merchantId, periodStart, periodEnd],
-      );
-
-      codStatementsTotal = Number(codStats.rows[0]?.total_statements || 0);
-      reconciledCodStatements = Number(
-        codStats.rows[0]?.reconciled_statements || 0,
-      );
-      codUnmatchedOrders = Number(codStats.rows[0]?.unmatched_orders || 0);
-      codCollected = Number(codStats.rows[0]?.total_collected || 0);
-    } catch (error: any) {
-      const code = String(error?.code || "");
-      if (code !== "42P01" && code !== "42703") {
-        throw error;
-      }
-    }
-
-    let codExpected = 0;
-    try {
-      const codExpectedResult = await this.pool.query<{ cod_expected: string }>(
-        `SELECT COALESCE(
-           SUM(total) FILTER (WHERE payment_method = 'COD' AND status = 'DELIVERED'),
-           0
-         )::text as cod_expected
-         FROM orders
-         WHERE merchant_id = $1
-           AND created_at >= $2
-           AND created_at <= $3`,
-        [merchantId, periodStart, periodEnd],
-      );
-
-      codExpected = Number(codExpectedResult.rows[0]?.cod_expected || 0);
-    } catch (error: any) {
-      const code = String(error?.code || "");
-      if (code !== "42P01" && code !== "42703") {
-        throw error;
-      }
-    }
-
-    const unreconciledCodStatements = Math.max(
-      0,
-      codStatementsTotal - reconciledCodStatements,
-    );
-    const codOutstanding = Math.max(
-      0,
-      Number((codExpected - codCollected).toFixed(2)),
-    );
-
-    const blockers: MonthlyCloseBlocker[] = [];
-    if (openRegisterSessions > 0) {
-      blockers.push({
-        code: "open_register_sessions",
-        severity: "critical",
-        message: "POS register sessions are still open",
-        value: openRegisterSessions,
-      });
-    }
-
-    if (unreconciledCodStatements > 0) {
-      blockers.push({
-        code: "unreconciled_cod_statements",
-        severity: "critical",
-        message: "COD statements are not fully reconciled",
-        value: unreconciledCodStatements,
-      });
-    }
-
-    if (codUnmatchedOrders > 0) {
-      blockers.push({
-        code: "cod_unmatched_orders",
-        severity: "warning",
-        message: "COD unmatched orders detected",
-        value: codUnmatchedOrders,
-      });
-    }
-
-    if (snapshot.pendingCollections > 0) {
-      blockers.push({
-        code: "pending_collections",
-        severity: "warning",
-        message: "Pending collections still exist",
-        value: Number(snapshot.pendingCollections.toFixed(2)),
-      });
-    }
-
-    if (codOutstanding > 0) {
-      blockers.push({
-        code: "cod_outstanding_amount",
-        severity: "warning",
-        message: "Outstanding COD amount remains",
-        value: codOutstanding,
-      });
-    }
-
-    let confidenceScore = 100;
-    if (openRegisterSessions > 0) {
-      confidenceScore -= 40;
-    }
-    if (unreconciledCodStatements > 0) {
-      confidenceScore -= Math.min(35, unreconciledCodStatements * 10);
-    }
-    if (codUnmatchedOrders > 0) {
-      confidenceScore -= Math.min(20, codUnmatchedOrders * 2);
-    }
-    if (snapshot.pendingCollections > 0) {
-      confidenceScore -= Math.min(
-        15,
-        (snapshot.pendingCollections / Math.max(snapshot.realizedRevenue, 1)) *
-          100,
-      );
-    }
-    if (codOutstanding > 0) {
-      confidenceScore -= Math.min(
-        10,
-        (codOutstanding / Math.max(codExpected, 1)) * 100,
-      );
-    }
-
-    const boundedConfidence = Math.max(
-      0,
-      Math.min(100, Math.round(confidenceScore)),
-    );
-    const criticalBlockerCount = blockers.filter(
-      (b) => b.severity === "critical",
-    ).length;
-    const blockerHeavy =
-      blockers.length >= MONTHLY_CLOSE_BLOCKER_HEAVY_THRESHOLD;
-    const lowConfidenceForSecondApproval =
-      boundedConfidence < MONTHLY_CLOSE_SECOND_APPROVAL_CONFIDENCE_THRESHOLD;
-
-    const requiresApproval =
-      criticalBlockerCount > 0 ||
-      boundedConfidence < MONTHLY_CLOSE_MIN_CONFIDENCE_SCORE;
-    const requiresSecondApproval =
-      criticalBlockerCount > 0 ||
-      blockerHeavy ||
-      lowConfidenceForSecondApproval;
-
-    const riskReasons: string[] = [];
-    if (criticalBlockerCount > 0) {
-      riskReasons.push("critical_blockers");
-    }
-    if (blockerHeavy) {
-      riskReasons.push("blocker_heavy");
-    }
-    if (lowConfidenceForSecondApproval) {
-      riskReasons.push("low_confidence");
-    }
-
-    const riskTier: "normal" | "high" =
-      requiresSecondApproval ||
-      boundedConfidence < MONTHLY_CLOSE_MIN_CONFIDENCE_SCORE
-        ? "high"
-        : "normal";
-
-    const metrics: Record<string, number> = {
-      totalOrders: Number(snapshot.totalOrders || 0),
-      deliveredOrders: Number(snapshot.deliveredOrders || 0),
-      cancelledOrders: Number(snapshot.cancelledOrders || 0),
-      bookedSales: Number(snapshot.bookedSales || 0),
-      realizedRevenue: Number(snapshot.realizedRevenue || 0),
-      totalExpenses: Number(snapshot.totalExpenses || 0),
-      netCashFlow: Number(snapshot.netCashFlow || 0),
-      pendingCollections: Number(snapshot.pendingCollections || 0),
-      pendingCod: Number(snapshot.pendingCod || 0),
-      pendingOnline: Number(snapshot.pendingOnline || 0),
-      codStatementsTotal,
-      reconciledCodStatements,
-      unreconciledCodStatements,
-      codUnmatchedOrders,
-      codExpected,
-      codCollected,
-      codOutstanding,
-      openRegisterSessions,
-    };
-
-    const packetMaterial = {
-      merchantId,
-      year,
-      month,
-      periodStart: periodStart.toISOString(),
-      periodEnd: periodEnd.toISOString(),
-      metrics,
-      blockers: blockers.map((b) => ({
-        code: b.code,
-        severity: b.severity,
-        value: b.value,
-      })),
-      confidenceScore: boundedConfidence,
-      requiresApproval,
-      requiresSecondApproval,
-      riskTier,
-      riskReasons,
-    };
-
-    const packetHash = createHash("sha256")
-      .update(JSON.stringify(packetMaterial))
-      .digest("hex");
-
-    return {
-      year,
-      month,
-      periodStart: periodStart.toISOString(),
-      periodEnd: periodEnd.toISOString(),
-      packetHash,
-      confidenceScore: boundedConfidence,
-      requiresApproval,
-      requiresSecondApproval,
-      riskTier,
-      riskReasons,
-      closeReady: blockers.length === 0,
-      blockers,
-      metrics,
-    };
-  }
-
-  private async persistMonthlyClosePacket(
-    merchantId: string,
-    packet: MonthlyClosePacket,
-    generatedBy: string,
-  ): Promise<{ packetId: string | null; inserted: boolean }> {
-    try {
-      const inserted = await this.pool.query<{ id: string }>(
-        `INSERT INTO monthly_close_packets (
-           merchant_id,
-           year,
-           month,
-           period_start,
-           period_end,
-           snapshot_hash,
-           confidence_score,
-           requires_approval,
-           blockers,
-           metrics,
-           generated_by
-         ) VALUES (
-           $1,
-           $2,
-           $3,
-           $4::date,
-           $5::date,
-           $6,
-           $7,
-           $8,
-           $9::jsonb,
-           $10::jsonb,
-           $11
-         )
-         ON CONFLICT (merchant_id, year, month, snapshot_hash)
-         DO NOTHING
-         RETURNING id::text as id`,
-        [
-          merchantId,
-          packet.year,
-          packet.month,
-          packet.periodStart,
-          packet.periodEnd,
-          packet.packetHash,
-          packet.confidenceScore,
-          packet.requiresApproval,
-          JSON.stringify(packet.blockers),
-          JSON.stringify(packet.metrics),
-          generatedBy,
-        ],
-      );
-
-      if (inserted.rows.length) {
-        return {
-          packetId: String(inserted.rows[0].id || ""),
-          inserted: true,
-        };
-      }
-
-      const existing = await this.pool.query<{ id: string }>(
-        `SELECT id::text as id
-         FROM monthly_close_packets
-         WHERE merchant_id = $1
-           AND year = $2
-           AND month = $3
-           AND snapshot_hash = $4
-         ORDER BY created_at DESC
-         LIMIT 1`,
-        [merchantId, packet.year, packet.month, packet.packetHash],
-      );
-
-      return {
-        packetId: String(existing.rows[0]?.id || "") || null,
-        inserted: false,
-      };
-    } catch (error: any) {
-      const code = String(error?.code || "");
-      if (code === "42P01" || code === "42703") {
-        return {
-          packetId: null,
-          inserted: false,
-        };
-      }
-      throw error;
-    }
-  }
-
-  private async recordMonthlyCloseLedger(input: {
-    merchantId: string;
-    closeId?: string | null;
-    packetId?: string | null;
-    year: number;
-    month: number;
-    actionType: "PACKET_GENERATED" | "CLOSE" | "REOPEN" | "LOCK";
-    packetHash?: string | null;
-    confidenceScore: number;
-    blockers: MonthlyCloseBlocker[];
-    requiresApproval: boolean;
-    approvalGranted: boolean;
-    approvalActor?: string | null;
-    approvalReason?: string | null;
-    actedBy?: string | null;
-    actedRole?: string | null;
-    metadata?: Record<string, any>;
-  }): Promise<void> {
-    try {
-      await this.pool.query(
-        `INSERT INTO monthly_close_governance_ledger (
-           merchant_id,
-           close_id,
-           packet_id,
-           year,
-           month,
-           action_type,
-           snapshot_hash,
-           confidence_score,
-           blockers,
-           requires_approval,
-           approval_granted,
-           approval_actor,
-           approval_reason,
-           acted_by,
-           acted_role,
-           metadata
-         ) VALUES (
-           $1,
-           $2::uuid,
-           $3::uuid,
-           $4,
-           $5,
-           $6,
-           $7,
-           $8,
-           $9::jsonb,
-           $10,
-           $11,
-           $12,
-           $13,
-           $14,
-           $15,
-           $16::jsonb
-         )`,
-        [
-          input.merchantId,
-          input.closeId || null,
-          input.packetId || null,
-          input.year,
-          input.month,
-          input.actionType,
-          input.packetHash || null,
-          Math.max(
-            0,
-            Math.min(100, Math.round(Number(input.confidenceScore || 0))),
-          ),
-          JSON.stringify(input.blockers || []),
-          input.requiresApproval === true,
-          input.approvalGranted === true,
-          input.approvalActor || null,
-          input.approvalReason || null,
-          input.actedBy || null,
-          input.actedRole || null,
-          JSON.stringify(input.metadata || {}),
-        ],
-      );
-    } catch (error: any) {
-      const code = String(error?.code || "");
-      if (code === "42P01" || code === "42703") {
-        return;
-      }
-      throw error;
-    }
-  }
-
-  private async withMonthlyCloseLock<T>(
-    merchantId: string,
-    year: number,
-    month: number,
-    fn: () => Promise<T>,
-  ): Promise<T> {
-    const lockKey = `${merchantId}:${year}-${String(month).padStart(2, "0")}`;
-    const lock = await this.pool.query<{ locked: boolean }>(
-      `SELECT pg_try_advisory_lock(hashtext($1), hashtext($2)) as locked`,
-      [MONTHLY_CLOSE_LOCK_NAMESPACE, lockKey],
-    );
-
-    if (lock.rows[0]?.locked !== true) {
-      throw new ConflictException(
-        "Monthly close operation is already in progress for this period",
-      );
-    }
-
-    try {
-      return await fn();
-    } finally {
-      await this.pool
-        .query(`SELECT pg_advisory_unlock(hashtext($1), hashtext($2))`, [
-          MONTHLY_CLOSE_LOCK_NAMESPACE,
-          lockKey,
-        ])
-        .catch(() => undefined);
-    }
-  }
-
-  private isMonthlyCloseApprovalGranted(
-    approval?: MonthlyCloseApprovalPayload,
-  ): boolean {
-    if (!approval || approval.force !== true) {
-      return false;
-    }
-
-    const approvedBy = String(approval.approvedBy || "").trim();
-    const reason = String(approval.reason || "").trim();
-    return approvedBy.length > 0 && reason.length >= 8;
-  }
-
-  private isMonthlyCloseSecondApprovalGranted(
-    approval?: MonthlyCloseApprovalPayload,
-    primaryApprovalActor?: string,
-    actionActor?: string,
-  ): boolean {
-    if (!approval || approval.force !== true) {
-      return false;
-    }
-
-    const secondApprovedBy = String(approval.secondApprovedBy || "").trim();
-    const secondReason = String(approval.secondReason || "").trim();
-    if (secondApprovedBy.length === 0 || secondReason.length < 8) {
-      return false;
-    }
-
-    const normalizedSecondActor = secondApprovedBy.toLowerCase();
-    const normalizedPrimaryActor = String(
-      primaryApprovalActor || approval.approvedBy || "",
-    )
-      .trim()
-      .toLowerCase();
-    const normalizedActionActor = String(actionActor || "")
-      .trim()
-      .toLowerCase();
-
-    if (
-      (normalizedPrimaryActor &&
-        normalizedSecondActor === normalizedPrimaryActor) ||
-      (normalizedActionActor && normalizedSecondActor === normalizedActionActor)
-    ) {
-      return false;
-    }
-
-    return true;
-  }
-
-  private normalizeMonthlyCloseEvidence(
-    rawEvidence: MonthlyCloseEvidenceReference[] | undefined,
-    defaultUploadedBy: string,
-  ): MonthlyCloseEvidenceReference[] {
-    if (!Array.isArray(rawEvidence) || rawEvidence.length === 0) {
-      return [];
-    }
-
-    const normalized: MonthlyCloseEvidenceReference[] = [];
-    const seenKeys = new Set<string>();
-
-    rawEvidence
-      .slice(0, MONTHLY_CLOSE_MAX_EVIDENCE_REFERENCES)
-      .forEach((entry, index) => {
-        const category = String(entry?.category || "")
-          .trim()
-          .toLowerCase();
-        const referenceId = String(entry?.referenceId || "")
-          .trim()
-          .slice(0, 120);
-        const uri = String(entry?.uri || "").trim();
-        const checksum = String(entry?.checksum || "").trim();
-        const note = String(entry?.note || "").trim();
-
-        if (!category) {
-          return;
-        }
-        if (!uri && !checksum && !note) {
-          return;
-        }
-
-        const safeReferenceId =
-          referenceId || `${category.replace(/\s+/g, "-")}-${index + 1}`;
-        const dedupeKey = `${safeReferenceId.toLowerCase()}::${category}`;
-        if (seenKeys.has(dedupeKey)) {
-          return;
-        }
-        seenKeys.add(dedupeKey);
-
-        const uploadedBy = String(entry?.uploadedBy || "").trim();
-        const uploadedAtRaw = String(entry?.uploadedAt || "").trim();
-        const uploadedAtParsed = uploadedAtRaw ? new Date(uploadedAtRaw) : null;
-        const uploadedAtIso =
-          uploadedAtParsed && !Number.isNaN(uploadedAtParsed.getTime())
-            ? uploadedAtParsed.toISOString()
-            : new Date().toISOString();
-
-        normalized.push({
-          referenceId: safeReferenceId,
-          category,
-          uri: uri || null,
-          checksum: checksum || null,
-          note: note || null,
-          uploadedBy: uploadedBy || defaultUploadedBy || null,
-          uploadedAt: uploadedAtIso,
-        });
-      });
-
-    return normalized.sort((a, b) => {
-      if (a.referenceId === b.referenceId) {
-        return a.category.localeCompare(b.category);
-      }
-      return a.referenceId.localeCompare(b.referenceId);
-    });
   }
 
   // ============== CFO BRIEF REPORT ==============

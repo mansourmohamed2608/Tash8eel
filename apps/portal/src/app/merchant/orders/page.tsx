@@ -178,7 +178,7 @@ function getSourceBadgeClass(value: unknown): string {
   if (normalized === "manual_button")
     return "border-[color:var(--border-default)] bg-[color:var(--bg-surface-2)] text-[color:var(--text-secondary)]";
   if (normalized === "voice_ai")
-    return "border-[color:rgba(45,107,228,0.15)] bg-[color:var(--brand-blue-dim)] text-[color:var(--brand-blue)]";
+    return "border-[color:rgba(232,197,71,0.24)] bg-[color:var(--accent-gold-dim)] text-[color:var(--accent-gold)]";
   if (normalized === "whatsapp")
     return "border-[color:rgba(34,197,94,0.28)] bg-[color:rgba(34,197,94,0.12)] text-[color:#86efac]";
   return "border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-2)] text-[color:var(--text-secondary)]";
@@ -1907,7 +1907,7 @@ export default function OrdersPage() {
                 )}
               </div>
 
-              <div className="flex flex-col gap-1 rounded-[var(--radius-md)] border border-[color:rgba(45,107,228,0.12)] bg-[color:var(--brand-blue-dim)] px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-col gap-1 rounded-[var(--radius-md)] border border-[color:rgba(232,197,71,0.2)] bg-[color:var(--accent-gold-dim)] px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
                 <span className="text-sm font-medium">الإجمالي الحالي</span>
                 <span className="text-sm font-bold text-[color:var(--accent-gold)]">
                   {formatCurrency(manualOrderTotal)}

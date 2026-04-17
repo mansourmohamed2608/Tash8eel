@@ -1302,12 +1302,7 @@ export class InboxService {
 
       case ActionType.ESCALATE:
       case ActionType.ESCALATE_TO_HUMAN:
-        await this.handleEscalation(merchant, conversation, correlationId, {
-          customerMessage,
-          llmReasoning: llmResponse.response?.reasoning ?? null,
-          cartItems: cart.items,
-          conversationStage: llmResponse.conversationState?.stage,
-        });
+        await this.handleEscalation(merchant, conversation, correlationId);
         break;
     }
 
@@ -1714,20 +1709,12 @@ export class InboxService {
   }
 
   /**
-   * Handle escalation to human.
-   * Publishes a MERCHANT_ALERTED event enriched with the context that triggered
-   * the escalation so the human agent can read the situation at a glance.
+   * Handle escalation to human
    */
   private async handleEscalation(
     merchant: Merchant,
     conversation: Conversation,
     correlationId: string,
-    context?: {
-      customerMessage?: string;
-      llmReasoning?: string | null;
-      cartItems?: unknown[];
-      conversationStage?: string;
-    },
   ): Promise<void> {
     await this.outboxService.publishEvent({
       eventType: EVENT_TYPES.MERCHANT_ALERTED,
@@ -1741,11 +1728,6 @@ export class InboxService {
         message: "العميل يطلب التحدث مع شخص حقيقي",
         metadata: {
           conversationId: conversation.id,
-          // Enriched context for the human agent taking over
-          customerMessage: context?.customerMessage ?? null,
-          llmReasoning: context?.llmReasoning ?? null,
-          cartItemCount: context?.cartItems?.length ?? 0,
-          conversationStage: context?.conversationStage ?? null,
         },
       },
     });
@@ -1754,10 +1736,6 @@ export class InboxService {
       message: "Conversation escalated to human",
       conversationId: conversation.id,
       merchantId: merchant.id,
-      // Truncate customer message to avoid bloating structured logs
-      customerMessagePreview: context?.customerMessage?.substring(0, 100),
-      cartItemCount: context?.cartItems?.length ?? 0,
-      conversationStage: context?.conversationStage,
     });
   }
 

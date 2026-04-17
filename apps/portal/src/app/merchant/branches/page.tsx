@@ -45,8 +45,6 @@ import { useMerchant } from "@/hooks/use-merchant";
 import { useRoleAccess } from "@/hooks/use-role-access";
 import { useToast } from "@/hooks/use-toast";
 import { type Branch, branchesApi } from "@/lib/client";
-import { EmptyState } from "@/components/ui/alerts";
-import { CardSkeleton } from "@/components/ui/skeleton";
 
 const emptyForm = {
   name: "",
@@ -277,23 +275,28 @@ export default function BranchesPage() {
       {loading ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {[1, 2, 3].map((i) => (
-            <CardSkeleton key={i} />
+            <Card key={i} className="app-data-card animate-pulse">
+              <CardContent className="p-6">
+                <div className="h-5 w-40 bg-muted rounded mb-3" />
+                <div className="h-4 w-32 bg-muted rounded mb-2" />
+                <div className="h-4 w-24 bg-muted rounded" />
+              </CardContent>
+            </Card>
           ))}
         </div>
       ) : branches.length === 0 ? (
-        <EmptyState
-          icon={<Building2 className="h-6 w-6" />}
-          title="لا يوجد فروع حتى الآن"
-          description="أضف فرعك الأول لتبدأ في إدارة مواقع المتجر."
-          action={
-            canCreate ? (
-              <Button onClick={openAdd}>
+        <Card className="app-data-card">
+          <CardContent className="p-12 text-center">
+            <Building2 className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+            <p className="text-muted-foreground">لا يوجد فروع حتى الآن</p>
+            {canCreate && (
+              <Button className="mt-4" onClick={openAdd}>
                 <Plus className="h-4 w-4 ml-1" />
                 أضف أول فرع
               </Button>
-            ) : undefined
-          }
-        />
+            )}
+          </CardContent>
+        </Card>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {branches.map((branch) => (

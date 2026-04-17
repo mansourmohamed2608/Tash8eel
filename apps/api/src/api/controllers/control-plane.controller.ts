@@ -141,56 +141,12 @@ class CommandCenterFeedQueryDto {
 class ReplayPlannerRunDto {
   @IsOptional()
   @IsString()
-  @MinLength(8)
   @MaxLength(240)
   reason?: string;
 
   @IsOptional()
   @IsBoolean()
   dryRun?: boolean;
-
-  @IsOptional()
-  @IsBoolean()
-  confirmReplay?: boolean;
-
-  @IsOptional()
-  @IsString()
-  @MinLength(20)
-  @MaxLength(4096)
-  previewToken?: string;
-}
-
-class AcknowledgePlannerRunTriageDto {
-  @IsString()
-  @IsIn([
-    "MONITOR",
-    "REPLAY_RUN",
-    "REVIEW_PENDING_APPROVALS",
-    "ADJUST_TRIGGER_BUDGET",
-    "RETRY_CONNECTOR_DLQ",
-    "EXECUTE_DELIVERY_ESCALATIONS",
-  ])
-  recommendedAction!:
-    | "MONITOR"
-    | "REPLAY_RUN"
-    | "REVIEW_PENDING_APPROVALS"
-    | "ADJUST_TRIGGER_BUDGET"
-    | "RETRY_CONNECTOR_DLQ"
-    | "EXECUTE_DELIVERY_ESCALATIONS";
-
-  @IsOptional()
-  @IsString()
-  @IsIn(["acknowledged", "deferred"])
-  ackStatus?: "acknowledged" | "deferred";
-
-  @IsString()
-  @MinLength(8)
-  @MaxLength(240)
-  note!: string;
-
-  @IsOptional()
-  @IsObject()
-  metadata?: Record<string, any>;
 }
 
 @ApiTags("Control Plane")
@@ -227,28 +183,6 @@ export class ControlPlaneController {
     return this.controlPlaneGovernance.getCommandCenterFeed(
       getMerchantId(req),
       query.limit ?? 25,
-    );
-  }
-
-  @Get("command-center/execution-visibility")
-  @RequireRole("MANAGER")
-  @ApiOperation({
-    summary:
-      "Cross-domain execution visibility for planner runs with replay safety and domain truth signals",
-  })
-  async getExecutionVisibility(
-    @Req() req: Request,
-    @Query() query: PlannerRunsQueryDto,
-  ) {
-    return this.controlPlaneGovernance.getExecutionVisibility(
-      getMerchantId(req),
-      {
-        limit: query.limit ?? 20,
-        offset: query.offset ?? 0,
-        status: query.status,
-        triggerType: query.triggerType,
-        triggerKey: query.triggerKey,
-      },
     );
   }
 
@@ -353,38 +287,6 @@ export class ControlPlaneController {
     });
   }
 
-  @Get("planner-runs/:runId/drilldown")
-  @RequireRole("MANAGER")
-  @ApiOperation({
-    summary:
-      "Get planner run drilldown with correlated approvals, replay attempts, connector and delivery evidence",
-  })
-  async getPlannerRunDrilldown(
-    @Req() req: Request,
-    @Param("runId", new ParseUUIDPipe()) runId: string,
-  ) {
-    return this.controlPlaneGovernance.getPlannerRunDrilldown({
-      merchantId: getMerchantId(req),
-      runId,
-    });
-  }
-
-  @Get("planner-runs/:runId/replay-preview")
-  @RequireRole("MANAGER")
-  @ApiOperation({
-    summary:
-      "Preview replay safety and dry-run summary for a planner run before explicit operator confirmation",
-  })
-  async getPlannerRunReplayPreview(
-    @Req() req: Request,
-    @Param("runId", new ParseUUIDPipe()) runId: string,
-  ) {
-    return this.controlPlaneGovernance.getPlannerRunReplayPreview({
-      merchantId: getMerchantId(req),
-      runId,
-    });
-  }
-
   @Post("planner-runs/:runId/replay")
   @RequireRole("MANAGER")
   @ApiOperation({ summary: "Replay planner run with budget guardrails" })
@@ -403,34 +305,6 @@ export class ControlPlaneController {
       requestedBy: staffId,
       reason: body.reason,
       dryRun: body.dryRun,
-      confirmReplay: body.confirmReplay,
-      previewToken: body.previewToken,
-    });
-  }
-
-  @Post("planner-runs/:runId/triage-ack")
-  @RequireRole("MANAGER")
-  @ApiOperation({
-    summary:
-      "Persist operator triage acknowledgement for a planner run recommended action",
-  })
-  async acknowledgePlannerRunTriage(
-    @Req() req: Request,
-    @Param("runId", new ParseUUIDPipe()) runId: string,
-    @Body() body: AcknowledgePlannerRunTriageDto,
-  ) {
-    const staffId = (req as any)?.staffId
-      ? String((req as any).staffId)
-      : undefined;
-
-    return this.controlPlaneGovernance.acknowledgePlannerRunTriage({
-      merchantId: getMerchantId(req),
-      runId,
-      recommendedAction: body.recommendedAction,
-      ackStatus: body.ackStatus,
-      note: body.note,
-      acknowledgedBy: staffId,
-      metadata: body.metadata,
     });
   }
 }

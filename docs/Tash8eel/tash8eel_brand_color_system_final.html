@@ -1,0 +1,431 @@
+
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--font-sans); }
+  .doc { max-width: 860px; padding: 2rem 0; }
+  .section { margin-bottom: 3rem; }
+  .section-label { font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-text-tertiary); margin-bottom: 0.5rem; }
+  .section-title { font-size: 18px; font-weight: 500; color: var(--color-text-primary); margin-bottom: 1.25rem; padding-bottom: 0.75rem; border-bottom: 0.5px solid var(--color-border-tertiary); }
+  .prose { font-size: 14px; line-height: 1.75; color: var(--color-text-secondary); }
+  .prose p { margin-bottom: 0.75rem; }
+  .prose p:last-child { margin-bottom: 0; }
+  .prose strong { font-weight: 500; color: var(--color-text-primary); }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
+  .card { background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); padding: 1rem 1.25rem; }
+  .card-label { font-size: 11px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-text-tertiary); margin-bottom: 0.5rem; }
+  .card-title { font-size: 14px; font-weight: 500; color: var(--color-text-primary); margin-bottom: 0.4rem; }
+  .card-body { font-size: 13px; line-height: 1.65; color: var(--color-text-secondary); }
+  .color-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 0.5px solid var(--color-border-tertiary); }
+  .color-row:last-child { border-bottom: none; }
+  .swatch { width: 32px; height: 32px; border-radius: 6px; flex-shrink: 0; border: 0.5px solid rgba(0,0,0,0.08); }
+  .swatch-sm { width: 20px; height: 20px; border-radius: 4px; flex-shrink: 0; border: 0.5px solid rgba(0,0,0,0.08); }
+  .color-name { font-size: 13px; font-weight: 500; color: var(--color-text-primary); min-width: 160px; }
+  .color-hex { font-size: 12px; color: var(--color-text-tertiary); font-family: var(--font-mono); min-width: 80px; }
+  .color-role { font-size: 12px; color: var(--color-text-secondary); }
+  .decision-box { background: var(--color-background-secondary); border-radius: var(--border-radius-lg); border: 0.5px solid var(--color-border-secondary); padding: 1.25rem 1.5rem; margin-bottom: 1rem; }
+  .decision-box.verdict-go { border-left: 3px solid #2D6BE4; border-radius: 0 var(--border-radius-lg) var(--border-radius-lg) 0; }
+  .decision-box.verdict-kill { border-left: 3px solid #E24B4A; border-radius: 0 var(--border-radius-lg) var(--border-radius-lg) 0; }
+  .decision-box.verdict-limit { border-left: 3px solid #BA7517; border-radius: 0 var(--border-radius-lg) var(--border-radius-lg) 0; }
+  .verdict-tag { display: inline-block; font-size: 10px; font-weight: 500; letter-spacing: 0.07em; text-transform: uppercase; padding: 2px 8px; border-radius: 4px; margin-bottom: 0.6rem; }
+  .tag-go { background: #E6F1FB; color: #185FA5; }
+  .tag-kill { background: #FCEBEB; color: #A32D2D; }
+  .tag-limit { background: #FAEEDA; color: #854F0B; }
+  .tag-lock { background: #EAF3DE; color: #3B6D11; }
+  .tag-later { background: #F1EFE8; color: #5F5E5A; }
+  .table-grid { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .table-grid th { text-align: left; font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-text-tertiary); padding: 6px 0; border-bottom: 0.5px solid var(--color-border-secondary); }
+  .table-grid td { padding: 9px 0; border-bottom: 0.5px solid var(--color-border-tertiary); color: var(--color-text-secondary); vertical-align: top; }
+  .table-grid td:first-child { color: var(--color-text-primary); font-weight: 500; width: 30%; }
+  .risk-row { display: flex; gap: 12px; padding: 10px 0; border-bottom: 0.5px solid var(--color-border-tertiary); align-items: flex-start; }
+  .risk-row:last-child { border-bottom: none; }
+  .risk-icon { width: 6px; height: 6px; border-radius: 50%; background: #E24B4A; margin-top: 6px; flex-shrink: 0; }
+  .risk-text { font-size: 13px; line-height: 1.6; color: var(--color-text-secondary); }
+  .lock-row { display: flex; gap: 12px; padding: 9px 0; border-bottom: 0.5px solid var(--color-border-tertiary); align-items: flex-start; }
+  .lock-row:last-child { border-bottom: none; }
+  .lock-icon { width: 6px; height: 6px; border-radius: 50%; background: #639922; margin-top: 6px; flex-shrink: 0; }
+  .lock-text { font-size: 13px; line-height: 1.6; color: var(--color-text-secondary); }
+  .palette-strip { display: flex; gap: 4px; margin: 1rem 0; }
+  .palette-chip { height: 48px; border-radius: 6px; flex: 1; display: flex; align-items: flex-end; padding: 4px 6px; }
+  .chip-label { font-size: 10px; font-weight: 500; }
+  .arch-diagram { display: grid; grid-template-columns: 1fr 1fr; gap: 0; border: 0.5px solid var(--color-border-secondary); border-radius: var(--border-radius-lg); overflow: hidden; margin: 1rem 0; }
+  .arch-left { background: var(--color-background-secondary); padding: 1.25rem; border-right: 0.5px solid var(--color-border-tertiary); }
+  .arch-right { background: var(--color-background-primary); padding: 1.25rem; }
+  .arch-head { font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.07em; color: var(--color-text-tertiary); margin-bottom: 0.75rem; }
+  .arch-item { font-size: 13px; color: var(--color-text-secondary); padding: 4px 0; display: flex; align-items: center; gap: 8px; }
+  .dot-brand { width: 8px; height: 8px; border-radius: 50%; background: #2D6BE4; flex-shrink: 0; }
+  .dot-product { width: 8px; height: 8px; border-radius: 50%; background: var(--color-text-tertiary); flex-shrink: 0; }
+  .dot-shared { width: 8px; height: 8px; border-radius: 2px; background: #2D6BE4; flex-shrink: 0; }
+  .final-box { background: var(--color-background-secondary); border-radius: var(--border-radius-lg); border: 0.5px solid var(--color-border-secondary); padding: 1.5rem; margin-bottom: 1rem; }
+  .final-title { font-size: 14px; font-weight: 500; color: var(--color-text-primary); margin-bottom: 1rem; }
+  .final-palette { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 1rem; }
+  .fp-item { display: flex; align-items: center; gap: 8px; background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-md); padding: 6px 10px; }
+  .fp-swatch { width: 16px; height: 16px; border-radius: 3px; border: 0.5px solid rgba(0,0,0,0.08); flex-shrink: 0; }
+  .fp-name { font-size: 12px; font-weight: 500; color: var(--color-text-primary); }
+  .fp-hex { font-size: 11px; color: var(--color-text-tertiary); font-family: var(--font-mono); }
+  .sep { height: 0.5px; background: var(--color-border-tertiary); margin: 2rem 0; }
+  @media (max-width: 600px) {
+    .two-col { grid-template-columns: 1fr; }
+    .arch-diagram { grid-template-columns: 1fr; }
+    .arch-left { border-right: none; border-bottom: 0.5px solid var(--color-border-tertiary); }
+  }
+</style>
+
+<div class="doc">
+
+  <div style="margin-bottom: 2.5rem; padding-bottom: 1.5rem; border-bottom: 0.5px solid var(--color-border-secondary);">
+    <div class="section-label">Final Reference Document</div>
+    <h1 style="font-size: 22px; font-weight: 500; color: var(--color-text-primary); margin-top: 0.4rem; margin-bottom: 0.5rem;">Tash8eel AI — Brand + Color System</h1>
+    <p style="font-size: 13px; color: var(--color-text-tertiary);">Strategy-locked · April 2026 · Egypt-first · Operations OS</p>
+  </div>
+
+  <!-- SECTION 1 -->
+  <div class="section">
+    <div class="section-label">Section 1</div>
+    <div class="section-title">Brand system summary</div>
+    <div class="two-col">
+      <div class="card">
+        <div class="card-label">What kind of system</div>
+        <div class="card-title">Operational precision system</div>
+        <div class="card-body">A restrained, information-dense B2B identity built for daily operator use. Not a consumer brand. Not a startup brand. A system-grade identity whose quality shows through consistency and hierarchy, not decoration.</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Reference analogues</div>
+        <div class="card-title">Stripe · Rippling · Linear</div>
+        <div class="card-body">The common thread: premium through restraint. Clean information, serious typography, functional color. Nothing decorative that doesn't earn its place. This is the same standard Tash8eel must meet.</div>
+      </div>
+    </div>
+    <div class="decision-box verdict-go">
+      <span class="verdict-tag tag-go">Must feel like</span>
+      <div class="prose"><p>Calm. Accountable. Inspectable. Operationally serious. Arabic-native. Premium through consistency and precision. A tool an experienced Egyptian business owner trusts on day one because it looks like it will still work in six months.</p></div>
+    </div>
+    <div class="decision-box verdict-kill">
+      <span class="verdict-tag tag-kill">Must not feel like</span>
+      <div class="prose"><p>Startup pitch-deck energy. Generic "AI company" aesthetics (gradient orbs, glowing panels, particle effects, dark control-room). Traditional ERP heaviness. Consumer app warmth. Regional tech imitation. Any brand signal that exists to impress rather than to operate.</p></div>
+    </div>
+  </div>
+
+  <!-- SECTION 2 -->
+  <div class="section">
+    <div class="section-label">Section 2</div>
+    <div class="section-title">Brand personality direction</div>
+    <div class="two-col">
+      <div class="card">
+        <div class="card-label">Operational</div>
+        <div class="card-body" style="margin-top: 0.25rem;">Structured, workflow-oriented, honest about data state. Every screen earns its place by helping the operator do something faster or with less error. The visual system should feel like it was built by someone who has spent time in a real warehouse or restaurant back office — not by an agency that has not.</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Premium</div>
+        <div class="card-body" style="margin-top: 0.25rem;">Premium through precision, not through luxury. The type is tight. The spacing is deliberate. The components are consistent. Nothing is flimsy. Premium here means: this will not embarrass you in front of a sophisticated buyer. It does not mean: gold, gradient, or glamour.</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Intelligence</div>
+        <div class="card-body" style="margin-top: 0.25rem;">Intelligent through information quality, not decoration. Smart systems are legible. AI is visible only where it produces an insight, an anomaly flag, a recommendation, or an automation outcome — with a trace the operator can inspect. Intelligence is never performed. It is shown in results.</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Arabic-market fit</div>
+        <div class="card-body" style="margin-top: 0.25rem;">RTL is the design origin, not a translation layer. The brand must not look like it was built in English and flipped. Type scale, reading rhythm, spatial hierarchy, and component logic all default to Arabic reading behavior. Seriousness over warmth. Peer-to-peer tone, not sales pressure.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 3 -->
+  <div class="section">
+    <div class="section-label">Section 3</div>
+    <div class="section-title">Final color architecture</div>
+    <div class="arch-diagram">
+      <div class="arch-left">
+        <div class="arch-head">Brand layer — marketing / wordmark</div>
+        <div class="arch-item"><div class="dot-brand"></div>Primary brand blue (wordmark, hero color)</div>
+        <div class="arch-item"><div class="dot-brand"></div>Brand blue used at full saturation</div>
+        <div class="arch-item"><div class="dot-brand"></div>Used in landing page, logo, collateral</div>
+        <div class="arch-item"><div class="dot-brand"></div>Can appear in print, social, pitch decks</div>
+        <div style="margin-top: 1rem; padding-top: 1rem; border-top: 0.5px solid var(--color-border-tertiary);">
+          <div class="arch-head">Shared zone</div>
+          <div class="arch-item"><div class="dot-shared"></div>Brand blue appears in product as interactive accent only — links, active states, primary CTA buttons, focus rings</div>
+          <div class="arch-item"><div class="dot-shared"></div>This is the only brand color that crosses into product</div>
+        </div>
+      </div>
+      <div class="arch-right">
+        <div class="arch-head">Product layer — daily operational use</div>
+        <div class="arch-item"><div class="dot-product"></div>Background: warm off-white (not pure white)</div>
+        <div class="arch-item"><div class="dot-product"></div>Surfaces: white elevated panels</div>
+        <div class="arch-item"><div class="dot-product"></div>Text: structured gray hierarchy</div>
+        <div class="arch-item"><div class="dot-product"></div>Status: green / amber / red only for meaning</div>
+        <div class="arch-item"><div class="dot-product"></div>AI signal: single dedicated teal-adjacent tone</div>
+        <div class="arch-item"><div class="dot-product"></div>Charts: 3–4 color maximum, never rainbow</div>
+        <div class="arch-item"><div class="dot-product"></div>No decorative color — every pixel earns its place</div>
+      </div>
+    </div>
+    <div class="prose" style="margin-top: 0.5rem;">
+      <p><strong>The rule:</strong> Brand color is a recognizable accent. Inside the product, color is a communication tool, not a branding tool. The operator's work — their data, their actions, their decisions — is what dominates the screen. The brand stays in the background.</p>
+    </div>
+  </div>
+
+  <!-- SECTION 4 -->
+  <div class="section">
+    <div class="section-label">Section 4</div>
+    <div class="section-title">Final brand color direction — the decision</div>
+    <div class="decision-box verdict-go">
+      <span class="verdict-tag tag-go">Chosen direction</span>
+      <div class="final-title">Structured operational blue — not teal, not indigo, not purple</div>
+      <div class="final-palette">
+        <div class="fp-item"><div class="fp-swatch" style="background: #2D6BE4;"></div><span class="fp-name">Primary brand</span><span class="fp-hex">#2D6BE4</span></div>
+        <div class="fp-item"><div class="fp-swatch" style="background: #1A52C5;"></div><span class="fp-name">Dark / pressed</span><span class="fp-hex">#1A52C5</span></div>
+        <div class="fp-item"><div class="fp-swatch" style="background: #E8F0FC;"></div><span class="fp-name">Light tint</span><span class="fp-hex">#E8F0FC</span></div>
+      </div>
+      <div class="prose"><p>The brand blue sits in the structured, operational register. It reads modern without reading "tech startup blue" (too bright, too Twitter). It reads confident without reading "corporate enterprise blue" (too navy, too institutional). It is cool-toned, precise, and trustworthy. It can hold its own in Arabic typography at large sizes without competing with the letterforms. It works in the marketing wordmark at full saturation and in the product at reduced presence.</p></div>
+    </div>
+    <div class="two-col" style="margin-top: 1rem;">
+      <div class="decision-box verdict-kill" style="margin-bottom: 0;">
+        <span class="verdict-tag tag-kill">Rejected — teal</span>
+        <div class="prose"><p>Overused in regional tech (Foodics, Salla, local FinTech). Signals "startup from the region." Difficult to separate from the AI signal teal used inside the product. Dilutes the in-product semantic meaning.</p></div>
+      </div>
+      <div class="decision-box verdict-kill" style="margin-bottom: 0;">
+        <span class="verdict-tag tag-kill">Rejected — deep indigo / purple</span>
+        <div class="prose"><p>AI-startup-associated. Reads "Notion clone" or "AI SaaS product from 2023." Does not communicate operational reliability. Sits poorly against Arabic type in RTL contexts at scale.</p></div>
+      </div>
+      <div class="decision-box verdict-kill" style="margin-bottom: 0;">
+        <span class="verdict-tag tag-kill">Rejected — warm / earth tones</span>
+        <div class="prose"><p>Reads consumer, lifestyle, or food tech. Wrong register entirely for an operations OS. No warmth should be present in the brand hue — warmth is reserved only for the background tint.</p></div>
+      </div>
+      <div class="decision-box verdict-kill" style="margin-bottom: 0;">
+        <span class="verdict-tag tag-kill">Rejected — gold / amber as brand</span>
+        <div class="prose"><p>Already rejected in prior strategy work. Cannot serve as both brand CTA and in-product warning signal. Splits its own meaning. Gold reads "luxury" which is the wrong personality register. Confirmed dead as brand primary.</p></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 5 -->
+  <div class="section">
+    <div class="section-label">Section 5</div>
+    <div class="section-title">Final in-product color logic</div>
+    <table class="table-grid">
+      <thead>
+        <tr>
+          <th>Layer</th>
+          <th>Color decision</th>
+          <th>Hex starting point</th>
+          <th>Rules</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Page background</td>
+          <td>Warm off-white</td>
+          <td style="font-family: var(--font-mono); font-size: 12px;">#F7F6F3</td>
+          <td>Slight warmth signals reliability. Not pure white (harsh). Not gray (institutional). This warmth is perceptual, not a color personality statement.</td>
+        </tr>
+        <tr>
+          <td>Card / panel surface</td>
+          <td>Pure white elevated</td>
+          <td style="font-family: var(--font-mono); font-size: 12px;">#FFFFFF</td>
+          <td>Panels sit visibly above the background. Layer separation must be clear. No shadows — use background contrast only.</td>
+        </tr>
+        <tr>
+          <td>Secondary surface</td>
+          <td>Slightly cooler white</td>
+          <td style="font-family: var(--font-mono); font-size: 12px;">#F2F1EE</td>
+          <td>Used for table zebra rows, collapsed sections, inactive states, metadata blocks. Third elevation layer.</td>
+        </tr>
+        <tr>
+          <td>Primary text</td>
+          <td>Near-black, not pure black</td>
+          <td style="font-family: var(--font-mono); font-size: 12px;">#1A1A1A</td>
+          <td>Avoids harshness of pure #000. Used for all primary labels, table primary cells, headings.</td>
+        </tr>
+        <tr>
+          <td>Secondary text</td>
+          <td>Mid gray</td>
+          <td style="font-family: var(--font-mono); font-size: 12px;">#6B6A66</td>
+          <td>Metadata, timestamps, secondary labels. Never used for actionable or status content.</td>
+        </tr>
+        <tr>
+          <td>Tertiary / hint text</td>
+          <td>Light gray</td>
+          <td style="font-family: var(--font-mono); font-size: 12px;">#9B9A96</td>
+          <td>Placeholders, helper text, empty state instructions. Not for anything the operator needs to act on.</td>
+        </tr>
+        <tr>
+          <td>Interactive / CTA</td>
+          <td>Brand blue</td>
+          <td style="font-family: var(--font-mono); font-size: 12px;">#2D6BE4</td>
+          <td>Links, primary buttons, focus rings, active nav item. The only brand color that enters the product. Used sparingly — not as background fill on surfaces.</td>
+        </tr>
+        <tr>
+          <td>Success / active</td>
+          <td>Operational green</td>
+          <td style="font-family: var(--font-mono); font-size: 12px;">#3B6D11</td>
+          <td>Completed orders, active automations, healthy inventory levels, positive cash flow signals. Badge and icon use only — not large background fills.</td>
+        </tr>
+        <tr>
+          <td>Warning / at risk</td>
+          <td>Reserved amber</td>
+          <td style="font-family: var(--font-mono); font-size: 12px;">#854F0B</td>
+          <td>Low stock, SLA at risk, pending approvals, forecast below target. This amber is strictly for meaning. It is never used for CTAs, brand moments, or navigation highlights.</td>
+        </tr>
+        <tr>
+          <td>Danger / critical</td>
+          <td>Clear red</td>
+          <td style="font-family: var(--font-mono); font-size: 12px;">#A32D2D</td>
+          <td>Out of stock, payment failure, automation error, overdue action. Red means real problem. Never used for neutral emphasis or decorative purposes.</td>
+        </tr>
+        <tr>
+          <td>AI signal</td>
+          <td>Muted teal</td>
+          <td style="font-family: var(--font-mono); font-size: 12px;">#0F6E56</td>
+          <td>Exclusively used when the AI brain is the source of a card, recommendation, anomaly flag, or automation outcome. This is the visual signature of AI contribution. Operators learn to recognize it without being told. Must never appear decoratively.</td>
+        </tr>
+        <tr>
+          <td>Info / pending</td>
+          <td>Light blue</td>
+          <td style="font-family: var(--font-mono); font-size: 12px;">#185FA5</td>
+          <td>Non-critical system messages, pending states, informational banners. Distinct from interactive blue — slightly deeper, less saturated.</td>
+        </tr>
+        <tr>
+          <td>Disabled</td>
+          <td>Gray</td>
+          <td style="font-family: var(--font-mono); font-size: 12px;">#B4B2A9</td>
+          <td>Gated features, unavailable actions. Always paired with an explanation of why — never silent disabling.</td>
+        </tr>
+        <tr>
+          <td>Stale data signal</td>
+          <td>Amber tint, low opacity</td>
+          <td style="font-family: var(--font-mono); font-size: 12px;">#FAEEDA</td>
+          <td>Applied as a very subtle tint on metrics and forecast values that are past their freshness threshold. Distinct from warning — this is informational, not critical.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- SECTION 6 -->
+  <div class="section">
+    <div class="section-label">Section 6</div>
+    <div class="section-title">Final recommendation on gold / amber</div>
+    <div class="decision-box verdict-kill">
+      <span class="verdict-tag tag-kill">Killed as brand primary</span>
+      <div class="prose"><p><strong>Gold is dead as a brand color.</strong> The current black/gold visual system is a rejected direction. Gold reads luxury-consumer or crypto-aesthetic. It cannot simultaneously function as a brand CTA, a marketing accent, and an in-product warning signal. The dual use destroys both meanings. It is removed from the brand layer entirely.</p></div>
+    </div>
+    <div class="decision-box verdict-limit">
+      <span class="verdict-tag tag-limit">Survives — but only as warning amber inside the product</span>
+      <div class="prose"><p><strong>Amber survives strictly as a semantic signal.</strong> Inside the product, the amber / orange-amber family continues to mean: flagged, at risk, needs attention, expiring soon. This is its only job. It appears as badge fill, icon tint, and subtle row highlight. It does not appear in navigation, CTAs, headers, or any brand context. It is a communication tool, not a brand element. The exact amber tone should be darker and more muted than the current gold — functional, not shiny.</p></div>
+    </div>
+    <div class="decision-box verdict-kill">
+      <span class="verdict-tag tag-kill">Dead completely</span>
+      <div class="prose"><p>Gold as: logo accent, CTA button fill, page header color, marketing accent on the landing page, or any decorative use in the product UI. These are all permanently removed.</p></div>
+    </div>
+  </div>
+
+  <!-- SECTION 7 -->
+  <div class="section">
+    <div class="section-label">Section 7</div>
+    <div class="section-title">Final recommendation on black / dark usage</div>
+    <div class="decision-box verdict-kill">
+      <span class="verdict-tag tag-kill">Black background — rejected as default product identity</span>
+      <div class="prose"><p>The current full-black (#0B0B0B) background product system is a rejected direction. It signals "demo mode" and "AI startup pitch" rather than operational reliability. It is fatiguing in daily use. It creates a false premium that reads as decoration over substance. The black background system is replaced with a light, warm-off-white default.</p></div>
+    </div>
+    <div class="decision-box verdict-limit">
+      <span class="verdict-tag tag-limit">Dark mode — available later, not the default</span>
+      <div class="prose"><p>Dark mode is a valid future addition for operators working in low-light environments (night shifts, back-of-house). It becomes available in P3 implementation work. When it arrives, it must be a properly designed dark mode with a dark warm-gray base (not pure black), not just an inverted version of the light theme. Dark mode is not the product's identity. It is an accessibility and comfort option.</p></div>
+    </div>
+    <div class="decision-box verdict-go">
+      <span class="verdict-tag tag-go">Black survives — as text only</span>
+      <div class="prose"><p>Near-black (#1A1A1A) is the primary text color. It is not pure black. It is the typographic anchor of the system. This is appropriate, expected, and correct for a high-density operational interface. Pure black (#000000) does not appear anywhere in the system.</p></div>
+    </div>
+  </div>
+
+  <!-- SECTION 8 -->
+  <div class="section">
+    <div class="section-label">Section 8</div>
+    <div class="section-title">Exact strategic color decision — the final system</div>
+    <div class="final-box">
+      <div class="final-title">The Tash8eel AI Color System — stated plainly</div>
+      <div class="final-palette">
+        <div class="fp-item"><div class="fp-swatch" style="background: #F7F6F3;"></div><span class="fp-name">Page background</span><span class="fp-hex">#F7F6F3</span></div>
+        <div class="fp-item"><div class="fp-swatch" style="background: #FFFFFF; border: 0.5px solid #ddd;"></div><span class="fp-name">Card surface</span><span class="fp-hex">#FFFFFF</span></div>
+        <div class="fp-item"><div class="fp-swatch" style="background: #F2F1EE;"></div><span class="fp-name">Secondary surface</span><span class="fp-hex">#F2F1EE</span></div>
+        <div class="fp-item"><div class="fp-swatch" style="background: #1A1A1A;"></div><span class="fp-name">Primary text</span><span class="fp-hex">#1A1A1A</span></div>
+        <div class="fp-item"><div class="fp-swatch" style="background: #6B6A66;"></div><span class="fp-name">Secondary text</span><span class="fp-hex">#6B6A66</span></div>
+        <div class="fp-item"><div class="fp-swatch" style="background: #2D6BE4;"></div><span class="fp-name">Brand / interactive</span><span class="fp-hex">#2D6BE4</span></div>
+        <div class="fp-item"><div class="fp-swatch" style="background: #1A52C5;"></div><span class="fp-name">Brand dark</span><span class="fp-hex">#1A52C5</span></div>
+        <div class="fp-item"><div class="fp-swatch" style="background: #E8F0FC;"></div><span class="fp-name">Brand tint</span><span class="fp-hex">#E8F0FC</span></div>
+        <div class="fp-item"><div class="fp-swatch" style="background: #3B6D11;"></div><span class="fp-name">Success</span><span class="fp-hex">#3B6D11</span></div>
+        <div class="fp-item"><div class="fp-swatch" style="background: #EAF3DE;"></div><span class="fp-name">Success tint</span><span class="fp-hex">#EAF3DE</span></div>
+        <div class="fp-item"><div class="fp-swatch" style="background: #854F0B;"></div><span class="fp-name">Warning amber</span><span class="fp-hex">#854F0B</span></div>
+        <div class="fp-item"><div class="fp-swatch" style="background: #FAEEDA;"></div><span class="fp-name">Warning tint</span><span class="fp-hex">#FAEEDA</span></div>
+        <div class="fp-item"><div class="fp-swatch" style="background: #A32D2D;"></div><span class="fp-name">Danger</span><span class="fp-hex">#A32D2D</span></div>
+        <div class="fp-item"><div class="fp-swatch" style="background: #FCEBEB;"></div><span class="fp-name">Danger tint</span><span class="fp-hex">#FCEBEB</span></div>
+        <div class="fp-item"><div class="fp-swatch" style="background: #0F6E56;"></div><span class="fp-name">AI signal teal</span><span class="fp-hex">#0F6E56</span></div>
+        <div class="fp-item"><div class="fp-swatch" style="background: #E1F5EE;"></div><span class="fp-name">AI signal tint</span><span class="fp-hex">#E1F5EE</span></div>
+        <div class="fp-item"><div class="fp-swatch" style="background: #B4B2A9;"></div><span class="fp-name">Disabled</span><span class="fp-hex">#B4B2A9</span></div>
+        <div class="fp-item"><div class="fp-swatch" style="background: #D3D1C7;"></div><span class="fp-name">Border default</span><span class="fp-hex">#D3D1C7</span></div>
+      </div>
+      <div class="prose">
+        <p><strong>The system in plain language:</strong> Warm off-white background. White elevated panels. Near-black text hierarchy. One brand blue that enters the product only as interactive affordance. Four semantic status colors (green / amber / red / teal) each with exactly one meaning. Gray for all neutral structural elements. No black backgrounds. No gold as brand. No purple. No gradient. No decorative color anywhere.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 9 -->
+  <div class="section">
+    <div class="section-label">Section 9</div>
+    <div class="section-title">Brand system risks</div>
+    <div class="card">
+      <div class="risk-row">
+        <div class="risk-icon" style="background: #BA7517;"></div>
+        <div class="risk-text"><strong style="color: var(--color-text-primary);">Generic risk:</strong> If the brand blue is chosen at too standard a tone (too close to #3B82F6 or #4F9CF9), Tash8eel will look identical to every SaaS tool built on Tailwind defaults. The blue must be chosen with precision — slightly more saturated and positioned than standard, enough to be recognizable at wordmark scale.</div>
+      </div>
+      <div class="risk-row">
+        <div class="risk-icon"></div>
+        <div class="risk-text"><strong style="color: var(--color-text-primary);">Too AI-startup:</strong> If the AI signal teal bleeds beyond its designated semantic role and starts appearing in navigation, headers, or marketing, the product will look like it is performing AI instead of delivering it. Teal must remain strictly an in-product signal, not a second brand color.</div>
+      </div>
+      <div class="risk-row">
+        <div class="risk-icon"></div>
+        <div class="risk-text"><strong style="color: var(--color-text-primary);">Too ERP-heavy:</strong> If the background becomes pure institutional gray (#F0F0F0 or similar) and the surfaces have thick borders and heavy shadows, the product will feel like Oracle 2008. The warmth in the off-white background prevents this. The absence of thick borders reinforces it. The slight warmth of the text gray (#6B6A66) avoids cold mechanical feel.</div>
+      </div>
+      <div class="risk-row">
+        <div class="risk-icon"></div>
+        <div class="risk-text"><strong style="color: var(--color-text-primary);">Visually tiring in daily use:</strong> If the brand blue is used as a dominant background fill in headers, sidebars, or section panels, it will cause daily color fatigue within weeks. Brand blue must remain an accent — never a surface. The volume of colored pixels in the product UI on a typical operational screen should be under 10% of total visible area. The rest should be near-neutral.</div>
+      </div>
+      <div class="risk-row" style="border-bottom: none;">
+        <div class="risk-icon" style="background: #639922;"></div>
+        <div class="risk-text"><strong style="color: var(--color-text-primary);">Semantic color collision risk:</strong> If amber is allowed to appear in any brand context (CTA, marketing badge, pricing highlight), it will collide with its warning meaning inside the product. The operator's brain will learn two incompatible meanings for the same color. This is a trust failure. Amber has one role. Protect it.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 10 -->
+  <div class="section">
+    <div class="section-label">Section 10</div>
+    <div class="section-title">Implementation-safe guidance</div>
+    <div class="two-col">
+      <div class="card">
+        <div class="card-label" style="color: #3B6D11;">Lock now — no further debate</div>
+        <div class="lock-row"><div class="lock-icon"></div><div class="lock-text">Brand direction: structured operational blue, not teal, not indigo, not gold</div></div>
+        <div class="lock-row"><div class="lock-icon"></div><div class="lock-text">Black background system: rejected and replaced with warm off-white</div></div>
+        <div class="lock-row"><div class="lock-icon"></div><div class="lock-text">Gold: dead as brand primary, survives only as in-product warning amber</div></div>
+        <div class="lock-row"><div class="lock-icon"></div><div class="lock-text">Semantic color map: green = success, amber = warning, red = danger, teal = AI signal only</div></div>
+        <div class="lock-row"><div class="lock-icon"></div><div class="lock-text">AI signal teal is exclusively an in-product semantic signal, not a second brand color</div></div>
+        <div class="lock-row"><div class="lock-icon"></div><div class="lock-text">Dark mode is P3 (later), not P0 default</div></div>
+        <div class="lock-row"><div class="lock-icon"></div><div class="lock-text">Layer structure: warm background → white panels → near-black text</div></div>
+        <div class="lock-row" style="border-bottom: none;"><div class="lock-icon"></div><div class="lock-text">Brand blue enters product only as interactive affordance — never as surface fill</div></div>
+      </div>
+      <div class="card">
+        <div class="card-label" style="color: #5F5E5A;">Later visual QA — not strategic debate</div>
+        <div class="lock-row"><div class="lock-icon" style="background: #B4B2A9;"></div><div class="lock-text">Exact hex finalization for all 18 system colors — QA against Arabic typefaces at RTL scale before locking</div></div>
+        <div class="lock-row"><div class="lock-icon" style="background: #B4B2A9;"></div><div class="lock-text">Brand blue saturation level — finalized with wordmark rendering test in both Arabic and English</div></div>
+        <div class="lock-row"><div class="lock-icon" style="background: #B4B2A9;"></div><div class="lock-text">Background warmth calibration — screen test across different monitor profiles (office LCD, tablet, phone)</div></div>
+        <div class="lock-row"><div class="lock-icon" style="background: #B4B2A9;"></div><div class="lock-text">Chart color palette — 4-color working palette for data visualizations, chosen from within semantic set</div></div>
+        <div class="lock-row"><div class="lock-icon" style="background: #B4B2A9;"></div><div class="lock-text">Dark mode palette — only built when P3 begins; not a mirror inversion</div></div>
+        <div class="lock-row"><div class="lock-icon" style="background: #B4B2A9;"></div><div class="lock-text">Border strength at each elevation level — light enough to not feel heavy, distinct enough to separate layers clearly</div></div>
+        <div class="lock-row" style="border-bottom: none;"><div class="lock-icon" style="background: #B4B2A9;"></div><div class="lock-text">Focus ring style — keyboard navigation accessibility test required before final production rollout</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sep"></div>
+  <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 0.5rem;">
+    <p style="font-size: 12px; color: var(--color-text-tertiary);">Tash8eel AI · Brand + Color System · Final · April 2026</p>
+    <p style="font-size: 12px; color: var(--color-text-tertiary);">Gamma Pegassi · Egypt-first · Operations OS</p>
+  </div>
+
+</div>

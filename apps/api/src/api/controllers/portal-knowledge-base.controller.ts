@@ -1,19 +1,14 @@
 import {
-  BadRequestException,
-  Body,
   Controller,
   Get,
   Inject,
-  Logger,
   NotFoundException,
   Param,
   Post,
-  Put,
   Req,
   UseGuards,
 } from "@nestjs/common";
 import {
-  ApiBody,
   ApiHeader,
   ApiOperation,
   ApiParam,
@@ -39,291 +34,7 @@ import { getMerchantId, parseJsonObject } from "./portal-compat.helpers";
 @UseGuards(MerchantApiKeyGuard, RolesGuard, EntitlementGuard)
 @Controller("v1/portal")
 export class PortalKnowledgeBaseController {
-  private readonly logger = new Logger(PortalKnowledgeBaseController.name);
-
   constructor(@Inject(DATABASE_POOL) private readonly pool: Pool) {}
-
-  @Get("knowledge-base")
-  @ApiOperation({
-    summary: "Get merchant knowledge base",
-    description:
-      "Returns FAQs, business info, and other knowledge base data for AI to use",
-  })
-  @ApiResponse({ status: 200, description: "Knowledge base retrieved" })
-  async getKnowledgeBase(@Req() req: Request): Promise<any> {
-    const merchantId = getMerchantId(req);
-
-    // Try to get from database
-    const result = await this.pool.query(
-      `SELECT knowledge_base, name FROM merchants WHERE id = $1`,
-      [merchantId],
-    );
-
-    if (result.rows.length === 0 || !result.rows[0].knowledge_base) {
-      const merchantName = result.rows[0]?.name || "";
-      // Return default empty structure
-      return {
-        faqs: [],
-        businessInfo: {
-          name: merchantName,
-          category: "عام",
-          workingHours: {},
-          policies: {},
-          deliveryPricing: {
-            mode: "UNIFIED",
-            unifiedPrice: null,
-            byCity: [],
-          },
-        },
-        offers: [],
-      };
-    }
-
-    const kb = result.rows[0].knowledge_base || {};
-    const normalizedKb = { ...kb } as any;
-    normalizedKb.offers = Array.isArray(kb.offers) ? kb.offers : [];
-    if (!normalizedKb.businessInfo) {
-      normalizedKb.businessInfo = {};
-    }
-    if (!normalizedKb.businessInfo.deliveryPricing) {
-      normalizedKb.businessInfo.deliveryPricing = {
-        mode: "UNIFIED",
-        unifiedPrice: null,
-        byCity: [],
-      };
-    }
-    return normalizedKb;
-  }
-
-  @Put("knowledge-base")
-  @RequireRole("MANAGER")
-  @ApiOperation({
-    summary: "Update merchant knowledge base",
-    description: "Update FAQs, business info for AI responses",
-  })
-  @ApiBody({
-    schema: {
-      type: "object",
-      properties: {
-        faqs: {
-          type: "array",
-          items: {
-            type: "object",
-            properties: {
-              id: { type: "string" },
-              question: { type: "string" },
-              answer: { type: "string" },
-              category: { type: "string" },
-              isActive: { type: "boolean" },
-            },
-          },
-        },
-        businessInfo: { type: "object" },
-        offers: {
-          type: "array",
-          items: { type: "object" },
-        },
-      },
-    },
-  })
-  @ApiResponse({ status: 200, description: "Knowledge base updated" })
-  async updateKnowledgeBase(
-    @Req() req: Request,
-    @Body() body: { faqs?: any[]; businessInfo?: any; offers?: any[] },
-  ): Promise<{ success: boolean }> {
-    const merchantId = getMerchantId(req);
-
-    // Get current knowledge base
-    const current = await this.pool.query(
-      `SELECT knowledge_base FROM merchants WHERE id = $1`,
-      [merchantId],
-    );
-
-    const existingKb = current.rows[0]?.knowledge_base || {};
-
-    // Merge with new data
-    const updatedKb = {
-      ...existingKb,
-      ...(body.faqs !== undefined ? { faqs: body.faqs } : {}),
-      ...(body.businessInfo !== undefined
-        ? { businessInfo: body.businessInfo }
-        : {}),
-      ...(body.offers !== undefined ? { offers: body.offers } : {}),
-      updatedAt: new Date().toISOString(),
-    };
-
-    // Update in database
-    await this.pool.query(
-      `UPDATE merchants SET knowledge_base = $1, updated_at = NOW() WHERE id = $2`,
-      [JSON.stringify(updatedKb), merchantId],
-    );
-
-    this.logger.log({
-      msg: "Knowledge base updated",
-      merchantId,
-      faqCount: body.faqs?.length,
-      hasBusinessInfo: !!body.businessInfo,
-    });
-
-    return { success: true };
-  }
-
-  @Post("knowledge-base/sync-inventory")
-  @RequireRole("MANAGER")
-  @ApiOperation({
-    summary: "Sync inventory items into catalog",
-    description:
-      "Creates or updates catalog items from inventory so KB stays aligned",
-  })
-  @ApiResponse({ status: 200, description: "Inventory synced to catalog" })
-  async syncInventoryToCatalog(@Req() req: Request): Promise<any> {
-    const merchantId = getMerchantId(req);
-    const client = await this.pool.connect();
-
-    const toNumber = (value: any): number | null => {
-      if (value === null || value === undefined || value === "") return null;
-      const num = Number(value);
-      return Number.isFinite(num) ? num : null;
-    };
-
-    try {
-      await client.query("BEGIN");
-      const inventoryResult = await client.query(
-        `SELECT * FROM inventory_items WHERE merchant_id = $1`,
-        [merchantId],
-      );
-
-      let created = 0;
-      let updated = 0;
-      let linked = 0;
-
-      const linkInventory = async (
-        inventoryId: string,
-        catalogId: string | null,
-      ) => {
-        try {
-          await client.query(
-            `UPDATE inventory_items
-             SET catalog_item_id = $1, updated_at = NOW()
-             WHERE id = $2 AND merchant_id = $3`,
-            [catalogId, inventoryId, merchantId],
-          );
-          return true;
-        } catch (error: any) {
-          if (error?.code === "42703") {
-            return false;
-          }
-          throw error;
-        }
-      };
-
-      for (const row of inventoryResult.rows) {
-        const inventoryId = row.id;
-        const sku = row.sku || null;
-        const name = row.name || row.item_name || row.sku || "منتج";
-        const category = row.category || null;
-        const price = toNumber(row.price ?? row.base_price ?? row.sell_price);
-        const catalogItemId = row.catalog_item_id || row.catalogItemId;
-
-        const updateCatalog = async (catalogId: string): Promise<boolean> => {
-          const updates: string[] = [];
-          const values: any[] = [];
-          let idx = 1;
-
-          if (sku) {
-            updates.push(`sku = $${idx++}`);
-            values.push(sku);
-          }
-          if (name) {
-            updates.push(`name_ar = $${idx++}`);
-            values.push(name);
-          }
-          if (category) {
-            updates.push(`category = $${idx++}`);
-            values.push(category);
-          }
-          if (price !== null) {
-            updates.push(`base_price = $${idx++}`);
-            values.push(price);
-          }
-
-          updates.push(`updated_at = NOW()`);
-          values.push(catalogId, merchantId);
-          const updateResult = await client.query(
-            `UPDATE catalog_items
-             SET ${updates.join(", ")}
-             WHERE id = $${idx} AND merchant_id = $${idx + 1}
-             RETURNING id`,
-            values,
-          );
-          return updateResult.rowCount > 0;
-        };
-
-        if (catalogItemId) {
-          const didUpdateExisting = await updateCatalog(catalogItemId);
-          if (didUpdateExisting) {
-            updated += 1;
-            continue;
-          }
-
-          // Broken link (catalog item deleted): unlink and resolve using SKU/create path.
-          await linkInventory(inventoryId, null);
-        }
-
-        let existingCatalogId: string | null = null;
-        if (sku) {
-          const existing = await client.query(
-            `SELECT id FROM catalog_items WHERE merchant_id = $1 AND sku = $2 LIMIT 1`,
-            [merchantId, sku],
-          );
-          if (existing.rows.length) {
-            existingCatalogId = existing.rows[0].id;
-          }
-        }
-
-        if (existingCatalogId) {
-          const didLink = await linkInventory(inventoryId, existingCatalogId);
-          if (didLink) linked += 1;
-          const didUpdateExisting = await updateCatalog(existingCatalogId);
-          if (didUpdateExisting) {
-            updated += 1;
-            continue;
-          }
-        }
-
-        const insert = await client.query(
-          `INSERT INTO catalog_items (merchant_id, sku, name_ar, base_price, category, is_available, variants, options)
-           VALUES ($1, $2, $3, $4, $5, true, '[]', '[]')
-           RETURNING id`,
-          [merchantId, sku, name, price ?? 0, category],
-        );
-
-        const newCatalogId = insert.rows[0].id;
-        const didLink = await linkInventory(inventoryId, newCatalogId);
-        if (didLink) linked += 1;
-        created += 1;
-      }
-
-      await client.query("COMMIT");
-      return {
-        success: true,
-        total: inventoryResult.rows.length,
-        created,
-        updated,
-        linked,
-      };
-    } catch (error: any) {
-      await client.query("ROLLBACK");
-      if (error?.code === "42P01") {
-        throw new BadRequestException(
-          "جداول المخزون غير متاحة بعد. تأكد من تشغيل الهجرات.",
-        );
-      }
-      throw error;
-    } finally {
-      client.release();
-    }
-  }
 
   @Post("knowledge-base/pull-from-catalog")
   @RequireRole("MANAGER")
@@ -555,6 +266,47 @@ export class PortalKnowledgeBaseController {
         ...contractByProvider[normalizedProvider],
       },
       checkedAt: new Date().toISOString(),
+    };
+  }
+
+  @Get("knowledge-base/status")
+  @RequireRole("MANAGER")
+  @ApiOperation({
+    summary: "KB chunk readiness",
+    description:
+      "Returns counts of active KB chunks and how many have embeddings. " +
+      "Use this to verify that a PUT /knowledge-base write has been projected and embedded.",
+  })
+  @ApiResponse({ status: 200, description: "Chunk readiness summary" })
+  async getKbStatus(@Req() req: Request): Promise<{
+    totalChunks: number;
+    withEmbedding: number;
+    withoutEmbedding: number;
+    ready: boolean;
+  }> {
+    const merchantId = getMerchantId(req);
+
+    const result = await this.pool.query<{
+      total: string;
+      with_embedding: string;
+    }>(
+      `SELECT
+         COUNT(*)                                    AS total,
+         COUNT(*) FILTER (WHERE embedding IS NOT NULL) AS with_embedding
+       FROM merchant_kb_chunks
+       WHERE merchant_id = $1
+         AND is_active = TRUE`,
+      [merchantId],
+    );
+
+    const total = parseInt(result.rows[0]?.total ?? "0", 10);
+    const withEmbedding = parseInt(result.rows[0]?.with_embedding ?? "0", 10);
+
+    return {
+      totalChunks: total,
+      withEmbedding,
+      withoutEmbedding: total - withEmbedding,
+      ready: total > 0,
     };
   }
 }

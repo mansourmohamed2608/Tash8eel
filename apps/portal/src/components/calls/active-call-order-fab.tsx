@@ -231,7 +231,7 @@ export function ActiveCallOrderFab() {
         إنشاء طلب
       </Button>
 
-      <Badge className="fixed bottom-20 left-6 z-[55] bg-[var(--success-muted)] text-[var(--accent-success)] hover:bg-[var(--success-muted)]">
+      <Badge className="fixed bottom-20 left-6 z-[55] bg-emerald-100 text-emerald-700 hover:bg-emerald-100">
         مكالمة نشطة
       </Badge>
 

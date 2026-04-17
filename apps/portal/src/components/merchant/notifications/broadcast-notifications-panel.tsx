@@ -258,16 +258,16 @@ export function BroadcastNotificationsPanel() {
       <Card
         className={
           whatsappReady
-            ? "border-[color:color-mix(in_srgb,var(--accent-success)_20%,transparent)]"
-            : "border-[color:color-mix(in_srgb,var(--accent-warning)_20%,transparent)]"
+            ? "border-green-200 dark:border-green-800"
+            : "border-amber-200 dark:border-amber-800"
         }
       >
         <CardContent className="p-4 flex items-center gap-3">
           <div
-            className={`p-2 rounded-lg ${whatsappReady ? "bg-[var(--success-muted)]" : "bg-[var(--warning-muted)]"}`}
+            className={`p-2 rounded-lg ${whatsappReady ? "bg-green-100 dark:bg-green-900/30" : "bg-amber-100 dark:bg-amber-900/30"}`}
           >
             <MessageSquare
-              className={`h-5 w-5 ${whatsappReady ? "text-[var(--accent-success)]" : "text-[var(--accent-warning)]"}`}
+              className={`h-5 w-5 ${whatsappReady ? "text-green-600" : "text-amber-500"}`}
             />
           </div>
           <div className="flex-1">
@@ -306,8 +306,8 @@ export function BroadcastNotificationsPanel() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 bg-[var(--info-muted)] rounded-lg">
-              <Users className="h-5 w-5 text-[var(--info)]" />
+            <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+              <Users className="h-5 w-5 text-blue-600 dark:text-blue-400" />
             </div>
             <div>
               <p className="text-xs text-muted-foreground">إجمالي العملاء</p>
@@ -317,8 +317,8 @@ export function BroadcastNotificationsPanel() {
         </Card>
         <Card>
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 bg-[var(--success-muted)] rounded-lg">
-              <Send className="h-5 w-5 text-[var(--accent-success)]" />
+            <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
+              <Send className="h-5 w-5 text-green-600 dark:text-green-400" />
             </div>
             <div>
               <p className="text-xs text-muted-foreground">رسائل مُرسلة</p>
@@ -372,10 +372,10 @@ export function BroadcastNotificationsPanel() {
       </div>
 
       {!whatsappReady && (
-        <Card className="border-[color:color-mix(in_srgb,var(--accent-warning)_22%,transparent)] bg-[var(--warning-muted)]">
+        <Card className="border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20">
           <CardContent className="p-4 flex items-center gap-3">
-            <AlertCircle className="h-5 w-5 text-[var(--accent-warning)] shrink-0" />
-            <p className="text-sm text-[var(--accent-warning)]">
+            <AlertCircle className="h-5 w-5 text-amber-600 shrink-0" />
+            <p className="text-sm text-amber-800 dark:text-amber-300">
               {!whatsappStatus.metaReady
                 ? "خدمة واتساب غير مفعّلة حالياً. تواصل مع الدعم الفني لتفعيل واتساب لحسابك."
                 : "أضف رقم واتساب الخاص بنشاطك التجاري في صفحة الإعدادات ← الإشعارات ← رقم واتساب للرسائل الجماعية. يجب أن يكون الرقم مسجّلاً ومعتمداً عبر الدعم الفني."}
@@ -421,7 +421,7 @@ export function BroadcastNotificationsPanel() {
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1 flex-wrap">
-                        <MessageSquare className="h-4 w-4 text-[var(--accent-success)] shrink-0" />
+                        <MessageSquare className="h-4 w-4 text-green-500 shrink-0" />
                         <h3 className="font-medium">
                           {notif.titleAr || notif.title || "رسالة"}
                         </h3>
