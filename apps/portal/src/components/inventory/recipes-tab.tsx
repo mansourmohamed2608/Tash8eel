@@ -186,7 +186,7 @@ export function RecipesTab() {
                   </div>
                   <div className="flex flex-col items-end gap-1 mr-2">
                     {item.has_recipe ? (
-                      <Badge className="bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 text-xs">
+                      <Badge className="bg-[var(--warning-muted)] text-[var(--accent-warning)] text-xs">
                         <ChefHat className="h-3 w-3 ml-1" />
                         وصفة
                       </Badge>

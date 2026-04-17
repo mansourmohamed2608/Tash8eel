@@ -26,6 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { LoadingState } from "@/components/ui/alerts";
 import {
   Loader2,
   RefreshCw,
@@ -136,7 +137,7 @@ const COLORS: Record<string, string> = {
   REENGAGEMENT_AUTO:
     "border-[color:rgba(59,130,246,0.22)] bg-[color:rgba(59,130,246,0.08)]",
   REVIEW_REQUEST:
-    "border-[color:rgba(232,197,71,0.24)] bg-[color:var(--accent-gold-dim)]",
+    "border-[color:rgba(45,107,228,0.15)] bg-[color:var(--brand-blue-dim)]",
   NEW_CUSTOMER_WELCOME:
     "border-[color:rgba(34,197,94,0.22)] bg-[color:rgba(34,197,94,0.08)]",
   CHURN_PREVENTION:
@@ -144,7 +145,7 @@ const COLORS: Record<string, string> = {
   QUOTE_FOLLOWUP:
     "border-[color:rgba(59,130,246,0.2)] bg-[color:rgba(59,130,246,0.06)]",
   LOYALTY_MILESTONE:
-    "border-[color:rgba(232,197,71,0.2)] bg-[color:rgba(232,197,71,0.08)]",
+    "border-[color:rgba(45,107,228,0.12)] bg-[color:rgba(45,107,228,0.08)]",
   EXPENSE_SPIKE_ALERT:
     "border-[color:rgba(239,68,68,0.26)] bg-[color:rgba(239,68,68,0.08)]",
   DELIVERY_SLA_BREACH:
@@ -160,7 +161,7 @@ const COLORS: Record<string, string> = {
   LEAD_SCORE:
     "border-[color:rgba(59,130,246,0.18)] bg-[color:rgba(59,130,246,0.05)]",
   AUTO_VIP_TAG:
-    "border-[color:rgba(232,197,71,0.24)] bg-[color:var(--accent-gold-dim)]",
+    "border-[color:rgba(45,107,228,0.15)] bg-[color:var(--brand-blue-dim)]",
   AT_RISK_TAG:
     "border-[color:rgba(245,158,11,0.24)] bg-[color:rgba(245,158,11,0.08)]",
   HIGH_RETURN_FLAG:
@@ -717,10 +718,7 @@ export default function AutomationsPage() {
           title="مركز الأتمتة"
           description="أتمتة الرسائل والتنبيهات التلقائية"
         />
-        <div className="flex items-center justify-center py-20 text-muted-foreground">
-          <Loader2 className="w-6 h-6 animate-spin ml-2" />
-          جارٍ التحميل...
-        </div>
+        <LoadingState message="جارٍ تحميل إعدادات الأتمتة..." />
       </div>
     );
   }

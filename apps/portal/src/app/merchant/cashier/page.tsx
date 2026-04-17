@@ -2351,7 +2351,7 @@ export default function CashierPage() {
                 <ShoppingCart className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-lg font-black tracking-[-0.02em] text-[var(--text-primary)]">
+                <p className="text-lg font-bold text-[var(--text-primary)]">
                   {merchantName}
                 </p>
                 <p className="text-sm text-[var(--text-muted)]">وضع الكاشير</p>
@@ -2427,7 +2427,7 @@ export default function CashierPage() {
           <Card className="app-data-card flex min-h-0 flex-1 flex-col">
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-base">
-                <Package className="h-4 w-4 text-emerald-600" />
+                <Package className="h-4 w-4 text-[var(--accent-success)]" />
                 كتالوج المنتجات
               </CardTitle>
               <div className="flex gap-2">
@@ -3901,7 +3901,7 @@ export default function CashierPage() {
                                 ) : null}
                               </div>
                               <div className="text-right sm:text-left">
-                                <p className="text-sm font-semibold text-emerald-700">
+                                <p className="text-sm font-semibold text-[var(--accent-success)]">
                                   {formatCurrency(order.total)}
                                 </p>
                                 <p className="text-[11px] text-muted-foreground">

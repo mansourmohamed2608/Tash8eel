@@ -1285,7 +1285,7 @@ export default function CallsPage() {
   };
 
   const activeCallBadge = activeCall ? (
-    <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">
+    <Badge className="bg-[var(--success-muted)] text-[var(--accent-success)] hover:bg-[var(--success-muted)]">
       <PhoneCall className="ml-1 h-3.5 w-3.5" />
       {`مكالمة نشطة${activeCall.customerPhone ? ` • ${activeCall.customerPhone}` : ""}${activeCall.durationSeconds ? ` • ${formatDuration(activeCall.durationSeconds)}` : ""}`}
     </Badge>

@@ -82,7 +82,7 @@ export class ErrorBoundary extends Component<
   }
 }
 
-/** Default error fallback UI - dark theme, matches portal design */
+/** Default error fallback UI — light-mode operational system */
 function DefaultErrorFallback({
   error,
   onReset,
@@ -96,23 +96,23 @@ function DefaultErrorFallback({
       role="alert"
       aria-live="assertive"
     >
-      <div className="max-w-md w-full bg-[#1a1a2e] border border-red-900/50 rounded-xl p-8 text-center">
-        <div className="mx-auto mb-4 p-3 bg-red-900/30 rounded-full w-fit">
-          <AlertTriangle className="h-8 w-8 text-red-400" />
+      <div className="max-w-md w-full bg-[var(--bg-surface-1)] border border-[color:color-mix(in_srgb,var(--accent-danger)_18%,var(--border-default))] rounded-xl p-8 text-center">
+        <div className="mx-auto mb-4 inline-flex h-14 w-14 items-center justify-center rounded-[var(--radius-lg)] bg-[var(--danger-muted)]">
+          <AlertTriangle className="h-8 w-8 text-[var(--accent-danger)]" />
         </div>
-        <h2 className="text-xl font-semibold text-white mb-2">
+        <h2 className="text-xl font-semibold text-[var(--text-primary)] mb-2">
           حدث خطأ غير متوقع
         </h2>
-        <p className="text-sm text-gray-400 mb-4">
+        <p className="text-sm text-[var(--text-secondary)] mb-4">
           نعتذر عن هذا الخطأ. يمكنك محاولة تحديث الصفحة أو العودة للصفحة
           الرئيسية.
         </p>
         {error && process.env.NODE_ENV !== "production" && (
           <details className="text-left mb-4 text-xs">
-            <summary className="text-gray-500 cursor-pointer hover:text-gray-400 mb-1">
+            <summary className="text-[var(--text-muted)] cursor-pointer hover:text-[var(--text-secondary)] mb-1">
               تفاصيل الخطأ (تطوير فقط)
             </summary>
-            <pre className="bg-[#0f0f23] p-3 rounded-lg border border-gray-800 text-red-300 overflow-auto max-h-32 whitespace-pre-wrap">
+            <pre className="bg-[var(--bg-surface-2)] p-3 rounded-lg border border-[var(--border-default)] text-[var(--accent-danger)] overflow-auto max-h-32 whitespace-pre-wrap">
               {error.message}
               {error.stack && `\n\n${error.stack}`}
             </pre>
@@ -121,14 +121,14 @@ function DefaultErrorFallback({
         <div className="flex gap-3 justify-center">
           <button
             onClick={onReset}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition-colors"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[var(--accent-blue)] hover:opacity-90 text-white text-sm font-medium transition-opacity"
           >
             <RefreshCw className="h-4 w-4" />
             حاول مرة أخرى
           </button>
           <a
             href="/merchant/dashboard"
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium transition-colors"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[var(--bg-surface-2)] border border-[var(--border-default)] hover:border-[var(--border-active)] text-[var(--text-secondary)] text-sm font-medium transition-colors"
           >
             <Home className="h-4 w-4" />
             الصفحة الرئيسية

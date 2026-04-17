@@ -457,7 +457,7 @@ export default function FeatureRequestsPage() {
                       {isExpanded && (
                         <div className="space-y-3">
                           {quote.status === "QUOTED" && (
-                            <div className="flex flex-wrap items-center gap-2 rounded-md border border-dashed border-green-200 bg-green-50 p-3 text-sm">
+                            <div className="flex flex-wrap items-center gap-2 rounded-md border border-dashed border-[color:color-mix(in_srgb,var(--accent-success)_25%,transparent)] bg-[var(--success-muted)] p-3 text-sm">
                               <div className="font-semibold text-[var(--accent-success)]">
                                 تم التسعير - هل تريد قبول العرض؟
                               </div>

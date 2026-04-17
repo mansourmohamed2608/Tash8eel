@@ -119,7 +119,7 @@ export default function OnboardingPage() {
                 className={cn(
                   "h-full cursor-pointer transition-colors hover:bg-[var(--bg-surface-2)]",
                   step.completed &&
-                    "border-green-200 bg-green-50/30 dark:border-green-900 dark:bg-green-950/20",
+                    "border-[color:color-mix(in_srgb,var(--accent-success)_20%,transparent)] bg-[var(--success-muted)]",
                 )}
               >
                 <CardHeader className="pb-2">

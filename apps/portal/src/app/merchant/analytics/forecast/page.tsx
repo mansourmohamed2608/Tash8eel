@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import portalApi from "@/lib/client";
 import { useToast } from "@/hooks/use-toast";
+import { ErrorState } from "@/components/ui/alerts";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -270,19 +271,11 @@ export default function ForecastPage() {
           title="توقعات الطلب"
           description="تحليل ذكي للمخزون والطلب"
         />
-        <Card className="mt-6 border-destructive">
-          <CardContent className="py-8 text-center">
-            <AlertCircle className="w-8 h-8 text-destructive mx-auto mb-2" />
-            <p className="text-destructive">{error}</p>
-            <Button
-              variant="outline"
-              className="mt-4"
-              onClick={() => loadForecast()}
-            >
-              إعادة المحاولة
-            </Button>
-          </CardContent>
-        </Card>
+        <ErrorState
+          title="خطأ في تحميل التوقعات"
+          message={error}
+          onRetry={() => loadForecast()}
+        />
       </div>
     );
   }
@@ -521,7 +514,7 @@ export default function ForecastPage() {
                 {Math.round(totalReorderSuggested)} وحدة
               </p>
             </div>
-            <div className="rounded-md border bg-amber-50 px-3 py-2">
+            <div className="rounded-md border border-[color:color-mix(in_srgb,var(--accent-warning)_20%,transparent)] bg-[var(--warning-muted)] px-3 py-2">
               <p className="text-muted-foreground">
                 أصناف مهددة بالنفاد خلال 7 أيام
               </p>

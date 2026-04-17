@@ -7,6 +7,7 @@ import { Conversation } from "../../domain/entities/conversation.entity";
 import { Message } from "../../domain/entities/message.entity";
 import { EmbeddingService } from "./embedding.service";
 import { VectorSearchService } from "./vector-search.service";
+import { KbRetrievalService, KbChunk } from "./kb-retrieval.service";
 
 const logger = createLogger("MerchantContextService");
 
@@ -80,6 +81,7 @@ export class MerchantContextService {
     @Inject(DATABASE_POOL) private readonly pool: Pool,
     private readonly embeddingService: EmbeddingService,
     private readonly vectorSearchService: VectorSearchService,
+    private readonly kbRetrievalService: KbRetrievalService,
   ) {}
 
   async buildContext(
@@ -159,17 +161,46 @@ export class MerchantContextService {
     params: CustomerReplyContextParams,
   ): Promise<CustomerReplyContext> {
     const { merchant, conversation, customerMessage, recentMessages } = params;
-    const allCatalogRows = await this.loadAllActiveCatalogRows(merchant.id);
+
+    const [allCatalogRows, hasStructuredKb] = await Promise.all([
+      this.loadAllActiveCatalogRows(merchant.id),
+      this.kbRetrievalService.hasStructuredKb(merchant.id),
+    ]);
+
     const relevantCatalogRows = await this.loadRelevantCatalogRows(
       merchant.id,
       customerMessage,
       allCatalogRows,
     );
-    const kbEntries = this.extractKnowledgeBaseEntries(merchant);
-    const relevantKbEntries = this.selectRelevantKnowledgeBaseEntries(
-      kbEntries,
-      customerMessage,
-    );
+
+    // KB retrieval: use structured chunks when available; fall back to JSONB extraction.
+    // This allows existing merchants (with JSONB-only KB) to continue working while
+    // merchants who have migrated to structured chunks get semantic retrieval.
+    let knowledgeBase: string;
+    let kbCount: number;
+
+    if (hasStructuredKb) {
+      const chunks = await this.kbRetrievalService.searchChunks(
+        merchant.id,
+        customerMessage,
+        { limit: 8 },
+      );
+      kbCount = chunks.length;
+      knowledgeBase = this.buildStructuredKbSection(merchant, chunks);
+    } else {
+      const kbEntries = this.extractKnowledgeBaseEntries(merchant);
+      const relevantKbEntries = this.selectRelevantKnowledgeBaseEntries(
+        kbEntries,
+        customerMessage,
+      );
+      kbCount = relevantKbEntries.length;
+      knowledgeBase = this.buildKnowledgeBaseSection(
+        merchant,
+        kbEntries,
+        relevantKbEntries,
+      );
+    }
+
     const historyMessages = this.prepareHistoryMessages(
       recentMessages,
       customerMessage,
@@ -183,11 +214,6 @@ export class MerchantContextService {
     const productCatalog = this.buildCustomerProductCatalogSection(
       allCatalogRows,
       relevantCatalogRows,
-    );
-    const knowledgeBase = this.buildKnowledgeBaseSection(
-      merchant,
-      kbEntries,
-      relevantKbEntries,
     );
     const conversationHistory =
       this.buildCustomerConversationHistorySection(historyMessages);
@@ -217,9 +243,43 @@ export class MerchantContextService {
       orderContext,
       fullContext,
       productCount: allCatalogRows.length,
-      kbCount: relevantKbEntries.length,
+      kbCount,
       historyCount: historyMessages.length,
     };
+  }
+
+  /**
+   * Build the knowledge base section from structured KB chunks.
+   * Used when the merchant has migrated to merchant_kb_chunks table.
+   * Chunks include source_type and confidence metadata for the AI.
+   */
+  private buildStructuredKbSection(
+    merchant: Merchant,
+    chunks: KbChunk[],
+  ): string {
+    const merchantPolicies =
+      merchant.knowledgeBase?.businessInfo?.policies || {};
+
+    const chunkLines = chunks.map(
+      (c) =>
+        `- [${c.sourceType}${c.requiresManualReview ? " | review-required" : ""}] ${c.title}\n  ${c.content}`,
+    );
+
+    return [
+      `Structured KB chunks retrieved: ${chunks.length}`,
+      `Return policy: ${merchantPolicies.returnPolicy || "غير محدد"}`,
+      `Delivery info: ${merchantPolicies.deliveryInfo || "غير محدد"}`,
+      `Payment methods: ${
+        Array.isArray(merchantPolicies.paymentMethods) &&
+        merchantPolicies.paymentMethods.length > 0
+          ? merchantPolicies.paymentMethods.join(", ")
+          : "غير محدد"
+      }`,
+      "Relevant knowledge for this message:",
+      ...(chunkLines.length > 0
+        ? chunkLines
+        : ["- No matching knowledge-base chunk found."]),
+    ].join("\n");
   }
 
   private buildBusinessIdentitySection(merchant: Merchant): string {
@@ -231,11 +291,13 @@ export class MerchantContextService {
       merchant.category ||
       "غير محدد";
 
+    const language = merchant.language || "ar";
+
     return [
       `Merchant name: ${merchant.name}`,
       `Business type: ${businessType}`,
       `Welcome message: ${welcomeMessage}`,
-      `Language: Arabic (Egyptian dialect)`,
+      `Language: ${language}`,
       `Working hours: ${workingHours}`,
     ].join("\n");
   }
@@ -561,24 +623,27 @@ export class MerchantContextService {
       .replace(/[أإآا]/g, "ا")
       .replace(/[ىي]/g, "ي");
 
+    // Generic product/catalog intent terms — intentionally vertical-agnostic
+    // so this works across all merchant types (restaurants, services, retail, etc.)
     return [
       "بتبيعوا",
       "بتبيعو",
+      "بتبيع",
       "عندك ايه",
       "عندكم ايه",
       "عندك اي",
       "منتجات",
+      "خدمات",
       "كتالوج",
       "بكام",
       "سعر",
       "مقاس",
       "لون",
       "متوفر",
-      "بنطلون",
-      "جينز",
-      "تيشيرت",
-      "فستان",
-      "جاكيت",
+      "في المخزن",
+      "عايز",
+      "أريد",
+      "اطلب",
     ].some((term) => normalized.includes(term));
   }
 

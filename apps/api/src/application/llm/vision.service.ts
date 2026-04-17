@@ -57,6 +57,9 @@ export interface MedicineAnalysis {
   [key: string]: unknown;
 }
 
+/** Maximum image payload before sending to OpenAI (5 MB actual bytes). */
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+
 @Injectable()
 export class VisionService {
   private readonly logger = new Logger(VisionService.name);
@@ -414,6 +417,26 @@ Classification rules:
     prompt: string,
     methodName: string,
   ): Promise<string> {
+    // Reject oversized images before they reach the OpenAI HTTP call.
+    // base64 encodes 3 bytes as 4 chars; strip the data-URL prefix first.
+    const rawBase64 = imageBase64.startsWith("data:")
+      ? imageBase64.slice(imageBase64.indexOf(",") + 1)
+      : imageBase64;
+    const estimatedBytes = Math.ceil((rawBase64.length * 3) / 4);
+    if (estimatedBytes > MAX_IMAGE_BYTES) {
+      const mbSize = (estimatedBytes / (1024 * 1024)).toFixed(1);
+      this.logger.warn(
+        `Image rejected: ${mbSize} MB exceeds ${MAX_IMAGE_BYTES / (1024 * 1024)} MB limit`,
+        {
+          methodName,
+          estimatedBytes,
+        },
+      );
+      throw new Error(
+        `Image too large (${mbSize} MB). Maximum allowed size is ${MAX_IMAGE_BYTES / (1024 * 1024)} MB.`,
+      );
+    }
+
     const start = Date.now();
     try {
       const result = await withTimeout(

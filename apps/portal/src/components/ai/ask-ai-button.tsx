@@ -301,7 +301,7 @@ export function AskAiButton({
           </div>
 
           {error && (
-            <div className="flex items-center gap-2 text-xs text-red-500 mt-1">
+            <div className="flex items-center gap-2 text-xs text-[var(--accent-danger)] mt-1">
               <AlertCircle className="h-3 w-3" />
               {error}
             </div>

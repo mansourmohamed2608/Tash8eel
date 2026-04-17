@@ -126,11 +126,11 @@ export default function TrackOrderPage() {
 
   return (
     <div
-      className="min-h-screen bg-gradient-to-b from-indigo-50 to-white dark:from-gray-950 dark:to-gray-900"
+      className="min-h-screen bg-gradient-to-b from-indigo-50 to-white"
       dir="rtl"
     >
       {/* Header */}
-      <div className="bg-indigo-600 dark:bg-indigo-700 text-white py-8 px-4">
+      <div className="bg-indigo-600 text-white py-8 px-4">
         <div className="max-w-2xl mx-auto text-center">
           <Package className="h-10 w-10 mx-auto mb-3 opacity-90" />
           <h1 className="text-2xl font-bold mb-1">تتبع طلبك</h1>
@@ -140,7 +140,7 @@ export default function TrackOrderPage() {
 
       {/* Search Box */}
       <div className="max-w-2xl mx-auto px-4 -mt-5">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-5">
+        <div className="bg-white rounded-2xl shadow-lg p-5">
           <div className="flex flex-col gap-2 sm:flex-row">
             <input
               type="text"
@@ -153,7 +153,7 @@ export default function TrackOrderPage() {
                 }
               }}
               placeholder="أدخل رقم الطلب..."
-              className="flex-1 text-center text-lg font-mono border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-400 text-gray-800 dark:text-gray-100 placeholder-gray-400"
+              className="flex-1 text-center text-lg font-mono border border-gray-200 rounded-xl px-4 py-3 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-400 text-gray-800 placeholder-gray-400"
               dir="ltr"
             />
             <button
@@ -179,23 +179,20 @@ export default function TrackOrderPage() {
       <div className="max-w-2xl mx-auto px-4 mt-6 pb-16 space-y-5">
         {/* Error */}
         {error && submitted && !loading && (
-          <div className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-2xl p-5 flex items-center gap-3">
-            <AlertCircle className="h-6 w-6 text-red-500 shrink-0" />
-            <p className="text-red-700 dark:text-red-300">{error}</p>
+          <div className="bg-[var(--danger-muted)] border border-[color:color-mix(in_srgb,var(--accent-danger)_20%,transparent)] rounded-2xl p-5 flex items-center gap-3">
+            <AlertCircle className="h-6 w-6 text-[var(--accent-danger)] shrink-0" />
+            <p className="text-[var(--accent-danger)]">{error}</p>
           </div>
         )}
 
         {/* Loading skeleton */}
         {loading && (
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-6 space-y-4 animate-pulse">
-            <div className="h-5 bg-gray-100 dark:bg-gray-700 rounded-full w-2/3 mx-auto" />
-            <div className="h-3 bg-gray-100 dark:bg-gray-700 rounded-full w-1/2 mx-auto" />
+          <div className="bg-white rounded-2xl shadow p-6 space-y-4 animate-pulse">
+            <div className="h-5 bg-gray-100 rounded-full w-2/3 mx-auto" />
+            <div className="h-3 bg-gray-100 rounded-full w-1/2 mx-auto" />
             <div className="flex justify-center gap-2 mt-4">
               {[1, 2, 3, 4].map((i) => (
-                <div
-                  key={i}
-                  className="h-6 w-16 bg-gray-100 dark:bg-gray-700 rounded-full"
-                />
+                <div key={i} className="h-6 w-16 bg-gray-100 rounded-full" />
               ))}
             </div>
           </div>
@@ -208,28 +205,26 @@ export default function TrackOrderPage() {
             <div
               className={`rounded-2xl shadow p-6 text-center ${
                 order.isCancelled
-                  ? "bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800"
+                  ? "bg-[var(--danger-muted)] border border-[color:color-mix(in_srgb,var(--accent-danger)_20%,transparent)]"
                   : order.isDelivered
-                    ? "bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800"
-                    : "bg-white dark:bg-gray-800"
+                    ? "bg-[var(--success-muted)] border border-[color:color-mix(in_srgb,var(--accent-success)_20%,transparent)]"
+                    : "bg-white"
               }`}
             >
               {(() => {
                 const Icon = STATUS_ICONS[order.status] || Clock;
                 const iconColor = order.isCancelled
-                  ? "text-red-500"
+                  ? "text-[var(--accent-danger)]"
                   : order.isDelivered
-                    ? "text-green-500"
+                    ? "text-[var(--accent-success)]"
                     : "text-indigo-500";
                 return (
                   <Icon className={`h-14 w-14 mx-auto mb-3 ${iconColor}`} />
                 );
               })()}
-              <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">
-                طلب رقم
-              </p>
+              <p className="text-sm text-gray-500 mb-1">طلب رقم</p>
               <p
-                className="text-xl font-bold font-mono text-gray-800 dark:text-gray-100 mb-2"
+                className="text-xl font-bold font-mono text-gray-800 mb-2"
                 dir="ltr"
               >
                 {order.orderNumber}
@@ -237,10 +232,10 @@ export default function TrackOrderPage() {
               <span
                 className={`inline-block px-5 py-1.5 rounded-full text-sm font-semibold ${
                   order.isCancelled
-                    ? "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300"
+                    ? "bg-[var(--danger-muted)] text-[var(--accent-danger)]"
                     : order.isDelivered
-                      ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300"
-                      : "bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300"
+                      ? "bg-[var(--success-muted)] text-[var(--accent-success)]"
+                      : "bg-indigo-100 text-indigo-700"
                 }`}
               >
                 {order.statusLabel}
@@ -252,8 +247,8 @@ export default function TrackOrderPage() {
 
             {/* Timeline */}
             {!order.isCancelled && (
-              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-5">
-                <h2 className="text-sm font-semibold text-gray-600 dark:text-gray-300 mb-4 text-right">
+              <div className="bg-white rounded-2xl shadow p-5">
+                <h2 className="text-sm font-semibold text-gray-600 mb-4 text-right">
                   رحلة طلبك
                 </h2>
                 <div className="relative">
@@ -267,10 +262,10 @@ export default function TrackOrderPage() {
                         <div
                           className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
                             step.active
-                              ? "bg-indigo-600 text-white ring-4 ring-indigo-100 dark:ring-indigo-900"
+                              ? "bg-indigo-600 text-white ring-4 ring-indigo-100"
                               : step.completed
-                                ? "bg-green-500 text-white"
-                                : "bg-gray-100 dark:bg-gray-700 text-gray-400"
+                                ? "bg-[var(--accent-success)] text-white"
+                                : "bg-gray-100 text-gray-400"
                           }`}
                         >
                           {step.completed && !step.active ? (
@@ -283,8 +278,8 @@ export default function TrackOrderPage() {
                           <div
                             className={`w-0.5 h-6 mt-1 ${
                               step.completed
-                                ? "bg-green-400"
-                                : "bg-gray-200 dark:bg-gray-700"
+                                ? "bg-[var(--accent-success)]"
+                                : "bg-gray-200"
                             }`}
                           />
                         )}
@@ -294,9 +289,9 @@ export default function TrackOrderPage() {
                         <p
                           className={`text-sm font-medium ${
                             step.active
-                              ? "text-indigo-600 dark:text-indigo-400"
+                              ? "text-indigo-600"
                               : step.completed
-                                ? "text-gray-700 dark:text-gray-300"
+                                ? "text-gray-700"
                                 : "text-gray-400"
                           }`}
                         >
@@ -311,8 +306,8 @@ export default function TrackOrderPage() {
 
             {/* Shipment Tracking */}
             {order.tracking && (
-              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-5">
-                <h2 className="text-sm font-semibold text-gray-600 dark:text-gray-300 mb-3 flex items-center gap-2">
+              <div className="bg-white rounded-2xl shadow p-5">
+                <h2 className="text-sm font-semibold text-gray-600 mb-3 flex items-center gap-2">
                   <Truck className="h-4 w-4" />
                   معلومات الشحن
                 </h2>
@@ -350,19 +345,19 @@ export default function TrackOrderPage() {
 
             {/* Items */}
             {order.items.length > 0 && (
-              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-5">
-                <h2 className="text-sm font-semibold text-gray-600 dark:text-gray-300 mb-3 flex items-center gap-2">
+              <div className="bg-white rounded-2xl shadow p-5">
+                <h2 className="text-sm font-semibold text-gray-600 mb-3 flex items-center gap-2">
                   <Package className="h-4 w-4" />
                   محتويات الطلب
                 </h2>
-                <div className="divide-y divide-gray-100 dark:divide-gray-700">
+                <div className="divide-y divide-gray-100">
                   {order.items.map((item, idx) => (
                     <div
                       key={idx}
                       className="flex flex-col gap-2 py-2.5 sm:flex-row sm:items-start sm:justify-between"
                     >
                       <div>
-                        <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                        <p className="text-sm font-medium text-gray-800">
                           {item.name}
                         </p>
                         <p className="text-xs text-gray-400">
@@ -370,7 +365,7 @@ export default function TrackOrderPage() {
                           {formatPrice(item.unitPrice, order.currency)}
                         </p>
                       </div>
-                      <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 sm:shrink-0">
+                      <p className="text-sm font-semibold text-gray-700 sm:shrink-0">
                         {formatPrice(
                           item.totalPrice || item.unitPrice * item.quantity,
                           order.currency,
@@ -379,11 +374,9 @@ export default function TrackOrderPage() {
                     </div>
                   ))}
                 </div>
-                <div className="mt-2 flex flex-col gap-1 border-t border-gray-200 pt-3 dark:border-gray-700 sm:flex-row sm:items-center sm:justify-between">
-                  <span className="font-semibold text-gray-700 dark:text-gray-300">
-                    الإجمالي
-                  </span>
-                  <span className="font-bold text-gray-900 dark:text-white">
+                <div className="mt-2 flex flex-col gap-1 border-t border-gray-200 pt-3 sm:flex-row sm:items-center sm:justify-between">
+                  <span className="font-semibold text-gray-700">الإجمالي</span>
+                  <span className="font-bold text-gray-900">
                     {formatPrice(order.totalPrice, order.currency)}
                   </span>
                 </div>
@@ -392,7 +385,7 @@ export default function TrackOrderPage() {
 
             {/* Notes */}
             {order.notes && (
-              <div className="bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-2xl p-4 text-sm text-amber-700 dark:text-amber-300">
+              <div className="bg-[var(--warning-muted)] border border-[color:color-mix(in_srgb,var(--accent-warning)_20%,transparent)] rounded-2xl p-4 text-sm text-[var(--accent-warning)]">
                 <p className="font-medium mb-1">ملاحظة:</p>
                 <p>{order.notes}</p>
               </div>

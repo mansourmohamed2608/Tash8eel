@@ -231,9 +231,9 @@ export function PerformanceScore({
   const percentage = (score / maxScore) * 100;
 
   const getScoreColor = () => {
-    if (percentage >= 80) return "text-green-500";
-    if (percentage >= 60) return "text-yellow-500";
-    return "text-red-500";
+    if (percentage >= 80) return "text-[var(--accent-success)]";
+    if (percentage >= 60) return "text-[var(--accent-warning)]";
+    return "text-[var(--accent-danger)]";
   };
 
   const getScoreLabel = () => {
@@ -398,14 +398,16 @@ export function ComparisonCard({
         <div className="mt-4 pt-4 border-t">
           <div className="flex items-center gap-2">
             {change >= 0 ? (
-              <ArrowUpRight className="h-4 w-4 text-green-500" />
+              <ArrowUpRight className="h-4 w-4 text-[var(--accent-success)]" />
             ) : (
-              <ArrowDownRight className="h-4 w-4 text-red-500" />
+              <ArrowDownRight className="h-4 w-4 text-[var(--accent-danger)]" />
             )}
             <span
               className={cn(
                 "text-sm font-medium",
-                change >= 0 ? "text-green-500" : "text-red-500",
+                change >= 0
+                  ? "text-[var(--accent-success)]"
+                  : "text-[var(--accent-danger)]",
               )}
             >
               {change >= 0 ? "+" : ""}
@@ -590,24 +592,24 @@ export function InsightCard({
 }: InsightCardProps) {
   const typeConfig = {
     success: {
-      bg: "bg-green-50 border-green-200",
-      icon: <TrendingUp className="h-5 w-5 text-green-500" />,
-      titleColor: "text-green-800",
+      bg: "bg-[var(--success-muted)] border-[color:color-mix(in_srgb,var(--accent-success)_20%,transparent)]",
+      icon: <TrendingUp className="h-5 w-5 text-[var(--accent-success)]" />,
+      titleColor: "text-[var(--accent-success)]",
     },
     warning: {
-      bg: "bg-yellow-50 border-yellow-200",
-      icon: <Info className="h-5 w-5 text-yellow-500" />,
-      titleColor: "text-yellow-800",
+      bg: "bg-[var(--warning-muted)] border-[color:color-mix(in_srgb,var(--accent-warning)_20%,transparent)]",
+      icon: <Info className="h-5 w-5 text-[var(--accent-warning)]" />,
+      titleColor: "text-[var(--accent-warning)]",
     },
     info: {
-      bg: "bg-blue-50 border-blue-200",
-      icon: <Sparkles className="h-5 w-5 text-blue-500" />,
-      titleColor: "text-blue-800",
+      bg: "bg-[var(--info-muted)] border-[color:color-mix(in_srgb,var(--info)_20%,transparent)]",
+      icon: <Sparkles className="h-5 w-5 text-[var(--info)]" />,
+      titleColor: "text-[var(--info)]",
     },
     danger: {
-      bg: "bg-red-50 border-red-200",
-      icon: <TrendingDown className="h-5 w-5 text-red-500" />,
-      titleColor: "text-red-800",
+      bg: "bg-[var(--danger-muted)] border-[color:color-mix(in_srgb,var(--accent-danger)_20%,transparent)]",
+      icon: <TrendingDown className="h-5 w-5 text-[var(--accent-danger)]" />,
+      titleColor: "text-[var(--accent-danger)]",
     },
   };
 

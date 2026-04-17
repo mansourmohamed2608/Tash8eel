@@ -980,7 +980,7 @@ export default function KnowledgeBasePage() {
       </Card>
 
       {checklistPercent < 100 && (
-        <Card className="border-amber-200 bg-amber-50/60">
+        <Card className="border-[color:color-mix(in_srgb,var(--accent-warning)_20%,transparent)] bg-[var(--warning-muted)]">
           <CardContent className="p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="font-medium text-[var(--accent-warning)]">

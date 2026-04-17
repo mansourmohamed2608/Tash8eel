@@ -42,7 +42,7 @@ export function DataTable<T extends { id?: string | number }>({
               {columns.map((col) => (
                 <th
                   key={col.key}
-                  className="h-9 p-4 text-right text-[11px] font-semibold tracking-[0.04em] text-[var(--text-muted)]"
+                  className="h-9 p-4 text-right text-[11px] font-semibold text-[var(--text-muted)]"
                 >
                   <Skeleton className="h-4 w-20" />
                 </th>
@@ -96,7 +96,7 @@ export function DataTable<T extends { id?: string | number }>({
                 <th
                   key={col.key}
                   className={cn(
-                    "h-9 p-4 text-right text-[11px] font-semibold tracking-[0.04em] text-[var(--text-muted)]",
+                    "h-9 p-4 text-right text-[11px] font-semibold text-[var(--text-muted)]",
                     col.className,
                   )}
                 >

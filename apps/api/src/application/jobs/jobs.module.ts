@@ -18,6 +18,7 @@ import { ForecastModule } from "../forecasting/forecast.module";
 import { OverageService } from "../services/overage.service";
 import { InventoryReservationReconciliationScheduler } from "./inventory-reservation-reconciliation.scheduler";
 import { ConnectorRuntimeWorkerScheduler } from "./connector-runtime-worker.scheduler";
+import { EmbeddingWorker } from "./embedding.worker";
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { ConnectorRuntimeWorkerScheduler } from "./connector-runtime-worker.sche
     InventoryReservationReconciliationScheduler,
     ConnectorRuntimeWorkerScheduler,
     OverageService,
+    EmbeddingWorker,
   ],
   exports: [
     FollowupScheduler,
@@ -55,6 +57,7 @@ import { ConnectorRuntimeWorkerScheduler } from "./connector-runtime-worker.sche
     InventoryReservationReconciliationScheduler,
     ConnectorRuntimeWorkerScheduler,
     OverageService,
+    EmbeddingWorker,
     ForecastModule,
   ],
 })

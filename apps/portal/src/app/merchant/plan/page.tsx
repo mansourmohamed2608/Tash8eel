@@ -1539,7 +1539,7 @@ export default function PlanPage() {
                           key={line}
                           className="flex items-center gap-2 text-xs"
                         >
-                          <Check className="h-3 w-3 text-emerald-600" />
+                          <Check className="h-3 w-3 text-[var(--accent-success)]" />
                           <span>{line}</span>
                         </p>
                       ))}
@@ -1635,7 +1635,7 @@ export default function PlanPage() {
                           key={line}
                           className="flex items-center gap-2 text-xs"
                         >
-                          <Check className="h-3 w-3 text-emerald-600" />
+                          <Check className="h-3 w-3 text-[var(--accent-success)]" />
                           <span>{line}</span>
                         </p>
                       ))}

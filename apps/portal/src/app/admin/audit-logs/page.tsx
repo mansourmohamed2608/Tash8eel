@@ -90,7 +90,7 @@ const actionColors: Record<string, string> = {
   cancelled:
     "border-[color:rgba(239,68,68,0.3)] bg-[color:rgba(239,68,68,0.1)] text-[color:#fca5a5]",
   replayed:
-    "border-[color:rgba(232,197,71,0.24)] bg-[color:var(--accent-gold-dim)] text-[color:var(--accent-gold)]",
+    "border-[color:rgba(45,107,228,0.15)] bg-[color:var(--brand-blue-dim)] text-[color:var(--brand-blue)]",
   success:
     "border-[color:rgba(34,197,94,0.28)] bg-[color:rgba(34,197,94,0.1)] text-[color:#86efac]",
   failed:
@@ -457,7 +457,7 @@ export default function AuditLogsPage() {
                                   ? "border-[color:rgba(59,130,246,0.24)] bg-[color:rgba(59,130,246,0.12)] text-[color:#93c5fd]"
                                   : log.actor.type === "merchant"
                                     ? "border-[color:rgba(34,197,94,0.26)] bg-[color:rgba(34,197,94,0.1)] text-[color:#86efac]"
-                                    : "border-[color:rgba(232,197,71,0.22)] bg-[color:var(--accent-gold-dim)] text-[color:var(--accent-gold)]",
+                                    : "border-[color:rgba(45,107,228,0.13)] bg-[color:var(--brand-blue-dim)] text-[color:var(--brand-blue)]",
                               )}
                             >
                               {log.actor.type === "admin"

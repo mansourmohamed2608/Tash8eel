@@ -136,13 +136,13 @@ export function AIInsightsPanel({
   const getUrgencyColor = (urgency: string) => {
     switch (urgency) {
       case "critical":
-        return "bg-[color:rgba(239,68,68,0.12)] text-[var(--accent-danger)] border-[var(--accent-danger)]/20";
+        return "bg-[var(--danger-muted)] text-[var(--accent-danger)] border-[color:color-mix(in_srgb,var(--accent-danger)_20%,transparent)]";
       case "high":
-        return "bg-[color:rgba(245,158,11,0.12)] text-[var(--accent-warning)] border-[var(--accent-warning)]/20";
+        return "bg-[var(--warning-muted)] text-[var(--accent-warning)] border-[color:color-mix(in_srgb,var(--accent-warning)_20%,transparent)]";
       case "medium":
-        return "bg-[color:rgba(245,158,11,0.10)] text-[var(--accent-warning)] border-[var(--accent-warning)]/16";
+        return "bg-[color:color-mix(in_srgb,var(--warning-muted)_65%,white)] text-[var(--accent-warning)] border-[color:color-mix(in_srgb,var(--accent-warning)_14%,transparent)]";
       default:
-        return "bg-[color:rgba(34,197,94,0.12)] text-[var(--accent-success)] border-[var(--accent-success)]/20";
+        return "bg-[var(--success-muted)] text-[var(--accent-success)] border-[color:color-mix(in_srgb,var(--accent-success)_20%,transparent)]";
     }
   };
 
@@ -187,7 +187,7 @@ export function AIInsightsPanel({
           className={cn(
             "flex items-center gap-3 rounded-lg p-4 border",
             aiStatus.budgetExhausted || aiStatus.error === "AI_QUOTA_EXHAUSTED"
-              ? "bg-[color:rgba(245,158,11,0.10)] border-[var(--accent-warning)]/20 text-[var(--text-primary)]"
+              ? "bg-[var(--warning-muted)] border-[color:color-mix(in_srgb,var(--accent-warning)_20%,transparent)] text-[var(--text-primary)]"
               : "bg-[var(--bg-surface-2)] border-[var(--border-default)] text-[var(--text-primary)]",
           )}
         >

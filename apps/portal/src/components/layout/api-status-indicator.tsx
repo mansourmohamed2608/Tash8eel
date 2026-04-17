@@ -44,15 +44,15 @@ export function ApiStatusIndicator() {
   }, []);
 
   const statusColors = {
-    checking: "text-yellow-500",
-    connected: "text-green-500",
-    disconnected: "text-red-500",
+    checking: "text-[var(--accent-warning)]",
+    connected: "text-[var(--accent-success)]",
+    disconnected: "text-[var(--accent-danger)]",
   };
 
   const bgColors = {
-    checking: "bg-yellow-500/10",
-    connected: "bg-green-500/10",
-    disconnected: "bg-red-500/10",
+    checking: "bg-[var(--warning-muted)]",
+    connected: "bg-[var(--success-muted)]",
+    disconnected: "bg-[var(--danger-muted)]",
   };
 
   return (
