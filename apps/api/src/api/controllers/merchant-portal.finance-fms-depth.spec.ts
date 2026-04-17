@@ -32,7 +32,6 @@ describe("MerchantPortalController finance FMS depth", () => {
       {} as any,
       {} as any,
       {} as any,
-      {} as any,
     );
 
     return {

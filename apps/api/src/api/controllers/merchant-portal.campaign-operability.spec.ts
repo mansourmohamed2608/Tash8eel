@@ -34,7 +34,6 @@ describe("MerchantPortalController campaign operability", () => {
       {} as any,
       {} as any,
       {} as any,
-      {} as any,
     );
 
     return {
