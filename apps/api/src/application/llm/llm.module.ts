@@ -11,6 +11,7 @@ import { CopilotDispatcherService } from "./copilot-dispatcher.service";
 import { MerchantContextService } from "./merchant-context.service";
 import { EmbeddingService } from "./embedding.service";
 import { VectorSearchService } from "./vector-search.service";
+import { KbRetrievalService } from "./kb-retrieval.service";
 import { MessageRouterService } from "./message-router.service";
 import { PlannerContextAssemblerService } from "./planner-context-assembler.service";
 import { CopilotActionRegistryService } from "./copilot-action-registry.service";
@@ -34,6 +35,7 @@ import { SharedAiModule } from "../shared/shared-ai.module";
     MerchantContextService,
     EmbeddingService,
     VectorSearchService,
+    KbRetrievalService,
     MessageRouterService,
     PlannerContextAssemblerService,
     CopilotActionRegistryService,
@@ -52,6 +54,7 @@ import { SharedAiModule } from "../shared/shared-ai.module";
     MerchantContextService,
     EmbeddingService,
     VectorSearchService,
+    KbRetrievalService,
     MessageRouterService,
     PlannerContextAssemblerService,
     CopilotActionRegistryService,

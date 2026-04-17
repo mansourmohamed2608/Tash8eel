@@ -32,6 +32,7 @@ describe("MerchantPortalController monthly close governance", () => {
       {} as any,
       {} as any,
       {} as any,
+      {} as any,
     );
 
     return {

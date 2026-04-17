@@ -36,6 +36,7 @@ describe("MerchantPortalController transactional outbox", () => {
       {} as any,
       outboxService,
       {} as any,
+      {} as any,
     );
 
     return {
