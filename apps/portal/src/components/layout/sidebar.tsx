@@ -402,6 +402,9 @@ const adminNavItems: NavItem[] = [
 
 const MERCHANT_SECTION_STORAGE_KEY = "merchant-sidebar-open-section";
 
+// ─── Section ordering reflects Operations OS daily workflow:
+// Home → Conversations (AI) → Orders → Cashier → Inventory → Customers
+//   → Reports → Finance (periodic) → Settings (config) → Help
 const MERCHANT_SECTION_CONFIG: MerchantSidebarSection[] = [
   {
     id: "main",
@@ -413,23 +416,22 @@ const MERCHANT_SECTION_CONFIG: MerchantSidebarSection[] = [
     ],
   },
   {
+    // Conversations + AI oversight — the core Operations OS loop
     id: "conversations",
     label: "المحادثات",
     icon: MessageSquare,
     items: [
       { href: "/merchant/conversations", label: "المحادثات" },
       { href: "/merchant/calls", label: "المكالمات" },
-      {
-        href: "/merchant/audit/ai-decisions",
-        label: "سجل قرارات الذكاء",
-      },
       { href: "/merchant/command-center", label: "غرفة القيادة" },
-      { href: "/merchant/agent-activity", label: "سجل نشاط الوكلاء" },
       { href: "/merchant/agents", label: "مركز الذكاء" },
+      { href: "/merchant/agent-activity", label: "سجل نشاط الوكلاء" },
       { href: "/merchant/teams", label: "المهام الجماعية للوكلاء" },
+      { href: "/merchant/audit/ai-decisions", label: "سجل قرارات الذكاء" },
     ],
   },
   {
+    // Orders: fulfillment operations only — no billing/finance items here
     id: "orders",
     label: "الطلبات",
     icon: ShoppingCart,
@@ -437,7 +439,6 @@ const MERCHANT_SECTION_CONFIG: MerchantSidebarSection[] = [
       { href: "/merchant/orders", label: "الطلبات" },
       { href: "/merchant/followups", label: "المتابعات" },
       { href: "/merchant/delivery-drivers", label: "سائقو التوصيل" },
-      { href: "/merchant/feature-requests", label: "اقتراحات وعروض السعر" },
     ],
   },
   {
@@ -450,17 +451,6 @@ const MERCHANT_SECTION_CONFIG: MerchantSidebarSection[] = [
         label: "الكاشير",
         featureKey: "cashier",
       },
-    ],
-  },
-  {
-    id: "finance",
-    label: "المالية والاشتراك",
-    icon: Receipt,
-    items: [
-      { href: "/merchant/billing", label: "الفواتير" },
-      { href: "/merchant/payments/cod", label: "تحصيل عند الاستلام" },
-      { href: "/merchant/payments/proofs", label: "إثبات الدفع" },
-      { href: "/merchant/plan", label: "خطتي والأسعار" },
     ],
   },
   {
@@ -520,27 +510,42 @@ const MERCHANT_SECTION_CONFIG: MerchantSidebarSection[] = [
     ],
   },
   {
+    // Finance: billing/payments/plan — periodic admin, not daily ops
+    id: "finance",
+    label: "المالية",
+    icon: Receipt,
+    items: [
+      { href: "/merchant/billing", label: "الفواتير" },
+      { href: "/merchant/payments/cod", label: "تحصيل عند الاستلام" },
+      { href: "/merchant/payments/proofs", label: "إثبات الدفع" },
+      { href: "/merchant/plan", label: "خطتي والأسعار" },
+    ],
+  },
+  {
+    // Settings: AI config first (assistant + KB), then team/ops config, then admin
     id: "settings",
     label: "الإعدادات",
     icon: Settings,
     items: [
+      { href: "/merchant/assistant", label: "مساعد التاجر" },
+      { href: "/merchant/knowledge-base", label: "قاعدة المعرفة" },
       { href: "/merchant/team", label: "الفريق" },
+      { href: "/merchant/pos-integrations", label: "POS Integrations" },
+      { href: "/merchant/import-export", label: "استيراد/تصدير" },
       { href: "/merchant/security", label: "الأمان" },
       { href: "/merchant/audit", label: "سجل التدقيق" },
-      { href: "/merchant/pos-integrations", label: "POS Integrations" },
       { href: "/merchant/settings", label: "الإعدادات" },
-      { href: "/merchant/import-export", label: "استيراد/تصدير" },
-      { href: "/merchant/assistant", label: "مساعد التاجر" },
     ],
   },
   {
+    // Help: support + feedback — feature-requests lives here, not in Orders
     id: "help",
     label: "المساعدة",
     icon: HelpCircle,
     items: [
       { href: "/merchant/help", label: "مركز المساعدة" },
+      { href: "/merchant/feature-requests", label: "اقتراحات وعروض السعر" },
       { href: "/merchant/roadmap", label: "قادم قريباً" },
-      { href: "/merchant/knowledge-base", label: "قاعدة المعرفة" },
     ],
   },
 ];
@@ -1256,13 +1261,88 @@ interface TopBarProps {
   collapsed?: boolean;
 }
 
+// Map route prefixes to Arabic section titles for the mobile topbar.
+// More-specific paths must come before shorter prefixes in JS object iteration,
+// so we sort by length descending at runtime (see getMobileTitle).
+const MOBILE_TITLE_MAP: Record<string, string> = {
+  "/merchant/dashboard": "لوحة التحكم",
+  "/merchant/conversations": "المحادثات",
+  "/merchant/calls": "المكالمات",
+  "/merchant/command-center": "غرفة القيادة",
+  "/merchant/agents": "مركز الذكاء",
+  "/merchant/agent-activity": "سجل نشاط الوكلاء",
+  "/merchant/teams": "المهام الجماعية",
+  "/merchant/audit/ai-decisions": "سجل قرارات الذكاء",
+  "/merchant/orders": "الطلبات",
+  "/merchant/followups": "المتابعات",
+  "/merchant/delivery-drivers": "سائقو التوصيل",
+  "/merchant/cashier": "الكاشير",
+  "/merchant/inventory-insights/expiry-alerts": "تنبيهات الصلاحية",
+  "/merchant/inventory-insights/fifo-valuation": "تقييم FIFO",
+  "/merchant/inventory-insights/sku-merge": "دمج المنتجات",
+  "/merchant/inventory-insights": "رؤى المخزون",
+  "/merchant/inventory": "المخزون",
+  "/merchant/suppliers": "الموردون",
+  "/merchant/automations": "الأتمتة",
+  "/merchant/forecast": "منصة التنبؤ",
+  "/merchant/customers": "العملاء",
+  "/merchant/loyalty": "برنامج الولاء",
+  "/merchant/campaigns": "الحملات",
+  "/merchant/notifications": "الإشعارات",
+  "/merchant/analytics/forecast": "توقعات الطلب",
+  "/merchant/analytics": "التحليلات",
+  "/merchant/kpis": "مؤشرات الأداء",
+  "/merchant/reports/cfo": "ملخص المدير المالي",
+  "/merchant/reports/accountant": "حزمة المحاسب",
+  "/merchant/reports/tax": "تقرير الضرائب",
+  "/merchant/reports/cash-flow": "التدفق النقدي",
+  "/merchant/reports/discount-impact": "تأثير الخصومات",
+  "/merchant/reports/refund-analysis": "تحليل المرتجعات",
+  "/merchant/reports": "التقارير",
+  "/merchant/expenses": "المصروفات",
+  "/merchant/branches/comparison": "مقارنة الفروع",
+  "/merchant/branches": "الفروع",
+  "/merchant/billing": "الفواتير",
+  "/merchant/payments/cod": "تحصيل عند الاستلام",
+  "/merchant/payments/proofs": "إثبات الدفع",
+  "/merchant/payments": "المدفوعات",
+  "/merchant/plan": "خطتي والأسعار",
+  "/merchant/assistant": "مساعد التاجر",
+  "/merchant/knowledge-base": "قاعدة المعرفة",
+  "/merchant/team": "الفريق",
+  "/merchant/pos-integrations": "POS Integrations",
+  "/merchant/import-export": "استيراد/تصدير",
+  "/merchant/security": "الأمان",
+  "/merchant/audit": "سجل التدقيق",
+  "/merchant/settings": "الإعدادات",
+  "/merchant/help": "مركز المساعدة",
+  "/merchant/feature-requests": "اقتراحات وعروض السعر",
+  "/merchant/roadmap": "قادم قريباً",
+  "/merchant/onboarding": "البدء السريع",
+};
+
+function getMobileTitle(pathname: string): string {
+  // Sort keys longest-first so more-specific paths win over prefix matches
+  const sorted = Object.keys(MOBILE_TITLE_MAP).sort(
+    (a, b) => b.length - a.length,
+  );
+  for (const path of sorted) {
+    if (pathname === path || pathname.startsWith(path + "/")) {
+      return MOBILE_TITLE_MAP[path];
+    }
+  }
+  return "تشغيل";
+}
+
 export function TopBar({ role, collapsed }: TopBarProps) {
+  const pathname = usePathname();
+
   return (
     <header className="app-topbar-shell sticky top-0 z-30 flex h-14 items-center px-4 lg:px-5">
       <div className="app-shell-main flex w-full items-center justify-between">
-        {/* Page title area - right side in RTL */}
-        <h1 className="text-[16px] font-bold text-[var(--text-primary)] lg:hidden">
-          لوحة التحكم
+        {/* Current section title — mobile only (sidebar is hidden on mobile) */}
+        <h1 className="text-[16px] font-bold tracking-[-0.02em] text-[var(--text-primary)] lg:hidden">
+          {getMobileTitle(pathname)}
         </h1>
         <div className="hidden lg:block" />
 

@@ -61,7 +61,7 @@ const iconMap: Record<
   calendar: Calendar,
   truck: Truck,
   lightbulb: Lightbulb,
-  "bar-chart": Info,
+  "bar-chart": TrendingUp,
   "alert-triangle": AlertTriangle,
   copy: Copy,
   star: Star,
