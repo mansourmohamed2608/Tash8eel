@@ -86,6 +86,48 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
     --neutral-50: #F3F4F7;
 
     /* ── Radii ─────────────────────────────────────────────────── */
+    /* ── Backgrounds — light mode ── */
+    --bg-base: #F7F6F3;
+    --bg-surface-1: #FFFFFF;
+    --bg-surface-2: #F2F1EE;
+    --bg-surface-3: #EAEAE6;
+    /* ── Borders — light mode ── */
+    --border-subtle: rgba(0, 0, 0, 0.07);
+    --border-default: rgba(0, 0, 0, 0.12);
+    --border-active: rgba(0, 0, 0, 0.22);
+    --border-strong: rgba(0, 0, 0, 0.18);
+    /* ── Text — light mode ── */
+    --text-primary: #1A1A1A;
+    --text-secondary: #6B6A66;
+    --text-muted: #9B9A96;
+    /* ── Interactive / brand blue ── */
+    --accent-blue: #2D6BE4;
+    --accent-blue-dim: rgba(45, 107, 228, 0.10);
+    /* ── Semantic: success (operational green) ── */
+    --accent-success: #3B6D11;
+    --success: #3B6D11;
+    --success-muted: #EAF3DE;
+    /* ── Semantic: warning (reserved amber — never brand) ── */
+    --accent-warning: #854F0B;
+    --accent-gold: #854F0B;
+    --accent-gold-dim: rgba(133, 79, 11, 0.10);
+    --warning: #854F0B;
+    --warning-muted: #FAEEDA;
+    /* ── Semantic: danger (clear red) ── */
+    --accent-danger: #A32D2D;
+    --danger: #A32D2D;
+    --danger-muted: #FCEBEB;
+    /* ── Semantic: info (non-interactive blue) ── */
+    --info: #185FA5;
+    --info-muted: #E6F1FB;
+    /* ── AI signal (muted teal) — reserved for AI-sourced content ── */
+    --ai-signal: #0F6E56;
+    --ai-signal-muted: rgba(15, 110, 86, 0.08);
+    /* ── Alias tokens used by badge / alerts components ── */
+    --accent: #2D6BE4;
+    --accent-muted: #E8F0FC;
+    --surface-muted: #F2F1EE;
+    /* ── Radius ── */
     --radius-sm: 6px;
     --radius-md: 8px;
     --radius-lg: 12px;
@@ -93,6 +135,8 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
     /* ── Typography — font families ─────────────────────────────── */
     /* IBM Plex Arabic is the ONLY Arabic typeface — heading and body */
     --font-heading: var(--font-ibm-plex-arabic), sans-serif;
+    /* ── Typography ── */
+    --font-heading: var(--font-cairo), sans-serif;
     --font-body: var(--font-ibm-plex-arabic), sans-serif;
     /* IBM Plex Sans is the Latin companion for English-only contexts */
     --font-latin: var(--font-ibm-plex-sans), sans-serif;
@@ -142,6 +186,24 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
     --border: 225 11% 79%;             /* #C4C7D0 */
     --input: 225 11% 79%;
     --ring: 220 77% 54%;               /* #2D6BE4 */
+    /* ── Tailwind / shadcn CSS-var compatibility (HSL channels) ── */
+    --background: 60 20% 96%;
+    --foreground: 0 0% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 10%;
+    --popover-foreground: 0 0% 10%;
+    --primary: 220 77% 54%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 60 14% 94%;
+    --secondary-foreground: 0 0% 10%;
+    --muted: 60 14% 94%;
+    --muted-foreground: 60 2% 41%;
+    --accent: 60 14% 94%;
+    --accent-foreground: 0 0% 10%;
+    --destructive: 0 57% 41%;
+    --border: 60 5% 86%;
+    --input: 60 5% 86%;
+    --ring: 220 77% 54%;
     --radius: 8px;
   }
 
@@ -212,6 +274,7 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
 
   ::selection {
     background: var(--brand-blue-dim);
+    background: var(--accent-blue-dim);
     color: var(--text-primary);
   }
 
@@ -298,6 +361,44 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
 
   .app-data-card--muted {
     background: var(--bg-surface-2);
+  }
+
+  .app-action-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 14px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-subtle);
+    background: var(--bg-surface-2);
+  }
+
+  .app-action-bar__filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    flex: 1;
+  }
+
+  .app-action-bar__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
+  .app-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border-subtle);
   }
 
   .app-hero-band {
@@ -398,6 +499,7 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
 
   .app-auth-feature svg {
     color: var(--brand-blue);
+    color: var(--accent-blue);
   }
 
   .app-auth-form-shell {
@@ -457,6 +559,7 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
   .app-insight-strip {
     border: 1px solid var(--border-subtle);
     border-right: 2px solid var(--brand-blue);
+    border-right: 2px solid var(--accent-blue);
     border-radius: 10px;
     background: var(--bg-surface-2);
     color: var(--text-primary);
@@ -494,6 +597,8 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
   .app-ghost-action:hover {
     border-color: var(--brand-blue);
     color: var(--brand-blue);
+    border-color: var(--accent-blue);
+    color: var(--accent-blue);
   }
 
   .app-ghost-action:active {
@@ -638,6 +743,7 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
 
   .tash-scrollbar::-webkit-scrollbar-thumb {
     background: var(--neutral-300);
+    background: var(--border-default);
   }
 
   .tash-banner-message {

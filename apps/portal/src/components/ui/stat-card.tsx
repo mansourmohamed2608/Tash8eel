@@ -45,14 +45,14 @@ export function StatCard({
   return (
     <div
       className={cn(
-        "group min-h-[80px] rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--bg-surface-1)] p-4 transition-all duration-150 ease-in-out hover:border-[var(--accent-gold)]",
+        "group min-h-[80px] rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--bg-surface-1)] p-4 transition-all duration-150 ease-in-out hover:border-[var(--accent-blue)]",
         isNegative && "border-r-2 border-r-[var(--accent-danger)]",
         className,
       )}
     >
       <div className="flex items-start justify-between gap-3">
         {icon && (
-          <div className="inline-flex h-8 w-8 items-center justify-center rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] text-[var(--accent-gold)]">
+          <div className="inline-flex h-8 w-8 items-center justify-center rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] text-[var(--accent-blue)]">
             {icon}
           </div>
         )}

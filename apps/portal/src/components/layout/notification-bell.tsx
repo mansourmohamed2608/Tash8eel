@@ -33,11 +33,11 @@ interface Notification {
 const getPriorityStyles = (priority: string) => {
   switch (priority) {
     case "URGENT":
-      return "border-l-4 border-l-[var(--accent-danger)] bg-[color:rgba(239,68,68,0.10)]";
+      return "border-l-4 border-l-[var(--accent-danger)] bg-[var(--danger-muted)]";
     case "HIGH":
-      return "border-l-4 border-l-[var(--accent-warning)] bg-[color:rgba(245,158,11,0.10)]";
+      return "border-l-4 border-l-[var(--accent-warning)] bg-[var(--warning-muted)]";
     case "MEDIUM":
-      return "border-l-4 border-l-[var(--accent-blue)] bg-[color:rgba(59,130,246,0.10)]";
+      return "border-l-4 border-l-[var(--accent-blue)] bg-[var(--accent-muted)]";
     default:
       return "border-l-4 border-l-[var(--border-default)] bg-[var(--bg-surface-2)]";
   }
@@ -190,7 +190,7 @@ export function NotificationBell() {
         <Button variant="ghost" size="icon" className="relative">
           <Bell className="h-5 w-5" />
           {unreadCount > 0 && (
-            <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white animate-pulse">
+            <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-[var(--accent-danger)] text-[10px] font-bold text-white animate-pulse">
               {unreadCount > 9 ? "9+" : unreadCount}
             </span>
           )}

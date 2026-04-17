@@ -244,24 +244,27 @@ interface PortalInventoryResponse {
 const SECTION_STYLES = [
   {
     icon: Activity,
-    accent: "text-blue-700",
-    bullet: "bg-blue-700",
-    border: "border-blue-200 dark:border-blue-900/60",
-    bg: "bg-blue-50/80 dark:bg-blue-950/20",
+    accent: "text-[var(--accent-blue)]",
+    bullet: "bg-[var(--accent-blue)]",
+    border:
+      "border-[color:color-mix(in_srgb,var(--accent-blue)_22%,transparent)]",
+    bg: "bg-[var(--accent-muted)]",
   },
   {
     icon: TrendingUp,
-    accent: "text-emerald-700",
-    bullet: "bg-emerald-700",
-    border: "border-emerald-200 dark:border-emerald-900/60",
-    bg: "bg-emerald-50/80 dark:bg-emerald-950/20",
+    accent: "text-[var(--accent-success)]",
+    bullet: "bg-[var(--accent-success)]",
+    border:
+      "border-[color:color-mix(in_srgb,var(--accent-success)_22%,transparent)]",
+    bg: "bg-[var(--success-muted)]",
   },
   {
     icon: AlertTriangle,
-    accent: "text-amber-700",
-    bullet: "bg-amber-700",
-    border: "border-amber-200 dark:border-amber-900/60",
-    bg: "bg-amber-50/80 dark:bg-amber-950/20",
+    accent: "text-[var(--accent-warning)]",
+    bullet: "bg-[var(--accent-warning)]",
+    border:
+      "border-[color:color-mix(in_srgb,var(--accent-warning)_22%,transparent)]",
+    bg: "bg-[var(--warning-muted)]",
   },
   {
     icon: PlayCircle,
@@ -978,7 +981,7 @@ export function SmartAnalysisButton({
 
       {/* Error state */}
       {error && (
-        <div className="mx-4 mb-4 p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-300 text-sm">
+        <div className="mx-4 mb-4 p-3 bg-[var(--danger-muted)] border border-[color:color-mix(in_srgb,var(--accent-danger)_22%,transparent)] rounded-lg text-[var(--accent-danger)] text-sm">
           {error}
         </div>
       )}

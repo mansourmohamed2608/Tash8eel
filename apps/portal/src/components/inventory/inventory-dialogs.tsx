@@ -262,10 +262,12 @@ export function ProductDialog({
                 onSkuErrorClear();
               }}
               placeholder="SKU001"
-              className={skuError ? "border-red-500" : ""}
+              className={skuError ? "border-[var(--accent-danger)]" : ""}
             />
             {skuError && (
-              <p className="text-sm text-red-500 mt-1">{skuError}</p>
+              <p className="text-sm text-[var(--accent-danger)] mt-1">
+                {skuError}
+              </p>
             )}
           </div>
           <div>

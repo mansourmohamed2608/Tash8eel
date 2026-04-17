@@ -89,7 +89,7 @@ const AGENT_META: Record<
   SUPPORT_AGENT: {
     icon: Bell,
     label: "وكيل الدعم",
-    color: "bg-[color:rgba(232,197,71,0.14)] text-[color:var(--accent-gold)]",
+    color: "bg-[color:rgba(45,107,228,0.10)] text-[color:var(--brand-blue)]",
   },
   MARKETING_AGENT: {
     icon: Bell,

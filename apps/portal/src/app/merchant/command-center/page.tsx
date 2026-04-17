@@ -1128,32 +1128,32 @@ export function sanitizeCommandCenterPayload(payload: {
 }
 
 const severityBadgeClass: Record<FeedSeverity, string> = {
-  high: "border-[color:rgba(239,68,68,0.35)] bg-[color:rgba(239,68,68,0.12)] text-red-700",
+  high: "border-[color:color-mix(in_srgb,var(--accent-danger)_22%,transparent)] bg-[var(--danger-muted)] text-[var(--accent-danger)]",
   medium:
-    "border-[color:rgba(245,158,11,0.35)] bg-[color:rgba(245,158,11,0.12)] text-amber-700",
-  low: "border-[color:rgba(59,130,246,0.32)] bg-[color:rgba(59,130,246,0.12)] text-blue-700",
+    "border-[color:color-mix(in_srgb,var(--accent-warning)_22%,transparent)] bg-[var(--warning-muted)] text-[var(--accent-warning)]",
+  low: "border-[color:color-mix(in_srgb,var(--accent-blue)_22%,transparent)] bg-[var(--accent-muted)] text-[var(--accent-blue)]",
 };
 
 const runStatusBadgeClass: Record<PlannerRunStatus, string> = {
   STARTED:
-    "border-[color:rgba(59,130,246,0.32)] bg-[color:rgba(59,130,246,0.12)] text-blue-700",
+    "border-[color:color-mix(in_srgb,var(--accent-blue)_22%,transparent)] bg-[var(--accent-muted)] text-[var(--accent-blue)]",
   COMPLETED:
-    "border-[color:rgba(34,197,94,0.32)] bg-[color:rgba(34,197,94,0.12)] text-emerald-700",
+    "border-[color:color-mix(in_srgb,var(--accent-success)_22%,transparent)] bg-[var(--success-muted)] text-[var(--accent-success)]",
   FAILED:
-    "border-[color:rgba(239,68,68,0.35)] bg-[color:rgba(239,68,68,0.12)] text-red-700",
+    "border-[color:color-mix(in_srgb,var(--accent-danger)_22%,transparent)] bg-[var(--danger-muted)] text-[var(--accent-danger)]",
   SKIPPED:
-    "border-[color:rgba(245,158,11,0.35)] bg-[color:rgba(245,158,11,0.12)] text-amber-700",
+    "border-[color:color-mix(in_srgb,var(--accent-warning)_22%,transparent)] bg-[var(--warning-muted)] text-[var(--accent-warning)]",
 };
 
 const remediationBadgeClass: Record<DeliveryBreachRemediationState, string> = {
   PENDING_ACK:
-    "border-[color:rgba(245,158,11,0.35)] bg-[color:rgba(245,158,11,0.12)] text-amber-700",
+    "border-[color:color-mix(in_srgb,var(--accent-warning)_22%,transparent)] bg-[var(--warning-muted)] text-[var(--accent-warning)]",
   ACKNOWLEDGED:
-    "border-[color:rgba(59,130,246,0.32)] bg-[color:rgba(59,130,246,0.12)] text-blue-700",
+    "border-[color:color-mix(in_srgb,var(--accent-blue)_22%,transparent)] bg-[var(--accent-muted)] text-[var(--accent-blue)]",
   ESCALATION_REQUIRED:
-    "border-[color:rgba(239,68,68,0.35)] bg-[color:rgba(239,68,68,0.12)] text-red-700",
+    "border-[color:color-mix(in_srgb,var(--accent-danger)_22%,transparent)] bg-[var(--danger-muted)] text-[var(--accent-danger)]",
   RECOVERED:
-    "border-[color:rgba(34,197,94,0.32)] bg-[color:rgba(34,197,94,0.12)] text-emerald-700",
+    "border-[color:color-mix(in_srgb,var(--accent-success)_22%,transparent)] bg-[var(--success-muted)] text-[var(--accent-success)]",
 };
 
 const executionActionLabel: Record<ExecutionRecommendedAction, string> = {
@@ -1167,13 +1167,13 @@ const executionActionLabel: Record<ExecutionRecommendedAction, string> = {
 
 const executionActionBadgeClass: Record<ExecutionRecommendedAction, string> = {
   MONITOR:
-    "border-[color:rgba(59,130,246,0.32)] bg-[color:rgba(59,130,246,0.12)] text-blue-700",
+    "border-[color:color-mix(in_srgb,var(--accent-blue)_22%,transparent)] bg-[var(--accent-muted)] text-[var(--accent-blue)]",
   REPLAY_RUN:
-    "border-[color:rgba(34,197,94,0.32)] bg-[color:rgba(34,197,94,0.12)] text-emerald-700",
+    "border-[color:color-mix(in_srgb,var(--accent-success)_22%,transparent)] bg-[var(--success-muted)] text-[var(--accent-success)]",
   REVIEW_PENDING_APPROVALS:
-    "border-[color:rgba(245,158,11,0.35)] bg-[color:rgba(245,158,11,0.12)] text-amber-700",
+    "border-[color:color-mix(in_srgb,var(--accent-warning)_22%,transparent)] bg-[var(--warning-muted)] text-[var(--accent-warning)]",
   ADJUST_TRIGGER_BUDGET:
-    "border-[color:rgba(239,68,68,0.35)] bg-[color:rgba(239,68,68,0.12)] text-red-700",
+    "border-[color:color-mix(in_srgb,var(--accent-danger)_22%,transparent)] bg-[var(--danger-muted)] text-[var(--accent-danger)]",
   RETRY_CONNECTOR_DLQ:
     "border-[color:rgba(249,115,22,0.35)] bg-[color:rgba(249,115,22,0.12)] text-orange-700",
   EXECUTE_DELIVERY_ESCALATIONS:
@@ -2723,8 +2723,8 @@ export default function MerchantCommandCenterPage() {
                     className={cn(
                       "text-[11px]",
                       replayPreview.allowedToReplayNow
-                        ? "border-[color:rgba(34,197,94,0.32)] bg-[color:rgba(34,197,94,0.12)] text-emerald-700"
-                        : "border-[color:rgba(239,68,68,0.35)] bg-[color:rgba(239,68,68,0.12)] text-red-700",
+                        ? "border-[color:color-mix(in_srgb,var(--accent-success)_22%,transparent)] bg-[var(--success-muted)] text-[var(--accent-success)]"
+                        : "border-[color:color-mix(in_srgb,var(--accent-danger)_22%,transparent)] bg-[var(--danger-muted)] text-[var(--accent-danger)]",
                     )}
                   >
                     {replayPreview.allowedToReplayNow

@@ -10,11 +10,11 @@ const badgeVariants = cva(
         default:
           "border-transparent bg-[var(--brand-blue)] text-white shadow-[0_10px_24px_-16px_color-mix(in_srgb,var(--brand-blue)_86%,black)]",
         secondary:
-          "border-[color:color-mix(in_srgb,var(--border-strong)_84%,transparent)] bg-[color:color-mix(in_srgb,var(--surface-muted)_92%,transparent)] text-[var(--text-primary)]",
+          "border-[color:color-mix(in_srgb,var(--border-strong)_84%,transparent)] bg-[var(--surface-muted)] text-[var(--text-primary)]",
         destructive:
           "border-transparent bg-[var(--danger)] text-white shadow-[0_10px_24px_-16px_color-mix(in_srgb,var(--danger)_82%,black)]",
         success:
-          "border-[color:color-mix(in_srgb,var(--success)_18%,var(--border-strong))] bg-[var(--success-muted)] text-[var(--success)]",
+          "border-[color:color-mix(in_srgb,var(--success)_20%,transparent)] bg-[var(--success-muted)] text-[var(--success)]",
         warning:
           "border-[color:color-mix(in_srgb,var(--warning)_18%,var(--border-strong))] bg-[var(--warning-muted)] text-[var(--warning)]",
         info: "border-[color:color-mix(in_srgb,var(--brand-blue)_18%,var(--border-strong))] bg-[var(--accent-muted)] text-[var(--brand-blue)]",

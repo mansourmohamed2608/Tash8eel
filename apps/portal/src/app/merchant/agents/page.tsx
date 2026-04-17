@@ -45,6 +45,7 @@ import { merchantApi } from "@/lib/client";
 import { useMerchant } from "@/hooks/use-merchant";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { EmptyState } from "@/components/ui/alerts";
 
 interface AgentInfo {
   id: string;
@@ -493,17 +494,11 @@ export default function AgentsPage() {
               ))}
             </div>
           ) : agents.length === 0 ? (
-            <Card>
-              <CardContent className="p-12 text-center">
-                <Bot className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-                <p className="text-lg font-medium mb-1">
-                  الوكلاء غير متوفرين حالياً
-                </p>
-                <p className="text-muted-foreground text-sm">
-                  يعمل النظام بالذكاء الاصطناعي المدمج
-                </p>
-              </CardContent>
-            </Card>
+            <EmptyState
+              icon={<Bot className="h-6 w-6" />}
+              title="الوكلاء غير متوفرين حالياً"
+              description="يعمل النظام بالذكاء الاصطناعي المدمج."
+            />
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {agents.map((agent) => {

@@ -29,7 +29,7 @@ const alertConfig = {
   },
   info: {
     shell:
-      "border-[color:color-mix(in_srgb,var(--accent)_18%,var(--border-strong))] bg-[var(--accent-muted)] text-[var(--accent)]",
+      "border-[color:color-mix(in_srgb,var(--accent-blue)_18%,var(--border-strong))] bg-[var(--accent-muted)] text-[var(--accent-blue)]",
     icon: Info,
   },
 };
@@ -162,7 +162,7 @@ export function ErrorState({
       )}
     >
       <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-[20px] border border-[color:color-mix(in_srgb,var(--danger)_20%,var(--border-strong))] bg-white/60">
-        <XCircle className="h-8 w-8 text-[var(--danger)]" />
+        <XCircle className="h-8 w-8 text-[var(--accent-danger)]" />
       </div>
       <h3 className="mb-1 text-lg font-semibold text-[var(--text-primary)]">
         {title}

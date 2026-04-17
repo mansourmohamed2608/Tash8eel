@@ -49,20 +49,20 @@ export function ApiStatusIndicator({ collapsed }: ApiStatusIndicatorProps) {
   const statusConfig = {
     connected: {
       icon: Wifi,
-      color: "text-green-600",
-      bgColor: "bg-green-100 dark:bg-green-900/30",
+      color: "text-[var(--accent-success)]",
+      bgColor: "bg-[var(--success-muted)]",
       label: "متصل",
     },
     disconnected: {
       icon: WifiOff,
-      color: "text-red-600",
-      bgColor: "bg-red-100 dark:bg-red-900/30",
+      color: "text-[var(--accent-danger)]",
+      bgColor: "bg-[var(--danger-muted)]",
       label: "غير متصل",
     },
     checking: {
       icon: RefreshCw,
-      color: "text-yellow-600",
-      bgColor: "bg-yellow-100 dark:bg-yellow-900/30",
+      color: "text-[var(--accent-warning)]",
+      bgColor: "bg-[var(--warning-muted)]",
       label: "جاري الفحص...",
     },
   };

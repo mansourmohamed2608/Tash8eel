@@ -14,9 +14,9 @@ const iconMap = {
 
 const toneClasses = {
   blue: "bg-[var(--accent-blue-dim)] text-[var(--accent-blue)]",
-  gold: "bg-[var(--accent-gold-dim)] text-[var(--accent-gold)]",
-  success: "bg-[rgba(34,197,94,0.12)] text-[var(--accent-success)]",
-  info: "bg-[var(--accent-blue-dim)] text-[var(--accent-blue)]",
+  gold: "bg-[var(--warning-muted)] text-[var(--accent-warning)]",
+  success: "bg-[var(--success-muted)] text-[var(--accent-success)]",
+  info: "bg-[var(--info-muted)] text-[var(--info)]",
 };
 
 function useCountUp(value: number, duration = 800) {
@@ -59,10 +59,10 @@ export function KPICard({ metric }: { metric: KpiMetric }) {
 
   const trendTone =
     metric.trend === null
-      ? "bg-[rgba(255,255,255,0.06)] text-[var(--text-secondary)]"
+      ? "bg-[var(--bg-surface-2)] text-[var(--text-secondary)]"
       : metric.trend > 0
-        ? "bg-[rgba(34,197,94,0.12)] text-[var(--accent-success)]"
-        : "bg-[rgba(239,68,68,0.12)] text-[var(--accent-danger)]";
+        ? "bg-[var(--success-muted)] text-[var(--accent-success)]"
+        : "bg-[var(--danger-muted)] text-[var(--accent-danger)]";
 
   return (
     <DashboardCard className="px-5 py-4">

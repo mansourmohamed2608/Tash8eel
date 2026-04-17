@@ -36,6 +36,7 @@ import {
 import { merchantApi } from "@/lib/client";
 import { formatCurrency } from "@/lib/utils";
 import { useMerchant } from "@/hooks/use-merchant";
+import { ErrorState } from "@/components/ui/alerts";
 import {
   REPORTING_PERIOD_OPTIONS,
   getReportingDateRange,
@@ -252,25 +253,13 @@ export default function AnalyticsPage() {
 
   if (error) {
     return (
-      <div className="p-4 sm:p-6">
+      <div className="space-y-6 p-4 sm:p-6">
         <PageHeader title="التحليلات" />
-        <Card>
-          <CardContent className="p-12">
-            <div className="flex flex-col items-center justify-center text-center">
-              <AlertCircle className="h-16 w-16 text-destructive mb-4" />
-              <h3 className="text-lg font-semibold">خطأ في تحميل التحليلات</h3>
-              <p className="text-muted-foreground mt-2">{error}</p>
-              <Button
-                onClick={fetchAllAnalytics}
-                variant="outline"
-                className="mt-4 w-full sm:w-auto"
-              >
-                <RefreshCw className="h-4 w-4 ml-2" />
-                إعادة المحاولة
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+        <ErrorState
+          title="خطأ في تحميل التحليلات"
+          message={error}
+          onRetry={fetchAllAnalytics}
+        />
       </div>
     );
   }

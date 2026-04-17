@@ -439,7 +439,7 @@ function supportsFeature(planId: string, key: string) {
 
 function FeatureFlagCell({ value }: { value: boolean }) {
   return value ? (
-    <span className="inline-flex items-center gap-1 text-emerald-600">
+    <span className="inline-flex items-center gap-1 text-[var(--accent-success)]">
       <Check className="h-3.5 w-3.5" /> نعم
     </span>
   ) : (
@@ -730,7 +730,7 @@ export default function MerchantPricingPage() {
                           key={line}
                           className="flex items-start gap-2 text-xs text-muted-foreground"
                         >
-                          <Check className="mt-0.5 h-3.5 w-3.5 text-emerald-600" />
+                          <Check className="mt-0.5 h-3.5 w-3.5 text-[var(--accent-success)]" />
                           <span>{line}</span>
                         </p>
                       ))}

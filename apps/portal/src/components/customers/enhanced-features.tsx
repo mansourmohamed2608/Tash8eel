@@ -373,9 +373,9 @@ export function CLVCard({ averageCLV, topCLV, distribution }: CLVCardProps) {
               {formatCurrency(averageCLV)}
             </p>
           </div>
-          <div className="p-4 bg-green-50 rounded-lg text-center">
+          <div className="p-4 bg-[var(--success-muted)] rounded-lg text-center">
             <p className="text-sm text-muted-foreground mb-1">الأعلى</p>
-            <p className="text-2xl font-bold text-green-600">
+            <p className="text-2xl font-bold text-[var(--accent-success)]">
               {formatCurrency(topCLV)}
             </p>
           </div>
@@ -419,18 +419,22 @@ export function ChurnRiskCard({
   const riskPercentage = (atRiskCount / totalCustomers) * 100;
 
   return (
-    <Card className="border-red-200">
+    <Card className="border-[color:color-mix(in_srgb,var(--accent-danger)_20%,transparent)]">
       <CardHeader>
-        <CardTitle className="text-base flex items-center gap-2 text-red-700">
+        <CardTitle className="text-base flex items-center gap-2 text-[var(--accent-danger)]">
           <AlertTriangle className="h-4 w-4" />
           مخاطر فقدان العملاء
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="flex items-center justify-between p-4 bg-red-50 rounded-lg">
+        <div className="flex items-center justify-between p-4 bg-[var(--danger-muted)] rounded-lg">
           <div>
-            <p className="text-sm text-red-700">عملاء معرضين للمغادرة</p>
-            <p className="text-3xl font-bold text-red-700">{atRiskCount}</p>
+            <p className="text-sm text-[var(--accent-danger)]">
+              عملاء معرضين للمغادرة
+            </p>
+            <p className="text-3xl font-bold text-[var(--accent-danger)]">
+              {atRiskCount}
+            </p>
           </div>
           <div className="text-left">
             <p className="text-sm text-muted-foreground">من الإجمالي</p>
@@ -439,9 +443,9 @@ export function ChurnRiskCard({
         </div>
 
         {recentChurned > 0 && (
-          <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+          <div className="p-3 bg-[var(--warning-muted)] rounded-lg border border-[color:color-mix(in_srgb,var(--accent-warning)_20%,transparent)]">
             <p className="text-sm">
-              <span className="font-medium text-yellow-700">
+              <span className="font-medium text-[var(--accent-warning)]">
                 {recentChurned} عميل
               </span>
               <span className="text-muted-foreground">
@@ -610,9 +614,11 @@ export function CustomerActivity({
       case "order":
         return <ShoppingBag className="h-4 w-4 text-blue-500" />;
       case "message":
-        return <MessageSquare className="h-4 w-4 text-green-500" />;
+        return (
+          <MessageSquare className="h-4 w-4 text-[var(--accent-success)]" />
+        );
       case "review":
-        return <Star className="h-4 w-4 text-yellow-500" />;
+        return <Star className="h-4 w-4 text-[var(--accent-warning)]" />;
       case "points":
         return <Award className="h-4 w-4 text-purple-500" />;
       case "offer":

@@ -835,7 +835,7 @@ export default function AgentTeamsPage() {
               return (
                 <Card
                   key={task.id}
-                  className="app-data-card transition-colors hover:border-[color:rgba(232,197,71,0.22)]"
+                  className="app-data-card transition-colors hover:border-[color:rgba(45,107,228,0.30)]"
                 >
                   <CardContent className="p-4">
                     <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

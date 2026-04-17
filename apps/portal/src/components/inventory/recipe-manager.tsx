@@ -247,8 +247,8 @@ export function RecipeManager({
     <Card dir="rtl">
       <CardHeader className="flex flex-row items-center justify-between pb-3">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
-            <ChefHat className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+          <div className="p-2 bg-[var(--warning-muted)] rounded-lg">
+            <ChefHat className="h-5 w-5 text-[var(--accent-warning)]" />
           </div>
           <div>
             <CardTitle className="text-lg">وصفة: {catalogItemName}</CardTitle>
@@ -299,7 +299,7 @@ export function RecipeManager({
             {ingredients.map((ing) => (
               <div
                 key={ing.id}
-                className="grid grid-cols-12 gap-2 items-center bg-gray-50 dark:bg-gray-800/50 rounded-lg px-3 py-2 text-sm"
+                className="grid grid-cols-12 gap-2 items-center bg-[var(--bg-surface-2)] rounded-lg px-3 py-2 text-sm"
               >
                 <div className="col-span-4 flex items-center gap-2">
                   <Package className="h-4 w-4 text-gray-400 flex-shrink-0" />
@@ -381,7 +381,7 @@ export function RecipeManager({
                     onClick={() =>
                       handleDeleteIngredient(ing.id, ing.ingredient_name)
                     }
-                    className="h-7 w-7 p-0 text-red-500 hover:text-red-700"
+                    className="h-7 w-7 p-0 text-[var(--accent-danger)] hover:opacity-80"
                   >
                     <Trash2 className="h-3 w-3" />
                   </Button>
@@ -429,7 +429,7 @@ export function RecipeManager({
                       يكفي لـ {ing.canMake}
                     </Badge>
                     {ing.canMake === 0 && (
-                      <AlertTriangle className="h-3 w-3 text-red-500" />
+                      <AlertTriangle className="h-3 w-3 text-[var(--accent-danger)]" />
                     )}
                   </div>
                 </div>
@@ -659,7 +659,7 @@ export function RecipeManager({
         )}
 
         {/* Info note */}
-        <div className="text-xs text-gray-400 bg-gray-50 dark:bg-gray-800/30 rounded p-3 space-y-1">
+        <div className="text-xs text-[var(--text-muted)] bg-[var(--bg-surface-2)] rounded p-3 space-y-1">
           <p className="font-medium text-gray-500">كيف تعمل الوصفات:</p>
           <p>- عند طلب هذا الصنف، يتم خصم المكونات تلقائيا من المخزون</p>
           <p>- عند الغاء الطلب، يتم ارجاع المكونات للمخزون</p>
