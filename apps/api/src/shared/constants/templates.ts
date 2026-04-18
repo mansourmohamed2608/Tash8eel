@@ -60,6 +60,14 @@ export const ARABIC_TEMPLATES = {
   BUDGET_EXCEEDED:
     "ابعت اسم المنتج أو الطلب المطلوب وأنا أساعدك خطوة بخطوة.",
 
+  // Quota & plan-limit messaging (centralized, merchant-overridable)
+  MESSAGE_LIMIT_EXCEEDED:
+    "عذراً، تم الوصول للحد الأقصى من الرسائل الشهرية لهذا التاجر. يرجى التواصل مع التاجر مباشرة أو المحاولة لاحقاً.",
+  AI_REPLY_LIMIT_EXCEEDED:
+    "عذراً، تم الوصول إلى حد الردود الذكية أو الرسائل المعالجة ضمن الخطة الحالية. يمكن للتاجر الترقية أو شراء سعة إضافية للمتابعة.",
+  QUOTA_EXHAUSTED:
+    "نأسف، خدمة الرد التلقائي متوقفة مؤقتاً. سيتواصل معك أحد الزملاء قريباً 🙏",
+
   // Follow-up messages
   FOLLOWUP_FIRST: "أهلاً! لسه معاك السلة ({items}). عايز تكمل الطلب؟",
   FOLLOWUP_SECOND: "مرحباً تاني! عندك ({items}) في السلة. ممكن أساعدك تكمل؟",
@@ -113,3 +121,45 @@ export const SLOT_QUESTIONS: Record<string, string> = {
 
 // Alias for backward compatibility
 export const ArabicTemplates = ARABIC_TEMPLATES;
+
+/**
+ * Keys that can be overridden per-merchant via
+ * `merchant.knowledgeBase.messagingTemplates[key]`.
+ * The override path stays merchant-agnostic — no vertical branching.
+ */
+export type MessagingTemplateKey =
+  | "messageLimitExceeded"
+  | "aiReplyLimitExceeded"
+  | "quotaExhausted";
+
+const MESSAGING_TEMPLATE_DEFAULTS: Record<MessagingTemplateKey, string> = {
+  messageLimitExceeded: ARABIC_TEMPLATES.MESSAGE_LIMIT_EXCEEDED,
+  aiReplyLimitExceeded: ARABIC_TEMPLATES.AI_REPLY_LIMIT_EXCEEDED,
+  quotaExhausted: ARABIC_TEMPLATES.QUOTA_EXHAUSTED,
+};
+
+/**
+ * Resolve a customer-facing messaging template, preferring the merchant's
+ * override from `knowledgeBase.messagingTemplates[key]` when present.
+ *
+ * Callers pass the merchant (or just its knowledgeBase) so both the
+ * generic default and any merchant-specific wording flow through one place.
+ */
+export function getMessagingTemplate(
+  source:
+    | { knowledgeBase?: Record<string, any> | null }
+    | Record<string, any>
+    | null
+    | undefined,
+  key: MessagingTemplateKey,
+): string {
+  const kb =
+    source && typeof source === "object" && "knowledgeBase" in source
+      ? (source as { knowledgeBase?: Record<string, any> | null }).knowledgeBase
+      : (source as Record<string, any> | null | undefined);
+  const override = kb?.messagingTemplates?.[key];
+  if (typeof override === "string" && override.trim()) {
+    return override;
+  }
+  return MESSAGING_TEMPLATE_DEFAULTS[key];
+}

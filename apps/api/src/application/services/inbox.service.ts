@@ -39,6 +39,8 @@ import { PaymentService } from "./payment.service";
 import { CustomerReorderService } from "./customer-reorder.service";
 import { UsageGuardService } from "./usage-guard.service";
 import { MessageRouterService } from "../llm/message-router.service";
+import { classifyRetrievalPaths } from "../llm/retrieval-path";
+import { getMessagingTemplate } from "../../shared/constants/templates";
 
 // Repository imports
 import {
@@ -174,10 +176,9 @@ export class InboxService {
     "لحظة واحدة من فضلك، بنعالج رسالتك السابقة...";
   private readonly VOICE_TRANSCRIPTION_ERROR_AR =
     "عذراً، مش قادرين نسمع الرسالة الصوتية. ممكن تكتب الطلب بدل منها؟";
-  private readonly MESSAGE_LIMIT_EXCEEDED_AR =
-    "عذراً، تم الوصول للحد الأقصى من الرسائل الشهرية لهذا التاجر. يرجى التواصل مع التاجر مباشرة أو المحاولة لاحقاً.";
-  private readonly AI_REPLY_LIMIT_EXCEEDED_AR =
-    "عذراً، تم الوصول إلى حد الردود الذكية أو الرسائل المعالجة ضمن الخطة الحالية. يمكن للتاجر الترقية أو شراء سعة إضافية للمتابعة.";
+  // MESSAGE_LIMIT_EXCEEDED / AI_REPLY_LIMIT_EXCEEDED / QUOTA_EXHAUSTED are
+  // resolved via getMessagingTemplate() at the call sites so merchants can
+  // override them under knowledgeBase.messagingTemplates.*.
   private readonly REORDER_CONFIRM_KEYWORDS = [
     "تمام",
     "أكد",
@@ -354,7 +355,7 @@ export class InboxService {
       });
       return {
         conversationId: "",
-        replyText: this.MESSAGE_LIMIT_EXCEEDED_AR,
+        replyText: getMessagingTemplate(null, "messageLimitExceeded"),
         action: ActionType.ASK_CLARIFYING_QUESTION,
         cart: { items: [] },
       };
@@ -735,8 +736,7 @@ export class InboxService {
           messageType: effectiveMessageType,
           routingDecision: "quota_blocked",
         });
-        const blockedReply =
-          "نأسف، خدمة الرد التلقائي متوقفة مؤقتاً. سيتواصل معك أحد الزملاء قريباً 🙏";
+        const blockedReply = getMessagingTemplate(merchant, "quotaExhausted");
         await this.messageRepo.create({
           conversationId: conversation.id,
           merchantId: params.merchantId,
@@ -960,7 +960,7 @@ export class InboxService {
 
       return {
         conversationId: conversation.id,
-        replyText: this.AI_REPLY_LIMIT_EXCEEDED_AR,
+        replyText: getMessagingTemplate(merchant, "aiReplyLimitExceeded"),
         action: ActionType.GREET,
         cart: conversation.cart || {
           items: [],
@@ -971,6 +971,17 @@ export class InboxService {
         },
       };
     }
+    const retrievalDecision = classifyRetrievalPaths(
+      params.text ?? "",
+      effectiveMessageType,
+    );
+    this.logger.debug({
+      message: "Retrieval-path classification",
+      primaryPath: retrievalDecision.primaryPath,
+      paths: retrievalDecision.paths,
+      reason: retrievalDecision.reason,
+      correlationId,
+    });
     const llmResponse = await this.llmService.processMessage(
       {
         merchant,
@@ -978,6 +989,7 @@ export class InboxService {
         catalogItems,
         recentMessages,
         customerMessage: params.text,
+        retrievalDecision,
       },
       llmOptions,
     );

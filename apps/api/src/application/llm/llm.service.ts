@@ -26,6 +26,8 @@ import {
   ValidatedLlmResponse,
 } from "./llm-schema";
 import { MerchantContextService } from "./merchant-context.service";
+import { RetrievalDecision } from "./retrieval-path";
+import { getRetrievalPathDirective } from "./retrieval-path-directives";
 
 const logger = createLogger("LlmService");
 
@@ -78,6 +80,12 @@ export interface LlmContext {
   catalogItems: CatalogItem[];
   recentMessages: Message[];
   customerMessage: string;
+  /**
+   * Pre-LLM retrieval-path classification for this message. When provided,
+   * buildSystemPrompt appends the matching directive from
+   * retrieval-path-directives.ts to steer the reply shape.
+   */
+  retrievalDecision?: RetrievalDecision;
 }
 
 export interface LlmResult {
@@ -384,6 +392,7 @@ export class LlmService {
         merchant,
         merchantContext,
         currentState,
+        context.retrievalDecision,
       );
       const conversationHistory = this.buildConversationHistory(
         recentMessages,
@@ -553,6 +562,7 @@ export class LlmService {
       orderContext: string;
     },
     conversationState: ConversationState,
+    retrievalDecision?: RetrievalDecision,
   ): string {
     const businessInfoBlock = [
       merchantContext.businessInfo,
@@ -561,7 +571,11 @@ export class LlmService {
       merchantContext.orderContext,
     ].join("\n");
 
-    return `أنت بترد نيابة عن فريق ${merchant.name}، وكأنك موظف مبيعات أو خدمة عملاء من داخل المتجر.
+    const pathDirective = retrievalDecision?.primaryPath
+      ? `\n\n---\n\n${getRetrievalPathDirective(retrievalDecision.primaryPath)}`
+      : "";
+
+    const base = `أنت بترد نيابة عن فريق ${merchant.name}، وكأنك موظف مبيعات أو خدمة عملاء من داخل المتجر.
 
 معلومات المتجر:
 ${businessInfoBlock}
@@ -701,6 +715,8 @@ ${merchantContext.conversationHistory}
     رد بصياغة بشرية طبيعية وكأنك من الفريق
     لا تقل "أنا AI" أو "أنا مساعد ذكي" أو "أنا هنا بس لمساعدتك"
     مثال: "هبعت الموضوع للمسؤول، هتواصل معاك في أقرب وقت."`;
+
+    return base + pathDirective;
   }
 
   /**
@@ -1222,13 +1238,6 @@ ${customerMessage}
       negotiation: response.negotiation ? { ...response.negotiation } : null,
     };
 
-    const questionType = this.classifyCustomerQuestion(context.customerMessage);
-    // Use only the reply text to decide whether address/payment was requested.
-    // missing_slots is an informational field tracking what hasn't been collected
-    // yet — it is NOT an indicator that the current reply is asking for those
-    // slots right now. Using it here caused the stage-progress override to fire
-    // for greetings, policy questions, guided-choice, and vague intent messages
-    // whenever the LLM included "address" in missing_slots.
     const asksAddress = this.replyRequestsAddress(next.reply_ar);
     const asksPayment = this.replyRequestsPayment(next.reply_ar);
 
@@ -1244,25 +1253,9 @@ ${customerMessage}
       );
     };
 
-    if (this.isCartContentsInquiryMessage(context.customerMessage)) {
-      clearAddressAndPayment();
-      next.actionType = ActionType.ASK_CLARIFYING_QUESTION;
-      next.reply_ar = this.buildCartContentsReply(context, currentState);
-      next.reasoning = "answered_cart_contents";
-      return next;
-    }
-
-    if (this.isDiscoveryTriggerMessage(context.customerMessage)) {
-      clearAddressAndPayment();
-      next.actionType = ActionType.ASK_CLARIFYING_QUESTION;
-      next.reply_ar = this.buildFallbackCatalogReply(
-        context.catalogItems,
-        context.merchant.category,
-      );
-      next.reasoning = "forced_discovery_catalog";
-      return next;
-    }
-
+    // Delivery-zone follow-up: when we asked for the address and the customer
+    // answered with a zone name (not a full address), surface the fee/ETA
+    // from the merchant delivery rules so we don't stall the conversation.
     if (
       currentState.lastAskedFor === "address" &&
       !this.looksLikeDeliveryAddressText(context.customerMessage) &&
@@ -1281,42 +1274,12 @@ ${customerMessage}
         next.reasoning = "answered_delivery_zone_followup";
         return next;
       }
-
-      clearAddressAndPayment();
-      next.actionType = ActionType.ASK_CLARIFYING_QUESTION;
-      next.reply_ar = "خد وقتك، لما تجهز العنوان قولي 😊";
-      next.reasoning = "wait_for_address_once";
-      return next;
     }
 
-    const addressOrPaymentTooEarly =
-      (currentState.stage === "discovery" ||
-        currentState.stage === "item_confirmation") &&
-      (asksAddress || asksPayment);
-
-    if (questionType) {
-      const directAnswer = this.buildDirectQuestionAnswer(
-        questionType,
-        context,
-        currentState,
-        next,
-      );
-      if (directAnswer) {
-        clearAddressAndPayment();
-        next.actionType = ActionType.ASK_CLARIFYING_QUESTION;
-        next.reply_ar = directAnswer;
-        next.reasoning = `answered_question_first:${questionType}`;
-        return next;
-      }
-    }
-
-    // For questions the structured classifier did not match, try the merchant's
-    // KB FAQ index. This covers materials, turnaround, policies, and any other
-    // FAQ that was explicitly seeded. Only fires when there is no active cart
-    // progress (i.e., discovery/new conversation) so we don't interrupt an
-    // in-progress order flow.
+    // KB/FAQ safety net: when a seeded merchant FAQ directly answers the
+    // customer message, surface it. Narrow to early discovery with no
+    // strong catalog signal so we don't interrupt an active order flow.
     if (
-      !questionType &&
       currentState.stage === "discovery" &&
       (!this.isOrderIntentMessage(
         this.normalizeArabicText(context.customerMessage),
@@ -1339,29 +1302,17 @@ ${customerMessage}
       next.actionType === ActionType.ESCALATE ||
       next.actionType === ActionType.ESCALATE_TO_HUMAN;
 
-    if (
-      addressOrPaymentTooEarly &&
-      !isEscalationAction &&
-      !this.shouldPreserveNaturalReply(
-        questionType,
-        context,
-        currentState,
-        next,
-      )
-    ) {
-      const stageReply = this.buildStageProgressReply(
-        context,
-        previousState,
-        currentState,
-        next,
-      );
-      if (stageReply) {
-        clearAddressAndPayment();
-        next.actionType = ActionType.ASK_CLARIFYING_QUESTION;
-        next.reply_ar = stageReply;
-        next.reasoning = `stage_guard:${currentState.stage}`;
-        return next;
-      }
+    // Data safety: when the LLM asked for address/payment before the
+    // delivery stage, keep the reply text but strip the extracted
+    // entities so the downstream cart/order writer doesn't commit state
+    // the customer never confirmed. Reply text is left to the LLM.
+    const addressOrPaymentTooEarly =
+      (currentState.stage === "discovery" ||
+        currentState.stage === "item_confirmation") &&
+      (asksAddress || asksPayment);
+    if (addressOrPaymentTooEarly && !isEscalationAction) {
+      clearAddressAndPayment();
+      next.reasoning = `stage_data_sanitize:${currentState.stage}`;
     }
 
     if (
@@ -1884,7 +1835,7 @@ ${customerMessage}
         return `${item.nameAr} متوفر بسعر ${item.basePrice} جنيه. تحب كام قطعة؟`;
       }
 
-      return "قولّي اسم المنتج اللي يناسبك وأنا أساعدك خطوة بخطوة.";
+      return null;
     }
 
     if (currentState.stage === "item_confirmation") {
@@ -3293,7 +3244,7 @@ recentAgentActions: آخر 10 إجراءات اتخذها الوكلاء في آ
 
   private buildFallbackCatalogReply(
     catalogItems: CatalogItem[],
-    merchantCategory?: MerchantCategory,
+    _merchantCategory?: MerchantCategory,
   ): string {
     const names = Array.from(
       new Set(
@@ -3304,16 +3255,17 @@ recentAgentActions: آخر 10 إجراءات اتخذها الوكلاء في آ
     ).slice(0, 6);
 
     if (names.length === 0) {
-      if (merchantCategory === MerchantCategory.CLOTHES) {
-        return "أكيد 🙌 إحنا متجر ملابس. اكتب نوع القطعة اللي محتاجها (مثلاً بنطلون/تيشيرت) وأنا أرشح لك بسرعة.";
+      const categories = Array.from(
+        new Set(
+          catalogItems
+            .map((item) => String(item.category || "").trim())
+            .filter(Boolean),
+        ),
+      ).slice(0, 3);
+      if (categories.length > 0) {
+        return `أكيد 🙌 عندنا ${categories.join("، ")}. اكتب اسم أو نوع المنتج اللي بتدور عليه وأنا أساعدك فوراً.`;
       }
-      if (merchantCategory === MerchantCategory.FOOD) {
-        return "أكيد 🙌 إحنا مطعم/أكل. اكتب اسم الصنف اللي محتاجه وأنا أساعدك فوراً.";
-      }
-      if (merchantCategory === MerchantCategory.SUPERMARKET) {
-        return "أكيد 🙌 إحنا سوبرماركت. اكتب نوع المنتج اللي محتاجه وأنا أساعدك تختار.";
-      }
-      return "أكيد 🙌 عندنا منتجات متنوعة. اكتب اسم المنتج اللي بتدور عليه وأنا أساعدك فوراً.";
+      return "أكيد 🙌 اكتب اسم أو نوع المنتج اللي بتدور عليه وأنا أساعدك فوراً.";
     }
 
     return `أكيد 🙌 عندنا: ${names.join("، ")}.\nتحب أساعدك تختار أنسب حاجة؟`;
