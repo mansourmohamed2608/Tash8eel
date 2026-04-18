@@ -39,3 +39,4 @@ seed-output.txt
 temp_*.sql
 seed_data.sql
 check_user*.mjs
+*.tsbuildinfo
