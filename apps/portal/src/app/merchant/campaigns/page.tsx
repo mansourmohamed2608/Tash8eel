@@ -313,13 +313,13 @@ export default function WinbackCampaignsPage() {
         const callbackDueSoonCutoff = now + 24 * 60 * 60 * 1000;
 
         const callbackRequested = queueRows.filter(
-          (row) =>
+          (row: any) =>
             String((row as any)?.disposition || "")
               .trim()
               .toUpperCase() === "CALLBACK_REQUESTED",
         ).length;
 
-        const callbackDueSoon = queueRows.filter((row) => {
+        const callbackDueSoon = queueRows.filter((row: any) => {
           const disposition = String((row as any)?.disposition || "")
             .trim()
             .toUpperCase();
@@ -334,7 +334,7 @@ export default function WinbackCampaignsPage() {
           return epoch <= callbackDueSoonCutoff;
         }).length;
 
-        const openHighPriority = queueRows.filter((row) => {
+        const openHighPriority = queueRows.filter((row: any) => {
           const workflowState = String((row as any)?.workflowState || "OPEN")
             .trim()
             .toUpperCase();

@@ -13,7 +13,8 @@ export async function GET(request: NextRequest) {
   }
 
   const token = await getToken({
-    req: request,
+    // next-auth/jwt expects Pages-router req shape; cast for App Router compat
+    req: request as any,
     secret: process.env.NEXTAUTH_SECRET,
   });
 

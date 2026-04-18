@@ -3253,6 +3253,31 @@ export const merchantApi = {
       apiKey,
     });
   },
+
+  async getCallFollowUpQueue(
+    merchantId: string,
+    apiKey: string,
+    params?: {
+      limit?: number;
+      offset?: number;
+      hours?: number;
+      includeResolved?: boolean;
+      handledBy?: string;
+    },
+  ) {
+    const qs = new URLSearchParams();
+    if (params?.limit != null) qs.append("limit", String(params.limit));
+    if (params?.offset != null) qs.append("offset", String(params.offset));
+    if (params?.hours != null) qs.append("hours", String(params.hours));
+    if (params?.includeResolved != null)
+      qs.append("includeResolved", String(params.includeResolved));
+    if (params?.handledBy) qs.append("handledBy", params.handledBy);
+    const q = qs.toString() ? `?${qs.toString()}` : "";
+    return apiFetch<{ queue: any[]; total: number }>(
+      `/v1/portal/${merchantId}/calls/follow-up-queue${q}`,
+      { apiKey },
+    );
+  },
 };
 
 // Admin API
@@ -5966,6 +5991,58 @@ export const portalApi = {
       { method: "POST", body: options },
     ),
 
+  // --- Campaign Performance ---
+  getCampaignPerformanceSummary: (params?: {
+    days?: number;
+    campaignType?: string;
+    limit?: number;
+  }) =>
+    authenticatedFetch<any>(
+      `/api/v1/portal/campaigns/performance-summary${
+        params
+          ? `?${new URLSearchParams(
+              Object.fromEntries(
+                Object.entries(params)
+                  .filter(([, v]) => v != null)
+                  .map(([k, v]) => [k, String(v)]),
+              ),
+            ).toString()}`
+          : ""
+      }`,
+    ),
+
+  // --- Callback Campaign Bridge ---
+  createCallbackCampaignBridgeDraft: (options: {
+    actorId: string;
+    dueWithinHours?: number;
+    maxRecipients?: number;
+    inactiveDays?: number;
+    messageTemplate?: string;
+    discountCode?: string;
+  }) =>
+    authenticatedFetch<any>("/api/v1/portal/campaigns/callback-bridge/draft", {
+      method: "POST",
+      body: options,
+    }),
+
+  approveCallbackCampaignBridgeDraft: (
+    draftId: string,
+    options: { actorId: string; note?: string },
+  ) =>
+    authenticatedFetch<any>(
+      `/api/v1/portal/campaigns/callback-bridge/draft/${draftId}/approve`,
+      { method: "POST", body: options },
+    ),
+
+  executeCallbackCampaignBridgeDraft: (
+    draftId: string,
+    options: { actorId: string },
+  ) =>
+    authenticatedFetch<any>(
+      `/api/v1/portal/campaigns/callback-bridge/draft/${draftId}/execute`,
+      { method: "POST", body: options },
+    ),
+
   // --- Supplier Management ---
   getSuppliers: () =>
     authenticatedFetch<{ suppliers: any[] }>("/api/v1/portal/suppliers"),
@@ -6465,6 +6542,57 @@ export const portalApi = {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ poReference }),
       },
+    ),
+
+  // --- Monthly Close ---
+  getMonthlyClosePacket: (year: number, month: number) =>
+    authenticatedFetch<any>(
+      `/api/v1/portal/reports/monthly-close/${year}/${month}/packet`,
+    ),
+
+  getMonthlyCloseLedger: (
+    year: number,
+    month: number,
+    params?: { limit?: number; offset?: number },
+  ) =>
+    authenticatedFetch<{ items: any[]; total: number }>(
+      `/api/v1/portal/reports/monthly-close/${year}/${month}/ledger${params ? `?limit=${params.limit ?? 100}&offset=${params.offset ?? 0}` : ""}`,
+    ),
+
+  closeMonthlyClosePeriod: (
+    year: number,
+    month: number,
+    body: {
+      packetHash?: string;
+      lockAfterClose?: boolean;
+      notes?: string;
+      approval?: {
+        force?: boolean;
+        approvedBy?: string;
+        reason?: string;
+        secondApprovedBy?: string;
+        secondReason?: string;
+      };
+      evidence?: any;
+    },
+  ) =>
+    authenticatedFetch<any>(
+      `/api/v1/portal/reports/monthly-close/${year}/${month}/close`,
+      { method: "POST", body },
+    ),
+
+  reopenMonthlyClosePeriod: (
+    year: number,
+    month: number,
+    body: {
+      notes?: string;
+      approval?: { force?: boolean; approvedBy?: string; reason?: string };
+      evidence?: any;
+    },
+  ) =>
+    authenticatedFetch<any>(
+      `/api/v1/portal/reports/monthly-close/${year}/${month}/reopen`,
+      { method: "POST", body },
     ),
 };
 
