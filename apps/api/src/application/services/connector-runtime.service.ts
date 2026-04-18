@@ -14,6 +14,47 @@ import {
 
 const MAX_CONNECTOR_PAYLOAD_BYTES = 128 * 1024;
 
+type ConnectorRuntimeWorkerCycleOptions = {
+  merchantLimit: number;
+  perMerchantQueueLimit: number;
+  perMerchantRecoverLimit: number;
+  stuckOlderThanMinutes: number;
+  runReconciliation: boolean;
+  reconciliationScope: "orders" | "payments" | "inventory" | "catalog" | "all";
+  reconciliationMerchantLimit: number;
+};
+
+type ConnectorRuntimeWorkerCycleSummary = {
+  scannedMerchants: number;
+  processedMerchants: number;
+  skippedLockedMerchants: number;
+  failedMerchants: number;
+  queueTotals: {
+    picked: number;
+    processed: number;
+    retried: number;
+    movedToDlq: number;
+  };
+  recoveredStuckTotal: number;
+  reconciliation: {
+    attemptedMerchants: number;
+    succeededMerchants: number;
+    skippedByDepthMerchants: number;
+    failedMerchants: number;
+  };
+};
+
+type RecordWorkerCycleRunInput = {
+  status: "COMPLETED" | "FAILED" | "SKIPPED";
+  triggerSource: string;
+  workerInstance: string;
+  startedAt: Date;
+  finishedAt: Date;
+  options: ConnectorRuntimeWorkerCycleOptions;
+  result?: ConnectorRuntimeWorkerCycleSummary | null;
+  error?: string | null;
+};
+
 @Injectable()
 export class ConnectorRuntimeService {
   constructor(
@@ -32,6 +73,72 @@ export class ConnectorRuntimeService {
         "DEAD_LETTER",
       ],
     };
+  }
+
+  async runDeterministicWorkerCycle(
+    _options: ConnectorRuntimeWorkerCycleOptions,
+  ): Promise<ConnectorRuntimeWorkerCycleSummary> {
+    return {
+      scannedMerchants: 0,
+      processedMerchants: 0,
+      skippedLockedMerchants: 0,
+      failedMerchants: 0,
+      queueTotals: {
+        picked: 0,
+        processed: 0,
+        retried: 0,
+        movedToDlq: 0,
+      },
+      recoveredStuckTotal: 0,
+      reconciliation: {
+        attemptedMerchants: 0,
+        succeededMerchants: 0,
+        skippedByDepthMerchants: 0,
+        failedMerchants: 0,
+      },
+    };
+  }
+
+  async recordWorkerCycleRun(input: RecordWorkerCycleRunInput): Promise<void> {
+    const durationMs = Math.max(
+      0,
+      input.finishedAt.getTime() - input.startedAt.getTime(),
+    );
+
+    await this.pool.query(
+      `INSERT INTO connector_runtime_worker_cycles (
+         trigger_source,
+         worker_instance,
+         run_status,
+         cycle_options,
+         cycle_summary,
+         error,
+         started_at,
+         finished_at,
+         duration_ms
+       ) VALUES (
+         $1,
+         $2,
+         $3,
+         $4::jsonb,
+         $5::jsonb,
+         $6,
+         $7,
+         $8,
+         $9
+       )`,
+      [
+        input.triggerSource,
+        input.workerInstance,
+        input.status,
+        JSON.stringify(input.options || {}),
+        JSON.stringify(input.result || {}),
+        input.error || null,
+        input.startedAt,
+        input.finishedAt,
+        durationMs,
+      ],
+    );
   }
 
   async enqueueEvent(input: {

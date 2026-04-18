@@ -137,6 +137,21 @@ export interface LLMCallOptions {
   maxTokens?: number;
 }
 
+type CustomerQuestionType =
+  | "cart_contents"
+  | "sizes"
+  | "price"
+  | "color"
+  | "delivery_areas"
+  | "delivery_fee"
+  | "delivery_time"
+  | "lead_time"
+  | "discount"
+  | "pickup"
+  | "policy"
+  | "guided_choice"
+  | "custom_request";
+
 type FallbackReason =
   | "budget_exhausted"
   | "openai_429"
@@ -546,7 +561,7 @@ export class LlmService {
       merchantContext.orderContext,
     ].join("\n");
 
-    return `أنت مساعد ذكي لمتجر ${merchant.name}. اسمك ${merchant.name} مساعد.
+    return `أنت بترد نيابة عن فريق ${merchant.name}، وكأنك موظف مبيعات أو خدمة عملاء من داخل المتجر.
 
 معلومات المتجر:
 ${businessInfoBlock}
@@ -575,9 +590,12 @@ ${merchantContext.conversationHistory}
 1. الهوية والأسلوب:
    - تكلم بالعامية المصرية الطبيعية
    - كن ودود ومباشر وسريع
+   - اتكلم كأنك واحد من فريق المتجر، مش نظام آلي ومش مساعد ذكاء اصطناعي
    - لا تستخدم جمل طويلة غير ضرورية
    - لا تستخدم أي رسالة اعتذار عن ضغط أو زحمة العمل أبداً
    - لا تكرر نفس الرد مرتين متتاليتين أبداً
+   - لا تقل "أنا هنا بس لمساعدتك" أو أي جملة تبدو وكأنها رد آلي جاهز
+   - لا تبدأ بـ "بكل سرور" أو "سعيد بمساعدتك" في كل رد
 
 2. لو العميل سأل "بتبيعوا إيه" أو "عندك إيه":
    - اعرض المنتجات الموجودة فوراً من القائمة أعلاه
@@ -611,7 +629,10 @@ ${merchantContext.conversationHistory}
    خطوة 6: لخص الطلب وأكده
 
 5. لو العميل سأل سؤال مش في نطاق عملك:
-   - أجب ببساطة "أنا هنا بس لمساعدتك في ${merchant.name}"
+   - رد بجملة قصيرة ووجّه الكلام لنطاق المتجر بشكل طبيعي
+   - لا تقل إنك AI أو بوت أو نظام ذكاء اصطناعي
+   - لا تقل "أنا هنا بس لمساعدتك في..."
+   - مثال: "ده مش في تخصصي، بس لو محتاج حاجة من ${merchant.name} أنا معاك."
 
 6. لا تبدأ ردك بـ "أكيد" أو "تمام" في كل رد
 7. لا تضع إيموجي كتير - واحدة أو اتنين بحد أقصى
@@ -664,7 +685,22 @@ ${merchantContext.conversationHistory}
 
 13. لو العميل سأل عن:
     المقاس أو السعر أو اللون أو التوصيل أو الخصم أو الضمان
-    جاوب السؤال مباشرة قبل أي خطوة بيع تالية`;
+    جاوب السؤال مباشرة قبل أي خطوة بيع تالية
+
+14. لو العميل محتار أو بيطلب ترشيح أو بيقول إنه مش عارف يختار:
+    ابدأ بمساعدته بأسئلة قصيرة ومفيدة
+    لا تطلب اسم منتج جاهز لو هو لسه بيستكشف
+
+15. لو الطلب واضح إنه مخصص أو حسب الطلب أو محتاج مواصفات:
+    اجمع أهم التفاصيل الناقصة أولاً
+    لا تنتقل مباشرة لسؤال الكمية إلا لو المنتج محدد بوضوح ومطابق للكتالوج
+    لو العميل ذكر أبعاد (زي 60x90 أو 70x100) فده مؤشر على طلب مخصص — اجمع التفاصيل أولاً
+    لو المهلة المطلوبة غير واقعية، وضّح ده بشكل طبيعي واقترح البديل المناسب
+
+16. لو العميل طلب تحويله لشخص مسؤول أو عنده شكوى:
+    رد بصياغة بشرية طبيعية وكأنك من الفريق
+    لا تقل "أنا AI" أو "أنا مساعد ذكي" أو "أنا هنا بس لمساعدتك"
+    مثال: "هبعت الموضوع للمسؤول، هتواصل معاك في أقرب وقت."`;
   }
 
   /**
@@ -1187,9 +1223,13 @@ ${customerMessage}
     };
 
     const questionType = this.classifyCustomerQuestion(context.customerMessage);
-    const asksAddress =
-      this.replyRequestsAddress(next.reply_ar) ||
-      (next.missing_slots || []).some((slot) => slot.startsWith("address"));
+    // Use only the reply text to decide whether address/payment was requested.
+    // missing_slots is an informational field tracking what hasn't been collected
+    // yet — it is NOT an indicator that the current reply is asking for those
+    // slots right now. Using it here caused the stage-progress override to fire
+    // for greetings, policy questions, guided-choice, and vague intent messages
+    // whenever the LLM included "address" in missing_slots.
+    const asksAddress = this.replyRequestsAddress(next.reply_ar);
     const asksPayment = this.replyRequestsPayment(next.reply_ar);
 
     const clearAddressAndPayment = () => {
@@ -1278,9 +1318,10 @@ ${customerMessage}
     if (
       !questionType &&
       currentState.stage === "discovery" &&
-      !this.isOrderIntentMessage(
+      (!this.isOrderIntentMessage(
         this.normalizeArabicText(context.customerMessage),
-      )
+      ) ||
+        !this.hasStrongCatalogSignal(context, currentState, next))
     ) {
       const kbAnswer = this.lookupKbFaqByMessage(
         context.merchant,
@@ -1298,7 +1339,16 @@ ${customerMessage}
       next.actionType === ActionType.ESCALATE ||
       next.actionType === ActionType.ESCALATE_TO_HUMAN;
 
-    if (addressOrPaymentTooEarly && !isEscalationAction) {
+    if (
+      addressOrPaymentTooEarly &&
+      !isEscalationAction &&
+      !this.shouldPreserveNaturalReply(
+        questionType,
+        context,
+        currentState,
+        next,
+      )
+    ) {
       const stageReply = this.buildStageProgressReply(
         context,
         previousState,
@@ -1597,20 +1647,7 @@ ${customerMessage}
     return null;
   }
 
-  private classifyCustomerQuestion(
-    text: string,
-  ):
-    | "cart_contents"
-    | "sizes"
-    | "price"
-    | "color"
-    | "delivery_areas"
-    | "delivery_fee"
-    | "delivery_time"
-    | "discount"
-    | "pickup"
-    | "warranty"
-    | null {
+  private classifyCustomerQuestion(text: string): CustomerQuestionType | null {
     const normalized = this.normalizeArabicText(text);
 
     if (this.isCartContentsInquiryMessage(normalized)) {
@@ -1646,31 +1683,30 @@ ${customerMessage}
     ) {
       return "delivery_time";
     }
+    if (this.isLeadTimeQuestion(normalized)) {
+      return "lead_time";
+    }
     if (/في خصم|في عرض|في تخفيض/.test(normalized)) {
       return "discount";
     }
     if (/ممكن استلم|استلام من الفرع|pickup|استلام ذاتي/.test(normalized)) {
       return "pickup";
     }
-    if (/الضمان ايه|في ضمان|ضمان/.test(normalized)) {
-      return "warranty";
+    if (this.isPolicyQuestion(normalized)) {
+      return "policy";
+    }
+    if (this.isGuidedChoiceMessage(normalized)) {
+      return "guided_choice";
+    }
+    if (this.isCustomRequestMessage(normalized)) {
+      return "custom_request";
     }
 
     return null;
   }
 
   private buildDirectQuestionAnswer(
-    questionType:
-      | "cart_contents"
-      | "sizes"
-      | "price"
-      | "color"
-      | "delivery_areas"
-      | "delivery_fee"
-      | "delivery_time"
-      | "discount"
-      | "pickup"
-      | "warranty",
+    questionType: CustomerQuestionType,
     context: LlmContext,
     currentState: ConversationState,
     response: ValidatedLlmResponse,
@@ -1688,7 +1724,11 @@ ${customerMessage}
         return `${item.nameAr} متوفر بالمقاسات: ${sizes.join("، ")}. لو مناسبك قولي الكمية المطلوبة.`;
       }
       case "price":
-        if (!item) return null;
+        if (!item) {
+          return this.isCustomRequestMessage(context.customerMessage)
+            ? "أقدر أقولك سعر تقريبي، بس محتاج أعرف المقاس أو المواصفات الأساسية للطلب الأول."
+            : "أقدر أوضح السعر، بس محتاج أعرف المنتج المقصود أو المواصفات الأساسية بشكل أدق.";
+        }
         return `${item.nameAr} سعره ${item.basePrice} جنيه. لو مناسبك قولي الكمية المطلوبة.`;
       case "color": {
         if (!item) return null;
@@ -1762,6 +1802,12 @@ ${customerMessage}
         }
         return "مدة التوصيل بتتحدد حسب المنطقة، لكن غالباً بنأكدها معاك بعد العنوان.";
       }
+      case "lead_time":
+        return this.buildKnowledgeBasePolicyReply(
+          context.merchant,
+          ["مدة", "تنفيذ", "تسليم", "جاهز", "lead time", "turnaround"],
+          "المدة بتختلف حسب نوع الطلب والتفاصيل، لكن لو قلتلي الطلب أو المواصفات الأساسية أقولك المتوقع بشكل أدق.",
+        );
       case "discount": {
         const promotion = context.merchant.negotiationRules?.activePromotion;
         if (promotion?.enabled && promotion.discountPercent) {
@@ -1778,12 +1824,16 @@ ${customerMessage}
           ["استلام", "pickup", "فرع"],
           "الاستلام من الفرع مش موضح عندي حالياً. لو تحب أكملك بخيارات التوصيل.",
         );
-      case "warranty":
+      case "policy":
         return this.buildKnowledgeBasePolicyReply(
           context.merchant,
-          ["ضمان", "استرجاع", "استبدال"],
-          "سياسة الضمان أو الاستبدال مش موضحة عندي حالياً. لو تحب أراجعها لك مع المتجر.",
+          ["ضمان", "استرجاع", "استبدال", "ترجيع", "ارجاع", "سياسة"],
+          "سياسة الاسترجاع أو الاستبدال مش موضحة عندي بالكامل حالياً. لو تحب أراجعها لك مع الفريق.",
         );
+      case "guided_choice":
+        return this.buildGuidedChoiceReply(context);
+      case "custom_request":
+        return this.buildCustomRequestReply(context, currentState, response);
       default:
         return null;
     }
@@ -1795,6 +1845,11 @@ ${customerMessage}
     currentState: ConversationState,
     response: ValidatedLlmResponse,
   ): string | null {
+    const strongCatalogSignal = this.hasStrongCatalogSignal(
+      context,
+      currentState,
+      response,
+    );
     const item = this.resolveActiveCatalogItem(context, currentState, response);
     const hint =
       item?.nameAr ||
@@ -1825,7 +1880,7 @@ ${customerMessage}
         );
       }
 
-      if (item) {
+      if (item && strongCatalogSignal) {
         return `${item.nameAr} متوفر بسعر ${item.basePrice} جنيه. تحب كام قطعة؟`;
       }
 
@@ -1836,7 +1891,7 @@ ${customerMessage}
       // Only emit a stage-progress reply when we identified a real catalog item.
       // Without a confirmed item, returning null lets the caller preserve the
       // LLM's own reply rather than emitting the generic fallback label.
-      if (!item) {
+      if (!item || !strongCatalogSignal) {
         return null;
       }
 
@@ -1874,7 +1929,38 @@ ${customerMessage}
     currentState: ConversationState,
     response?: ValidatedLlmResponse,
   ): CatalogItem | null {
-    const candidates = [
+    const candidates = this.getCatalogReferenceCandidates(
+      context,
+      currentState,
+      response,
+    );
+
+    if (candidates.length === 0) {
+      return null;
+    }
+
+    let bestMatch: CatalogItem | null = null;
+    let bestScore = 0;
+
+    for (const candidate of candidates) {
+      const { item, score } = this.getCatalogItemMatchByReference(
+        context.catalogItems,
+        candidate,
+      );
+      if (!item || score <= bestScore) continue;
+      bestScore = score;
+      bestMatch = item;
+    }
+
+    return bestMatch;
+  }
+
+  private getCatalogReferenceCandidates(
+    context: LlmContext,
+    currentState: ConversationState,
+    response?: ValidatedLlmResponse,
+  ): string[] {
+    return [
       response?.extracted_entities?.products?.[0]?.name,
       currentState.confirmedItems[currentState.confirmedItems.length - 1]?.name,
       context.conversation.cart.items?.[0]?.name,
@@ -1887,40 +1973,31 @@ ${customerMessage}
         context.catalogItems,
       ),
     ].filter((value): value is string => Boolean(value));
+  }
 
-    if (candidates.length === 0) {
-      return null;
-    }
+  private hasStrongCatalogSignal(
+    context: LlmContext,
+    currentState: ConversationState,
+    response?: ValidatedLlmResponse,
+  ): boolean {
+    const candidates = this.getCatalogReferenceCandidates(
+      context,
+      currentState,
+      response,
+    );
 
-    let bestMatch: CatalogItem | null = null;
     let bestScore = 0;
-
     for (const candidate of candidates) {
-      const match = this.findCatalogItemByReference(
+      const { score } = this.getCatalogItemMatchByReference(
         context.catalogItems,
         candidate,
       );
-      if (!match) continue;
-      const score = this.normalizeArabicText(
-        [
-          match.nameAr,
-          match.nameEn,
-          match.sku,
-          match.descriptionAr,
-          match.category,
-        ]
-          .filter(Boolean)
-          .join(" "),
-      ).includes(this.normalizeArabicText(candidate))
-        ? 100
-        : 10;
       if (score > bestScore) {
         bestScore = score;
-        bestMatch = match;
       }
     }
 
-    return bestMatch;
+    return bestScore >= 100;
   }
 
   private getCanonicalCatalogLabel(
@@ -1972,13 +2049,24 @@ ${customerMessage}
     catalogItems: CatalogItem[],
     reference: string | null | undefined,
   ): CatalogItem | null {
+    const { item, score } = this.getCatalogItemMatchByReference(
+      catalogItems,
+      reference,
+    );
+    return score >= 50 ? item : null;
+  }
+
+  private getCatalogItemMatchByReference(
+    catalogItems: CatalogItem[],
+    reference: string | null | undefined,
+  ): { item: CatalogItem | null; score: number } {
     if (!reference) {
-      return null;
+      return { item: null, score: 0 };
     }
 
     const normalizedReference = this.normalizeArabicText(reference);
     if (!normalizedReference) {
-      return null;
+      return { item: null, score: 0 };
     }
 
     const referenceTokens = normalizedReference.split(" ").filter(Boolean);
@@ -2017,9 +2105,7 @@ ${customerMessage}
       }
     }
 
-    // Require a meaningful match: full substring (100) or enough token overlap.
-    // Pure noise hits (single short token, score <= 10-40) must not produce matches.
-    return bestScore >= 50 ? bestMatch : null;
+    return { item: bestMatch, score: bestScore };
   }
 
   private getVariantValues(
@@ -2174,14 +2260,14 @@ ${customerMessage}
 
   private replyRequestsAddress(reply: string): boolean {
     const normalized = this.normalizeArabicText(reply);
-    return /عنوان|العنوان|محافظه|محافظة|منطقه|منطقة|شارع|لوكيشن/.test(
+    return /(ابعت|ابعتي|ابعتلي|اكتب|اكتبي|قولي|قوليلي|قللي|محتاج|محتاجه|احتاج|حدد|حددي).{0,30}(عنوان|العنوان|المنطقه|المنطقة|المحافظة|المحافظه|شارع|لوكيشن)|عنوان التوصيل|العنوان بالتفصيل/.test(
       normalized,
     );
   }
 
   private replyRequestsPayment(reply: string): boolean {
     const normalized = this.normalizeArabicText(reply);
-    return /طريقه الدفع|طريقة الدفع|الدفع|كاش|فيزا|اونلاين|أونلاين|تحويل/.test(
+    return /(تحب|تحبي|حدد|حددي|اختر|اختاري|ابعت|اكتب|قولي|قوليلي|محتاج).{0,30}(طريقه الدفع|طريقة الدفع|الدفع|كاش|فيزا|اونلاين|أونلاين|تحويل)|طريقه الدفع|طريقة الدفع/.test(
       normalized,
     );
   }
@@ -2282,7 +2368,7 @@ ${customerMessage}
           .join("\n")
       : "- لا توجد منتجات متاحة حالياً";
 
-    return `أنت مساعد ذكي لمتجر ${merchant.name}. رد بالعامية المصرية فقط.
+    return `أنت بترد نيابة عن فريق ${merchant.name}. رد بالعامية المصرية الطبيعية فقط.
 
 الكتالوج المختصر:
 ${compactCatalog}
@@ -2297,7 +2383,7 @@ ${compactCatalog}
 - المنتجات المؤكدة: ${conversationState.confirmedItems.length > 0 ? conversationState.confirmedItems.map((item) => `${item.name} × ${item.quantity}`).join("، ") : "لا يوجد"}
 - لا تطلب عنوان التوصيل إلا بعد تأكيد المنتج والكمية والمقاس
 - لو العميل سأل سؤال مباشر، جاوبه قبل أي طلب معلومات إضافية
-- لو السؤال خارج نطاق المتجر، قل: "أنا هنا بس لمساعدتك في ${merchant.name}"`;
+- لو السؤال خارج نطاق المتجر، وجّه العميل بشكل طبيعي لنطاق المتجر بدون ما تقول إنك AI أو بوت`;
   }
 
   private async checkTokenBudget(
@@ -2954,10 +3040,61 @@ recentAgentActions: آخر 10 إجراءات اتخذها الوكلاء في آ
     return /عايز|عاوز|اطلب|أطلب|طلب|اشتري|شراء|عايزة|عاوزه/i.test(messageLower);
   }
 
+  private isGreetingMessage(text: string): boolean {
+    const normalized = this.normalizeArabicText(text);
+    return /^(السلام عليكم|سلام عليكم|اهلا|أهلا|مرحبا|هاي|هلا|hello)\b/.test(
+      normalized,
+    );
+  }
+
   private isEscalationOrComplaintMessage(messageLower: string): boolean {
     const normalized = this.normalizeArabicText(messageLower);
     return /مسوول|مدير|supervisor|manager|escalate|شكوي|شكوى|حقوقي|موظف|متضايق|زعلان|مشكله|مشكلة|problem|complaint/.test(
       normalized,
+    );
+  }
+
+  private isPolicyQuestion(text: string): boolean {
+    const normalized = this.normalizeArabicText(text);
+    return /الضمان|في ضمان|ضمان|استرجاع|استبدال|ترجيع|ارجاع|إرجاع|سياسه|سياسة/.test(
+      normalized,
+    );
+  }
+
+  private isGuidedChoiceMessage(text: string): boolean {
+    const normalized = this.normalizeArabicText(text);
+    return (
+      /مش\s*عارف\s*(اختار|احدد|اوصف)|محتار|ساعدني\s*اختار|رشحلي|على\s*ذوقك|محتاج\s*حد\s*يوجهني|انسب\s*حاجه|انسب\s*حاجة/.test(
+        normalized,
+      ) ||
+      // Gift request without a clear product choice
+      /عايز\s+(هديه|هدية)\b/.test(normalized) ||
+      // Aspirational / feeling-based description without knowing what to order
+      /نفسي\s+في\b/.test(normalized) ||
+      // "I want something [style word] but don't know what"
+      /عايز\s+(حاجه|حاجة)\s+(شيك|جميله|جميلة|حلوه|حلوة|حلو|مميزه|مميزة|مميز|كويسه|كويسة|كويس)\b/.test(
+        normalized,
+      )
+    );
+  }
+
+  private isLeadTimeQuestion(text: string): boolean {
+    const normalized = this.normalizeArabicText(text);
+    return /بتخلصوا|بتخلص|تخلص|يتسلم|التسليم|وقت التنفيذ|مدة التنفيذ|جاهز في كام|في كام يوم|قد ايه.*(يوم|وقت)|امتى يجهز|امتي يجهز/.test(
+      normalized,
+    );
+  }
+
+  private isCustomRequestMessage(text: string): boolean {
+    const normalized = this.normalizeArabicText(text);
+    return (
+      /حسب الطلب|مخصص|مخصوص|خاص|تفصيل|custom|من فكره|من فكرة|تصميم خاص|بمواصفات|مواصفات|مرجعيه|مرجعية|reference|ستايل|اسلوب/.test(
+        normalized,
+      ) ||
+      // Dimensional specification (e.g. 60x90, 70×100) strongly implies a
+      // bespoke / made-to-order piece — keep it in clarification mode rather
+      // than jumping to quantity collection.
+      /\d+\s*[xX×]\s*\d+/.test(text)
     );
   }
 
@@ -3069,6 +3206,65 @@ recentAgentActions: آخر 10 إجراءات اتخذها الوكلاء في آ
 
   private buildFallbackOrderProgressReply(productHint: string): string {
     return `تمام 👌 فهمت إنك عايز ${productHint}.\nممكن تقولي الكمية المطلوبة؟`;
+  }
+
+  private buildGuidedChoiceReply(context: LlmContext): string {
+    const topCatalogNames = Array.from(
+      new Set(
+        context.catalogItems
+          .map((item) => String(item.nameAr || item.name || "").trim())
+          .filter(Boolean),
+      ),
+    ).slice(0, 3);
+
+    const suggestions =
+      topCatalogNames.length > 0
+        ? ` ولو تحب أقدر أرشح لك من ${topCatalogNames.join("، ")} حسب اللي يناسبك.`
+        : "";
+
+    return `أقدر أساعدك نختار الأنسب. قوليلي الاستخدام أو المناسبة، والستايل أو الشكل اللي تحبه، ولو عندك ميزانية تقريبية أو مواصفات مهمة.${suggestions}`;
+  }
+
+  private buildCustomRequestReply(
+    context: LlmContext,
+    currentState: ConversationState,
+    response?: ValidatedLlmResponse,
+  ): string {
+    const item = this.resolveActiveCatalogItem(context, currentState, response);
+    if (item && this.hasStrongCatalogSignal(context, currentState, response)) {
+      return `مفهوم. نقدر نكمل من ${item.nameAr}، لكن محتاج منك المواصفات أو التفاصيل الأهم الأول عشان أحدد لك أنسب تنفيذ بشكل دقيق.`;
+    }
+
+    return "مفهوم. ابعتلي الفكرة أو المواصفات الأهم، والمقاس أو الكمية التقريبية لو معروفة، وأي تفاصيل مهمة زي الشكل أو الخامة أو الموعد المطلوب، وأنا أوجّهك للأنسب.";
+  }
+
+  private shouldPreserveNaturalReply(
+    questionType: CustomerQuestionType | null,
+    context: LlmContext,
+    currentState: ConversationState,
+    response: ValidatedLlmResponse,
+  ): boolean {
+    if (questionType) {
+      return true;
+    }
+
+    if (
+      this.isGreetingMessage(context.customerMessage) ||
+      this.isEscalationOrComplaintMessage(context.customerMessage) ||
+      this.isObviouslyOffTopic(context.customerMessage)
+    ) {
+      return true;
+    }
+
+    // Preserve natural LLM reply whenever there is no confirmed catalog anchor.
+    // This covers both early discovery and in-progress item_confirmation where
+    // the customer is still describing what they want (custom/bespoke requests,
+    // vague aesthetic intent, descriptive multi-dimension specs, etc.).
+    if (!this.hasStrongCatalogSignal(context, currentState, response)) {
+      return true;
+    }
+
+    return false;
   }
 
   private extractProductHintFromHistory(
