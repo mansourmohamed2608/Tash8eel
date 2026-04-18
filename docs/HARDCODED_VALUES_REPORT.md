@@ -160,7 +160,7 @@ Documentation examples only - not used in production code.
 The Neon PostgreSQL credentials were previously exposed in version control:
 
 ```
-postgresql://neondb_owner:npg_UlYV0QCeKkB4@ep-twilight-boat-afzfn9ls-pooler...
+postgresql://neondb_owner:[REDACTED]@ep-twilight-boat-afzfn9ls-pooler...
 ```
 
 **Action Required:**

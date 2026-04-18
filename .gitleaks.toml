@@ -43,7 +43,9 @@ paths = [
   '''.env.example''',
   '''\.env\.example$''',
 ]
-commits = []
+commits = [
+  "d59f337",  # initial commit — Neon password already rotated, documented in HARDCODED_VALUES_REPORT.md
+]
 stopwords = [
   "CHANGE_ME",
   "your-super-secret",

@@ -26,7 +26,7 @@ TWILIO_WHATSAPP_NUMBER=whatsapp:+14155238886
 TWILIO_WEBHOOK_URL=https://your-ngrok.io/api/v1/webhook/twilio
 
 # OpenAI (Voice + Vision + LLM)
-OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+OPENAI_API_KEY=your-openai-api-key-here
 OPENAI_MODEL=gpt-4o-mini
 
 # Egyptian Payment (Optional for demo)
