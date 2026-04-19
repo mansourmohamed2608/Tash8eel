@@ -16,7 +16,7 @@ jobs:
     name: Dependency Audit (CVE)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -32,7 +32,7 @@ jobs:
     name: Secret Scanning (gitleaks)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
       - name: Install gitleaks
@@ -47,7 +47,7 @@ jobs:
     name: Security Check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Check for hardcoded database credentials
         run: |
           echo "🔍 Scanning for hardcoded database credentials..."
@@ -131,7 +131,7 @@ jobs:
       matrix:
         workspace: [apps/api, apps/worker, apps/portal]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -147,7 +147,7 @@ jobs:
     name: Build Shared Packages
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -165,7 +165,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build-shared]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -191,7 +191,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build-shared]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -211,7 +211,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build-shared]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -230,7 +230,7 @@ jobs:
     name: Test Shared Packages
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -248,7 +248,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build-shared]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -280,7 +280,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build-shared]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -306,7 +306,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build-shared]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -333,7 +333,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build-shared]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -382,7 +382,7 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -441,7 +441,7 @@ jobs:
             dockerfile: ./apps/portal/Dockerfile
             image: tash8eel/operations-portal
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
       - name: Build Docker image
