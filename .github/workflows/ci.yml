@@ -180,7 +180,7 @@ jobs:
       - name: Build API
         run: npm run build -w apps/api
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: api-dist
           path: apps/api/dist
@@ -269,7 +269,7 @@ jobs:
           OPENAI_API_KEY: sk-test-dummy-key-for-unit-tests
           ADMIN_API_KEY: test-admin-key
       - name: Upload coverage
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: api-coverage
           path: apps/api/coverage
@@ -322,7 +322,7 @@ jobs:
           NEXTAUTH_SECRET: ci-test-secret-32-chars-minimum-00
           NEXTAUTH_URL: http://localhost:3001
       - name: Upload portal coverage
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: portal-coverage
           path: apps/portal/coverage
@@ -418,7 +418,7 @@ jobs:
           OPENAI_API_KEY: sk-test-dummy-key-for-e2e-tests
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: e2e-results
           path: apps/api/test-results
