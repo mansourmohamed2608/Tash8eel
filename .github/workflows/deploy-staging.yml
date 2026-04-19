@@ -135,7 +135,7 @@ jobs:
 
       # ── Run E2E tests against staging ───────────────────────────────────
       - name: Setup Node.js for E2E tests
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: "npm"
