@@ -34,6 +34,8 @@ import { HqGovernanceService } from "./hq-governance.service";
 import { IdempotencyService } from "../../shared/services/idempotency.service";
 import { AiMetricsService } from "../../shared/services/ai-metrics.service";
 import { KbChunkService } from "./kb-chunk.service";
+import { DialogOrchestrator } from "../dialog/dialog-orchestrator";
+import { DialogPlaybookService } from "../dialog/dialog-playbook.service";
 
 // Infrastructure dependencies
 import { RepositoriesModule } from "../../infrastructure/repositories/repositories.module";
@@ -90,6 +92,8 @@ import { SharedAiModule } from "../shared/shared-ai.module";
     IdempotencyService,
     AiMetricsService,
     KbChunkService,
+    DialogOrchestrator,
+    DialogPlaybookService,
   ],
   exports: [
     InboxService,
@@ -124,6 +128,8 @@ import { SharedAiModule } from "../shared/shared-ai.module";
     IdempotencyService,
     AiMetricsService,
     KbChunkService,
+    DialogOrchestrator,
+    DialogPlaybookService,
     SharedAiModule,
   ],
 })

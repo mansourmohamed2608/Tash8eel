@@ -14,7 +14,7 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 CREATE TABLE IF NOT EXISTS delivery_execution_events (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   merchant_id VARCHAR(50) NOT NULL REFERENCES merchants(id) ON DELETE CASCADE,
-  order_id VARCHAR(255) NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+  order_id UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
   shipment_id VARCHAR(255),
   event_type VARCHAR(64) NOT NULL,
   source VARCHAR(32) NOT NULL DEFAULT 'system',
@@ -34,7 +34,7 @@ CREATE INDEX IF NOT EXISTS idx_delivery_events_merchant_type_time
 CREATE TABLE IF NOT EXISTS delivery_pod_records (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   merchant_id VARCHAR(50) NOT NULL REFERENCES merchants(id) ON DELETE CASCADE,
-  order_id VARCHAR(255) NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+  order_id UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
   shipment_id VARCHAR(255),
   proof_type VARCHAR(32) NOT NULL DEFAULT 'note',
   proof_url TEXT,
@@ -54,7 +54,7 @@ CREATE INDEX IF NOT EXISTS idx_delivery_pod_merchant_order
 CREATE TABLE IF NOT EXISTS delivery_location_timeline (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   merchant_id VARCHAR(50) NOT NULL REFERENCES merchants(id) ON DELETE CASCADE,
-  order_id VARCHAR(255) NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+  order_id UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
   shipment_id VARCHAR(255),
   latitude DECIMAL(10, 7) NOT NULL,
   longitude DECIMAL(10, 7) NOT NULL,
@@ -73,7 +73,7 @@ CREATE INDEX IF NOT EXISTS idx_delivery_location_merchant_order_time
 CREATE TABLE IF NOT EXISTS delivery_sla_events (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   merchant_id VARCHAR(50) NOT NULL REFERENCES merchants(id) ON DELETE CASCADE,
-  order_id VARCHAR(255) NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+  order_id UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
   shipment_id VARCHAR(255),
   sla_type VARCHAR(32) NOT NULL,
   status VARCHAR(16) NOT NULL CHECK (status IN ('OK', 'AT_RISK', 'BREACHED')),

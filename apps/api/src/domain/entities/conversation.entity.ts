@@ -8,6 +8,15 @@ export interface ConversationContext {
   followupCount?: number;
   isReturningCustomer?: boolean;
   previousOrderCount?: number;
+  dialog?: {
+    lastIntent?: string;
+    filledSlots?: Record<string, unknown>;
+    askedSlots?: string[];
+    answeredSlots?: string[];
+    lastQuestion?: string;
+    lastMediaItemIds?: string[];
+    lastDecision?: string;
+  };
 }
 
 // Lead score signals for AI/deterministic scoring

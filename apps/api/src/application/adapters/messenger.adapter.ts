@@ -6,6 +6,7 @@ import { DATABASE_POOL } from "../../infrastructure/database/database.module";
 import {
   ChannelAdapterInterface,
   InboundMessage,
+  OutboundMediaMessage,
 } from "./channel.adapter.interface";
 
 interface MessengerAttachment {
@@ -165,6 +166,41 @@ export class MessengerAdapter implements IMessengerAdapter {
       messaging_type: "RESPONSE",
       message: { text: message },
     });
+  }
+
+  async sendMedia(
+    recipientId: string,
+    message: OutboundMediaMessage,
+  ): Promise<void> {
+    if (message.text?.trim()) {
+      await this.sendMessage(recipientId, message.text.trim());
+    }
+
+    for (const item of message.media || []) {
+      try {
+        await this.sendApiRequest({
+          recipient: { id: recipientId },
+          messaging_type: "RESPONSE",
+          message: {
+            attachment: {
+              type: "image",
+              payload: {
+                url: item.url,
+                is_reusable: true,
+              },
+            },
+          },
+        });
+        if (item.caption?.trim()) {
+          await this.sendMessage(recipientId, item.caption.trim());
+        }
+      } catch {
+        const fallback = item.fallbackText || item.caption;
+        if (fallback?.trim()) {
+          await this.sendMessage(recipientId, fallback.trim());
+        }
+      }
+    }
   }
 
   async sendTemplateMessage(

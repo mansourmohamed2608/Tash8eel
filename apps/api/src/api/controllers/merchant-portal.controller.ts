@@ -251,7 +251,7 @@ export class MerchantPortalController {
         AND UPPER(COALESCE(op.method, '')) = 'COD'
        WHERE o.merchant_id = $1
          AND COALESCE(o.register_session_id::text, '') = $2
-         AND UPPER(COALESCE(o.status, '')) <> 'CANCELLED'`,
+         AND UPPER(COALESCE(o.status::text, '')) <> 'CANCELLED'`,
       [merchantId, current.id],
     );
 
@@ -414,7 +414,7 @@ export class MerchantPortalController {
          AND COALESCE(o.register_session_id::text, '') = $2
          AND UPPER(COALESCE(op.status, 'PAID')) = 'PAID'
          AND UPPER(COALESCE(op.method, '')) = 'COD'
-         AND UPPER(COALESCE(o.status, '')) <> 'CANCELLED'`,
+         AND UPPER(COALESCE(o.status::text, '')) <> 'CANCELLED'`,
       [merchantId, id],
     );
 
@@ -2066,7 +2066,7 @@ export class MerchantPortalController {
          WHERE o.merchant_id = $1
            AND o.created_at >= $2
            AND o.created_at <= $3
-           AND UPPER(COALESCE(o.status, '')) NOT IN ('DRAFT', 'CANCELLED', 'RETURNED', 'FAILED')
+           AND UPPER(COALESCE(o.status::text, '')) NOT IN ('DRAFT', 'CANCELLED', 'RETURNED', 'FAILED')
          GROUP BY
            COALESCE(NULLIF(oi.catalog_item_id::text, ''), NULLIF(to_jsonb(oi)->>'catalog_item_id', '')),
            COALESCE(
@@ -2114,7 +2114,7 @@ export class MerchantPortalController {
            JOIN orders o ON o.id = oi.order_id
            WHERE o.merchant_id = $1
              AND o.created_at >= CURRENT_DATE - INTERVAL '30 days'
-             AND UPPER(COALESCE(o.status, '')) NOT IN ('DRAFT', 'CANCELLED', 'RETURNED', 'FAILED')
+             AND UPPER(COALESCE(o.status::text, '')) NOT IN ('DRAFT', 'CANCELLED', 'RETURNED', 'FAILED')
          ),
          inventory_totals AS (
            SELECT

@@ -1,0 +1,20 @@
+[
+  { "user": "السلام عليكم", "expected": ["natural_greeting"] },
+  { "user": "عايز هدية لأمي ومش عارف أختار", "expected": ["ask_occasion_or_recipient"] },
+  { "user": "عايز عطر عود للرجالة تحت 1500", "expected": ["recommend_perfume"] },
+  { "user": "عايز عطر لعروسة", "expected": ["guided_choice"] },
+  { "user": "هدية لواحد صاحبي", "expected": ["ask_occasion_or_budget"] },
+  { "user": "عندكم PER-OUD-100؟", "expected": ["availability_price"] },
+  { "user": "عايز بوكس فيه عطر عود وشوكولاتة وكارت ووردة", "expected": ["custom_basket_brief"] },
+  { "user": "ممكن تبعتلي صورة عطر عود شرقي 100 مل؟", "expected": ["media"] },
+  { "user": "[رسالة صوتية] هدية عيد ميلاد لأمي بحدود 1000", "expected": ["single_next_question"] },
+  { "user": "زي دي بس أرخص", "expected": ["image_reference_budget"] },
+  { "user": "عايز حفر اسم ويتسلم النهارده", "expected": ["infeasible_48h"] },
+  { "user": "عايز عطر فاخر بس الميزانية 300", "expected": ["budget_conflict"] },
+  { "user": "عايز اكلم مسؤول", "expected": ["no_human_promise"] },
+  { "user": "بتبيعوا شوكولاتة بس؟", "expected": ["scope_or_addon_answer"] },
+  { "user": "مين أفضل لاعب كرة؟", "expected": ["offtopic_redirect"] },
+  { "user": "التوصيل لمحافظة بعيدة؟", "expected": ["delivery_city_policy"] },
+  { "user": "ينفع أدفع بكارت هدية من مكان تاني؟", "expected": ["payment_policy"] },
+  { "user": "نفس اللي اخترناه المرة اللي فاتت", "expected": ["memory_or_clarify"] }
+]

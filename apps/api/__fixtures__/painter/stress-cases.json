@@ -1,0 +1,12 @@
+[
+  { "user": "فاكر المقاس اللي قولته؟ كنت قلت 60x80 وانطباعي", "expected": ["memory_no_reask"] },
+  { "user": "الأولى أحلى", "expected": ["image_attribute_reference"] },
+  { "user": "[رسالة صوتية] عايز لوحة زيت 70x100 خلال أسبوع", "expected": ["voice_brief"] },
+  { "user": "صورة مش واضحة وعايزها تفصيل عالي بكرة", "expected": ["constraint_axes"] },
+  { "user": "بكام عادة؟", "expected": ["pricing_clarification"] },
+  { "user": "عايز portrait 60x80 cm ألوان دافئة", "expected": ["mixed_language"] },
+  { "user": "زي اللي عملتوها لصاحبي", "expected": ["cross_conversation_clarify"] },
+  { "user": "معايا 2000 جنيه ومش محدد المقاس", "expected": ["ask_size_not_payment"] },
+  { "user": "خليها على خشب بدل كانفس", "expected": ["medium_change"] },
+  { "user": "مستعجل بس مش عايز أزود السعر", "expected": ["deadline_budget_conflict"] }
+]

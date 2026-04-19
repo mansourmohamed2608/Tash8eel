@@ -211,9 +211,17 @@ export class MerchantContextService {
     );
 
     const businessInfo = this.buildBusinessIdentitySection(merchant);
-    const productCatalog = this.buildCustomerProductCatalogSection(
+    const visibleCatalogRows = this.filterCatalogForLlmContext(
       allCatalogRows,
+      customerMessage,
+    );
+    const visibleRelevantRows = this.filterCatalogForLlmContext(
       relevantCatalogRows,
+      customerMessage,
+    );
+    const productCatalog = this.buildCustomerProductCatalogSection(
+      visibleCatalogRows,
+      visibleRelevantRows,
     );
     const conversationHistory =
       this.buildCustomerConversationHistorySection(historyMessages);
@@ -315,7 +323,7 @@ export class MerchantContextService {
            name_en,
            description_ar,
            category,
-           COALESCE(price, base_price) AS price,
+           base_price AS price,
            base_price,
            stock_quantity,
            is_available,
@@ -339,7 +347,7 @@ export class MerchantContextService {
              name_en,
              description_ar,
              category,
-             COALESCE(price, base_price) AS price,
+             base_price AS price,
              base_price,
              NULL::numeric AS stock_quantity,
              is_available,
@@ -812,6 +820,29 @@ export class MerchantContextService {
       return true;
     }
     return Number(row.stock_quantity) > 0;
+  }
+
+  /**
+   * Hide rows that are not currently available from the LLM-facing catalog
+   * block, so the bot doesn't recommend them. Exception: if the customer's
+   * message names a row by name_ar / name_en / sku, keep it so the bot can
+   * answer "do you have X?" honestly. Underlying catalog data is unchanged.
+   */
+  private filterCatalogForLlmContext(
+    rows: CatalogContextRow[],
+    customerMessage: string,
+  ): CatalogContextRow[] {
+    const message = String(customerMessage || "").toLowerCase();
+    if (!message) {
+      return rows.filter((row) => this.isInStock(row));
+    }
+    return rows.filter((row) => {
+      if (this.isInStock(row)) return true;
+      const named = [row.name_ar, row.name_en, row.sku]
+        .map((value) => String(value || "").trim().toLowerCase())
+        .filter(Boolean);
+      return named.some((value) => value && message.includes(value));
+    });
   }
 
   private keywordScore(

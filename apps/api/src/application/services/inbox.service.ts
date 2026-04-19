@@ -11,10 +11,10 @@ import { Pool } from "pg";
 import { v4 as uuidv4 } from "uuid";
 import { DATABASE_POOL } from "../../infrastructure/database/database.module";
 import {
-  LlmService,
   LlmResult,
   LLMCallOptions,
   ConversationState as LlmConversationState,
+  isObviouslyOffTopic,
 } from "../llm/llm.service";
 import { OutboxService } from "../events/outbox.service";
 import { EVENT_TYPES } from "../events/event-types";
@@ -39,8 +39,8 @@ import { PaymentService } from "./payment.service";
 import { CustomerReorderService } from "./customer-reorder.service";
 import { UsageGuardService } from "./usage-guard.service";
 import { MessageRouterService } from "../llm/message-router.service";
-import { classifyRetrievalPaths } from "../llm/retrieval-path";
-import { getMessagingTemplate } from "../../shared/constants/templates";
+import { OutboundMediaAttachment } from "../adapters/channel.adapter.interface";
+import { DialogOrchestrator } from "../dialog/dialog-orchestrator";
 
 // Repository imports
 import {
@@ -115,6 +115,7 @@ export interface InboxMessageParams {
 export interface InboxResponse {
   conversationId: string;
   replyText: string;
+  mediaAttachments?: OutboundMediaAttachment[];
   action: ActionType;
   cart: any;
   markAsRead?: boolean;
@@ -130,6 +131,12 @@ export interface InboxResponse {
     language: string;
   };
 }
+
+type OffTopicHandlingMode =
+  | "normal"
+  | "ai_redirect"
+  | "deterministic_redirect"
+  | "suppressed";
 
 @Injectable()
 export class InboxService {
@@ -156,7 +163,7 @@ export class InboxService {
     private readonly knownAreaRepo: IKnownAreaRepository,
     @Inject(DELIVERY_ADAPTER)
     private readonly deliveryAdapter: IDeliveryAdapter,
-    private readonly llmService: LlmService,
+    private readonly dialogOrchestrator: DialogOrchestrator,
     private readonly outboxService: OutboxService,
     private readonly redisService: RedisService,
     private readonly transcriptionFactory: TranscriptionAdapterFactory,
@@ -172,13 +179,17 @@ export class InboxService {
   }
 
   private readonly LOCK_TTL_MS = 30000; // 30 seconds
+  private readonly OFF_TOPIC_WINDOW_SECONDS = 10 * 60;
+  private readonly OFF_TOPIC_REDIRECT_COOLDOWN_SECONDS = 90;
+  private readonly OFF_TOPIC_AI_REPLY_MAX_TOKENS = 80;
   private readonly CONTINUITY_RESPONSE_AR =
     "لحظة واحدة من فضلك، بنعالج رسالتك السابقة...";
   private readonly VOICE_TRANSCRIPTION_ERROR_AR =
     "عذراً، مش قادرين نسمع الرسالة الصوتية. ممكن تكتب الطلب بدل منها؟";
-  // MESSAGE_LIMIT_EXCEEDED / AI_REPLY_LIMIT_EXCEEDED / QUOTA_EXHAUSTED are
-  // resolved via getMessagingTemplate() at the call sites so merchants can
-  // override them under knowledgeBase.messagingTemplates.*.
+  private readonly MESSAGE_LIMIT_EXCEEDED_AR =
+    "عذراً، تم الوصول للحد الأقصى من الرسائل الشهرية لهذا التاجر. يرجى التواصل مع التاجر مباشرة أو المحاولة لاحقاً.";
+  private readonly AI_REPLY_LIMIT_EXCEEDED_AR =
+    "حالياً الرد التلقائي على الرسالة دي مش متاح. لو تقدر تبعتها كنص أو تحاول بعد شوية، هنكملك بأسرع شكل ممكن.";
   private readonly REORDER_CONFIRM_KEYWORDS = [
     "تمام",
     "أكد",
@@ -325,6 +336,161 @@ export class InboxService {
     }
   }
 
+  private shouldHardBlockAiReplyQuota(
+    blockingMetric:
+      | "total_messages_per_day"
+      | "total_messages_per_month"
+      | "ai_replies_per_day"
+      | "ai_replies_per_month"
+      | null,
+  ): boolean {
+    return (
+      blockingMetric === "total_messages_per_day" ||
+      blockingMetric === "total_messages_per_month"
+    );
+  }
+
+  private buildQuotaAwareLlmOptions(
+    baseOptions: LLMCallOptions,
+    aiReplyQuota: {
+      allowed: boolean;
+      blockingMetric:
+        | "total_messages_per_day"
+        | "total_messages_per_month"
+        | "ai_replies_per_day"
+        | "ai_replies_per_month"
+        | null;
+    },
+    messageType: string,
+  ): { degraded: boolean; options: LLMCallOptions } {
+    if (
+      aiReplyQuota.allowed ||
+      this.shouldHardBlockAiReplyQuota(aiReplyQuota.blockingMetric) ||
+      String(messageType || "").toLowerCase() !== "text"
+    ) {
+      return { degraded: false, options: baseOptions };
+    }
+
+    return {
+      degraded: true,
+      options: {
+        ...baseOptions,
+        model: "gpt-4o-mini",
+        maxTokens: Math.min(baseOptions.maxTokens ?? 180, 160),
+        disableSimplifiedRetry: true,
+      },
+    };
+  }
+
+  private buildOffTopicCounterKey(
+    merchantId: string,
+    senderId: string,
+  ): string {
+    return `inbox:offtopic:${merchantId}:${senderId}`;
+  }
+
+  private buildOffTopicRedirectCooldownKey(
+    merchantId: string,
+    senderId: string,
+  ): string {
+    return `inbox:offtopic_redirected:${merchantId}:${senderId}`;
+  }
+
+  private buildDeterministicOffTopicRedirectReply(merchantName: string): string {
+    return `ده خارج نطاق ${merchantName} عندي، بس لو محتاج أي حاجة تخص الطلب أو المنتجات أنا أكمل معاك.`;
+  }
+
+  private async classifyOffTopicHandling(
+    merchantId: string,
+    senderId: string,
+    merchantName: string,
+    messageText: string,
+  ): Promise<{
+    mode: OffTopicHandlingMode;
+    count: number;
+    replyText?: string;
+  }> {
+    if (!isObviouslyOffTopic(String(messageText || "").trim())) {
+      return { mode: "normal", count: 0 };
+    }
+
+    const deterministicReply =
+      this.buildDeterministicOffTopicRedirectReply(merchantName);
+
+    if (!this.redisService.enabled) {
+      return {
+        mode: "ai_redirect",
+        count: 1,
+        replyText: deterministicReply,
+      };
+    }
+
+    const counterKey = this.buildOffTopicCounterKey(merchantId, senderId);
+    const cooldownKey = this.buildOffTopicRedirectCooldownKey(
+      merchantId,
+      senderId,
+    );
+
+    try {
+      const count = await this.redisService.incr(counterKey);
+      if (count === 1) {
+        await this.redisService.expire(
+          counterKey,
+          this.OFF_TOPIC_WINDOW_SECONDS,
+        );
+      }
+
+      if (count === 1) {
+        return {
+          mode: "ai_redirect",
+          count,
+          replyText: deterministicReply,
+        };
+      }
+
+      if (count === 2 || count === 3) {
+        await this.redisService.set(
+          cooldownKey,
+          "1",
+          this.OFF_TOPIC_REDIRECT_COOLDOWN_SECONDS,
+        );
+        return {
+          mode: "deterministic_redirect",
+          count,
+          replyText: deterministicReply,
+        };
+      }
+
+      const recentRedirect = await this.redisService.get(cooldownKey);
+      if (recentRedirect) {
+        return { mode: "suppressed", count };
+      }
+
+      await this.redisService.set(
+        cooldownKey,
+        "1",
+        this.OFF_TOPIC_REDIRECT_COOLDOWN_SECONDS,
+      );
+      return {
+        mode: "deterministic_redirect",
+        count,
+        replyText: deterministicReply,
+      };
+    } catch (error) {
+      this.logger.warn({
+        message: "Off-topic throttling unavailable, failing open",
+        merchantId,
+        senderId,
+        error: (error as Error).message,
+      });
+      return {
+        mode: "ai_redirect",
+        count: 1,
+        replyText: deterministicReply,
+      };
+    }
+  }
+
   /**
    * Process incoming message - main orchestration method
    */
@@ -355,7 +521,7 @@ export class InboxService {
       });
       return {
         conversationId: "",
-        replyText: getMessagingTemplate(null, "messageLimitExceeded"),
+        replyText: this.MESSAGE_LIMIT_EXCEEDED_AR,
         action: ActionType.ASK_CLARIFYING_QUESTION,
         cart: { items: [] },
       };
@@ -736,7 +902,8 @@ export class InboxService {
           messageType: effectiveMessageType,
           routingDecision: "quota_blocked",
         });
-        const blockedReply = getMessagingTemplate(merchant, "quotaExhausted");
+        const blockedReply =
+          "نأسف، خدمة الرد التلقائي متوقفة مؤقتاً. سيتواصل معك أحد الزملاء قريباً 🙏";
         await this.messageRepo.create({
           conversationId: conversation.id,
           merchantId: params.merchantId,
@@ -934,20 +1101,95 @@ export class InboxService {
       this.catalogRepo.findByMerchant(merchant.id),
       this.messageRepo.findByConversation(conversation.id),
     ]);
+    const offTopicHandling = await this.classifyOffTopicHandling(
+      params.merchantId,
+      params.senderId,
+      merchant.name,
+      params.text ?? "",
+    );
+
+    if (offTopicHandling.mode === "suppressed") {
+      await this.recordRoutingDecision({
+        merchantId: params.merchantId,
+        planName: merchantPlan.name,
+        messageType: effectiveMessageType,
+        routingDecision: "offtopic_suppressed",
+        modelUsed: undefined,
+        complexityScore: this.messageRouter.scoreComplexity(params.text ?? ""),
+        estimatedCostUsd: 0,
+      });
+
+      return {
+        conversationId: conversation.id,
+        replyText: "",
+        action: ActionType.ASK_CLARIFYING_QUESTION,
+        cart: conversation.cart || {
+          items: [],
+          total: 0,
+          subtotal: 0,
+          discount: 0,
+          deliveryFee: 0,
+        },
+        markAsRead: true,
+        routingDecision: "offtopic_suppressed",
+      };
+    }
+
+    if (offTopicHandling.mode === "deterministic_redirect") {
+      const replyText =
+        offTopicHandling.replyText ||
+        this.buildDeterministicOffTopicRedirectReply(merchant.name);
+      await this.recordRoutingDecision({
+        merchantId: params.merchantId,
+        planName: merchantPlan.name,
+        messageType: effectiveMessageType,
+        routingDecision: "offtopic_redirect",
+        modelUsed: undefined,
+        complexityScore: this.messageRouter.scoreComplexity(params.text ?? ""),
+        estimatedCostUsd: 0,
+      });
+      await this.messageRepo.create({
+        conversationId: conversation.id,
+        merchantId: params.merchantId,
+        senderId: "bot",
+        direction: MessageDirection.OUTBOUND,
+        text: replyText,
+      });
+
+      return {
+        conversationId: conversation.id,
+        replyText,
+        action: ActionType.ASK_CLARIFYING_QUESTION,
+        cart: conversation.cart || {
+          items: [],
+          total: 0,
+          subtotal: 0,
+          discount: 0,
+          deliveryFee: 0,
+        },
+        routingDecision: "offtopic_redirect",
+      };
+    }
 
     // 7. Get LLM response
-    const model =
-      this.messageRouter.selectModel(
-        merchantPlan.name,
-        params.text ?? "",
-        effectiveMessageType,
-      ) ?? "gpt-4o-mini";
+    const model = "gpt-4o-mini";
     const llmOptions: LLMCallOptions = {
       model,
-      maxTokens: merchantPlan.name === "starter" ? 300 : 1000,
+      maxTokens:
+        offTopicHandling.mode === "ai_redirect"
+          ? this.OFF_TOPIC_AI_REPLY_MAX_TOKENS
+          : merchantPlan.name === "starter"
+            ? 300
+            : 1000,
+      offTopicRedirectMode: offTopicHandling.mode === "ai_redirect",
     };
     const aiReplyQuota = await this.checkAiReplyLimit(params.merchantId);
-    if (!aiReplyQuota.allowed) {
+    const quotaAwareLlm = this.buildQuotaAwareLlmOptions(
+      llmOptions,
+      aiReplyQuota,
+      effectiveMessageType,
+    );
+    if (!aiReplyQuota.allowed && !quotaAwareLlm.degraded) {
       await this.recordRoutingDecision({
         merchantId: params.merchantId,
         planName: merchantPlan.name,
@@ -960,7 +1202,9 @@ export class InboxService {
 
       return {
         conversationId: conversation.id,
-        replyText: getMessagingTemplate(merchant, "aiReplyLimitExceeded"),
+        replyText: this.shouldHardBlockAiReplyQuota(aiReplyQuota.blockingMetric)
+          ? this.MESSAGE_LIMIT_EXCEEDED_AR
+          : this.AI_REPLY_LIMIT_EXCEEDED_AR,
         action: ActionType.GREET,
         cart: conversation.cart || {
           items: [],
@@ -971,28 +1215,33 @@ export class InboxService {
         },
       };
     }
-    const retrievalDecision = classifyRetrievalPaths(
-      params.text ?? "",
-      effectiveMessageType,
-    );
-    this.logger.debug({
-      message: "Retrieval-path classification",
-      primaryPath: retrievalDecision.primaryPath,
-      paths: retrievalDecision.paths,
-      reason: retrievalDecision.reason,
-      correlationId,
-    });
-    const llmResponse = await this.llmService.processMessage(
+    if (quotaAwareLlm.degraded) {
+      await this.recordRoutingDecision({
+        merchantId: params.merchantId,
+        planName: merchantPlan.name,
+        messageType: effectiveMessageType,
+        routingDecision: "ai_4o_mini_degraded",
+        modelUsed: quotaAwareLlm.options.model,
+        complexityScore: this.messageRouter.scoreComplexity(params.text ?? ""),
+        estimatedCostUsd: 0,
+      });
+    }
+    const dialogTurn = await this.dialogOrchestrator.processTurn(
       {
         merchant,
         conversation,
         catalogItems,
         recentMessages,
         customerMessage: params.text,
-        retrievalDecision,
       },
-      llmOptions,
+      quotaAwareLlm.options,
+      {
+        channel: params.channel,
+        degraded: quotaAwareLlm.degraded,
+        offTopicRedirectMode: offTopicHandling.mode === "ai_redirect",
+      },
     );
+    const llmResponse = dialogTurn.llmResult;
     await this.bumpConversationWindow(
       params.merchantId,
       params.senderId,
@@ -1003,7 +1252,12 @@ export class InboxService {
       merchantId: params.merchantId,
       planName: merchantPlan.name,
       messageType: effectiveMessageType,
-      routingDecision: model === "gpt-4o" ? "ai_4o" : "ai_4o_mini",
+      routingDecision:
+        quotaAwareLlm.degraded
+          ? "ai_4o_mini_degraded"
+          : offTopicHandling.mode === "ai_redirect"
+            ? "offtopic_ai_redirect"
+            : "ai_4o_mini",
       modelUsed: model,
       complexityScore: this.messageRouter.scoreComplexity(params.text ?? ""),
       estimatedCostUsd: this.estimateInboxCostUsd(
@@ -1021,6 +1275,8 @@ export class InboxService {
       params.text,
       correlationId,
     );
+    const replyText = dialogTurn.replyText || result.replyText;
+    const mediaAttachments = dialogTurn.mediaAttachments;
 
     // 9. Store bot reply
     await this.messageRepo.create({
@@ -1028,7 +1284,7 @@ export class InboxService {
       merchantId: params.merchantId,
       senderId: "bot",
       direction: MessageDirection.OUTBOUND,
-      text: result.replyText,
+      text: replyText,
       tokensUsed: llmResponse.tokensUsed,
     });
 
@@ -1067,6 +1323,7 @@ export class InboxService {
         conversation.state,
         llmResponse.conversationState,
       ),
+      context: dialogTurn.contextPatch,
       lastMessageAt: new Date(),
       collectedInfo,
       missingSlots: llmResponse.missingSlots || [],
@@ -1084,11 +1341,17 @@ export class InboxService {
 
     return {
       conversationId: conversation.id,
-      replyText: result.replyText,
+      replyText,
+      mediaAttachments,
       action: result.action,
       cart: result.cart,
       modelUsed: llmOptions.model,
-      routingDecision: llmOptions.model === "gpt-4o" ? "ai_4o" : "ai_4o_mini",
+      routingDecision:
+        quotaAwareLlm.degraded
+          ? "ai_4o_mini_degraded"
+          : offTopicHandling.mode === "ai_redirect"
+            ? "offtopic_ai_redirect"
+            : "ai_4o_mini",
       orderId: result.orderId,
       orderNumber: result.orderNumber,
     };

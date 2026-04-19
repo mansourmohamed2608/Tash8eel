@@ -23,7 +23,10 @@ import { Pool } from "pg";
 import { v4 as uuidv4 } from "uuid";
 import { ConfigService } from "@nestjs/config";
 import { DATABASE_POOL } from "../../infrastructure/database/database.module";
-import { InboxService } from "../../application/services/inbox.service";
+import {
+  InboxResponse,
+  InboxService,
+} from "../../application/services/inbox.service";
 import { ProductOcrService } from "../../application/services/product-ocr.service";
 import {
   ITwilioWhatsAppAdapter,
@@ -463,10 +466,12 @@ export class TwilioWebhookController {
         return;
       }
 
-      // Send the reply back via Twilio
-      const sendResult = await this.twilioAdapter.sendTextMessage(
+      // Send the reply back via Twilio. Media is sent as real WhatsApp media
+      // messages, not as links in the text body.
+      const sendResult = await this.sendInboxResponseViaTwilio(
         parsed.fromWhatsApp,
-        inboxResponse.replyText,
+        inboxResponse,
+        correlationId,
       );
 
       if (!sendResult.success) {
@@ -502,6 +507,49 @@ export class TwilioWebhookController {
       // Return 200 to prevent Twilio retries (we'll handle errors internally)
       res.type("text/xml").send("<Response></Response>");
     }
+  }
+
+  private async sendInboxResponseViaTwilio(
+    recipient: string,
+    inboxResponse: Pick<
+      InboxResponse,
+      "conversationId" | "replyText" | "mediaAttachments"
+    >,
+    correlationId: string,
+  ) {
+    const sendResult = await this.twilioAdapter.sendTextMessage(
+      recipient,
+      inboxResponse.replyText,
+    );
+
+    for (const attachment of inboxResponse.mediaAttachments || []) {
+      const mediaResult = await this.twilioAdapter.sendMediaMessage(
+        recipient,
+        attachment.url,
+        attachment.caption,
+      );
+
+      if (!mediaResult.success) {
+        this.logger.warn({
+          msg: "Failed to send Twilio media attachment",
+          correlationId,
+          conversationId: inboxResponse.conversationId,
+          errorCode: mediaResult.errorCode,
+          errorMessage: mediaResult.errorMessage,
+          mediaUrl: attachment.url,
+        });
+
+        const fallbackText = attachment.fallbackText || attachment.caption;
+        if (fallbackText?.trim()) {
+          await this.twilioAdapter.sendTextMessage(
+            recipient,
+            fallbackText.trim(),
+          );
+        }
+      }
+    }
+
+    return sendResult;
   }
 
   /**

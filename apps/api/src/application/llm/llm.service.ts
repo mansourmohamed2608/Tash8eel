@@ -26,8 +26,9 @@ import {
   ValidatedLlmResponse,
 } from "./llm-schema";
 import { MerchantContextService } from "./merchant-context.service";
-import { RetrievalDecision } from "./retrieval-path";
-import { getRetrievalPathDirective } from "./retrieval-path-directives";
+import { ConstraintNegotiator } from "../dialog/constraint-negotiator";
+import { DeEscalator } from "../dialog/de-escalator";
+import { ReplyComposer, ReplyIntent } from "../dialog/reply-composer";
 
 const logger = createLogger("LlmService");
 
@@ -57,7 +58,7 @@ export function isObviouslyOffTopic(text: string): boolean {
     // Translation unrelated to ordering
     /ترجملي\s+(?!.{0,20}(منتج|طلب|عنوان))/i,
     // Sports
-    /(كرة\s*القدم|كورة\s*(دلوقتي|امبارح|بكره|النهارده)|ليفربول|برشلونة|ريال\s*مدريد|منتخب\s*(مصر|سوريا|مغرب)|نتيجة\s*(مباراة|المباراة)|ميسي|رونالدو|نيمار)/i,
+    /(كرة\s*القدم|[اأإآ]فضل\s*لاعب\s*كرة|[اأإآ]حسن\s*لاعب\s*كرة|كورة\s*(دلوقتي|امبارح|بكره|النهارده)|ليفربول|برشلونة|ريال\s*مدريد|منتخب\s*(مصر|سوريا|مغرب)|نتيجة\s*(مباراة|المباراة)|ميسي|رونالدو|نيمار)/i,
     // News headlines
     /(أهم|آخر)\s*(أخبار|الأخبار)/i,
     // Medical symptoms
@@ -80,12 +81,6 @@ export interface LlmContext {
   catalogItems: CatalogItem[];
   recentMessages: Message[];
   customerMessage: string;
-  /**
-   * Pre-LLM retrieval-path classification for this message. When provided,
-   * buildSystemPrompt appends the matching directive from
-   * retrieval-path-directives.ts to steer the reply shape.
-   */
-  retrievalDecision?: RetrievalDecision;
 }
 
 export interface LlmResult {
@@ -108,6 +103,12 @@ export interface LlmResult {
   deliveryFee?: number;
   missingSlots?: string[];
   conversationState?: ConversationState;
+}
+
+export interface DialogReplyCompositionResult {
+  replyText: string;
+  tokensUsed: number;
+  llmUsed: boolean;
 }
 
 export type CommerceStage =
@@ -143,6 +144,8 @@ export interface ConversationState {
 export interface LLMCallOptions {
   model?: "gpt-4o" | "gpt-4o-mini";
   maxTokens?: number;
+  disableSimplifiedRetry?: boolean;
+  offTopicRedirectMode?: boolean;
 }
 
 type CustomerQuestionType =
@@ -392,7 +395,6 @@ export class LlmService {
         merchant,
         merchantContext,
         currentState,
-        context.retrievalDecision,
       );
       const conversationHistory = this.buildConversationHistory(
         recentMessages,
@@ -402,6 +404,7 @@ export class LlmService {
         conversation,
         customerMessage,
         currentState,
+        options,
       );
 
       console.log("=== AI CONTEXT DEBUG ===");
@@ -481,16 +484,21 @@ export class LlmService {
         errorName: err.name,
         timeoutMs: this.timeoutMs,
       });
-      try {
-        const simplified = await this.retryWithSimplerContext(context, options);
-        if (simplified) {
-          return simplified;
+      if (!options?.disableSimplifiedRetry) {
+        try {
+          const simplified = await this.retryWithSimplerContext(
+            context,
+            options,
+          );
+          if (simplified) {
+            return simplified;
+          }
+        } catch (retryError) {
+          logger.warn("Simpler-context retry failed", {
+            merchantId: merchant.id,
+            error: retryError,
+          });
         }
-      } catch (retryError) {
-        logger.warn("Simpler-context retry failed", {
-          merchantId: merchant.id,
-          error: retryError,
-        });
       }
       const is429 =
         (err as any)?.status === 429 || err.message?.includes("429");
@@ -512,8 +520,405 @@ export class LlmService {
         : err.message?.includes("timed out")
           ? "openai_timeout"
           : "openai_error";
-      return this.createFallbackResponse(context, reason);
+      return this.createFallbackResponse(context, reason, options);
     }
+  }
+
+  async composeDialogReply(
+    context: LlmContext,
+    replyIntent: ReplyIntent,
+    options?: LLMCallOptions,
+  ): Promise<DialogReplyCompositionResult> {
+    if (this.isTestMode && this.strictAiMode) {
+      return {
+        replyText:
+          "الخدمة مش متاحة للحظة. ابعتلي التفاصيل تاني بعد شوية ونكمل.",
+        tokensUsed: 0,
+        llmUsed: false,
+      };
+    }
+
+    const { merchant, conversation, customerMessage, recentMessages } = context;
+
+    try {
+      const merchantContext =
+        await this.merchantContextService.buildCustomerReplyContext({
+          merchant,
+          conversation,
+          customerMessage,
+          recentMessages,
+        });
+      const systemPrompt = this.buildDialogRenderSystemPrompt(
+        merchant,
+        merchantContext,
+      );
+      const userPrompt = JSON.stringify(
+        {
+          customerMessage,
+          replyIntent,
+          currentCart: conversation.cart || { items: [] },
+          dialogMemory: (conversation.context || {}).dialog || {},
+        },
+        null,
+        2,
+      );
+
+      if (this.isTestMode) {
+        const fallback = ReplyComposer.compose(
+          {
+            answerFacts: replyIntent.answerFacts,
+            nextQuestion: replyIntent.nextQuestion,
+          },
+          { merchant, recentMessages },
+        );
+        return {
+          replyText:
+            fallback ||
+            "معاك، قولّي التفاصيل الأساسية وأنا أساعدك خطوة بخطوة.",
+          tokensUsed: 0,
+          llmUsed: false,
+        };
+      }
+
+      const startedAt = Date.now();
+      const response = await withTimeout(
+        withRetry(
+          () =>
+            this.client.chat.completions.create({
+              model: options?.model || "gpt-4o-mini",
+              messages: [
+                { role: "system", content: systemPrompt },
+                { role: "user", content: userPrompt },
+              ],
+              max_tokens: options?.maxTokens
+                ? Math.min(options.maxTokens, 260)
+                : 220,
+              temperature: 0.8,
+            }),
+          { maxRetries: options?.disableSimplifiedRetry ? 0 : 1, initialDelayMs: 500 },
+        ),
+        Math.min(this.timeoutMs, 20000),
+        "OpenAI dialog reply request timed out",
+      );
+
+      const replyText =
+        response.choices?.[0]?.message?.content?.trim() || "";
+      const tokensUsed = response.usage?.total_tokens || 0;
+      await this.recordTokenUsageSafely(
+        merchant.id,
+        getTodayDate(),
+        tokensUsed,
+      );
+      void this.aiMetrics.record({
+        serviceName: "LlmService",
+        methodName: "composeDialogReply",
+        merchantId: merchant.id,
+        outcome: "success",
+        tokensUsed,
+        latencyMs: Date.now() - startedAt,
+      });
+
+      return {
+        replyText: ReplyComposer.polish(replyText, { merchant, recentMessages }),
+        tokensUsed,
+        llmUsed: true,
+      };
+    } catch (error) {
+      logger.warn("Dialog reply composition failed", {
+        merchantId: merchant.id,
+        error: (error as Error).message,
+      });
+      return {
+        replyText:
+          "معاك. ابعتلي التفاصيل الأساسية للطلب أو المشكلة، ونكمل خطوة بخطوة.",
+        tokensUsed: 0,
+        llmUsed: false,
+      };
+    }
+  }
+
+  async processDialogTurn(
+    context: LlmContext,
+    replyIntent: ReplyIntent,
+    options?: LLMCallOptions,
+  ): Promise<LlmResult> {
+    if (this.isTestMode) {
+      if (this.strictAiMode) {
+        return this.createAiUnavailableResponse(context);
+      }
+      const replyText = ReplyComposer.compose(
+        {
+          answerFacts: replyIntent.answerFacts,
+          nextQuestion: replyIntent.nextQuestion,
+        },
+        { merchant: context.merchant, recentMessages: context.recentMessages },
+      );
+      return createLlmResult(
+        {
+          actionType:
+            replyIntent.intent === "greeting"
+              ? ActionType.GREET
+              : ActionType.ASK_CLARIFYING_QUESTION,
+          reply_ar:
+            replyText ||
+            "معاك، قولّي التفاصيل الأساسية ونكملها خطوة خطوة.",
+          extracted_entities: createEmptyExtractedEntities(),
+          missing_slots: null,
+          negotiation: createEmptyNegotiation(),
+          delivery_fee: null,
+          confidence: 0.7,
+          reasoning: "dialog_turn_test_mode",
+        },
+        0,
+        false,
+      );
+    }
+
+    const { merchant, conversation, customerMessage, recentMessages } = context;
+
+    try {
+      const merchantContext =
+        await this.merchantContextService.buildCustomerReplyContext({
+          merchant,
+          conversation,
+          customerMessage,
+          recentMessages,
+        });
+      const systemPrompt = this.buildDialogTurnSystemPrompt(
+        merchant,
+        merchantContext,
+      );
+      const userPrompt = JSON.stringify(
+        {
+          customerMessage,
+          replyIntent,
+          currentCart: conversation.cart || { items: [] },
+          dialogMemory: (conversation.context || {}).dialog || {},
+        },
+        null,
+        2,
+      );
+
+      const startedAt = Date.now();
+      const response = await withTimeout(
+        withRetry(
+          () =>
+            this.client.beta.chat.completions.parse({
+              model: options?.model || "gpt-4o-mini",
+              messages: [
+                { role: "system", content: systemPrompt },
+                { role: "user", content: userPrompt },
+              ],
+              response_format: {
+                type: "json_schema",
+                json_schema:
+                  LLM_RESPONSE_JSON_SCHEMA as OpenAI.ResponseFormatJSONSchema["json_schema"],
+              },
+              max_tokens: options?.maxTokens
+                ? Math.min(Math.max(options.maxTokens, 350), 800)
+                : 520,
+              temperature: 0.75,
+            }),
+          { maxRetries: options?.disableSimplifiedRetry ? 0 : 1, initialDelayMs: 500 },
+        ),
+        Math.min(this.timeoutMs, 20000),
+        "OpenAI dialog turn request timed out",
+      );
+
+      const parsedResponse =
+        (response as any).choices?.[0]?.message?.parsed ||
+        (response as any).parsed ||
+        response;
+      const validated = this.validateResponse(parsedResponse);
+      validated.reply_ar = ReplyComposer.polish(validated.reply_ar, {
+        merchant,
+        recentMessages,
+      });
+      validated.reasoning = [
+        validated.reasoning,
+        `dialog_one_call:${replyIntent.intent || "unknown"}`,
+      ]
+        .filter(Boolean)
+        .join("|");
+
+      const tokensUsed = (response as any).usage?.total_tokens || 0;
+      await this.recordTokenUsageSafely(
+        merchant.id,
+        getTodayDate(),
+        tokensUsed,
+      );
+      void this.aiMetrics.record({
+        serviceName: "LlmService",
+        methodName: "processDialogTurn",
+        merchantId: merchant.id,
+        outcome: "success",
+        tokensUsed,
+        latencyMs: Date.now() - startedAt,
+      });
+
+      return createLlmResult(validated, tokensUsed, true);
+    } catch (error) {
+      const err = error as Error;
+      logger.error("Dialog turn processing failed", err, {
+        merchantId: merchant.id,
+        errorMessage: err.message,
+      });
+      const is429 =
+        (err as any)?.status === 429 || err.message?.includes("429");
+      void this.aiMetrics.record({
+        serviceName: "LlmService",
+        methodName: "processDialogTurn",
+        merchantId: merchant.id,
+        outcome: err.message?.includes("timed out")
+          ? "timeout"
+          : "error",
+      });
+      if (is429) {
+        this.fireOpenAiQuotaNotification(merchant.id);
+      }
+      return this.createFallbackResponse(
+        context,
+        is429
+          ? "openai_429"
+          : err.message?.includes("timed out")
+            ? "openai_timeout"
+            : "openai_error",
+        options,
+      );
+    }
+  }
+
+  private buildDialogRenderSystemPrompt(
+    merchant: Merchant,
+    merchantContext: {
+      businessInfo: string;
+      productCatalog: string;
+      knowledgeBase: string;
+      conversationHistory: string;
+      orderContext: string;
+    },
+  ): string {
+    const config = (merchant.config || {}) as Record<string, any>;
+    const cadence = config.cadence || {};
+    return `أنت شخص حقيقي من فريق ${merchant.name} وترد على عميل في محادثة واتساب.
+
+مهمتك الوحيدة: صياغة رد عربي/مصري طبيعي ودافي من البيانات المنظمة التي ستصلك.
+اكتب كأنك بائع/مسؤول متجر فاهم وشاطر ومهتم فعلاً، وليس خدمة عملاء رسمية ولا مساعد آلي.
+
+ممنوع:
+- لا تقول إنك AI أو بوت أو نظام.
+- لا تعد بتحويل العميل لشخص آخر إلا لو البيانات المنظمة تسمح بذلك صراحة.
+- لا تخترع سياسة أو سعر أو صورة غير موجودة في البيانات.
+- لا تسأل أكثر من سؤال واحد في نفس الرد.
+- لا تستخدم افتتاحيات آلية متكررة مثل "بكل سرور" أو "أنا هنا بس لمساعدتك".
+- لا تستخدم عبارات باردة مثل "أقدر أساعدك بشكل أفضل"، "ممكن تساعدني وتقول لي"، "يرجى توضيح"، "هل تريد".
+- لا تستخدم عبارات فصحى/غريبة في واتساب مثل "ممكن تخبرني" أو "استمتع بالمشاهدة".
+- لا تنسخ replyIntent.nextQuestion أو answerFacts حرفياً لو مكتوبة كهدف. حوّلها لكلام واتساب طبيعي.
+
+أسلوب المتجر:
+- اللهجة: ${String(cadence.dialect || "egyptian")}
+- درجة الدفء: ${String(cadence.warmth ?? 0.7)}
+- حد الإيموجي: ${String(cadence.emoji_budget ?? 1)}
+${cadence.signature ? `- توقيع الفريق عند الحاجة فقط: ${String(cadence.signature)}` : ""}
+
+معلومات المتجر:
+${merchantContext.businessInfo}
+
+الكتالوج المتاح:
+${merchantContext.productCatalog}
+
+سياسات ومعرفة المتجر:
+${merchantContext.knowledgeBase}
+
+سياق الطلب/السلة:
+${merchantContext.orderContext}
+
+تاريخ مختصر:
+${merchantContext.conversationHistory}
+
+طريقة الرد:
+- الرد يكون قصير، بشري، ودافي: جملة أو جملتين غالباً.
+- ابدأ بإجابة أو اعتراف إنساني مناسب، لا تبدأ بسؤال جاف.
+- استخدم مصري طبيعي عند الحاجة: "قولّي"، "تحب"، "نظبطها"، "أنا معاك"، "ولا يهمك".
+- لو mediaWillBeAttached=true، قل بوضوح إن الصور مرفقة أو واصلة في نفس الرسالة.
+- لو constraintAxes موجودة، اذكر القيود بأسمائها واسأل أي قيد ممكن يتعدل.
+- لو replyIntent.nextQuestion موجود، اعتبره هدف السؤال وليس نصاً جاهزاً؛ اكتبه بصياغة بشرية كسؤالك الوحيد ولا تضيف أي سؤال آخر.
+- لو slotPlan.nextSlot موجود وnextQuestion غير موجود، اسأل عنه بصياغة طبيعية واحدة.
+- لو constraintAxes موجودة، لا تسأل عن مناسبة/استخدام/عنوان/دفع في نفس الرد؛ سؤال القيود فقط.
+- لو العميل يشتكي أو يطلب مسؤول، ابدأ بتعاطف مباشر مثل "أنا معاك" أو "حقك عليا"، ولا تسأل عن المنتج أو الاستخدام؛ اسأله عما حدث تحديداً بصياغة بشرية.
+- لو العميل محتار، طمّنه وساعده يختار بدل ما تحسسه إنه لازم يعرف كل التفاصيل.
+- لو لا تحتاج سؤال، اختم بجملة قصيرة طبيعية بدون سؤال.`;
+  }
+
+  private buildDialogTurnSystemPrompt(
+    merchant: Merchant,
+    merchantContext: {
+      businessInfo: string;
+      productCatalog: string;
+      knowledgeBase: string;
+      conversationHistory: string;
+      orderContext: string;
+    },
+  ): string {
+    const config = (merchant.config || {}) as Record<string, any>;
+    const cadence = config.cadence || {};
+    return `أنت شخص حقيقي من فريق ${merchant.name} وترد على عميل في واتساب.
+
+أعد JSON فقط حسب المخطط المطلوب. لا تكتب أي نص خارج JSON.
+
+دورك في هذه المكالمة الواحدة:
+1. افهم نية العميل والحقائق الناقصة.
+2. اكتب reply_ar كرسالة واتساب بشرية ودافئة.
+3. اقترح actionType آمن، وسيقوم النظام بمراجعته بعدك.
+4. استخرج فقط الكيانات التي قالها العميل بوضوح.
+
+قواعد الرد البشري:
+- اكتب كأنك بائع/مسؤول متجر شاطر ومهتم، لا كخدمة عملاء رسمية.
+- جمل قصيرة طبيعية بالمصري. غالباً جملة أو جملتين.
+- ابدأ بإجابة أو تعاطف، لا تبدأ بسؤال جاف.
+- سؤال واحد فقط في reply_ar.
+- لا تقول AI أو بوت أو نظام.
+- لا تعد بتحويل العميل لشخص آخر إلا لو replyIntent يسمح بذلك صراحة.
+- لا تستخدم عبارات باردة مثل "أقدر أساعدك بشكل أفضل"، "ممكن تساعدني وتقول لي"، "يرجى توضيح"، "هل تريد".
+- لا تنسخ replyIntent.nextQuestion أو answerFacts حرفياً إذا كانت أهدافاً؛ حوّلها لكلام واتساب طبيعي.
+- استخدم كلمات طبيعية عند الحاجة: "قولّي"، "تحب"، "نظبطها"، "أنا معاك"، "ولا يهمك".
+- اعتبر replyIntent.intent هو نية العميل الأساسية، ولا تغيّرها لمجرد وجود كلمة "عايز".
+- ممنوع تسأل عن الكمية أو العنوان أو الدفع إلا لو العميل اختار/أكد شراء منتج محدد بوضوح.
+- لو intent=greeting: رد بتحية طبيعية فقط واعرض المساعدة، ولا تقول "فهمت إنك عايز" ولا تسأل عن كمية.
+- لو intent=browsing: ساعده يختار بسؤال تفضيل واحد، ولا تطلب اسم المنتج.
+- لو intent=media_request: قل إن الصور مرفقة، ولا تسأل عن كمية أو عنوان.
+- لو intent=infeasible_request: اذكر القيود المتعارضة واسأل أي قيد ممكن يتعدل.
+- لو intent=demanding_human أو venting: رد كأنك الشخص الموجود في الشات الآن؛ ممنوع "هيتواصلوا معاك" أو "هحوّلك" أو "الفريق المختص".
+
+قواعد actionType:
+- استخدم ASK_CLARIFYING_QUESTION لمعظم الأسئلة، الشكاوى، الميديا، السياسات، الطلبات المخصصة، والطلبات غير الواضحة.
+- استخدم GREET للتحية فقط.
+- لا تستخدم UPDATE_CART أو CREATE_ORDER أو CONFIRM_ORDER إلا إذا العميل اختار/أكد الشراء بوضوح ومعه منتج أو طلب واضح.
+- لا تنشئ طلباً بسبب سؤال عن صورة أو سياسة أو شكوى أو طلب مخصص غير مكتمل.
+- إذا mediaWillBeAttached=true، اذكر في reply_ar أن الصور مرفقة/واصلة في نفس الرسالة.
+- إذا constraintAxes موجودة، سمّ القيود واسأل أي قيد ممكن يتعدل، ولا تسأل عن مناسبة أو عنوان أو دفع في نفس الرد.
+- إذا العميل يشتكي أو يطلب مسؤول، رد كأنك الشخص الموجود معه الآن واسأله ما حدث تحديداً، بدون وعد تحويل.
+
+أسلوب المتجر:
+- اللهجة: ${String(cadence.dialect || "egyptian")}
+- درجة الدفء: ${String(cadence.warmth ?? 0.8)}
+- حد الإيموجي: ${String(cadence.emoji_budget ?? 1)}
+${cadence.signature ? `- توقيع الفريق عند الحاجة فقط: ${String(cadence.signature)}` : ""}
+
+معلومات المتجر:
+${merchantContext.businessInfo}
+
+الكتالوج المتاح:
+${merchantContext.productCatalog}
+
+سياسات ومعرفة المتجر:
+${merchantContext.knowledgeBase}
+
+سياق الطلب/السلة:
+${merchantContext.orderContext}
+
+تاريخ مختصر:
+${merchantContext.conversationHistory}`;
   }
 
   private async callOpenAI(
@@ -562,7 +967,6 @@ export class LlmService {
       orderContext: string;
     },
     conversationState: ConversationState,
-    retrievalDecision?: RetrievalDecision,
   ): string {
     const businessInfoBlock = [
       merchantContext.businessInfo,
@@ -571,11 +975,18 @@ export class LlmService {
       merchantContext.orderContext,
     ].join("\n");
 
-    const pathDirective = retrievalDecision?.primaryPath
-      ? `\n\n---\n\n${getRetrievalPathDirective(retrievalDecision.primaryPath)}`
-      : "";
+    const config = (merchant.config || {}) as Record<string, any>;
+    const cadence = config.cadence || {};
+    const dialect = String(cadence.dialect || "egyptian");
+    const warmth = Number.isFinite(Number(cadence.warmth))
+      ? Number(cadence.warmth)
+      : 0.7;
+    const emojiBudget = Number.isFinite(Number(cadence.emoji_budget))
+      ? Number(cadence.emoji_budget)
+      : 1;
+    const signature = String(cadence.signature || "").trim();
 
-    const base = `أنت بترد نيابة عن فريق ${merchant.name}، وكأنك موظف مبيعات أو خدمة عملاء من داخل المتجر.
+    return `أنت بترد كواحد من فريق ${merchant.name} الموجود في الشات الآن.
 
 معلومات المتجر:
 ${businessInfoBlock}
@@ -599,124 +1010,23 @@ ${merchantContext.conversationHistory}
 
 ---
 
-قواعد الرد:
+طريقة الكلام:
+- اللهجة: ${dialect}
+- الدفء: ${warmth}
+- حد الإيموجي: ${emojiBudget}
+${signature ? `- توقيع الفريق عند الحاجة: ${signature}` : ""}
 
-1. الهوية والأسلوب:
-   - تكلم بالعامية المصرية الطبيعية
-   - كن ودود ومباشر وسريع
-   - اتكلم كأنك واحد من فريق المتجر، مش نظام آلي ومش مساعد ذكاء اصطناعي
-   - لا تستخدم جمل طويلة غير ضرورية
-   - لا تستخدم أي رسالة اعتذار عن ضغط أو زحمة العمل أبداً
-   - لا تكرر نفس الرد مرتين متتاليتين أبداً
-   - لا تقل "أنا هنا بس لمساعدتك" أو أي جملة تبدو وكأنها رد آلي جاهز
-   - لا تبدأ بـ "بكل سرور" أو "سعيد بمساعدتك" في كل رد
-
-2. لو العميل سأل "بتبيعوا إيه" أو "عندك إيه":
-   - اعرض المنتجات الموجودة فوراً من القائمة أعلاه
-   - رتبها بشكل واضح بالأسعار
-   - اعتبر الرسالة انتقالاً فورياً لمرحلة discovery حتى لو كان قبلها مراحل تانية
-   - مثال الرد:
-     "عندنا:
-     👕 تيشيرتات من 150 لـ 250 جنيه
-     👖 بناطيل جينز من 300 لـ 450 جنيه
-     🧢 كابات من 80 جنيه
-     إيه اللي يناسبك؟"
-
-2.1 لو العميل قال "عندي إيه في السلة" أو "إيه اللي في سلتي":
-   - ده سؤال عن السلة الحالية، مش عن الكتالوج
-   - اعرض المنتجات المؤكدة الموجودة في السلة بالكميات والأسعار
-   - لو السلة فاضية قل: "سلتك فاضية، بتدور على إيه؟"
-
-3. لو العميل طلب منتج معين:
-   - ابحث في القائمة أعلاه فوراً
-   - لو لقيته: قوله السعر والمتاح فوراً
-   - لو مش موجود بالاسم ده: اقترح أقرب بديل من القائمة
-   - لو بتقترح بديل لأن المطلوب غير متوفر: لا تعتبر البديل مختاراً ولا تضيفه للسلة إلا بعد موافقة صريحة من العميل
-   - لا تقوله "ممكن تكتبلي الطلب" إلا بعد ما يختار المنتج
-
-4. مسار الطلب الصحيح:
-   خطوة 1: العميل يختار المنتج
-   خطوة 2: تأكد الكمية
-   خطوة 3: اسأل عن المقاس/اللون لو موجود
-   خطوة 4: اسأل عن عنوان التوصيل
-   خطوة 5: اسأل عن طريقة الدفع
-   خطوة 6: لخص الطلب وأكده
-
-5. لو العميل سأل سؤال مش في نطاق عملك:
-   - رد بجملة قصيرة ووجّه الكلام لنطاق المتجر بشكل طبيعي
-   - لا تقل إنك AI أو بوت أو نظام ذكاء اصطناعي
-   - لا تقل "أنا هنا بس لمساعدتك في..."
-   - مثال: "ده مش في تخصصي، بس لو محتاج حاجة من ${merchant.name} أنا معاك."
-
-6. لا تبدأ ردك بـ "أكيد" أو "تمام" في كل رد
-7. لا تضع إيموجي كتير - واحدة أو اتنين بحد أقصى
-8. ردودك قصيرة ومباشرة - مش محاضرة
-
-قواعد إضافية صارمة:
-
-1. لا تطلب عنوان التوصيل إلا في مرحلة التوصيل
-   (بعد تأكيد المنتج والكمية والمقاس)
-
-2. لا تضيف أي منتج للطلب إلا لو العميل صرح
-   بشكل واضح إنه عايزه
-
-3. لو العميل سأل سؤال، اجاوب السؤال الأول
-
-4. لا تطلب نفس المعلومة أكتر من مرة في نفس المحادثة
-
-5. لو قلت للعميل إن حاجة مش موجودة، اقترح بديل فوراً
-   لا تسألش عن عنوان التوصيل بعدها مباشرة
-
-6. رتيب الأسئلة دايماً:
-   أولاً: المنتج → ثانياً: الكمية → ثالثاً: المقاس/اللون
-   → رابعاً: عنوان التوصيل → خامساً: طريقة الدفع
-   → سادساً: تأكيد الطلب
-
-7. لو العميل قال 'لأ' أو 'مش عايز ده' أو 'خليها':
-   ارجع لمرحلة الاستكشاف، اسأل إيه اللي يناسبه
-
-8. لو العميل قال 'مختارانش' أو 'بفكر':
-   اقوله خد وقتك وعرض عليه منتجات تانية
-
-9. لو المرحلة discovery:
-   جاوب الأسئلة واعرض المنتجات فقط
-   لا تطلب عنوان أو دفع
-   لا تضيف أي منتج للسلة
-
-10. لو المرحلة item_confirmation:
-    أكّد المنتج والسعر أولاً
-    ثم اسأل عن الكمية
-    ثم اسأل عن المقاس/اللون لو موجود
-    لا تطلب عنوان أو دفع
-
-11. لو المرحلة delivery:
-    اطلب العنوان مرة واحدة فقط
-    ولو كنت سألته عن العنوان في آخر رسالة، انتظر الرد ولا تكرر السؤال
-
-12. لو المرحلة payment:
-    اسأل عن طريقة الدفع مرة واحدة فقط
-    وبعدها انتقل لتأكيد الطلب
-
-13. لو العميل سأل عن:
-    المقاس أو السعر أو اللون أو التوصيل أو الخصم أو الضمان
-    جاوب السؤال مباشرة قبل أي خطوة بيع تالية
-
-14. لو العميل محتار أو بيطلب ترشيح أو بيقول إنه مش عارف يختار:
-    ابدأ بمساعدته بأسئلة قصيرة ومفيدة
-    لا تطلب اسم منتج جاهز لو هو لسه بيستكشف
-
-15. لو الطلب واضح إنه مخصص أو حسب الطلب أو محتاج مواصفات:
-    اجمع أهم التفاصيل الناقصة أولاً
-    لا تنتقل مباشرة لسؤال الكمية إلا لو المنتج محدد بوضوح ومطابق للكتالوج
-    لو العميل ذكر أبعاد (زي 60x90 أو 70x100) فده مؤشر على طلب مخصص — اجمع التفاصيل أولاً
-    لو المهلة المطلوبة غير واقعية، وضّح ده بشكل طبيعي واقترح البديل المناسب
-
-16. لو العميل طلب تحويله لشخص مسؤول أو عنده شكوى:
-    رد بصياغة بشرية طبيعية وكأنك من الفريق
-    لا تقل "أنا AI" أو "أنا مساعد ذكي" أو "أنا هنا بس لمساعدتك"
-    مثال: "هبعت الموضوع للمسؤول، هتواصل معاك في أقرب وقت."`;
-
-    return base + pathDirective;
+قواعد عامة قصيرة:
+- جاوب سؤال العميل الأول، ثم اسأل سؤال واحد مفيد فقط لو محتاج معلومة ناقصة.
+- اتكلم كفريق المتجر نفسه، ولا تذكر أنك AI أو بوت أو نظام.
+- لا تعد بتحويل العميل لشخص آخر إلا لو بيانات المتجر تقول صراحة إن فيه قناة بشرية متاحة. لو مش واضح، رد كأنك الشخص الموجود معه الآن.
+- لا تسأل عن عنوان أو دفع قبل ما المنتج/الخدمة أو موجز الطلب يبقى واضح.
+- لا تضيف منتج للطلب إلا بموافقة صريحة.
+- لو العميل محتار، ساعده يختار بأسئلة قصيرة بدل ما تطلب اسم منتج.
+- لو الطلب مخصص أو brief، عامله كطلب حسب المواصفات واجمع الناقص. لا تجبره على منتج كتالوجي ولا تسأل عن الكمية إلا لو ده منطقي من كلامه.
+- لو فيه قيد صعب في الطلب، سمّي القيود بوضوح واسأل أي قيد ممكن يتعدل قبل اقتراح بديل.
+- لو العميل خارج نطاق المتجر، رد باختصار وارجعه لنطاق ${merchant.name} بدون محاضرة.
+- ممنوع العبارات الجاهزة المتكررة مثل "بكل سرور" و"أنا هنا بس لمساعدتك".`;
   }
 
   /**
@@ -904,6 +1214,7 @@ ${merchantContext.conversationHistory}
     conversation: Conversation,
     customerMessage: string,
     conversationState: ConversationState,
+    options?: LLMCallOptions,
   ): string {
     const cartItems = conversation.cart.items || [];
     const cartSummary =
@@ -937,6 +1248,17 @@ ${merchantContext.conversationHistory}
       missingParts.push("العنوان الكامل");
     if (cartItems.length === 0) missingParts.push("المنتجات");
 
+    const offTopicDirective = options?.offTopicRedirectMode
+      ? `
+
+تعليمات إضافية لهذه الرسالة فقط:
+- الرسالة الحالية خارج نطاق المتجر بوضوح
+- لا تجاوب على الموضوع الخارجي نفسه بتفصيل
+- رد بجملة قصيرة جداً وبالعامية المصرية
+- وجّه العميل بشكل طبيعي لنطاق المتجر أو الطلبات أو المنتجات
+- لا تكرر اسم المنتج ولا تدخل في مسار بيع كامل`
+      : "";
+
     return `حالة المحادثة الحالية في النظام: ${conversation.state}
 
 حالة المحادثة الحالية:
@@ -957,7 +1279,7 @@ ${collectedInfo}
 رسالة العميل الحالية:
 ${customerMessage}
 
-اعتمد على سياق المتجر والكتالوج وتاريخ المحادثة أعلاه. لو العميل ذكر المنتج بالفعل متسألوش عنه مرة تانية، وانتقل للخطوة التالية المناسبة في مسار الطلب. لو العميل قال "عندك إيه" أو "بتبيعوا إيه" فده browsing discovery وورّيه الكتالوج فوراً. لو العميل قال "عندي إيه في السلة" أو "إيه اللي في سلتي" فاعرض السلة الحالية فقط. لو المرحلة discovery أو item_confirmation فلا تطلب عنوان التوصيل أو طريقة الدفع.`;
+اعتمد على سياق المتجر والكتالوج وتاريخ المحادثة أعلاه. لو العميل ذكر المنتج بالفعل متسألوش عنه مرة تانية، وانتقل للخطوة التالية المناسبة في مسار الطلب. لو العميل قال "عندك إيه" أو "بتبيعوا إيه" فده browsing discovery وورّيه الكتالوج فوراً. لو العميل قال "عندي إيه في السلة" أو "إيه اللي في سلتي" فاعرض السلة الحالية فقط. لو المرحلة discovery أو item_confirmation فلا تطلب عنوان التوصيل أو طريقة الدفع.${offTopicDirective}`;
   }
 
   private buildStateMessages(
@@ -1239,7 +1561,42 @@ ${customerMessage}
     };
 
     const asksAddress = this.replyRequestsAddress(next.reply_ar);
-    const asksPayment = this.replyRequestsPayment(next.reply_ar);
+    const constraintReply = ConstraintNegotiator.compose(
+      context.customerMessage,
+      context.merchant,
+    );
+    if (constraintReply) {
+      next.actionType = ActionType.ASK_CLARIFYING_QUESTION;
+      next.reply_ar = ReplyComposer.polish(constraintReply.reply, {
+        merchant: context.merchant,
+        recentMessages: context.recentMessages,
+      });
+      next.reasoning = constraintReply.reasoning;
+      next.extracted_entities = null;
+      next.missing_slots = null;
+      return next;
+    }
+
+    const shouldDeEscalate =
+      next.actionType === ActionType.ESCALATE ||
+      next.actionType === ActionType.ESCALATE_TO_HUMAN ||
+      this.isEscalationOrComplaintMessage(context.customerMessage) ||
+      DeEscalator.containsHumanPromise(next.reply_ar);
+    if (shouldDeEscalate) {
+      const deEscalation = DeEscalator.compose(
+        context.customerMessage,
+        context.merchant,
+      );
+      next.actionType = ActionType.ASK_CLARIFYING_QUESTION;
+      next.reply_ar = ReplyComposer.polish(deEscalation.reply, {
+        merchant: context.merchant,
+        recentMessages: context.recentMessages,
+      });
+      next.reasoning = deEscalation.reasoning;
+      next.extracted_entities = null;
+      next.missing_slots = null;
+      return next;
+    }
 
     const clearAddressAndPayment = () => {
       if (next.extracted_entities?.address) {
@@ -1253,9 +1610,9 @@ ${customerMessage}
       );
     };
 
-    // Delivery-zone follow-up: when we asked for the address and the customer
-    // answered with a zone name (not a full address), surface the fee/ETA
-    // from the merchant delivery rules so we don't stall the conversation.
+    // Data-driven recovery: the previous turn explicitly asked for an address,
+    // and the customer answered with a delivery-zone name (not a full address).
+    // Resolve the zone from merchant.deliveryRules and respond with fee/ETA.
     if (
       currentState.lastAskedFor === "address" &&
       !this.looksLikeDeliveryAddressText(context.customerMessage) &&
@@ -1271,50 +1628,18 @@ ${customerMessage}
         next.reply_ar = Number.isFinite(matchedZone.estimatedDays)
           ? `التوصيل إلى ${matchedZone.zone} متاح برسوم ${matchedZone.fee} جنيه، ومدة التوصيل المتوقعة حوالي ${matchedZone.estimatedDays} يوم.`
           : `التوصيل إلى ${matchedZone.zone} متاح برسوم ${matchedZone.fee} جنيه.`;
+        next.reply_ar = ReplyComposer.polish(next.reply_ar, {
+          merchant: context.merchant,
+          recentMessages: context.recentMessages,
+        });
         next.reasoning = "answered_delivery_zone_followup";
         return next;
       }
     }
 
-    // KB/FAQ safety net: when a seeded merchant FAQ directly answers the
-    // customer message, surface it. Narrow to early discovery with no
-    // strong catalog signal so we don't interrupt an active order flow.
-    if (
-      currentState.stage === "discovery" &&
-      (!this.isOrderIntentMessage(
-        this.normalizeArabicText(context.customerMessage),
-      ) ||
-        !this.hasStrongCatalogSignal(context, currentState, next))
-    ) {
-      const kbAnswer = this.lookupKbFaqByMessage(
-        context.merchant,
-        context.customerMessage,
-      );
-      if (kbAnswer) {
-        next.actionType = ActionType.ASK_CLARIFYING_QUESTION;
-        next.reply_ar = kbAnswer;
-        next.reasoning = "kb_faq_match";
-        return next;
-      }
-    }
-
-    const isEscalationAction =
-      next.actionType === ActionType.ESCALATE ||
-      next.actionType === ActionType.ESCALATE_TO_HUMAN;
-
-    // Data safety: when the LLM asked for address/payment before the
-    // delivery stage, keep the reply text but strip the extracted
-    // entities so the downstream cart/order writer doesn't commit state
-    // the customer never confirmed. Reply text is left to the LLM.
-    const addressOrPaymentTooEarly =
-      (currentState.stage === "discovery" ||
-        currentState.stage === "item_confirmation") &&
-      (asksAddress || asksPayment);
-    if (addressOrPaymentTooEarly && !isEscalationAction) {
-      clearAddressAndPayment();
-      next.reasoning = `stage_data_sanitize:${currentState.stage}`;
-    }
-
+    // Data-safety: if the LLM extracted an address from a non-delivery-stage
+    // message that doesn't actually look like an address, drop the bogus entity
+    // so we don't write it onto the order. The reply text itself is preserved.
     if (
       currentState.stage !== "delivery" &&
       this.looksLikeDeliveryAddressText(context.customerMessage) === false &&
@@ -1323,6 +1648,10 @@ ${customerMessage}
       next.extracted_entities.address = null;
     }
 
+    next.reply_ar = ReplyComposer.polish(next.reply_ar, {
+      merchant: context.merchant,
+      recentMessages: context.recentMessages,
+    });
     return next;
   }
 
@@ -1931,6 +2260,12 @@ ${customerMessage}
     currentState: ConversationState,
     response?: ValidatedLlmResponse,
   ): boolean {
+    const normalizedMessage = this.normalizeArabicText(context.customerMessage);
+
+    if (this.shouldAvoidEarlyCommerceReply(normalizedMessage)) {
+      return false;
+    }
+
     const candidates = this.getCatalogReferenceCandidates(
       context,
       currentState,
@@ -1948,7 +2283,24 @@ ${customerMessage}
       }
     }
 
-    return bestScore >= 100;
+    if (bestScore < 110) {
+      return false;
+    }
+
+    if (currentState.stage !== "discovery") {
+      return true;
+    }
+
+    const hasResolvedProduct = Boolean(
+      response?.extracted_entities?.products?.[0]?.name ||
+        currentState.confirmedItems.length > 0 ||
+        context.conversation.cart.items?.length,
+    );
+    const selectionLikeMessage =
+      this.isOrderIntentMessage(normalizedMessage) ||
+      this.isCatalogInquiryMessage(normalizedMessage);
+
+    return hasResolvedProduct || selectionLikeMessage;
   }
 
   private getCanonicalCatalogLabel(
@@ -2211,14 +2563,14 @@ ${customerMessage}
 
   private replyRequestsAddress(reply: string): boolean {
     const normalized = this.normalizeArabicText(reply);
-    return /(ابعت|ابعتي|ابعتلي|اكتب|اكتبي|قولي|قوليلي|قللي|محتاج|محتاجه|احتاج|حدد|حددي).{0,30}(عنوان|العنوان|المنطقه|المنطقة|المحافظة|المحافظه|شارع|لوكيشن)|عنوان التوصيل|العنوان بالتفصيل/.test(
+    return /(ابعت|ابعتي|ابعتلي|اكتب|اكتبي|قولي|قوليلي|قللي|محتاج|محتاجه|محتاجة|احتاج|حدد|حددي).{0,35}(عنوان|العنوان|المنطقه|المنطقة|المحافظة|المحافظه|شارع|لوكيشن)/.test(
       normalized,
     );
   }
 
   private replyRequestsPayment(reply: string): boolean {
     const normalized = this.normalizeArabicText(reply);
-    return /(تحب|تحبي|حدد|حددي|اختر|اختاري|ابعت|اكتب|قولي|قوليلي|محتاج).{0,30}(طريقه الدفع|طريقة الدفع|الدفع|كاش|فيزا|اونلاين|أونلاين|تحويل)|طريقه الدفع|طريقة الدفع/.test(
+    return /(تحب|تحبي|حدد|حددي|اختر|اختاري|ابعت|اكتب|قولي|قوليلي|محتاج|محتاجة).{0,35}(طريقه الدفع|طريقة الدفع|الدفع|كاش|فيزا|اونلاين|أونلاين|تحويل)/.test(
       normalized,
     );
   }
@@ -2252,6 +2604,7 @@ ${customerMessage}
       conversation,
       customerMessage,
       currentState,
+      options,
     );
 
     const response = await withTimeout(
@@ -3199,11 +3552,7 @@ recentAgentActions: آخر 10 إجراءات اتخذها الوكلاء في آ
       return true;
     }
 
-    if (
-      this.isGreetingMessage(context.customerMessage) ||
-      this.isEscalationOrComplaintMessage(context.customerMessage) ||
-      this.isObviouslyOffTopic(context.customerMessage)
-    ) {
+    if (this.shouldAvoidEarlyCommerceReply(context.customerMessage)) {
       return true;
     }
 
@@ -3216,6 +3565,20 @@ recentAgentActions: آخر 10 إجراءات اتخذها الوكلاء في آ
     }
 
     return false;
+  }
+
+  private shouldAvoidEarlyCommerceReply(text: string): boolean {
+    const normalized = this.normalizeArabicText(text);
+
+    return (
+      this.isGreetingMessage(normalized) ||
+      this.isEscalationOrComplaintMessage(normalized) ||
+      this.isObviouslyOffTopic(normalized) ||
+      this.isPolicyQuestion(normalized) ||
+      this.isGuidedChoiceMessage(normalized) ||
+      this.isLeadTimeQuestion(normalized) ||
+      this.isCustomRequestMessage(normalized)
+    );
   }
 
   private extractProductHintFromHistory(
@@ -3263,9 +3626,9 @@ recentAgentActions: آخر 10 إجراءات اتخذها الوكلاء في آ
         ),
       ).slice(0, 3);
       if (categories.length > 0) {
-        return `أكيد 🙌 عندنا ${categories.join("، ")}. اكتب اسم أو نوع المنتج اللي بتدور عليه وأنا أساعدك فوراً.`;
+        return `أكيد 🙌 عندنا ${categories.join("، ")}. قولي اللي محتاجه وأنا أساعدك.`;
       }
-      return "أكيد 🙌 اكتب اسم أو نوع المنتج اللي بتدور عليه وأنا أساعدك فوراً.";
+      return "أكيد 🙌 قولي إيه اللي بتدور عليه وأنا أساعدك.";
     }
 
     return `أكيد 🙌 عندنا: ${names.join("، ")}.\nتحب أساعدك تختار أنسب حاجة؟`;
@@ -3400,6 +3763,7 @@ recentAgentActions: آخر 10 إجراءات اتخذها الوكلاء في آ
   private createFallbackResponse(
     context: LlmContext,
     reason: FallbackReason = "openai_error",
+    options?: LLMCallOptions,
   ): LlmResult {
     const {
       merchant,
@@ -3436,6 +3800,23 @@ recentAgentActions: آخر 10 إجراءات اتخذها الوكلاء في آ
     let reply =
       "تمام 🙌 قولي نوع المنتج أو الطلب اللي محتاجه وأنا أكمل معاك خطوة بخطوة.";
     const actionType = ActionType.ASK_CLARIFYING_QUESTION;
+
+    if (options?.offTopicRedirectMode) {
+      return {
+        response: {
+          actionType,
+          reply_ar: this.buildOffTopicRedirectReply(merchant.name),
+          confidence: 0.7,
+          extracted_entities: null,
+          missing_slots: null,
+          negotiation: null,
+          reasoning: `fallback_offtopic_redirect:${reason}`,
+          delivery_fee: null,
+        },
+        tokensUsed: 0,
+        llmUsed: false,
+      };
+    }
 
     // Escalation / complaint: brand-voice handoff, never product template.
     if (this.isEscalationOrComplaintMessage(messageLower)) {
@@ -3584,6 +3965,10 @@ recentAgentActions: آخر 10 إجراءات اتخذها الوكلاء في آ
       llmUsed: false,
       conversationState: currentState,
     };
+  }
+
+  private buildOffTopicRedirectReply(merchantName: string): string {
+    return `ده خارج نطاق ${merchantName} عندي، بس لو محتاج أي حاجة تخص الطلب أو المنتجات أنا أكمل معاك.`;
   }
 
   private createAiUnavailableResponse(context: LlmContext): LlmResult {

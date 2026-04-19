@@ -18,10 +18,11 @@ async function bootstrap(): Promise<void> {
   // the app will read/write a different database and appear as data loss.
   if (
     (nodeEnv === "production" || nodeEnv === "staging") &&
-    /@postgres(?::\d+)?\//i.test(databaseUrl)
+    /@postgres(?::\d+)?\//i.test(databaseUrl) &&
+    process.env.ALLOW_LOCAL_PRODUCTION_DATABASE !== "true"
   ) {
     throw new Error(
-      "Refusing to start with local compose database host 'postgres' in production/staging. Use docker-compose.prod.yml or docker-compose.staging.yml with external DATABASE_URL.",
+      "Refusing to start with local compose database host 'postgres' in production/staging. Set ALLOW_LOCAL_PRODUCTION_DATABASE=true only for a single-VM production deployment with Docker Postgres.",
     );
   }
 

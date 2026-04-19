@@ -12,6 +12,7 @@ import { DATABASE_POOL } from "../../infrastructure/database/database.module";
 import {
   ChannelAdapterInterface,
   InboundMessage,
+  OutboundMediaMessage,
 } from "./channel.adapter.interface";
 
 // ============================================================================
@@ -202,6 +203,7 @@ export interface IMetaWhatsAppAdapter extends ChannelAdapterInterface {
 
   // Generic channel interface wrappers
   sendMessage(recipientId: string, message: string): Promise<void>;
+  sendMedia(recipientId: string, message: OutboundMediaMessage): Promise<void>;
   sendTypingIndicator(recipientId: string): Promise<void>;
 
   // Merchant lookup
@@ -539,6 +541,29 @@ export class MetaWhatsAppAdapter implements IMetaWhatsAppAdapter {
     const result = await this.sendTextMessage(recipientId, message);
     if (!result.success) {
       throw new Error(result.errorMessage || "Failed to send WhatsApp message");
+    }
+  }
+
+  async sendMedia(
+    recipientId: string,
+    message: OutboundMediaMessage,
+  ): Promise<void> {
+    if (message.text?.trim()) {
+      await this.sendMessage(recipientId, message.text.trim());
+    }
+
+    for (const item of message.media || []) {
+      const result = await this.sendMediaMessage(
+        recipientId,
+        item.url,
+        item.caption,
+      );
+      if (!result.success) {
+        const fallback = item.fallbackText || item.caption;
+        if (fallback?.trim()) {
+          await this.sendMessage(recipientId, fallback.trim());
+        }
+      }
     }
   }
 
@@ -1457,6 +1482,18 @@ export class MockMetaWhatsAppAdapter implements IMetaWhatsAppAdapter {
 
   async sendMessage(recipientId: string, message: string): Promise<void> {
     await this.sendTextMessage(recipientId, message);
+  }
+
+  async sendMedia(
+    recipientId: string,
+    message: OutboundMediaMessage,
+  ): Promise<void> {
+    if (message.text?.trim()) {
+      await this.sendMessage(recipientId, message.text.trim());
+    }
+    for (const item of message.media || []) {
+      await this.sendMediaMessage(recipientId, item.url, item.caption);
+    }
   }
 
   async sendTypingIndicator(recipientId: string): Promise<void> {

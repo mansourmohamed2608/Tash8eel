@@ -605,9 +605,10 @@ export class MetaWebhookController {
         return;
       }
 
-      const sendResult = await this.metaAdapter.sendTextMessage(
+      const sendResult = await this.sendInboxResponseViaMetaWhatsApp(
         parsed.fromNumber,
-        inboxResponse.replyText,
+        inboxResponse,
+        correlationId,
         outboundPhoneNumberId,
       );
 
@@ -639,6 +640,58 @@ export class MetaWebhookController {
       });
       // Already sent 200 above, so just log
     }
+  }
+
+  private async sendInboxResponseViaMetaWhatsApp(
+    recipient: string,
+    inboxResponse: {
+      conversationId: string;
+      replyText: string;
+      mediaAttachments?: Array<{
+        url: string;
+        caption?: string;
+        fallbackText?: string;
+      }>;
+    },
+    correlationId: string,
+    phoneNumberId?: string,
+  ) {
+    const sendResult = await this.metaAdapter.sendTextMessage(
+      recipient,
+      inboxResponse.replyText,
+      phoneNumberId,
+    );
+
+    for (const attachment of inboxResponse.mediaAttachments || []) {
+      const mediaResult = await this.metaAdapter.sendMediaMessage(
+        recipient,
+        attachment.url,
+        attachment.caption,
+        phoneNumberId,
+      );
+
+      if (!mediaResult.success) {
+        this.logger.warn({
+          msg: "Failed to send Meta media attachment",
+          correlationId,
+          conversationId: inboxResponse.conversationId,
+          errorCode: mediaResult.errorCode,
+          errorMessage: mediaResult.errorMessage,
+          mediaUrl: attachment.url,
+        });
+
+        const fallbackText = attachment.fallbackText || attachment.caption;
+        if (fallbackText?.trim()) {
+          await this.metaAdapter.sendTextMessage(
+            recipient,
+            fallbackText.trim(),
+            phoneNumberId,
+          );
+        }
+      }
+    }
+
+    return sendResult;
   }
 
   // ============================================================================
@@ -999,7 +1052,14 @@ export class MetaWebhookController {
         });
       }
 
-      await adapter.sendMessage(parsed.senderId, inboxResponse.replyText);
+      if (inboxResponse.mediaAttachments?.length) {
+        await adapter.sendMedia(parsed.senderId, {
+          text: inboxResponse.replyText,
+          media: inboxResponse.mediaAttachments,
+        });
+      } else {
+        await adapter.sendMessage(parsed.senderId, inboxResponse.replyText);
+      }
       await this.markConversationReplyAsSent(inboxResponse.conversationId);
     } catch (error) {
       this.logger.error({

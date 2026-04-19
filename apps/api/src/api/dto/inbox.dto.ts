@@ -139,6 +139,22 @@ export class InboxResponseDto {
   @ApiProperty({ description: "Bot reply text in Arabic" })
   replyText!: string;
 
+  @ApiPropertyOptional({
+    description: "Optional media attachments selected for this reply",
+    example: [
+      {
+        url: "https://example.com/product.jpg",
+        caption: "صورة المنتج",
+        fallbackText: "الصورة غير متاحة حالياً",
+      },
+    ],
+  })
+  mediaAttachments?: Array<{
+    url: string;
+    caption?: string;
+    fallbackText?: string;
+  }>;
+
   @ApiProperty({
     description: "Action taken by the bot",
     enum: [
