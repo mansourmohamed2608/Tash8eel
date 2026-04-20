@@ -828,7 +828,7 @@ export class PortalSettingsController {
       CREATE TABLE IF NOT EXISTS order_payments (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         merchant_id VARCHAR(255) NOT NULL REFERENCES merchants(id) ON DELETE CASCADE,
-        order_id VARCHAR(255) NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+        order_id UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
         method VARCHAR(50) NOT NULL,
         amount DECIMAL(12,2) NOT NULL DEFAULT 0,
         reference TEXT,
