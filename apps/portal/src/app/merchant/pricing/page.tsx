@@ -243,17 +243,17 @@ const PLAN_TOP_BULLETS: Record<string, string[]> = {
 };
 
 const LIVE_AGENT_LABELS: Record<string, string> = {
-  OPS_AGENT: "Ops Agent",
-  INVENTORY_AGENT: "Inventory Agent",
-  FINANCE_AGENT: "Finance Agent",
+  OPS_AGENT: "وكيل العمليات",
+  INVENTORY_AGENT: "وكيل المخزون",
+  FINANCE_AGENT: "وكيل المالية",
 };
 
 const PLAN_COLORS: Record<string, string> = {
   STARTER: "border-[var(--border-default)]",
   BASIC: "border-[var(--accent-blue)]/35",
-  GROWTH: "border-[var(--accent-gold)]/55",
+  GROWTH: "border-[var(--accent-blue)]/55",
   PRO: "border-[var(--accent-success)]/35",
-  ENTERPRISE: "border-[var(--accent-warning)]/45",
+  ENTERPRISE: "border-[var(--accent-blue)]/45",
   CHAT_ONLY: "border-[var(--accent-blue)]/45",
 };
 
@@ -642,7 +642,7 @@ export default function MerchantPricingPage() {
           </p>
           <div className="flex flex-wrap gap-2">
             <Badge variant="secondary">كل الأسعار بالـ EGP</Badge>
-            <Badge className="border-0 bg-[var(--accent-gold-dim)] text-[var(--accent-gold)]">
+            <Badge className="border-0 bg-[var(--brand-blue-dim)] text-[var(--brand-blue)]">
               Trial لا يظهر كباقة مدفوعة رئيسية
             </Badge>
           </div>
@@ -670,7 +670,7 @@ export default function MerchantPricingPage() {
                   <div className="flex flex-wrap items-center gap-2">
                     <CardTitle className="text-base">{plan.nameAr}</CardTitle>
                     {plan.id === "GROWTH" ? (
-                      <Badge className="border-0 bg-[var(--accent-gold-dim)] text-[var(--accent-gold)]">
+                      <Badge className="border-0 bg-[var(--brand-blue-dim)] text-[var(--brand-blue)]">
                         الأكثر توازنًا
                       </Badge>
                     ) : null}
@@ -683,7 +683,7 @@ export default function MerchantPricingPage() {
                   <CardDescription className="min-h-[36px]">
                     {plan.bestFor}
                   </CardDescription>
-                  <p className="font-mono text-2xl font-black text-[var(--accent-gold)]">
+                  <p className="font-mono text-2xl font-black text-[var(--brand-blue)]">
                     {formatEgp(plan.monthlyPriceEgp)}
                   </p>
                   <p className="text-sm text-muted-foreground">

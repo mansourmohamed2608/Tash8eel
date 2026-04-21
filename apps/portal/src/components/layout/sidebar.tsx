@@ -67,11 +67,14 @@ import {
 // Role hierarchy for RBAC
 const ROLE_LEVEL: Record<string, number> = {
   OWNER: 100,
-  ADMIN: 80,
-  MANAGER: 60,
-  AGENT: 40,
-  CASHIER: 30,
-  VIEWER: 20,
+  ADMIN: 90,
+  FINANCE: 80,
+  OPS_MANAGER: 70,
+  BRANCH_MANAGER: 60,
+  MANAGER: 70,
+  AGENT: 50,
+  CASHIER: 40,
+  VIEWER: 30,
 };
 
 interface NavItem {
@@ -103,6 +106,7 @@ interface MerchantSidebarSection {
   label: string;
   icon: React.ElementType;
   items: SectionNavItem[];
+  minRole?: string;
 }
 
 const merchantNavItems: NavItem[] = [
@@ -227,10 +231,10 @@ const merchantNavItems: NavItem[] = [
   },
   {
     href: "/merchant/forecast",
-    label: "منصة التنبؤات",
+    label: "التوقعات",
     icon: Brain,
     featureKey: "inventory",
-    upgradeText: "ترقية لمنصة التنبؤات الذكية",
+    upgradeText: "ترقية للتوقعات",
   },
 
   // FINANCE AGENT (ثالثاً)
@@ -326,23 +330,18 @@ const merchantNavItems: NavItem[] = [
   },
   { href: "/merchant/payments/proofs", label: "إثباتات الدفع", icon: Image },
   { href: "/merchant/billing", label: "الفواتير", icon: DollarSign },
-  { href: "/merchant/plan", label: "خطتي والأسعار", icon: TrendingUp },
 
   // OTHER (أخيراً)
   { href: "/merchant/assistant", label: "مساعد التاجر", icon: Bot },
   {
     href: "/merchant/command-center",
-    label: "غرفة القيادة",
+    label: "مركز القيادة",
     icon: Activity,
     minRole: "MANAGER",
   },
-  { href: "/merchant/agents", label: "مركز الذكاء", icon: Cpu },
-  { href: "/merchant/agent-activity", label: "سجل نشاط الوكلاء", icon: Brain },
-  {
-    href: "/merchant/teams",
-    label: "المهام الجماعية للوكلاء",
-    icon: UsersRound,
-  },
+  { href: "/merchant/agents", label: "وكلاء النظام", icon: Cpu },
+  { href: "/merchant/agent-activity", label: "سجل التشغيل", icon: Brain },
+  { href: "/merchant/teams", label: "إدارة الفرق", icon: UsersRound },
   {
     href: "/merchant/team",
     label: "الفريق",
@@ -404,76 +403,36 @@ const MERCHANT_SECTION_STORAGE_KEY = "merchant-sidebar-open-section";
 
 const MERCHANT_SECTION_CONFIG: MerchantSidebarSection[] = [
   {
-    id: "main",
-    label: "الرئيسية",
+    id: "daily",
+    label: "اليومي",
     icon: LayoutDashboard,
     items: [
       { href: "/merchant/dashboard", label: "لوحة التحكم" },
-      { href: "/merchant/onboarding", label: "البدء السريع" },
+      { href: "/merchant/orders", label: "العمليات" },
+      { href: "/merchant/cashier", label: "الكاشير", featureKey: "cashier" },
     ],
   },
   {
-    id: "conversations",
-    label: "المحادثات",
+    id: "customers",
+    label: "العملاء",
     icon: MessageSquare,
     items: [
       { href: "/merchant/conversations", label: "المحادثات" },
       { href: "/merchant/calls", label: "المكالمات" },
-      {
-        href: "/merchant/audit/ai-decisions",
-        label: "سجل قرارات الذكاء",
-      },
-      { href: "/merchant/command-center", label: "غرفة القيادة" },
-      { href: "/merchant/agent-activity", label: "سجل نشاط الوكلاء" },
-      { href: "/merchant/agents", label: "مركز الذكاء" },
-      { href: "/merchant/teams", label: "المهام الجماعية للوكلاء" },
     ],
   },
   {
-    id: "orders",
-    label: "الطلبات",
-    icon: ShoppingCart,
-    items: [
-      { href: "/merchant/orders", label: "الطلبات" },
-      { href: "/merchant/followups", label: "المتابعات" },
-      { href: "/merchant/delivery-drivers", label: "سائقو التوصيل" },
-      { href: "/merchant/feature-requests", label: "اقتراحات وعروض السعر" },
-    ],
-  },
-  {
-    id: "cashier",
-    label: "الكاشير",
-    icon: Banknote,
-    items: [
-      {
-        href: "/merchant/cashier",
-        label: "الكاشير",
-        featureKey: "cashier",
-      },
-    ],
-  },
-  {
-    id: "finance",
-    label: "المالية والاشتراك",
-    icon: Receipt,
-    items: [
-      { href: "/merchant/billing", label: "الفواتير" },
-      { href: "/merchant/payments/cod", label: "تحصيل عند الاستلام" },
-      { href: "/merchant/payments/proofs", label: "إثبات الدفع" },
-      { href: "/merchant/plan", label: "خطتي والأسعار" },
-    ],
-  },
-  {
-    id: "inventory",
-    label: "المخزون",
+    id: "inventory-finance",
+    label: "المخزون والمالية",
     icon: Package,
     items: [
       { href: "/merchant/inventory", label: "المخزون" },
       { href: "/merchant/inventory-insights", label: "رؤى المخزون" },
       { href: "/merchant/suppliers", label: "الموردون" },
-      { href: "/merchant/automations", label: "الأتمتة" },
       { href: "/merchant/analytics/forecast", label: "توقعات الطلب" },
-      { href: "/merchant/forecast", label: "منصة التنبؤ" },
+      { href: "/merchant/reports/cfo", label: "المالية" },
+      { href: "/merchant/payments/cod", label: "التسويات" },
+      { href: "/merchant/payments/proofs", label: "إثبات الدفع" },
       {
         href: "/merchant/inventory-insights/expiry-alerts",
         label: "تنبيهات الصلاحية",
@@ -489,66 +448,41 @@ const MERCHANT_SECTION_CONFIG: MerchantSidebarSection[] = [
     ],
   },
   {
-    id: "customers",
-    label: "العملاء",
-    icon: Users,
+    id: "growth",
+    label: "النمو",
+    icon: TrendingUp,
+    minRole: "OPS_MANAGER",
     items: [
-      { href: "/merchant/customers", label: "العملاء" },
-      { href: "/merchant/loyalty", label: "برنامج الولاء" },
+      { href: "/merchant/customers", label: "الحملات والعملاء" },
+      { href: "/merchant/customer-segments", label: "العملاء" },
       { href: "/merchant/campaigns", label: "الحملات" },
-      { href: "/merchant/customer-segments", label: "شرائح العملاء" },
-      { href: "/merchant/notifications", label: "الإشعارات" },
+      { href: "/merchant/forecast", label: "التوقعات" },
     ],
   },
   {
-    id: "reports",
-    label: "التقارير",
-    icon: BarChart3,
-    items: [
-      { href: "/merchant/analytics", label: "التحليلات" },
-      { href: "/merchant/kpis", label: "مؤشرات الأداء" },
-      { href: "/merchant/reports", label: "التقارير" },
-      { href: "/merchant/reports/cfo", label: "ملخص المدير المالي" },
-      { href: "/merchant/reports/accountant", label: "حزمة المحاسب" },
-      { href: "/merchant/reports/tax", label: "تقرير الضرائب" },
-      { href: "/merchant/reports/cash-flow", label: "التدفق النقدي" },
-      { href: "/merchant/reports/discount-impact", label: "تأثير الخصومات" },
-      { href: "/merchant/reports/refund-analysis", label: "تحليل المرتجعات" },
-      { href: "/merchant/expenses", label: "المصروفات" },
-      { href: "/merchant/branches/comparison", label: "مقارنة الفروع" },
-      { href: "/merchant/branches", label: "الفروع" },
-    ],
-  },
-  {
-    id: "settings",
-    label: "الإعدادات",
+    id: "system",
+    label: "النظام",
     icon: Settings,
+    minRole: "ADMIN",
     items: [
-      { href: "/merchant/team", label: "الفريق" },
-      { href: "/merchant/security", label: "الأمان" },
-      { href: "/merchant/audit", label: "سجل التدقيق" },
-      { href: "/merchant/pos-integrations", label: "POS Integrations" },
+      { href: "/merchant/automations", label: "الأتمتة" },
+      { href: "/merchant/command-center", label: "مركز القيادة" },
+      { href: "/merchant/reports", label: "التقارير" },
       { href: "/merchant/settings", label: "الإعدادات" },
-      { href: "/merchant/import-export", label: "استيراد/تصدير" },
-      { href: "/merchant/assistant", label: "مساعد التاجر" },
-    ],
-  },
-  {
-    id: "help",
-    label: "المساعدة",
-    icon: HelpCircle,
-    items: [
-      { href: "/merchant/help", label: "مركز المساعدة" },
-      { href: "/merchant/roadmap", label: "قادم قريباً" },
-      { href: "/merchant/knowledge-base", label: "قاعدة المعرفة" },
+      { href: "/merchant/team", label: "الفريق والأذونات" },
+      { href: "/merchant/billing", label: "الفواتير والاشتراك" },
+      { href: "/merchant/pos-integrations", label: "التكاملات" },
+      { href: "/merchant/branches", label: "المتجر والفروع" },
+      { href: "/merchant/notifications", label: "الإشعارات" },
+      { href: "/merchant/help", label: "المساعدة" },
     ],
   },
 ];
 
 const CASHIER_ONLY_SECTION_CONFIG: MerchantSidebarSection[] = [
   {
-    id: "cashier",
-    label: "الكاشير",
+    id: "daily",
+    label: "اليومي",
     icon: Banknote,
     items: [{ href: "/merchant/cashier", label: "الكاشير" }],
   },
@@ -684,35 +618,40 @@ export function Sidebar({
         ? CASHIER_ONLY_SECTION_CONFIG
         : MERCHANT_SECTION_CONFIG;
 
-    const sections = sectionConfig.map((section) => {
-      const items = section.items
-        .map((mappedItem) => {
-          const sourceItem = navByHref.get(mappedItem.href);
-          if (!sourceItem) return null;
-          usedHrefs.add(mappedItem.href);
-          return {
-            ...sourceItem,
-            label: mappedItem.label || sourceItem.label,
-          };
-        })
-        .filter(Boolean) as ProcessedNavItem[];
+    const normalizedRole = String(userRole || "").toUpperCase();
+    const userLevel = ROLE_LEVEL[normalizedRole || "OWNER"] ?? 0;
 
-      return {
-        ...section,
-        items,
-      };
-    });
+    const sections = sectionConfig
+      .filter((section) => {
+        if (!section.minRole) return true;
+        const requiredLevel = ROLE_LEVEL[section.minRole] ?? 0;
+        return userLevel >= requiredLevel;
+      })
+      .map((section) => {
+        const items = section.items
+          .map((mappedItem) => {
+            const sourceItem = navByHref.get(mappedItem.href);
+            if (!sourceItem) return null;
+            usedHrefs.add(mappedItem.href);
+            return {
+              ...sourceItem,
+              label: mappedItem.label || sourceItem.label,
+            };
+          })
+          .filter(Boolean) as ProcessedNavItem[];
+
+        return {
+          ...section,
+          items,
+        };
+      });
 
     const uncategorizedItems = navItems.filter(
       (item) => !usedHrefs.has(item.href),
     );
 
-    if (uncategorizedItems.length > 0) {
-      const helpSection = sections.find((section) => section.id === "help");
-      if (helpSection) {
-        helpSection.items.push(...uncategorizedItems);
-      }
-    }
+    // Drop uncategorized legacy links intentionally to keep the authority IA strict.
+    void uncategorizedItems;
 
     return sections;
   }, [role, navItems, userRole]);
@@ -1001,7 +940,7 @@ export function Sidebar({
                           ? "flex items-center justify-center"
                           : "flex flex-row-reverse items-center justify-between",
                         isActiveSection
-                          ? "border border-[var(--border-default)] bg-[var(--accent-gold-dim)] text-[var(--text-primary)]"
+                          ? "border border-[var(--border-default)] bg-[var(--brand-blue-dim)] text-[var(--text-primary)]"
                           : "border border-transparent text-[var(--text-secondary)] hover:bg-[var(--bg-surface-2)] hover:text-[var(--text-primary)]",
                       )}
                       aria-expanded={isExpanded}
@@ -1042,7 +981,7 @@ export function Sidebar({
                       {!collapsed && isExpanded && (
                         <ul
                           id={`section-${section.id}`}
-                          className="space-y-1 pr-4 pt-2"
+                          className="space-y-1 ps-4 pt-2"
                           role="list"
                         >
                           {section.items.map((item) => {
@@ -1096,7 +1035,7 @@ export function Sidebar({
                                   className={cn(
                                     "flex items-center gap-3 rounded-[12px] border px-3 py-2.5 text-[13px] font-semibold transition-all duration-150 ease-in-out",
                                     isActive
-                                      ? "border-[var(--border-default)] bg-[var(--accent-gold-dim)] text-[var(--text-primary)]"
+                                      ? "border-[var(--border-default)] bg-[var(--brand-blue-dim)] text-[var(--text-primary)]"
                                       : "border-transparent text-[var(--text-secondary)] hover:border-[var(--border-subtle)] hover:bg-[var(--bg-surface-2)] hover:text-[var(--text-primary)]",
                                   )}
                                 >
@@ -1168,7 +1107,7 @@ export function Sidebar({
                         "flex items-center gap-3 rounded-[12px] border px-3 py-2.5 text-sm font-semibold transition-all duration-150 ease-in-out",
                         collapsed && "justify-center",
                         isActive
-                          ? "border-[var(--border-default)] bg-[var(--accent-gold-dim)] text-[var(--text-primary)]"
+                          ? "border-[var(--border-default)] bg-[var(--brand-blue-dim)] text-[var(--text-primary)]"
                           : "border-transparent text-[var(--text-secondary)] hover:border-[var(--border-subtle)] hover:bg-[var(--bg-surface-2)] hover:text-[var(--text-primary)]",
                       )}
                     >
@@ -1209,7 +1148,7 @@ export function Sidebar({
                 className="mt-3 w-full justify-center border border-[var(--border-default)] bg-transparent text-[var(--text-secondary)] hover:border-[var(--accent-danger)] hover:bg-transparent hover:text-[var(--accent-danger)]"
                 onClick={() => signOut({ callbackUrl: "/login" })}
               >
-                <LogOut className="h-4 w-4 ml-2" />
+                <LogOut className="h-4 w-4 ms-2" />
                 تسجيل الخروج
               </Button>
             )}

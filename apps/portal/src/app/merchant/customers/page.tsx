@@ -204,7 +204,7 @@ const AVATAR_TONES = [
   "bg-[color:#7c3aed] text-white",
   "bg-[color:#92400e] text-white",
   "bg-[color:#9f1239] text-white",
-  "bg-[color:#0f766e] text-white",
+  "bg-[color:#334155] text-white",
   "bg-[color:#3f3f46] text-white",
   "bg-[color:#1e40af] text-white",
 ];

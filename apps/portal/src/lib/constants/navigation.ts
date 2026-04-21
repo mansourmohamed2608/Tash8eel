@@ -58,7 +58,7 @@ export const DEFAULT_LANDING_ROUTES: Record<AppRole, string> = {
   ops_manager: "/merchant/orders",
   branch_manager: "/merchant/orders",
   cashier: "/merchant/cashier",
-  finance: "/merchant/payments",
+  finance: "/merchant/finance/summary",
 };
 
 export function normalizePortalRole(role?: string): AppRole {
@@ -74,29 +74,25 @@ export function normalizePortalRole(role?: string): AppRole {
   if (normalized === "BRANCH_MANAGER") return "branch_manager";
 
   if (normalized === "MANAGER") return "ops_manager";
-  if (normalized === "AGENT") return "branch_manager";
-  if (normalized === "VIEWER") return "branch_manager";
+  if (normalized === "AGENT" || normalized === "VIEWER") {
+    return "branch_manager";
+  }
 
   return "owner";
 }
 
-// ─── Section ordering reflects Operations OS daily workflow: ────────────────
-// Home → Conversations (AI) → Orders → Inventory → Customers
-//   → Reports → Finance (periodic) → Settings (config) → Help
 export const navigationSections: NavigationSection[] = [
   {
-    label: "الرئيسية",
+    label: "اليومي",
     icon: "grid",
     items: [
-      { label: "لوحة التحكم", href: "/dashboard", icon: "grid" },
-      { label: "البدء السريع", href: "/merchant/help", icon: "help-circle" },
+      { label: "الرئيسية", href: "/merchant/dashboard", icon: "grid" },
+      { label: "العمليات", href: "/merchant/orders", icon: "shopping-cart" },
+      { label: "الكاشير", href: "/merchant/cashier", icon: "monitor" },
     ],
   },
   {
-    // Conversations + AI oversight — the core Operations OS loop.
-    // NOTE: مركز الذكاء → /merchant/agents (agent management page)
-    //       مساعد التاجر → /merchant/assistant (AI config, in Settings)
-    label: "المحادثات",
+    label: "العملاء",
     icon: "message-square",
     items: [
       {
@@ -105,239 +101,78 @@ export const navigationSections: NavigationSection[] = [
         icon: "message-square",
       },
       { label: "المكالمات", href: "/merchant/calls", icon: "phone" },
-      {
-        label: "غرفة القيادة",
-        href: "/merchant/command-center",
-        icon: "monitor",
-      },
-      { label: "مركز الذكاء", href: "/merchant/agents", icon: "monitor" },
-      {
-        label: "سجل نشاط الوكلاء",
-        href: "/merchant/agent-activity",
-        icon: "trending-up",
-      },
-      {
-        label: "المهام الجماعية للوكلاء",
-        href: "/merchant/teams",
-        icon: "users",
-      },
-      {
-        label: "سجل قرارات الذكاء",
-        href: "/merchant/audit/ai-decisions",
-        icon: "shield",
-      },
     ],
   },
   {
-    // Orders: fulfillment operations only — billing/finance live in المالية
-    label: "الطلبات",
-    icon: "shopping-cart",
-    items: [
-      { label: "الطلبات", href: "/merchant/orders", icon: "shopping-cart" },
-      { label: "الكاشير", href: "/merchant/cashier", icon: "monitor" },
-      { label: "المتابعات", href: "/merchant/followups", icon: "calendar" },
-      {
-        label: "سائقو التوصيل",
-        href: "/merchant/delivery-drivers",
-        icon: "truck",
-      },
-    ],
-  },
-  {
-    label: "المخزون",
+    label: "المخزون والمالية",
     icon: "package",
     items: [
       { label: "المخزون", href: "/merchant/inventory", icon: "package" },
-      {
-        label: "رؤى المخزون",
-        href: "/merchant/inventory-insights",
-        icon: "bar-chart",
-      },
       { label: "الموردون", href: "/merchant/suppliers", icon: "truck" },
-      { label: "الأتمتة", href: "/merchant/automations", icon: "settings" },
       {
-        label: "توقعات الطلب",
+        label: "التوقعات الذكية",
         href: "/merchant/analytics/forecast",
         icon: "trending-up",
       },
+      { label: "المالية", href: "/merchant/reports/cfo", icon: "dollar-sign" },
       {
-        label: "منصة التنبؤ",
-        href: "/merchant/forecast",
-        icon: "trending-up",
-      },
-      {
-        label: "تنبيهات الصلاحية",
-        href: "/merchant/inventory-insights/expiry-alerts",
-        icon: "alert-triangle",
-      },
-      {
-        label: "تقييم المخزون FIFO",
-        href: "/merchant/inventory-insights/fifo-valuation",
-        icon: "bar-chart",
-      },
-      {
-        label: "دمج المنتجات المكررة",
-        href: "/merchant/inventory-insights/sku-merge",
-        icon: "copy",
+        label: "التسويات",
+        href: "/merchant/payments/cod",
+        icon: "arrow-left-right",
       },
     ],
   },
   {
-    label: "العملاء",
+    label: "النمو",
     icon: "users",
     items: [
-      { label: "العملاء", href: "/merchant/customers", icon: "users" },
-      {
-        label: "برنامج الولاء",
-        href: "/merchant/loyalty",
-        icon: "star",
-        locked: true,
-      },
-      {
-        // Fixed typo: was "فرائح العملاء"
-        label: "شرائح العملاء",
-        href: "/merchant/customer-segments",
-        icon: "users",
-        locked: true,
-      },
+      { label: "الحملات والعملاء", href: "/merchant/customers", icon: "users" },
       {
         label: "الحملات",
         href: "/merchant/campaigns",
         icon: "bell",
         locked: true,
       },
-      { label: "الإشعارات", href: "/merchant/notifications", icon: "bell" },
-    ],
-  },
-  {
-    label: "التقارير",
-    icon: "bar-chart",
-    items: [
       {
-        label: "التحليلات",
-        href: "/merchant/analytics",
+        label: "التوقعات",
+        href: "/merchant/forecast",
         icon: "trending-up",
-      },
-      { label: "مؤشرات الأداء", href: "/merchant/kpis", icon: "target" },
-      { label: "التقارير", href: "/merchant/reports", icon: "bar-chart" },
-      {
-        label: "ملخص المدير المالي",
-        href: "/merchant/reports/cfo",
-        icon: "dollar-sign",
-      },
-      {
-        label: "حزمة المحاسب",
-        href: "/merchant/reports/accountant",
-        icon: "dollar-sign",
-      },
-      {
-        label: "تقرير الضرائب",
-        href: "/merchant/reports/tax",
-        icon: "dollar-sign",
-      },
-      {
-        label: "التدفق النقدي",
-        href: "/merchant/reports/cash-flow",
-        icon: "trending-up",
-      },
-      {
-        label: "تأثير الخصومات",
-        href: "/merchant/reports/discount-impact",
-        icon: "tag",
-      },
-      {
-        label: "تحليل المرتجعات",
-        href: "/merchant/reports/refund-analysis",
-        icon: "copy",
-      },
-      { label: "المصروفات", href: "/merchant/expenses", icon: "wallet" },
-      {
-        label: "مقارنة الفروع",
-        href: "/merchant/branches/comparison",
-        icon: "bar-chart",
-      },
-      { label: "الفروع", href: "/merchant/branches", icon: "building" },
-    ],
-  },
-  {
-    // Finance: billing/payments/plan — periodic admin, not daily ops
-    label: "المالية",
-    icon: "dollar-sign",
-    items: [
-      { label: "الفواتير", href: "/merchant/billing", icon: "dollar-sign" },
-      {
-        label: "تحصيل عند الاستلام",
-        href: "/merchant/payments/cod",
-        icon: "arrow-left-right",
-      },
-      {
-        label: "إثبات الدفع",
-        href: "/merchant/payments/proofs",
-        icon: "image",
-      },
-      {
-        label: "خطتي والأسعار",
-        href: "/merchant/pricing",
-        icon: "trending-up",
+        locked: true,
       },
     ],
   },
   {
-    // Settings: AI config first (assistant + KB), then team/ops config, then admin
-    label: "الإعدادات",
+    label: "النظام",
     icon: "settings",
     items: [
-      { label: "مساعد التاجر", href: "/merchant/assistant", icon: "briefcase" },
+      { label: "الأتمتة", href: "/merchant/automations", icon: "settings" },
       {
-        label: "قاعدة المعرفة",
-        href: "/merchant/knowledge-base",
-        icon: "info",
-        badge: "100%",
-      },
-      { label: "الفريق", href: "/merchant/team", icon: "users" },
-      {
-        label: "POS Integrations",
-        href: "/merchant/pos-integrations",
+        label: "مركز القيادة",
+        href: "/merchant/command-center",
         icon: "monitor",
       },
+      { label: "التقارير", href: "/merchant/reports", icon: "bar-chart" },
       {
-        label: "استيراد/تصدير",
-        href: "/merchant/import-export",
-        icon: "upload",
+        label: "الفواتير والاشتراك",
+        href: "/merchant/billing",
+        icon: "dollar-sign",
       },
-      { label: "الأمان", href: "/merchant/security", icon: "lock" },
-      { label: "سجل التدقيق", href: "/merchant/audit", icon: "shield" },
       { label: "الإعدادات", href: "/merchant/settings", icon: "settings" },
-    ],
-  },
-  {
-    // Help: support + feedback — feature-requests lives here, not in Orders
-    label: "المساعدة",
-    icon: "help-circle",
-    items: [
-      { label: "مركز المساعدة", href: "/merchant/help", icon: "help-circle" },
-      {
-        label: "اقتراحات وعروض السعر",
-        href: "/merchant/feature-requests",
-        icon: "lightbulb",
-      },
-      { label: "قادم قريباً", href: "/merchant/roadmap", icon: "star" },
     ],
   },
 ];
 
-// Primary mobile tabs — the 4 most frequently visited daily surfaces
 export const mobilePrimaryTabs = [
-  { label: "الرئيسية", href: "/dashboard", icon: "grid" as const },
+  { label: "الرئيسية", href: "/merchant/dashboard", icon: "grid" as const },
   {
-    label: "المحادثات",
-    href: "/merchant/conversations",
-    icon: "message-square" as const,
-  },
-  {
-    label: "الطلبات",
+    label: "العمليات",
     href: "/merchant/orders",
     icon: "shopping-cart" as const,
+  },
+  {
+    label: "العملاء",
+    href: "/merchant/conversations",
+    icon: "message-square" as const,
   },
   {
     label: "المخزون",

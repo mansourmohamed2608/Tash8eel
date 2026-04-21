@@ -149,7 +149,7 @@ const AGENT_GATES: Array<{
 
 // ─── Pages that are removed or not yet launched - always redirect to dashboard ───
 const BLOCKED_ROUTES = [
-  "/merchant/plan", // Retired in Phase 0 - use pricing surface
+  "/merchant/plan", // Retired in Phase 0 - compatibility redirect to billing
   "/merchant/integrations", // ERP integrations - removed (POS integrations is the single hub)
   "/merchant/webhooks", // Replaced by POS integrations
   "/merchant/vision", // General OCR removed (payment-proof workflow only)
@@ -157,7 +157,7 @@ const BLOCKED_ROUTES = [
 ];
 
 const BLOCKED_ROUTE_REDIRECTS: Record<string, string> = {
-  "/merchant/plan": "/merchant/pricing",
+  "/merchant/plan": "/merchant/billing",
   "/merchant/integrations": "/merchant/pos-integrations",
   "/merchant/webhooks": "/merchant/pos-integrations",
   "/merchant/vision": "/merchant/payments/proofs",
@@ -568,7 +568,7 @@ function MerchantLayoutContent({ children }: { children: React.ReactNode }) {
       <div
         className={cn(
           isCashierRoute ? "min-h-screen" : "transition-all duration-300",
-          showShellChrome && (collapsed ? "lg:mr-[88px]" : "lg:mr-72"),
+          showShellChrome && (collapsed ? "lg:me-[88px]" : "lg:me-72"),
         )}
       >
         {showShellChrome && <TopBar role="merchant" collapsed={collapsed} />}

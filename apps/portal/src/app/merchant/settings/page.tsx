@@ -244,6 +244,7 @@ export default function SettingsPage() {
     const tab = searchParams?.get("tab");
     if (
       tab === "business" ||
+      tab === "billing" ||
       tab === "payout" ||
       tab === "notifications" ||
       tab === "preferences" ||
@@ -446,7 +447,7 @@ export default function SettingsPage() {
         onValueChange={handleTabChange}
         className="space-y-6"
       >
-        <TabsList className="grid h-auto w-full grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-6">
+        <TabsList className="grid h-auto w-full grid-cols-2 gap-2 sm:grid-cols-4 md:grid-cols-7">
           <TabsTrigger
             value="business"
             className="flex w-full items-center gap-2"
@@ -460,6 +461,13 @@ export default function SettingsPage() {
           >
             <Wallet className="h-4 w-4" />
             الدفع
+          </TabsTrigger>
+          <TabsTrigger
+            value="billing"
+            className="flex w-full items-center gap-2"
+          >
+            <CreditCard className="h-4 w-4" />
+            الفواتير والاشتراك
           </TabsTrigger>
           <TabsTrigger
             value="notifications"
@@ -576,6 +584,32 @@ export default function SettingsPage() {
                   </Select>
                 </div>
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="billing">
+          <Card className="app-data-card">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <CreditCard className="h-5 w-5" />
+                الفواتير والاشتراك
+              </CardTitle>
+              <CardDescription>
+                إدارة الخطة الحالية، الفواتير، وطريقة الدفع في سطح موحد.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="rounded-[var(--radius-md)] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-2)] p-4 text-sm text-muted-foreground">
+                تم نقل إدارة الاشتراك من المالية إلى الإعدادات لضمان فصل واضح
+                بين مالية التاجر واشتراك المنصة.
+              </div>
+              <Button asChild className="w-full sm:w-fit">
+                <Link href="/merchant/billing">
+                  فتح الفواتير والاشتراك
+                  <ArrowUpRight className="h-4 w-4" />
+                </Link>
+              </Button>
             </CardContent>
           </Card>
         </TabsContent>
