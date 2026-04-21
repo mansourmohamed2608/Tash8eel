@@ -8,6 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  DEFAULT_LANDING_ROUTES,
+  normalizePortalRole,
+} from "@/lib/constants/navigation";
+import {
   AlertCircle,
   ArrowUpLeft,
   BarChart3,
@@ -32,7 +36,7 @@ function LoginForm() {
 
   const router = useRouter();
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get("callbackUrl") || "/merchant/dashboard";
+  const callbackUrl = searchParams.get("callbackUrl");
 
   useEffect(() => {
     const signup = searchParams.get("signup");
@@ -87,13 +91,13 @@ function LoginForm() {
       } else {
         await new Promise((resolve) => setTimeout(resolve, 100));
         const session = await getSession();
+        const normalizedRole = normalizePortalRole(session?.user?.role);
+        const roleLandingRoute = DEFAULT_LANDING_ROUTES[normalizedRole];
         const targetUrl =
           session?.user?.role === "ADMIN" &&
           session?.user?.merchantId === "system"
             ? "/admin/dashboard"
-            : session?.user?.role === "CASHIER"
-              ? "/merchant/cashier"
-              : callbackUrl;
+            : callbackUrl || roleLandingRoute;
 
         router.push(targetUrl);
         if (process.env.NODE_ENV !== "test") {

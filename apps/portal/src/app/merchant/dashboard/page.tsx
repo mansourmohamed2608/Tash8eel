@@ -466,7 +466,7 @@ export default function MerchantDashboard() {
                     </span>
                   ) : (
                     <Link
-                      href="/merchant/plan"
+                      href="/merchant/billing"
                       className="text-primary hover:underline flex items-center gap-1"
                     >
                       ترقية للخطة الاحترافية{" "}
@@ -633,7 +633,7 @@ export default function MerchantDashboard() {
             {!hasPro ? (
               <div className="text-sm text-muted-foreground">
                 <Link
-                  href="/merchant/plan"
+                  href="/merchant/billing"
                   className="text-primary hover:underline flex items-center gap-1"
                 >
                   ترقية للخطة الاحترافية <ArrowUpRight className="h-3 w-3" />
@@ -672,7 +672,7 @@ export default function MerchantDashboard() {
             {!hasPro ? (
               <div className="text-sm text-muted-foreground">
                 <Link
-                  href="/merchant/plan"
+                  href="/merchant/billing"
                   className="text-primary hover:underline flex items-center gap-1"
                 >
                   ترقية للخطة الاحترافية <ArrowUpRight className="h-3 w-3" />
@@ -727,7 +727,7 @@ export default function MerchantDashboard() {
             {!hasFinance ? (
               <div className="text-sm text-muted-foreground">
                 <Link
-                  href="/merchant/plan"
+                  href="/merchant/billing"
                   className="text-primary hover:underline flex items-center gap-1"
                 >
                   ترقية للخطة الاحترافية <ArrowUpRight className="h-3 w-3" />

@@ -895,7 +895,7 @@ export function generateBillingInsights(data: {
       description:
         "ترقية الباقة تفتح ميزات AI متقدمة مثل المساعد الصوتي وتحليلات مفصلة.",
       actionLabel: "عرض الباقات",
-      actionHref: "/merchant/plan",
+      actionHref: "/merchant/billing",
     });
   }
 
@@ -1460,7 +1460,7 @@ export function generatePlanInsights(data: {
       title: "اقتربت من حدود خطتك",
       description: `استهلكت ${formatInsightPercent(data.usagePercent, 1)} من حدود خطتك. ترقية الخطة بتديك مساحة أكبر.`,
       actionLabel: "ترقية",
-      actionHref: "/merchant/plan",
+      actionHref: "/merchant/billing",
     });
   }
   insights.push({

@@ -8,7 +8,7 @@ export default function LegacyQuotesRedirectPage() {
   const router = useRouter();
 
   useEffect(() => {
-    router.replace("/merchant/feature-requests?tab=quotes");
+    router.replace("/merchant/pricing?tab=quotes");
   }, [router]);
 
   return (

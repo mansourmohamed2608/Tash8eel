@@ -314,7 +314,7 @@ export default function BillingPage() {
             <Link href="/merchant/pricing">
               <Button variant="outline">عرض الخطط</Button>
             </Link>
-            <Link href="/merchant/plan">
+            <Link href="/merchant/billing">
               <Button>إدارة الاشتراك</Button>
             </Link>
           </div>
@@ -412,7 +412,7 @@ export default function BillingPage() {
                       قارن جميع الخطط
                     </Button>
                   </Link>
-                  <Link href="/merchant/plan#usage">
+                  <Link href="/merchant/billing#usage">
                     <Button variant="outline" className="w-full">
                       راجع الاستخدام
                     </Button>
@@ -429,7 +429,7 @@ export default function BillingPage() {
               <p className="text-sm text-muted-foreground mt-1">
                 أنت على الخطة المجانية حالياً
               </p>
-              <Link href="/merchant/plan">
+              <Link href="/merchant/billing">
                 <Button className="mt-4">عرض الأسعار والخطط</Button>
               </Link>
             </div>
@@ -439,13 +439,13 @@ export default function BillingPage() {
 
       {/* Quick Actions */}
       <div className="mb-8 flex flex-wrap gap-2">
-        <Link href="/merchant/plan">
+        <Link href="/merchant/billing">
           <Button variant="outline">إدارة الاشتراك</Button>
         </Link>
-        <Link href="/merchant/plan#calculator">
+        <Link href="/merchant/billing#calculator">
           <Button variant="outline">حاسبة الأسعار</Button>
         </Link>
-        <Link href="/merchant/plan#usage">
+        <Link href="/merchant/billing#usage">
           <Button variant="outline">بيانات الاستخدام</Button>
         </Link>
       </div>

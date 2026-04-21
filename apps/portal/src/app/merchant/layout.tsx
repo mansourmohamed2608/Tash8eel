@@ -149,11 +149,32 @@ const AGENT_GATES: Array<{
 
 // ─── Pages that are removed or not yet launched - always redirect to dashboard ───
 const BLOCKED_ROUTES = [
+  "/merchant/plan", // Retired in Phase 0 - use pricing surface
   "/merchant/integrations", // ERP integrations - removed (POS integrations is the single hub)
   "/merchant/webhooks", // Replaced by POS integrations
   "/merchant/vision", // General OCR removed (payment-proof workflow only)
   "/merchant/ocr-review", // OCR review - internal/not launched yet
 ];
+
+const BLOCKED_ROUTE_REDIRECTS: Record<string, string> = {
+  "/merchant/plan": "/merchant/pricing",
+  "/merchant/integrations": "/merchant/pos-integrations",
+  "/merchant/webhooks": "/merchant/pos-integrations",
+  "/merchant/vision": "/merchant/payments/proofs",
+  "/merchant/ocr-review": "/merchant/payments/proofs",
+};
+
+function getBlockedRouteRedirect(pathname: string) {
+  const matchedPrefix = Object.keys(BLOCKED_ROUTE_REDIRECTS).find(
+    (prefix) => pathname === prefix || pathname.startsWith(prefix + "/"),
+  );
+
+  if (!matchedPrefix) {
+    return "/merchant/dashboard";
+  }
+
+  return BLOCKED_ROUTE_REDIRECTS[matchedPrefix];
+}
 
 const CHAT_ONLY_BLOCKED_ROUTES = [
   "/merchant/orders",
@@ -199,7 +220,9 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     }
     // Block access to removed/coming-soon pages
     if (status === "authenticated" && isHardBlockedRoute) {
-      router.replace("/merchant/plan");
+      router.replace(
+        getBlockedRouteRedirect(pathname || "/merchant/dashboard"),
+      );
     }
   }, [status, router, session, pathname, isHardBlockedRoute]);
 
@@ -335,7 +358,7 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
           <p className="text-muted-foreground">
-            جاري التوجيه إلى صفحة الخطة...
+            جاري التوجيه إلى الصفحة المناسبة...
           </p>
         </div>
       </div>
@@ -432,7 +455,9 @@ function MerchantLayoutContent({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (isEntitlementBlocked && pathname) {
-      router.replace(`/merchant/plan?blocked=${encodeURIComponent(pathname)}`);
+      router.replace(
+        `/merchant/pricing?blocked=${encodeURIComponent(pathname)}`,
+      );
     }
   }, [isEntitlementBlocked, pathname, router]);
 

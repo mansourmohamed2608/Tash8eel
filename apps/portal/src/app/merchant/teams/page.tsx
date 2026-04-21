@@ -668,7 +668,7 @@ export default function AgentTeamsPage() {
             </p>
             {message.text === "AI_QUOTA" && (
               <a
-                href="/merchant/plan"
+                href="/merchant/billing"
                 className="shrink-0 rounded-[var(--radius-sm)] border border-[color:var(--accent-gold)] bg-[color:var(--accent-gold)] px-3 py-1.5 text-xs font-medium text-[color:var(--bg-base)] transition-opacity hover:opacity-90"
               >
                 ترقية الباقة

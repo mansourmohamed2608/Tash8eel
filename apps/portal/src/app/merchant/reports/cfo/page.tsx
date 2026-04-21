@@ -633,7 +633,7 @@ export default function CFOBriefPage() {
               </p>
             </div>
             <a
-              href="/merchant/plan"
+              href="/merchant/billing"
               className="inline-flex w-full items-center justify-center rounded-md bg-[var(--accent-warning)] px-3 py-1.5 text-xs font-medium text-[var(--bg-base)] transition-colors hover:brightness-110 sm:w-auto"
             >
               ترقية الباقة

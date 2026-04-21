@@ -1553,7 +1553,9 @@ export default function PlanPage() {
                       }
                       onClick={() => {
                         if (isEnterprise) {
-                          router.push("/merchant/plan?contactSales=enterprise");
+                          router.push(
+                            "/merchant/billing?contactSales=enterprise",
+                          );
                           return;
                         }
                         handleSubscribeBundle(bundle.code);
@@ -1833,7 +1835,7 @@ export default function PlanPage() {
                 variant="outline"
                 className="w-full"
                 onClick={() =>
-                  router.push("/merchant/plan?contactSales=agents")
+                  router.push("/merchant/billing?contactSales=agents")
                 }
               >
                 تواصل مع المبيعات
@@ -1948,7 +1950,7 @@ export default function PlanPage() {
                 variant="outline"
                 className="w-full"
                 onClick={() =>
-                  router.push("/merchant/plan?contactSales=custom")
+                  router.push("/merchant/billing?contactSales=custom")
                 }
               >
                 تواصل مع المبيعات

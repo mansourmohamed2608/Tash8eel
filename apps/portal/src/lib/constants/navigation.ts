@@ -30,6 +30,14 @@ export type NavIconKey =
   | "upload"
   | "briefcase";
 
+export type AppRole =
+  | "owner"
+  | "admin"
+  | "ops_manager"
+  | "branch_manager"
+  | "cashier"
+  | "finance";
+
 export interface NavigationItem {
   label: string;
   href: string;
@@ -42,6 +50,34 @@ export interface NavigationSection {
   label: string;
   icon: NavIconKey;
   items: NavigationItem[];
+}
+
+export const DEFAULT_LANDING_ROUTES: Record<AppRole, string> = {
+  owner: "/merchant/dashboard",
+  admin: "/merchant/dashboard",
+  ops_manager: "/merchant/orders",
+  branch_manager: "/merchant/orders",
+  cashier: "/merchant/cashier",
+  finance: "/merchant/payments",
+};
+
+export function normalizePortalRole(role?: string): AppRole {
+  const normalized = String(role || "")
+    .trim()
+    .toUpperCase();
+
+  if (normalized === "OWNER") return "owner";
+  if (normalized === "ADMIN") return "admin";
+  if (normalized === "CASHIER") return "cashier";
+  if (normalized === "FINANCE") return "finance";
+  if (normalized === "OPS_MANAGER") return "ops_manager";
+  if (normalized === "BRANCH_MANAGER") return "branch_manager";
+
+  if (normalized === "MANAGER") return "ops_manager";
+  if (normalized === "AGENT") return "branch_manager";
+  if (normalized === "VIEWER") return "branch_manager";
+
+  return "owner";
 }
 
 // ─── Section ordering reflects Operations OS daily workflow: ────────────────

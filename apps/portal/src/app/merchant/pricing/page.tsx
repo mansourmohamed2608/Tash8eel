@@ -575,7 +575,7 @@ export default function MerchantPricingPage() {
     if (!apiKey) return;
 
     if (planId === "ENTERPRISE") {
-      router.push("/merchant/plan?contactSales=enterprise");
+      router.push("/merchant/billing?contactSales=enterprise");
       return;
     }
 
@@ -1162,7 +1162,7 @@ export default function MerchantPricingPage() {
                 variant="outline"
                 className="w-full"
                 onClick={() =>
-                  router.push("/merchant/plan?contactSales=custom")
+                  router.push("/merchant/billing?contactSales=custom")
                 }
               >
                 تواصل مع المبيعات

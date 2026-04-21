@@ -714,7 +714,7 @@ export default function MerchantAssistantPage() {
           </div>
           <div className="assistant-inline-actions">
             <a
-              href="/merchant/plan"
+              href="/merchant/billing"
               className="assistant-button assistant-button--primary"
             >
               الاطلاع على الباقات
@@ -802,7 +802,7 @@ export default function MerchantAssistantPage() {
                           </p>
                         </div>
                         <a
-                          href="/merchant/plan"
+                          href="/merchant/billing"
                           className="assistant-button assistant-button--secondary assistant-button--tiny"
                         >
                           راجع الباقات

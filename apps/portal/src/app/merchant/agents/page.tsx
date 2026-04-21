@@ -475,7 +475,7 @@ export default function AgentsPage() {
                   بعض الوكلاء مضمنون في خطتك والبقية يمكن إضافتهم كإضافات
                 </p>
               </div>
-              <Link href="/merchant/plan">
+              <Link href="/merchant/billing">
                 <Button
                   variant="outline"
                   size="sm"
@@ -611,7 +611,7 @@ export default function AgentsPage() {
                             غير قابل للتفعيل حالياً من سجل القدرات
                           </p>
                         ) : (
-                          <Link href="/merchant/plan">
+                          <Link href="/merchant/billing">
                             <Button
                               variant="ghost"
                               size="sm"
