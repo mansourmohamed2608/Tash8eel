@@ -26,7 +26,9 @@ export default function PaymentsPage() {
             className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs"
           >
             <span className="text-muted-foreground">{label}</span>
-            <span className="font-mono text-[var(--accent-gold)]">{value}</span>
+            <span className="font-mono text-[var(--color-brand-primary)]">
+              {value}
+            </span>
           </div>
         ))}
       </div>

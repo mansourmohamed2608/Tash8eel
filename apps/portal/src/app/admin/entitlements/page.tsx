@@ -104,7 +104,7 @@ const PLAN_COLORS: Record<string, string> = {
     "border border-[var(--accent-blue)]/20 bg-[var(--accent-blue)]/10 text-[var(--text-primary)]",
   GROWTH:
     "border border-[var(--accent-success)]/25 bg-[var(--accent-success)]/12 text-[var(--accent-success)]",
-  PRO: "border border-[var(--accent-gold)]/25 bg-[var(--accent-gold-dim)] text-[var(--accent-gold)]",
+  PRO: "border border-[var(--color-brand-primary)]/25 bg-[var(--color-brand-subtle)] text-[var(--color-brand-primary)]",
   ENTERPRISE:
     "border border-[var(--accent-warning)]/25 bg-[var(--accent-warning)]/12 text-[var(--accent-warning)]",
   CUSTOM:
@@ -1305,7 +1305,7 @@ function AdminEntitlementsContent() {
                       className={cn(
                         "p-4 border-2 rounded-lg cursor-pointer transition-all",
                         editingEntitlements.plan === plan
-                          ? "border-[var(--accent-gold)] bg-[var(--accent-gold-dim)]"
+                          ? "border-[var(--color-brand-primary)] bg-[var(--color-brand-subtle)]"
                           : "border-[var(--border-default)] bg-[var(--bg-surface-2)] hover:border-[var(--border-active)]",
                       )}
                       onClick={() => handlePlanChange(plan)}
@@ -1319,7 +1319,7 @@ function AdminEntitlementsContent() {
                           {PLAN_NAMES[plan] || plan}
                         </Badge>
                         {editingEntitlements.plan === plan && (
-                          <Check className="h-5 w-5 text-[var(--accent-gold)]" />
+                          <Check className="h-5 w-5 text-[var(--color-brand-primary)]" />
                         )}
                       </div>
                       <div className="text-xs text-muted-foreground">

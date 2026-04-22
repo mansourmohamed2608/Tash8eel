@@ -56,44 +56,44 @@ const AGENT_META: Record<
 > = {
   OPS: {
     icon: Zap,
-    label: "وكيل العمليات",
+    label: "العمليات",
     color: "bg-[color:rgba(59,130,246,0.16)] text-[color:var(--accent-blue)]",
   },
   INVENTORY: {
     icon: Package,
-    label: "وكيل المخزون",
+    label: "المخزون",
     color:
       "bg-[color:rgba(245,158,11,0.14)] text-[color:var(--accent-warning)]",
   },
   FINANCE: {
     icon: TrendingUp,
-    label: "وكيل المالية",
+    label: "المالية",
     color: "bg-[color:rgba(34,197,94,0.14)] text-[color:var(--accent-success)]",
   },
   OPS_AGENT: {
     icon: Zap,
-    label: "وكيل العمليات",
+    label: "العمليات",
     color: "bg-[color:rgba(59,130,246,0.16)] text-[color:var(--accent-blue)]",
   },
   INVENTORY_AGENT: {
     icon: Package,
-    label: "وكيل المخزون",
+    label: "المخزون",
     color:
       "bg-[color:rgba(245,158,11,0.14)] text-[color:var(--accent-warning)]",
   },
   FINANCE_AGENT: {
     icon: TrendingUp,
-    label: "وكيل المالية",
+    label: "المالية",
     color: "bg-[color:rgba(34,197,94,0.14)] text-[color:var(--accent-success)]",
   },
   SUPPORT_AGENT: {
     icon: Bell,
-    label: "وكيل الدعم",
+    label: "الدعم",
     color: "bg-[color:rgba(45,107,228,0.10)] text-[color:var(--brand-blue)]",
   },
   MARKETING_AGENT: {
     icon: Bell,
-    label: "وكيل التسويق",
+    label: "النمو",
     color: "bg-[color:rgba(59,130,246,0.12)] text-[color:#93c5fd]",
   },
 };
@@ -248,8 +248,8 @@ export default function AgentActivityPage() {
     return (
       <div className="space-y-6 p-6" dir="rtl">
         <PageHeader
-          title="سجل نشاط الوكلاء"
-          description="ما قامت به الوكلاء تلقائياً"
+          title="مركز القيادة / سجل النشاط"
+          description="ما التقطه النظام أو نفذه تلقائياً ضمن مسارات التشغيل."
         />
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           {[1, 2, 3, 4].map((i) => (
@@ -275,15 +275,15 @@ export default function AgentActivityPage() {
     <div className="space-y-8 p-4 sm:p-6" dir="rtl">
       {/* Back link */}
       <Link
-        href="/merchant/agents"
+        href="/merchant/command-center"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
       >
-        <ChevronLeft className="h-4 w-4" /> العودة للوكلاء
+        <ChevronLeft className="h-4 w-4" /> العودة لمركز القيادة
       </Link>
 
       <PageHeader
-        title="سجل نشاط الوكلاء"
-        description="عرض تشغيلي مباشر لكل ما التقطه النظام أو نفذه الوكلاء من تنبيهات وإجراءات."
+        title="مركز القيادة / سجل النشاط"
+        description="عرض تشغيلي مباشر لكل ما التقطه النظام أو نفذه من تنبيهات وإجراءات."
       />
 
       <div className="flex flex-wrap gap-2">
@@ -300,9 +300,9 @@ export default function AgentActivityPage() {
             "text-[var(--accent-success)]",
           ],
           [
-            "وكلاء نشطون",
+            "مجالات نشطة",
             String(activeAgentsCount),
-            "text-[var(--accent-gold)]",
+            "text-[var(--color-brand-primary)]",
           ],
           [
             "آخر حركة",
@@ -361,7 +361,7 @@ export default function AgentActivityPage() {
         <Card className="app-data-card">
           <CardContent className="pt-4 pb-3">
             <p className="text-xs font-medium text-muted-foreground mb-2">
-              نشاط الوكلاء حسب الساعة
+              نشاط النظام حسب الساعة
             </p>
             <div className="flex items-end gap-1 flex-wrap" dir="ltr">
               {heatmap.map(({ hour, count, intensity }) => {
@@ -402,15 +402,15 @@ export default function AgentActivityPage() {
               ما الفرق بين هذه الصفحة وسجل القرارات؟
             </p>
             <p className="text-sm text-muted-foreground">
-              هنا ترى ما فعله الوكلاء أو اكتشفوه عملياً. أما سجل قرارات الذكاء
-              فيعرض منطق القرار نفسه ودرجة الثقة.
+              هنا ترى ما نفذه النظام أو اكتشفه عملياً. أما سجل القرارات فيعرض
+              منطق القرار نفسه ودرجة الثقة.
             </p>
           </div>
           <Link
             href="/merchant/audit/ai-decisions"
             className="text-sm text-primary hover:underline"
           >
-            افتح سجل قرارات الذكاء
+            افتح سجل القرارات
           </Link>
         </CardContent>
       </Card>
@@ -454,7 +454,7 @@ export default function AgentActivityPage() {
             <Bot className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
             <p className="text-lg font-medium">لا يوجد نشاط بعد</p>
             <p className="text-sm text-muted-foreground mt-1">
-              الوكلاء تعمل كل ساعة - سيظهر النشاط هنا تلقائياً
+              النظام يراجع النشاط دورياً - ستظهر النتائج هنا تلقائياً
             </p>
           </CardContent>
         </Card>

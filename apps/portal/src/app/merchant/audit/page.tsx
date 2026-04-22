@@ -164,7 +164,8 @@ const actionColors: Record<string, string> = {
   UPDATE: "border-0 bg-[var(--accent-blue)]/15 text-[var(--accent-blue)]",
   DELETE: "border-0 bg-[var(--accent-danger)]/15 text-[var(--accent-danger)]",
   VIEW: "border-0 bg-[var(--bg-surface-3)] text-[var(--text-secondary)]",
-  LOGIN: "border-0 bg-[var(--accent-gold)]/15 text-[var(--accent-gold)]",
+  LOGIN:
+    "border-0 bg-[var(--color-brand-primary)]/15 text-[var(--color-brand-primary)]",
   LOGOUT: "border-0 bg-[var(--accent-warning)]/15 text-[var(--accent-warning)]",
   EXPORT: "border-0 bg-[var(--accent-warning)]/15 text-[var(--accent-warning)]",
   IMPORT: "border-0 bg-[var(--accent-blue)]/15 text-[var(--accent-blue)]",
@@ -634,9 +635,9 @@ export default function AuditPage() {
 
       <div className="flex flex-wrap gap-2">
         <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
-          <History className="h-3.5 w-3.5 text-[var(--accent-gold)]" />
+          <History className="h-3.5 w-3.5 text-[var(--color-brand-primary)]" />
           <span className="text-muted-foreground">إجمالي السجل</span>
-          <span className="font-mono text-[var(--accent-gold)]">
+          <span className="font-mono text-[var(--color-brand-primary)]">
             {logs.length}
           </span>
         </div>

@@ -21,7 +21,8 @@ type ActivityFeedItem = ActivityEvent & {
 const iconMap = {
   ai: {
     icon: Bot,
-    className: "bg-[var(--accent-gold-dim)] text-[var(--accent-gold)]",
+    className:
+      "bg-[var(--color-brand-subtle)] text-[var(--color-brand-primary)]",
   },
   order: {
     icon: ShoppingCart,

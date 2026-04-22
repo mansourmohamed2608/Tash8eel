@@ -9,9 +9,9 @@ export function IntelligenceBanner() {
   const { currentMessage, index } = useIntelligenceBanner();
 
   return (
-    <div className="flex min-h-12 items-center justify-between gap-4 rounded-[var(--radius-md)] border border-[var(--border-subtle)] [border-inline-end:2px_solid_var(--accent-gold)] bg-[var(--bg-surface-2)] px-4">
+    <div className="flex min-h-12 items-center justify-between gap-4 rounded-[var(--radius-md)] border border-[var(--border-subtle)] [border-inline-end:2px_solid_var(--color-brand-primary)] bg-[var(--bg-surface-2)] px-4">
       <div className="flex min-w-0 items-center gap-3 overflow-hidden">
-        <Bot className="h-4 w-4 shrink-0 text-[var(--accent-gold)]" />
+        <Bot className="h-4 w-4 shrink-0 text-[var(--color-brand-primary)]" />
         <AnimatePresence mode="wait">
           <motion.p
             key={index}

@@ -289,7 +289,7 @@ export default function AgentTeamsPage() {
     lines.push(`الحالة: ${status}`);
     lines.push(`التقدم: ${completed}/${total} (فشل: ${failed})`);
     lines.push(
-      `مصدر التقرير: ${task.reportSource === "agent_output" ? "مخرجات نصية مباشرة من الوكلاء" : "بيانات تشغيل خام فقط (بدون تحليل AI نصي)"}`,
+      `مصدر التقرير: ${task.reportSource === "agent_output" ? "مخرجات نصية مباشرة من القدرات التشغيلية" : "بيانات تشغيل خام فقط (بدون تحليل نصي)"}`,
     );
     lines.push(`بدأت المهمة: ${formatDateTime(task.createdAt)}`);
     lines.push(`انتهت المهمة: ${formatDateTime(task.completedAt)}`);
@@ -303,7 +303,7 @@ export default function AgentTeamsPage() {
     } else {
       lines.push("## الملخص التنفيذي");
       lines.push(
-        "لا يوجد تحليل AI نصي محفوظ لهذه المهمة. يمكنك مراجعة ناتج الوكلاء الخام.",
+        "لا يوجد تحليل نصي محفوظ لهذه المهمة. يمكنك مراجعة ناتج القدرات الخام.",
       );
       lines.push("");
     }
@@ -383,7 +383,7 @@ export default function AgentTeamsPage() {
 </head>
 <body>
   <h1>${safeTitle}</h1>
-  <div class="meta">تم التوليد من مهمة الوكلاء الجماعية</div>
+  <div class="meta">تم التوليد من مهمة تشغيل جماعية</div>
   <pre>${safeBody}</pre>
 </body>
 </html>`;
@@ -416,7 +416,7 @@ export default function AgentTeamsPage() {
             : "";
         if (!strictReportText) {
           setDetailsError(
-            "تعذر تنزيل التقرير من الخادم، ولا يوجد تقرير نصي AI محفوظ محلياً.",
+            "تعذر تنزيل التقرير من الخادم، ولا يوجد تقرير نصي محفوظ محلياً.",
           );
           return;
         }
@@ -465,7 +465,7 @@ export default function AgentTeamsPage() {
             : "";
         if (!strictReportText) {
           setDetailsError(
-            "تعذر فتح نسخة الطباعة من الخادم، ولا يوجد تقرير نصي AI محفوظ.",
+            "تعذر فتح نسخة الطباعة من الخادم، ولا يوجد تقرير نصي محفوظ.",
           );
           return;
         }
@@ -507,7 +507,7 @@ export default function AgentTeamsPage() {
           errorMsg.includes("Token budget exceeded") ||
           errorMsg.includes("budget"));
       if (isQuotaError) {
-        setMessage({ text: "AI_QUOTA", type: "error" });
+        setMessage({ text: "ASSISTANT_QUOTA", type: "error" });
       } else {
         setMessage({ text: "خطأ في الاتصال بالخادم", type: "error" });
       }
@@ -520,8 +520,8 @@ export default function AgentTeamsPage() {
     return (
       <div className="p-4 sm:p-6">
         <PageHeader
-          title="المهام الجماعية للوكلاء"
-          description="توزيع المهام على عدة وكلاء للعمل بالتوازي"
+          title="مركز القيادة / فرق التشغيل"
+          description="تشغيل مهام متعددة الخطوات كمسار داعم داخل مركز القيادة."
         />
         <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
           {[1, 2, 3, 4].map((i) => (
@@ -536,8 +536,8 @@ export default function AgentTeamsPage() {
     return (
       <div className="p-4 sm:p-6">
         <PageHeader
-          title="المهام الجماعية للوكلاء"
-          description="توزيع المهام على عدة وكلاء للعمل بالتوازي"
+          title="مركز القيادة / فرق التشغيل"
+          description="تشغيل مهام متعددة الخطوات كمسار داعم داخل مركز القيادة."
         />
         <Card className="app-data-card mt-6 border-[color:rgba(239,68,68,0.3)] bg-[color:rgba(239,68,68,0.08)]">
           <CardContent className="p-8 text-center">
@@ -548,7 +548,7 @@ export default function AgentTeamsPage() {
               variant="outline"
               className="mt-4 w-full sm:w-auto"
             >
-              <RefreshCw className="h-4 w-4 ml-2" />
+              <RefreshCw className="h-4 w-4 ms-2" />
               إعادة المحاولة
             </Button>
           </CardContent>
@@ -560,8 +560,8 @@ export default function AgentTeamsPage() {
   return (
     <div className="space-y-6 p-4 sm:p-6">
       <PageHeader
-        title="المهام الجماعية للوكلاء"
-        description="بدلاً من أن يعمل وكيل واحد على تنفيذ المهام بشكل تسلسلي، يمكن توزيع العمل على عدة وكلاء"
+        title="مركز القيادة / فرق التشغيل"
+        description="تنفيذ مهام جماعية تجمع أكثر من قدرة تشغيلية ثم تحفظ النتيجة كتقرير قابل للمراجعة."
         actions={
           <Button
             variant="outline"
@@ -569,7 +569,7 @@ export default function AgentTeamsPage() {
             onClick={fetchData}
             className="w-full sm:w-auto"
           >
-            <RefreshCw className="h-4 w-4 ml-2" />
+            <RefreshCw className="h-4 w-4 ms-2" />
             تحديث
           </Button>
         }
@@ -594,7 +594,7 @@ export default function AgentTeamsPage() {
               {activeTasks}
             </p>
             <p className="mt-2 text-xs text-muted-foreground">
-              المهام الجارية الآن أو التي ما زالت تجمع نتائج الوكلاء.
+              المهام الجارية الآن أو التي ما زالت تجمع نتائج القدرات.
             </p>
           </CardContent>
         </Card>
@@ -625,17 +625,17 @@ export default function AgentTeamsPage() {
       <Card className="app-data-card app-data-card--muted border-dashed">
         <CardContent className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <p className="font-medium">هذه الصفحة ليست سجل نشاط</p>
+            <p className="font-medium">هذه الصفحة جزء من مركز القيادة</p>
             <p className="text-sm text-muted-foreground">
-              هنا تشغّل workflows جماعية مثل تقرير شامل أو إغلاق اليوم. كل مهمة
-              تنقسم إلى subtasks على عدة وكلاء ثم تُجمّع في تقرير واحد.
+              هنا تشغّل مهام جماعية مثل تقرير شامل أو إغلاق اليوم. السجلات
+              والموافقات العامة تبقى في مركز القيادة.
             </p>
           </div>
           <a
-            href="/merchant/agent-activity"
+            href="/merchant/command-center"
             className="text-sm text-primary hover:underline"
           >
-            راجع نشاط الوكلاء
+            العودة لمركز القيادة
           </a>
         </CardContent>
       </Card>
@@ -662,14 +662,14 @@ export default function AgentTeamsPage() {
                   : "flex-1 text-[color:#fca5a5]"
               }
             >
-              {message.text === "AI_QUOTA"
-                ? "تم استنفاد رصيد الذكاء الاصطناعي اليومي. يتم التجديد يومياً أو قم بترقية الباقة."
+              {message.text === "ASSISTANT_QUOTA"
+                ? "تم استنفاد رصيد المساعد اليومي. يتم التجديد يومياً أو قم بترقية الباقة."
                 : message.text}
             </p>
-            {message.text === "AI_QUOTA" && (
+            {message.text === "ASSISTANT_QUOTA" && (
               <a
                 href="/merchant/billing"
-                className="shrink-0 rounded-[var(--radius-sm)] border border-[color:var(--accent-gold)] bg-[color:var(--accent-gold)] px-3 py-1.5 text-xs font-medium text-[color:var(--bg-base)] transition-opacity hover:opacity-90"
+                className="shrink-0 rounded-[var(--radius-sm)] border border-[color:var(--color-brand-primary)] bg-[color:var(--color-brand-primary)] px-3 py-1.5 text-xs font-medium text-[color:var(--bg-base)] transition-opacity hover:opacity-90"
               >
                 ترقية الباقة
               </a>
@@ -744,7 +744,7 @@ export default function AgentTeamsPage() {
                             variant="outline"
                             className="text-[10px] px-1.5 py-0"
                           >
-                            <Link2 className="h-2.5 w-2.5 ml-0.5" />
+                            <Link2 className="h-2.5 w-2.5 ms-0.5" />
                             يعتمد على مهمة سابقة
                           </Badge>
                         )}
@@ -762,12 +762,12 @@ export default function AgentTeamsPage() {
                 >
                   {executing === template.id ? (
                     <>
-                      <Loader2 className="h-4 w-4 animate-spin ml-2" />
+                      <Loader2 className="h-4 w-4 animate-spin ms-2" />
                       جاري التنفيذ...
                     </>
                   ) : template.isAvailable ? (
                     <>
-                      <Rocket className="h-4 w-4 ml-2" />
+                      <Rocket className="h-4 w-4 ms-2" />
                       تنفيذ
                     </>
                   ) : (
@@ -929,14 +929,14 @@ export default function AgentTeamsPage() {
                         {resultSummary.length === 0 &&
                           completionSummaries.length === 0 && (
                             <p className="text-xs text-muted-foreground mt-1">
-                              تم التنفيذ، لكن لا يوجد ملخص AI نصي محفوظ.
+                              تم التنفيذ، لكن لا يوجد ملخص نصي محفوظ.
                             </p>
                           )}
                         <p className="mt-2 text-[11px] text-muted-foreground">
                           مصدر الملخص:{" "}
                           {task.reportSource === "agent_output"
-                            ? "مخرجات الوكلاء"
-                            : "بيانات تشغيل خام (بدون تحليل AI نصي)"}
+                            ? "مخرجات القدرات"
+                            : "بيانات تشغيل خام (بدون تحليل نصي)"}
                         </p>
                       </div>
                     )}
@@ -991,7 +991,7 @@ export default function AgentTeamsPage() {
               {selectedTaskDetails?.titleAr || "تفاصيل التقرير"}
             </DialogTitle>
             <DialogDescription>
-              يعرض هذا التقرير نتيجة الوكلاء بالتفصيل من نفس المهمة الجماعية.
+              يعرض هذا التقرير نتيجة القدرات بالتفصيل من نفس المهمة الجماعية.
             </DialogDescription>
           </DialogHeader>
 
@@ -1049,7 +1049,7 @@ export default function AgentTeamsPage() {
                       }
                     >
                       {selectedTaskDetails.reportSource === "agent_output"
-                        ? "مخرجات وكلاء"
+                        ? "مخرجات قدرات"
                         : "بيانات خام"}
                     </Badge>
                   </div>
@@ -1063,7 +1063,7 @@ export default function AgentTeamsPage() {
             {selectedTaskDetails?.aggregatedResult && (
               <Card>
                 <CardContent className="p-4">
-                  <p className="text-sm font-medium mb-2">ناتج الوكلاء (Raw)</p>
+                  <p className="text-sm font-medium mb-2">ناتج القدرات (Raw)</p>
                   <pre className="rounded-md bg-muted p-3 text-xs overflow-x-auto text-start">
                     {formatPrettyJson(selectedTaskDetails.aggregatedResult)}
                   </pre>

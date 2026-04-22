@@ -202,7 +202,8 @@ const actionLabels: Record<string, string> = {
 };
 
 const roleColors: Record<string, string> = {
-  OWNER: "border-0 bg-[var(--accent-gold)]/15 text-[var(--accent-gold)]",
+  OWNER:
+    "border-0 bg-[var(--color-brand-primary)]/15 text-[var(--color-brand-primary)]",
   ADMIN: "border-0 bg-[var(--accent-blue)]/15 text-[var(--accent-blue)]",
   MANAGER: "border-0 bg-[var(--accent-blue)]/10 text-[var(--text-secondary)]",
   AGENT: "border-0 bg-[var(--accent-success)]/15 text-[var(--accent-success)]",
@@ -212,7 +213,7 @@ const roleColors: Record<string, string> = {
 };
 
 const roleDotColors: Record<string, string> = {
-  OWNER: "bg-[var(--accent-gold)]",
+  OWNER: "bg-[var(--color-brand-primary)]",
   ADMIN: "bg-[var(--accent-blue)]",
   MANAGER: "bg-[var(--text-secondary)]",
   AGENT: "bg-[var(--accent-success)]",
@@ -224,7 +225,7 @@ const roleLabels: Record<string, string> = {
   OWNER: "مالك",
   ADMIN: "مدير",
   MANAGER: "مشرف",
-  AGENT: "وكيل",
+  AGENT: "دعم العملاء",
   CASHIER: "كاشير",
   VIEWER: "مشاهد",
 };
@@ -309,7 +310,11 @@ const permissions = [
     label: "قاعدة المعرفة",
     actions: ["create", "read", "update", "delete"],
   },
-  { key: "agents", label: "مركز الذكاء", actions: ["read", "update"] },
+  {
+    key: "agents",
+    label: "مركز القيادة / القدرات",
+    actions: ["read", "update"],
+  },
   { key: "reports", label: "التقارير", actions: ["read", "export"] },
   { key: "integrations", label: "التكاملات", actions: ["read", "update"] },
   {
@@ -586,8 +591,8 @@ export default function TeamPage() {
   return (
     <div className="space-y-8 p-4 sm:p-6">
       <PageHeader
-        title="إدارة الفريق"
-        description="إدارة الأدوار، الدعوات، وحوكمة الوصول داخل النشاط من واجهة واحدة."
+        title="الإعدادات / الفريق والأذونات"
+        description="إدارة أعضاء الفريق، الدعوات، الأدوار، وحوكمة الوصول ضمن إعدادات النظام."
         actions={
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
             <Button
@@ -661,7 +666,7 @@ export default function TeamPage() {
                           مشرف - إدارة العمليات
                         </SelectItem>
                         <SelectItem value="AGENT">
-                          وكيل - خدمة العملاء
+                          دعم العملاء - محادثات وطلبات
                         </SelectItem>
                         <SelectItem value="CASHIER">
                           كاشير - نقطة البيع ومشتريات الفرع
@@ -724,6 +729,26 @@ export default function TeamPage() {
           </span>
         </div>
       </div>
+
+      <Card className="border-[var(--color-brand-primary)]/20 bg-[var(--bg-surface-2)]">
+        <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3">
+            <Shield className="mt-0.5 h-5 w-5 text-[var(--color-brand-primary)]" />
+            <div className="space-y-1">
+              <p className="text-sm font-semibold text-foreground">
+                الأمان والجلسات تابع لهذا السطح
+              </p>
+              <p className="text-sm text-muted-foreground">
+                راجع الأجهزة النشطة وسجل الوصول من سطح الدعم الأمني دون فصلها عن
+                الفريق والأذونات.
+              </p>
+            </div>
+          </div>
+          <Button asChild variant="outline" className="w-full sm:w-auto">
+            <a href="/merchant/security">فتح الأمان والجلسات</a>
+          </Button>
+        </CardContent>
+      </Card>
 
       {loading ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -1051,7 +1076,7 @@ export default function TeamPage() {
                           <div
                             className={`h-2 w-2 rounded-full ${roleDotColors.AGENT}`}
                           />
-                          وكيل - خدمة العملاء (محادثات، طلبات - قراءة)
+                          دعم العملاء (محادثات، طلبات - قراءة)
                         </div>
                       </SelectItem>
                       <SelectItem value="CASHIER">
@@ -1158,7 +1183,7 @@ export default function TeamPage() {
                         ) : (
                           <XCircle className="h-4 w-4 text-[var(--accent-danger)]" />
                         )}
-                        <span>وكيل</span>
+                        <span>دعم العملاء</span>
                       </div>
                       <div className="col-span-2 flex items-center gap-2">
                         {[
@@ -1187,7 +1212,7 @@ export default function TeamPage() {
                       <TableHead className="text-center">مالك</TableHead>
                       <TableHead className="text-center">مدير</TableHead>
                       <TableHead className="text-center">مشرف</TableHead>
-                      <TableHead className="text-center">وكيل</TableHead>
+                      <TableHead className="text-center">دعم العملاء</TableHead>
                       <TableHead className="text-center">مشاهد</TableHead>
                     </TableRow>
                   </TableHeader>

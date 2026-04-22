@@ -98,7 +98,7 @@ export function DashboardDataTable<T>({
                 <td
                   key={column.key}
                   className={cn(
-                    "px-4 py-3 align-middle text-[13px] text-[var(--text-secondary)] group-hover:border-r-2 group-hover:border-[var(--accent-gold)]",
+                    "px-4 py-3 align-middle text-[13px] text-[var(--text-secondary)] group-hover:border-r-2 group-hover:border-[var(--color-brand-primary)]",
                     column.className,
                     column.mobileHidden && "hidden md:table-cell",
                   )}

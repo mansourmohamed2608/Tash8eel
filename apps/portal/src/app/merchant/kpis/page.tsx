@@ -301,7 +301,7 @@ export default function KpisPage() {
       green: "bg-[var(--accent-success)]/10 text-[var(--accent-success)]",
       yellow: "bg-[var(--accent-warning)]/10 text-[var(--accent-warning)]",
       red: "bg-[var(--accent-danger)]/10 text-[var(--accent-danger)]",
-      gold: "bg-[var(--accent-gold)]/10 text-[var(--accent-gold)]",
+      gold: "bg-[var(--color-brand-primary)]/10 text-[var(--color-brand-primary)]",
     };
     return (
       <Card>
@@ -377,8 +377,8 @@ export default function KpisPage() {
   return (
     <div className="space-y-6 p-4 sm:p-6">
       <PageHeader
-        title="مؤشرات الأداء (KPIs)"
-        description="تحليل شامل لأداء متجرك ومعدلات النجاح"
+        title="التقارير / مؤشرات الأداء"
+        description="سطح دعم لقراءة مؤشرات السلات، التوصيل، القدرات التشغيلية، والعملاء."
         actions={
           <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
             <Select
@@ -416,9 +416,9 @@ export default function KpisPage() {
 
       <div className="flex flex-wrap gap-2">
         <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
-          <Target className="h-3.5 w-3.5 text-[var(--accent-gold)]" />
+          <Target className="h-3.5 w-3.5 text-[var(--color-brand-primary)]" />
           <span className="text-muted-foreground">استرداد السلات</span>
-          <span className="font-mono text-[var(--accent-gold)]">
+          <span className="font-mono text-[var(--color-brand-primary)]">
             {recoveredCarts?.recoveryRate ?? 0}%
           </span>
         </div>
@@ -431,7 +431,7 @@ export default function KpisPage() {
         </div>
         <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
           <Bot className="h-3.5 w-3.5 text-[var(--accent-success)]" />
-          <span className="text-muted-foreground">نجاح الوكلاء</span>
+          <span className="text-muted-foreground">نجاح القدرات</span>
           <span className="font-mono text-[var(--accent-success)]">
             {agentPerformance?.successRate ?? 0}%
           </span>
@@ -453,7 +453,7 @@ export default function KpisPage() {
               التوصيل
             </TabsTrigger>
             <TabsTrigger value="agents" className="w-full">
-              الوكلاء
+              القدرات
             </TabsTrigger>
             <TabsTrigger value="customers" className="w-full">
               العملاء
@@ -478,7 +478,7 @@ export default function KpisPage() {
                 color="red"
               />
               <StatCard
-                title="نجاح الوكيل الذكي"
+                title="نجاح القدرة التشغيلية"
                 value={formatPercentValue(agentPerformance?.successRate || 0)}
                 subtitle={`ناجح: ${agentPerformance?.successfulTasks || 0} / ${agentPerformance?.totalTasks || agentPerformance?.totalInteractions || 0} مهمة`}
                 icon={Bot}
@@ -565,12 +565,12 @@ export default function KpisPage() {
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-base flex items-center gap-2">
-                    <Zap className="h-5 w-5 text-[var(--accent-gold)]" />
+                    <Zap className="h-5 w-5 text-[var(--color-brand-primary)]" />
                     معدل التدخل البشري
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-3xl font-bold text-[var(--accent-gold)]">
+                  <p className="text-3xl font-bold text-[var(--color-brand-primary)]">
                     {formatPercentValue(agentPerformance?.takeoverRate || 0)}
                   </p>
                   <p className="text-sm text-muted-foreground mt-1">
@@ -742,18 +742,18 @@ export default function KpisPage() {
                   <div className="flex-1">
                     <p className="text-sm font-medium">
                       {aiAvailable === "quota"
-                        ? "تم استنفاد رصيد الذكاء الاصطناعي اليومي"
-                        : "الذكاء الاصطناعي غير مفعّل"}
+                        ? "تم استنفاد رصيد المساعد اليومي"
+                        : "المساعد غير مفعّل"}
                     </p>
                     <p className="text-xs text-muted-foreground mt-0.5">
                       {aiAvailable === "quota"
                         ? "البيانات المعروضة من الفترة السابقة. يتم تجديد الرصيد يومياً أو يمكنك ترقية الباقة."
-                        : "فعّل الذكاء الاصطناعي لتتبع أداء الوكلاء بدقة."}
+                        : "فعّل المساعد لتتبع أداء القدرات بدقة."}
                     </p>
                   </div>
                   <a
                     href="/merchant/billing"
-                    className="shrink-0 rounded-md bg-[var(--accent-gold)] px-3 py-1.5 text-xs font-medium text-[var(--bg-base)] transition-[filter] hover:brightness-110"
+                    className="shrink-0 rounded-md bg-[var(--color-brand-primary)] px-3 py-1.5 text-xs font-medium text-[var(--bg-base)] transition-[filter] hover:brightness-110"
                   >
                     ترقية الباقة
                   </a>
@@ -788,8 +788,8 @@ export default function KpisPage() {
             </div>
             <Card>
               <CardHeader>
-                <CardTitle>أداء الوكلاء</CardTitle>
-                <CardDescription>مقارنة أداء كل وكيل ذكي</CardDescription>
+                <CardTitle>أداء القدرات</CardTitle>
+                <CardDescription>مقارنة أداء كل قدرة تشغيلية</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
@@ -800,8 +800,8 @@ export default function KpisPage() {
                         className="flex flex-col gap-3 rounded-lg bg-muted/50 p-4 sm:flex-row sm:items-center sm:justify-between"
                       >
                         <div className="flex items-center gap-3">
-                          <div className="rounded-lg bg-[var(--accent-gold)]/10 p-2">
-                            <Bot className="h-5 w-5 text-[var(--accent-gold)]" />
+                          <div className="rounded-lg bg-[var(--color-brand-primary)]/10 p-2">
+                            <Bot className="h-5 w-5 text-[var(--color-brand-primary)]" />
                           </div>
                           <div>
                             <p className="font-medium">{agent.agent}</p>

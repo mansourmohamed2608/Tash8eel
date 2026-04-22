@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { PageHeader } from "@/components/layout";
 import {
   Card,
@@ -12,18 +13,23 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { TableSkeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { portalApi } from "@/lib/client";
 import { cn } from "@/lib/utils";
 import {
   AlertOctagon,
   AlertTriangle,
+  Activity,
   Clock3,
+  ClipboardList,
   Loader2,
+  Map,
+  MessageSquare,
   RefreshCw,
   RotateCcw,
   ShieldCheck,
-  Zap,
+  Users,
 } from "lucide-react";
 
 type FeedSeverity = "high" | "medium" | "low";
@@ -158,7 +164,7 @@ export default function MerchantCommandCenterPage() {
       setRuntimeHealth(runtimeResp as RuntimeHealth);
     } catch {
       toast({
-        title: "تعذر تحميل غرفة القيادة",
+        title: "تعذر تحميل مركز القيادة",
         description: "حاول مرة أخرى بعد لحظات.",
         variant: "destructive",
       });
@@ -215,14 +221,14 @@ export default function MerchantCommandCenterPage() {
     try {
       const result = await portalApi.retryOpenErpRuntimeDlq({ limit: 25 });
       toast({
-        title: "تم تشغيل إعادة DLQ",
-        description: `تمت إعادة ${result?.retriedCount || 0} عنصر من DLQ.`,
+        title: "تم تشغيل إعادة محاولة المهام المتعثرة",
+        description: `تمت إعادة ${result?.retriedCount || 0} عنصر متعثر.`,
       });
       await loadCommandCenter();
     } catch {
       toast({
-        title: "فشل إعادة DLQ",
-        description: "تعذر إعادة عناصر DLQ المفتوحة.",
+        title: "فشل إعادة المحاولة",
+        description: "تعذر إعادة المهام المتعثرة المفتوحة.",
         variant: "destructive",
       });
     } finally {
@@ -248,7 +254,7 @@ export default function MerchantCommandCenterPage() {
         icon: ShieldCheck,
       },
       {
-        label: "DLQ مفتوح",
+        label: "مهام متعثرة مفتوحة",
         value: runtimeHealth?.dlqOpen ?? overview?.connectors.dlqOpen ?? 0,
         icon: AlertOctagon,
       },
@@ -258,7 +264,7 @@ export default function MerchantCommandCenterPage() {
           runtimeHealth?.pendingQueue ??
           overview?.connectors.runtimePending ??
           0,
-        icon: Zap,
+        icon: Activity,
       },
       {
         label: "محاكاة سياسات 7 أيام",
@@ -269,11 +275,58 @@ export default function MerchantCommandCenterPage() {
     [overview, runtimeHealth],
   );
 
+  const overallState =
+    (overview?.planner.failedRuns24h ?? 0) > 0 ||
+    (runtimeHealth?.dlqOpen ?? overview?.connectors.dlqOpen ?? 0) > 0
+      ? "يحتاج متابعة"
+      : (overview?.approvals.pending ?? 0) > 0
+        ? "بانتظار موافقات"
+        : "مستقر";
+
+  const oversightSurfaces = [
+    {
+      label: "سجل النشاط",
+      href: "/merchant/agent-activity",
+      description: "ما نفذه النظام أو التقطه عملياً.",
+      icon: Activity,
+    },
+    {
+      label: "سجل القرارات",
+      href: "/merchant/audit/ai-decisions",
+      description: "السبب، الثقة، والسياق قبل التنفيذ.",
+      icon: ClipboardList,
+    },
+    {
+      label: "قدرات النظام",
+      href: "/merchant/agents",
+      description: "القدرات المتاحة والمقيدة بالخطة.",
+      icon: ShieldCheck,
+    },
+    {
+      label: "فرق التشغيل",
+      href: "/merchant/teams",
+      description: "تشغيل مهام متعددة الخطوات عند الحاجة.",
+      icon: Users,
+    },
+    {
+      label: "مساعد إداري",
+      href: "/merchant/assistant",
+      description: "استعلامات تشغيلية يدوية داخل سياق المتجر.",
+      icon: MessageSquare,
+    },
+    {
+      label: "قدرات قادمة",
+      href: "/merchant/roadmap",
+      description: "قدرات قادمة كسياق إداري غير تشغيلي.",
+      icon: Map,
+    },
+  ];
+
   return (
     <div className="space-y-6 p-4 sm:p-6" dir="rtl">
       <PageHeader
-        title="غرفة القيادة"
-        description="تشغيل مباشر للذكاء التشغيلي: فشل المشغل، موافقات قيد الانتظار، وصحة الموصلات."
+        title="مركز القيادة"
+        description="سطح موحد لمتابعة صحة المشغل، الموافقات، سجل التشغيل، وقرارات النظام."
       />
 
       <div className="flex flex-wrap items-center gap-2">
@@ -295,9 +348,44 @@ export default function MerchantCommandCenterPage() {
           ) : (
             <RotateCcw className="ml-2 h-4 w-4" />
           )}
-          إعادة DLQ المفتوح
+          إعادة المهام المتعثرة
         </Button>
       </div>
+
+      <Card className="border-[var(--border-default)] bg-[var(--bg-surface-1)]">
+        <CardContent className="grid gap-4 p-4 lg:grid-cols-[1.2fr_2fr]">
+          <div className="rounded-[var(--radius-sm)] border border-[var(--border-subtle)] bg-[var(--bg-surface-2)] p-4">
+            <p className="text-xs text-muted-foreground">الحالة العامة</p>
+            <p className="mt-1 text-xl font-semibold text-foreground">
+              {overallState}
+            </p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              آخر قراءة تجمع فشل المشغل، قائمة الانتظار، المهام المتعثرة،
+              والموافقات المعلقة.
+            </p>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+            {oversightSurfaces.map((surface) => {
+              const Icon = surface.icon;
+              return (
+                <Link
+                  key={surface.href}
+                  href={surface.href}
+                  className="rounded-[var(--radius-sm)] border border-[var(--border-subtle)] bg-[var(--bg-surface-2)] p-3 transition-colors hover:border-[var(--color-brand-primary)]/40 hover:bg-[var(--brand-blue-dim)]"
+                >
+                  <div className="mb-2 flex items-center gap-2">
+                    <Icon className="h-4 w-4 text-[var(--color-brand-primary)]" />
+                    <span className="text-sm font-medium">{surface.label}</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {surface.description}
+                  </p>
+                </Link>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {summaryPills.map((item) => {
@@ -323,17 +411,16 @@ export default function MerchantCommandCenterPage() {
           <CardHeader>
             <CardTitle>خلاصة التنبيهات</CardTitle>
             <CardDescription>
-              آخر العناصر من مشغل الذكاء والموصلات.
+              آخر العناصر من المشغل والموصلات التي تحتاج متابعة.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             {loading ? (
-              <div className="text-sm text-muted-foreground">
-                جاري التحميل...
-              </div>
+              <TableSkeleton rows={4} columns={2} />
             ) : feed.length === 0 ? (
-              <div className="text-sm text-muted-foreground">
-                لا توجد تنبيهات حالياً.
+              <div className="rounded-[var(--radius-sm)] border border-dashed border-[var(--border-default)] bg-[var(--bg-surface-2)] p-4 text-sm text-muted-foreground">
+                لا توجد تنبيهات حالياً. عند ظهور فشل تشغيل، موافقة، أو مشكلة
+                موصل ستظهر هنا مع وقتها وسياقها.
               </div>
             ) : (
               feed.map((item) => (
@@ -373,7 +460,7 @@ export default function MerchantCommandCenterPage() {
           <CardHeader>
             <CardTitle>سجل المشغل</CardTitle>
             <CardDescription>
-              تشغيلات planner مع إمكانية إعادة المحاولة.
+              تشغيلات النظام مع إمكانية إعادة المحاولة عند الفشل أو التخطي.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -384,10 +471,10 @@ export default function MerchantCommandCenterPage() {
                 onChange={(event) => setStatusFilter(event.target.value as any)}
               >
                 <option value="ALL">كل الحالات</option>
-                <option value="FAILED">FAILED</option>
-                <option value="SKIPPED">SKIPPED</option>
-                <option value="STARTED">STARTED</option>
-                <option value="COMPLETED">COMPLETED</option>
+                <option value="FAILED">فشل</option>
+                <option value="SKIPPED">تم التخطي</option>
+                <option value="STARTED">بدأ</option>
+                <option value="COMPLETED">اكتمل</option>
               </select>
 
               <select
@@ -433,12 +520,11 @@ export default function MerchantCommandCenterPage() {
 
             <div className="space-y-2">
               {loading ? (
-                <div className="text-sm text-muted-foreground">
-                  جاري تحميل السجل...
-                </div>
+                <TableSkeleton rows={6} columns={4} />
               ) : runs.length === 0 ? (
-                <div className="text-sm text-muted-foreground">
-                  لا توجد تشغيلات مطابقة للفلاتر.
+                <div className="rounded-[var(--radius-sm)] border border-dashed border-[var(--border-default)] bg-[var(--bg-surface-2)] p-4 text-sm text-muted-foreground">
+                  لا توجد تشغيلات مطابقة للفلاتر الحالية. امسح الفلاتر أو انتظر
+                  تشغيلات جديدة من الجدولة أو الأحداث.
                 </div>
               ) : (
                 runs.map((run) => (

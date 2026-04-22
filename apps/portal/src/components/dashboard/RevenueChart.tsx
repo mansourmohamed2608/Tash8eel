@@ -78,12 +78,12 @@ export function RevenueChart() {
                   >
                     <stop
                       offset="0%"
-                      stopColor="var(--accent-gold)"
+                      stopColor="var(--color-brand-primary)"
                       stopOpacity={0.32}
                     />
                     <stop
                       offset="100%"
-                      stopColor="var(--accent-gold)"
+                      stopColor="var(--color-brand-primary)"
                       stopOpacity={0}
                     />
                   </linearGradient>
@@ -139,7 +139,7 @@ export function RevenueChart() {
                 <Area
                   type="monotone"
                   dataKey="value"
-                  stroke="var(--accent-gold)"
+                  stroke="var(--color-brand-primary)"
                   strokeWidth={2}
                   fill="url(#tashRevenueFill)"
                   dot={false}

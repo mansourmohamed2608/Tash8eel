@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { useState, useCallback, useEffect } from "react";
+import Link from "next/link";
 import { PageHeader } from "@/components/layout";
 import {
   Card,
@@ -14,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { TableSkeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
   DialogContent,
@@ -53,10 +55,8 @@ import {
   AlertTriangle,
   AlertCircle,
   Users,
-  Zap,
-  Video,
-  Share2,
-  Sparkles,
+  Target,
+  RefreshCw,
 } from "lucide-react";
 import portalApi, { authenticatedFetch, merchantApi } from "@/lib/client";
 import { useMerchant } from "@/hooks/use-merchant";
@@ -155,14 +155,14 @@ export default function WinbackCampaignsPage() {
   const [validDays, setValidDays] = useState(7);
   const [message, setMessage] = useLocalStorageState(
     merchantId ? `campaigns:winback-message:${merchantId}` : null,
-    "وحشتنا! 🎁 عرض خاص لك - خصم {discount}% على طلبك القادم. العرض ساري لمدة {days} أيام فقط!",
+    "وحشتنا. عرض خاص لك: خصم {discount}% على طلبك القادم. العرض ساري لمدة {days} أيام فقط.",
   );
 
   // Seasonal campaign state
   const [showSeasonal, setShowSeasonal] = useState(false);
   const [seasonalMsg, setSeasonalMsg] = useLocalStorageState(
     merchantId ? `campaigns:seasonal-message:${merchantId}` : null,
-    "مرحباً {name}! 🎉 بمناسبة العيد، استمتع بعروضنا الحصرية. تسوق الآن وادخل كود الخصم: {code}",
+    "مرحباً {name}. لدينا عرض موسمي مناسب لك. استخدم كود الخصم: {code}",
   );
   const [seasonalSegment, setSeasonalSegment] = useState<
     "all" | "vip" | "loyal" | "regular" | "new" | "at_risk"
@@ -610,7 +610,7 @@ export default function WinbackCampaignsPage() {
       titleEn: "Seasonal Campaign",
       description:
         "إرسال رسائل ترويجية موسمية لشريحة مختارة من العملاء (عيد، تخفيضات، مناسبات)",
-      icon: Sparkles,
+      icon: Gift,
       color: "text-[var(--accent-success)]",
       bgColor: "bg-[var(--accent-success)]/12",
       available: true,
@@ -622,7 +622,7 @@ export default function WinbackCampaignsPage() {
       titleEn: "Re-engagement",
       description:
         "إرسال رسائل تذكيرية مع كود خصم للعملاء الذين توقفوا عن الطلب",
-      icon: Zap,
+      icon: RefreshCw,
       color: "text-[var(--accent-blue)]",
       bgColor: "bg-[var(--accent-blue)]/12",
       available: true,
@@ -634,8 +634,8 @@ export default function WinbackCampaignsPage() {
       titleEn: "Loyalty Reward",
       description: "إرسال خصومات حصرية لأفضل العملاء كمكافأة على ولائهم",
       icon: Gift,
-      color: "text-[var(--accent-gold)]",
-      bgColor: "bg-[var(--accent-gold-dim)]",
+      color: "text-[var(--color-brand-primary)]",
+      bgColor: "bg-[var(--color-brand-subtle)]",
       available: false,
       channel: "واتساب",
     },
@@ -645,8 +645,8 @@ export default function WinbackCampaignsPage() {
       titleEn: "Instagram Campaign",
       description: "إرسال رسائل ترويجية عبر Instagram Direct لمتابعيك",
       icon: MessageSquare,
-      color: "text-[var(--accent-gold)]",
-      bgColor: "bg-[var(--accent-gold)]/12",
+      color: "text-[var(--color-brand-primary)]",
+      bgColor: "bg-[var(--color-brand-primary)]/12",
       available: false,
       channel: "إنستغرام",
     },
@@ -655,7 +655,7 @@ export default function WinbackCampaignsPage() {
       title: "حملة فيسبوك",
       titleEn: "Facebook Campaign",
       description: "إرسال رسائل ترويجية عبر Messenger لمتابعي صفحتك",
-      icon: Share2,
+      icon: MessageSquare,
       color: "text-[var(--accent-blue)]",
       bgColor: "bg-[var(--accent-blue)]/12",
       available: false,
@@ -666,7 +666,7 @@ export default function WinbackCampaignsPage() {
       title: "حملة تيك توك",
       titleEn: "TikTok Campaign",
       description: "إرسال عروض ترويجية عبر رسائل تيك توك لمتابعيك",
-      icon: Video,
+      icon: MessageSquare,
       color: "text-[var(--text-secondary)]",
       bgColor: "bg-[var(--bg-surface-2)]",
       available: false,
@@ -689,12 +689,18 @@ export default function WinbackCampaignsPage() {
   const recentCampaignRows =
     performanceSummary?.recentCampaigns.slice(0, 4) || [];
   const byTypeRows = performanceSummary?.byType.slice(0, 3) || [];
+  const executableCampaignTypes = campaignTypes.filter(
+    (type) => type.available,
+  );
+  const unavailableCampaignTypes = campaignTypes.filter(
+    (type) => !type.available,
+  );
 
   return (
     <div className="space-y-6 p-4 sm:p-6">
       <PageHeader
-        title="الحملات التسويقية"
-        description="إنشاء وإدارة حملات استعادة العملاء والتسويق الذكي"
+        title="الحملات والعملاء > الحملات"
+        description="حوّل العملاء والشرائح إلى حملات واتساب قابلة للمراجعة، مع حالة جاهزية واضحة قبل الإرسال."
         actions={
           <Button
             onClick={() => {
@@ -713,10 +719,10 @@ export default function WinbackCampaignsPage() {
 
       <div className="flex flex-wrap gap-2">
         <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
-          <Send className="h-3.5 w-3.5 text-[var(--accent-gold)]" />
-          <span className="text-muted-foreground">الحملات النشطة</span>
-          <span className="font-mono text-[var(--accent-gold)]">
-            {result ? 1 : 0}
+          <Send className="h-3.5 w-3.5 text-[var(--color-brand-primary)]" />
+          <span className="text-muted-foreground">حملات آخر 30 يوم</span>
+          <span className="font-mono text-[var(--color-brand-primary)]">
+            {campaignTotals?.campaigns ?? 0}
           </span>
         </div>
         <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
@@ -726,6 +732,38 @@ export default function WinbackCampaignsPage() {
             {waReady ? "جاهز" : "غير مفعّل"}
           </span>
         </div>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-3">
+        <Link
+          href="/merchant/customers"
+          className="rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-surface-1)] p-4 transition-colors hover:border-[var(--accent-blue)]/40 hover:bg-[var(--bg-surface-2)]"
+        >
+          <p className="text-sm font-medium">العملاء</p>
+          <p className="mt-1 text-xs leading-5 text-[var(--text-secondary)]">
+            راجع الإنفاق وآخر طلب وخطر الخسارة قبل اختيار الحملة.
+          </p>
+        </Link>
+        <Link
+          href="/merchant/customer-segments"
+          className="rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-surface-1)] p-4 transition-colors hover:border-[var(--accent-blue)]/40 hover:bg-[var(--bg-surface-2)]"
+        >
+          <p className="text-sm font-medium">شرائح العملاء</p>
+          <p className="mt-1 text-xs leading-5 text-[var(--text-secondary)]">
+            ابنِ جمهوراً مستهدفاً من قواعد حقيقية قبل الإرسال.
+          </p>
+        </Link>
+        <Card className="app-data-card border-[var(--accent-warning)]/20 bg-[var(--accent-warning)]/10">
+          <CardContent className="p-4">
+            <p className="text-sm font-medium text-[var(--accent-warning)]">
+              جاهزية التنفيذ
+            </p>
+            <p className="mt-1 text-xs leading-5 text-[var(--text-secondary)]">
+              الإرسال الإنتاجي الحالي مرتبط بواتساب فقط. القنوات الأخرى تبقى
+              توافقية ولا تظهر كخيارات تنفيذ مباشرة.
+            </p>
+          </CardContent>
+        </Card>
       </div>
 
       {/* WhatsApp Status */}
@@ -806,7 +844,7 @@ export default function WinbackCampaignsPage() {
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <TrendingUp className="h-8 w-8 text-[var(--accent-gold)]" />
+              <TrendingUp className="h-8 w-8 text-[var(--color-brand-primary)]" />
               <div>
                 <p className="text-sm text-muted-foreground">معدل الاستجابة</p>
                 <p className="text-2xl font-bold">
@@ -863,10 +901,7 @@ export default function WinbackCampaignsPage() {
         </CardHeader>
         <CardContent className="space-y-3">
           {performanceLoading ? (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              جاري تحميل مؤشرات تشغيل الحملات...
-            </div>
+            <TableSkeleton rows={3} columns={4} />
           ) : performanceSummary ? (
             <>
               <div className="flex flex-wrap gap-2">
@@ -1122,16 +1157,16 @@ export default function WinbackCampaignsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* AI Audience Picker */}
-      <Card className="app-data-card border-[var(--accent-gold)]/20 bg-[var(--accent-gold-dim)]">
+      {/* Audience Picker */}
+      <Card className="app-data-card border-[var(--color-ai)]/25 bg-[var(--color-ai-subtle)]">
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-[var(--accent-gold)]" />
-            اقتراح الجمهور بالذكاء الاصطناعي
+            <Target className="h-5 w-5 text-[var(--color-ai)]" />
+            اقتراح الجمهور
           </CardTitle>
           <CardDescription>
-            اكتب هدف حملتك بالعربي وسيقترح الذكاء الاصطناعي أفضل شريحة عملاء
-            لاستهدافها
+            اكتب هدف الحملة وسيُقترح جمهور مناسب من الشرائح المتاحة. راجع السبب
+            والحجم قبل الإرسال.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -1151,7 +1186,7 @@ export default function WinbackCampaignsPage() {
               {aiAudienceLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
-                <Sparkles className="h-4 w-4" />
+                <Target className="h-4 w-4" />
               )}
               اقتراح
             </Button>
@@ -1162,7 +1197,7 @@ export default function WinbackCampaignsPage() {
                 <div>
                   <p className="font-medium text-sm">
                     الشريحة المقترحة:{" "}
-                    <span className="text-[var(--accent-gold)]">
+                    <span className="text-[var(--color-ai)]">
                       {aiAudienceResult.segmentName}
                     </span>
                   </p>
@@ -1195,7 +1230,7 @@ export default function WinbackCampaignsPage() {
 
       {/* Campaign Types */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {campaignTypes.map((type) => (
+        {executableCampaignTypes.map((type) => (
           <Card
             key={type.id}
             className={`app-data-card relative ${!type.available ? "opacity-60" : "cursor-pointer transition-colors hover:border-[var(--border-active)]"}`}
@@ -1219,11 +1254,6 @@ export default function WinbackCampaignsPage() {
                 : undefined
             }
           >
-            {!type.available && (
-              <Badge variant="secondary" className="absolute top-3 left-3">
-                قريباً
-              </Badge>
-            )}
             <CardHeader>
               <div
                 className={`w-12 h-12 rounded-lg ${type.bgColor} flex items-center justify-center mb-2`}
@@ -1244,6 +1274,25 @@ export default function WinbackCampaignsPage() {
           </Card>
         ))}
       </div>
+
+      {unavailableCampaignTypes.length > 0 && (
+        <Card className="app-data-card border-dashed">
+          <CardHeader>
+            <CardTitle className="text-base">قنوات غير جاهزة للتنفيذ</CardTitle>
+            <CardDescription>
+              هذه المسارات محفوظة للتوافق أو التخطيط، لكنها ليست خيارات إرسال
+              إنتاجية في هذه الشاشة.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-wrap gap-2">
+            {unavailableCampaignTypes.map((type) => (
+              <Badge key={type.id} variant="outline">
+                {type.title} - {type.channel}
+              </Badge>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Previous Results */}
       {result && (
@@ -1344,14 +1393,14 @@ export default function WinbackCampaignsPage() {
                     } catch {}
                     setGeneratingMsg(false);
                   }}
-                  className="border-[var(--accent-gold)]/25 text-[var(--accent-gold)] hover:bg-[var(--accent-gold-dim)]"
+                  className="border-[var(--color-ai)]/30 text-[var(--color-ai)] hover:bg-[var(--color-ai-subtle)]"
                 >
                   {generatingMsg ? (
                     <Loader2 className="h-3 w-3 animate-spin ml-1" />
                   ) : (
-                    <Zap className="h-3 w-3 ml-1" />
+                    <Target className="h-3 w-3 ml-1" />
                   )}
-                  اقتراح بالذكاء الاصطناعي
+                  اقتراح رسالة
                 </Button>
               </div>
               <Textarea
@@ -1448,7 +1497,7 @@ export default function WinbackCampaignsPage() {
         >
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-[var(--accent-gold)]" />
+              <Gift className="h-5 w-5 text-[var(--accent-success)]" />
               حملة موسمية
             </DialogTitle>
             <DialogDescription>
@@ -1529,14 +1578,14 @@ export default function WinbackCampaignsPage() {
                     } catch {}
                     setGeneratingSeasonalMsg(false);
                   }}
-                  className="w-full border-[var(--accent-gold)]/25 text-[var(--accent-gold)] hover:bg-[var(--accent-gold-dim)] sm:w-auto"
+                  className="w-full border-[var(--color-ai)]/30 text-[var(--color-ai)] hover:bg-[var(--color-ai-subtle)] sm:w-auto"
                 >
                   {generatingSeasonalMsg ? (
                     <Loader2 className="h-3 w-3 animate-spin ml-1" />
                   ) : (
-                    <Zap className="h-3 w-3 ml-1" />
+                    <Target className="h-3 w-3 ml-1" />
                   )}
-                  اقتراح بالذكاء الاصطناعي
+                  اقتراح رسالة
                 </Button>
               </div>
               <Textarea
@@ -1603,7 +1652,7 @@ export default function WinbackCampaignsPage() {
         >
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Zap className="h-5 w-5 text-[var(--accent-blue)]" />
+              <RefreshCw className="h-5 w-5 text-[var(--accent-blue)]" />
               حملة إعادة التفاعل
             </DialogTitle>
             <DialogDescription>
@@ -1668,14 +1717,14 @@ export default function WinbackCampaignsPage() {
                     } catch {}
                     setGeneratingReengageMsg(false);
                   }}
-                  className="border-[var(--accent-gold)]/25 text-[var(--accent-gold)] hover:bg-[var(--accent-gold-dim)]"
+                  className="border-[var(--color-ai)]/30 text-[var(--color-ai)] hover:bg-[var(--color-ai-subtle)]"
                 >
                   {generatingReengageMsg ? (
                     <Loader2 className="h-3 w-3 animate-spin ml-1" />
                   ) : (
-                    <Zap className="h-3 w-3 ml-1" />
+                    <Target className="h-3 w-3 ml-1" />
                   )}
-                  اقتراح بالذكاء الاصطناعي
+                  اقتراح رسالة
                 </Button>
               </div>
               <Textarea

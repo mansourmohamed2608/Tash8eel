@@ -33,13 +33,13 @@ interface Notification {
 const getPriorityStyles = (priority: string) => {
   switch (priority) {
     case "URGENT":
-      return "border-l-4 border-l-[var(--accent-danger)] bg-[color:rgba(239,68,68,0.10)]";
+      return "[border-inline-start:4px_solid_var(--color-danger-text)] bg-[var(--color-danger-bg)]";
     case "HIGH":
-      return "border-l-4 border-l-[var(--accent-warning)] bg-[color:rgba(245,158,11,0.10)]";
+      return "[border-inline-start:4px_solid_var(--color-warning-text)] bg-[var(--color-warning-bg)]";
     case "MEDIUM":
-      return "border-l-4 border-l-[var(--accent-blue)] bg-[color:rgba(59,130,246,0.10)]";
+      return "[border-inline-start:4px_solid_var(--color-brand-primary)] bg-[var(--color-brand-subtle)]";
     default:
-      return "border-l-4 border-l-[var(--border-default)] bg-[var(--bg-surface-2)]";
+      return "[border-inline-start:4px_solid_var(--color-border)] bg-[var(--bg-surface-2)]";
   }
 };
 
@@ -190,7 +190,7 @@ export function NotificationBell() {
         <Button variant="ghost" size="icon" className="relative">
           <Bell className="h-5 w-5" />
           {unreadCount > 0 && (
-            <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white animate-pulse">
+            <span className="absolute -top-1 -end-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white animate-pulse">
               {unreadCount > 9 ? "9+" : unreadCount}
             </span>
           )}
@@ -207,7 +207,7 @@ export function NotificationBell() {
                 className="text-xs h-7"
                 onClick={handleMarkAllAsRead}
               >
-                <Check className="h-3 w-3 ml-1" />
+                <Check className="h-3 w-3 ms-1" />
                 قراءة الكل
               </Button>
             )}

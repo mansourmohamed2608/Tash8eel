@@ -42,7 +42,7 @@ export function DataTable<T extends { id?: string | number }>({
               {columns.map((col) => (
                 <th
                   key={col.key}
-                  className="h-9 p-4 text-right text-[11px] font-semibold text-[var(--text-muted)]"
+                  className="h-9 p-4 text-start text-[11px] font-semibold text-[var(--text-muted)]"
                 >
                   <Skeleton className="h-4 w-20" />
                 </th>
@@ -96,7 +96,7 @@ export function DataTable<T extends { id?: string | number }>({
                 <th
                   key={col.key}
                   className={cn(
-                    "h-9 p-4 text-right text-[11px] font-semibold text-[var(--text-muted)]",
+                    "h-9 p-4 text-start text-[11px] font-semibold text-[var(--text-muted)]",
                     col.className,
                   )}
                 >
@@ -112,7 +112,7 @@ export function DataTable<T extends { id?: string | number }>({
                 className={cn(
                   "border-b border-[var(--border-subtle)] transition-all duration-150 ease-in last:border-0",
                   onRowClick &&
-                    "cursor-pointer hover:border-r-2 hover:border-r-[var(--accent-gold)] hover:bg-[var(--bg-surface-2)]",
+                    "cursor-pointer hover:bg-[var(--bg-surface-2)] hover:[border-inline-end:2px_solid_var(--color-brand-primary)]",
                 )}
                 onClick={() => onRowClick?.(item)}
               >

@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { DataTable, Pagination } from "@/components/ui/data-table";
 import { TableSkeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/alerts";
+import { StatusBadge, getOrderStatusTone } from "@/components/ui/status-badge";
 import {
   Select,
   SelectContent,
@@ -52,7 +53,6 @@ import {
   formatCurrency,
   formatDate,
   formatRelativeTime,
-  getStatusColor,
   getStatusLabel,
 } from "@/lib/utils";
 import { merchantApi, branchesApi } from "@/lib/client";
@@ -60,10 +60,6 @@ import portalApi from "@/lib/client";
 import { useToast } from "@/hooks/use-toast";
 import { useMerchant } from "@/hooks/use-merchant";
 import { useRoleAccess } from "@/hooks/use-role-access";
-import {
-  AiInsightsCard,
-  generateOrderInsights,
-} from "@/components/ai/ai-insights-card";
 
 interface OrderItem {
   sku: string;
@@ -86,6 +82,8 @@ interface Order {
   status: string;
   sourceChannel?: string;
   deliveryType?: "delivery" | "pickup" | "dine_in";
+  branchName?: string;
+  branchId?: string;
   paymentStatus?: string;
   createdAt: string;
   updatedAt: string;
@@ -151,7 +149,7 @@ const SOURCE_LABELS: Record<string, string> = {
   cashier: "الكاشير",
   calls: "المكالمات",
   whatsapp: "واتساب",
-  voice_ai: "مكالمة AI",
+  voice_ai: "مكالمة آلية",
   manual: "يدوي (قديم)",
 };
 
@@ -172,15 +170,15 @@ function getSourceLabel(value: unknown): string {
 function getSourceBadgeClass(value: unknown): string {
   const normalized = normalizeSourceChannel(value);
   if (normalized === "cashier")
-    return "border-[color:rgba(59,130,246,0.26)] bg-[color:rgba(59,130,246,0.12)] text-[color:#93c5fd]";
+    return "border-[var(--color-info-border)] bg-[var(--color-info-bg)] text-[var(--color-info-text)]";
   if (normalized === "calls")
-    return "border-[color:rgba(245,158,11,0.26)] bg-[color:rgba(245,158,11,0.12)] text-[color:#fcd34d]";
+    return "border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] text-[var(--color-warning-text)]";
   if (normalized === "manual_button")
     return "border-[color:var(--border-default)] bg-[color:var(--bg-surface-2)] text-[color:var(--text-secondary)]";
   if (normalized === "voice_ai")
-    return "border-[color:rgba(232,197,71,0.24)] bg-[color:var(--accent-gold-dim)] text-[color:var(--accent-gold)]";
+    return "border-[color:rgba(47,111,235,0.24)] bg-[color:var(--color-brand-subtle)] text-[color:var(--color-brand-primary)]";
   if (normalized === "whatsapp")
-    return "border-[color:rgba(34,197,94,0.28)] bg-[color:rgba(34,197,94,0.12)] text-[color:#86efac]";
+    return "border-[var(--color-success-border)] bg-[var(--color-success-bg)] text-[var(--color-success-text)]";
   return "border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-2)] text-[color:var(--text-secondary)]";
 }
 
@@ -228,14 +226,14 @@ function getCancelRisk(
     return {
       label: "خطر إلغاء ↑",
       className:
-        "border-[color:rgba(239,68,68,0.3)] bg-[color:rgba(239,68,68,0.1)] text-[color:#fca5a5]",
+        "border-[var(--color-danger-border)] bg-[var(--color-danger-bg)] text-[var(--color-danger-text)]",
     };
   }
   if (order.status === "CONFIRMED" && ageHours > 48) {
     return {
       label: "تأخر التسليم",
       className:
-        "border-[color:rgba(245,158,11,0.28)] bg-[color:rgba(245,158,11,0.12)] text-[color:#fcd34d]",
+        "border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] text-[var(--color-warning-text)]",
     };
   }
   if (
@@ -245,7 +243,7 @@ function getCancelRisk(
     return {
       label: "لم يُسلَّم بعد",
       className:
-        "border-[color:rgba(245,158,11,0.24)] bg-[color:rgba(245,158,11,0.08)] text-[color:#fdba74]",
+        "border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] text-[var(--color-warning-text)]",
     };
   }
   return null;
@@ -269,6 +267,61 @@ function getElapsedState(order: Order) {
   return "default";
 }
 
+function getElapsedLabel(order: Order) {
+  return formatRelativeTime(order.createdAt);
+}
+
+function getOrdersFreshness(updatedAt: Date | null) {
+  if (!updatedAt) return { label: "لم يتم التحديث", state: "old" as const };
+
+  const minutes = Math.max(
+    0,
+    Math.floor((Date.now() - updatedAt.getTime()) / 60000),
+  );
+
+  if (minutes < 1) return { label: "آخر تحديث: الآن", state: "fresh" as const };
+  if (minutes <= 5) {
+    return { label: `آخر تحديث: منذ ${minutes} د`, state: "fresh" as const };
+  }
+  if (minutes <= 30) {
+    return { label: `آخر تحديث: منذ ${minutes} د`, state: "stale" as const };
+  }
+  return { label: "بيانات الطلبات قديمة", state: "old" as const };
+}
+
+function OrderLifecycle({ status }: { status: string }) {
+  const normalized = String(status || "").toUpperCase();
+  const steps = [
+    { key: "DRAFT", label: "إنشاء" },
+    { key: "CONFIRMED", label: "تأكيد" },
+    { key: "BOOKED", label: "تجهيز" },
+    { key: "SHIPPED", label: "شحن" },
+    { key: "DELIVERED", label: "تسليم" },
+    { key: "COMPLETED", label: "تسوية COD" },
+  ];
+  const activeIndex = Math.max(
+    0,
+    steps.findIndex((step) => step.key === normalized),
+  );
+
+  return (
+    <div className="mt-2 flex items-center gap-1" aria-label="دورة حياة الطلب">
+      {steps.map((step, index) => (
+        <span
+          key={step.key}
+          title={step.label}
+          className={cn(
+            "h-1.5 flex-1 rounded-full bg-[var(--color-neutral-border)]",
+            index <= activeIndex && "bg-[var(--color-brand-primary)]",
+            ["CANCELLED", "RETURNED", "FAILED"].includes(normalized) &&
+              "bg-[var(--color-neutral-border)]",
+          )}
+        />
+      ))}
+    </div>
+  );
+}
+
 export default function OrdersPage() {
   const { merchantId, apiKey } = useMerchant();
   const { canCreate, canExport, isReadOnly } = useRoleAccess("orders");
@@ -283,7 +336,8 @@ export default function OrdersPage() {
   const [statusTab, setStatusTab] = useState<string>("all");
   const [branchFilter, setBranchFilter] = useState<string>("all");
   const [sourceFilter, setSourceFilter] = useState<string>("all");
-  const [viewMode, setViewMode] = useState<"kanban" | "table">("kanban");
+  const [viewMode, setViewMode] = useState<"kanban" | "table">("table");
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
   const [branches, setBranches] = useState<{ id: string; name: string }[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [reordering, setReordering] = useState(false);
@@ -524,6 +578,8 @@ export default function OrdersPage() {
       sourceChannel: normalizeSourceChannel(
         order.sourceChannel || order.source_channel,
       ),
+      branchId: order.branchId || order.branch_id,
+      branchName: order.branchName || order.branch_name || order.branch?.name,
       deliveryType: (
         order.deliveryPreference ||
         order.delivery_preference ||
@@ -570,6 +626,7 @@ export default function OrdersPage() {
       } else {
         setOrders(allTransformed);
       }
+      setLastUpdatedAt(new Date());
     } catch (err) {
       console.error("Failed to fetch orders:", err);
       setError(err instanceof Error ? err.message : "فشل في تحميل الطلبات");
@@ -1034,31 +1091,21 @@ export default function OrdersPage() {
     completed: countedOrders.filter((o) => isCompletedStatus(o.status)).length,
     cancelled: countedOrders.filter((o) => isCancelledStatus(o.status)).length,
   };
+  const delayedOrders = countedOrders.filter(
+    (o) =>
+      !isCancelledStatus(o.status) &&
+      !isCompletedStatus(o.status) &&
+      getElapsedState(o) !== "default",
+  ).length;
 
-  // AOV for merchants: realized (completed) orders only.
-  const completedOrdersForAov = countedOrders.filter((o) =>
-    isCompletedStatus(o.status),
-  );
-  const completedRevenueTotal = completedOrdersForAov.reduce(
-    (sum, o) => sum + (o.total || 0),
-    0,
-  );
-  const averageOrderValue =
-    completedOrdersForAov.length > 0
-      ? completedRevenueTotal / completedOrdersForAov.length
-      : 0;
-
-  // Calculate revenue (today only, realized orders only: DELIVERED/COMPLETED).
+  // Calculate completed orders for today's operations strip.
   const startOfToday = new Date();
   startOfToday.setHours(0, 0, 0, 0);
-  const isRevenueOrder = (status: string) => isCompletedStatus(status);
-  const todayRevenue = ordersForStats
-    .filter((o) => {
-      if (!isRevenueOrder(o.status)) return false;
-      const createdAt = new Date(o.createdAt);
-      return !Number.isNaN(createdAt.getTime()) && createdAt >= startOfToday;
-    })
-    .reduce((sum, o) => sum + (o.total || 0), 0);
+  const completedToday = countedOrders.filter((o) => {
+    if (!isCompletedStatus(o.status)) return false;
+    const createdAt = new Date(o.createdAt);
+    return !Number.isNaN(createdAt.getTime()) && createdAt >= startOfToday;
+  }).length;
   const tabCounts = {
     all: countedOrders.length,
     pending: countedOrders.filter((o) => getBoardStatus(o) === "pending")
@@ -1104,6 +1151,7 @@ export default function OrdersPage() {
       tone: "",
     },
   ];
+  const orderFreshness = getOrdersFreshness(lastUpdatedAt);
 
   if (loading) {
     return (
@@ -1125,7 +1173,7 @@ export default function OrdersPage() {
               <h3 className="text-lg font-semibold">خطأ في تحميل الطلبات</h3>
               <p className="text-muted-foreground mt-2">{error}</p>
               <Button onClick={fetchOrders} variant="outline" className="mt-4">
-                <RefreshCw className="h-4 w-4 ml-2" />
+                <RefreshCw className="h-4 w-4 ms-2" />
                 إعادة المحاولة
               </Button>
             </div>
@@ -1147,7 +1195,7 @@ export default function OrdersPage() {
                 onClick={openCreateOrderDialog}
                 className="w-full sm:w-auto"
               >
-                <Plus className="h-4 w-4 ml-2" />
+                <Plus className="h-4 w-4 ms-2" />
                 إنشاء طلب جديد
               </Button>
             )}
@@ -1166,13 +1214,59 @@ export default function OrdersPage() {
                 disabled={filteredOrders.length === 0}
                 className="w-full sm:w-auto"
               >
-                <FileSpreadsheet className="h-4 w-4 ml-2" />
+                <FileSpreadsheet className="h-4 w-4 ms-2" />
                 تصدير CSV
               </Button>
             )}
           </div>
         }
       />
+
+      <section className="sticky top-14 z-20 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface)] p-3 shadow-[var(--shadow-sm)]">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-wrap items-center gap-3 text-sm">
+            <span>
+              نشطة:{" "}
+              <strong className="font-mono text-[var(--color-brand-primary)]">
+                {stats.inProgress + stats.pending}
+              </strong>
+            </span>
+            <span className="text-[var(--color-border)]">|</span>
+            <span>
+              معلقة: <strong className="font-mono">{stats.pending}</strong>
+            </span>
+            <span className="text-[var(--color-border)]">|</span>
+            <span>
+              متأخرة:{" "}
+              <strong className="font-mono text-[var(--color-warning-text)]">
+                {delayedOrders}
+              </strong>
+            </span>
+            <span className="text-[var(--color-border)]">|</span>
+            <span>
+              مكتملة اليوم:{" "}
+              <strong className="font-mono text-[var(--color-success-text)]">
+                {completedToday}
+              </strong>
+            </span>
+          </div>
+          <div
+            className={cn(
+              "flex items-center gap-2 text-xs text-[var(--color-text-secondary)]",
+              orderFreshness.state === "stale" &&
+                "text-[var(--color-warning-text)]",
+              orderFreshness.state === "old" &&
+                "text-[var(--color-danger-text)]",
+            )}
+          >
+            <span>{orderFreshness.label}</span>
+            <Button variant="ghost" size="sm" onClick={fetchOrders}>
+              <RefreshCw className="h-4 w-4" />
+              تحديث
+            </Button>
+          </div>
+        </div>
+      </section>
 
       <div className="flex flex-wrap items-center gap-2">
         {STATUS_TABS.map((tab) => (
@@ -1186,8 +1280,8 @@ export default function OrdersPage() {
             className={cn(
               "inline-flex h-9 items-center rounded-[var(--radius-sm)] border px-3 text-xs font-semibold transition-colors",
               statusTab === tab.key
-                ? "border-[var(--accent-gold)] bg-[var(--accent-gold)] text-[#0A0A0B]"
-                : "border-[var(--border-default)] bg-[var(--bg-surface-1)] text-[var(--text-secondary)] hover:border-[var(--accent-gold)] hover:text-[var(--accent-gold)]",
+                ? "border-[var(--color-brand-primary)] bg-[var(--color-brand-primary)] text-[var(--color-brand-on-primary)]"
+                : "border-[var(--border-default)] bg-[var(--bg-surface-1)] text-[var(--text-secondary)] hover:border-[var(--color-brand-primary)] hover:text-[var(--color-brand-primary)]",
             )}
           >
             {tab.label} ({tabCounts[tab.key as keyof typeof tabCounts]})
@@ -1204,7 +1298,7 @@ export default function OrdersPage() {
                 "flex h-16 items-center justify-between gap-3 px-4",
                 item.tone,
                 index !== summaryColumns.length - 1 &&
-                  "border-b border-[var(--border-subtle)] lg:border-b-0 lg:border-l",
+                  "border-b border-[var(--border-subtle)] lg:border-b-0 lg:border-s",
               )}
             >
               <div className="flex items-center gap-2 text-[var(--text-secondary)]">
@@ -1219,29 +1313,17 @@ export default function OrdersPage() {
         </div>
       </section>
 
-      {/* AI Order Insights */}
-      <AiInsightsCard
-        title="تنبيهات الطلبات"
-        insights={generateOrderInsights({
-          totalOrders: stats.total,
-          cancelledOrders: stats.cancelled,
-          averageOrderValue,
-          deliveredOrders: stats.completed,
-          pendingOrders: stats.pending + stats.inProgress,
-        })}
-      />
-
       {/* Filters */}
       <Card className="app-data-card">
         <CardContent className="p-4">
           <div className="flex flex-col gap-4 xl:flex-row">
             <div className="relative flex-1">
-              <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute end-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="بحث برقم الطلب، اسم العميل، أو رقم الهاتف..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pr-9"
+                className="pe-9"
               />
             </div>
             <div className="flex flex-col gap-3 sm:flex-row">
@@ -1253,7 +1335,7 @@ export default function OrdersPage() {
                 }}
               >
                 <SelectTrigger className="w-full sm:w-44">
-                  <Filter className="ml-2 h-4 w-4" />
+                  <Filter className="ms-2 h-4 w-4" />
                   <SelectValue placeholder="المصدر" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1262,7 +1344,7 @@ export default function OrdersPage() {
                   <SelectItem value="cashier">الكاشير</SelectItem>
                   <SelectItem value="calls">المكالمات</SelectItem>
                   <SelectItem value="whatsapp">واتساب</SelectItem>
-                  <SelectItem value="voice_ai">مكالمة AI</SelectItem>
+                  <SelectItem value="voice_ai">مكالمة آلية</SelectItem>
                 </SelectContent>
               </Select>
               {branches.length > 1 && (
@@ -1375,19 +1457,19 @@ export default function OrdersPage() {
                                 type="button"
                                 onClick={() => setSelectedOrder(order)}
                                 className={cn(
-                                  "w-full rounded-[8px] border border-[var(--border-default)] border-r-[3px] bg-[var(--bg-surface-2)] p-3 text-right transition-colors hover:bg-[var(--bg-surface-3)]",
+                                  "w-full rounded-[8px] border border-[var(--border-default)] border-e-[3px] bg-[var(--bg-surface-2)] p-3 text-start transition-colors hover:bg-[var(--bg-surface-3)]",
                                   column.key === "pending" &&
-                                    "border-r-[var(--accent-warning)]",
+                                    "border-e-[var(--accent-warning)]",
                                   column.key === "processing" &&
-                                    "border-r-[var(--accent-blue)]",
+                                    "border-e-[var(--accent-blue)]",
                                   column.key === "shipped" &&
-                                    "border-r-[color:#8b5cf6]",
+                                    "border-e-[color:#8b5cf6]",
                                   column.key === "completed" &&
-                                    "border-r-[var(--accent-success)]",
+                                    "border-e-[var(--accent-success)]",
                                 )}
                               >
                                 <div className="flex items-center justify-between gap-2">
-                                  <span className="font-mono text-xs text-[var(--accent-gold)]">
+                                  <span className="font-mono text-xs text-[var(--color-brand-primary)]">
                                     {order.orderNumber}
                                   </span>
                                   <div className="flex items-center gap-2">
@@ -1481,15 +1563,15 @@ export default function OrdersPage() {
                           </Button>
                         </div>
                         <div className="flex flex-wrap gap-2">
-                          <span
-                            className={cn(
-                              "inline-flex items-center gap-1 rounded-[var(--radius-sm)] border px-2.5 py-0.5 text-xs font-semibold",
-                              getStatusColor(order.status),
+                          <StatusBadge
+                            tone={getOrderStatusTone(
+                              order.status,
+                              getElapsedState(order) !== "default",
                             )}
                           >
                             {statusIcons[order.status]}
                             {getOrderDisplayStatus(order)}
-                          </span>
+                          </StatusBadge>
                           <span
                             className={cn(
                               "inline-flex items-center rounded-[var(--radius-sm)] border px-2.5 py-0.5 text-xs font-semibold",
@@ -1552,76 +1634,26 @@ export default function OrdersPage() {
                   data={paginatedOrders}
                   columns={[
                     {
-                      key: "orderNumber",
-                      header: "رقم الطلب",
-                      render: (order) => (
-                        <span className="font-mono text-sm">
-                          {order.orderNumber}
-                        </span>
-                      ),
-                    },
-                    { key: "customerName", header: "العميل" },
-                    {
-                      key: "items",
-                      header: "المنتجات",
-                      render: (order) =>
-                        order.items.length > 0 ? (
-                          <div className="max-w-[220px]">
-                            <div
-                              className="truncate text-sm"
-                              title={order.items.map((i) => i.name).join("، ")}
-                            >
-                              {order.items
-                                .slice(0, 2)
-                                .map((i) => i.name)
-                                .join("، ")}
-                              {order.items.length > 2
-                                ? ` +${order.items.length - 2}`
-                                : ""}
-                            </div>
-                            <div className="text-xs text-muted-foreground">
-                              {order.items.reduce(
-                                (sum, item) => sum + (item.quantity || 0),
-                                0,
-                              )}{" "}
-                              قطعة
-                            </div>
-                          </div>
-                        ) : (
-                          <span className="text-muted-foreground">
-                            غير محدد
-                          </span>
-                        ),
-                    },
-                    {
-                      key: "total",
-                      header: "الإجمالي",
-                      render: (order) => (
-                        <span className="font-semibold">
-                          {formatCurrency(order.total)}
-                        </span>
-                      ),
-                    },
-                    {
                       key: "status",
                       header: "الحالة",
                       render: (order) => {
                         const risk = getCancelRisk(order);
                         return (
-                          <div className="flex flex-col gap-1 items-start">
-                            <span
-                              className={cn(
-                                "inline-flex items-center gap-1 rounded-[var(--radius-sm)] border px-2.5 py-0.5 text-xs font-semibold",
-                                getStatusColor(order.status),
+                          <div className="min-w-[160px]">
+                            <StatusBadge
+                              tone={getOrderStatusTone(
+                                order.status,
+                                getElapsedState(order) !== "default",
                               )}
                             >
                               {statusIcons[order.status]}
                               {getOrderDisplayStatus(order)}
-                            </span>
+                            </StatusBadge>
+                            <OrderLifecycle status={order.status} />
                             {risk && (
                               <span
                                 className={cn(
-                                  "text-[10px] px-1.5 py-0.5 rounded border font-medium",
+                                  "mt-2 inline-flex rounded border px-1.5 py-0.5 text-[10px] font-medium",
                                   risk.className,
                                 )}
                               >
@@ -1633,7 +1665,16 @@ export default function OrdersPage() {
                       },
                     },
                     {
-                      key: "source",
+                      key: "branch",
+                      header: "الفرع",
+                      render: (order) => (
+                        <span className="text-sm">
+                          {order.branchName || "غير محدد"}
+                        </span>
+                      ),
+                    },
+                    {
+                      key: "sourceChannel",
                       header: "المصدر",
                       render: (order) => (
                         <span
@@ -1647,20 +1688,68 @@ export default function OrdersPage() {
                       ),
                     },
                     {
-                      key: "createdAt",
-                      header: "التاريخ",
+                      key: "customerName",
+                      header: "العميل",
                       render: (order) => (
-                        <span className="text-muted-foreground text-sm">
-                          {formatRelativeTime(order.createdAt)}
+                        <div>
+                          <p className="font-medium text-[var(--text-primary)]">
+                            {order.customerName}
+                          </p>
+                          <p className="font-mono text-xs text-[var(--color-brand-primary)]">
+                            {order.orderNumber}
+                          </p>
+                        </div>
+                      ),
+                    },
+                    {
+                      key: "total",
+                      header: "المبلغ",
+                      render: (order) => (
+                        <span className="font-semibold">
+                          {formatCurrency(order.total)}
+                        </span>
+                      ),
+                    },
+                    {
+                      key: "elapsed",
+                      header: "الوقت المنقضي",
+                      render: (order) => {
+                        const elapsedState = getElapsedState(order);
+                        return (
+                          <span
+                            className={cn(
+                              "rounded-[var(--radius-sm)] px-2 py-1 text-xs",
+                              elapsedState === "critical" &&
+                                "bg-[var(--color-danger-bg)] text-[var(--color-danger-text)]",
+                              elapsedState === "warning" &&
+                                "bg-[var(--color-warning-bg)] text-[var(--color-warning-text)]",
+                              elapsedState === "default" &&
+                                "bg-[var(--color-neutral-bg)] text-[var(--color-neutral-text)]",
+                            )}
+                          >
+                            {getElapsedLabel(order)}
+                          </span>
+                        );
+                      },
+                    },
+                    {
+                      key: "agent",
+                      header: "المصدر",
+                      render: (order) => (
+                        <span className="text-sm text-[var(--color-text-secondary)]">
+                          {normalizeSourceChannel(order.sourceChannel) ===
+                          "cashier"
+                            ? "الكاشير"
+                            : "النظام"}
                         </span>
                       ),
                     },
                     {
                       key: "actions",
-                      header: "",
+                      header: "الإجراء",
                       render: (order) => (
                         <Button
-                          variant="ghost"
+                          variant="outline"
                           size="sm"
                           onClick={(e) => {
                             e.stopPropagation();
@@ -1668,6 +1757,21 @@ export default function OrdersPage() {
                           }}
                         >
                           <Eye className="h-4 w-4" />
+                          مراجعة
+                        </Button>
+                      ),
+                    },
+                    {
+                      key: "delete",
+                      header: "حذف",
+                      render: () => (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          disabled
+                          title="الحذف غير متاح من طابور التشغيل"
+                        >
+                          <Trash2 className="h-4 w-4" />
                         </Button>
                       ),
                     },
@@ -1734,12 +1838,12 @@ export default function OrdersPage() {
             <div className="space-y-3">
               <p className="text-sm font-medium">بحث المنتجات وإضافتها</p>
               <div className="relative">
-                <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Search className="absolute end-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   value={productSearch}
                   onChange={(e) => setProductSearch(e.target.value)}
                   placeholder="اكتب اسم المنتج أو SKU..."
-                  className="pr-9"
+                  className="pe-9"
                 />
 
                 {productSearch.trim().length > 0 && (
@@ -1754,7 +1858,7 @@ export default function OrdersPage() {
                         <button
                           key={product.id}
                           type="button"
-                          className="w-full px-3 py-2 text-right transition-colors hover:bg-[color:var(--bg-surface-3)]"
+                          className="w-full px-3 py-2 text-start transition-colors hover:bg-[color:var(--bg-surface-3)]"
                           onClick={() => addCatalogItemToManualOrder(product)}
                         >
                           <div className="font-medium text-sm">
@@ -1907,9 +2011,9 @@ export default function OrdersPage() {
                 )}
               </div>
 
-              <div className="flex flex-col gap-1 rounded-[var(--radius-md)] border border-[color:rgba(232,197,71,0.2)] bg-[color:var(--accent-gold-dim)] px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-col gap-1 rounded-[var(--radius-md)] border border-[color:rgba(47,111,235,0.2)] bg-[color:var(--color-brand-subtle)] px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
                 <span className="text-sm font-medium">الإجمالي الحالي</span>
-                <span className="text-sm font-bold text-[color:var(--accent-gold)]">
+                <span className="text-sm font-bold text-[color:var(--color-brand-primary)]">
                   {formatCurrency(manualOrderTotal)}
                 </span>
               </div>
@@ -1996,7 +2100,7 @@ export default function OrdersPage() {
               >
                 {creatingOrder ? (
                   <>
-                    <Loader2 className="h-4 w-4 ml-2 animate-spin" />
+                    <Loader2 className="h-4 w-4 ms-2 animate-spin" />
                     جاري الإنشاء...
                   </>
                 ) : (
@@ -2013,7 +2117,7 @@ export default function OrdersPage() {
         open={!!selectedOrder}
         onOpenChange={() => setSelectedOrder(null)}
       >
-        <DialogContent className="max-h-[90vh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-2xl">
+        <DialogContent className="start-0 top-0 h-dvh max-h-dvh w-[min(100vw,520px)] max-w-none translate-x-0 translate-y-0 overflow-y-auto sm:rounded-none">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Package className="h-5 w-5" />
@@ -2029,15 +2133,15 @@ export default function OrdersPage() {
               {/* Status + Change */}
               <div className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-md)] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-2)] p-4">
                 <div className="flex items-center gap-2">
-                  <span
-                    className={cn(
-                      "inline-flex items-center gap-1 rounded-[var(--radius-sm)] border px-3 py-1 text-sm font-semibold",
-                      getStatusColor(selectedOrder.status),
+                  <StatusBadge
+                    tone={getOrderStatusTone(
+                      selectedOrder.status,
+                      getElapsedState(selectedOrder) !== "default",
                     )}
                   >
                     {statusIcons[selectedOrder.status]}
                     {getOrderDisplayStatus(selectedOrder)}
-                  </span>
+                  </StatusBadge>
                 </div>
                 {!isReadOnly &&
                   !["DELIVERED", "CANCELLED", "RETURNED"].includes(
@@ -2268,7 +2372,7 @@ export default function OrdersPage() {
                       ))}
                       <div className="flex items-center justify-between rounded-[var(--radius-md)] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-2)] px-3 py-2 text-sm">
                         <span className="font-medium">الإجمالي</span>
-                        <span className="font-bold text-[color:var(--accent-gold)]">
+                        <span className="font-bold text-[color:var(--color-brand-primary)]">
                           {formatCurrency(selectedOrder.total)}
                         </span>
                       </div>
@@ -2277,16 +2381,16 @@ export default function OrdersPage() {
                       <table className="w-full">
                         <thead className="bg-[color:var(--bg-surface-2)]">
                           <tr>
-                            <th className="p-3 text-right text-sm font-medium">
+                            <th className="p-3 text-start text-sm font-medium">
                               المنتج
                             </th>
-                            <th className="p-3 text-right text-sm font-medium">
+                            <th className="p-3 text-start text-sm font-medium">
                               الكمية
                             </th>
-                            <th className="p-3 text-right text-sm font-medium">
+                            <th className="p-3 text-start text-sm font-medium">
                               السعر
                             </th>
-                            <th className="p-3 text-right text-sm font-medium">
+                            <th className="p-3 text-start text-sm font-medium">
                               الإجمالي
                             </th>
                           </tr>
@@ -2323,7 +2427,7 @@ export default function OrdersPage() {
                             >
                               الإجمالي
                             </td>
-                            <td className="p-3 font-bold text-[color:var(--accent-gold)]">
+                            <td className="p-3 font-bold text-[color:var(--color-brand-primary)]">
                               {formatCurrency(selectedOrder.total)}
                             </td>
                           </tr>
@@ -2348,7 +2452,7 @@ export default function OrdersPage() {
                   <div className="flex items-center gap-3">
                     <div className="h-2 w-2 rounded-full bg-[color:var(--accent-success)]" />
                     <span className="text-sm">تم الإنشاء</span>
-                    <span className="text-sm text-muted-foreground mr-auto">
+                    <span className="text-sm text-muted-foreground me-auto">
                       {formatDate(selectedOrder.createdAt, "long")}
                     </span>
                   </div>
@@ -2356,7 +2460,7 @@ export default function OrdersPage() {
                     <div className="flex items-center gap-3">
                       <div className="h-2 w-2 rounded-full bg-[color:var(--accent-blue)]" />
                       <span className="text-sm">آخر تحديث</span>
-                      <span className="text-sm text-muted-foreground mr-auto">
+                      <span className="text-sm text-muted-foreground me-auto">
                         {formatDate(selectedOrder.updatedAt, "long")}
                       </span>
                     </div>
@@ -2414,12 +2518,12 @@ export default function OrdersPage() {
                   >
                     {reordering ? (
                       <>
-                        <Loader2 className="h-4 w-4 ml-2 animate-spin" />
+                        <Loader2 className="h-4 w-4 ms-2 animate-spin" />
                         جاري إعادة الطلب...
                       </>
                     ) : (
                       <>
-                        <RotateCcw className="h-4 w-4 ml-2" />
+                        <RotateCcw className="h-4 w-4 ms-2" />
                         إعادة الطلب
                       </>
                     )}

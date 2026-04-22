@@ -222,8 +222,8 @@ export default function BranchesPage() {
   return (
     <div className="space-y-8">
       <PageHeader
-        title="إدارة الفروع"
-        description="إدارة الفروع، حالتها التشغيلية، والوصول السريع إلى تفاصيل كل فرع."
+        title="الإعدادات / المتجر والفروع"
+        description="إعداد ملف المتجر والفروع ومعلومات الاتصال، بعيداً عن طابور العمليات."
         actions={
           <div className="flex w-full flex-wrap items-center gap-2 md:w-auto md:justify-end">
             <Button variant="outline" size="sm" onClick={fetchBranches}>
@@ -244,7 +244,7 @@ export default function BranchesPage() {
         <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
           <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
           <span className="text-muted-foreground">إجمالي الفروع</span>
-          <span className="font-mono text-[var(--accent-gold)]">
+          <span className="font-mono text-[var(--color-brand-primary)]">
             {branches.length}
           </span>
         </div>

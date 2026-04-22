@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { TableSkeleton } from "@/components/ui/skeleton";
 import {
   RefreshCw,
   Loader2,
@@ -258,8 +259,12 @@ export default function ForecastPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[50vh] items-center justify-center px-4 sm:px-6">
-        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+      <div dir="rtl" className="w-full space-y-6 p-4 sm:p-6">
+        <PageHeader
+          title="التوقعات الذكية داخل المخزون"
+          description="تحميل توقعات الطلب من بيانات الطلبات والمخزون الحالية."
+        />
+        <TableSkeleton rows={6} columns={6} />
       </div>
     );
   }
@@ -269,7 +274,7 @@ export default function ForecastPage() {
       <div dir="rtl" className="w-full space-y-6 p-4 sm:p-6">
         <PageHeader
           title="توقعات الطلب"
-          description="تحليل ذكي للمخزون والطلب"
+          description="تحليل داعم للمخزون والطلب"
         />
         <ErrorState
           title="خطأ في تحميل التوقعات"
@@ -283,8 +288,8 @@ export default function ForecastPage() {
   return (
     <div dir="rtl" className="w-full space-y-8 p-4 sm:p-6">
       <PageHeader
-        title="توقعات الطلب"
-        description="تحليل المبيعات والمخزون بالذكاء الاصطناعي"
+        title="التوقعات الذكية داخل المخزون"
+        description="توقعات الطلب كدعم لقرارات التوريد، مع إظهار وقت الحساب ومصدر البيانات."
         actions={
           <div className="flex items-center gap-2 self-start sm:self-auto">
             {computedAt && (
@@ -320,7 +325,8 @@ export default function ForecastPage() {
           `الأصناف المحللة: ${items.length}`,
           `خطر خلال 7 أيام: ${nearStockout}`,
           `إعادة طلب مقترحة: ${Math.round(totalReorderSuggested)}`,
-          `آخر حساب: ${computedAt ? "محدث" : "غير متوفر"}`,
+          `آخر حساب: ${computedAt ? new Date(computedAt).toLocaleString("ar-SA") : "غير متوفر"}`,
+          "المصدر: الطلبات + المخزون",
         ].map((chip) => (
           <div
             key={chip}
@@ -361,16 +367,18 @@ export default function ForecastPage() {
             </Card>
           </button>
           <button
-            className={`text-right rounded-lg border transition ${filter === "high" ? "ring-2 ring-[var(--accent-gold)]" : ""}`}
+            className={`text-right rounded-lg border transition ${filter === "high" ? "ring-2 ring-[var(--color-brand-primary)]" : ""}`}
             onClick={() => setFilter("high")}
             type="button"
           >
-            <Card className="app-data-card h-full border-[var(--accent-gold)]/20 bg-[var(--accent-gold)]/10">
+            <Card className="app-data-card h-full border-[var(--color-brand-primary)]/20 bg-[var(--color-brand-primary)]/10">
               <CardContent className="py-3 px-4 text-center">
-                <p className="text-2xl font-bold text-[var(--accent-gold)]">
+                <p className="text-2xl font-bold text-[var(--color-brand-primary)]">
                   {counts.high}
                 </p>
-                <p className="mt-0.5 text-xs text-[var(--accent-gold)]">عالي</p>
+                <p className="mt-0.5 text-xs text-[var(--color-brand-primary)]">
+                  عالي
+                </p>
               </CardContent>
             </Card>
           </button>

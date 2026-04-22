@@ -759,7 +759,7 @@ export default function ReportsPage() {
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-4">
                       <div
-                        className="h-4 rounded-full bg-[var(--accent-gold)]"
+                        className="h-4 rounded-full bg-[var(--color-brand-primary)]"
                         style={{
                           width: `${conversionData.rates.conversionRate}%`,
                         }}
@@ -840,9 +840,10 @@ export default function ReportsPage() {
                 <FileText className="h-6 w-6 text-[var(--accent-blue)]" />
               </div>
               <div>
-                <h3 className="font-semibold">التقرير التنفيذي (CFO Brief)</h3>
+                <h3 className="font-semibold">الملخص المالي التنفيذي</h3>
                 <p className="text-sm text-muted-foreground">
-                  ملخص مالي شامل بالإيرادات والمصروفات والتدفق النقدي
+                  تقرير دعم للإيرادات والمصروفات والتدفق النقدي داخل مسار
+                  التقارير
                 </p>
               </div>
             </CardContent>

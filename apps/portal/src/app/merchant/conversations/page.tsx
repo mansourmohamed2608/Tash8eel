@@ -6,7 +6,8 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { TableSkeleton } from "@/components/ui/skeleton";
+import { Skeleton, TableSkeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/alerts";
 import {
   Select,
   SelectContent,
@@ -27,7 +28,6 @@ import {
   AlertCircle,
   User,
   Bot,
-  Clock,
   ArrowLeftRight,
   CheckCircle,
   UserCheck,
@@ -36,8 +36,6 @@ import {
   Snowflake,
   MapPin,
   Lightbulb,
-  Instagram,
-  Phone,
 } from "lucide-react";
 import {
   cn,
@@ -181,10 +179,10 @@ function ConversationChannelIcon({
   if (normalized === "instagram") {
     return (
       <span
-        className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-[var(--accent-gold)]/20 bg-[var(--accent-gold)]/12"
+        className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-[var(--color-brand-primary)]/20 bg-[var(--color-brand-primary)]/12"
         title="Instagram"
       >
-        <span className="text-[9px] font-bold leading-none text-[var(--accent-gold)]">
+        <span className="text-[9px] font-bold leading-none text-[var(--color-brand-primary)]">
           IG
         </span>
       </span>
@@ -200,28 +198,6 @@ function ConversationChannelIcon({
     </span>
   );
 }
-
-const CHANNEL_FILTERS = [
-  { id: "all", label: "الكل", icon: MessageSquare, color: "" },
-  {
-    id: "whatsapp",
-    label: "واتساب",
-    icon: MessageCircle,
-    color: "text-[var(--accent-success)]",
-  },
-  {
-    id: "messenger",
-    label: "ماسنجر",
-    icon: MessageSquare,
-    color: "text-[var(--accent-blue)]",
-  },
-  {
-    id: "instagram",
-    label: "إنستاجرام",
-    icon: Instagram,
-    color: "text-[var(--accent-gold)]",
-  },
-];
 
 // Lead Score Badge Component
 function LeadScoreBadge({ score }: { score?: "HOT" | "WARM" | "COLD" | null }) {
@@ -289,12 +265,19 @@ function NbaDisplay({
   if (!nbaText) return null;
 
   return (
-    <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 mt-2">
+    <div className="mt-2 rounded-[var(--radius-base)] border border-[var(--color-ai-border)] bg-[var(--color-ai-bg)] p-3">
       <div className="flex items-start gap-2">
-        <Lightbulb className="h-4 w-4 text-primary mt-0.5" />
+        <Lightbulb className="mt-0.5 h-4 w-4 text-[var(--color-ai-icon)]" />
         <div>
-          <p className="text-xs text-primary font-medium">الإجراء المقترح</p>
-          <p className="text-sm text-foreground mt-1">{nbaText}</p>
+          <p className="text-xs font-medium text-[var(--color-ai-text)]">
+            اقتراح مدعوم بالمساعد
+          </p>
+          <p className="mt-1 text-sm leading-6 text-[var(--color-text-primary)]">
+            {nbaText}
+          </p>
+          <p className="mt-2 text-[11px] text-[var(--color-ai-text)]">
+            {nbaType ? `السبب: ${nbaType}` : "مبني على سياق المحادثة الحالي"}
+          </p>
         </div>
       </div>
     </div>
@@ -590,6 +573,24 @@ export default function ConversationsPage() {
       (c) => getEffectiveState(c) === "ORDER_PLACED",
     ).length,
   };
+  const needsAttention = conversations.filter(
+    (c) =>
+      c.isHumanTakeover ||
+      c.requiresConfirmation ||
+      c.leadScore === "HOT" ||
+      Boolean(c.nbaText),
+  ).length;
+  const channelCounts = {
+    whatsapp: conversations.filter(
+      (c) => String(c.channel || "whatsapp") === "whatsapp",
+    ).length,
+    messenger: conversations.filter(
+      (c) => String(c.channel || "whatsapp") === "messenger",
+    ).length,
+    instagram: conversations.filter(
+      (c) => String(c.channel || "whatsapp") === "instagram",
+    ).length,
+  };
 
   if (loading) {
     return (
@@ -629,7 +630,7 @@ export default function ConversationsPage() {
     <div className="space-y-8 animate-fadeIn p-4 sm:p-6">
       <PageHeader
         title="المحادثات"
-        description="تابع كل محادثة نشطة، واعرف متى يتدخل الفريق أو الذكاء مباشرة."
+        description="تابع كل محادثة نشطة، واعرف متى يتدخل الفريق أو النظام مباشرة."
         actions={
           <Button
             variant="outline"
@@ -646,76 +647,95 @@ export default function ConversationsPage() {
       <div className="grid min-h-0 grid-cols-1 gap-4 xl:h-[calc(100vh-10rem)] xl:min-h-[52rem] xl:grid-cols-[380px_minmax(0,1fr)] 2xl:grid-cols-[440px_minmax(0,1fr)]">
         {/* Conversations List */}
         <Card className="app-data-card h-full overflow-hidden border-border/70">
-          <CardHeader className="border-b bg-muted/20 pb-3">
+          <CardHeader className="border-b bg-[var(--bg-surface-2)] pb-3">
             <div className="space-y-3">
-              <div className="flex items-center gap-2 overflow-x-auto pb-1">
-                {CHANNEL_FILTERS.map((filter) => {
-                  const Icon = filter.icon;
-                  const isActive = channelFilter === filter.id;
-                  return (
-                    <button
-                      key={filter.id}
-                      type="button"
-                      onClick={() => setChannelFilter(filter.id)}
-                      className={cn(
-                        "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--radius-sm)] border transition-colors",
-                        isActive
-                          ? "border-[var(--accent-gold)] bg-[var(--accent-gold-dim)] text-[var(--accent-gold)]"
-                          : "border-[var(--border-default)] bg-[var(--bg-surface-1)] text-[var(--text-secondary)] hover:border-[var(--border-active)] hover:text-[var(--text-primary)]",
-                      )}
-                      title={filter.label}
-                    >
-                      <Icon
-                        className={cn("h-4 w-4", isActive ? "" : filter.color)}
-                      />
-                    </button>
-                  );
-                })}
+              <div className="grid grid-cols-2 gap-2 text-[11px] text-[var(--text-secondary)]">
+                {[
+                  { label: "كل المحادثات", value: stats.total },
+                  { label: "تحتاج متابعة", value: needsAttention },
+                  { label: "تدخل بشري", value: stats.humanTakeover },
+                  { label: "طلبات مكتملة", value: stats.completed },
+                ].map((item) => (
+                  <div
+                    key={item.label}
+                    className="rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-1)] px-3 py-2"
+                  >
+                    <span>{item.label}</span>
+                    <strong className="ms-2 font-mono text-[var(--text-primary)]">
+                      {item.value}
+                    </strong>
+                  </div>
+                ))}
               </div>
               <div className="relative">
-                <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Search className="absolute end-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
-                  placeholder="بحث..."
+                  placeholder="بحث باسم العميل، الهاتف، أو رقم المحادثة..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pr-9"
+                  className="pe-9"
                 />
               </div>
-              <Select value={stateFilter} onValueChange={setStateFilter}>
-                <SelectTrigger className="w-full">
-                  <Filter className="h-4 w-4 ml-2" />
-                  <SelectValue placeholder="كل الحالات" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">كل الحالات</SelectItem>
-                  <SelectItem value="GREETING">ترحيب</SelectItem>
-                  <SelectItem value="COLLECTING_ITEMS">جمع المنتجات</SelectItem>
-                  <SelectItem value="COLLECTING_VARIANTS">
-                    اختيار المتغيرات
-                  </SelectItem>
-                  <SelectItem value="COLLECTING_CUSTOMER_INFO">
-                    بيانات العميل
-                  </SelectItem>
-                  <SelectItem value="COLLECTING_ADDRESS">العنوان</SelectItem>
-                  <SelectItem value="NEGOTIATING">تفاوض</SelectItem>
-                  <SelectItem value="CONFIRMING_ORDER">تأكيد الطلب</SelectItem>
-                  <SelectItem value="TRACKING">تتبع</SelectItem>
-                  <SelectItem value="FOLLOWUP">متابعة</SelectItem>
-                  <SelectItem value="HUMAN_TAKEOVER">تدخل بشري</SelectItem>
-                  <SelectItem value="ORDER_PLACED">طلب مكتمل</SelectItem>
-                  <SelectItem value="CLOSED">مغلقة</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <Select value={stateFilter} onValueChange={setStateFilter}>
+                  <SelectTrigger className="w-full">
+                    <Filter className="ms-2 h-4 w-4" />
+                    <SelectValue placeholder="كل الحالات" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">كل الحالات</SelectItem>
+                    <SelectItem value="GREETING">ترحيب</SelectItem>
+                    <SelectItem value="COLLECTING_ITEMS">
+                      جمع المنتجات
+                    </SelectItem>
+                    <SelectItem value="COLLECTING_VARIANTS">
+                      اختيار المتغيرات
+                    </SelectItem>
+                    <SelectItem value="COLLECTING_CUSTOMER_INFO">
+                      بيانات العميل
+                    </SelectItem>
+                    <SelectItem value="COLLECTING_ADDRESS">العنوان</SelectItem>
+                    <SelectItem value="NEGOTIATING">تفاوض</SelectItem>
+                    <SelectItem value="CONFIRMING_ORDER">
+                      تأكيد الطلب
+                    </SelectItem>
+                    <SelectItem value="TRACKING">تتبع</SelectItem>
+                    <SelectItem value="FOLLOWUP">متابعة</SelectItem>
+                    <SelectItem value="HUMAN_TAKEOVER">تدخل بشري</SelectItem>
+                    <SelectItem value="ORDER_PLACED">طلب مكتمل</SelectItem>
+                    <SelectItem value="CLOSED">مغلقة</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={channelFilter} onValueChange={setChannelFilter}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="كل القنوات" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">كل القنوات</SelectItem>
+                    <SelectItem value="whatsapp">
+                      واتساب ({channelCounts.whatsapp})
+                    </SelectItem>
+                    <SelectItem value="messenger">
+                      ماسنجر ({channelCounts.messenger})
+                    </SelectItem>
+                    <SelectItem value="instagram">
+                      إنستاجرام ({channelCounts.instagram})
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </CardHeader>
           <CardContent className="p-0">
             <ScrollArea className="h-[min(42vh,28rem)] sm:h-[min(46vh,32rem)] xl:h-[calc(100vh-16rem)] xl:min-h-[40rem]">
               {filteredConversations.length === 0 ? (
-                <div className="p-6 text-center">
-                  <MessageSquare className="h-12 w-12 mx-auto text-muted-foreground mb-2" />
-                  <p className="text-sm text-muted-foreground">
-                    لا توجد محادثات
-                  </p>
+                <div className="p-4">
+                  <EmptyState
+                    icon={<MessageSquare className="h-7 w-7" />}
+                    title="لا توجد محادثات مطابقة"
+                    description="غيّر البحث أو الفلاتر لعرض محادثات أخرى، أو انتظر وصول محادثات جديدة من القنوات المتصلة."
+                    className="py-8"
+                  />
                 </div>
               ) : (
                 <div className="divide-y">
@@ -725,9 +745,9 @@ export default function ConversationsPage() {
                       onClick={() => setSelectedConversation(conv)}
                       className={cn(
                         "w-full px-4 py-4 text-right transition-colors",
-                        "hover:bg-muted/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+                        "hover:bg-[var(--bg-surface-2)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-brand-primary)]/40",
                         selectedConversation?.id === conv.id &&
-                          "bg-primary/5 ring-1 ring-inset ring-primary/15",
+                          "bg-[var(--color-brand-subtle)] ring-1 ring-inset ring-[var(--color-brand-primary)]/15",
                       )}
                     >
                       <div className="flex items-start gap-3">
@@ -947,12 +967,32 @@ export default function ConversationsPage() {
               <CardContent className="min-h-0 flex-1 overflow-hidden bg-[color:color-mix(in_srgb,var(--bg-surface-2)_35%,transparent)] p-0">
                 <ScrollArea className="h-full px-5 py-5">
                   {loadingMessages ? (
-                    <div className="flex items-center justify-center h-full">
-                      <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
+                    <div className="flex min-h-full flex-col justify-end gap-5">
+                      {Array.from({ length: 5 }).map((_, index) => (
+                        <div
+                          key={index}
+                          className={cn(
+                            "flex gap-3",
+                            index % 2 === 0 ? "flex-row-reverse" : "flex-row",
+                          )}
+                        >
+                          <Skeleton className="h-8 w-8 shrink-0 rounded-full" />
+                          <div className="w-[min(82%,34rem)] space-y-2 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface-1)] px-4 py-3">
+                            <Skeleton className="h-3 w-24" />
+                            <Skeleton className="h-4 w-full" />
+                            <Skeleton className="h-4 w-2/3" />
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   ) : messages.length === 0 ? (
-                    <div className="flex items-center justify-center h-full text-muted-foreground">
-                      لا توجد رسائل
+                    <div className="flex min-h-full items-center justify-center">
+                      <EmptyState
+                        icon={<MessageSquare className="h-7 w-7" />}
+                        title="لا توجد رسائل في هذه المحادثة"
+                        description="سيظهر سجل الرسائل هنا بعد وصول أول رسالة أو بعد تحديث المحادثة."
+                        className="w-full max-w-md py-8"
+                      />
                     </div>
                   ) : (
                     <div className="flex min-h-full flex-col justify-end gap-5">
@@ -978,7 +1018,7 @@ export default function ConversationsPage() {
                               <AvatarFallback
                                 className={cn(
                                   isOutbound
-                                    ? "border border-[var(--accent-gold)]/20 bg-[var(--bg-surface-3)] text-[var(--accent-gold)]"
+                                    ? "border border-[var(--color-brand-primary)]/20 bg-[var(--bg-surface-3)] text-[var(--color-brand-primary)]"
                                     : getCustomerAvatarTone(
                                         selectedConversation,
                                       ),
@@ -995,13 +1035,13 @@ export default function ConversationsPage() {
                               className={cn(
                                 "max-w-[88%] rounded-2xl px-4 py-3 sm:max-w-[82%] xl:max-w-[78%]",
                                 isOutbound
-                                  ? "rounded-br-md border border-[var(--accent-gold)]/20 bg-[var(--bg-surface-2)] text-[var(--text-primary)]"
+                                  ? "rounded-br-md border border-[var(--color-brand-primary)]/20 bg-[var(--bg-surface-2)] text-[var(--text-primary)]"
                                   : "rounded-bl-md border border-border/60 bg-background",
                               )}
                             >
                               {isOutbound && (
-                                <div className="mb-2 inline-flex h-5 items-center rounded-[4px] border border-[var(--accent-gold)]/20 bg-[var(--accent-gold-dim)] px-2 text-[10px] font-semibold text-[var(--accent-gold)]">
-                                  ✦ AI
+                                <div className="mb-2 inline-flex h-5 items-center rounded-[4px] border border-[var(--color-brand-primary)]/20 bg-[var(--color-brand-subtle)] px-2 text-[10px] font-semibold text-[var(--color-brand-primary)]">
+                                  نتيجة تلقائية
                                 </div>
                               )}
                               <p className="text-sm whitespace-pre-wrap leading-6">

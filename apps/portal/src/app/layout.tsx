@@ -26,9 +26,9 @@ const monoFont = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Tash8eel AI",
+  title: "Tash8eel",
   description:
-    "تشغيل AI - منصة تشغيل ذكية للمطاعم والمقاهي ومتاجر التجزئة في مصر",
+    "تشغيل - نظام تشغيل للتجار والمطاعم والمقاهي ومتاجر التجزئة في مصر",
 };
 
 export default async function RootLayout({

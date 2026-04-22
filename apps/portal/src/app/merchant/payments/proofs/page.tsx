@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import { PageHeader } from "@/components/layout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -83,6 +84,22 @@ interface ProofSummary {
   rejected: number;
 }
 
+function getFreshness(updatedAt: Date | null) {
+  if (!updatedAt) return { label: "لم يتم التحديث", state: "old" as const };
+  const minutes = Math.max(
+    0,
+    Math.floor((Date.now() - updatedAt.getTime()) / 60000),
+  );
+  if (minutes < 1) return { label: "آخر تحديث: الآن", state: "fresh" as const };
+  if (minutes <= 5) {
+    return { label: `آخر تحديث: منذ ${minutes} د`, state: "fresh" as const };
+  }
+  if (minutes <= 30) {
+    return { label: `آخر تحديث: منذ ${minutes} د`, state: "stale" as const };
+  }
+  return { label: "بيانات الإثباتات قديمة", state: "old" as const };
+}
+
 function resolveProofImageUrl(rawUrl?: string): string | null {
   if (!rawUrl) return null;
   if (/^https?:\/\//i.test(rawUrl) || rawUrl.startsWith("data:")) return rawUrl;
@@ -113,6 +130,7 @@ export default function PaymentProofsPage() {
   const [rejectionReason, setRejectionReason] = useState("");
   const [verifying, setVerifying] = useState(false);
   const [imageLoadFailed, setImageLoadFailed] = useState(false);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
 
   const limit = 10;
 
@@ -133,6 +151,7 @@ export default function PaymentProofsPage() {
         approved: Number(response.summary?.approved || 0),
         rejected: Number(response.summary?.rejected || 0),
       });
+      setLastUpdatedAt(new Date());
     } catch (err) {
       console.error("Failed to fetch proofs:", err);
       toast({
@@ -263,14 +282,18 @@ export default function PaymentProofsPage() {
   const rejectedCount = summary.rejected;
   const summaryTotal = summary.total;
   const proofImageUrl = resolveProofImageUrl(selectedProof?.imageUrl);
+  const freshness = getFreshness(lastUpdatedAt);
 
   return (
     <div className="space-y-6 p-4 sm:p-6">
       <PageHeader
         title="إثباتات الدفع"
-        description="مراجعة واعتماد إثباتات الدفع من العملاء"
+        description="مراجعة إثباتات الدفع وربطها بتسويات التحصيل قبل الاعتماد."
         actions={
-          <div className="flex w-full sm:w-auto">
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+            <Button asChild variant="outline" size="sm">
+              <Link href="/merchant/payments/cod">فتح التسويات</Link>
+            </Button>
             <Button
               onClick={fetchProofs}
               variant="outline"
@@ -283,6 +306,43 @@ export default function PaymentProofsPage() {
           </div>
         }
       />
+      <section className="rounded-[var(--radius-base)] border border-[var(--color-border)] bg-[var(--color-surface)] p-3 shadow-[var(--shadow-sm)]">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-wrap items-center gap-3 text-sm">
+            <span>
+              تحتاج مراجعة:{" "}
+              <strong className="font-mono text-[var(--color-warning-text)]">
+                {pendingCount}
+              </strong>
+            </span>
+            <span className="text-[var(--color-border)]">|</span>
+            <span>
+              معتمدة:{" "}
+              <strong className="font-mono text-[var(--color-success-text)]">
+                {approvedCount}
+              </strong>
+            </span>
+            <span className="text-[var(--color-border)]">|</span>
+            <span>
+              مرفوضة:{" "}
+              <strong className="font-mono text-[var(--color-danger-text)]">
+                {rejectedCount}
+              </strong>
+            </span>
+          </div>
+          <span
+            className={
+              freshness.state === "old"
+                ? "text-xs text-[var(--color-danger-text)]"
+                : freshness.state === "stale"
+                  ? "text-xs text-[var(--color-warning-text)]"
+                  : "text-xs text-[var(--color-text-secondary)]"
+            }
+          >
+            {freshness.label}
+          </span>
+        </div>
+      </section>
       <div className="flex flex-wrap gap-2">
         {[
           { id: "ALL", label: "الكل", count: summaryTotal },
@@ -296,7 +356,7 @@ export default function PaymentProofsPage() {
             onClick={() => setStatusFilter(item.id)}
             className={
               statusFilter === item.id
-                ? "inline-flex h-9 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--accent-gold)] bg-[var(--accent-gold)] px-3 text-xs font-semibold text-[#0A0A0B]"
+                ? "inline-flex h-9 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--color-brand-primary)] bg-[var(--color-brand-primary)] px-3 text-xs font-semibold text-[var(--color-brand-on-primary)]"
                 : "inline-flex h-9 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-1)] px-3 text-xs font-semibold text-[var(--text-secondary)] hover:border-[var(--border-active)] hover:text-[var(--text-primary)]"
             }
           >
@@ -313,7 +373,12 @@ export default function PaymentProofsPage() {
         <EmptyState
           icon={<Receipt className="h-12 w-12" />}
           title="لا توجد إثباتات دفع"
-          description="لم يتم إرسال أي إثباتات دفع بعد"
+          description="لا توجد إثباتات تحتاج مراجعة ضمن الفلتر الحالي. ارجع إلى التسويات لمتابعة التحصيل المتوقع أو غيّر حالة الفلتر."
+          action={
+            <Button asChild variant="outline">
+              <Link href="/merchant/payments/cod">فتح التسويات</Link>
+            </Button>
+          }
         />
       ) : (
         <Card className="app-data-card">

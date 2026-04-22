@@ -80,7 +80,10 @@ export function TopProductsChart() {
                   animationDuration={800}
                 >
                   {topProducts.map((product) => (
-                    <Cell key={product.name} fill="var(--accent-gold)" />
+                    <Cell
+                      key={product.name}
+                      fill="var(--color-brand-primary)"
+                    />
                   ))}
                 </Bar>
               </BarChart>

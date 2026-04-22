@@ -38,7 +38,7 @@ export function SectionHeader({
     <div className={cn("app-section-header", className)}>
       <div className="flex min-w-0 items-center gap-2">
         {icon && (
-          <span className="inline-flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] text-[var(--accent-gold)]">
+          <span className="inline-flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] text-[var(--color-brand-primary)]">
             {icon}
           </span>
         )}

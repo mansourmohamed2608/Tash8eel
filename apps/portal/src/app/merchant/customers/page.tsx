@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import { PageHeader } from "@/components/layout";
 import {
   Card,
@@ -115,7 +116,7 @@ const segmentConfig: Record<
   VIP: {
     label: "VIP",
     color:
-      "border border-[var(--accent-gold)]/25 bg-[var(--accent-gold)]/15 text-[var(--accent-gold)]",
+      "border border-[var(--color-brand-primary)]/25 bg-[var(--color-brand-primary)]/15 text-[var(--color-brand-primary)]",
     icon: Crown,
     description: "5+ طلبات، 1000+ إنفاق، نشط آخر 30 يوم",
   },
@@ -185,7 +186,7 @@ const orderStatusBadgeClass = (status?: string): string => {
       return "text-[var(--accent-blue)] border-[var(--accent-blue)]/25";
     case "SHIPPED":
     case "OUT_FOR_DELIVERY":
-      return "text-[var(--accent-gold)] border-[var(--accent-gold)]/25";
+      return "text-[var(--color-brand-primary)] border-[var(--color-brand-primary)]/25";
     case "CANCELLED":
       return "text-[var(--accent-danger)] border-[var(--accent-danger)]/25";
     default:
@@ -230,7 +231,8 @@ function getCustomerStatus(customer: Customer) {
   if (customer.segment === "VIP") {
     return {
       label: "VIP",
-      className: "bg-[var(--accent-gold-dim)] text-[var(--accent-gold)]",
+      className:
+        "bg-[var(--color-brand-subtle)] text-[var(--color-brand-primary)]",
     };
   }
   if ((customer.daysSinceLastOrder ?? 999) <= 30) {
@@ -371,6 +373,18 @@ export default function CustomersPage() {
     `VIP عملاء: ${segmentSummary?.VIP?.count || 0}`,
     `معرضون للخسارة: ${segmentSummary?.AT_RISK?.count || 0}`,
   ];
+  const growthWorkflowLinks = [
+    {
+      label: "الحملات",
+      href: "/merchant/campaigns",
+      description: "حوّل الشرائح والعملاء المعرضين للخسارة إلى حملة واتساب.",
+    },
+    {
+      label: "شرائح العملاء",
+      href: "/merchant/customer-segments",
+      description: "أنشئ قواعد استهداف قبل إطلاق حملة أو متابعة يدوية.",
+    },
+  ];
 
   if (loading) {
     return (
@@ -409,8 +423,8 @@ export default function CustomersPage() {
   return (
     <div className="space-y-8 animate-fadeIn p-4 sm:p-6">
       <PageHeader
-        title="العملاء"
-        description="ابحث عن العملاء، راقب نشاطهم، وافتح سجلهم الكامل بسرعة."
+        title="الحملات والعملاء > العملاء"
+        description="قاعدة النمو التشغيلية: من يشتري، من توقف، ومن يحتاج حملة أو متابعة."
         actions={
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
             <div className="relative min-w-[260px]">
@@ -444,6 +458,36 @@ export default function CustomersPage() {
         ))}
       </div>
 
+      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_360px]">
+        <Card className="app-data-card border-[var(--accent-blue)]/20 bg-[var(--accent-blue)]/10">
+          <CardContent className="space-y-3 p-4">
+            <p className="text-sm font-semibold text-[var(--accent-blue)]">
+              صحة قاعدة العملاء
+            </p>
+            <p className="text-sm text-[var(--text-secondary)]">
+              {customers.length === 0
+                ? "لا توجد سجلات عملاء بعد. ستظهر هنا مؤشرات الإنفاق والتكرار والخطر بعد وصول الطلبات."
+                : `${(segmentSummary?.AT_RISK?.count || 0).toLocaleString("ar-EG")} عميل معرض للخسارة و${(segmentSummary?.VIP?.count || 0).toLocaleString("ar-EG")} عميل عالي القيمة. استخدم الحملات كخطوة تالية، وليس كصفحة منفصلة عن العملاء.`}
+            </p>
+          </CardContent>
+        </Card>
+
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+          {growthWorkflowLinks.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-surface-1)] p-4 transition-colors hover:border-[var(--accent-blue)]/40 hover:bg-[var(--bg-surface-2)]"
+            >
+              <p className="text-sm font-medium">{item.label}</p>
+              <p className="mt-1 text-xs leading-5 text-[var(--text-secondary)]">
+                {item.description}
+              </p>
+            </Link>
+          ))}
+        </div>
+      </div>
+
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
@@ -451,7 +495,7 @@ export default function CustomersPage() {
           className={cn(
             "inline-flex h-9 items-center rounded-[var(--radius-sm)] border px-3 text-xs font-semibold",
             segmentFilter === "all"
-              ? "border-[var(--accent-gold)] bg-[var(--accent-gold)] text-[#0A0A0B]"
+              ? "border-[var(--color-brand-primary)] bg-[var(--color-brand-primary)] text-[var(--color-brand-on-primary)]"
               : "border-[var(--border-default)] bg-[var(--bg-surface-1)] text-[var(--text-secondary)]",
           )}
         >
@@ -465,7 +509,7 @@ export default function CustomersPage() {
             className={cn(
               "inline-flex h-9 items-center rounded-[var(--radius-sm)] border px-3 text-xs font-semibold",
               segmentFilter === key
-                ? "border-[var(--accent-gold)] bg-[var(--accent-gold)] text-[#0A0A0B]"
+                ? "border-[var(--color-brand-primary)] bg-[var(--color-brand-primary)] text-[var(--color-brand-on-primary)]"
                 : "border-[var(--border-default)] bg-[var(--bg-surface-1)] text-[var(--text-secondary)]",
             )}
           >
@@ -480,7 +524,19 @@ export default function CustomersPage() {
           {filteredCustomers.length === 0 ? (
             <div className="py-12 text-center">
               <Users className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
-              <p className="text-muted-foreground">لا يوجد عملاء</p>
+              <p className="font-medium">لا يوجد عملاء مطابقون</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                جرّب مسح البحث أو افتح الحملات بعد وصول بيانات العملاء من
+                الطلبات والمحادثات.
+              </p>
+              <div className="mt-4 flex flex-col justify-center gap-2 sm:flex-row">
+                <Button variant="outline" onClick={() => setSearchQuery("")}>
+                  مسح البحث
+                </Button>
+                <Button asChild variant="outline">
+                  <Link href="/merchant/campaigns">فتح الحملات</Link>
+                </Button>
+              </div>
             </div>
           ) : (
             <>
@@ -746,8 +802,8 @@ export default function CustomersPage() {
           </DialogHeader>
 
           {loadingInsights ? (
-            <div className="py-12 text-center">
-              <RefreshCw className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />
+            <div className="py-4">
+              <TableSkeleton rows={4} columns={4} />
             </div>
           ) : customerInsights ? (
             <Tabs defaultValue="overview" className="mt-4">
@@ -770,7 +826,7 @@ export default function CustomersPage() {
                       label: "الطلبات",
                       value: customerInsights.profile.totalOrders,
                       icon: ShoppingBag,
-                      color: "text-[var(--accent-gold)]",
+                      color: "text-[var(--color-brand-primary)]",
                     },
                     {
                       label: "الإنفاق",
@@ -792,7 +848,7 @@ export default function CustomersPage() {
                       label: "القيمة المتوقعة",
                       value: formatCurrency(customerInsights.insights.clv),
                       icon: Crown,
-                      color: "text-[var(--accent-gold)]",
+                      color: "text-[var(--color-brand-primary)]",
                     },
                   ].map((item) => {
                     const Icon = item.icon;
@@ -866,8 +922,8 @@ export default function CustomersPage() {
                               className="flex flex-col gap-3 rounded-lg bg-muted/50 p-3 sm:flex-row sm:items-center sm:justify-between"
                             >
                               <div className="flex items-center gap-3">
-                                <div className="rounded border border-[var(--accent-gold)]/25 bg-[var(--accent-gold-dim)] p-2">
-                                  <ShoppingBag className="h-4 w-4 text-[var(--accent-gold)]" />
+                                <div className="rounded border border-[var(--color-brand-primary)]/25 bg-[var(--color-brand-subtle)] p-2">
+                                  <ShoppingBag className="h-4 w-4 text-[var(--color-brand-primary)]" />
                                 </div>
                                 <div>
                                   <p className="font-medium">
@@ -1043,7 +1099,7 @@ export default function CustomersPage() {
                           "",
                         );
                         const msg = encodeURIComponent(
-                          `مرحباً ${selectedCustomer.name}! لدينا عرض خاص لك 🎁`,
+                          `مرحباً ${selectedCustomer.name}! لدينا عرض خاص لك.`,
                         );
                         window.open(
                           `https://wa.me/${phone}?text=${msg}`,

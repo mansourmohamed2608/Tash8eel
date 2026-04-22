@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import Link from "next/link";
 import { PageHeader } from "@/components/layout";
 import {
   Card,
@@ -1570,8 +1571,8 @@ export default function InventoryInsightsPage() {
   return (
     <div className="space-y-6 p-4 sm:p-6">
       <PageHeader
-        title="رؤى المخزون"
-        description="تابع الاستهلاك، التكلفة، وحركة المخزون بالكامل بشكل مبسط"
+        title="رؤى وحركة المخزون"
+        description="مساحة مساندة لقرار المخزون: إعادة التخزين، توزيع المواقع، التكلفة، وحركة الشراء."
         actions={
           <Button
             variant="outline"
@@ -1586,6 +1587,42 @@ export default function InventoryInsightsPage() {
           </Button>
         }
       />
+
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        {[
+          {
+            href: "/merchant/inventory",
+            label: "قائمة المنتجات",
+            description: "الرجوع إلى أولوية المخزون والبحث والتعديل.",
+          },
+          {
+            href: "/merchant/inventory-insights/expiry-alerts",
+            label: "الصلاحية والتنبيهات",
+            description: "تواريخ انتهاء الصلاحية والبيانات الناقصة.",
+          },
+          {
+            href: "/merchant/inventory-insights/fifo-valuation",
+            label: "تقييم FIFO",
+            description: "قيمة المخزون وتكلفة الدفعات أو متوسط التكلفة.",
+          },
+          {
+            href: "/merchant/inventory-insights/sku-merge",
+            label: "دمج التكرارات",
+            description: "تنظيف رموز SKU المكررة قبل الجرد.",
+          },
+        ].map((item) => (
+          <Link
+            key={item.href}
+            href={item.href}
+            className="rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-surface-1)] p-4 transition-colors hover:border-[var(--accent-blue)]/40 hover:bg-[var(--bg-surface-2)]"
+          >
+            <p className="text-sm font-medium">{item.label}</p>
+            <p className="mt-1 text-xs leading-5 text-[var(--text-secondary)]">
+              {item.description}
+            </p>
+          </Link>
+        ))}
+      </div>
 
       <Card>
         <CardContent className="pt-4 space-y-3">
@@ -1732,7 +1769,7 @@ export default function InventoryInsightsPage() {
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <Brain className="h-8 w-8 text-[var(--accent-gold)]" />
+              <Brain className="h-8 w-8 text-[var(--color-brand-primary)]" />
               <div>
                 <p className="text-sm text-muted-foreground">توصيات نشطة</p>
                 <p className="text-2xl font-bold">
@@ -1770,25 +1807,19 @@ export default function InventoryInsightsPage() {
             <div className="flex-1">
               <p className="text-sm font-medium">
                 {aiStatus.budgetExhausted
-                  ? "تم استنفاد رصيد الذكاء الاصطناعي اليومي"
+                  ? "تم إيقاف إنشاء توصيات جديدة اليوم"
                   : aiStatus.error === "AI_TEMPORARILY_UNAVAILABLE"
-                    ? "خدمة الذكاء الاصطناعي غير متاحة مؤقتاً"
-                    : "الذكاء الاصطناعي غير مفعّل"}
+                    ? "خدمة التوصيات غير متاحة مؤقتاً"
+                    : "دعم التوصيات غير مفعّل"}
               </p>
               <p className="text-xs text-muted-foreground mt-0.5">
                 {aiStatus.budgetExhausted
-                  ? "التوصيات المعروضة هي بيانات تجريبية. يتم تجديد الرصيد يومياً أو يمكنك ترقية الباقة."
+                  ? "لن تُنشأ توصيات جديدة حتى يتجدد الرصيد. لا تعرض هذه الصفحة أرقاماً بديلة على أنها توقعات مؤكدة."
                   : aiStatus.error === "AI_TEMPORARILY_UNAVAILABLE"
-                    ? "سيتم إعادة المحاولة تلقائياً. التوصيات المعروضة تجريبية."
-                    : "فعّل الذكاء الاصطناعي من إعدادات الوكلاء للحصول على توصيات حقيقية."}
+                    ? "سيتم إعادة المحاولة تلقائياً. استخدم البيانات التشغيلية الظاهرة فقط حتى تعود الخدمة."
+                    : "سيتم عرض توصيات مساندة فقط عند توفر إعدادات وبيانات كافية."}
               </p>
             </div>
-            <a
-              href="/merchant/billing"
-              className="shrink-0 rounded-md bg-[var(--accent-gold)] px-3 py-1.5 text-xs font-medium text-[var(--bg-base)] transition-opacity hover:opacity-90"
-            >
-              ترقية الباقة
-            </a>
           </CardContent>
         </Card>
       )}
@@ -1800,7 +1831,7 @@ export default function InventoryInsightsPage() {
       )}
 
       <Tabs value={tab} onValueChange={setTab}>
-        <TabsList className="grid h-auto w-full grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
+        <TabsList className="grid h-auto w-full grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-5">
           <TabsTrigger
             value="restock"
             className="flex w-full items-center gap-1"
@@ -1812,13 +1843,6 @@ export default function InventoryInsightsPage() {
                 {criticalCount}
               </Badge>
             )}
-          </TabsTrigger>
-          <TabsTrigger
-            value="substitutes"
-            className="flex w-full items-center gap-1"
-          >
-            <Repeat className="h-4 w-4" />
-            البدائل المقترحة
           </TabsTrigger>
           <TabsTrigger
             value="movement-trace"
@@ -1835,25 +1859,18 @@ export default function InventoryInsightsPage() {
             المخزون حسب الموقع
           </TabsTrigger>
           <TabsTrigger
-            value="order-usage"
+            value="cost-control"
             className="flex w-full items-center gap-1"
           >
-            <Package className="h-4 w-4" />
-            استهلاك المخزون حسب الطلب
+            <DollarSign className="h-4 w-4" />
+            تحكم التكلفة
           </TabsTrigger>
           <TabsTrigger
             value="cost-trend"
             className="flex w-full items-center gap-1"
           >
             <BarChart3 className="h-4 w-4" />
-            متوسط تكلفة الشراء الشهري
-          </TabsTrigger>
-          <TabsTrigger
-            value="cost-control"
-            className="flex w-full items-center gap-1"
-          >
-            <DollarSign className="h-4 w-4" />
-            تحكم التكلفة
+            تكلفة الشراء
           </TabsTrigger>
         </TabsList>
 
@@ -2290,7 +2307,7 @@ export default function InventoryInsightsPage() {
                       <p className="text-xs text-muted-foreground">
                         طلبات شراء مقترحة
                       </p>
-                      <p className="text-xl font-bold text-[var(--accent-gold)]">
+                      <p className="text-xl font-bold text-[var(--color-brand-primary)]">
                         {locationBalance.summary?.purchaseRecommendations || 0}
                       </p>
                     </CardContent>
@@ -3444,14 +3461,14 @@ ${itemsText}
                     } catch {}
                     setGeneratingSupplierMsg(false);
                   }}
-                  className="border-[var(--accent-gold)]/30 bg-[var(--accent-gold)]/10 text-[var(--accent-gold)] hover:bg-[var(--accent-gold)]/15"
+                  className="border-[var(--color-brand-primary)]/30 bg-[var(--color-brand-primary)]/10 text-[var(--color-brand-primary)] hover:bg-[var(--color-brand-primary)]/15"
                 >
                   {generatingSupplierMsg ? (
                     <Loader2 className="h-3 w-3 animate-spin ml-1" />
                   ) : (
                     <Zap className="h-3 w-3 ml-1" />
                   )}
-                  اقتراح بالذكاء الاصطناعي
+                  اقتراح رسالة
                 </Button>
               </div>
               <Textarea
@@ -3459,7 +3476,7 @@ ${itemsText}
                 onChange={(e) => setSupplierMsg(e.target.value)}
                 rows={6}
                 className="text-sm"
-                placeholder="أدخل نص الرسالة أو استخدم الذكاء الاصطناعي..."
+                placeholder="أدخل نص الرسالة أو استخدم اقتراح الرسالة..."
               />
             </div>
 

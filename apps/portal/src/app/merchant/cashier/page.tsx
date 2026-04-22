@@ -21,7 +21,6 @@ import {
   ScanLine,
   Search,
   ShoppingCart,
-  Sparkles,
   Square,
   Store,
   Table2,
@@ -271,6 +270,13 @@ export default function CashierPage() {
   const { merchant, merchantId, apiKey } = useMerchant();
   const { toast } = useToast();
   const router = useRouter();
+
+  useEffect(() => {
+    document.body.classList.add("pos-mode");
+    return () => {
+      document.body.classList.remove("pos-mode");
+    };
+  }, []);
 
   const [catalogLoading, setCatalogLoading] = useState(true);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
@@ -2359,23 +2365,23 @@ export default function CashierPage() {
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="secondary" className="h-9 px-3 text-sm">
-                <ArrowUpDown className="ml-1 h-4 w-4" />
+                <ArrowUpDown className="ms-1 h-4 w-4" />
                 {selectedBranchId
                   ? branches.find((branch) => branch.id === selectedBranchId)
                       ?.name || "الفرع"
                   : "بدون فرع"}
               </Badge>
               <Badge variant="secondary" className="h-9 px-3 text-sm">
-                <ShoppingCart className="ml-1 h-4 w-4" />
+                <ShoppingCart className="ms-1 h-4 w-4" />
                 {cartItemsCount} عنصر
               </Badge>
               <Badge variant="secondary" className="h-9 px-3 text-sm">
-                <Banknote className="ml-1 h-4 w-4" />
+                <Banknote className="ms-1 h-4 w-4" />
                 {formatCurrency(totalAfterDiscount)}
               </Badge>
               <Button asChild variant="outline" className="h-9 px-4">
                 <Link href="/merchant/orders">
-                  <ArrowRight className="ml-1 h-4 w-4" />
+                  <ArrowRight className="ms-1 h-4 w-4" />
                   الخروج من الكاشير
                 </Link>
               </Button>
@@ -2432,7 +2438,7 @@ export default function CashierPage() {
               </CardTitle>
               <div className="flex gap-2">
                 <div className="relative flex-1">
-                  <ScanLine className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <ScanLine className="pointer-events-none absolute end-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     value={barcodeInput}
                     onChange={(event) => setBarcodeInput(event.target.value)}
@@ -2443,7 +2449,7 @@ export default function CashierPage() {
                       }
                     }}
                     placeholder="أضف بالباركود أو SKU"
-                    className="h-10 rounded-xl pr-9"
+                    className="h-10 rounded-xl pe-9"
                   />
                 </div>
                 <Button
@@ -2461,12 +2467,12 @@ export default function CashierPage() {
                 </Button>
               </div>
               <div className="relative">
-                <Search className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Search className="pointer-events-none absolute end-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   value={productSearch}
                   onChange={(event) => setProductSearch(event.target.value)}
                   placeholder="ابحث بالاسم أو SKU"
-                  className="h-10 rounded-xl pr-9"
+                  className="h-10 rounded-xl pe-9"
                 />
               </div>
               <div className="flex gap-2 overflow-x-auto pb-1">
@@ -2492,7 +2498,7 @@ export default function CashierPage() {
             <CardContent className="min-h-0 flex-1 overflow-y-auto pb-4">
               {catalogLoading ? (
                 <div className="flex h-full items-center justify-center text-[var(--text-muted)]">
-                  <Loader2 className="ml-2 h-5 w-5 animate-spin" />
+                  <Loader2 className="ms-2 h-5 w-5 animate-spin" />
                   جاري تحميل المنتجات...
                 </div>
               ) : filteredProducts.length === 0 ? (
@@ -2506,7 +2512,7 @@ export default function CashierPage() {
                       key={product.id}
                       type="button"
                       onClick={() => addToCart(product)}
-                      className="flex min-h-[132px] flex-col justify-between rounded-[22px] border border-[color:color-mix(in_srgb,var(--border-strong)_86%,transparent)] bg-[color:color-mix(in_srgb,var(--surface)_98%,transparent)] p-3 text-right transition-all duration-150 ease-in-out hover:-translate-y-0.5 hover:border-[color:color-mix(in_srgb,var(--accent)_22%,var(--border-strong))]"
+                      className="flex min-h-[132px] flex-col justify-between rounded-[22px] border border-[color:color-mix(in_srgb,var(--border-strong)_86%,transparent)] bg-[color:color-mix(in_srgb,var(--surface)_98%,transparent)] p-3 text-start transition-all duration-150 ease-in-out hover:-translate-y-0.5 hover:border-[color:color-mix(in_srgb,var(--accent)_22%,var(--border-strong))]"
                     >
                       <div>
                         <p className="line-clamp-2 text-sm font-semibold text-slate-900">
@@ -2621,7 +2627,7 @@ export default function CashierPage() {
                       className="h-10 w-full flex-1 rounded-xl bg-emerald-600 hover:bg-emerald-700"
                       onClick={printReceipt}
                     >
-                      <Printer className="ml-2 h-4 w-4" />
+                      <Printer className="ms-2 h-4 w-4" />
                       طباعة الإيصال
                     </Button>
                     <Button
@@ -2630,7 +2636,7 @@ export default function CashierPage() {
                       className="h-10 w-full flex-1 rounded-xl"
                       onClick={startNewOrder}
                     >
-                      <Plus className="ml-2 h-4 w-4" />
+                      <Plus className="ms-2 h-4 w-4" />
                       طلب جديد
                     </Button>
                   </div>
@@ -2643,7 +2649,7 @@ export default function CashierPage() {
                         onClick={() => void handleFullRefund(false)}
                         disabled={refundLoading}
                       >
-                        <RotateCcw className="ml-2 h-4 w-4" />
+                        <RotateCcw className="ms-2 h-4 w-4" />
                         استرجاع كامل
                       </Button>
                       <Button
@@ -2653,7 +2659,7 @@ export default function CashierPage() {
                         onClick={() => void handleFullRefund(true)}
                         disabled={refundLoading}
                       >
-                        <ArrowUpDown className="ml-2 h-4 w-4" />
+                        <ArrowUpDown className="ms-2 h-4 w-4" />
                         استبدال
                       </Button>
                       <Button
@@ -2663,7 +2669,7 @@ export default function CashierPage() {
                         onClick={openPartialRefundSheet}
                         disabled={refundLoading}
                       >
-                        <ClipboardList className="ml-2 h-4 w-4" />
+                        <ClipboardList className="ms-2 h-4 w-4" />
                         استرجاع جزئي
                       </Button>
                     </div>
@@ -2730,7 +2736,7 @@ export default function CashierPage() {
                               className="h-9 w-full rounded-lg sm:w-auto"
                               onClick={() => setCloseShiftDialog(true)}
                             >
-                              <Square className="ml-2 h-4 w-4" />
+                              <Square className="ms-2 h-4 w-4" />
                               إغلاق الجلسة
                             </Button>
                           ) : (
@@ -2739,7 +2745,7 @@ export default function CashierPage() {
                               className="h-9 w-full rounded-lg bg-emerald-600 hover:bg-emerald-700 sm:w-auto"
                               onClick={() => setOpenShiftDialog(true)}
                             >
-                              <Plus className="ml-2 h-4 w-4" />
+                              <Plus className="ms-2 h-4 w-4" />
                               فتح جلسة
                             </Button>
                           )
@@ -2837,7 +2843,7 @@ export default function CashierPage() {
 
                       {draftsLoading ? (
                         <div className="flex items-center justify-center py-4 text-sm text-muted-foreground">
-                          <Loader2 className="ml-2 h-4 w-4 animate-spin" />
+                          <Loader2 className="ms-2 h-4 w-4 animate-spin" />
                           جاري تحميل الطلبات المعلقة...
                         </div>
                       ) : posDrafts.length === 0 ? (
@@ -2954,14 +2960,14 @@ export default function CashierPage() {
                         }
                         disabled={cashierCopilotLoading}
                       >
-                        <Sparkles className="ml-1 h-4 w-4" />
+                        <Search className="ms-1 h-4 w-4" />
                         تحليل
                       </Button>
                     </div>
 
                     {cashierCopilotLoading ? (
                       <div className="flex items-center justify-center py-4 text-sm text-muted-foreground">
-                        <Loader2 className="ml-2 h-4 w-4 animate-spin" />
+                        <Loader2 className="ms-2 h-4 w-4 animate-spin" />
                         جاري تجهيز اقتراحات الكاشير...
                       </div>
                     ) : !cashierCopilotData ? (
@@ -3106,9 +3112,9 @@ export default function CashierPage() {
                                           disabled={isBusy}
                                         >
                                           {isBusy ? (
-                                            <Loader2 className="ml-1 h-3.5 w-3.5 animate-spin" />
+                                            <Loader2 className="ms-1 h-3.5 w-3.5 animate-spin" />
                                           ) : (
-                                            <CheckCircle2 className="ml-1 h-3.5 w-3.5" />
+                                            <CheckCircle2 className="ms-1 h-3.5 w-3.5" />
                                           )}
                                           اعتماد
                                         </Button>
@@ -3159,7 +3165,7 @@ export default function CashierPage() {
                             onClick={() => setCreateTableDialog(true)}
                             disabled={!selectedBranchId}
                           >
-                            <Plus className="ml-1 h-3.5 w-3.5" />
+                            <Plus className="ms-1 h-3.5 w-3.5" />
                             طاولة جديدة
                           </Button>
                           <Button
@@ -3410,7 +3416,7 @@ export default function CashierPage() {
                             >
                               <Plus className="h-3.5 w-3.5" />
                             </Button>
-                            <span className="mr-auto text-sm font-semibold text-slate-900">
+                            <span className="me-auto text-sm font-semibold text-slate-900">
                               {formatCurrency(item.quantity * item.unitPrice)}
                             </span>
                           </div>
@@ -3425,13 +3431,13 @@ export default function CashierPage() {
                         ابحث عن عميل موجود
                       </label>
                       <div className="relative">
-                        <UserRound className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                        <UserRound className="pointer-events-none absolute end-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                         <Input
                           value={customerSearch}
                           onChange={(event) =>
                             setCustomerSearch(event.target.value)
                           }
-                          className="h-9 rounded-lg pr-9"
+                          className="h-9 rounded-lg pe-9"
                           placeholder="اسم العميل أو رقم الهاتف"
                         />
                       </div>
@@ -3446,7 +3452,7 @@ export default function CashierPage() {
                               key={customer.customerId}
                               type="button"
                               onClick={() => applySelectedCustomer(customer)}
-                              className="w-full rounded-lg border bg-[var(--bg-surface-2)] px-3 py-2 text-right transition hover:border-[var(--accent-success)]/25 hover:bg-[var(--accent-success)]/10"
+                              className="w-full rounded-lg border bg-[var(--bg-surface-2)] px-3 py-2 text-start transition hover:border-[var(--accent-success)]/25 hover:bg-[var(--accent-success)]/10"
                             >
                               <div className="flex items-center justify-between gap-2">
                                 <div>
@@ -3623,7 +3629,7 @@ export default function CashierPage() {
                             className="h-7 w-full rounded-full px-2 text-xs sm:w-auto"
                             onClick={addPaymentEntry}
                           >
-                            <Plus className="ml-1 h-3.5 w-3.5" />
+                            <Plus className="ms-1 h-3.5 w-3.5" />
                             وسيلة أخرى
                           </Button>
                         </div>
@@ -3819,12 +3825,12 @@ export default function CashierPage() {
                       >
                         {checkoutLoading ? (
                           <>
-                            <Loader2 className="ml-2 h-4 w-4 animate-spin" />
+                            <Loader2 className="ms-2 h-4 w-4 animate-spin" />
                             جاري التنفيذ...
                           </>
                         ) : (
                           <>
-                            <CheckCircle2 className="ml-2 h-4 w-4" />
+                            <CheckCircle2 className="ms-2 h-4 w-4" />
                             تنفيذ الطلب
                           </>
                         )}
@@ -3860,7 +3866,7 @@ export default function CashierPage() {
 
                     {recentOrdersLoading ? (
                       <div className="flex items-center justify-center py-6 text-sm text-muted-foreground">
-                        <Loader2 className="ml-2 h-4 w-4 animate-spin" />
+                        <Loader2 className="ms-2 h-4 w-4 animate-spin" />
                         جاري تحميل آخر الطلبات...
                       </div>
                     ) : recentOrders.length === 0 ? (
@@ -3877,7 +3883,7 @@ export default function CashierPage() {
                             }
                             type="button"
                             onClick={() => void handleSelectRecentOrder(order)}
-                            className="w-full rounded-xl border px-3 py-2 text-right transition hover:border-emerald-300 hover:bg-emerald-50"
+                            className="w-full rounded-xl border px-3 py-2 text-start transition hover:border-emerald-300 hover:bg-emerald-50"
                           >
                             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                               <div>
@@ -3900,7 +3906,7 @@ export default function CashierPage() {
                                   </p>
                                 ) : null}
                               </div>
-                              <div className="text-right sm:text-left">
+                              <div className="text-start sm:text-left">
                                 <p className="text-sm font-semibold text-emerald-700">
                                   {formatCurrency(order.total)}
                                 </p>
@@ -4046,7 +4052,7 @@ export default function CashierPage() {
             >
               {openingShift ? (
                 <>
-                  <Loader2 className="ml-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="ms-2 h-4 w-4 animate-spin" />
                   جاري الفتح...
                 </>
               ) : (
@@ -4175,7 +4181,7 @@ export default function CashierPage() {
             >
               {closingShift ? (
                 <>
-                  <Loader2 className="ml-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="ms-2 h-4 w-4 animate-spin" />
                   جاري الإغلاق...
                 </>
               ) : (
@@ -4247,7 +4253,7 @@ export default function CashierPage() {
             >
               {creatingTable ? (
                 <>
-                  <Loader2 className="ml-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="ms-2 h-4 w-4 animate-spin" />
                   جاري الإنشاء...
                 </>
               ) : (
@@ -4339,7 +4345,7 @@ export default function CashierPage() {
             >
               {refundLoading ? (
                 <>
-                  <Loader2 className="ml-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="ms-2 h-4 w-4 animate-spin" />
                   جاري التنفيذ...
                 </>
               ) : (
@@ -4477,7 +4483,7 @@ export default function CashierPage() {
             >
               {tableActionLoading ? (
                 <>
-                  <Loader2 className="ml-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="ms-2 h-4 w-4 animate-spin" />
                   جاري التنفيذ...
                 </>
               ) : (

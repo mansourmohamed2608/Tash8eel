@@ -109,7 +109,7 @@ export default function SignupPage() {
           <div className="app-auth-card">
             <div className="space-y-6 p-8 sm:p-10">
               <div className="app-auth-form-head">
-                <div className="inline-flex h-14 w-14 items-center justify-center rounded-[18px] border border-[var(--border-default)] bg-[var(--bg-surface-2)] text-[var(--accent-gold)]">
+                <div className="inline-flex h-14 w-14 items-center justify-center rounded-[18px] border border-[var(--border-default)] bg-[var(--bg-surface-2)] text-[var(--color-brand-primary)]">
                   <Store className="h-7 w-7" />
                 </div>
                 <h1 className="text-[24px] font-bold">إنشاء حساب جديد</h1>
@@ -224,7 +224,7 @@ export default function SignupPage() {
                   <span>لديك حساب بالفعل؟ </span>
                   <Link
                     href="/login"
-                    className="font-semibold text-[var(--accent-gold)] hover:underline"
+                    className="font-semibold text-[var(--color-brand-primary)] hover:underline"
                   >
                     تسجيل الدخول
                   </Link>

@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { CardSkeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -442,8 +443,16 @@ export default function NotificationsPage() {
 
   if (loading && notifications.length === 0) {
     return (
-      <div className="flex h-96 items-center justify-center px-4 sm:px-6">
-        <RefreshCw className="w-8 h-8 animate-spin text-primary" />
+      <div className="space-y-6 p-4 sm:p-6">
+        <PageHeader
+          title="الإعدادات / الإشعارات"
+          description="تحميل قنوات التنبيه وتفضيلات التقارير."
+        />
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <CardSkeleton />
+          <CardSkeleton />
+          <CardSkeleton />
+        </div>
       </div>
     );
   }
@@ -452,9 +461,8 @@ export default function NotificationsPage() {
     <div className="container mx-auto space-y-6 p-4 sm:p-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <PageHeader
-          title="مركز الإشعارات"
-          titleEn="Notifications Center"
-          description="إدارة الإشعارات والتنبيهات"
+          title="الإعدادات / الإشعارات"
+          description="قنوات التنبيه، تفضيلات التقارير، والبث التشغيلي ضمن إعدادات النظام."
         />
         {unreadCount > 0 && (
           <Badge variant="destructive" className="text-lg px-3 py-1">

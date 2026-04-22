@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import { PageHeader } from "@/components/layout";
 import {
   Card,
@@ -405,8 +406,8 @@ export default function CustomerSegmentsPage() {
   return (
     <div className="space-y-6 p-4 sm:p-6">
       <PageHeader
-        title="شرائح العملاء المخصصة"
-        description="أنشئ شرائح بقواعد ذكية لاستهداف العملاء في حملاتك التسويقية"
+        title="الحملات والعملاء > شرائح العملاء"
+        description="سطح مساند للنمو: ابنِ جمهوراً قابلاً للمراجعة من بيانات الطلبات قبل الحملة أو المتابعة اليدوية."
         actions={
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
             <Button
@@ -437,9 +438,9 @@ export default function CustomerSegmentsPage() {
 
       <div className="flex flex-wrap gap-2">
         <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
-          <Users className="h-3.5 w-3.5 text-[var(--accent-gold)]" />
+          <Users className="h-3.5 w-3.5 text-[var(--color-brand-primary)]" />
           <span className="text-muted-foreground">عدد الشرائح</span>
-          <span className="font-mono text-[var(--accent-gold)]">
+          <span className="font-mono text-[var(--color-brand-primary)]">
             {segments.length}
           </span>
         </div>
@@ -452,6 +453,27 @@ export default function CustomerSegmentsPage() {
             {segments.reduce((sum, s) => sum + (s.customer_count || 0), 0)}
           </span>
         </div>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-2">
+        <Link
+          href="/merchant/customers"
+          className="rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-surface-1)] p-4 transition-colors hover:border-[var(--accent-blue)]/40 hover:bg-[var(--bg-surface-2)]"
+        >
+          <p className="text-sm font-medium">العملاء</p>
+          <p className="mt-1 text-xs leading-5 text-[var(--text-secondary)]">
+            راجع سجلات العملاء وخطر الخسارة قبل تعديل قواعد الشرائح.
+          </p>
+        </Link>
+        <Link
+          href="/merchant/campaigns"
+          className="rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-surface-1)] p-4 transition-colors hover:border-[var(--accent-blue)]/40 hover:bg-[var(--bg-surface-2)]"
+        >
+          <p className="text-sm font-medium">الحملات</p>
+          <p className="mt-1 text-xs leading-5 text-[var(--text-secondary)]">
+            استخدم الشرائح كمدخل للحملة، مع مراجعة جاهزية واتساب قبل الإرسال.
+          </p>
+        </Link>
       </div>
 
       {/* ─── Presets (empty state) ───────────────────────────── */}
@@ -932,8 +954,8 @@ export default function CustomerSegmentsPage() {
           </div>
 
           {previewLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            <div className="py-4">
+              <TableSkeleton rows={4} columns={4} />
             </div>
           ) : (
             <>

@@ -192,7 +192,7 @@ export default function AnalyticsPage() {
         <Badge variant="info">الفترة: {period}</Badge>
         <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
           <span className="text-muted-foreground">الإيراد المحقق</span>
-          <span className="font-mono text-[var(--accent-gold)]">
+          <span className="font-mono text-[var(--color-brand-primary)]">
             {formatCurrency(realizedPlatformRevenue)}
           </span>
         </div>
@@ -364,7 +364,7 @@ export default function AnalyticsPage() {
                                 className={cn(
                                   "w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold",
                                   index === 0
-                                    ? "bg-[var(--accent-gold)]/12 text-[var(--accent-gold)]"
+                                    ? "bg-[var(--color-brand-primary)]/12 text-[var(--color-brand-primary)]"
                                     : index === 1
                                       ? "bg-[var(--bg-surface-2)] text-[var(--text-secondary)]"
                                       : index === 2

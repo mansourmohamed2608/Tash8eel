@@ -138,7 +138,7 @@ export default function AdminDashboard() {
       <div className="flex flex-wrap gap-2">
         <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
           <span className="text-muted-foreground">صحة النظام</span>
-          <span className="font-mono text-[var(--accent-gold)]">
+          <span className="font-mono text-[var(--color-brand-primary)]">
             {metrics.systemHealth === "healthy"
               ? "مستقر"
               : metrics.systemHealth === "degraded"

@@ -36,7 +36,7 @@ export function OrdersTable() {
         </h2>
         <Link
           href="/merchant/orders"
-          className="text-[12px] text-[var(--accent-gold)] transition duration-150 ease-in hover:underline"
+          className="text-[12px] text-[var(--color-brand-primary)] transition duration-150 ease-in hover:underline"
         >
           عرض الكل
         </Link>
@@ -50,7 +50,7 @@ export function OrdersTable() {
               key: "id",
               header: "رقم الطلب",
               render: (order) => (
-                <span className="tash-latin text-[12px] text-[var(--accent-gold)]">
+                <span className="tash-latin text-[12px] text-[var(--color-brand-primary)]">
                   {order.id}
                 </span>
               ),

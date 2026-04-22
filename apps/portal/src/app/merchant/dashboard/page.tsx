@@ -1,60 +1,40 @@
 ﻿"use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import { PageHeader } from "@/components/layout";
-import { StatCard, KPIGrid } from "@/components/ui/stat-card";
 import { DashboardSkeleton } from "@/components/ui/skeleton";
-import { AreaChart, BarChart, PieChart } from "@/components/charts";
-import { DataTable } from "@/components/ui/data-table";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/alerts";
+import { MetricCell } from "@/components/ui/metric-cell";
+import {
+  ActionItem,
+  type ActionItemSeverity,
+} from "@/components/ui/action-item";
 import {
   ShoppingCart,
   MessageSquare,
-  TrendingUp,
-  Package,
   RefreshCw,
   AlertCircle,
   Wallet,
   Truck,
-  RotateCcw,
   AlertTriangle,
   DollarSign,
-  ArrowUpRight,
-  Lock,
-  Calendar,
+  CheckCircle2,
   Zap,
+  Store,
 } from "lucide-react";
-import {
-  formatCurrency,
-  formatRelativeTime,
-  getStatusColor,
-  getStatusLabel,
-  cn,
-} from "@/lib/utils";
+import { formatCurrency } from "@/lib/utils";
 import { merchantApi } from "@/lib/client";
 import portalApi from "@/lib/client";
 import { useMerchant } from "@/hooks/use-merchant";
 import {
-  AiInsightsCard,
   generateDashboardInsights,
+  type AiInsight,
 } from "@/components/ai/ai-insights-card";
-import {
-  getReportingDateRange,
-  REPORTING_PERIOD_OPTIONS,
-  getStoredReportingDays,
-  resolveReportingDays,
-  setStoredReportingDays,
-} from "@/lib/reporting-period";
+import { normalizePortalRole } from "@/lib/constants/navigation";
 
 interface DashboardData {
   stats: {
@@ -108,42 +88,122 @@ interface DashboardData {
 }
 
 const AGENT_LABELS: Record<string, string> = {
-  CHAT_AGENT: "وكيل المحادثات",
-  SALES_AGENT: "وكيل المبيعات",
-  FINANCE_AGENT: "وكيل الحسابات",
-  FOLLOWUP_AGENT: "وكيل المتابعات",
-  ORDERS_AGENT: "وكيل الطلبات",
-  VOICE_AGENT: "الوكيل الصوتي",
+  CHAT_AGENT: "محادثات",
+  SALES_AGENT: "مبيعات",
+  FINANCE_AGENT: "حسابات",
+  FOLLOWUP_AGENT: "متابعات",
+  ORDERS_AGENT: "طلبات",
+  VOICE_AGENT: "صوت",
 };
 
+function formatTrend(change?: number) {
+  if (change === undefined || Number.isNaN(change)) return undefined;
+  if (change === 0) return "بدون تغيير";
+  return `${change > 0 ? "+" : ""}${change.toFixed(0)}%`;
+}
+
+function getFreshness(updatedAt: Date | null) {
+  if (!updatedAt) return { label: "لم يتم التحديث", state: "old" as const };
+
+  const minutes = Math.max(
+    0,
+    Math.floor((Date.now() - updatedAt.getTime()) / 60000),
+  );
+
+  if (minutes < 1) return { label: "آخر تحديث: الآن", state: "fresh" as const };
+  if (minutes <= 5) {
+    return { label: `آخر تحديث: منذ ${minutes} د`, state: "fresh" as const };
+  }
+  if (minutes <= 30) {
+    return { label: `آخر تحديث: منذ ${minutes} د`, state: "stale" as const };
+  }
+  return { label: "بيانات قديمة", state: "old" as const };
+}
+
+function isEmptyDashboard(data: DashboardData, realizedRevenue: number) {
+  return (
+    data.stats.totalOrders === 0 &&
+    realizedRevenue === 0 &&
+    data.stats.activeConversations === 0 &&
+    data.stats.pendingDeliveries === 0 &&
+    data.recentOrders.length === 0
+  );
+}
+
+function SetupEmptyState() {
+  const steps = [
+    { label: "تم إنشاء المتجر", done: true },
+    { label: "تم ربط القنوات", done: true },
+    { label: "أول طلب لم يصل بعد", done: false },
+    { label: "المخزون لم يُضاف بعد", done: false },
+    { label: "الفريق لم يُدعَ بعد", done: false },
+  ];
+
+  return (
+    <Card className="app-data-card">
+      <CardContent className="p-6">
+        <div className="mb-4 inline-flex rounded-[var(--radius-sm)] border border-[var(--color-info-border)] bg-[var(--color-info-bg)] px-2 py-1 text-[var(--font-size-xs)] font-semibold text-[var(--color-info-text)]">
+          تجريبي
+        </div>
+        <EmptyState
+          icon={<Store className="h-7 w-7" />}
+          title="إعداد المتجر"
+          description="لا توجد بيانات تشغيل حقيقية بعد. أكمل الخطوات الأساسية لتبدأ لوحة التحكم في عرض مؤشرات يومية مفيدة."
+          action={
+            <div className="w-full max-w-md space-y-4 text-start">
+              <div>
+                <div className="flex items-center justify-between text-[var(--font-size-xs)] text-[var(--color-text-secondary)]">
+                  <span>3/5 خطوات مكتملة</span>
+                  <span>60%</span>
+                </div>
+                <div className="mt-2 h-2 rounded-full bg-[var(--color-neutral-bg)]">
+                  <div className="h-full w-[60%] rounded-full bg-[var(--color-brand-primary)]" />
+                </div>
+              </div>
+              <div className="space-y-2">
+                {steps.map((step) => (
+                  <div
+                    key={step.label}
+                    className="flex items-center gap-2 text-[var(--font-size-sm)]"
+                  >
+                    {step.done ? (
+                      <CheckCircle2 className="h-4 w-4 text-[var(--color-success-text)]" />
+                    ) : (
+                      <span className="h-4 w-4 rounded-full border border-[var(--color-border)]" />
+                    )}
+                    <span
+                      className={
+                        step.done
+                          ? "text-[var(--color-text-primary)]"
+                          : "text-[var(--color-text-secondary)]"
+                      }
+                    >
+                      {step.label}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <Button asChild className="w-full">
+                <Link href="/merchant/onboarding">اكمل الإعداد</Link>
+              </Button>
+            </div>
+          }
+        />
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function MerchantDashboard() {
+  const { data: session } = useSession();
   const { merchantId, apiKey, isDemo, merchant } = useMerchant();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<DashboardData | null>(null);
-  const [periodDays, setPeriodDays] = useState<number>(() =>
-    getStoredReportingDays(30),
-  );
-  const [subUsage, setSubUsage] = useState<{
-    tokensUsed: number;
-    tokenLimit: number;
-    tokenPct: number;
-    conversationsUsed: number;
-    conversationLimit: number;
-    conversationPct: number;
-    planName: string;
-    periodEnd: string | null;
-  } | null>(null);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
   const [aiBrief, setAiBrief] = useState<string | null>(null);
-  const effectivePeriodDays = useMemo(
-    () => resolveReportingDays(periodDays),
-    [periodDays],
-  );
-  const periodRange = useMemo(
-    () => getReportingDateRange(periodDays),
-    [periodDays],
-  );
+  const effectivePeriodDays = 1;
 
   // Resolve Pro access from plan and entitlements to avoid false downgrade when /me has partial payload
   const planUpper = (merchant?.plan || "").toUpperCase();
@@ -162,11 +222,6 @@ export default function MerchantDashboard() {
     enabledAgentsUpper.includes("FINANCE_AGENT") ||
     enabledFeaturesUpper.includes("KPI_DASHBOARD");
   const hasPro = hasProByPlan || hasProByEntitlements;
-  const hasFinance =
-    merchant?.features?.reports ||
-    hasPro ||
-    enabledFeaturesUpper.includes("REPORTS");
-
   const fetchDashboardData = useCallback(async () => {
     if (!merchantId || !apiKey) return;
 
@@ -178,13 +233,10 @@ export default function MerchantDashboard() {
         effectivePeriodDays,
       );
       setData(result);
-      // Fetch subscription usage and AI brief in background.
+      setLastUpdatedAt(new Date());
+      // Fetch subscription usage and the daily operating brief in background.
       // Skip in demo mode - no session → 401 → signOut redirect loop.
       if (!isDemo) {
-        portalApi
-          .getSubscriptionUsage()
-          .then((r) => setSubUsage(r))
-          .catch(() => null);
         portalApi
           .getCfoAiBrief()
           .then((r) => {
@@ -203,7 +255,7 @@ export default function MerchantDashboard() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [merchantId, apiKey, effectivePeriodDays]);
+  }, [merchantId, apiKey]);
 
   useEffect(() => {
     fetchDashboardData();
@@ -234,14 +286,14 @@ export default function MerchantDashboard() {
               <p className="font-medium text-[var(--text-primary)]">
                 خطأ في تحميل البيانات
               </p>
-              <p className="text-sm text-[color:rgba(244,244,245,0.72)]">
+              <p className="text-sm text-[var(--color-text-secondary)]">
                 تعذر تحميل بيانات لوحة التحكم حالياً. حاول مرة أخرى بعد قليل.
               </p>
             </div>
             <Button
               variant="outline"
               onClick={handleRefresh}
-              className="mr-auto"
+              className="me-auto"
             >
               إعادة المحاولة
             </Button>
@@ -251,84 +303,127 @@ export default function MerchantDashboard() {
     );
   }
 
-  const selectedPeriodLabel =
-    REPORTING_PERIOD_OPTIONS.find((option) => option.value === periodDays)
-      ?.label || `آخر ${periodDays} يوم`;
-  const selectedPeriodSummary =
-    periodDays === 365
-      ? `من ${periodRange.startDate.toLocaleDateString("ar-EG")} حتى ${periodRange.endDate.toLocaleDateString("ar-EG")}`
-      : selectedPeriodLabel;
   const realizedRevenue =
     data.stats.realizedRevenue ?? data.stats.totalRevenue ?? 0;
-  const bookedSales =
-    data.stats.bookedSales ??
-    data.premium?.financeSummary?.bookedSales ??
-    realizedRevenue;
-  const deliveredRevenue =
-    data.stats.deliveredRevenue ??
-    data.premium?.financeSummary?.deliveredRevenue ??
-    realizedRevenue;
   const pendingCollections =
     data.stats.pendingCollections ??
     data.premium?.financeSummary?.pendingCollections ??
     0;
-  const pendingOnline = data.premium?.financeSummary?.pendingOnline ?? 0;
-  const refundsAmount = data.premium?.financeSummary?.refundsAmount ?? 0;
-  const lastOrder = data.recentOrders[0];
-  const statusRail = [
-    {
-      label: "الطلبات النشطة",
-      value: `${data.stats.pendingDeliveries}`,
-    },
-    {
-      label: "المحادثات",
-      value: `${data.stats.activeConversations}`,
-    },
-    {
-      label: "المبيعات",
-      value: formatCurrency(realizedRevenue),
-    },
-    {
-      label: "نفد المخزون",
-      value: "3",
-    },
-    {
-      label: "COD معلق",
-      value: formatCurrency(pendingCollections),
-    },
-    {
-      label: "آخر طلب",
-      value: lastOrder ? formatRelativeTime(lastOrder.createdAt) : "لا يوجد",
-    },
-  ];
+  const freshness = getFreshness(lastUpdatedAt);
+  const normalizedRole = normalizePortalRole(session?.user?.role);
+  const canSeeBranchHealth =
+    normalizedRole === "owner" || normalizedRole === "admin";
+  const hasNoOperationalData = isEmptyDashboard(data, realizedRevenue);
+
+  const attentionItems: Array<{
+    severity: ActionItemSeverity;
+    title: string;
+    description?: string;
+    actionLabel: string;
+    actionHref: string;
+  }> = [
+    data.stats.pendingDeliveries > 0
+      ? {
+          severity: data.stats.pendingDeliveries > 5 ? "critical" : "warning",
+          title: `${data.stats.pendingDeliveries} توصيلات معلقة`,
+          description: "راجع الطلبات التي لم تغلق دورة التسليم بعد.",
+          actionLabel: "مراجعة",
+          actionHref: "/merchant/orders",
+        }
+      : null,
+    pendingCollections > 0
+      ? {
+          severity: "warning",
+          title: `تحصيلات COD معلقة بقيمة ${formatCurrency(pendingCollections)}`,
+          description: "تأخير التحصيل يؤثر على التدفق النقدي اليومي.",
+          actionLabel: "تسوية",
+          actionHref: "/merchant/payments/cod",
+        }
+      : null,
+    data.premium?.deliveryFailures?.count
+      ? {
+          severity: "critical",
+          title: `${data.premium.deliveryFailures.count} إخفاقات توصيل`,
+          description: "تحتاج متابعة مع شركة الشحن أو الفرع المسؤول.",
+          actionLabel: "مراجعة",
+          actionHref: "/merchant/orders",
+        }
+      : null,
+    data.premium?.financeSummary?.spendingAlert
+      ? {
+          severity: "warning",
+          title: "المصاريف تتجاوز الإيرادات",
+          description: "راجع المصروفات اليومية قبل نهاية الوردية.",
+          actionLabel: "المصاريف",
+          actionHref: "/merchant/expenses",
+        }
+      : null,
+    data.stats.activeConversations > 5
+      ? {
+          severity: "info",
+          title: `${data.stats.activeConversations} محادثات مفتوحة`,
+          description: "الرد السريع يحافظ على معدل التحويل.",
+          actionLabel: "فتح",
+          actionHref: "/merchant/conversations",
+        }
+      : null,
+  ].filter(Boolean) as Array<{
+    severity: ActionItemSeverity;
+    title: string;
+    description?: string;
+    actionLabel: string;
+    actionHref: string;
+  }>;
+
+  const systemActivities = [
+    aiBrief
+      ? {
+          label: "تم تجهيز تقرير التشغيل اليومي",
+          detail: "آخر موجز متاح للمالك والفريق.",
+        }
+      : null,
+    data.premium?.recoveredCarts?.count
+      ? {
+          label: `تم استرداد ${data.premium.recoveredCarts.count} سلات`,
+          detail: `قيمة مستردة ${formatCurrency(data.premium.recoveredCarts.revenue)}`,
+        }
+      : null,
+    enabledAgentsUpper.length > 0
+      ? {
+          label: `تعمل ${enabledAgentsUpper.length} قدرات تشغيلية حالياً`,
+          detail: enabledAgentsUpper
+            .slice(0, 3)
+            .map((agent) => AGENT_LABELS[agent] ?? agent)
+            .join("، "),
+        }
+      : null,
+    pendingCollections > 0
+      ? {
+          label: "تم تحديث متابعة التحصيل",
+          detail: `${formatCurrency(pendingCollections)} لا تزال قيد التسوية.`,
+        }
+      : null,
+  ].filter(Boolean) as Array<{ label: string; detail: string }>;
+
+  const recommendations = hasNoOperationalData
+    ? []
+    : generateDashboardInsights({
+        todayOrders: data.stats.totalOrders,
+        todayRevenue: realizedRevenue,
+        pendingOrders: data.stats.pendingDeliveries,
+        lowStockCount: 0,
+        unreadNotifications: 0,
+        activeConversations: data.stats.activeConversations,
+        periodLabel: "اليوم",
+      }).slice(0, 3);
 
   return (
-    <div className="space-y-8 animate-fadeIn">
+    <div className="space-y-6 pb-24 animate-fadeIn">
       <PageHeader
-        title="لوحة التحكم"
-        description="مركز العمليات اليومي للنشاط، من الأداء اللحظي حتى الإشارات التي تحتاج قراراً الآن."
+        title="الرئيسية"
+        description="فحص يومي سريع لصحة التشغيل وما يحتاج قراراً الآن."
         actions={
           <div className="flex items-center gap-2">
-            <Select
-              value={String(periodDays)}
-              onValueChange={(value) => {
-                const next = Number(value);
-                setPeriodDays(next);
-                setStoredReportingDays(next);
-              }}
-            >
-              <SelectTrigger className="w-40">
-                <Calendar className="h-4 w-4 ml-2" />
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {REPORTING_PERIOD_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={String(option.value)}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
             <Button
               variant="outline"
               onClick={handleRefresh}
@@ -343,519 +438,241 @@ export default function MerchantDashboard() {
         }
       />
 
-      {/* ── 1. AI / Agent Operational Status ── */}
-      <section className="space-y-3">
-        <div className="flex items-center gap-2 px-1">
-          <Zap className="h-3.5 w-3.5 text-[var(--accent-gold)]" />
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
-            حالة الذكاء الاصطناعي
-          </span>
-          {enabledAgentsUpper.length > 0 && (
-            <div className="flex items-center gap-1.5 mr-2">
-              {enabledAgentsUpper.slice(0, 5).map((agent) => (
-                <span
-                  key={agent}
-                  className="flex items-center gap-1 rounded-[4px] border border-[var(--accent-success)]/20 bg-[var(--accent-success)]/10 px-2 py-0.5 text-[10px] font-medium text-[var(--accent-success)]"
-                >
-                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--accent-success)]" />
-                  {AGENT_LABELS[agent] ?? agent}
-                </span>
+      {hasNoOperationalData ? <SetupEmptyState /> : null}
+
+      {!hasNoOperationalData ? (
+        <section className="overflow-hidden rounded-[var(--radius-base)] border border-[var(--color-border)] bg-[var(--color-surface)]">
+          <div className="grid gap-0 lg:grid-cols-4">
+            <MetricCell
+              icon={<Wallet className="h-4 w-4" />}
+              label="إيرادات اليوم"
+              value={formatCurrency(realizedRevenue)}
+              trend={formatTrend(data.stats.revenueChange)}
+              freshness={freshness.label}
+              freshnessState={freshness.state}
+            />
+            <MetricCell
+              icon={<ShoppingCart className="h-4 w-4" />}
+              label="الطلبات النشطة"
+              value={data.stats.pendingDeliveries}
+              trend={formatTrend(data.stats.ordersChange)}
+              freshness={freshness.label}
+              freshnessState={freshness.state}
+            />
+            <MetricCell
+              icon={<MessageSquare className="h-4 w-4" />}
+              label="محادثات مفتوحة"
+              value={data.stats.activeConversations}
+              trend={formatTrend(data.stats.conversationsChange)}
+              freshness={freshness.label}
+              freshnessState={freshness.state}
+            />
+            <MetricCell
+              icon={<Truck className="h-4 w-4" />}
+              label="توصيلات معلقة"
+              value={data.stats.pendingDeliveries}
+              trend={formatTrend(data.stats.deliveriesChange)}
+              freshness={freshness.label}
+              freshnessState={freshness.state}
+            />
+          </div>
+        </section>
+      ) : null}
+
+      {!hasNoOperationalData ? (
+        <section className="space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-[var(--font-size-base)] font-semibold text-[var(--color-text-primary)]">
+              يحتاج انتباهك
+            </h2>
+            {attentionItems.length > 5 ? (
+              <Button asChild variant="ghost" size="sm">
+                <Link href="/merchant/notifications">عرض جميع الإجراءات</Link>
+              </Button>
+            ) : null}
+          </div>
+          {attentionItems.length > 0 ? (
+            <div className="space-y-2">
+              {attentionItems.slice(0, 5).map((item) => (
+                <ActionItem
+                  key={item.title}
+                  severity={item.severity}
+                  title={item.title}
+                  description={item.description}
+                  time={freshness.label.replace("آخر تحديث: ", "")}
+                  actionLabel={item.actionLabel}
+                  actionHref={item.actionHref}
+                />
               ))}
             </div>
-          )}
-        </div>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          {/* Subscription Usage Bar */}
-          <Card className="app-data-card">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <TrendingUp className="h-4 w-4 text-[var(--accent-blue)]" />
-                استخدام الخطة الحالية
-                {subUsage && (
-                  <Badge variant="outline" className="text-xs mr-auto">
-                    {subUsage.planName}
-                  </Badge>
-                )}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {subUsage ? (
-                <>
-                  <div>
-                    <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                      <span>الرسائل (توكن AI)</span>
-                      <span>
-                        {subUsage.tokensUsed.toLocaleString()} /{" "}
-                        {subUsage.tokenLimit.toLocaleString()}
-                      </span>
-                    </div>
-                    <div className="h-2 rounded-full bg-muted overflow-hidden">
-                      <div
-                        className={`h-full rounded-full transition-all ${
-                          subUsage.tokenPct >= 90
-                            ? "bg-[var(--accent-danger)]"
-                            : subUsage.tokenPct >= 70
-                              ? "bg-[var(--accent-warning)]"
-                              : "bg-[var(--accent-blue)]"
-                        }`}
-                        style={{
-                          width: `${Math.min(subUsage.tokenPct, 100)}%`,
-                        }}
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                      <span>المحادثات هذا الشهر</span>
-                      <span>
-                        {subUsage.conversationsUsed} /{" "}
-                        {subUsage.conversationLimit}
-                      </span>
-                    </div>
-                    <div className="h-2 rounded-full bg-muted overflow-hidden">
-                      <div
-                        className={`h-full rounded-full transition-all ${
-                          subUsage.conversationPct >= 90
-                            ? "bg-[var(--accent-danger)]"
-                            : subUsage.conversationPct >= 70
-                              ? "bg-[var(--accent-warning)]"
-                              : "bg-[var(--accent-success)]"
-                        }`}
-                        style={{
-                          width: `${Math.min(subUsage.conversationPct, 100)}%`,
-                        }}
-                      />
-                    </div>
-                  </div>
-                  {subUsage.periodEnd && (
-                    <p className="text-xs text-muted-foreground">
-                      تجديد الخطة:{" "}
-                      {new Date(subUsage.periodEnd).toLocaleDateString("ar-EG")}
-                    </p>
-                  )}
-                </>
-              ) : (
-                <div className="h-16 flex items-center justify-center text-xs text-muted-foreground animate-pulse">
-                  جارٍ تحميل بيانات الاستخدام...
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Daily AI Brief */}
-          <Card className="app-data-card border-[color:rgba(59,130,246,0.22)]">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <DollarSign className="h-4 w-4 text-[var(--accent-blue)]" />
-                تقرير AI اليومي
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {aiBrief ? (
-                <p
-                  className="text-sm text-muted-foreground leading-relaxed"
-                  dir="rtl"
-                >
-                  {aiBrief}
-                </p>
-              ) : (
-                <div className="h-16 flex items-center justify-center text-xs text-muted-foreground">
-                  {hasPro ? (
-                    <span className="animate-pulse">
-                      يجهز الذكاء الاصطناعي تقريره اليومي...
-                    </span>
-                  ) : (
-                    <Link
-                      href="/merchant/billing"
-                      className="text-primary hover:underline flex items-center gap-1"
-                    >
-                      ترقية للخطة الاحترافية{" "}
-                      <ArrowUpRight className="h-3 w-3" />
-                    </Link>
-                  )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      </section>
-
-      {/* ── 2. Live Operations Pulse ── */}
-      <section className="overflow-hidden rounded-[var(--radius-md)] border border-[var(--border-subtle)] border-r-2 border-r-[var(--accent-gold)] bg-[var(--bg-surface-2)]">
-        <div className="grid gap-0 lg:grid-cols-6">
-          {statusRail.map((item, index) => (
-            <div
-              key={item.label}
-              className={cn(
-                "flex min-h-12 items-center justify-between gap-3 px-4 py-3",
-                index !== statusRail.length - 1 &&
-                  "border-b border-[var(--border-subtle)] lg:border-b-0 lg:border-l",
-              )}
-            >
-              <span className="text-[11px] text-[var(--text-muted)]">
-                {item.label}
-              </span>
-              <strong className="font-mono text-[14px] font-bold text-[var(--accent-gold)]">
-                {item.value}
-              </strong>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* AI Dashboard Insights */}
-      <AiInsightsCard
-        title="مساعد الذكاء الاصطناعي"
-        insights={generateDashboardInsights({
-          todayOrders: data.stats.totalOrders,
-          todayRevenue: realizedRevenue,
-          pendingOrders: data.stats.pendingDeliveries,
-          lowStockCount: 0,
-          unreadNotifications: 0,
-          activeConversations: data.stats.activeConversations,
-          periodLabel: selectedPeriodSummary,
-        })}
-      />
-
-      {/* KPI Cards */}
-      <KPIGrid>
-        <StatCard
-          title="إجمالي الطلبات"
-          value={data.stats.totalOrders}
-          change={data.stats.ordersChange}
-          changeLabel="من الفترة السابقة"
-          icon={<ShoppingCart className="h-5 w-5" />}
-        />
-        <StatCard
-          title="إجمالي الإيرادات المحققة"
-          value={formatCurrency(realizedRevenue)}
-          change={data.stats.revenueChange}
-          changeLabel="من الفترة السابقة"
-          icon={<TrendingUp className="h-5 w-5" />}
-        />
-        <StatCard
-          title="المحادثات النشطة"
-          value={data.stats.activeConversations}
-          change={data.stats.conversationsChange}
-          changeLabel="من الفترة السابقة"
-          icon={<MessageSquare className="h-5 w-5" />}
-        />
-        <StatCard
-          title="التوصيلات المعلقة"
-          value={data.stats.pendingDeliveries}
-          change={data.stats.deliveriesChange}
-          changeLabel="من الفترة السابقة"
-          icon={<Package className="h-5 w-5" />}
-        />
-      </KPIGrid>
-
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Card className="app-data-card">
-          <CardContent className="p-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="min-w-0">
-                <p className="text-sm text-muted-foreground">
-                  إجمالي المبيعات المحجوزة
-                </p>
-                <p className="mt-2 text-2xl font-bold">
-                  {formatCurrency(bookedSales)}
-                </p>
-              </div>
-              <Wallet className="h-5 w-5 text-[var(--accent-blue)]" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="app-data-card">
-          <CardContent className="p-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="min-w-0">
-                <p className="text-sm text-muted-foreground">
-                  الإيراد من الطلبات المسلّمة
-                </p>
-                <p className="mt-2 text-2xl font-bold">
-                  {formatCurrency(deliveredRevenue)}
-                </p>
-              </div>
-              <Truck className="h-5 w-5 text-[var(--accent-success)]" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="app-data-card">
-          <CardContent className="p-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="min-w-0">
-                <p className="text-sm text-muted-foreground">
-                  مبالغ قيد التحصيل
-                </p>
-                <p className="mt-2 text-2xl font-bold">
-                  {formatCurrency(pendingCollections)}
-                </p>
-                {pendingOnline > 0 ? (
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    منها {formatCurrency(pendingOnline)} دفع إلكتروني قيد
-                    المعالجة
-                  </p>
-                ) : null}
-              </div>
-              <DollarSign className="h-5 w-5 text-[var(--accent-warning)]" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="app-data-card">
-          <CardContent className="p-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="min-w-0">
-                <p className="text-sm text-muted-foreground">مرتجعات الفترة</p>
-                <p className="mt-2 text-2xl font-bold">
-                  {formatCurrency(refundsAmount)}
-                </p>
-              </div>
-              <RotateCcw className="h-5 w-5 text-[var(--accent-danger)]" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Premium Insights Row */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        {/* Recovered Carts Card */}
-        <Card className={cn("app-data-card", !hasPro && "opacity-60")}>
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <RotateCcw className="h-4 w-4 text-[var(--accent-success)]" />
-                السلات المستردة
-              </CardTitle>
-              {!hasPro && <Lock className="h-4 w-4 text-muted-foreground" />}
-            </div>
-          </CardHeader>
-          <CardContent>
-            {!hasPro ? (
-              <div className="text-sm text-muted-foreground">
-                <Link
-                  href="/merchant/billing"
-                  className="text-primary hover:underline flex items-center gap-1"
-                >
-                  ترقية للخطة الاحترافية <ArrowUpRight className="h-3 w-3" />
-                </Link>
-              </div>
-            ) : data.premium ? (
-              <div className="space-y-1">
-                <p className="text-2xl font-bold text-[var(--accent-success)]">
-                  {data.premium.recoveredCarts.count}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  قيمة {formatCurrency(data.premium.recoveredCarts.revenue)}
-                </p>
-              </div>
-            ) : (
-              <div className="text-sm text-muted-foreground space-y-1">
-                <p>بيانات السلات المستردة قيد التحديث.</p>
-                <p className="text-xs">تحقق من الإعدادات أو أعد التحديث.</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Delivery Failures Card */}
-        <Card className={cn("app-data-card", !hasPro && "opacity-60")}>
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <Truck className="h-4 w-4 text-[var(--accent-danger)]" />
-                إخفاقات التوصيل
-              </CardTitle>
-              {!hasPro && <Lock className="h-4 w-4 text-muted-foreground" />}
-            </div>
-          </CardHeader>
-          <CardContent>
-            {!hasPro ? (
-              <div className="text-sm text-muted-foreground">
-                <Link
-                  href="/merchant/billing"
-                  className="text-primary hover:underline flex items-center gap-1"
-                >
-                  ترقية للخطة الاحترافية <ArrowUpRight className="h-3 w-3" />
-                </Link>
-              </div>
-            ) : data.premium ? (
-              <div className="space-y-2">
-                <p className="text-2xl font-bold text-[var(--accent-danger)]">
-                  {data.premium.deliveryFailures.count}
-                </p>
-                {data.premium.deliveryFailures.reasons.length > 0 && (
-                  <div className="text-xs text-muted-foreground space-y-1">
-                    {data.premium.deliveryFailures.reasons
-                      .slice(0, 2)
-                      .map((r, i) => (
-                        <div
-                          key={i}
-                          className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between"
-                        >
-                          <span>{r.reason}</span>
-                          <Badge variant="secondary" className="text-xs">
-                            {r.count}
-                          </Badge>
-                        </div>
-                      ))}
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="text-sm text-muted-foreground space-y-1">
-                <p>بيانات إخفاقات التوصيل قيد التحديث.</p>
-                <p className="text-xs">تحقق من الإعدادات أو أعد التحديث.</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Finance Summary Card */}
-        <Card className={cn("app-data-card", !hasFinance && "opacity-60")}>
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <Wallet className="h-4 w-4 text-[var(--accent-blue)]" />
-                ملخص مالي
-              </CardTitle>
-              {!hasFinance && (
-                <Lock className="h-4 w-4 text-muted-foreground" />
-              )}
-            </div>
-          </CardHeader>
-          <CardContent>
-            {!hasFinance ? (
-              <div className="text-sm text-muted-foreground">
-                <Link
-                  href="/merchant/billing"
-                  className="text-primary hover:underline flex items-center gap-1"
-                >
-                  ترقية للخطة الاحترافية <ArrowUpRight className="h-3 w-3" />
-                </Link>
-              </div>
-            ) : data.premium ? (
-              <div className="space-y-2">
-                <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                  <span className="text-xs text-muted-foreground">
-                    الربح التقديري
-                  </span>
-                  <span className="font-semibold text-[var(--accent-success)]">
-                    {formatCurrency(data.premium.financeSummary.profitEstimate)}
-                  </span>
-                </div>
-                <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                  <span className="text-xs text-muted-foreground">
-                    COD معلق
-                  </span>
-                  <span className="font-medium">
-                    {formatCurrency(data.premium.financeSummary.codPending)}
-                  </span>
-                </div>
-                {data.premium.financeSummary.spendingAlert && (
-                  <div className="flex items-center gap-1 text-xs text-[var(--accent-warning)]">
-                    <AlertTriangle className="h-3 w-3" />
-                    <span>تنبيه: المصاريف تتجاوز الإيرادات</span>
-                  </div>
-                )}
-                <div className="flex justify-between items-center">
-                  <span className="text-xs text-muted-foreground">
-                    هامش الربح
-                  </span>
-                  <Badge
-                    variant={
-                      data.premium.financeSummary.grossMargin > 20
-                        ? "default"
-                        : "destructive"
-                    }
-                    className="text-xs"
-                  >
-                    {data.premium.financeSummary.grossMargin.toFixed(1)}%
-                  </Badge>
-                </div>
-              </div>
-            ) : (
-              <div className="text-sm text-muted-foreground space-y-1">
-                <p>الملخص المالي قيد التحديث.</p>
-                <p className="text-xs">
-                  تحقق من إعدادات المصروفات أو أعد التحديث.
-                </p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <AreaChart
-          data={data.revenueByDay}
-          title="الإيرادات خلال الفترة"
-          color="#3b82f6"
-        />
-        <BarChart
-          data={data.ordersByDay}
-          title="حالة الطلبات"
-          bars={[
-            { dataKey: "completed", color: "#22c55e", name: "مكتمل" },
-            { dataKey: "pending", color: "#f59e0b", name: "معلق" },
-            { dataKey: "cancelled", color: "#ef4444", name: "ملغي" },
-          ]}
-        />
-      </div>
-
-      {/* Second Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-base font-medium">
-                آخر الطلبات
-              </CardTitle>
-              <Button variant="ghost" size="sm">
-                <Link href="/merchant/orders">عرض الكل</Link>
-              </Button>
-            </CardHeader>
-            <CardContent className="p-0">
-              {data.recentOrders.length > 0 ? (
-                <DataTable
-                  data={data.recentOrders}
-                  columns={[
-                    { key: "id", header: "رقم الطلب" },
-                    { key: "customer", header: "العميل" },
-                    {
-                      key: "total",
-                      header: "المبلغ",
-                      render: (item) => formatCurrency(item.total),
-                    },
-                    {
-                      key: "status",
-                      header: "الحالة",
-                      render: (item) => (
-                        <Badge className={getStatusColor(item.status)}>
-                          {getStatusLabel(item.status)}
-                        </Badge>
-                      ),
-                    },
-                    {
-                      key: "createdAt",
-                      header: "التاريخ",
-                      render: (item) => formatRelativeTime(item.createdAt),
-                    },
-                  ]}
+          ) : (
+            <Card className="app-data-card">
+              <CardContent className="p-4">
+                <EmptyState
+                  icon={<CheckCircle2 className="h-6 w-6" />}
+                  title="لا توجد إجراءات عاجلة الآن"
+                  description="كل المؤشرات التشغيلية المتاحة لا تحتاج تدخلاً فورياً. راقب التحديث التالي قبل نهاية الوردية."
+                  className="py-8"
                 />
-              ) : (
-                <div className="p-8 text-center text-muted-foreground">
-                  لا توجد طلبات بعد
-                </div>
-              )}
+              </CardContent>
+            </Card>
+          )}
+        </section>
+      ) : null}
+
+      <section className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
+        <Card className="app-data-card">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Zap className="h-4 w-4 text-[var(--color-brand-primary)]" />
+              النظام عمل لك
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {systemActivities.length > 0 ? (
+              <div className="space-y-3">
+                {systemActivities.map((activity) => (
+                  <div key={activity.label} className="flex items-start gap-3">
+                    <span className="mt-0.5 inline-flex h-7 w-7 items-center justify-center rounded-full bg-[var(--color-success-bg)] text-[var(--color-success-text)]">
+                      <CheckCircle2 className="h-4 w-4" />
+                    </span>
+                    <div>
+                      <p className="text-sm font-medium">{activity.label}</p>
+                      <p className="mt-1 text-xs text-[var(--color-text-secondary)]">
+                        {activity.detail}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-[var(--color-text-secondary)]">
+                لا يوجد نشاط آلي مسجل خلال آخر 24 ساعة.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="app-data-card">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <DollarSign className="h-4 w-4 text-[var(--color-brand-primary)]" />
+              تقرير التشغيل اليومي
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {aiBrief ? (
+              <p className="text-sm leading-7 text-[var(--color-text-secondary)]">
+                {aiBrief}
+              </p>
+            ) : (
+              <p className="text-sm text-[var(--color-text-secondary)]">
+                {hasPro
+                  ? "يتم تجهيز تقرير التشغيل اليومي عند توفر بيانات كافية."
+                  : "يتوفر تقرير التشغيل اليومي ضمن باقات التشغيل الكاملة."}
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      </section>
+
+      {canSeeBranchHealth ? (
+        <section className="space-y-3">
+          <h2 className="text-[var(--font-size-base)] font-semibold text-[var(--color-text-primary)]">
+            صحة الفروع
+          </h2>
+          <Card className="app-data-card">
+            <CardContent className="p-4">
+              <EmptyState
+                icon={<Store className="h-6 w-6" />}
+                title="بيانات الفروع التفصيلية غير جاهزة هنا"
+                description="لا نعرض أرقاماً تقديرية. افتح صفحة الفروع لمراجعة البيانات المتاحة أو اربط الفروع لتظهر صحة كل فرع في هذه المساحة."
+                action={
+                  <Button asChild variant="outline">
+                    <Link href="/merchant/branches">فتح الفروع</Link>
+                  </Button>
+                }
+                className="py-8"
+              />
             </CardContent>
           </Card>
+        </section>
+      ) : null}
+
+      {!hasNoOperationalData ? (
+        <section className="space-y-3">
+          <h2 className="text-[var(--font-size-base)] font-semibold text-[var(--color-text-primary)]">
+            توصيات مقترحة
+          </h2>
+          {recommendations.length > 0 ? (
+            <div className="grid gap-3 lg:grid-cols-3">
+              {recommendations.map((insight: AiInsight) => (
+                <Card
+                  key={insight.id}
+                  className="border-[var(--color-ai-border)] bg-[var(--color-ai-bg)]"
+                >
+                  <CardContent className="space-y-3 p-4">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="mt-0.5 h-4 w-4 text-[var(--color-ai-icon)]" />
+                      <div>
+                        <p className="text-sm font-semibold text-[var(--color-ai-text)]">
+                          {insight.title}
+                        </p>
+                        <p className="mt-1 text-xs leading-6 text-[var(--color-ai-text)]/85">
+                          {insight.description}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between gap-2 text-xs text-[var(--color-ai-text)]">
+                      <span>مصدرها: بيانات تشغيل اليوم</span>
+                      <span>{freshness.label}</span>
+                    </div>
+                    {insight.actionLabel && insight.actionHref ? (
+                      <Button
+                        asChild
+                        size="sm"
+                        variant="outline"
+                        className="bg-white/60"
+                      >
+                        <Link href={insight.actionHref}>
+                          {insight.actionLabel}
+                        </Link>
+                      </Button>
+                    ) : null}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <Card className="app-data-card">
+              <CardContent className="p-4">
+                <EmptyState
+                  icon={<AlertTriangle className="h-6 w-6" />}
+                  title="لا توجد توصية تشغيلية الآن"
+                  description="لا توجد إشارة كافية لإجراء مقترح. ستظهر التوصيات عندما تتغير الطلبات أو المحادثات أو التحصيلات."
+                  className="py-8"
+                />
+              </CardContent>
+            </Card>
+          )}
+        </section>
+      ) : null}
+
+      <div className="sticky bottom-4 z-20 rounded-[var(--radius-base)] border border-[var(--color-border)] bg-[var(--color-surface)] p-2 shadow-[var(--shadow-lg)]">
+        <div className="grid gap-2 sm:grid-cols-4">
+          <Button asChild>
+            <Link href="/merchant/orders">+ طلب جديد</Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link href="/merchant/cashier">جلسة كاشير</Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link href="/merchant/conversations">محادثة جديدة</Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link href="/merchant/reports">تقرير اليوم</Link>
+          </Button>
         </div>
-        <PieChart
-          data={data.statusDistribution}
-          title="توزيع حالات الطلبات"
-          height={250}
-        />
       </div>
     </div>
   );

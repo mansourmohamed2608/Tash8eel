@@ -38,7 +38,7 @@ import { useRoleAccess } from "@/hooks/use-role-access";
 
 const CATEGORIES = [
   { value: "FEATURE", label: "ميزة" },
-  { value: "AGENT", label: "وكيل ذكاء" },
+  { value: "AGENT", label: "قدرة تشغيلية" },
   { value: "INTEGRATION", label: "تكامل" },
   { value: "UX", label: "تحسين واجهة" },
   { value: "QUOTE", label: "عرض سعر" },
@@ -287,9 +287,9 @@ export default function FeatureRequestsPage() {
 
       <div className="flex flex-wrap gap-2">
         <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
-          <Lightbulb className="h-3.5 w-3.5 text-[var(--accent-gold)]" />
+          <Lightbulb className="h-3.5 w-3.5 text-[var(--color-brand-primary)]" />
           <span className="text-muted-foreground">الاقتراحات</span>
-          <span className="font-mono text-[var(--accent-gold)]">
+          <span className="font-mono text-[var(--color-brand-primary)]">
             {requests.length}
           </span>
         </div>
@@ -332,7 +332,7 @@ export default function FeatureRequestsPage() {
             <EmptyState
               icon={<Lightbulb className="h-12 w-12" />}
               title="لا توجد اقتراحات بعد"
-              description="شاركنا أفكارك حول الميزات أو الوكلاء الذين تحتاجهم"
+              description="شاركنا أفكارك حول الميزات أو القدرات التي تحتاجها"
               action={
                 <Button onClick={() => setShowDialog(true)}>
                   <Plus className="h-4 w-4 ml-2" />
@@ -425,7 +425,7 @@ export default function FeatureRequestsPage() {
                             {quote.title || "عرض سعر مخصص"}
                           </CardTitle>
                           <CardDescription>
-                            {agentsCount} وكلاء • {featuresCount} ميزات
+                            {agentsCount} قدرات • {featuresCount} ميزات
                             {quotedPrice
                               ? ` • السعر المقترح: ${quotedPrice}`
                               : ""}
@@ -559,7 +559,7 @@ export default function FeatureRequestsPage() {
               <Input
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="مثال: وكيل متابعة العملاء"
+                placeholder="مثال: قدرة متابعة العملاء"
               />
             </div>
             <div className="space-y-2">

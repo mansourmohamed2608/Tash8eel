@@ -69,7 +69,7 @@ function ToastNotification({
         {notification.action && (
           <a
             href={notification.action.url}
-            className="mt-2 inline-block text-xs text-[var(--accent-gold)] hover:underline"
+            className="mt-2 inline-block text-xs text-[var(--color-brand-primary)] hover:underline"
           >
             {notification.action.label} ←
           </a>

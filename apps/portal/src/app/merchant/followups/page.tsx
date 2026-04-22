@@ -68,7 +68,8 @@ const FOLLOWUP_CONFIG: Record<
   },
   delivery_check: {
     label: "التحقق من التسليم",
-    color: "bg-[var(--accent-gold)]/12 text-[var(--accent-gold)]",
+    color:
+      "bg-[var(--color-brand-primary)]/12 text-[var(--color-brand-primary)]",
     icon: Truck,
     description: "طلبات مشحونة منذ 5+ أيام بدون تحديث",
   },
@@ -257,7 +258,7 @@ export default function FollowupsPage() {
             className={cn(
               "inline-flex h-9 items-center gap-2 rounded-[var(--radius-sm)] border px-3 text-xs font-semibold transition-colors",
               activeTab === item.id
-                ? "border-[var(--accent-gold)] bg-[var(--accent-gold)] text-[#0A0A0B]"
+                ? "border-[var(--color-brand-primary)] bg-[var(--color-brand-primary)] text-[var(--color-brand-on-primary)]"
                 : "border-[var(--border-default)] bg-[var(--bg-surface-1)] text-[var(--text-secondary)] hover:border-[var(--border-active)] hover:text-[var(--text-primary)]",
             )}
           >

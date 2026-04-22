@@ -177,7 +177,7 @@ export function InventoryTable({
                         size="sm"
                         onClick={() => onGenerateAiDesc(item)}
                       >
-                        <Sparkles className="h-4 w-4 text-[var(--accent-gold)]" />
+                        <Sparkles className="h-4 w-4 text-[var(--color-brand-primary)]" />
                         وصف ذكي
                       </Button>
                     )}
@@ -469,7 +469,7 @@ export function InventoryTable({
                                 onGenerateAiDesc(item);
                               }}
                             >
-                              <Sparkles className="h-4 w-4 text-[var(--accent-gold)]" />
+                              <Sparkles className="h-4 w-4 text-[var(--color-brand-primary)]" />
                             </Button>
                           )}
                           {canDelete && (

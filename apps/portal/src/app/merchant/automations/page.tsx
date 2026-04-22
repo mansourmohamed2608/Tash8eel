@@ -26,7 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { LoadingState } from "@/components/ui/alerts";
+import { TableSkeleton } from "@/components/ui/skeleton";
 import {
   Loader2,
   RefreshCw,
@@ -40,7 +40,6 @@ import {
   CheckCircle,
   XCircle,
   AlertCircle,
-  Zap,
   TrendingDown,
   FileText,
   Gift,
@@ -54,7 +53,6 @@ import {
   ShieldAlert,
   RotateCcw,
   BarChart2,
-  Brain,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import portalApi from "@/lib/client";
@@ -91,7 +89,9 @@ const ICONS: Record<string, React.ReactNode> = {
   REENGAGEMENT_AUTO: (
     <MessageSquare className="h-5 w-5 text-[color:var(--accent-blue)]" />
   ),
-  REVIEW_REQUEST: <Star className="h-5 w-5 text-[color:var(--accent-gold)]" />,
+  REVIEW_REQUEST: (
+    <Star className="h-5 w-5 text-[color:var(--color-brand-primary)]" />
+  ),
   NEW_CUSTOMER_WELCOME: (
     <UserPlus className="h-5 w-5 text-[color:var(--accent-success)]" />
   ),
@@ -103,7 +103,7 @@ const ICONS: Record<string, React.ReactNode> = {
     <FileText className="h-5 w-5 text-[color:var(--accent-blue)]" />
   ),
   LOYALTY_MILESTONE: (
-    <Gift className="h-5 w-5 text-[color:var(--accent-gold)]" />
+    <Gift className="h-5 w-5 text-[color:var(--color-brand-primary)]" />
   ),
   EXPENSE_SPIKE_ALERT: (
     <TrendingUp className="h-5 w-5 text-[color:var(--accent-danger)]" />
@@ -115,14 +115,16 @@ const ICONS: Record<string, React.ReactNode> = {
     <Cpu className="h-5 w-5 text-[color:var(--text-secondary)]" />
   ),
   AI_ANOMALY_DETECTION: (
-    <Brain className="h-5 w-5 text-[color:var(--accent-blue)]" />
+    <BarChart2 className="h-5 w-5 text-[color:var(--accent-blue)]" />
   ),
   SEASONAL_STOCK_PREP: (
     <CalendarDays className="h-5 w-5 text-[color:var(--accent-success)]" />
   ),
   SENTIMENT_MONITOR: <MessageCircle className="h-5 w-5 text-[color:#fca5a5]" />,
   LEAD_SCORE: <Target className="h-5 w-5 text-[color:#93c5fd]" />,
-  AUTO_VIP_TAG: <Crown className="h-5 w-5 text-[color:var(--accent-gold)]" />,
+  AUTO_VIP_TAG: (
+    <Crown className="h-5 w-5 text-[color:var(--color-brand-primary)]" />
+  ),
   AT_RISK_TAG: (
     <ShieldAlert className="h-5 w-5 text-[color:var(--accent-warning)]" />
   ),
@@ -434,11 +436,10 @@ function ConfigFields({
 
   if (type === "AI_ANOMALY_DETECTION") {
     return (
-      <div className="text-sm text-muted-foreground p-3 rounded-lg bg-violet-50 border border-violet-100">
-        <Brain className="w-4 h-4 inline ml-2 text-violet-500" />
-        يحلل الذكاء الاصطناعي أرقام أمس مقارنةً بالمتوسط الشهري ويرسل تنبيهاً
-        فورياً إذا رصد انحرافاً حرجاً في الإيرادات أو الطلبات. لا يحتاج إعداداً
-        إضافياً.
+      <div className="rounded-lg border border-[color:rgba(59,130,246,0.2)] bg-[color:rgba(59,130,246,0.06)] p-3 text-sm text-muted-foreground">
+        <BarChart2 className="ml-2 inline h-4 w-4 text-[color:var(--accent-blue)]" />
+        يراجع أرقام أمس مقارنةً بالمتوسط الشهري ويرسل تنبيهاً فورياً إذا رصد
+        انحرافاً حرجاً في الإيرادات أو الطلبات. لا يحتاج إعداداً إضافياً.
       </div>
     );
   }
@@ -606,6 +607,103 @@ const INTERVAL_OPTIONS = [
   { value: 168, label: "أسبوعياً" },
 ];
 
+const CATEGORY_ORDER = [
+  "المخزون والتوريد",
+  "العملاء والنمو",
+  "العمليات والتوصيل",
+  "المالية والحوكمة",
+] as const;
+
+function categoryForAutomation(type: string): (typeof CATEGORY_ORDER)[number] {
+  if (["SUPPLIER_LOW_STOCK", "SEASONAL_STOCK_PREP"].includes(type)) {
+    return "المخزون والتوريد";
+  }
+  if (
+    [
+      "REENGAGEMENT_AUTO",
+      "REVIEW_REQUEST",
+      "NEW_CUSTOMER_WELCOME",
+      "CHURN_PREVENTION",
+      "QUOTE_FOLLOWUP",
+      "LOYALTY_MILESTONE",
+      "SENTIMENT_MONITOR",
+      "LEAD_SCORE",
+      "AUTO_VIP_TAG",
+      "AT_RISK_TAG",
+      "HIGH_RETURN_FLAG",
+    ].includes(type)
+  ) {
+    return "العملاء والنمو";
+  }
+  if (["DELIVERY_SLA_BREACH"].includes(type)) {
+    return "العمليات والتوصيل";
+  }
+  return "المالية والحوكمة";
+}
+
+function displayAutomationLabel(automation: AutomationSetting) {
+  if (automation.type === "AI_ANOMALY_DETECTION")
+    return "كشف الانحراف التشغيلي";
+  return automation.label;
+}
+
+function displayAutomationDescription(automation: AutomationSetting) {
+  if (automation.type === "AI_ANOMALY_DETECTION") {
+    return "يراجع الإيرادات والطلبات لاكتشاف الانحرافات التي تحتاج تدخل المالك.";
+  }
+  return automation.description;
+}
+
+function ruleCopy(
+  automation: AutomationSetting,
+  lastLog?: RunLog,
+): Array<{ label: string; value: string }> {
+  const interval =
+    automation.checkIntervalHours ?? defaultInterval(automation.type);
+  const impact = lastLog
+    ? `${lastLog.messages_sent} رسالة / ${lastLog.targets_found} هدف في آخر تشغيل`
+    : "يظهر الأثر بعد أول تشغيل ناجح";
+
+  const byType: Record<string, Array<{ label: string; value: string }>> = {
+    SUPPLIER_LOW_STOCK: [
+      { label: "المشغّل", value: "انخفاض المخزون عن حد التنبيه" },
+      { label: "الشرط", value: "منتج نشط وله مورد أو حد إعادة طلب" },
+      { label: "الإجراء", value: "تنبيه فريق التوريد بالمنتجات المطلوبة" },
+      { label: "الأثر", value: impact },
+    ],
+    DELIVERY_SLA_BREACH: [
+      { label: "المشغّل", value: "طلب اقترب من تجاوز زمن التسليم" },
+      { label: "الشرط", value: "تأخير يتجاوز إعدادات SLA الحالية" },
+      { label: "الإجراء", value: "تنبيه العمليات وربط الطلب بالمراجعة" },
+      { label: "الأثر", value: impact },
+    ],
+    EXPENSE_SPIKE_ALERT: [
+      { label: "المشغّل", value: "ارتفاع غير معتاد في بند مصروفات" },
+      { label: "الشرط", value: "الفرق يتجاوز النسبة المحددة في الإعدادات" },
+      { label: "الإجراء", value: "تنبيه المالية لمراجعة السبب" },
+      { label: "الأثر", value: impact },
+    ],
+    AI_ANOMALY_DETECTION: [
+      { label: "المشغّل", value: "انحراف في الإيرادات أو الطلبات" },
+      { label: "الشرط", value: "فرق حرج مقابل المتوسط الشهري" },
+      { label: "الإجراء", value: "إظهار توصية مراجعة مع سبب وثقة" },
+      { label: "الأثر", value: impact },
+    ],
+  };
+
+  return (
+    byType[automation.type] ?? [
+      { label: "المشغّل", value: "تغيّر في بيانات المتجر أو جدول تشغيل دوري" },
+      {
+        label: "الشرط",
+        value: `يُراجع كل ${interval} ساعة حسب الإعداد الحالي`,
+      },
+      { label: "الإجراء", value: "تنفيذ الرسالة أو الوسم أو التنبيه المحدد" },
+      { label: "الأثر", value: impact },
+    ]
+  );
+}
+
 export default function AutomationsPage() {
   const [automations, setAutomations] = useState<AutomationSetting[]>([]);
   const [logs, setLogs] = useState<RunLog[]>([]);
@@ -711,14 +809,27 @@ export default function AutomationsPage() {
   const logsForType = (type: string) =>
     logs.filter((l) => l.automation_type === type);
 
+  const activeCount = automations.filter((a) => a.isEnabled).length;
+  const totalMessages = logs.reduce((s, l) => s + (l.messages_sent || 0), 0);
+  const totalTargets = logs.reduce((s, l) => s + (l.targets_found || 0), 0);
+  const successCount = logs.filter((l) => l.status === "success").length;
+  const errorCount = logs.filter((l) => l.status === "error").length;
+  const latestRun = logs[0]?.run_at;
+  const groupedAutomations = CATEGORY_ORDER.map((category) => ({
+    category,
+    items: automations.filter(
+      (automation) => categoryForAutomation(automation.type) === category,
+    ),
+  })).filter((group) => group.items.length > 0);
+
   if (loading) {
     return (
       <div dir="rtl" className="space-y-4 p-4 sm:p-6">
         <PageHeader
-          title="مركز الأتمتة"
-          description="أتمتة الرسائل والتنبيهات التلقائية"
+          title="الأتمتة"
+          description="قواعد تشغيلية قابلة للمراجعة: مشغّل، شرط، إجراء، وأثر."
         />
-        <LoadingState message="جارٍ تحميل إعدادات الأتمتة..." />
+        <TableSkeleton rows={6} columns={4} />
       </div>
     );
   }
@@ -726,30 +837,30 @@ export default function AutomationsPage() {
   return (
     <div dir="rtl" className="space-y-8 p-4 sm:p-6">
       <PageHeader
-        title="مركز الأتمتة"
-        description="فعّل وعطّل التدفقات التلقائية لرسائل واتساب وأدرها من مكان واحد"
+        title="الأتمتة"
+        description="إدارة قواعد التشغيل التلقائي من حيث السبب، الإجراء، آخر تشغيل، والأثر الفعلي."
       />
 
       <div className="flex flex-wrap gap-2">
         <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
-          <Zap className="h-3.5 w-3.5 text-[var(--accent-gold)]" />
+          <BarChart2 className="h-3.5 w-3.5 text-[var(--color-brand-primary)]" />
           <span className="text-muted-foreground">الأتمتات النشطة</span>
-          <span className="font-mono text-[var(--accent-gold)]">
-            {automations.filter((a) => a.isEnabled).length}
+          <span className="font-mono text-[var(--color-brand-primary)]">
+            {activeCount}
           </span>
         </div>
         <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
           <MessageSquare className="h-3.5 w-3.5 text-[var(--accent-success)]" />
           <span className="text-muted-foreground">رسائل أُرسلت</span>
           <span className="font-mono text-[var(--accent-success)]">
-            {logs.reduce((s, l) => s + (l.messages_sent || 0), 0)}
+            {totalMessages}
           </span>
         </div>
         <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
           <CheckCircle className="h-3.5 w-3.5 text-[var(--accent-blue)]" />
           <span className="text-muted-foreground">آخر نجاحات</span>
           <span className="font-mono text-[var(--accent-blue)]">
-            {logs.filter((l) => l.status === "success").length}
+            {successCount}
           </span>
         </div>
       </div>
@@ -776,213 +887,263 @@ export default function AutomationsPage() {
         </Card>
       )}
 
-      {/* Summary strip */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
-        <Card className="app-data-card text-center">
-          <CardContent className="pt-4 pb-3">
-            <p className="text-2xl font-bold text-[color:var(--accent-success)]">
-              {automations.filter((a) => a.isEnabled).length}
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">أتمتة مفعّلة</p>
-          </CardContent>
-        </Card>
-        <Card className="app-data-card text-center">
-          <CardContent className="pt-4 pb-3">
-            <p className="text-2xl font-bold">
-              {logs.reduce((s, l) => s + (l.messages_sent || 0), 0)}
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">رسائل أُرسلت</p>
-          </CardContent>
-        </Card>
-        <Card className="app-data-card text-center">
-          <CardContent className="pt-4 pb-3">
-            <p className="text-2xl font-bold text-[color:var(--accent-success)]">
-              {logs.filter((l) => l.status === "success").length}
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">تشغيل ناجح</p>
-          </CardContent>
-        </Card>
-        <Card className="app-data-card text-center">
-          <CardContent className="pt-4 pb-3">
-            <p className="text-2xl font-bold text-[color:var(--accent-danger)]">
-              {logs.filter((l) => l.status === "error").length}
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">أخطاء</p>
-          </CardContent>
-        </Card>
-      </div>
+      <Card className="app-data-card">
+        <CardContent className="grid gap-4 p-4 sm:grid-cols-2 xl:grid-cols-5">
+          {[
+            ["القواعد النشطة", `${activeCount} من ${automations.length}`],
+            ["المستهدفون", String(totalTargets)],
+            ["الرسائل/الإجراءات", String(totalMessages)],
+            ["أخطاء التشغيل", String(errorCount)],
+            [
+              "آخر تشغيل",
+              latestRun
+                ? new Date(latestRun).toLocaleString("ar-SA", {
+                    day: "numeric",
+                    month: "short",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })
+                : "لم يعمل بعد",
+            ],
+          ].map(([label, value]) => (
+            <div
+              key={label}
+              className="rounded-[var(--radius-sm)] border border-[var(--border-subtle)] bg-[var(--bg-surface-2)] p-3"
+            >
+              <p className="text-xs text-muted-foreground">{label}</p>
+              <p className="mt-1 font-semibold text-foreground">{value}</p>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
 
       {/* Automation Cards */}
       <div className="space-y-4">
-        {automations.map((automation) => {
-          const isOpen = expandedType === automation.type;
-          const typeLogs = logsForType(automation.type);
-          const lastLog = typeLogs[0];
+        {groupedAutomations.length === 0 ? (
+          <Card className="app-data-card border-dashed">
+            <CardContent className="p-6">
+              <p className="font-medium">لا توجد قواعد أتمتة معدّة حالياً.</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                ستظهر القواعد هنا بعد تعريفها من إعدادات المتجر أو تفعيل قوالب
+                التشغيل المدعومة.
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          groupedAutomations.map((group) => (
+            <section key={group.category} className="space-y-3">
+              <div>
+                <h2 className="text-base font-semibold text-foreground">
+                  {group.category}
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  قواعد تشغيل قابلة للقياس والمراجعة ضمن هذا المجال.
+                </p>
+              </div>
+              {group.items.map((automation) => {
+                const isOpen = expandedType === automation.type;
+                const typeLogs = logsForType(automation.type);
+                const lastLog = typeLogs[0];
+                const ruleItems = ruleCopy(automation, lastLog);
 
-          return (
-            <Card
-              key={automation.type}
-              className={`app-data-card border-2 ${automation.isEnabled ? COLORS[automation.type] || "" : "border-border"}`}
-            >
-              <CardHeader className="pb-3">
-                <div className="flex items-start gap-3">
-                  <div className="mt-0.5">{ICONS[automation.type]}</div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2 flex-wrap">
-                      <CardTitle className="text-base">
-                        {automation.label}
-                      </CardTitle>
-                      <div className="flex items-center gap-3">
-                        <Badge
-                          variant={automation.isEnabled ? "default" : "outline"}
-                        >
-                          {automation.isEnabled ? "مفعّل" : "معطّل"}
-                        </Badge>
-                        <Switch
-                          checked={automation.isEnabled}
-                          onCheckedChange={() =>
-                            handleToggle(automation.type, automation.isEnabled)
-                          }
-                        />
+                return (
+                  <Card
+                    key={automation.type}
+                    className={`app-data-card border-2 ${automation.isEnabled ? COLORS[automation.type] || "" : "border-border"}`}
+                  >
+                    <CardHeader className="pb-3">
+                      <div className="flex items-start gap-3">
+                        <div className="mt-0.5">{ICONS[automation.type]}</div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <CardTitle className="text-base">
+                              {displayAutomationLabel(automation)}
+                            </CardTitle>
+                            <div className="flex items-center gap-3">
+                              <Badge
+                                variant={
+                                  automation.isEnabled ? "default" : "outline"
+                                }
+                              >
+                                {automation.isEnabled ? "مفعّل" : "معطّل"}
+                              </Badge>
+                              <Switch
+                                checked={automation.isEnabled}
+                                onCheckedChange={() =>
+                                  handleToggle(
+                                    automation.type,
+                                    automation.isEnabled,
+                                  )
+                                }
+                              />
+                            </div>
+                          </div>
+                          <CardDescription className="mt-1 text-xs">
+                            {displayAutomationDescription(automation)}
+                          </CardDescription>
+                        </div>
                       </div>
-                    </div>
-                    <CardDescription className="mt-1 text-xs">
-                      {automation.description}
-                    </CardDescription>
-                  </div>
-                </div>
-              </CardHeader>
+                    </CardHeader>
 
-              <CardContent className="pt-0 space-y-3">
-                {/* Last run info */}
-                {lastLog && (
-                  <div className="flex flex-col gap-1 text-xs text-muted-foreground sm:flex-row sm:flex-wrap sm:items-center">
-                    <Clock className="w-3.5 h-3.5" />
-                    آخر تشغيل:{" "}
-                    {new Date(lastLog.run_at).toLocaleString("ar-SA", {
-                      day: "numeric",
-                      month: "short",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                    <span className="flex items-center gap-1 mr-2">
-                      {lastLog.status === "success" ? (
-                        <CheckCircle className="w-3.5 h-3.5 text-[color:var(--accent-success)]" />
-                      ) : (
-                        <XCircle className="w-3.5 h-3.5 text-[color:var(--accent-danger)]" />
-                      )}
-                      {lastLog.messages_sent} رسالة من {lastLog.targets_found}
-                    </span>
-                  </div>
-                )}
-
-                {/* Config collapsible */}
-                <Collapsible
-                  open={isOpen}
-                  onOpenChange={() =>
-                    setExpandedType(isOpen ? null : automation.type)
-                  }
-                >
-                  <CollapsibleTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-xs gap-1 h-7 px-2"
-                    >
-                      <Zap className="w-3 h-3" />
-                      تخصيص الإعدادات
-                      {isOpen ? (
-                        <ChevronUp className="w-3 h-3" />
-                      ) : (
-                        <ChevronDown className="w-3 h-3" />
-                      )}
-                    </Button>
-                  </CollapsibleTrigger>
-
-                  <CollapsibleContent className="pt-3 border-t mt-3 space-y-4">
-                    <ConfigFields
-                      type={automation.type}
-                      config={localConfigs[automation.type] ?? {}}
-                      onChange={(k, v) =>
-                        updateConfigKey(automation.type, k, v)
-                      }
-                    />
-
-                    {/* Schedule interval */}
-                    <div className="rounded-lg border border-muted bg-muted/30 p-3 space-y-2">
-                      <div className="flex items-center gap-2">
-                        <Clock className="w-4 h-4 text-muted-foreground" />
-                        <Label className="text-sm font-medium">
-                          تكرار التشغيل
-                        </Label>
+                    <CardContent className="space-y-4 pt-0">
+                      <div className="grid gap-2 md:grid-cols-4">
+                        {ruleItems.map((item) => (
+                          <div
+                            key={item.label}
+                            className="rounded-[var(--radius-sm)] border border-[var(--border-subtle)] bg-[var(--bg-surface-2)] p-3"
+                          >
+                            <p className="text-[11px] text-muted-foreground">
+                              {item.label}
+                            </p>
+                            <p className="mt-1 text-sm font-medium">
+                              {item.value}
+                            </p>
+                          </div>
+                        ))}
                       </div>
-                      <Select
-                        value={String(
-                          localIntervals[automation.type] ??
-                            defaultInterval(automation.type),
-                        )}
-                        onValueChange={(v) =>
-                          setLocalIntervals((prev) => ({
-                            ...prev,
-                            [automation.type]: Number(v),
-                          }))
+
+                      <div className="flex flex-col gap-2 text-xs text-muted-foreground sm:flex-row sm:flex-wrap sm:items-center">
+                        <Clock className="h-3.5 w-3.5" />
+                        آخر تشغيل:{" "}
+                        {lastLog
+                          ? new Date(lastLog.run_at).toLocaleString("ar-SA", {
+                              day: "numeric",
+                              month: "short",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })
+                          : "لم يعمل بعد"}
+                        <span className="flex items-center gap-1 sm:mr-2">
+                          {lastLog?.status === "success" ? (
+                            <CheckCircle className="h-3.5 w-3.5 text-[color:var(--accent-success)]" />
+                          ) : lastLog?.status === "error" ? (
+                            <XCircle className="h-3.5 w-3.5 text-[color:var(--accent-danger)]" />
+                          ) : (
+                            <AlertCircle className="h-3.5 w-3.5 text-[color:var(--accent-warning)]" />
+                          )}
+                          {lastLog
+                            ? `${lastLog.messages_sent} إجراء من ${lastLog.targets_found} هدف`
+                            : "بانتظار أول نتيجة"}
+                        </span>
+                      </div>
+
+                      <Collapsible
+                        open={isOpen}
+                        onOpenChange={() =>
+                          setExpandedType(isOpen ? null : automation.type)
                         }
                       >
-                        <SelectTrigger className="h-8 text-sm">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {INTERVAL_OPTIONS.map((opt) => (
-                            <SelectItem
-                              key={opt.value}
-                              value={String(opt.value)}
-                            >
-                              {opt.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <p className="text-xs text-muted-foreground">
-                        المحرك يعمل كل ساعة ويتحقق إذا حان الوقت المحدد
-                      </p>
-                    </div>
+                        <CollapsibleTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 gap-1 px-2 text-xs"
+                          >
+                            <BarChart2 className="h-3 w-3" />
+                            إعداد القاعدة
+                            {isOpen ? (
+                              <ChevronUp className="h-3 w-3" />
+                            ) : (
+                              <ChevronDown className="h-3 w-3" />
+                            )}
+                          </Button>
+                        </CollapsibleTrigger>
 
-                    <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="w-full sm:w-auto"
-                        onClick={() => setExpandedType(null)}
-                      >
-                        إلغاء
-                      </Button>
-                      <Button
-                        size="sm"
-                        className="w-full sm:w-auto"
-                        onClick={() => handleSaveConfig(automation.type)}
-                        disabled={savingType === automation.type}
-                      >
-                        {savingType === automation.type ? (
-                          <Loader2 className="w-3.5 h-3.5 animate-spin ml-1" />
-                        ) : null}
-                        حفظ الإعدادات
-                      </Button>
-                    </div>
-                  </CollapsibleContent>
-                </Collapsible>
-              </CardContent>
-            </Card>
-          );
-        })}
+                        <CollapsibleContent className="mt-3 space-y-4 border-t pt-3">
+                          <ConfigFields
+                            type={automation.type}
+                            config={localConfigs[automation.type] ?? {}}
+                            onChange={(k, v) =>
+                              updateConfigKey(automation.type, k, v)
+                            }
+                          />
+
+                          <div className="space-y-2 rounded-lg border border-muted bg-muted/30 p-3">
+                            <div className="flex items-center gap-2">
+                              <Clock className="h-4 w-4 text-muted-foreground" />
+                              <Label className="text-sm font-medium">
+                                تكرار التشغيل
+                              </Label>
+                            </div>
+                            <Select
+                              value={String(
+                                localIntervals[automation.type] ??
+                                  defaultInterval(automation.type),
+                              )}
+                              onValueChange={(v) =>
+                                setLocalIntervals((prev) => ({
+                                  ...prev,
+                                  [automation.type]: Number(v),
+                                }))
+                              }
+                            >
+                              <SelectTrigger className="h-8 text-sm">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {INTERVAL_OPTIONS.map((opt) => (
+                                  <SelectItem
+                                    key={opt.value}
+                                    value={String(opt.value)}
+                                  >
+                                    {opt.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <p className="text-xs text-muted-foreground">
+                              المحرك يراجع القاعدة حسب الجدول ويحفظ نتيجة كل
+                              تشغيل في السجل.
+                            </p>
+                          </div>
+
+                          <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="w-full sm:w-auto"
+                              onClick={() => setExpandedType(null)}
+                            >
+                              إلغاء
+                            </Button>
+                            <Button
+                              size="sm"
+                              className="w-full sm:w-auto"
+                              onClick={() => handleSaveConfig(automation.type)}
+                              disabled={savingType === automation.type}
+                            >
+                              {savingType === automation.type ? (
+                                <Loader2 className="ml-1 h-3.5 w-3.5 animate-spin" />
+                              ) : null}
+                              حفظ الإعدادات
+                            </Button>
+                          </div>
+                        </CollapsibleContent>
+                      </Collapsible>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </section>
+          ))
+        )}
       </div>
 
       {/* Recent run log table */}
-      {logs.length > 0 && (
-        <Card className="app-data-card">
-          <CardHeader>
-            <CardTitle className="text-sm">سجل التشغيل الأخير</CardTitle>
-          </CardHeader>
-          <CardContent>
+      <Card className="app-data-card">
+        <CardHeader>
+          <CardTitle className="text-sm">سجل التشغيل الأخير</CardTitle>
+          <CardDescription>
+            نتيجة آخر تشغيلات القواعد حتى يعرف الفريق ما حدث وما يحتاج مراجعة.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {logs.length === 0 ? (
+            <div className="rounded-[var(--radius-sm)] border border-dashed border-[var(--border-default)] bg-[var(--bg-surface-2)] p-4 text-sm text-muted-foreground">
+              لا يوجد سجل تشغيل بعد. فعّل القواعد المطلوبة أو انتظر أول تشغيل
+              مجدول لتظهر النتائج هنا.
+            </div>
+          ) : (
             <>
               <div className="space-y-3 md:hidden">
                 {logs.slice(0, 15).map((log, i) => {
@@ -1096,9 +1257,9 @@ export default function AutomationsPage() {
                 </table>
               </div>
             </>
-          </CardContent>
-        </Card>
-      )}
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

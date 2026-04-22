@@ -115,7 +115,7 @@ export function getStatusColor(status: string): string {
     BOOKED:
       "border-[var(--accent-warning)]/25 bg-[var(--accent-warning)]/12 text-[var(--accent-warning)]",
     SHIPPED:
-      "border-[var(--accent-gold)]/25 bg-[var(--accent-gold)]/12 text-[var(--accent-gold)]",
+      "border-[var(--color-brand-primary)]/25 bg-[var(--color-brand-primary)]/12 text-[var(--color-brand-primary)]",
     OUT_FOR_DELIVERY:
       "border-[var(--accent-warning)]/25 bg-[var(--accent-warning)]/12 text-[var(--accent-warning)]",
     DELIVERED:
@@ -130,7 +130,8 @@ export function getStatusColor(status: string): string {
       "bg-[var(--accent-blue)]/12 text-[var(--accent-blue)]",
     COLLECTING_ADDRESS: "bg-[var(--accent-blue)]/12 text-[var(--accent-blue)]",
     NEGOTIATING: "bg-[var(--accent-warning)]/12 text-[var(--accent-warning)]",
-    CONFIRMING_ORDER: "bg-[var(--accent-gold)]/12 text-[var(--accent-gold)]",
+    CONFIRMING_ORDER:
+      "bg-[var(--color-brand-primary)]/12 text-[var(--color-brand-primary)]",
     TRACKING: "bg-[var(--accent-success)]/12 text-[var(--accent-success)]",
     FOLLOWUP: "bg-[var(--accent-warning)]/12 text-[var(--accent-warning)]",
     ORDER_PLACED: "bg-[var(--accent-success)]/12 text-[var(--accent-success)]",

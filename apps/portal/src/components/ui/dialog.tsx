@@ -34,13 +34,13 @@ const DialogContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        "fixed left-[50%] top-[50%] z-50 grid w-[min(calc(100%-24px),680px)] translate-x-[-50%] translate-y-[-50%] gap-5 border border-[color:color-mix(in_srgb,var(--border-strong)_88%,transparent)] bg-[color:color-mix(in_srgb,var(--surface)_96%,transparent)] p-6 shadow-[0_32px_80px_-44px_rgba(15,23,42,0.7)] backdrop-blur-xl duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-[28px]",
+        "fixed start-[50%] top-[50%] z-50 grid w-[min(calc(100%-24px),680px)] translate-x-[-50%] translate-y-[-50%] gap-5 border border-[color:color-mix(in_srgb,var(--border-strong)_88%,transparent)] bg-[color:color-mix(in_srgb,var(--surface)_96%,transparent)] p-6 shadow-[0_32px_80px_-44px_rgba(15,23,42,0.7)] backdrop-blur-xl duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-start-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-start-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-[28px]",
         className,
       )}
       {...props}
     >
       {children}
-      <DialogPrimitive.Close className="absolute left-5 top-5 inline-flex h-10 w-10 items-center justify-center rounded-[14px] border border-[color:color-mix(in_srgb,var(--border-strong)_86%,transparent)] bg-[color:color-mix(in_srgb,var(--surface-muted)_88%,transparent)] text-[var(--text-muted)] ring-offset-background transition-all duration-150 ease-in-out hover:text-[var(--text-primary)] hover:border-[color:color-mix(in_srgb,var(--text-muted)_28%,var(--border-strong))] focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none">
+      <DialogPrimitive.Close className="absolute start-5 top-5 inline-flex h-10 w-10 items-center justify-center rounded-[14px] border border-[color:color-mix(in_srgb,var(--border-strong)_86%,transparent)] bg-[color:color-mix(in_srgb,var(--surface-muted)_88%,transparent)] text-[var(--text-muted)] ring-offset-background transition-all duration-150 ease-in-out hover:text-[var(--text-primary)] hover:border-[color:color-mix(in_srgb,var(--text-muted)_28%,var(--border-strong))] focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none">
         <X className="h-4 w-4" />
         <span className="sr-only">Close</span>
       </DialogPrimitive.Close>
@@ -54,7 +54,7 @@ const DialogHeader = ({
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
-    className={cn("flex flex-col gap-2 text-center sm:text-right", className)}
+    className={cn("flex flex-col gap-2 text-center sm:text-start", className)}
     {...props}
   />
 );

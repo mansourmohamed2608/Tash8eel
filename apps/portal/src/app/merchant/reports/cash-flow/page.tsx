@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import { PageHeader } from "@/components/layout";
 import {
   Card,
@@ -60,6 +61,22 @@ function getDateRangeFromDays(days: number): {
   };
 }
 
+function getFreshness(updatedAt: Date | null) {
+  if (!updatedAt) return { label: "لم يتم التحديث", state: "old" as const };
+  const minutes = Math.max(
+    0,
+    Math.floor((Date.now() - updatedAt.getTime()) / 60000),
+  );
+  if (minutes < 1) return { label: "آخر تحديث: الآن", state: "fresh" as const };
+  if (minutes <= 5) {
+    return { label: `آخر تحديث: منذ ${minutes} د`, state: "fresh" as const };
+  }
+  if (minutes <= 30) {
+    return { label: `آخر تحديث: منذ ${minutes} د`, state: "stale" as const };
+  }
+  return { label: "بيانات التدفق قديمة", state: "old" as const };
+}
+
 export default function CashFlowPage() {
   const { merchantId, apiKey } = useMerchant();
   const [loading, setLoading] = useState(true);
@@ -70,6 +87,7 @@ export default function CashFlowPage() {
   const [reportingDays, setReportingDays] = useState<number>(initialDays);
   const [startDate, setStartDate] = useState(initialRange.startDate);
   const [endDate, setEndDate] = useState(initialRange.endDate);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
 
   const fetchData = useCallback(async () => {
     if (!merchantId || !apiKey) return;
@@ -82,6 +100,7 @@ export default function CashFlowPage() {
         endDate,
       });
       setData(result);
+      setLastUpdatedAt(new Date());
     } catch (err) {
       setError(
         err instanceof Error
@@ -138,12 +157,13 @@ export default function CashFlowPage() {
     مصروفات: Number(f.projectedExpenses) || 0,
     صافي: Number(f.netCashFlow) || 0,
   }));
+  const freshness = getFreshness(lastUpdatedAt);
 
   return (
     <div className="space-y-6 animate-fadeIn p-4 sm:p-6">
       <PageHeader
         title="التدفق النقدي"
-        description="توقعات الإيرادات والمصروفات والتدفق النقدي للفترة المحددة"
+        description="قراءة فعلية ومتوقعة لحركة النقد خلال الفترة المحددة."
         actions={
           <Button
             variant="outline"
@@ -154,6 +174,65 @@ export default function CashFlowPage() {
           </Button>
         }
       />
+
+      <div className="flex flex-wrap gap-2">
+        {[
+          ["الملخص", "/merchant/finance/summary"],
+          ["الإيرادات", "/merchant/finance/revenue"],
+          ["المصروفات", "/merchant/expenses"],
+          ["التدفق النقدي", "/merchant/reports/cash-flow"],
+          ["التسويات", "/merchant/payments/cod"],
+        ].map(([label, href]) => (
+          <Button
+            key={href}
+            asChild
+            variant={
+              href === "/merchant/reports/cash-flow" ? "default" : "outline"
+            }
+            size="sm"
+          >
+            <Link href={href}>{label}</Link>
+          </Button>
+        ))}
+      </div>
+
+      <section className="rounded-[var(--radius-base)] border border-[var(--color-border)] bg-[var(--color-surface)] p-3 shadow-[var(--shadow-sm)]">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-wrap items-center gap-3 text-sm">
+            <span>
+              فعلي:{" "}
+              <strong className="font-mono">
+                {formatCurrency(actualNetCashFlow)}
+              </strong>
+            </span>
+            <span className="text-[var(--color-border)]">|</span>
+            <span>
+              قيد التحصيل:{" "}
+              <strong className="font-mono text-[var(--color-warning-text)]">
+                {formatCurrency(pendingCollections)}
+              </strong>
+            </span>
+            <span className="text-[var(--color-border)]">|</span>
+            <span>
+              مرتجعات:{" "}
+              <strong className="font-mono text-[var(--color-danger-text)]">
+                {formatCurrency(refundsAmount)}
+              </strong>
+            </span>
+          </div>
+          <span
+            className={
+              freshness.state === "old"
+                ? "text-xs text-[var(--color-danger-text)]"
+                : freshness.state === "stale"
+                  ? "text-xs text-[var(--color-warning-text)]"
+                  : "text-xs text-[var(--color-text-secondary)]"
+            }
+          >
+            {freshness.label}
+          </span>
+        </div>
+      </section>
 
       <Card className="app-data-card">
         <CardHeader>

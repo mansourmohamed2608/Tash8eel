@@ -122,16 +122,16 @@ function LoginForm() {
               Merchant Operating System
             </span>
             <div className="space-y-4">
-              <h1 className="app-auth-title">تشغيل AI</h1>
+              <h1 className="app-auth-title">تشغيل</h1>
               <p className="app-auth-copy">
-                منصة التشغيل الذكية للمتاجر والمطاعم. المحادثات، الطلبات،
-                الكاشير، والتقارير في مساحة عربية واحدة واضحة وسريعة.
+                نظام تشغيل للمتاجر والمطاعم. المحادثات، الطلبات، الكاشير،
+                والتقارير في مساحة عربية واحدة واضحة وسريعة.
               </p>
             </div>
             <div className="app-auth-feature-list">
               <div className="app-auth-feature">
                 <Bot className="h-4 w-4" />
-                <span>ذكاء اصطناعي على واتساب وإنستاجرام</span>
+                <span>متابعة تلقائية لواتساب وإنستاجرام</span>
               </div>
               <div className="app-auth-feature">
                 <ShoppingCart className="h-4 w-4" />
@@ -152,7 +152,7 @@ function LoginForm() {
           <div className="app-auth-card">
             <div className="space-y-6 p-8 sm:p-10">
               <div className="app-auth-form-head">
-                <div className="inline-flex h-14 w-14 items-center justify-center rounded-[18px] border border-[var(--border-default)] bg-[var(--bg-surface-2)] text-[var(--accent-gold)]">
+                <div className="inline-flex h-14 w-14 items-center justify-center rounded-[18px] border border-[var(--border-default)] bg-[var(--bg-surface-2)] text-[var(--color-brand-primary)]">
                   <Store className="h-7 w-7" />
                 </div>
                 <h1 className="text-[24px] font-extrabold tracking-[-0.02em]">
@@ -249,7 +249,7 @@ function LoginForm() {
                   </span>
                   <Link
                     href="/forgot-password"
-                    className="font-semibold text-[var(--accent-gold)] hover:underline"
+                    className="font-semibold text-[var(--color-brand-primary)] hover:underline"
                   >
                     نسيت كلمة المرور؟
                   </Link>
@@ -274,7 +274,7 @@ function LoginForm() {
                   <span>ليس لديك حساب؟ </span>
                   <Link
                     href="/signup"
-                    className="font-semibold text-[var(--accent-gold)] hover:underline"
+                    className="font-semibold text-[var(--color-brand-primary)] hover:underline"
                   >
                     إنشاء حساب
                   </Link>
@@ -298,24 +298,24 @@ function LoginForm() {
                     <span className="space-y-1">
                       <span className="block">
                         المتجر:{" "}
-                        <span className="font-semibold text-[var(--accent-gold)]">
+                        <span className="font-semibold text-[var(--color-brand-primary)]">
                           demo-merchant
                         </span>
                       </span>
                       <span className="block">
                         البريد:{" "}
-                        <span className="font-semibold text-[var(--accent-gold)]">
+                        <span className="font-semibold text-[var(--color-brand-primary)]">
                           demo@tash8eel.com
                         </span>
                       </span>
                       <span className="block">
                         كلمة المرور:{" "}
-                        <span className="font-semibold text-[var(--accent-gold)]">
+                        <span className="font-semibold text-[var(--color-brand-primary)]">
                           demo123
                         </span>
                       </span>
                     </span>
-                    <ArrowUpLeft className="mt-0.5 h-4 w-4 flex-shrink-0 text-[var(--accent-gold)]" />
+                    <ArrowUpLeft className="mt-0.5 h-4 w-4 flex-shrink-0 text-[var(--color-brand-primary)]" />
                   </button>
                 </div>
               )}

@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { PageHeader } from "@/components/layout";
 import {
@@ -13,6 +14,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { DataTable } from "@/components/ui/data-table";
+import { TableSkeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/alerts";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
@@ -47,6 +50,7 @@ import {
   Bell,
   Send,
   CalendarClock,
+  CreditCard,
 } from "lucide-react";
 import { formatCurrency, cn } from "@/lib/utils";
 import { useMerchant } from "@/hooks/use-merchant";
@@ -166,6 +170,22 @@ const isCodStatus = (value: unknown): value is CODOrder["status"] =>
   value === "reconciled" ||
   value === "disputed";
 
+function getFreshness(updatedAt: Date | null) {
+  if (!updatedAt) return { label: "لم يتم التحديث", state: "old" as const };
+  const minutes = Math.max(
+    0,
+    Math.floor((Date.now() - updatedAt.getTime()) / 60000),
+  );
+  if (minutes < 1) return { label: "آخر تحديث: الآن", state: "fresh" as const };
+  if (minutes <= 5) {
+    return { label: `آخر تحديث: منذ ${minutes} د`, state: "fresh" as const };
+  }
+  if (minutes <= 30) {
+    return { label: `آخر تحديث: منذ ${minutes} د`, state: "stale" as const };
+  }
+  return { label: "بيانات التسويات قديمة", state: "old" as const };
+}
+
 export default function CODReconciliationPage() {
   const { merchantId, apiKey } = useMerchant();
   const router = useRouter();
@@ -189,6 +209,7 @@ export default function CODReconciliationPage() {
   const [disputeNotes, setDisputeNotes] = useState("");
   const [actualAmount, setActualAmount] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
 
   // CSV Import state
   const [importDialogOpen, setImportDialogOpen] = useState(false);
@@ -383,6 +404,7 @@ export default function CODReconciliationPage() {
           localSummary.totalDisputedAmount,
         ),
       });
+      setLastUpdatedAt(new Date());
     } catch (error) {
       console.error("Failed to fetch COD orders:", error);
     } finally {
@@ -733,6 +755,17 @@ export default function CODReconciliationPage() {
       },
     },
   ];
+  const expectedAmount = summary
+    ? summary.totalPendingAmount +
+      summary.totalCollectedAmount +
+      summary.totalReconciledAmount +
+      summary.totalDisputedAmount
+    : 0;
+  const collectedAmount = summary
+    ? summary.totalCollectedAmount + summary.totalReconciledAmount
+    : 0;
+  const varianceAmount = expectedAmount - collectedAmount;
+  const freshness = getFreshness(lastUpdatedAt);
 
   return (
     <div className="space-y-6">
@@ -766,6 +799,81 @@ export default function CODReconciliationPage() {
           </div>
         }
       />
+      <div className="flex flex-wrap gap-2">
+        {[
+          ["الملخص", "/merchant/finance/summary"],
+          ["الإيرادات", "/merchant/finance/revenue"],
+          ["المصروفات", "/merchant/expenses"],
+          ["التدفق النقدي", "/merchant/reports/cash-flow"],
+          ["التسويات", "/merchant/payments/cod"],
+        ].map(([label, href]) => (
+          <Button
+            key={href}
+            asChild
+            variant={href === "/merchant/payments/cod" ? "default" : "outline"}
+            size="sm"
+          >
+            <Link href={href}>{label}</Link>
+          </Button>
+        ))}
+      </div>
+
+      <section className="rounded-[var(--radius-base)] border border-[var(--color-border)] bg-[var(--color-surface)] p-3 shadow-[var(--shadow-sm)]">
+        <div className="grid gap-3 lg:grid-cols-[1fr_auto] lg:items-center">
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div>
+              <p className="text-xs text-[var(--color-text-secondary)]">
+                المتوقع من شركات الشحن
+              </p>
+              <p className="mt-1 font-mono text-lg font-bold">
+                {formatCurrency(expectedAmount)}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-[var(--color-text-secondary)]">
+                المحصل أو المسوى
+              </p>
+              <p className="mt-1 font-mono text-lg font-bold text-[var(--color-success-text)]">
+                {formatCurrency(collectedAmount)}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-[var(--color-text-secondary)]">
+                الفرق المطلوب متابعته
+              </p>
+              <p
+                className={`mt-1 font-mono text-lg font-bold ${
+                  varianceAmount > 0
+                    ? "text-[var(--color-warning-text)]"
+                    : "text-[var(--color-success-text)]"
+                }`}
+              >
+                {formatCurrency(varianceAmount)}
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row lg:justify-end">
+            <Button asChild variant="outline">
+              <Link href="/merchant/payments/proofs">
+                <CreditCard className="h-4 w-4" />
+                إثباتات الدفع
+              </Link>
+            </Button>
+            <span
+              className={
+                freshness.state === "old"
+                  ? "text-xs text-[var(--color-danger-text)]"
+                  : freshness.state === "stale"
+                    ? "text-xs text-[var(--color-warning-text)]"
+                    : "text-xs text-[var(--color-text-secondary)]"
+              }
+            >
+              {freshness.label}
+            </span>
+          </div>
+        </div>
+      </section>
+
       {summary && (
         <div className="flex flex-wrap gap-2">
           {[
@@ -935,13 +1043,23 @@ export default function CODReconciliationPage() {
               </CardHeader>
               <CardContent>
                 {loading ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    جاري التحميل...
-                  </div>
+                  <TableSkeleton rows={6} columns={7} />
                 ) : filteredOrders.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    لا توجد طلبات في هذه الفئة
-                  </div>
+                  <EmptyState
+                    icon={<Banknote className="h-7 w-7" />}
+                    title="لا توجد طلبات في حالة التسوية الحالية"
+                    description="غيّر الحالة أو شركة الشحن أو الفترة الزمنية لعرض طلبات أخرى، أو استورد كشف شركة الشحن عند توفره."
+                    action={
+                      <Button
+                        variant="outline"
+                        onClick={() => setImportDialogOpen(true)}
+                      >
+                        <Upload className="h-4 w-4" />
+                        استيراد كشف
+                      </Button>
+                    }
+                    className="py-8"
+                  />
                 ) : (
                   <>
                     <div className="space-y-3 md:hidden">
@@ -1107,19 +1225,14 @@ export default function CODReconciliationPage() {
                 </CardHeader>
                 <CardContent>
                   {remindersLoading ? (
-                    <div className="text-center py-8 text-muted-foreground">
-                      جاري التحميل...
-                    </div>
+                    <TableSkeleton rows={5} columns={7} />
                   ) : reminders.length === 0 ? (
-                    <div className="text-center py-12 text-muted-foreground">
-                      <Bell className="h-12 w-12 mx-auto mb-4 opacity-30" />
-                      <p className="text-lg font-medium">
-                        لا توجد تذكيرات مجدولة
-                      </p>
-                      <p className="text-sm mt-1">
-                        استخدم الزر أعلاه لجدولة تذكيرات للطلبات المتأخرة
-                      </p>
-                    </div>
+                    <EmptyState
+                      icon={<Bell className="h-7 w-7" />}
+                      title="لا توجد تذكيرات مجدولة"
+                      description="استخدم إجراء الجدولة بالأعلى لإنشاء تذكيرات للطلبات المتأخرة في التحصيل."
+                      className="py-10"
+                    />
                   ) : (
                     <>
                       <div className="space-y-3 md:hidden">

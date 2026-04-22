@@ -11,7 +11,7 @@ const dashboardButtonVariants = cva(
     variants: {
       variant: {
         primary:
-          "border-[var(--accent-gold)] bg-[var(--accent-gold)] px-4 text-[#0A0A0B] hover:brightness-110",
+          "border-[var(--color-brand-primary)] bg-[var(--color-brand-primary)] px-4 text-[var(--color-text-inverse)] hover:bg-[var(--color-brand-hover)]",
         secondary:
           "border-[var(--border-default)] bg-transparent px-4 text-[var(--text-secondary)] hover:border-[var(--border-active)] hover:text-[var(--text-primary)]",
         danger:

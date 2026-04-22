@@ -24,7 +24,6 @@ import {
   Package,
   TrendingUp,
   MessageSquare,
-  Sparkles,
   Palette,
   ShoppingCart,
   HeadphonesIcon,
@@ -81,7 +80,7 @@ const AGENT_ICONS: Record<string, React.ElementType> = {
   CREATIVE_AGENT: Palette,
 };
 
-const AI_CAPABILITIES = [
+const ASSISTANT_CAPABILITIES = [
   {
     icon: Brain,
     title: "تصنيف العملاء تلقائياً",
@@ -115,7 +114,7 @@ const AI_CAPABILITIES = [
   {
     icon: BarChart3,
     title: "الملخص التنفيذي الأسبوعي",
-    description: "يكتب تقرير CFO يقارن الأداء الحالي بالسابق",
+    description: "يلخص الأداء المالي والتشغيلي ويقارن الفترة الحالية بالسابق",
     category: "تقارير",
   },
   {
@@ -133,7 +132,7 @@ const AI_CAPABILITIES = [
   {
     icon: Lightbulb,
     title: "رؤى ذكية في كل صفحة",
-    description: "تحليلات فورية لبياناتك بدون استهلاك رصيد AI",
+    description: "تحليلات فورية لبياناتك بدون استهلاك رصيد المساعد",
     category: "عام",
   },
   {
@@ -149,7 +148,7 @@ const QUICK_LINKS = [
     label: "المحادثات",
     href: "/merchant/conversations",
     icon: MessageSquare,
-    description: "بوت WhatsApp الذكي",
+    description: "صندوق محادثات موحد مع اقتراحات تشغيلية",
   },
   {
     label: "المخزون",
@@ -158,10 +157,10 @@ const QUICK_LINKS = [
     description: "تحليلات وتنبؤات المخزون",
   },
   {
-    label: "تقرير CFO",
+    label: "ملخص مالي تنفيذي",
     href: "/merchant/reports/cfo",
     icon: TrendingUp,
-    description: "الملخص التنفيذي الذكي",
+    description: "تقرير دعم داخل التقارير والمالية",
   },
   {
     label: "المصاريف",
@@ -179,7 +178,7 @@ const QUICK_LINKS = [
     label: "الإعدادات",
     href: "/merchant/settings",
     icon: Settings,
-    description: "إعدادات الذكاء الاصطناعي",
+    description: "إعدادات القدرات",
   },
 ];
 
@@ -240,19 +239,38 @@ export default function AgentsPage() {
   const comingSoonCount = agents.filter(
     (a) => a.status === "coming_soon",
   ).length;
-  const categoriesCount = new Set(AI_CAPABILITIES.map((c) => c.category)).size;
+  const categoriesCount = new Set(ASSISTANT_CAPABILITIES.map((c) => c.category))
+    .size;
 
   return (
     <div className="space-y-8">
       <PageHeader
-        title="مركز الذكاء"
-        description="التحكم في الوكلاء، قدراتهم، وروابط التشغيل التي تهم الفريق فعلياً."
+        title="مركز القيادة / قدرات النظام"
+        description="سطح داعم لمراجعة القدرات المتاحة وروابطها التشغيلية ضمن مركز القيادة."
       />
+
+      <Card className="app-data-card app-data-card--muted border-dashed">
+        <CardContent className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="font-medium">هذه الصفحة جزء من مركز القيادة</p>
+            <p className="text-sm text-muted-foreground">
+              استخدمها لفهم القدرات المتاحة، بينما تبقى الموافقات والسجلات
+              والقرارات في مركز القيادة.
+            </p>
+          </div>
+          <Link
+            href="/merchant/command-center"
+            className="text-sm text-primary hover:underline"
+          >
+            العودة لمركز القيادة
+          </Link>
+        </CardContent>
+      </Card>
 
       <div className="flex flex-wrap gap-2">
         {[
           [
-            "الوكلاء المفعلة",
+            "القدرات المفعلة",
             String(enabledCount || 0),
             "text-[var(--accent-blue)]",
           ],
@@ -262,9 +280,9 @@ export default function AgentsPage() {
             "text-[var(--accent-success)]",
           ],
           [
-            "مجالات الذكاء",
+            "مجالات الدعم",
             String(categoriesCount),
-            "text-[var(--accent-gold)]",
+            "text-[var(--color-brand-primary)]",
           ],
           [
             "قدرات قادمة",
@@ -274,7 +292,7 @@ export default function AgentsPage() {
           ["الخطة الحالية", currentPlan, "text-foreground"],
           [
             "القدرات",
-            String(AI_CAPABILITIES.length),
+            String(ASSISTANT_CAPABILITIES.length),
             "text-[var(--accent-blue)]",
           ],
         ].map(([label, value, color]) => (
@@ -294,10 +312,10 @@ export default function AgentsPage() {
             نظرة عامة
           </TabsTrigger>
           <TabsTrigger value="agents" className="w-full">
-            الوكلاء ({agents.length || 8})
+            القدرات ({agents.length || 8})
           </TabsTrigger>
           <TabsTrigger value="capabilities" className="w-full">
-            القدرات الذكية
+            القدرات الداعمة
           </TabsTrigger>
         </TabsList>
 
@@ -307,10 +325,11 @@ export default function AgentsPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Brain className="h-5 w-5 text-[var(--accent-blue)]" />
-                كيف يعمل الذكاء الاصطناعي في متجرك
+                كيف تعمل القدرات في متجرك
               </CardTitle>
               <CardDescription>
-                نظام تشغيل ذكي يعمل 24/7 لأتمتة عملياتك وزيادة مبيعاتك
+                قدرات تشغيلية تربط الطلبات، العملاء، المخزون، والمالية عند
+                الحاجة.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -356,13 +375,13 @@ export default function AgentsPage() {
                     </div>
                   </div>
                 </div>
-                <div className="rounded-xl border border-[var(--accent-gold)]/25 bg-[var(--accent-gold)]/10 p-4">
+                <div className="rounded-xl border border-[var(--color-brand-primary)]/25 bg-[var(--color-brand-primary)]/10 p-4">
                   <div className="flex items-start gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-[var(--accent-gold)]/25 bg-[var(--accent-gold)]/12">
-                      <Camera className="h-5 w-5 text-[var(--accent-gold)]" />
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-[var(--color-brand-primary)]/25 bg-[var(--color-brand-primary)]/12">
+                      <Camera className="h-5 w-5 text-[var(--color-brand-primary)]" />
                     </div>
                     <div className="flex-1">
-                      <h4 className="mb-1 font-medium text-[var(--accent-gold)]">
+                      <h4 className="mb-1 font-medium text-[var(--color-brand-primary)]">
                         قراءة الصور والإيصالات
                       </h4>
                       <p className="text-sm text-[var(--text-secondary)]">
@@ -373,7 +392,7 @@ export default function AgentsPage() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="mt-2 h-auto p-0 text-[var(--accent-gold)]"
+                          className="mt-2 h-auto p-0 text-[var(--color-brand-primary)]"
                         >
                           إثباتات الدفع →
                         </Button>
@@ -388,11 +407,11 @@ export default function AgentsPage() {
                     </div>
                     <div className="flex-1">
                       <h4 className="mb-1 font-medium text-[var(--accent-warning)]">
-                        تحليلات وتقارير ذكية
+                        تحليلات وتقارير داعمة
                       </h4>
                       <p className="text-sm text-[var(--text-secondary)]">
-                        ملخص CFO أسبوعي - كشف الأنماط الشاذة - رؤى ذكية في كل
-                        صفحة
+                        ملخص مالي أسبوعي - كشف الأنماط الشاذة - توصيات قابلة
+                        للمراجعة
                       </p>
                       <Link href="/merchant/reports/cfo">
                         <Button
@@ -400,7 +419,7 @@ export default function AgentsPage() {
                           size="sm"
                           className="mt-2 h-auto p-0 text-[var(--accent-warning)]"
                         >
-                          تقرير CFO →
+                          فتح الملخص المالي →
                         </Button>
                       </Link>
                     </div>
@@ -420,7 +439,7 @@ export default function AgentsPage() {
                   const Icon = link.icon;
                   return (
                     <Link key={link.href} href={link.href}>
-                      <div className="flex min-h-[72px] items-center gap-3 rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-surface-1)] px-3 py-3 transition-colors hover:border-[var(--accent-gold)] hover:text-[var(--accent-gold)]">
+                      <div className="flex min-h-[72px] items-center gap-3 rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-surface-1)] px-3 py-3 transition-colors hover:border-[var(--color-brand-primary)] hover:text-[var(--color-brand-primary)]">
                         <div className="flex h-9 w-9 items-center justify-center rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)]">
                           <Icon className="h-4 w-4 text-muted-foreground" />
                         </div>
@@ -445,15 +464,15 @@ export default function AgentsPage() {
               <div>
                 <h3 className="font-bold text-lg flex items-center gap-2">
                   <Users className="h-5 w-5 text-[color:var(--accent-blue)]" />
-                  المهام الجماعية للوكلاء
+                  المهام الجماعية
                 </h3>
                 <p className="text-muted-foreground text-sm mt-1">
-                  وزّع العمل على عدة وكلاء ليعملوا معاً بالتوازي على مهام معقدة
+                  وزّع العمل على عدة قدرات تشغيلية عند تنفيذ مهام معقدة
                 </p>
               </div>
               <Link href="/merchant/teams">
                 <Button className="w-full sm:w-auto">
-                  إدارة الفرق <ChevronLeft className="h-4 w-4 mr-1" />
+                  إدارة الفرق <ChevronLeft className="h-4 w-4 me-1" />
                 </Button>
               </Link>
             </CardContent>
@@ -472,7 +491,7 @@ export default function AgentsPage() {
                   </span>
                 </p>
                 <p className="text-muted-foreground text-sm mt-1">
-                  بعض الوكلاء مضمنون في خطتك والبقية يمكن إضافتهم كإضافات
+                  بعض القدرات مضمن في خطتك والبقية يمكن إضافته كإضافات
                 </p>
               </div>
               <Link href="/merchant/billing">
@@ -497,10 +516,10 @@ export default function AgentsPage() {
               <CardContent className="p-12 text-center">
                 <Bot className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
                 <p className="text-lg font-medium mb-1">
-                  الوكلاء غير متوفرين حالياً
+                  القدرات غير متوفرة حالياً
                 </p>
                 <p className="text-muted-foreground text-sm">
-                  يعمل النظام بالذكاء الاصطناعي المدمج
+                  تعمل القدرات المدمجة ضمن نظام التشغيل
                 </p>
               </CardContent>
             </Card>
@@ -528,9 +547,6 @@ export default function AgentsPage() {
                             <CardTitle className="text-base">
                               {agent.nameAr}
                             </CardTitle>
-                            <p className="text-muted-foreground text-xs">
-                              {agent.nameEn}
-                            </p>
                           </div>
                         </div>
                         {agent.isEnabled ? (
@@ -538,15 +554,15 @@ export default function AgentsPage() {
                             variant="outline"
                             className="border-[var(--accent-success)]/25 bg-[var(--accent-success)]/12 text-[var(--accent-success)] text-xs"
                           >
-                            <Check className="h-3 w-3 ml-1" />
+                            <Check className="h-3 w-3 ms-1" />
                             مفعّل
                           </Badge>
                         ) : isBeta ? (
                           <Badge
                             variant="outline"
-                            className="border-[var(--accent-gold)]/25 bg-[var(--accent-gold)]/12 text-[var(--accent-gold)] text-xs"
+                            className="border-[var(--color-brand-primary)]/25 bg-[var(--color-brand-primary)]/12 text-[var(--color-brand-primary)] text-xs"
                           >
-                            <Sparkles className="h-3 w-3 ml-1" />
+                            <Check className="h-3 w-3 ms-1" />
                             تجريبي
                           </Badge>
                         ) : isComingSoon ? (
@@ -555,7 +571,7 @@ export default function AgentsPage() {
                           </Badge>
                         ) : (
                           <Badge variant="secondary" className="text-xs">
-                            <Lock className="h-3 w-3 ml-1" />
+                            <Lock className="h-3 w-3 ms-1" />
                             غير مفعّل
                           </Badge>
                         )}
@@ -635,7 +651,7 @@ export default function AgentsPage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-[var(--accent-gold)]" />
+                <Activity className="h-5 w-5 text-[var(--color-brand-primary)]" />
                 القدرات الذكية المفعّلة
               </CardTitle>
               <CardDescription>
@@ -644,7 +660,7 @@ export default function AgentsPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {AI_CAPABILITIES.map((cap, i) => {
+                {ASSISTANT_CAPABILITIES.map((cap, i) => {
                   const Icon = cap.icon;
                   return (
                     <div
@@ -699,7 +715,7 @@ export default function AgentsPage() {
                 </div>
                 <div className="p-4 rounded-lg bg-muted/50">
                   <div className="flex items-center gap-2 mb-2">
-                    <Eye className="h-5 w-5 text-[var(--accent-gold)]" />
+                    <Eye className="h-5 w-5 text-[var(--color-brand-primary)]" />
                     <h4 className="font-medium">تحليل الصور والمستندات</h4>
                   </div>
                   <p className="text-sm text-muted-foreground mb-2">

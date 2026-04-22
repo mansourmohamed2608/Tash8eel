@@ -279,7 +279,7 @@ export function QuickActionsPanel() {
       label: "إرسال رسالة",
       icon: MessageSquare,
       href: "/merchant/conversations",
-      color: "bg-purple-500",
+      color: "bg-[var(--color-brand-primary)]",
     },
     {
       label: "عرض التقارير",

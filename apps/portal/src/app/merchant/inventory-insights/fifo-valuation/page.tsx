@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import { PageHeader } from "@/components/layout";
 import {
   Card,
@@ -116,16 +117,21 @@ export default function FifoValuationPage() {
   return (
     <div className="space-y-6 animate-fadeIn p-4 sm:p-6">
       <PageHeader
-        title="تقييم المخزون (الوارد أولاً صادر أولاً)"
-        description="تقييم المخزون بطريقة FIFO أو تقدير متوسط التكلفة عند غياب طبقات التكلفة"
+        title="المخزون > تقييم FIFO"
+        description="أداة مساندة للمخزون: قيمة الدفعات والتكلفة الحالية، مع توضيح عندما يكون الحساب تقديرياً."
         actions={
-          <Button
-            variant="outline"
-            onClick={fetchData}
-            className="w-full sm:w-auto"
-          >
-            <RefreshCw className="ml-2 h-4 w-4" /> تحديث
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button asChild variant="outline" className="w-full sm:w-auto">
+              <Link href="/merchant/inventory">قائمة المخزون</Link>
+            </Button>
+            <Button
+              variant="outline"
+              onClick={fetchData}
+              className="w-full sm:w-auto"
+            >
+              <RefreshCw className="ml-2 h-4 w-4" /> تحديث
+            </Button>
+          </div>
         }
       />
 
@@ -156,7 +162,9 @@ export default function FifoValuationPage() {
         <StatCard
           title="هامش الربح التقديري"
           value={`${calculatedSummary.overallMarginPct || 0}%`}
-          icon={<BarChart3 className="h-5 w-5 text-[var(--accent-gold)]" />}
+          icon={
+            <BarChart3 className="h-5 w-5 text-[var(--color-brand-primary)]" />
+          }
         />
         <StatCard
           title="عدد الأكواد (SKU)"
@@ -168,7 +176,8 @@ export default function FifoValuationPage() {
       <Card className="border-[var(--accent-blue)]/20 bg-[var(--accent-blue)]/10">
         <CardContent className="py-3 text-xs text-[var(--text-secondary)]">
           هذه الصفحة تحسب قيمة المخزون الحالية، وليست إجمالي الإيرادات المحققة
-          من الطلبات. الأرقام أعلى الصفحة محسوبة من نفس صفوف الجدول أدناه.
+          من الطلبات. الأرقام أعلى الصفحة محسوبة من نفس صفوف الجدول أدناه. آخر
+          حساب يتم عند تحديث الصفحة من مصدر المخزون الحالي.
         </CardContent>
       </Card>
 

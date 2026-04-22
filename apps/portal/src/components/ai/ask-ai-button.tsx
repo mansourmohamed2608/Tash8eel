@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -13,7 +12,6 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  Sparkles,
   Loader2,
   Send,
   Copy,
@@ -50,7 +48,7 @@ interface ChatMessage {
 }
 
 /**
- * Real GPT-powered "Ask AI" button that opens a dialog
+ * Assistant button that opens a dialog
  * where the merchant can ask questions about their data.
  * Calls the merchant-assistant chat endpoint.
  */
@@ -58,7 +56,7 @@ export function AskAiButton({
   merchantId,
   context,
   suggestions = [],
-  label = "اسأل الذكاء الاصطناعي",
+  label = "اسأل المساعد",
   compact = false,
   className,
   contextData,
@@ -115,7 +113,7 @@ export function AskAiButton({
         {
           role: "assistant",
           content:
-            "تعذر الاتصال بخدمة الذكاء الاصطناعي حالياً. يمكنك المحاولة مرة أخرى لاحقاً.",
+            "تعذر الاتصال بخدمة المساعد حالياً. يمكنك المحاولة مرة أخرى لاحقاً.",
         },
       ]);
     } finally {
@@ -142,46 +140,36 @@ export function AskAiButton({
         variant="outline"
         size={compact ? "icon" : "default"}
         className={cn(
-          "bg-gradient-to-l from-purple-50 to-blue-50 border-purple-200 hover:from-purple-100 hover:to-blue-100 text-purple-700",
-          "dark:from-purple-950/30 dark:to-blue-950/30 dark:border-purple-800 dark:text-purple-300",
+          "border-[var(--border-default)] bg-[var(--bg-surface-1)] text-[var(--color-brand-primary)] hover:bg-[var(--brand-blue-dim)]",
           className,
         )}
         onClick={handleOpen}
       >
-        <Sparkles className="h-4 w-4" />
+        <MessageSquare className="h-4 w-4" />
         {!compact && <span className="mr-1">{label}</span>}
-        {!compact && (
-          <Badge
-            variant="secondary"
-            className="text-[10px] py-0 px-1 bg-purple-100 text-purple-600 dark:bg-purple-900 dark:text-purple-300"
-          >
-            GPT
-          </Badge>
-        )}
       </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-lg max-h-[80vh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Bot className="h-5 w-5 text-purple-500" />
-              المساعد الذكي - {context}
+              <Bot className="h-5 w-5 text-[var(--color-brand-primary)]" />
+              المساعد - {context}
             </DialogTitle>
             <DialogDescription>
-              اسأل عن أي شيء يخص {context} - الذكاء الاصطناعي يرى بياناتك
-              الحقيقية
+              اسأل عن أي شيء يخص {context} - المساعد يستخدم بياناتك الحقيقية
             </DialogDescription>
           </DialogHeader>
-          <div className="rounded-xl border border-purple-200 bg-purple-50/70 px-3 py-2 text-xs text-purple-700 dark:border-purple-900 dark:bg-purple-950/20 dark:text-purple-300">
-            هذه المحادثة محفوظة على هذا الجهاز لتجنب تكرار استهلاك الذكاء
-            الاصطناعي عند الرجوع للصفحة.
+          <div className="rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 py-2 text-xs text-muted-foreground">
+            هذه المحادثة محفوظة على هذا الجهاز لتجنب تكرار استهلاك رصيد المساعد
+            عند الرجوع للصفحة.
           </div>
 
           {/* Chat Messages */}
           <div className="flex-1 overflow-y-auto space-y-3 py-4 min-h-[200px] max-h-[400px]">
             {messages.length === 0 ? (
               <div className="text-center py-8">
-                <Sparkles className="h-10 w-10 text-purple-300 mx-auto mb-3" />
+                <MessageSquare className="h-10 w-10 text-[var(--color-brand-primary)] mx-auto mb-3" />
                 <p className="text-sm text-muted-foreground mb-4">
                   اسأل أي سؤال عن {context}
                 </p>
@@ -195,7 +183,7 @@ export function AskAiButton({
                         <button
                           key={i}
                           onClick={() => sendMessage(s)}
-                          className="text-xs px-3 py-1.5 rounded-full border border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100 transition-colors dark:bg-purple-950/30 dark:border-purple-800 dark:text-purple-300"
+                          className="rounded-full border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 py-1.5 text-xs text-[var(--color-brand-primary)] transition-colors hover:bg-[var(--brand-blue-dim)]"
                         >
                           {s}
                         </button>
@@ -218,7 +206,7 @@ export function AskAiButton({
                       "shrink-0 h-7 w-7 rounded-full flex items-center justify-center text-xs",
                       msg.role === "user"
                         ? "bg-blue-100 text-blue-600"
-                        : "bg-purple-100 text-purple-600",
+                        : "bg-[var(--brand-blue-dim)] text-[var(--color-brand-primary)]",
                     )}
                   >
                     {msg.role === "user" ? (
@@ -258,7 +246,7 @@ export function AskAiButton({
 
             {loading && (
               <div className="flex gap-2">
-                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-purple-100 text-purple-600">
+                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--brand-blue-dim)] text-[var(--color-brand-primary)]">
                   <Bot className="h-3.5 w-3.5" />
                 </div>
                 <div className="bg-muted rounded-xl px-4 py-3">

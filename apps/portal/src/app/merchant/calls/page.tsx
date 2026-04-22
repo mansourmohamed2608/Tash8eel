@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { TableSkeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/alerts";
 import {
   Bot,
   CalendarClock,
@@ -115,6 +116,10 @@ export default function CallsPage() {
   const [calls, setCalls] = useState<VoiceCallRecord[]>([]);
   const [stats, setStats] = useState<VoiceCallStats>(defaultStats);
   const [expandedCallIds, setExpandedCallIds] = useState<string[]>([]);
+  const [selectedCallId, setSelectedCallId] = useState<string | null>(null);
+  const [callDisposition, setCallDisposition] = useState("needs_followup");
+  const [callNotes, setCallNotes] = useState("");
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
   const [activeCall, setActiveCall] = useState<ActiveCallPayload | null>(null);
@@ -243,6 +248,7 @@ export default function CallsPage() {
     setRefreshing(true);
     try {
       await Promise.all([loadCalls(), loadStats()]);
+      setLastUpdatedAt(new Date());
     } catch (error) {
       toast({
         title: "تعذر تحديث البيانات",
@@ -301,6 +307,49 @@ export default function CallsPage() {
         ? prev.filter((id) => id !== callId)
         : [...prev, callId],
     );
+  };
+
+  const selectedCall = useMemo(
+    () => calls.find((call) => call.id === selectedCallId) ?? calls[0] ?? null,
+    [calls, selectedCallId],
+  );
+
+  useEffect(() => {
+    if (!selectedCallId && calls.length > 0) {
+      setSelectedCallId(calls[0].id);
+    }
+  }, [calls, selectedCallId]);
+
+  const freshness = useMemo(() => {
+    if (!lastUpdatedAt) {
+      return { label: "لم يتم التحديث", state: "old" as const };
+    }
+    const minutes = Math.max(
+      0,
+      Math.floor((Date.now() - lastUpdatedAt.getTime()) / 60000),
+    );
+    if (minutes < 1)
+      return { label: "آخر تحديث: الآن", state: "fresh" as const };
+    if (minutes <= 5)
+      return { label: `آخر تحديث: منذ ${minutes} د`, state: "fresh" as const };
+    if (minutes <= 30)
+      return { label: `آخر تحديث: منذ ${minutes} د`, state: "stale" as const };
+    return { label: "بيانات المكالمات قديمة", state: "old" as const };
+  }, [lastUpdatedAt]);
+
+  const formatDuration = (seconds?: number | null) => {
+    if (!seconds || seconds <= 0) return "غير محدد";
+    const minutes = Math.floor(seconds / 60);
+    const rest = seconds % 60;
+    return minutes > 0 ? `${minutes}د ${rest}ث` : `${rest}ث`;
+  };
+
+  const getCallStatusLabel = (status: string) => {
+    const normalized = String(status || "").toLowerCase();
+    if (normalized === "active") return "نشطة";
+    if (normalized === "completed" || normalized === "ended") return "منتهية";
+    if (normalized === "missed" || normalized === "failed") return "فائتة";
+    return status || "غير محددة";
   };
 
   const addItem = () => {
@@ -502,19 +551,19 @@ export default function CallsPage() {
   };
 
   const activeCallBadge = activeCall ? (
-    <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">
+    <Badge className="border-[var(--color-success-border)] bg-[var(--color-success-bg)] text-[var(--color-success-text)] hover:bg-[var(--color-success-bg)]">
       <PhoneCall className="ml-1 h-3.5 w-3.5" />
       مكالمة نشطة
     </Badge>
   ) : (
-    <Badge variant="secondary">لا توجد مكالمة نشطة</Badge>
+    <Badge variant="secondary">لا توجد مكالمة نشطة الآن</Badge>
   );
 
   return (
     <>
       <PageHeader
         title="المكالمات"
-        description="متابعة المكالمات الفائتة والمكالمات التي تعامل معها الذكاء الاصطناعي"
+        description="طابور متابعة المكالمات، المكالمات النشطة، والقرارات المطلوبة بعد كل مكالمة."
         actions={
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
             {activeCallBadge}
@@ -535,151 +584,286 @@ export default function CallsPage() {
         }
       />
 
-      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Card>
-          <CardContent className="pt-6">
-            <p className="text-sm text-muted-foreground">مكالمات اليوم</p>
-            <p className="mt-1 text-2xl font-bold">{stats.callsToday}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <p className="text-sm text-muted-foreground">تمت بواسطة الذكاء</p>
-            <p className="mt-1 text-2xl font-bold text-[var(--accent-blue)]">
-              {stats.aiHandled}
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <p className="text-sm text-muted-foreground">طلبات من المكالمات</p>
-            <p className="mt-1 text-2xl font-bold text-[var(--accent-success)]">
-              {stats.ordersFromCalls}
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <p className="text-sm text-muted-foreground">مكالمات فائتة</p>
-            <p className="mt-1 text-2xl font-bold text-[var(--accent-warning)]">
-              {stats.missedCalls}
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+      <section className="mb-6 rounded-[var(--radius-base)] border border-[var(--color-border)] bg-[var(--color-surface)] p-3 shadow-[var(--shadow-sm)]">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex flex-wrap items-center gap-3 text-sm">
+            <span>
+              اليوم:{" "}
+              <strong className="font-mono text-[var(--color-brand-primary)]">
+                {stats.callsToday}
+              </strong>
+            </span>
+            <span className="text-[var(--color-border)]">|</span>
+            <span>
+              فائتة:{" "}
+              <strong className="font-mono text-[var(--color-warning-text)]">
+                {stats.missedCalls}
+              </strong>
+            </span>
+            <span className="text-[var(--color-border)]">|</span>
+            <span>
+              تحولت إلى طلب:{" "}
+              <strong className="font-mono text-[var(--color-success-text)]">
+                {stats.ordersFromCalls}
+              </strong>
+            </span>
+            <span className="text-[var(--color-border)]">|</span>
+            <span>
+              تدخل فريق:{" "}
+              <strong className="font-mono">{stats.staffHandled}</strong>
+            </span>
+          </div>
+          <div
+            className={
+              freshness.state === "old"
+                ? "text-xs text-[var(--color-danger-text)]"
+                : freshness.state === "stale"
+                  ? "text-xs text-[var(--color-warning-text)]"
+                  : "text-xs text-[var(--color-text-secondary)]"
+            }
+          >
+            {freshness.label}
+          </div>
+        </div>
+      </section>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <CalendarClock className="h-4 w-4" />
-            آخر المكالمات
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {loading ? (
-            <TableSkeleton rows={5} columns={1} />
-          ) : calls.length === 0 ? (
-            <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
-              لا توجد مكالمات مسجلة بعد.
-            </div>
-          ) : (
-            calls.map((call) => {
-              const isExpanded = expandedCallIds.includes(call.id);
-              const isAi = String(call.handledBy || "").toLowerCase() === "ai";
-
-              return (
-                <div key={call.id} className="app-data-card space-y-3 p-4">
-                  <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                    <div className="space-y-1">
-                      <p className="text-sm font-semibold">
-                        {call.customerPhone || "غير معروف"}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {call.startedAt
-                          ? new Date(call.startedAt).toLocaleString("ar-EG")
-                          : "-"}
-                      </p>
+      {loading ? (
+        <TableSkeleton rows={6} columns={3} />
+      ) : calls.length === 0 ? (
+        <EmptyState
+          icon={<PhoneCall className="h-7 w-7" />}
+          title="لا توجد مكالمات مسجلة"
+          description="ستظهر المكالمات هنا بعد ربط القناة الصوتية أو استقبال أول مكالمة. راجع التكاملات إذا كان من المفترض أن تصل مكالمات الآن."
+          action={
+            <Button variant="outline" onClick={() => void refreshAll()}>
+              <RefreshCw className="h-4 w-4" />
+              تحديث المكالمات
+            </Button>
+          }
+        />
+      ) : (
+        <section className="grid min-h-0 grid-cols-1 gap-4 xl:grid-cols-[380px_minmax(0,1fr)]">
+          <Card className="app-data-card overflow-hidden">
+            <CardHeader className="border-b border-[var(--color-border)] bg-[var(--bg-surface-2)]">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <CalendarClock className="h-4 w-4 text-[var(--color-brand-primary)]" />
+                طابور المكالمات
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="max-h-[680px] space-y-2 overflow-y-auto p-3">
+              {calls.map((call) => {
+                const isSelected = selectedCall?.id === call.id;
+                const isAutomation =
+                  String(call.handledBy || "").toLowerCase() === "ai";
+                return (
+                  <button
+                    key={call.id}
+                    type="button"
+                    onClick={() => setSelectedCallId(call.id)}
+                    className={`w-full rounded-[var(--radius-sm)] border p-3 text-start transition-colors ${
+                      isSelected
+                        ? "border-[var(--color-brand-primary)] bg-[var(--color-brand-subtle)]"
+                        : "border-[var(--color-border)] bg-[var(--bg-surface-1)] hover:bg-[var(--bg-surface-2)]"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold">
+                          {call.customerPhone || "رقم غير معروف"}
+                        </p>
+                        <p className="mt-1 text-xs text-[var(--color-text-secondary)]">
+                          {call.startedAt
+                            ? new Date(call.startedAt).toLocaleString("ar-EG")
+                            : "وقت غير معروف"}
+                        </p>
+                      </div>
+                      <Badge variant="outline">
+                        {getCallStatusLabel(call.status)}
+                      </Badge>
                     </div>
-
-                    <div className="flex flex-wrap items-center gap-2">
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
                       <Badge
-                        variant="secondary"
                         className={
-                          isAi
-                            ? "border border-[var(--accent-blue)]/25 bg-[var(--accent-blue)]/12 text-[var(--accent-blue)]"
-                            : "border border-[var(--accent-success)]/25 bg-[var(--accent-success)]/12 text-[var(--accent-success)]"
+                          isAutomation
+                            ? "border-[var(--color-ai-border)] bg-[var(--color-ai-bg)] text-[var(--color-ai-text)]"
+                            : "border-[var(--color-info-border)] bg-[var(--color-info-bg)] text-[var(--color-info-text)]"
                         }
                       >
-                        {isAi ? (
+                        {isAutomation ? (
                           <Bot className="ml-1 h-3.5 w-3.5" />
                         ) : (
                           <User className="ml-1 h-3.5 w-3.5" />
                         )}
-                        {isAi ? "AI" : "Staff"}
+                        {isAutomation ? "معالجة تلقائية" : "الفريق"}
                       </Badge>
-
-                      <Badge variant="outline">
-                        {call.durationSeconds
-                          ? `${call.durationSeconds} ثانية`
-                          : "-"}
-                      </Badge>
-
+                      <span className="text-xs text-[var(--color-text-secondary)]">
+                        {formatDuration(call.durationSeconds)}
+                      </span>
                       {call.orderNumber ? (
-                        <Badge className="border border-[var(--accent-success)]/25 bg-[var(--accent-success)]/12 text-[var(--accent-success)] hover:bg-[var(--accent-success)]/12">
+                        <span className="text-xs font-semibold text-[var(--color-success-text)]">
                           طلب #{call.orderNumber}
+                        </span>
+                      ) : null}
+                    </div>
+                  </button>
+                );
+              })}
+            </CardContent>
+          </Card>
+
+          <Card className="app-data-card min-h-[560px]">
+            {selectedCall ? (
+              <>
+                <CardHeader className="border-b border-[var(--color-border)]">
+                  <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                    <div>
+                      <CardTitle className="text-lg">
+                        {selectedCall.customerPhone || "رقم غير معروف"}
+                      </CardTitle>
+                      <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
+                        {selectedCall.startedAt
+                          ? new Date(selectedCall.startedAt).toLocaleString(
+                              "ar-EG",
+                            )
+                          : "وقت غير معروف"}{" "}
+                        • {formatDuration(selectedCall.durationSeconds)}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Badge variant="outline">
+                        {getCallStatusLabel(selectedCall.status)}
+                      </Badge>
+                      {selectedCall.orderNumber ? (
+                        <Badge className="border-[var(--color-success-border)] bg-[var(--color-success-bg)] text-[var(--color-success-text)]">
+                          طلب #{selectedCall.orderNumber}
                         </Badge>
                       ) : (
-                        <Badge variant="outline">بدون طلب</Badge>
+                        <Button
+                          size="sm"
+                          onClick={() => setCreateOrderOpen(true)}
+                        >
+                          <ShoppingCart className="h-4 w-4" />
+                          إنشاء طلب
+                        </Button>
                       )}
-
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => toggleTranscript(call.id)}
-                        className="w-full sm:w-auto"
-                      >
-                        سجل المكالمة
-                        {isExpanded ? (
-                          <ChevronUp className="mr-1 h-4 w-4" />
-                        ) : (
-                          <ChevronDown className="mr-1 h-4 w-4" />
-                        )}
-                      </Button>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-5 p-5">
+                  <div className="rounded-[var(--radius-base)] border border-[var(--color-ai-border)] bg-[var(--color-ai-bg)] p-4">
+                    <div className="flex items-start gap-3">
+                      <Bot className="mt-0.5 h-4 w-4 text-[var(--color-ai-icon)]" />
+                      <div>
+                        <p className="text-sm font-semibold text-[var(--color-ai-text)]">
+                          ملخص مساعد للمكالمة
+                        </p>
+                        <p className="mt-1 text-sm leading-6 text-[var(--color-ai-text)]/85">
+                          {selectedCall.transcript.length > 0
+                            ? `تم حفظ ${selectedCall.transcript.length} مقاطع من نص المكالمة. راجع النص قبل اتخاذ قرار نهائي.`
+                            : "لا يوجد نص محفوظ لهذه المكالمة، لذلك لا نعرض ملخصاً تقديرياً."}
+                        </p>
+                      </div>
                     </div>
                   </div>
 
-                  {isExpanded && (
-                    <div className="rounded-md bg-muted/40 p-3 space-y-2">
-                      {call.transcript.length === 0 ? (
-                        <p className="text-xs text-muted-foreground">
-                          لا يوجد نص محادثة محفوظ.
-                        </p>
+                  <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <h2 className="text-sm font-semibold">سجل المكالمة</h2>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => toggleTranscript(selectedCall.id)}
+                        >
+                          {expandedCallIds.includes(selectedCall.id)
+                            ? "إخفاء"
+                            : "عرض كامل"}
+                          {expandedCallIds.includes(selectedCall.id) ? (
+                            <ChevronUp className="h-4 w-4" />
+                          ) : (
+                            <ChevronDown className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </div>
+                      {selectedCall.transcript.length === 0 ? (
+                        <div className="rounded-[var(--radius-sm)] border border-dashed border-[var(--color-border)] p-5 text-sm text-[var(--color-text-secondary)]">
+                          لا يوجد نص محادثة محفوظ لهذه المكالمة.
+                        </div>
                       ) : (
-                        call.transcript.map((entry, index) => (
-                          <div
-                            key={`${call.id}-${index}`}
-                            className="rounded-md bg-background p-2"
-                          >
-                            <p className="text-xs text-muted-foreground">
-                              {entry.speaker === "ai" ? "المساعد" : "العميل"}
-                              {entry.at
-                                ? ` • ${new Date(entry.at).toLocaleTimeString("ar-EG")}`
-                                : ""}
-                            </p>
-                            <p className="text-sm mt-1 leading-6">
-                              {entry.text}
-                            </p>
-                          </div>
-                        ))
+                        <div className="max-h-[360px] space-y-2 overflow-y-auto">
+                          {(expandedCallIds.includes(selectedCall.id)
+                            ? selectedCall.transcript
+                            : selectedCall.transcript.slice(-4)
+                          ).map((entry, index) => (
+                            <div
+                              key={`${selectedCall.id}-${index}`}
+                              className="rounded-[var(--radius-sm)] border border-[var(--color-border)] bg-[var(--bg-surface-2)] p-3"
+                            >
+                              <p className="text-xs text-[var(--color-text-secondary)]">
+                                {entry.speaker === "ai" ? "المساعد" : "العميل"}
+                                {entry.at
+                                  ? ` • ${new Date(entry.at).toLocaleTimeString("ar-EG")}`
+                                  : ""}
+                              </p>
+                              <p className="mt-1 text-sm leading-6">
+                                {entry.text}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
                       )}
                     </div>
-                  )}
-                </div>
-              );
-            })
-          )}
-        </CardContent>
-      </Card>
+
+                    <div className="space-y-3 rounded-[var(--radius-base)] border border-[var(--color-border)] bg-[var(--bg-surface-2)] p-4">
+                      <h2 className="text-sm font-semibold">نتيجة المتابعة</h2>
+                      <Select
+                        value={callDisposition}
+                        onValueChange={setCallDisposition}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="needs_followup">
+                            يحتاج متابعة
+                          </SelectItem>
+                          <SelectItem value="order_created">
+                            تم إنشاء طلب
+                          </SelectItem>
+                          <SelectItem value="not_interested">
+                            غير مهتم
+                          </SelectItem>
+                          <SelectItem value="wrong_number">
+                            رقم غير صحيح
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Textarea
+                        value={callNotes}
+                        onChange={(event) => setCallNotes(event.target.value)}
+                        placeholder="اكتب ملاحظات الفريق أو خطوة المتابعة التالية..."
+                        className="min-h-[132px]"
+                      />
+                      <p className="text-xs leading-5 text-[var(--color-text-secondary)]">
+                        هذه الملاحظات محلية في واجهة التشغيل حالياً ولا تغيّر
+                        بيانات المكالمة حتى يتوفر حفظ رسمي للملاحظات.
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </>
+            ) : (
+              <CardContent className="flex min-h-[520px] items-center justify-center">
+                <EmptyState
+                  icon={<PhoneCall className="h-7 w-7" />}
+                  title="اختر مكالمة من الطابور"
+                  description="سيظهر نص المكالمة، حالتها، وملاحظات المتابعة هنا."
+                />
+              </CardContent>
+            )}
+          </Card>
+        </section>
+      )}
 
       {activeCall && (
         <Button

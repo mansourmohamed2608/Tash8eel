@@ -54,11 +54,11 @@ import {
   ChevronDown,
   ChevronUp,
   ExternalLink,
-  Sparkles,
 } from "lucide-react";
 import portalApi from "@/lib/client";
 const authenticatedApi = portalApi;
 import { Switch } from "@/components/ui/switch";
+import { TableSkeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
@@ -566,7 +566,7 @@ export default function SuppliersPage() {
     <div dir="rtl" className="space-y-8 p-4 sm:p-6">
       <PageHeader
         title="الموردون"
-        description="إدارة الموردين والتواصل معهم وتنبيهات إعادة الطلب من شاشة واحدة."
+        description="جزء من المخزون: مهل التوريد، حالة الموردين، وربط المنتجات التي تحتاج إعادة طلب."
         actions={
           <div className="flex flex-wrap gap-2">
             <Button
@@ -615,27 +615,27 @@ export default function SuppliersPage() {
           onClick={() => openSupplierLookup("external")}
           className="w-full sm:mr-auto sm:w-auto"
         >
-          <Sparkles className="ml-1 h-4 w-4 text-[var(--accent-gold)]" />
+          <Search className="ml-1 h-4 w-4 text-[var(--accent-blue)]" />
           اكتشف موردين جدد
         </Button>
       </div>
 
       {/* Auto-discovered supplier suggestions banner */}
       {autoSuggestions.length > 0 && (
-        <Card className="app-data-card border-[var(--accent-gold)]/20 bg-[var(--accent-gold-dim)]">
+        <Card className="app-data-card border-[var(--color-ai)]/25 bg-[var(--color-ai-subtle)]">
           <CardContent className="pt-4 pb-3">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex items-center gap-2 text-[var(--accent-gold)]">
-                <Sparkles className="w-4 h-4 shrink-0" />
+              <div className="flex items-center gap-2 text-[var(--text-primary)]">
+                <Star className="w-4 h-4 shrink-0 text-[var(--color-ai)]" />
                 <span className="font-medium text-sm">
-                  الذكاء الاصطناعي اكتشف {autoSuggestions.length} مورّد محتمل
-                  لمنتجاتك الحرجة
+                  توجد {autoSuggestions.length} اقتراحات موردين مرتبطة بأصناف
+                  حرجة
                 </span>
               </div>
               <Button
                 size="sm"
                 variant="outline"
-                className="w-full border-[var(--accent-gold)]/25 text-[var(--accent-gold)] hover:bg-[var(--accent-gold-dim)] sm:w-auto"
+                className="w-full border-[var(--color-ai)]/30 text-[var(--text-primary)] hover:bg-[var(--color-ai-subtle)] sm:w-auto"
                 onClick={() => {
                   openSupplierLookup("external", autoSuggestions.slice(0, 8));
                 }}
@@ -659,249 +659,260 @@ export default function SuppliersPage() {
       )}
 
       {/* Empty */}
+      {loading && !error && <TableSkeleton rows={4} columns={4} />}
+
       {!loading && !error && filtered.length === 0 && (
         <Card className="app-data-card">
           <CardContent className="py-16 text-center text-muted-foreground">
             <Truck className="w-12 h-12 mx-auto mb-4 opacity-30" />
             <p className="font-medium">لا يوجد موردون حتى الآن</p>
             <p className="text-sm mt-1">
-              أضف موردّيك للبدء في إدارة المخزون التلقائي
+              أضف الموردين واربطهم بالأصناف منخفضة المخزون ومهل التوريد.
             </p>
+            <Button onClick={openCreate} className="mt-4">
+              <Plus className="ml-1 h-4 w-4" />
+              إضافة مورد
+            </Button>
           </CardContent>
         </Card>
       )}
 
       {/* Grid */}
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {filtered.map((s) => (
-          <Card
-            key={s.id}
-            ref={(node) => {
-              supplierCardRefs.current[s.id] = node;
-            }}
-            className={`app-data-card relative ${!s.is_active ? "opacity-60" : ""} ${highlightedSupplierId === s.id ? "border-[var(--accent-blue)]" : ""}`}
-          >
-            <CardHeader className="pb-2">
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <CardTitle className="text-base">{s.name}</CardTitle>
-                  {s.contact_name && (
-                    <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
-                      <User className="w-3 h-3" />
-                      {s.contact_name}
-                    </p>
-                  )}
-                </div>
-                <div className="flex gap-1">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7"
-                    onClick={() => openEdit(s)}
-                  >
-                    <Pencil className="w-3.5 h-3.5" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 text-destructive hover:text-destructive"
-                    onClick={() => setDeleteTarget(s)}
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </Button>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {/* Contact info */}
-              <div className="flex flex-wrap gap-2 text-sm">
-                {s.whatsapp_phone && (
-                  <span className="flex items-center gap-1 text-[var(--accent-success)]">
-                    <MessageSquare className="w-3.5 h-3.5" />
-                    {s.whatsapp_phone}
-                  </span>
-                )}
-                {s.phone && !s.whatsapp_phone && (
-                  <span className="flex items-center gap-1 text-muted-foreground">
-                    <Phone className="w-3.5 h-3.5" />
-                    {s.phone}
-                  </span>
-                )}
-              </div>
-
-              {/* Auto-notify toggle */}
-              <div className="flex items-center justify-between rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 py-2">
-                <div className="flex items-center gap-2">
-                  {s.auto_notify_low_stock ? (
-                    <Bell className="w-4 h-4 text-[var(--accent-warning)]" />
-                  ) : (
-                    <BellOff className="w-4 h-4 text-muted-foreground" />
-                  )}
-                  <div className="text-xs">
-                    <p className="font-medium">
-                      {s.auto_notify_low_stock
-                        ? "تنبيه تلقائي مفعّل"
-                        : "تنبيه تلقائي معطّل"}
-                    </p>
-                    {s.auto_notify_low_stock && (
-                      <p className="text-muted-foreground">
-                        {THRESHOLD_LABELS[
-                          s.notify_threshold as NotifyThreshold
-                        ] ?? s.notify_threshold}
+      {!loading && (
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {filtered.map((s) => (
+            <Card
+              key={s.id}
+              ref={(node) => {
+                supplierCardRefs.current[s.id] = node;
+              }}
+              className={`app-data-card relative ${!s.is_active ? "opacity-60" : ""} ${highlightedSupplierId === s.id ? "border-[var(--accent-blue)]" : ""}`}
+            >
+              <CardHeader className="pb-2">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <CardTitle className="text-base">{s.name}</CardTitle>
+                    {s.contact_name && (
+                      <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                        <User className="w-3 h-3" />
+                        {s.contact_name}
                       </p>
                     )}
                   </div>
+                  <div className="flex gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={() => openEdit(s)}
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-destructive hover:text-destructive"
+                      onClick={() => setDeleteTarget(s)}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
                 </div>
-                <Switch
-                  checked={s.auto_notify_low_stock}
-                  onCheckedChange={() => handleToggleNotify(s)}
-                />
-              </div>
-
-              {s.last_auto_notified_at && (
-                <p className="text-[11px] text-muted-foreground">
-                  آخر إشعار:{" "}
-                  {new Date(s.last_auto_notified_at).toLocaleDateString(
-                    "ar-SA",
-                    {
-                      day: "numeric",
-                      month: "short",
-                      year: "numeric",
-                    },
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {/* Contact info */}
+                <div className="flex flex-wrap gap-2 text-sm">
+                  {s.whatsapp_phone && (
+                    <span className="flex items-center gap-1 text-[var(--accent-success)]">
+                      <MessageSquare className="w-3.5 h-3.5" />
+                      {s.whatsapp_phone}
+                    </span>
                   )}
-                </p>
-              )}
-
-              {/* No WA phone warning */}
-              {!s.whatsapp_phone && !s.phone && (
-                <div className="flex items-center gap-2 rounded px-2 py-1.5 text-xs text-[var(--accent-warning)] bg-[var(--accent-warning)]/12">
-                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                  <span>لا يوجد رقم واتساب – </span>
-                  <button
-                    className="underline font-medium"
-                    onClick={() => {
-                      setDiscoverQuery(s.name);
-                      openSupplierLookup("external");
-                    }}
-                  >
-                    ابحث عن رقم
-                  </button>
+                  {s.phone && !s.whatsapp_phone && (
+                    <span className="flex items-center gap-1 text-muted-foreground">
+                      <Phone className="w-3.5 h-3.5" />
+                      {s.phone}
+                    </span>
+                  )}
                 </div>
-              )}
 
-              {/* Send message button */}
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full border-[var(--accent-success)]/25 bg-[var(--accent-success)]/12 text-[var(--accent-success)] hover:border-[var(--accent-success)] hover:bg-[var(--accent-success)]/18 hover:text-[var(--accent-success)]"
-                onClick={() => {
-                  setMsgTarget(s);
-                  setMsgText("");
-                }}
-                disabled={!s.whatsapp_phone && !s.phone}
-              >
-                <Send className="w-3.5 h-3.5 ml-1" />
-                إرسال رسالة واتساب
-              </Button>
-
-              {/* Product linking panel */}
-              <div className="border-t pt-2">
-                <button
-                  className="flex items-center justify-between w-full text-xs text-muted-foreground hover:text-foreground transition-colors"
-                  onClick={() => toggleProductPanel(s.id)}
-                >
-                  <span className="flex items-center gap-1">
-                    <Package className="w-3.5 h-3.5" />
-                    منتجات المورّد
-                    {supplierProducts[s.id]?.length > 0 && (
-                      <Badge variant="outline" className="text-[10px] h-4 px-1">
-                        {supplierProducts[s.id].length}
-                      </Badge>
-                    )}
-                  </span>
-                  {expandedSupplierId === s.id ? (
-                    <ChevronUp className="w-3.5 h-3.5" />
-                  ) : (
-                    <ChevronDown className="w-3.5 h-3.5" />
-                  )}
-                </button>
-
-                {expandedSupplierId === s.id && (
-                  <div className="mt-2 space-y-1.5">
-                    {loadingProducts === s.id ? (
-                      <div className="flex justify-center py-2">
-                        <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
-                      </div>
+                {/* Auto-notify toggle */}
+                <div className="flex items-center justify-between rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 py-2">
+                  <div className="flex items-center gap-2">
+                    {s.auto_notify_low_stock ? (
+                      <Bell className="w-4 h-4 text-[var(--accent-warning)]" />
                     ) : (
-                      <>
-                        {(supplierProducts[s.id] ?? []).map((p) => (
-                          <div
-                            key={p.product_id}
-                            className="flex items-center justify-between text-xs bg-muted/50 rounded px-2 py-1"
-                          >
-                            <div>
-                              <span className="font-medium">
-                                {p.product_name}
-                              </span>
-                              <span className="text-muted-foreground mr-1">
-                                ({p.quantity_in_stock ?? 0})
-                              </span>
-                            </div>
-                            <button
-                              className="text-destructive hover:opacity-80"
-                              onClick={() =>
-                                handleUnlinkProduct(s.id, p.product_id)
-                              }
-                            >
-                              ✕
-                            </button>
-                          </div>
-                        ))}
-                        <div className="flex gap-1.5">
-                          <Input
-                            placeholder="معرّف المنتج..."
-                            value={selectedProductId[s.id] ?? ""}
-                            onChange={(e) =>
-                              setSelectedProductId((prev) => ({
-                                ...prev,
-                                [s.id]: e.target.value,
-                              }))
-                            }
-                            className="h-7 text-xs"
-                          />
-                          <Button
-                            size="sm"
-                            className="h-7 px-2 text-xs"
-                            disabled={
-                              !selectedProductId[s.id] || linking === s.id
-                            }
-                            onClick={() => handleLinkProduct(s.id)}
-                          >
-                            {linking === s.id ? (
-                              <Loader2 className="w-3 h-3 animate-spin" />
-                            ) : (
-                              "ربط"
-                            )}
-                          </Button>
-                        </div>
-                      </>
+                      <BellOff className="w-4 h-4 text-muted-foreground" />
                     )}
+                    <div className="text-xs">
+                      <p className="font-medium">
+                        {s.auto_notify_low_stock
+                          ? "تنبيه تلقائي مفعّل"
+                          : "تنبيه تلقائي معطّل"}
+                      </p>
+                      {s.auto_notify_low_stock && (
+                        <p className="text-muted-foreground">
+                          {THRESHOLD_LABELS[
+                            s.notify_threshold as NotifyThreshold
+                          ] ?? s.notify_threshold}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <Switch
+                    checked={s.auto_notify_low_stock}
+                    onCheckedChange={() => handleToggleNotify(s)}
+                  />
+                </div>
+
+                {s.last_auto_notified_at && (
+                  <p className="text-[11px] text-muted-foreground">
+                    آخر إشعار:{" "}
+                    {new Date(s.last_auto_notified_at).toLocaleDateString(
+                      "ar-SA",
+                      {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                      },
+                    )}
+                  </p>
+                )}
+
+                {/* No WA phone warning */}
+                {!s.whatsapp_phone && !s.phone && (
+                  <div className="flex items-center gap-2 rounded px-2 py-1.5 text-xs text-[var(--accent-warning)] bg-[var(--accent-warning)]/12">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    <span>لا يوجد رقم واتساب – </span>
+                    <button
+                      className="underline font-medium"
+                      onClick={() => {
+                        setDiscoverQuery(s.name);
+                        openSupplierLookup("external");
+                      }}
+                    >
+                      ابحث عن رقم
+                    </button>
                   </div>
                 )}
-              </div>
 
-              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[var(--border-subtle)] pt-3 text-[11px] text-[var(--text-muted)]">
-                <span>مهلة التوريد: {s.lead_time_days || 0} يوم</span>
-                <span>
-                  {s.last_auto_notified_at
-                    ? `آخر إشعار: ${new Date(s.last_auto_notified_at).toLocaleDateString("en-GB")}`
-                    : "لم يُرسل إشعار بعد"}
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+                {/* Send message button */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full border-[var(--accent-success)]/25 bg-[var(--accent-success)]/12 text-[var(--accent-success)] hover:border-[var(--accent-success)] hover:bg-[var(--accent-success)]/18 hover:text-[var(--accent-success)]"
+                  onClick={() => {
+                    setMsgTarget(s);
+                    setMsgText("");
+                  }}
+                  disabled={!s.whatsapp_phone && !s.phone}
+                >
+                  <Send className="w-3.5 h-3.5 ml-1" />
+                  إرسال رسالة واتساب
+                </Button>
+
+                {/* Product linking panel */}
+                <div className="border-t pt-2">
+                  <button
+                    className="flex items-center justify-between w-full text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    onClick={() => toggleProductPanel(s.id)}
+                  >
+                    <span className="flex items-center gap-1">
+                      <Package className="w-3.5 h-3.5" />
+                      منتجات المورّد
+                      {supplierProducts[s.id]?.length > 0 && (
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] h-4 px-1"
+                        >
+                          {supplierProducts[s.id].length}
+                        </Badge>
+                      )}
+                    </span>
+                    {expandedSupplierId === s.id ? (
+                      <ChevronUp className="w-3.5 h-3.5" />
+                    ) : (
+                      <ChevronDown className="w-3.5 h-3.5" />
+                    )}
+                  </button>
+
+                  {expandedSupplierId === s.id && (
+                    <div className="mt-2 space-y-1.5">
+                      {loadingProducts === s.id ? (
+                        <div className="flex justify-center py-2">
+                          <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                        </div>
+                      ) : (
+                        <>
+                          {(supplierProducts[s.id] ?? []).map((p) => (
+                            <div
+                              key={p.product_id}
+                              className="flex items-center justify-between text-xs bg-muted/50 rounded px-2 py-1"
+                            >
+                              <div>
+                                <span className="font-medium">
+                                  {p.product_name}
+                                </span>
+                                <span className="text-muted-foreground mr-1">
+                                  ({p.quantity_in_stock ?? 0})
+                                </span>
+                              </div>
+                              <button
+                                className="text-destructive hover:opacity-80"
+                                onClick={() =>
+                                  handleUnlinkProduct(s.id, p.product_id)
+                                }
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          ))}
+                          <div className="flex gap-1.5">
+                            <Input
+                              placeholder="معرّف المنتج..."
+                              value={selectedProductId[s.id] ?? ""}
+                              onChange={(e) =>
+                                setSelectedProductId((prev) => ({
+                                  ...prev,
+                                  [s.id]: e.target.value,
+                                }))
+                              }
+                              className="h-7 text-xs"
+                            />
+                            <Button
+                              size="sm"
+                              className="h-7 px-2 text-xs"
+                              disabled={
+                                !selectedProductId[s.id] || linking === s.id
+                              }
+                              onClick={() => handleLinkProduct(s.id)}
+                            >
+                              {linking === s.id ? (
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                              ) : (
+                                "ربط"
+                              )}
+                            </Button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[var(--border-subtle)] pt-3 text-[11px] text-[var(--text-muted)]">
+                  <span>مهلة التوريد: {s.lead_time_days || 0} يوم</span>
+                  <span>
+                    {s.last_auto_notified_at
+                      ? `آخر إشعار: ${new Date(s.last_auto_notified_at).toLocaleDateString("en-GB")}`
+                      : "لم يُرسل إشعار بعد"}
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
 
       {/* ── Create / Edit Dialog ────────────────────────────────────────────── */}
       <Dialog open={showForm} onOpenChange={setShowForm}>
@@ -1183,7 +1194,7 @@ export default function SuppliersPage() {
               {discoverMode === "internal" ? (
                 <Search className="h-5 w-5 text-[var(--accent-blue)]" />
               ) : (
-                <Sparkles className="h-5 w-5 text-[var(--accent-gold)]" />
+                <Search className="h-5 w-5 text-[var(--accent-blue)]" />
               )}
               {discoverMode === "internal"
                 ? "ابحث في مورديك"
@@ -1192,7 +1203,7 @@ export default function SuppliersPage() {
             <DialogDescription>
               {discoverMode === "internal"
                 ? "ابحث داخل الموردين الموجودين في نظامك مع ترجيح الفرع الرسمي والمنتجات المرتبطة"
-                : "ابحث عن موردين جدد بالمنتج أو الفئة - يستخدم خرائط Google والذكاء الاصطناعي"}
+                : "ابحث عن موردين جدد بالمنتج أو الفئة، ثم راجع النتائج قبل إضافتها للمخزون"}
             </DialogDescription>
           </DialogHeader>
 
@@ -1222,7 +1233,7 @@ export default function SuppliersPage() {
                 setDiscoverContext(null);
               }}
             >
-              <Sparkles className="w-4 h-4 ml-1" />
+              <Search className="w-4 h-4 ml-1" />
               اكتشف موردين جدد
             </Button>
           </div>
@@ -1334,7 +1345,7 @@ export default function SuppliersPage() {
           {discoverResults.length > 0 && (
             <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
               <div
-                className={`rounded-lg border px-3 py-2 text-xs font-medium ${discoverMode === "internal" ? "border-[var(--accent-blue)]/20 bg-[var(--accent-blue)]/12 text-[var(--accent-blue)]" : "border-[var(--accent-gold)]/20 bg-[var(--accent-gold-dim)] text-[var(--accent-gold)]"}`}
+                className={`rounded-lg border px-3 py-2 text-xs font-medium ${discoverMode === "internal" ? "border-[var(--accent-blue)]/20 bg-[var(--accent-blue)]/12 text-[var(--accent-blue)]" : "border-[var(--color-brand-primary)]/20 bg-[var(--color-brand-subtle)] text-[var(--color-brand-primary)]"}`}
               >
                 {discoverMode === "internal"
                   ? "نتائج من داخل نظامك"
@@ -1364,7 +1375,7 @@ export default function SuppliersPage() {
                       )}
                       {r.rating != null && (
                         <p className="text-xs flex items-center gap-1 mt-0.5">
-                          <Star className="h-3 w-3 text-[var(--accent-gold)]" />
+                          <Star className="h-3 w-3 text-[var(--color-brand-primary)]" />
                           {r.rating}
                           {r.totalRatings != null && (
                             <span className="text-muted-foreground">

@@ -26,7 +26,6 @@ import {
 import {
   Bot,
   CreditCard,
-  Sparkles,
   Users,
   Star,
   Megaphone,
@@ -66,7 +65,7 @@ interface RoadmapFeature {
 const ROADMAP_FEATURES: RoadmapFeature[] = [
   {
     id: "ops_agent",
-    nameAr: "وكيل العمليات",
+    nameAr: "قدرة العمليات",
     nameEn: "Operations Agent",
     icon: Bot,
     descriptionAr: "يدير المحادثات والطلبات والعملاء والمتابعات تلقائياً",
@@ -83,7 +82,7 @@ const ROADMAP_FEATURES: RoadmapFeature[] = [
   },
   {
     id: "inventory_agent",
-    nameAr: "وكيل المخزون",
+    nameAr: "قدرة المخزون",
     nameEn: "Inventory Agent",
     icon: Package,
     descriptionAr: "يتتبع المخزون والحجوزات والتنبيهات وتوصيات إعادة الطلب",
@@ -100,7 +99,7 @@ const ROADMAP_FEATURES: RoadmapFeature[] = [
   },
   {
     id: "finance_agent",
-    nameAr: "وكيل المالية",
+    nameAr: "قدرة المالية",
     nameEn: "Finance Agent",
     icon: CreditCard,
     descriptionAr: "يدير المدفوعات والفواتير والتقارير المالية والمصروفات",
@@ -117,7 +116,7 @@ const ROADMAP_FEATURES: RoadmapFeature[] = [
   },
   {
     id: "support_agent",
-    nameAr: "وكيل الدعم",
+    nameAr: "قدرة الدعم",
     nameEn: "Support Agent",
     icon: Users,
     descriptionAr: "دعم العملاء الذكي مع تصعيد تلقائي",
@@ -134,7 +133,7 @@ const ROADMAP_FEATURES: RoadmapFeature[] = [
   },
   {
     id: "marketing_agent",
-    nameAr: "وكيل التسويق",
+    nameAr: "قدرة النمو",
     nameEn: "Marketing Agent",
     icon: Megaphone,
     descriptionAr: "حملات تسويقية متعددة القنوات مع استهداف ذكي",
@@ -151,7 +150,7 @@ const ROADMAP_FEATURES: RoadmapFeature[] = [
   },
   {
     id: "sales_agent",
-    nameAr: "وكيل المبيعات",
+    nameAr: "قدرة المبيعات",
     nameEn: "Sales Agent",
     icon: ShoppingCart,
     descriptionAr:
@@ -170,9 +169,9 @@ const ROADMAP_FEATURES: RoadmapFeature[] = [
   },
   {
     id: "content_agent",
-    nameAr: "وكيل المحتوى",
+    nameAr: "قدرة المحتوى",
     nameEn: "Content Agent",
-    icon: Sparkles,
+    icon: Star,
     descriptionAr: "إنشاء محتوى تسويقي متعدد الصيغ لكل منصات التواصل",
     outcomes: [
       "كتابة أوصاف المنتجات",
@@ -187,9 +186,9 @@ const ROADMAP_FEATURES: RoadmapFeature[] = [
   },
   {
     id: "creative_studio",
-    nameAr: "وكيل الإبداع",
+    nameAr: "قدرة الإبداع",
     nameEn: "Creative Studio",
-    icon: Sparkles,
+    icon: Star,
     descriptionAr: "توليد صور وفيديوهات وإعلانات جاهزة للنشر",
     outcomes: [
       "صور منتجات احترافية وخلفيات ذكية",
@@ -421,7 +420,7 @@ export default function RoadmapPage() {
   };
 
   const toneClasses: Record<RoadmapFeature["tone"], string> = {
-    gold: "border-[var(--accent-gold)]/30 bg-[var(--accent-gold)]/10 text-[var(--accent-gold)]",
+    gold: "border-[var(--color-brand-primary)]/30 bg-[var(--color-brand-primary)]/10 text-[var(--color-brand-primary)]",
     blue: "border-[var(--accent-blue)]/30 bg-[var(--accent-blue)]/10 text-[var(--accent-blue)]",
     success:
       "border-[var(--accent-success)]/30 bg-[var(--accent-success)]/10 text-[var(--accent-success)]",
@@ -434,15 +433,15 @@ export default function RoadmapPage() {
   return (
     <div className="space-y-6 p-4 sm:p-6">
       <PageHeader
-        title="خارطة الطريق"
-        description="الميزات والوكلاء القادمة - سجّل للوصول المبكر"
+        title="مركز القيادة / خارطة الطريق"
+        description="قدرات قادمة كسياق إداري داخل مركز القيادة، وليست مسارات تشغيل أساسية."
       />
 
       {/* Hero Section */}
-      <Card className="border-[var(--accent-gold)]/20 bg-[var(--bg-surface-2)]">
+      <Card className="border-[var(--color-brand-primary)]/20 bg-[var(--bg-surface-2)]">
         <CardContent className="p-6">
           <div className="flex items-center gap-4">
-            <div className="rounded-lg border border-[var(--accent-gold)]/30 bg-[var(--accent-gold)]/10 p-3 text-[var(--accent-gold)]">
+            <div className="rounded-lg border border-[var(--color-brand-primary)]/30 bg-[var(--color-brand-primary)]/10 p-3 text-[var(--color-brand-primary)]">
               <Rocket className="h-8 w-8" />
             </div>
             <div>
@@ -451,7 +450,7 @@ export default function RoadmapPage() {
               </h2>
               <p className="mt-1 text-muted-foreground">
                 {roadmapFeatures.filter((f) => f.status === "available").length}{" "}
-                وكلاء متاحين حالياً - سجّل للوصول المبكر لـ{" "}
+                قدرات متاحة حالياً - سجّل للوصول المبكر لـ{" "}
                 {roadmapFeatures.filter((f) => f.status !== "available").length}{" "}
                 ميزات قادمة
               </p>
@@ -471,7 +470,7 @@ export default function RoadmapPage() {
             >
               <div
                 className={cn("h-1.5", {
-                  "bg-[var(--accent-gold)]": feature.tone === "gold",
+                  "bg-[var(--color-brand-primary)]": feature.tone === "gold",
                   "bg-[var(--accent-blue)]": feature.tone === "blue",
                   "bg-[var(--accent-success)]": feature.tone === "success",
                   "bg-[var(--accent-warning)]": feature.tone === "warning",
@@ -493,9 +492,6 @@ export default function RoadmapPage() {
                       <CardTitle className="text-lg">
                         {feature.nameAr}
                       </CardTitle>
-                      <p className="text-xs text-muted-foreground">
-                        {feature.nameEn}
-                      </p>
                     </div>
                   </div>
                   {getStatusBadge(feature.status)}
@@ -543,22 +539,22 @@ export default function RoadmapPage() {
                     </div>
                     {feature.implemented === false ? (
                       <p className="text-muted-foreground">
-                        هذا الوكيل ما زال في مرحلة التنفيذ ولم يصل بعد إلى مسار
+                        هذه القدرة ما زالت في مرحلة التنفيذ ولم تصل بعد إلى مسار
                         تشغيلي مكتمل داخل المنصة.
                       </p>
                     ) : feature.sellable === false ? (
                       <p className="text-muted-foreground">
-                        هذا الوكيل ظاهر في خارطة الطريق لكن لم يتم اعتماده
+                        هذه القدرة ظاهرة في خارطة الطريق لكن لم يتم اعتمادها
                         تجارياً كاشتراك مباشر بعد.
                       </p>
                     ) : feature.subscriptionEnabled === false ? (
                       <p className="text-muted-foreground">
-                        الوكيل مطبّق، لكن التفعيل الذاتي من البوابة غير متاح
+                        القدرة مطبّقة، لكن التفعيل الذاتي من البوابة غير متاح
                         حالياً لهذا المسار.
                       </p>
                     ) : (
                       <p className="text-muted-foreground">
-                        هذا الوكيل يملك مساراً تشغيلياً وقابلية اشتراك مباشرة من
+                        هذه القدرة تملك مساراً تشغيلياً وقابلية اشتراك مباشرة من
                         البوابة.
                       </p>
                     )}

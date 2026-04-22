@@ -604,8 +604,8 @@ export function InventorySummaryCards({
       <Card>
         <CardContent className="p-4">
           <div className="flex items-center gap-3">
-            <div className="rounded-lg bg-[var(--accent-gold-dim)] p-2">
-              <BarChart3 className="h-5 w-5 text-[var(--accent-gold)]" />
+            <div className="rounded-lg bg-[var(--color-brand-subtle)] p-2">
+              <BarChart3 className="h-5 w-5 text-[var(--color-brand-primary)]" />
             </div>
             <div>
               <p className="text-sm text-muted-foreground">صحة المخزون</p>
@@ -691,7 +691,7 @@ export function InventoryQuickActions({
           key={action.label}
           variant="outline"
           className={cn(
-            "h-10 justify-center gap-2 border-[var(--border-default)] bg-[var(--bg-surface-1)] px-3 text-[var(--text-secondary)] hover:border-[var(--accent-gold)] hover:text-[var(--accent-gold)]",
+            "h-10 justify-center gap-2 border-[var(--border-default)] bg-[var(--bg-surface-1)] px-3 text-[var(--text-secondary)] hover:border-[var(--color-brand-primary)] hover:text-[var(--color-brand-primary)]",
             action.disabled && "cursor-not-allowed opacity-40",
           )}
           onClick={action.disabled ? undefined : action.onClick}

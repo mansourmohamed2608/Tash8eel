@@ -65,7 +65,7 @@ const EVENT_TYPE_CONFIG: Record<
   addon: {
     label: "إضافة",
     icon: ArrowUpRight,
-    color: "text-[var(--accent-gold)]",
+    color: "text-[var(--color-brand-primary)]",
   },
   payment: {
     label: "دفعة",
@@ -276,8 +276,8 @@ export default function BillingPage() {
     return (
       <div className="space-y-6 p-4 sm:p-6">
         <PageHeader
-          title="الفواتير"
-          description="عرض تفاصيل الفواتير والمدفوعات"
+          title="الإعدادات / الفواتير والاشتراك"
+          description="الخطة والفواتير والمدفوعات الخاصة باشتراك المنصة."
         />
         <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
           {[1, 2, 3].map((i) => (
@@ -292,8 +292,8 @@ export default function BillingPage() {
     return (
       <div className="space-y-6 p-4 sm:p-6">
         <PageHeader
-          title="الفواتير"
-          description="عرض تفاصيل الفواتير والمدفوعات"
+          title="الإعدادات / الفواتير والاشتراك"
+          description="الخطة والفواتير والمدفوعات الخاصة باشتراك المنصة."
         />
         <ErrorState
           title="خطأ في تحميل بيانات الفواتير"
@@ -307,15 +307,12 @@ export default function BillingPage() {
   return (
     <div className="space-y-8 p-4 sm:p-6">
       <PageHeader
-        title="الفواتير"
-        description="مركز الاشتراك والمدفوعات والفواتير مع قراءة واضحة للحالة الحالية."
+        title="الإعدادات / الفواتير والاشتراك"
+        description="إدارة اشتراك المنصة والفواتير وطريقة الدفع، منفصلة عن مالية التاجر."
         actions={
           <div className="flex flex-wrap gap-2">
-            <Link href="/merchant/pricing">
-              <Button variant="outline">عرض الخطط</Button>
-            </Link>
-            <Link href="/merchant/billing">
-              <Button>إدارة الاشتراك</Button>
+            <Link href="/merchant/settings">
+              <Button variant="outline">العودة للإعدادات</Button>
             </Link>
           </div>
         }
@@ -338,7 +335,7 @@ export default function BillingPage() {
       </div>
 
       {/* Current Subscription */}
-      <Card className="app-data-card mb-6 border-[var(--accent-gold)]/25 bg-[var(--bg-surface-2)]">
+      <Card className="app-data-card mb-6 border-[var(--color-brand-primary)]/25 bg-[var(--bg-surface-2)]">
         <CardContent className="p-6">
           {summary?.subscription ? (
             <div className="grid gap-6 lg:grid-cols-[1.3fr,0.7fr]">
@@ -407,11 +404,6 @@ export default function BillingPage() {
                   </p>
                 ) : null}
                 <div className="grid gap-2">
-                  <Link href="/merchant/pricing">
-                    <Button variant="outline" className="w-full">
-                      قارن جميع الخطط
-                    </Button>
-                  </Link>
                   <Link href="/merchant/billing#usage">
                     <Button variant="outline" className="w-full">
                       راجع الاستخدام
@@ -427,11 +419,11 @@ export default function BillingPage() {
                 لا يوجد اشتراك نشط
               </p>
               <p className="text-sm text-muted-foreground mt-1">
-                أنت على الخطة المجانية حالياً
+                لا توجد بيانات اشتراك مفعلة لهذا الحساب حالياً.
               </p>
-              <Link href="/merchant/billing">
-                <Button className="mt-4">عرض الأسعار والخطط</Button>
-              </Link>
+              <Button className="mt-4" onClick={fetchBilling}>
+                تحديث حالة الاشتراك
+              </Button>
             </div>
           )}
         </CardContent>
@@ -439,11 +431,8 @@ export default function BillingPage() {
 
       {/* Quick Actions */}
       <div className="mb-8 flex flex-wrap gap-2">
-        <Link href="/merchant/billing">
-          <Button variant="outline">إدارة الاشتراك</Button>
-        </Link>
-        <Link href="/merchant/billing#calculator">
-          <Button variant="outline">حاسبة الأسعار</Button>
+        <Link href="/merchant/settings">
+          <Button variant="outline">الإعدادات</Button>
         </Link>
         <Link href="/merchant/billing#usage">
           <Button variant="outline">بيانات الاستخدام</Button>

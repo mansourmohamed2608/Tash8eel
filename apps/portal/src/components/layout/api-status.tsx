@@ -92,8 +92,8 @@ export function ApiStatusIndicator({ collapsed }: ApiStatusIndicatorProps) {
               />
             </button>
           </TooltipTrigger>
-          <TooltipContent side="left">
-            <div className="text-right">
+          <TooltipContent side="bottom" align="end">
+            <div className="text-start">
               <p className="font-medium">{config.label}</p>
               <p className="text-xs text-muted-foreground">{message}</p>
               {lastChecked && (
@@ -119,7 +119,7 @@ export function ApiStatusIndicator({ collapsed }: ApiStatusIndicatorProps) {
           className={cn("h-4 w-4", config.color, isChecking && "animate-spin")}
         />
       </div>
-      <div className="text-right">
+      <div className="text-start">
         <p className={cn("font-medium", config.color)}>{config.label}</p>
         {lastChecked && (
           <p className="text-xs text-muted-foreground">

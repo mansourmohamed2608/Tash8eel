@@ -229,7 +229,7 @@ export default function AuditLogsPage() {
       <div className="flex flex-wrap gap-2">
         <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
           <span className="text-muted-foreground">إجمالي السجلات</span>
-          <span className="font-mono text-[var(--accent-gold)]">
+          <span className="font-mono text-[var(--color-brand-primary)]">
             {logs.length}
           </span>
         </div>
@@ -256,7 +256,7 @@ export default function AuditLogsPage() {
                 <p className="text-sm text-muted-foreground">إجمالي السجلات</p>
                 <p className="text-2xl font-bold">{logs.length}</p>
               </div>
-              <FileText className="h-8 w-8 text-[color:var(--accent-gold)]" />
+              <FileText className="h-8 w-8 text-[color:var(--color-brand-primary)]" />
             </div>
           </CardContent>
         </Card>

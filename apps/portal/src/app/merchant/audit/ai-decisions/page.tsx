@@ -22,7 +22,7 @@ import { StatCard, KPIGrid } from "@/components/ui/stat-card";
 import { DashboardSkeleton } from "@/components/ui/skeleton";
 import { merchantApi } from "@/lib/client";
 import { useMerchant } from "@/hooks/use-merchant";
-import { Brain, Activity, Shield, Eye, RefreshCw } from "lucide-react";
+import { Activity, Shield, Eye, RefreshCw } from "lucide-react";
 
 const parseJsonMaybe = (value: unknown): Record<string, any> | null => {
   if (!value) return null;
@@ -37,6 +37,32 @@ const parseJsonMaybe = (value: unknown): Record<string, any> | null => {
     return null;
   }
 };
+
+const decisionActorLabels: Record<string, string> = {
+  OPS_AGENT: "العمليات",
+  INVENTORY_AGENT: "المخزون",
+  FINANCE_AGENT: "المالية",
+  MARKETING_AGENT: "النمو",
+  SUPPORT_AGENT: "الدعم",
+};
+
+const decisionTypeLabels: Record<string, string> = {
+  APPROVAL: "موافقة",
+  RECOMMENDATION: "توصية",
+  AUTOMATION: "أتمتة",
+  ANOMALY: "انحراف",
+  FORECAST: "توقع",
+};
+
+function formatDecisionActor(value?: string) {
+  if (!value) return "غير محدد";
+  return decisionActorLabels[value] || value.replaceAll("_", " ");
+}
+
+function formatDecisionType(value?: string) {
+  if (!value) return "قرار";
+  return decisionTypeLabels[value] || value.replaceAll("_", " ");
+}
 
 export default function AiAuditPage() {
   const { merchantId, apiKey, isDemo } = useMerchant();
@@ -69,7 +95,7 @@ export default function AiAuditPage() {
   if (loading)
     return (
       <div>
-        <PageHeader title="سجل قرارات الذكاء" />
+        <PageHeader title="مركز القيادة / سجل القرارات" />
         <DashboardSkeleton />
       </div>
     );
@@ -93,8 +119,7 @@ export default function AiAuditPage() {
   return (
     <div className="space-y-8 animate-fadeIn p-4 sm:p-6">
       <PageHeader
-        title="سجل قرارات الذكاء"
-        titleEn="AI Decision Audit Trail"
+        title="مركز القيادة / سجل القرارات"
         description="مراجعة لماذا اتُخذ القرار، سياقه، وثقة النظام قبل التنفيذ."
         actions={
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
@@ -103,7 +128,7 @@ export default function AiAuditPage() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="ALL">جميع الوكلاء</SelectItem>
+                <SelectItem value="ALL">جميع المجالات</SelectItem>
                 <SelectItem value="OPS_AGENT">العمليات</SelectItem>
                 <SelectItem value="INVENTORY_AGENT">المخزون</SelectItem>
                 <SelectItem value="FINANCE_AGENT">المالية</SelectItem>
@@ -121,10 +146,28 @@ export default function AiAuditPage() {
         }
       />
 
+      <Card className="app-data-card app-data-card--muted border-dashed">
+        <CardContent className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="font-medium">سجل القرارات تابع لمركز القيادة</p>
+            <p className="text-sm text-muted-foreground">
+              استخدمه للتدقيق في السبب والثقة، بينما تبقى الحالة العامة
+              والموافقات وسجل التشغيل في مركز القيادة.
+            </p>
+          </div>
+          <a
+            href="/merchant/command-center"
+            className="text-sm text-primary hover:underline"
+          >
+            العودة لمركز القيادة
+          </a>
+        </CardContent>
+      </Card>
+
       <div className="flex flex-wrap gap-2">
         <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
           <span className="text-muted-foreground">القرارات المعروضة</span>
-          <span className="font-mono text-[var(--accent-gold)]">
+          <span className="font-mono text-[var(--color-brand-primary)]">
             {decisions.length}
           </span>
         </div>
@@ -141,7 +184,7 @@ export default function AiAuditPage() {
           </span>
         </div>
         <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
-          <span className="text-muted-foreground">الوكلاء المشاركون</span>
+          <span className="text-muted-foreground">المجالات المشاركة</span>
           <span className="font-mono text-foreground">{agentsInLog}</span>
         </div>
       </div>
@@ -152,7 +195,7 @@ export default function AiAuditPage() {
             <p className="text-sm text-muted-foreground">
               إجمالي القرارات المعروضة
             </p>
-            <p className="mt-1 text-2xl font-bold text-[var(--accent-gold)]">
+            <p className="mt-1 text-2xl font-bold text-[var(--color-brand-primary)]">
               {decisions.length}
             </p>
             <p className="mt-2 text-xs text-muted-foreground">
@@ -185,12 +228,12 @@ export default function AiAuditPage() {
         </Card>
         <Card className="app-data-card border-[color:color-mix(in_srgb,var(--warning)_18%,var(--border-strong))] bg-[var(--warning-muted)]">
           <CardContent className="p-4">
-            <p className="text-sm text-muted-foreground">الوكلاء المشاركون</p>
+            <p className="text-sm text-muted-foreground">المجالات المشاركة</p>
             <p className="mt-1 text-2xl font-bold text-[var(--accent-warning)]">
               {agentsInLog}
             </p>
             <p className="mt-2 text-xs text-muted-foreground">
-              عدد الوكلاء الذين ظهرت لهم قرارات في النتائج الحالية.
+              عدد المجالات التي ظهرت لها قرارات في النتائج الحالية.
             </p>
           </CardContent>
         </Card>
@@ -202,7 +245,9 @@ export default function AiAuditPage() {
           value={stats
             .reduce((s: number, st: any) => s + parseInt(st.count), 0)
             .toString()}
-          icon={<Brain className="h-5 w-5 text-[var(--accent-gold)]" />}
+          icon={
+            <Shield className="h-5 w-5 text-[var(--color-brand-primary)]" />
+          }
         />
         <StatCard
           title="أنواع القرارات"
@@ -212,7 +257,7 @@ export default function AiAuditPage() {
           icon={<Activity className="h-5 w-5 text-[var(--accent-blue)]" />}
         />
         <StatCard
-          title="وكلاء نشطون"
+          title="مجالات نشطة"
           value={new Set(stats.map((s: any) => s.agent_type)).size.toString()}
           icon={<Shield className="h-5 w-5 text-[var(--accent-success)]" />}
         />
@@ -233,8 +278,7 @@ export default function AiAuditPage() {
             </p>
           ) : (
             <p>
-              هذه الصفحة تعرض سجلات فعلية من جدول <code>ai_decision_log</code>{" "}
-              في قاعدة البيانات.
+              هذه الصفحة تعرض سجل قرارات النظام الفعلي كما وصل من طبقة التشغيل.
             </p>
           )}
         </CardContent>
@@ -247,14 +291,14 @@ export default function AiAuditPage() {
             <p className="text-sm text-muted-foreground">
               كل صف هنا يمثل قراراً محدداً: المدخلات، القرار النهائي، سبب
               القرار، ودرجة الثقة. إذا أردت ما حدث فعلياً على مدار اليوم فاذهب
-              إلى سجل نشاط الوكلاء.
+              إلى سجل النشاط.
             </p>
           </div>
           <a
             href="/merchant/agent-activity"
             className="text-sm text-primary hover:underline"
           >
-            افتح سجل نشاط الوكلاء
+            افتح سجل النشاط
           </a>
         </CardContent>
       </Card>
@@ -269,8 +313,8 @@ export default function AiAuditPage() {
             <div className="flex flex-wrap gap-2">
               {stats.map((s: any, i: number) => (
                 <Badge key={i} variant="outline" className="px-3 py-1">
-                  {s.agent_type?.replace("_AGENT", "")} / {s.decision_type}:{" "}
-                  {s.count}
+                  {formatDecisionActor(s.agent_type)} /{" "}
+                  {formatDecisionType(s.decision_type)}: {s.count}
                 </Badge>
               ))}
             </div>
@@ -304,9 +348,9 @@ export default function AiAuditPage() {
                         <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                           <div className="flex flex-wrap items-center gap-2">
                             <Badge variant="outline">
-                              {d.agent_type?.replace("_AGENT", "")}
+                              {formatDecisionActor(d.agent_type)}
                             </Badge>
-                            <Badge>{d.decision_type}</Badge>
+                            <Badge>{formatDecisionType(d.decision_type)}</Badge>
                             {d.confidence && (
                               <Badge
                                 variant={

@@ -4,7 +4,6 @@ import { useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
-  Sparkles,
   ChevronDown,
   ChevronUp,
   AlertTriangle,
@@ -104,9 +103,9 @@ const severityConfig: Record<
   },
   tip: {
     icon: Lightbulb,
-    bg: "bg-[var(--accent-gold)]/10",
-    border: "border-[var(--accent-gold)]/20",
-    text: "text-[var(--accent-gold)]",
+    bg: "bg-[var(--color-brand-primary)]/10",
+    border: "border-[var(--color-brand-primary)]/20",
+    text: "text-[var(--color-brand-primary)]",
   },
 };
 
@@ -141,9 +140,9 @@ export function AiInsightsCard({
     return (
       <div className={cn("app-insight-strip p-3", className)}>
         <div className="flex items-center gap-2">
-          <Sparkles className="h-4 w-4 animate-pulse text-[var(--accent-gold)]" />
+          <Lightbulb className="h-4 w-4 animate-pulse text-[var(--color-brand-primary)]" />
           <span className="text-sm font-semibold text-[var(--text-primary)]">
-            ✦ الذكاء الاصطناعي يراجع البيانات
+            المساعد يراجع البيانات
           </span>
         </div>
       </div>
@@ -164,11 +163,11 @@ export function AiInsightsCard({
       >
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-[var(--accent-gold)]" />
+            <Lightbulb className="h-4 w-4 text-[var(--color-brand-primary)]" />
             <span className="text-sm font-semibold text-[var(--text-primary)]">
-              ✦ الذكاء الاصطناعي لاحظ شيئاً
+              المساعد لاحظ شيئاً
             </span>
-            <span className="rounded-[4px] border border-[var(--accent-gold)]/20 bg-[var(--accent-gold)]/10 px-2 py-0.5 text-[11px] text-[var(--accent-gold)]">
+            <span className="rounded-[4px] border border-[var(--color-brand-primary)]/20 bg-[var(--color-brand-primary)]/10 px-2 py-0.5 text-[11px] text-[var(--color-brand-primary)]">
               {insights.length} {insights.length === 1 ? "توصية" : "توصيات"}
             </span>
           </div>
@@ -225,7 +224,7 @@ export function AiInsightsCard({
             <Button
               variant="ghost"
               size="sm"
-              className="h-8 text-xs text-[var(--accent-gold)] hover:bg-[var(--accent-gold)]/10 hover:text-[var(--accent-gold)]"
+              className="h-8 text-xs text-[var(--color-brand-primary)] hover:bg-[var(--color-brand-primary)]/10 hover:text-[var(--color-brand-primary)]"
               onClick={() => setExpanded(false)}
             >
               عرض أقل
@@ -620,7 +619,7 @@ export function generateFollowupInsights(data: {
     severity: "tip",
     title: "فعّل المتابعة التلقائية",
     description:
-      "الذكاء الاصطناعي يمكنه إرسال رسائل متابعة تلقائية عبر واتساب بدلاً من المتابعة اليدوية.",
+      "المساعد يمكنه اقتراح رسائل متابعة عبر واتساب بدلاً من المتابعة اليدوية.",
     actionLabel: "الإعدادات",
     actionHref: "/merchant/settings",
   });
@@ -820,7 +819,7 @@ export function generateSegmentInsights(data: {
   insights.push({
     id: "segment-ai",
     severity: "tip",
-    title: "الذكاء الاصطناعي يقترح شرائح",
+    title: "المساعد يقترح شرائح",
     description:
       'بناءً على سجل الطلبات، يمكن للنظام اقتراح شرائح مثل "عملاء VIP" و"عملاء خاملين".',
   });
@@ -1468,7 +1467,7 @@ export function generatePlanInsights(data: {
     severity: "info",
     title: "تعرف على مميزات خطتك",
     description:
-      "كل خطة بتديك وكلاء وقدرات ذكية مختلفة - اتأكد إنك مستفيد من كل المميزات.",
+      "كل خطة بتديك قدرات تشغيلية مختلفة - اتأكد إنك مستفيد من كل المميزات.",
   });
   return insights;
 }
@@ -1486,7 +1485,7 @@ export function generateOcrInsights(data: {
       severity: "warning",
       title: `${data.pendingReview} إيصال بانتظار المراجعة`,
       description:
-        "راجع إيصالات الدفع عشان تتأكد من صحة البيانات المستخرجة. الذكاء الاصطناعي يقرأها لكن التأكيد النهائي عليك.",
+        "راجع إيصالات الدفع عشان تتأكد من صحة البيانات المستخرجة. المساعد يقرأها لكن التأكيد النهائي عليك.",
     });
   }
   if (data.approved > 0) {

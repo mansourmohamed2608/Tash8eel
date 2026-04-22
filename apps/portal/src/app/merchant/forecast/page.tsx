@@ -275,25 +275,26 @@ export default function ForecastPage() {
 
   useEffect(() => {
     const tab = searchParams.get("tab");
-    if (
-      tab === "demand" ||
-      tab === "replenishment" ||
-      tab === "cashflow" ||
-      tab === "churn" ||
-      tab === "workforce" ||
-      tab === "whatif" ||
-      tab === "metrics"
-    ) {
+    if (tab === "demand" || tab === "cashflow" || tab === "whatif") {
       setActiveTab(tab);
       return;
     }
-    setActiveTab("demand");
+    if (
+      tab === "replenishment" ||
+      tab === "churn" ||
+      tab === "workforce" ||
+      tab === "metrics"
+    ) {
+      setActiveTab("alerts");
+      return;
+    }
+    setActiveTab("overview");
   }, [searchParams]);
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
     const params = new URLSearchParams(searchParams.toString());
-    if (tab === "demand") {
+    if (tab === "overview") {
       params.delete("tab");
     } else {
       params.set("tab", tab);
@@ -435,8 +436,8 @@ export default function ForecastPage() {
   return (
     <div className="space-y-6 p-4 sm:p-6" dir="rtl">
       <PageHeader
-        title="منصة التنبؤات الذكية"
-        description="تحليلات متقدمة وتوقعات مدعومة بالذكاء الاصطناعي"
+        title="التوقعات"
+        description="توقعات تشغيلية للطلب، النقد، السيناريوهات، والتنبيهات مع وضوح الثقة ومصدر البيانات."
         actions={
           <Button
             variant="outline"
@@ -449,6 +450,22 @@ export default function ForecastPage() {
           </Button>
         }
       />
+
+      <div className="flex flex-wrap gap-2">
+        {[
+          `آخر تحميل: ${new Date().toLocaleString("ar-SA")}`,
+          "المصدر: الطلبات، المخزون، النقد، العملاء",
+          `دقة النموذج: ${metrics?.latest?.mape ? `${metrics.latest.mape}% MAPE` : "غير متاحة"}`,
+          `سيناريو محفوظ: ${whatIfResult ? "نعم" : "لا"}`,
+        ].map((chip) => (
+          <div
+            key={chip}
+            className="inline-flex h-8 items-center rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs text-[var(--text-secondary)]"
+          >
+            {chip}
+          </div>
+        ))}
+      </div>
 
       {/* Summary row */}
       {demandData?.summary && (
@@ -469,7 +486,7 @@ export default function ForecastPage() {
             {
               label: "عملاء معرضون للاضطراب",
               value: churnData?.summary?.critical ?? 0,
-              color: "text-[var(--accent-gold)]",
+              color: "text-[var(--color-brand-primary)]",
               icon: Users,
             },
             {
@@ -500,36 +517,104 @@ export default function ForecastPage() {
       )}
 
       <Tabs value={activeTab} onValueChange={handleTabChange}>
-        <TabsList className="mb-4 grid h-auto w-full grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-7">
+        <TabsList className="mb-4 grid h-auto w-full grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-5">
+          <TabsTrigger value="overview" className="w-full">
+            <BarChart3 className="w-4 h-4 ml-1" />
+            نظرة عامة
+          </TabsTrigger>
           <TabsTrigger value="demand" className="w-full">
             <TrendingUp className="w-4 h-4 ml-1" />
             الطلب
           </TabsTrigger>
-          <TabsTrigger value="replenishment" className="w-full">
-            <PackageX className="w-4 h-4 ml-1" />
-            التوريد
-          </TabsTrigger>
           <TabsTrigger value="cashflow" className="w-full">
             <DollarSign className="w-4 h-4 ml-1" />
-            التدفقات
-          </TabsTrigger>
-          <TabsTrigger value="churn" className="w-full">
-            <Users className="w-4 h-4 ml-1" />
-            الاضطراب
-          </TabsTrigger>
-          <TabsTrigger value="workforce" className="w-full">
-            <Activity className="w-4 h-4 ml-1" />
-            العمالة
+            التدفق النقدي
           </TabsTrigger>
           <TabsTrigger value="whatif" className="w-full">
-            <Brain className="w-4 h-4 ml-1" />
-            ماذا لو
+            <Play className="w-4 h-4 ml-1" />
+            السيناريوهات / ماذا لو؟
           </TabsTrigger>
-          <TabsTrigger value="metrics" className="w-full">
-            <BarChart3 className="w-4 h-4 ml-1" />
-            الدقة
+          <TabsTrigger value="alerts" className="w-full">
+            <AlertTriangle className="w-4 h-4 ml-1" />
+            التنبيهات
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="overview" className="space-y-4">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+            <Card className="app-data-card lg:col-span-2">
+              <CardHeader>
+                <CardTitle className="text-base">ملخص التوقعات</CardTitle>
+              </CardHeader>
+              <CardContent className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] p-3">
+                  <p className="text-xs text-muted-foreground">أصناف حرجة</p>
+                  <p className="mt-1 text-2xl font-bold text-[var(--accent-danger)]">
+                    {demandData?.summary?.critical ?? 0}
+                  </p>
+                </div>
+                <div className="rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] p-3">
+                  <p className="text-xs text-muted-foreground">توصيات توريد</p>
+                  <p className="mt-1 text-2xl font-bold text-[var(--accent-blue)]">
+                    {replenishment?.total ?? 0}
+                  </p>
+                </div>
+                <div className="rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] p-3">
+                  <p className="text-xs text-muted-foreground">
+                    أيام احتياطي النقد
+                  </p>
+                  <p className="mt-1 text-2xl font-bold">
+                    {cashflow?.runwayDays !== null &&
+                    cashflow?.runwayDays !== undefined
+                      ? `${cashflow.runwayDays} يوم`
+                      : "غير محدد"}
+                  </p>
+                </div>
+                <div className="rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] p-3">
+                  <p className="text-xs text-muted-foreground">
+                    ثقة/دقة النموذج
+                  </p>
+                  <p className="mt-1 text-2xl font-bold">
+                    {metrics?.latest?.mape
+                      ? `${metrics.latest.mape}%`
+                      : "غير متاحة"}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="app-data-card border-[var(--color-ai)]/25 bg-[var(--color-ai-subtle)]">
+              <CardHeader>
+                <CardTitle className="text-base">السيناريو التالي</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <p className="text-sm text-[var(--text-secondary)]">
+                  شغّل "ماذا لو؟" لاختبار تغيير السعر، مهلة التوريد، التدفق
+                  النقدي، أو حملة تسويقية قبل اتخاذ قرار تشغيلي.
+                </p>
+                <Button
+                  type="button"
+                  onClick={() => handleTabChange("whatif")}
+                  className="w-full"
+                >
+                  فتح السيناريوهات
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+
+          {(moduleErrors.demand ||
+            moduleErrors.cashflow ||
+            moduleErrors.replenishment ||
+            moduleErrors.metrics) && (
+            <Card className="border border-[var(--accent-warning)]/20 bg-[var(--accent-warning)]/12">
+              <CardContent className="p-4 text-sm text-[var(--accent-warning)]">
+                بعض مصادر التوقعات غير متاحة حالياً. لا تعتمد على أقسام لا تعرض
+                بيانات أو ثقة واضحة.
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
 
         {/* ─── DEMAND TAB ────────────────────────────────────────────────── */}
         <TabsContent value="demand" className="space-y-4">
@@ -1018,7 +1103,7 @@ export default function ForecastPage() {
                             ? "text-[var(--accent-danger)]"
                             : c.churnProbability >= 0.5
                               ? "text-[var(--accent-warning)]"
-                              : "text-[var(--accent-gold)]",
+                              : "text-[var(--color-brand-primary)]",
                         )}
                       >
                         {Math.round(c.churnProbability * 100)}%
@@ -1125,7 +1210,7 @@ export default function ForecastPage() {
           <Card className="app-data-card">
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
-                <Brain className="h-5 w-5 text-[var(--accent-gold)]" />
+                <Brain className="h-5 w-5 text-[var(--color-brand-primary)]" />
                 محاكي السيناريوهات
               </CardTitle>
             </CardHeader>
@@ -1357,6 +1442,115 @@ export default function ForecastPage() {
                   </p>
                 </div>
               )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="alerts" className="space-y-4">
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Card className="app-data-card">
+              <CardHeader>
+                <CardTitle className="text-base">
+                  تنبيهات الطلب والتوريد
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {moduleNotice(
+                  "replenishment",
+                  "بيانات تنبيهات التوريد غير متاحة مؤقتاً.",
+                )}
+                {!replenishment?.items?.length ? (
+                  <p className="rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] p-4 text-sm text-muted-foreground">
+                    لا توجد توصيات توريد معلقة من بيانات التوقع الحالية.
+                  </p>
+                ) : (
+                  (replenishment?.items ?? []).slice(0, 8).map((item: any) => (
+                    <div
+                      key={item.id}
+                      className="rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] p-3"
+                    >
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <p className="font-medium">
+                            {item.product_name ?? item.product_id}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            كمية مقترحة: {formatNumber(item.recommended_qty)} •
+                            مخزون أمان: {formatNumber(item.safety_stock)}
+                          </p>
+                        </div>
+                        <UrgencyBadge urgency={item.urgency} />
+                      </div>
+                    </div>
+                  ))
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="app-data-card">
+              <CardHeader>
+                <CardTitle className="text-base">
+                  جودة البيانات والثقة
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {moduleNotice(
+                  "metrics",
+                  "مقاييس دقة النموذج غير متاحة حالياً.",
+                )}
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] p-3">
+                    <p className="text-xs text-muted-foreground">MAPE</p>
+                    <p className="mt-1 text-xl font-bold">
+                      {metrics?.latest?.mape
+                        ? `${metrics.latest.mape}%`
+                        : "غير متاح"}
+                    </p>
+                  </div>
+                  <div className="rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] p-3">
+                    <p className="text-xs text-muted-foreground">حجم العينة</p>
+                    <p className="mt-1 text-xl font-bold">
+                      {metrics?.latest?.sample_size ?? "غير متاح"}
+                    </p>
+                  </div>
+                </div>
+                <p className="text-xs leading-5 text-muted-foreground">
+                  استخدم هذا القسم كتنبيه لجودة التوقع. عند غياب الدقة أو مصدر
+                  البيانات، لا تعتبر التوقع قراراً آلياً نهائياً.
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          <Card className="app-data-card">
+            <CardHeader>
+              <CardTitle className="text-base">
+                إشارات العملاء والضغط التشغيلي
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-3 sm:grid-cols-3">
+              <div className="rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] p-3">
+                <p className="text-xs text-muted-foreground">
+                  عملاء اضطراب حرج
+                </p>
+                <p className="mt-1 text-xl font-bold">
+                  {churnData?.summary?.critical ?? 0}
+                </p>
+              </div>
+              <div className="rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] p-3">
+                <p className="text-xs text-muted-foreground">ذروة الرسائل</p>
+                <p className="mt-1 text-xl font-bold">
+                  {workforce?.peakDay
+                    ? `${workforce.peakDay} ${workforce.peakHour}:00`
+                    : "غير متاحة"}
+                </p>
+              </div>
+              <div className="rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] p-3">
+                <p className="text-xs text-muted-foreground">مصادر متعثرة</p>
+                <p className="mt-1 text-xl font-bold">
+                  {Object.values(moduleErrors).filter(Boolean).length}
+                </p>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

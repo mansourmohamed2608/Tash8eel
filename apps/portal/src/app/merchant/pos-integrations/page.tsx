@@ -73,7 +73,8 @@ const POS_PROVIDERS: PosProvider[] = [
     nameAr: "أودو",
     logo: "OD",
     description: "ربط مع نظام Odoo ERP - مزامنة الطلبات والمخزون تلقائياً",
-    color: "border-[var(--accent-gold)]/20 bg-[var(--accent-gold)]/10",
+    color:
+      "border-[var(--color-brand-primary)]/20 bg-[var(--color-brand-primary)]/10",
     fields: [
       {
         key: "url",
@@ -466,8 +467,8 @@ export default function PosIntegrationsPage() {
   return (
     <div className="space-y-6 p-4 sm:p-6">
       <PageHeader
-        title="تكاملات أنظمة نقاط البيع (POS)"
-        description="اربط نظام نقاط البيع الخاص بك لمزامنة الطلبات والمنتجات تلقائياً"
+        title="الإعدادات / التكاملات"
+        description="إدارة تكاملات POS ومزامنة الطلبات والمنتجات والمخزون من سطح إعدادات واحد."
         actions={
           <Button
             variant="outline"
@@ -726,8 +727,8 @@ export default function PosIntegrationsPage() {
               </p>
             </div>
             <div className="rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface-1)] p-3 text-center">
-              <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-lg border border-[var(--accent-gold)]/30 bg-[var(--accent-gold)]/10">
-                <Database className="h-5 w-5 text-[var(--accent-gold)]" />
+              <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-lg border border-[var(--color-brand-primary)]/30 bg-[var(--color-brand-primary)]/10">
+                <Database className="h-5 w-5 text-[var(--color-brand-primary)]" />
               </div>
               <h4 className="font-medium text-sm">4. مخزون موحّد</h4>
               <p className="text-xs text-muted-foreground mt-1">

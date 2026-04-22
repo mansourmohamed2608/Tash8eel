@@ -249,7 +249,7 @@ export function AIInsightsPanel({
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-lg flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-[var(--accent-gold)]" />
+                <Sparkles className="h-5 w-5 text-[var(--color-brand-primary)]" />
                 توصيات إعادة التخزين الذكية
               </CardTitle>
               <Button
@@ -300,9 +300,9 @@ export function AIInsightsPanel({
 
                     {/* AI Explanation */}
                     {rec.ai && (
-                      <div className="rounded-lg border border-[var(--accent-gold)]/20 bg-[var(--accent-gold-dim)] p-3">
+                      <div className="rounded-lg border border-[var(--color-brand-primary)]/20 bg-[var(--color-brand-subtle)] p-3">
                         <div className="flex items-start gap-2">
-                          <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-[var(--accent-gold)]" />
+                          <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-brand-primary)]" />
                           <p className="text-sm text-[var(--text-primary)]">
                             {rec.ai.explanationAr}
                           </p>

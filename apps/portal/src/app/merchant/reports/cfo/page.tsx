@@ -35,7 +35,7 @@ import {
   Receipt,
   PieChart,
   BarChart3,
-  Sparkles,
+  FileText,
 } from "lucide-react";
 import { formatCurrency, formatNumber, cn } from "@/lib/utils";
 import { useMerchant } from "@/hooks/use-merchant";
@@ -493,8 +493,8 @@ export default function CFOBriefPage() {
   return (
     <div className="space-y-6 p-4 sm:p-6">
       <PageHeader
-        title="ملخص المدير المالي"
-        description="نظرة شاملة على الأداء المالي والتشغيلي"
+        title="التقارير / الملخص المالي التنفيذي"
+        description="تقرير دعم يقرأ الإيرادات والمصروفات والتدفق النقدي بدون خلطه مع مسار المالية الأساسي."
         actions={
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
             <Select
@@ -539,7 +539,7 @@ export default function CFOBriefPage() {
                   CFO_PERIOD_OPTIONS.find((opt) => opt.value === periodDays)
                     ?.label || `آخر ${periodDays} يوم`;
                 w.document
-                  .write(`<!DOCTYPE html><html dir="rtl"><head><title>تقرير CFO - ${periodLabel}</title>
+                  .write(`<!DOCTYPE html><html dir="rtl"><head><title>الملخص المالي التنفيذي - ${periodLabel}</title>
                 <style>body{font-family:system-ui,sans-serif;padding:2rem;direction:rtl}
                 table{width:100%;border-collapse:collapse;margin:1rem 0}
                 th,td{border:1px solid #ddd;padding:8px;text-align:right}
@@ -618,18 +618,18 @@ export default function CFOBriefPage() {
         </Card>
       )}
 
-      {/* AI-Generated Weekly CFO Brief (interpretation layer, not source of record) */}
+      {/* Weekly interpretation layer, not source of record */}
       {aiBriefError === "quota" && !aiBrief && (
         <Card className="border-[var(--accent-warning)]/20 bg-[var(--accent-warning)]/10">
           <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
-            <Sparkles className="h-5 w-5 shrink-0 text-[var(--accent-warning)]" />
+            <FileText className="h-5 w-5 shrink-0 text-[var(--accent-warning)]" />
             <div className="flex-1">
               <p className="text-sm font-medium text-[var(--accent-warning)]">
-                تم استنفاد رصيد الذكاء الاصطناعي اليومي
+                تم استنفاد رصيد المساعد اليومي
               </p>
               <p className="mt-0.5 text-xs text-[var(--accent-warning)]">
-                الملخص الأسبوعي بالذكاء الاصطناعي غير متاح حالياً. يتم تجديد
-                الرصيد يومياً أو يمكنك ترقية الباقة.
+                ملخص التفسير الأسبوعي غير متاح حالياً. يتم تجديد الرصيد يومياً
+                أو يمكنك ترقية الباقة.
               </p>
             </div>
             <a
@@ -642,12 +642,12 @@ export default function CFOBriefPage() {
         </Card>
       )}
       {aiBrief && (
-        <Card className="border-[var(--accent-gold)]/20 bg-[var(--accent-gold)]/10">
+        <Card className="border-[var(--color-brand-primary)]/20 bg-[var(--color-brand-primary)]/10">
           <CardHeader>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <CardTitle className="flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-[var(--accent-gold)]" />
-                الملخص الأسبوعي بالذكاء الاصطناعي
+                <FileText className="h-5 w-5 text-[var(--color-brand-primary)]" />
+                ملخص تفسيري أسبوعي
               </CardTitle>
               <Badge variant="secondary" className="text-xs">
                 {new Date(aiBrief.generatedAt).toLocaleDateString("ar-EG")}

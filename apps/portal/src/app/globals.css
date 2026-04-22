@@ -12,72 +12,147 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
   :root {
     color-scheme: light;
 
-    /* ── Backgrounds ─────────────────────────────────────────── */
-    --bg-base: #FAF9F7;       /* warm off-white — primary app surface */
-    --bg-surface: #FFFFFF;    /* cards, panels, modals */
-    --bg-surface-1: #FFFFFF;  /* cards, panels, modals */
-    --bg-surface-2: #F3F4F7;  /* secondary surface, hover rows */
-    --bg-surface-3: #F0EEE9;  /* sidebar, contextual panels */
-    --bg-inverse: #1A2B4A;    /* deep navy — dark inverse contexts */
+    --color-page-bg: #F5F4F1;
+    --color-surface: #FFFFFF;
+    --color-surface-secondary: #F8F7F4;
+    --color-elevated: #FFFFFF;
+    --color-border: #E5E4E1;
+    --color-border-subtle: #EEEDE9;
 
-    /* ── Borders ──────────────────────────────────────────────── */
-    --border-subtle: rgba(28, 30, 35, 0.06);
-    --border-default: rgba(28, 30, 35, 0.10);
-    --border-active: rgba(45, 107, 228, 0.35);
-    --border-strong: rgba(28, 30, 35, 0.18);
+    --color-text-primary: #1A1A1A;
+    --color-text-secondary: #6B6B6B;
+    --color-text-tertiary: #9B9B9B;
+    --color-text-disabled: #C4C3BF;
+    --color-text-inverse: #FFFFFF;
 
-    /* ── Brand colors ─────────────────────────────────────────── */
-    --brand-blue: #2D6BE4;
-    --brand-blue-dim: rgba(45, 107, 228, 0.10);
+    --color-brand-primary: #1C5AE8;
+    --color-brand-hover: #1549CC;
+    --color-brand-subtle: #EEF2FD;
+
+    --color-success-text: #166534;
+    --color-success-bg: #DCFCE7;
+    --color-success-border: #BBF7D0;
+    --color-success-icon: #16A34A;
+
+    --color-warning-text: #92400E;
+    --color-warning-bg: #FEF3C7;
+    --color-warning-border: #FDE68A;
+    --color-warning-icon: #D97706;
+
+    --color-danger-text: #991B1B;
+    --color-danger-bg: #FEE2E2;
+    --color-danger-border: #FECACA;
+    --color-danger-icon: #DC2626;
+
+    --color-info-text: #1E40AF;
+    --color-info-bg: #DBEAFE;
+    --color-info-border: #BFDBFE;
+    --color-info-icon: #2563EB;
+
+    --color-neutral-text: #374151;
+    --color-neutral-bg: #F3F4F6;
+    --color-neutral-border: #E5E7EB;
+
+    --color-ai-text: #0F766E;
+    --color-ai-bg: #CCFBF1;
+    --color-ai-border: #99F6E4;
+    --color-ai-icon: #0D9488;
+
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 12px;
+    --space-4: 16px;
+    --space-5: 20px;
+    --space-6: 24px;
+    --space-8: 32px;
+    --space-10: 40px;
+    --space-12: 48px;
+    --space-16: 64px;
+
+    --font-family-base: 'IBM Plex Arabic', 'Segoe UI', system-ui, sans-serif;
+    --font-size-xs: 12px;
+    --font-size-sm: 14px;
+    --font-size-base: 16px;
+    --font-size-lg: 20px;
+    --font-size-xl: 24px;
+    --font-size-2xl: 32px;
+    --font-weight-regular: 400;
+    --font-weight-medium: 500;
+    --font-weight-semibold: 600;
+    --line-height-tight: 1.2;
+    --line-height-base: 1.5;
+
+    --row-height-compact: 36px;
+    --row-height-standard: 44px;
+    --row-height-comfortable: 56px;
+    --btn-height-sm: 32px;
+    --btn-height-base: 40px;
+    --btn-height-lg: 48px;
+    --input-height: 40px;
+    --sidebar-width-expanded: 240px;
+    --sidebar-width-collapsed: 60px;
+    --radius-sm: 4px;
+    --radius-base: 8px;
+    --radius-lg: 12px;
+
+    --transition-fast: 100ms ease;
+    --transition-base: 150ms ease;
+    --transition-slow: 200ms ease;
+
+    --shadow-sm: 0 1px 2px 0 rgba(0,0,0,0.05);
+    --shadow-base: 0 1px 3px 0 rgba(0,0,0,0.1), 0 1px 2px -1px rgba(0,0,0,0.1);
+    --shadow-lg: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1);
+
+    --bg-base: var(--color-page-bg);
+    --bg-surface: var(--color-surface);
+    --bg-surface-1: var(--color-surface);
+    --bg-surface-2: var(--color-surface-secondary);
+    --bg-surface-3: #EAEAE6;
+    --bg-inverse: #1A2B4A;
+
+    --border-subtle: var(--color-border-subtle);
+    --border-default: var(--color-border);
+    --border-active: color-mix(in srgb, var(--color-brand-primary) 35%, transparent);
+    --border-strong: rgba(0, 0, 0, 0.18);
+
+    --brand-blue: var(--color-brand-primary);
+    --brand-blue-dim: var(--color-brand-subtle);
     --brand-navy: #1A2B4A;
 
-    /* ── AI semantic — reserved, one meaning only ─────────────── */
-    --accent-ai: #1AAFA0;
-    --accent-ai-bg: #E8F6F5;
+    --text-primary: var(--color-text-primary);
+    --text-secondary: var(--color-text-secondary);
+    --text-tertiary: var(--color-text-tertiary);
+    --text-inverse: var(--color-text-inverse);
+    --text-brand: var(--color-brand-primary);
+    --text-muted: var(--color-text-tertiary);
 
-    /* ── Semantic status colors ───────────────────────────────── */
-    --accent-success: #1A7A4A;
-    --accent-success-bg: #EBF7F1;
-    --accent-warning: #B45309;
-    --accent-warning-bg: #FFF7EB;
-    --accent-danger: #C0291D;
-    --accent-danger-bg: #FEF0EE;
-    --accent-info: #2D6BE4;
+    --success: var(--color-success-text);
+    --success-muted: var(--color-success-bg);
+    --warning: var(--color-warning-text);
+    --warning-muted: var(--color-warning-bg);
+    --danger: var(--color-danger-text);
+    --danger-muted: var(--color-danger-bg);
+    --info: var(--color-info-text);
+    --info-muted: var(--color-info-bg);
+    --ai-signal: var(--color-ai-text);
+    --ai-signal-muted: var(--color-ai-bg);
+    --accent-success: var(--color-success-text);
+    --accent-success-bg: var(--color-success-bg);
+    --accent-warning: var(--color-warning-text);
+    --accent-warning-bg: var(--color-warning-bg);
+    --accent-danger: var(--color-danger-text);
+    --accent-danger-bg: var(--color-danger-bg);
+    --accent-info: var(--color-info-text);
+    --accent-ai: var(--color-ai-text);
+    --accent-ai-bg: var(--color-ai-bg);
+    --accent-blue: var(--color-brand-primary);
+    --accent-blue-dim: var(--color-brand-subtle);
+    --accent-gold: var(--color-brand-primary);
+    --accent-gold-dim: var(--color-brand-subtle);
+    --accent-muted: var(--color-brand-subtle);
+    --surface: var(--color-surface);
+    --surface-muted: var(--color-surface-secondary);
 
-    /* ── Semantic alias tokens (badge / alerts compatibility) ──── */
-    --success: #1A7A4A;
-    --success-muted: #EBF7F1;
-    --warning: #B45309;
-    --warning-muted: #FFF7EB;
-    --danger: #C0291D;
-    --danger-muted: #FEF0EE;
-    --info: #2D6BE4;
-    --info-muted: rgba(45, 107, 228, 0.10);
-    --ai-signal: #1AAFA0;
-    --ai-signal-muted: #E8F6F5;
-    /* Note: --accent is reserved for shadcn surface token below.
-       Use --brand-blue for interactive/action color in components. */
-    --accent-muted: rgba(45, 107, 228, 0.10);
-    --surface: #FFFFFF;
-    --surface-muted: #F3F4F7;
-
-    /* ── Deprecated aliases — do not add new usages ───────────── */
-    /* kept so existing component references inherit brand blue    */
-    --accent-gold: var(--brand-blue);
-    --accent-gold-dim: var(--brand-blue-dim);
-    --accent-blue: var(--brand-blue);
-    --accent-blue-dim: var(--brand-blue-dim);
-
-    /* ── Text ─────────────────────────────────────────────────── */
-    --text-primary: #1C1E23;
-    --text-secondary: #4B5260;
-    --text-tertiary: #8891A0;
-    --text-inverse: #FFFFFF;
-    --text-brand: #2D6BE4;
-    /* legacy alias */
-    --text-muted: var(--text-tertiary);
-
-    /* ── Neutral scale ────────────────────────────────────────── */
     --neutral-900: #1C1E23;
     --neutral-700: #3D4250;
     --neutral-500: #6B7280;
@@ -85,86 +160,31 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
     --neutral-150: #E4E6EC;
     --neutral-50: #F3F4F7;
 
-    /* ── Radii ─────────────────────────────────────────────────── */
-    /* ── Backgrounds — light mode ── */
-    --bg-base: #F7F6F3;
-    --bg-surface-1: #FFFFFF;
-    --bg-surface-2: #F2F1EE;
-    --bg-surface-3: #EAEAE6;
-    /* ── Borders — light mode ── */
-    --border-subtle: rgba(0, 0, 0, 0.07);
-    --border-default: rgba(0, 0, 0, 0.12);
-    --border-active: rgba(0, 0, 0, 0.22);
-    --border-strong: rgba(0, 0, 0, 0.18);
-    /* ── Text — light mode ── */
-    --text-primary: #1A1A1A;
-    --text-secondary: #6B6A66;
-    --text-muted: #9B9A96;
-    /* ── Interactive / brand blue ── */
-    --accent-blue: #2D6BE4;
-    --accent-blue-dim: rgba(45, 107, 228, 0.10);
-    /* ── Semantic: success (operational green) ── */
-    --accent-success: #3B6D11;
-    --success: #3B6D11;
-    --success-muted: #EAF3DE;
-    /* ── Semantic: warning (reserved amber — never brand) ── */
-    --accent-warning: #854F0B;
-    --accent-gold: #854F0B;
-    --accent-gold-dim: rgba(133, 79, 11, 0.10);
-    --warning: #854F0B;
-    --warning-muted: #FAEEDA;
-    /* ── Semantic: danger (clear red) ── */
-    --accent-danger: #A32D2D;
-    --danger: #A32D2D;
-    --danger-muted: #FCEBEB;
-    /* ── Semantic: info (non-interactive blue) ── */
-    --info: #185FA5;
-    --info-muted: #E6F1FB;
-    /* ── AI signal (muted teal) — reserved for AI-sourced content ── */
-    --ai-signal: #0F6E56;
-    --ai-signal-muted: rgba(15, 110, 86, 0.08);
-    /* ── Alias tokens used by badge / alerts components ── */
-    --accent: #2D6BE4;
-    --accent-muted: #E8F0FC;
-    --surface-muted: #F2F1EE;
-    /* ── Radius ── */
-    --radius-sm: 6px;
-    --radius-md: 8px;
-    --radius-lg: 12px;
+    --radius-md: var(--radius-base);
 
-    /* ── Typography — font families ─────────────────────────────── */
-    /* IBM Plex Arabic is the ONLY Arabic typeface — heading and body */
     --font-heading: var(--font-ibm-plex-arabic), sans-serif;
-    /* ── Typography ── */
-    --font-heading: var(--font-cairo), sans-serif;
     --font-body: var(--font-ibm-plex-arabic), sans-serif;
-    /* IBM Plex Sans is the Latin companion for English-only contexts */
     --font-latin: var(--font-ibm-plex-sans), sans-serif;
     --font-mono: var(--font-jetbrains-mono), monospace;
 
-    /* ── Typography — scale tokens ──────────────────────────────── */
-    /* Arabic readability: body 14-16px, labels 11-13px, headings 18-24px */
-    --fs-xs: 11px;    /* status labels, metadata, timestamps */
-    --fs-sm: 13px;    /* secondary text, table data, labels */
-    --fs-base: 14px;  /* primary body copy, input fields */
-    --fs-md: 15px;    /* comfortable reading copy */
-    --fs-lg: 16px;    /* large body, section labels */
-    --fs-xl: 18px;    /* small headings, card titles */
-    --fs-2xl: 20px;   /* page-level subheadings */
-    --fs-3xl: 24px;   /* page titles */
+    --fs-xs: var(--font-size-xs);
+    --fs-sm: var(--font-size-sm);
+    --fs-base: 14px;
+    --fs-md: 15px;
+    --fs-lg: var(--font-size-base);
+    --fs-xl: 18px;
+    --fs-2xl: var(--font-size-lg);
+    --fs-3xl: var(--font-size-xl);
 
-    /* ── Typography — line-height tokens ────────────────────────── */
-    /* Arabic requires more vertical breathing room than Latin       */
-    --lh-tight: 1.3;    /* marketing display / very large headings only */
-    --lh-heading: 1.4;  /* all product headings — Arabic-calibrated */
-    --lh-body: 1.75;    /* Arabic body text — spec minimum */
-    --lh-relaxed: 1.8;  /* long-form Arabic paragraphs — spec maximum */
+    --lh-tight: 1.3;
+    --lh-heading: 1.4;
+    --lh-body: 1.75;
+    --lh-relaxed: 1.8;
 
-    /* ── Typography — weight tokens ─────────────────────────────── */
-    --fw-regular: 400;
-    --fw-medium: 500;
-    --fw-semibold: 600;  /* primary heading weight in Arabic-first UI */
-    --fw-bold: 700;      /* page titles, strong emphasis */
+    --fw-regular: var(--font-weight-regular);
+    --fw-medium: var(--font-weight-medium);
+    --fw-semibold: var(--font-weight-semibold);
+    --fw-bold: 700;
 
     /* ── Shadcn / Radix UI tokens — light mode ─────────────────── */
     --background: 40 20% 97%;          /* #FAF9F7 */
@@ -206,11 +226,7 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
     --ring: 220 77% 54%;
     --radius: 8px;
 
-    /* Phase 0 authority token aliases */
-    --color-page-bg: var(--bg-base);
-    --color-surface: var(--bg-surface-1);
-    --color-brand-primary: var(--brand-blue);
-    --color-ai-text: var(--ai-signal);
+    /* Compatibility values for legacy Tailwind/shadcn consumers. */
     --space-4: 16px;
     --font-family-base: var(--font-body);
     --sidebar-width-expanded: 240px;
@@ -239,6 +255,11 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+  }
+
+  body.pos-mode .app-sidebar-shell,
+  body.pos-mode .app-topbar-shell {
+    display: none;
   }
 
   /* Arabic headings: SemiBold (600) as default weight per brand spec.
@@ -288,7 +309,7 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
   }
 
   [dir="rtl"] {
-    text-align: right;
+    text-align: start;
   }
 }
 
@@ -523,7 +544,7 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
   .app-auth-form-head {
     display: grid;
     gap: 10px;
-    text-align: right;
+    text-align: start;
   }
 
   .app-auth-card {
@@ -648,7 +669,8 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
     align-items: center;
     justify-content: space-between;
     gap: 16px;
-    padding: 0 20px;
+    padding-block: 0;
+    padding-inline: 20px;
     border-bottom: 1px solid var(--border-default);
     background: var(--bg-surface-1);
   }
@@ -657,8 +679,8 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
     grid-column: 1;
     grid-row: 2;
     display: flex;
-    width: 260px;
-    min-width: 260px;
+    width: var(--sidebar-width-expanded);
+    min-width: var(--sidebar-width-expanded);
     flex-direction: column;
     overflow-x: hidden;
     overflow-y: auto;
@@ -670,8 +692,8 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
   }
 
   .tash-sidebar--collapsed {
-    width: 64px;
-    min-width: 64px;
+    width: var(--sidebar-width-collapsed);
+    min-width: var(--sidebar-width-collapsed);
   }
 
   .tash-sidebar--mobile {

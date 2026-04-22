@@ -11,16 +11,16 @@ export const buttonVariants = cva(
     variants: {
       variant: {
         default:
-          "border-[var(--accent-gold)] bg-[var(--accent-gold)] text-[#0A0A0B] hover:brightness-110",
+          "border-[var(--color-brand-primary)] bg-[var(--color-brand-primary)] text-[var(--color-text-inverse)] hover:bg-[var(--color-brand-hover)]",
         primary:
-          "border-[var(--accent-gold)] bg-[var(--accent-gold)] text-[#0A0A0B] hover:brightness-110",
+          "border-[var(--color-brand-primary)] bg-[var(--color-brand-primary)] text-[var(--color-text-inverse)] hover:bg-[var(--color-brand-hover)]",
         secondary:
           "border-[var(--border-default)] bg-transparent text-[var(--text-secondary)] hover:border-[var(--border-active)] hover:text-[var(--text-primary)]",
         outline:
           "border-[var(--border-default)] bg-transparent text-[var(--text-secondary)] hover:border-[var(--border-active)] hover:text-[var(--text-primary)]",
         ghost:
           "border-transparent bg-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]",
-        link: "border-transparent bg-transparent px-0 text-[var(--accent-gold)] hover:underline",
+        link: "border-transparent bg-transparent px-0 text-[var(--color-brand-primary)] hover:underline",
         destructive:
           "border-[var(--accent-danger)] bg-[var(--accent-danger)] text-white hover:brightness-110",
       },

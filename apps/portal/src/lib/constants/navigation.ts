@@ -1,34 +1,19 @@
 export type NavIconKey =
+  | "activity"
+  | "bar-chart"
+  | "building"
+  | "dollar-sign"
   | "grid"
   | "help-circle"
   | "message-square"
-  | "phone"
-  | "info"
-  | "settings"
-  | "users"
-  | "shopping-cart"
   | "monitor"
-  | "dollar-sign"
-  | "image"
-  | "trending-up"
-  | "calendar"
-  | "truck"
-  | "lightbulb"
   | "package"
-  | "bar-chart"
-  | "alert-triangle"
-  | "copy"
-  | "star"
-  | "arrow-left-right"
-  | "bell"
-  | "target"
-  | "tag"
-  | "wallet"
-  | "building"
-  | "lock"
-  | "shield"
-  | "upload"
-  | "briefcase";
+  | "phone"
+  | "settings"
+  | "shopping-cart"
+  | "trending-up"
+  | "truck"
+  | "users";
 
 export type AppRole =
   | "owner"
@@ -38,18 +23,38 @@ export type AppRole =
   | "cashier"
   | "finance";
 
-export interface NavigationItem {
+export type NavFeatureKey =
+  | "conversations"
+  | "inventory"
+  | "payments"
+  | "notifications"
+  | "analytics"
+  | "kpis"
+  | "vision"
+  | "loyalty"
+  | "reports"
+  | "team"
+  | "webhooks"
+  | "apiAccess"
+  | "audit"
+  | "cashier";
+
+export interface AuthorityNavigationItem {
   label: string;
   href: string;
   icon: NavIconKey;
-  locked?: boolean;
-  badge?: string;
+  roles: AppRole[];
+  featureKey?: NavFeatureKey;
+  children?: AuthorityNavigationItem[];
 }
 
-export interface NavigationSection {
+export interface AuthorityNavigationSection {
+  id: string;
   label: string;
   icon: NavIconKey;
-  items: NavigationItem[];
+  subdued?: boolean;
+  roles: AppRole[];
+  items: AuthorityNavigationItem[];
 }
 
 export const DEFAULT_LANDING_ROUTES: Record<AppRole, string> = {
@@ -81,103 +86,281 @@ export function normalizePortalRole(role?: string): AppRole {
   return "owner";
 }
 
-export const navigationSections: NavigationSection[] = [
+const ALL_EXCEPT_CASHIER: AppRole[] = [
+  "owner",
+  "admin",
+  "ops_manager",
+  "branch_manager",
+  "finance",
+];
+
+const OPS_ROLES: AppRole[] = [
+  "owner",
+  "admin",
+  "ops_manager",
+  "branch_manager",
+];
+
+const OWNER_ADMIN: AppRole[] = ["owner", "admin"];
+const MANAGER_PLUS: AppRole[] = ["owner", "admin", "ops_manager"];
+
+export const AUTHORITY_NAVIGATION: AuthorityNavigationSection[] = [
   {
+    id: "daily",
     label: "اليومي",
     icon: "grid",
+    roles: ["owner", "admin", "ops_manager", "branch_manager", "cashier"],
     items: [
-      { label: "الرئيسية", href: "/merchant/dashboard", icon: "grid" },
-      { label: "العمليات", href: "/merchant/orders", icon: "shopping-cart" },
-      { label: "الكاشير", href: "/merchant/cashier", icon: "monitor" },
+      {
+        label: "الرئيسية",
+        href: "/merchant/dashboard",
+        icon: "grid",
+        roles: ALL_EXCEPT_CASHIER,
+      },
+      {
+        label: "العمليات",
+        href: "/merchant/orders",
+        icon: "shopping-cart",
+        roles: OPS_ROLES,
+        children: [
+          {
+            label: "الطلبات",
+            href: "/merchant/orders",
+            icon: "shopping-cart",
+            roles: OPS_ROLES,
+          },
+          {
+            label: "التوصيل",
+            href: "/merchant/delivery-drivers",
+            icon: "truck",
+            roles: OPS_ROLES,
+          },
+        ],
+      },
+      {
+        label: "الكاشير",
+        href: "/merchant/cashier",
+        icon: "monitor",
+        roles: ["owner", "admin", "ops_manager", "branch_manager", "cashier"],
+        featureKey: "cashier",
+      },
     ],
   },
   {
+    id: "customers",
     label: "العملاء",
     icon: "message-square",
+    roles: OPS_ROLES,
     items: [
       {
         label: "المحادثات",
         href: "/merchant/conversations",
         icon: "message-square",
+        roles: OPS_ROLES,
+        featureKey: "conversations",
       },
-      { label: "المكالمات", href: "/merchant/calls", icon: "phone" },
+      {
+        label: "المكالمات",
+        href: "/merchant/calls",
+        icon: "phone",
+        roles: OPS_ROLES,
+        featureKey: "conversations",
+      },
     ],
   },
   {
+    id: "inventory-finance",
     label: "المخزون والمالية",
     icon: "package",
+    roles: ALL_EXCEPT_CASHIER,
     items: [
-      { label: "المخزون", href: "/merchant/inventory", icon: "package" },
-      { label: "الموردون", href: "/merchant/suppliers", icon: "truck" },
       {
-        label: "التوقعات الذكية",
-        href: "/merchant/analytics/forecast",
-        icon: "trending-up",
+        label: "المخزون",
+        href: "/merchant/inventory",
+        icon: "package",
+        roles: OPS_ROLES,
+        featureKey: "inventory",
+        children: [
+          {
+            label: "قائمة المنتجات",
+            href: "/merchant/inventory",
+            icon: "package",
+            roles: OPS_ROLES,
+            featureKey: "inventory",
+          },
+          {
+            label: "الموردون",
+            href: "/merchant/suppliers",
+            icon: "truck",
+            roles: OPS_ROLES,
+            featureKey: "inventory",
+          },
+          {
+            label: "التوقعات الذكية",
+            href: "/merchant/analytics/forecast",
+            icon: "trending-up",
+            roles: OPS_ROLES,
+            featureKey: "inventory",
+          },
+        ],
       },
-      { label: "المالية", href: "/merchant/reports/cfo", icon: "dollar-sign" },
       {
-        label: "التسويات",
-        href: "/merchant/payments/cod",
-        icon: "arrow-left-right",
+        label: "المالية",
+        href: "/merchant/finance/summary",
+        icon: "dollar-sign",
+        roles: ["owner", "admin", "finance"],
+        featureKey: "reports",
+        children: [
+          {
+            label: "الملخص",
+            href: "/merchant/finance/summary",
+            icon: "dollar-sign",
+            roles: ["owner", "admin", "finance"],
+            featureKey: "reports",
+          },
+          {
+            label: "الإيرادات",
+            href: "/merchant/finance/revenue",
+            icon: "bar-chart",
+            roles: ["owner", "admin", "finance"],
+            featureKey: "reports",
+          },
+          {
+            label: "المصروفات",
+            href: "/merchant/expenses",
+            icon: "dollar-sign",
+            roles: ["owner", "admin", "finance"],
+            featureKey: "reports",
+          },
+          {
+            label: "التدفق النقدي",
+            href: "/merchant/reports/cash-flow",
+            icon: "trending-up",
+            roles: ["owner", "admin", "finance"],
+            featureKey: "reports",
+          },
+          {
+            label: "التسويات",
+            href: "/merchant/payments/cod",
+            icon: "dollar-sign",
+            roles: ["owner", "admin", "finance"],
+            featureKey: "reports",
+          },
+        ],
       },
     ],
   },
   {
+    id: "growth",
     label: "النمو",
     icon: "users",
+    roles: MANAGER_PLUS,
     items: [
-      { label: "الحملات والعملاء", href: "/merchant/customers", icon: "users" },
       {
-        label: "الحملات",
-        href: "/merchant/campaigns",
-        icon: "bell",
-        locked: true,
+        label: "الحملات والعملاء",
+        href: "/merchant/customers",
+        icon: "users",
+        roles: MANAGER_PLUS,
+        featureKey: "loyalty",
+        children: [
+          {
+            label: "العملاء",
+            href: "/merchant/customers",
+            icon: "users",
+            roles: MANAGER_PLUS,
+            featureKey: "loyalty",
+          },
+          {
+            label: "الحملات",
+            href: "/merchant/campaigns",
+            icon: "users",
+            roles: MANAGER_PLUS,
+            featureKey: "loyalty",
+          },
+        ],
       },
       {
         label: "التوقعات",
         href: "/merchant/forecast",
         icon: "trending-up",
-        locked: true,
+        roles: MANAGER_PLUS,
+        featureKey: "analytics",
       },
     ],
   },
   {
+    id: "system",
     label: "النظام",
     icon: "settings",
+    subdued: true,
+    roles: ["owner", "admin", "ops_manager", "branch_manager", "finance"],
     items: [
-      { label: "الأتمتة", href: "/merchant/automations", icon: "settings" },
+      {
+        label: "الأتمتة",
+        href: "/merchant/automations",
+        icon: "settings",
+        roles: OWNER_ADMIN,
+      },
       {
         label: "مركز القيادة",
         href: "/merchant/command-center",
         icon: "monitor",
+        roles: OWNER_ADMIN,
       },
-      { label: "التقارير", href: "/merchant/reports", icon: "bar-chart" },
       {
-        label: "الفواتير والاشتراك",
-        href: "/merchant/billing",
-        icon: "dollar-sign",
+        label: "التقارير",
+        href: "/merchant/reports",
+        icon: "bar-chart",
+        roles: ["owner", "admin", "ops_manager", "branch_manager", "finance"],
+        featureKey: "reports",
       },
-      { label: "الإعدادات", href: "/merchant/settings", icon: "settings" },
+      {
+        label: "الإعدادات",
+        href: "/merchant/settings",
+        icon: "settings",
+        roles: OWNER_ADMIN,
+        children: [
+          {
+            label: "الفريق والأذونات",
+            href: "/merchant/team",
+            icon: "users",
+            roles: OWNER_ADMIN,
+            featureKey: "team",
+          },
+          {
+            label: "الفواتير والاشتراك",
+            href: "/merchant/billing",
+            icon: "dollar-sign",
+            roles: OWNER_ADMIN,
+          },
+          {
+            label: "التكاملات",
+            href: "/merchant/pos-integrations",
+            icon: "settings",
+            roles: OWNER_ADMIN,
+            featureKey: "webhooks",
+          },
+          {
+            label: "المتجر والفروع",
+            href: "/merchant/branches",
+            icon: "building",
+            roles: OWNER_ADMIN,
+          },
+          {
+            label: "الإشعارات",
+            href: "/merchant/notifications",
+            icon: "settings",
+            roles: OWNER_ADMIN,
+            featureKey: "notifications",
+          },
+          {
+            label: "مساحة العمل",
+            href: "/merchant/settings?tab=workspace",
+            icon: "settings",
+            roles: OWNER_ADMIN,
+          },
+        ],
+      },
     ],
   },
-];
-
-export const mobilePrimaryTabs = [
-  { label: "الرئيسية", href: "/merchant/dashboard", icon: "grid" as const },
-  {
-    label: "العمليات",
-    href: "/merchant/orders",
-    icon: "shopping-cart" as const,
-  },
-  {
-    label: "العملاء",
-    href: "/merchant/conversations",
-    icon: "message-square" as const,
-  },
-  {
-    label: "المخزون",
-    href: "/merchant/inventory",
-    icon: "package" as const,
-  },
-  { label: "المزيد", href: "#", icon: "settings" as const },
 ];

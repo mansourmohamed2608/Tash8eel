@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import { PageHeader } from "@/components/layout";
 import {
   Card,
@@ -86,16 +87,21 @@ export default function SkuMergePage() {
   return (
     <div className="space-y-6 animate-fadeIn p-4 sm:p-6">
       <PageHeader
-        title="كشف التكرارات ودمج رموز الأصناف"
-        description="اكتشف المنتجات المكررة وادمجها لتنظيف المخزون"
+        title="المخزون > دمج تكرارات SKU"
+        description="أداة مساندة للمخزون: راجع التكرارات المحتملة قبل الدمج حتى لا تضيع حركة المخزون."
         actions={
-          <Button
-            variant="outline"
-            onClick={fetchData}
-            className="w-full sm:w-auto"
-          >
-            <RefreshCw className="ml-2 h-4 w-4" /> فحص
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button asChild variant="outline" className="w-full sm:w-auto">
+              <Link href="/merchant/inventory">قائمة المخزون</Link>
+            </Button>
+            <Button
+              variant="outline"
+              onClick={fetchData}
+              className="w-full sm:w-auto"
+            >
+              <RefreshCw className="ml-2 h-4 w-4" /> فحص
+            </Button>
+          </div>
         }
       />
 
@@ -123,12 +129,24 @@ export default function SkuMergePage() {
         />
       </KPIGrid>
 
+      <Card className="border-[var(--accent-blue)]/20 bg-[var(--accent-blue)]/10">
+        <CardContent className="py-3 text-xs text-[var(--text-secondary)]">
+          الدمج يغيّر مرجع الصنف وحركة المخزون. استخدمه فقط بعد التأكد أن
+          المنتجين يمثلان نفس الصنف التشغيلي.
+        </CardContent>
+      </Card>
+
       {duplicates.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <CheckCircle className="mb-4 h-12 w-12 text-[var(--accent-success)]" />
             <p className="text-lg font-medium">لا توجد تكرارات</p>
-            <p className="text-muted-foreground">جميع الأصناف فريدة</p>
+            <p className="text-muted-foreground">
+              لم يجد النظام أزواج SKU تحتاج دمجاً في الفحص الحالي.
+            </p>
+            <Button asChild variant="outline" className="mt-4">
+              <Link href="/merchant/inventory">العودة إلى قائمة المخزون</Link>
+            </Button>
           </CardContent>
         </Card>
       ) : (

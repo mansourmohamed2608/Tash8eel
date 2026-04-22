@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import { PageHeader } from "@/components/layout";
 import {
   Card,
@@ -14,6 +15,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { DataTable } from "@/components/ui/data-table";
+import { TableSkeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/alerts";
 import {
   Dialog,
   DialogContent,
@@ -79,10 +82,12 @@ const CATEGORY_COLORS: Record<string, string> = {
   inventory: "bg-[var(--accent-blue)]/12 text-[var(--accent-blue)]",
   purchases: "bg-[var(--accent-blue)]/12 text-[var(--accent-blue)]",
   shipping: "bg-[var(--accent-warning)]/12 text-[var(--accent-warning)]",
-  marketing: "bg-[var(--accent-gold)]/12 text-[var(--accent-gold)]",
+  marketing:
+    "bg-[var(--color-brand-primary)]/12 text-[var(--color-brand-primary)]",
   rent: "bg-[var(--accent-success)]/12 text-[var(--accent-success)]",
   utilities: "bg-[var(--accent-warning)]/12 text-[var(--accent-warning)]",
-  salaries: "bg-[var(--accent-gold)]/12 text-[var(--accent-gold)]",
+  salaries:
+    "bg-[var(--color-brand-primary)]/12 text-[var(--color-brand-primary)]",
   equipment: "bg-[var(--accent-blue)]/12 text-[var(--accent-blue)]",
   fees: "bg-[var(--accent-danger)]/12 text-[var(--accent-danger)]",
   other: "bg-[var(--bg-surface-2)] text-[var(--text-secondary)]",
@@ -558,10 +563,29 @@ export default function ExpensesPage() {
       />
 
       <div className="flex flex-wrap gap-2">
+        {[
+          ["الملخص", "/merchant/finance/summary"],
+          ["الإيرادات", "/merchant/finance/revenue"],
+          ["المصروفات", "/merchant/expenses"],
+          ["التدفق النقدي", "/merchant/reports/cash-flow"],
+          ["التسويات", "/merchant/payments/cod"],
+        ].map(([label, href]) => (
+          <Button
+            key={href}
+            asChild
+            variant={href === "/merchant/expenses" ? "default" : "outline"}
+            size="sm"
+          >
+            <Link href={href}>{label}</Link>
+          </Button>
+        ))}
+      </div>
+
+      <div className="flex flex-wrap gap-2">
         <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
-          <DollarSign className="h-3.5 w-3.5 text-[var(--accent-gold)]" />
+          <DollarSign className="h-3.5 w-3.5 text-[var(--color-brand-primary)]" />
           <span className="text-muted-foreground">الإجمالي الحالي</span>
-          <span className="font-mono text-[var(--accent-gold)]">
+          <span className="font-mono text-[var(--color-brand-primary)]">
             {formatCurrency(totalAmount)}
           </span>
         </div>
@@ -702,13 +726,22 @@ export default function ExpensesPage() {
         </CardHeader>
         <CardContent>
           {loading ? (
-            <div className="text-center py-8 text-muted-foreground">
-              جاري التحميل...
-            </div>
+            <TableSkeleton rows={6} columns={6} />
           ) : expenses.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              لا توجد مصروفات مسجلة لهذه الفترة
-            </div>
+            <EmptyState
+              icon={<Receipt className="h-7 w-7" />}
+              title="لا توجد مصروفات لهذه الفترة"
+              description="سجل المصروفات التشغيلية حتى يظهر صافي النقد وهامش التشغيل في الملخص المالي بدقة."
+              action={
+                canCreate ? (
+                  <Button onClick={openAddDialog}>
+                    <Plus className="h-4 w-4" />
+                    إضافة مصروف
+                  </Button>
+                ) : undefined
+              }
+              className="py-10"
+            />
           ) : (
             <>
               <div className="space-y-3 md:hidden">

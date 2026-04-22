@@ -147,7 +147,7 @@ const AGENT_GATES: Array<{
   description: string;
 }> = [];
 
-// ─── Pages that are removed or not yet launched - always redirect to dashboard ───
+// ─── Pages that are removed or not yet launched - redirect to safe destinations ───
 const BLOCKED_ROUTES = [
   "/merchant/plan", // Retired in Phase 0 - compatibility redirect to billing
   "/merchant/integrations", // ERP integrations - removed (POS integrations is the single hub)
@@ -456,7 +456,7 @@ function MerchantLayoutContent({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (isEntitlementBlocked && pathname) {
       router.replace(
-        `/merchant/pricing?blocked=${encodeURIComponent(pathname)}`,
+        `/merchant/billing?blocked=${encodeURIComponent(pathname)}`,
       );
     }
   }, [isEntitlementBlocked, pathname, router]);
@@ -464,7 +464,7 @@ function MerchantLayoutContent({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (isChatOnlyRouteBlocked && pathname) {
       router.replace(
-        `/merchant/pricing?blocked=${encodeURIComponent(pathname)}`,
+        `/merchant/billing?blocked=${encodeURIComponent(pathname)}`,
       );
     }
   }, [isChatOnlyRouteBlocked, pathname, router]);
@@ -568,7 +568,10 @@ function MerchantLayoutContent({ children }: { children: React.ReactNode }) {
       <div
         className={cn(
           isCashierRoute ? "min-h-screen" : "transition-all duration-300",
-          showShellChrome && (collapsed ? "lg:me-[88px]" : "lg:me-72"),
+          showShellChrome &&
+            (collapsed
+              ? "lg:me-[var(--sidebar-width-collapsed)]"
+              : "lg:me-[var(--sidebar-width-expanded)]"),
         )}
       >
         {showShellChrome && <TopBar role="merchant" collapsed={collapsed} />}
@@ -590,10 +593,10 @@ function MerchantLayoutContent({ children }: { children: React.ReactNode }) {
                 والمالية، اختر خطة منصة كاملة.
               </p>
               <Link
-                href="/merchant/pricing"
+                href="/merchant/billing"
                 className={buttonVariants({ variant: "default" })}
               >
-                عرض الخطط
+                مراجعة الاشتراك
               </Link>
             </div>
           ) : isEntitlementBlocked ? (
@@ -601,7 +604,7 @@ function MerchantLayoutContent({ children }: { children: React.ReactNode }) {
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
               <p className="text-sm text-muted-foreground">
                 هذه الصفحة غير متاحة ضمن خطتك الحالية. جاري التوجيه إلى صفحة
-                الخطة...
+                الاشتراك...
               </p>
             </div>
           ) : (

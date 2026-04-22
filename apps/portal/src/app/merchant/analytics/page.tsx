@@ -236,7 +236,7 @@ export default function AnalyticsPage() {
   if (loading) {
     return (
       <div className="p-4 sm:p-6">
-        <PageHeader title="التحليلات" />
+        <PageHeader title="التقارير / التحليلات التشغيلية" />
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {[...Array(4)].map((_, i) => (
             <Card key={i}>
@@ -253,7 +253,7 @@ export default function AnalyticsPage() {
   if (error) {
     return (
       <div className="p-4 sm:p-6">
-        <PageHeader title="التحليلات" />
+        <PageHeader title="التقارير / التحليلات التشغيلية" />
         <Card>
           <CardContent className="p-12">
             <div className="flex flex-col items-center justify-center text-center">
@@ -293,7 +293,7 @@ export default function AnalyticsPage() {
   return (
     <div className="space-y-8 animate-fadeIn p-4 sm:p-6">
       <PageHeader
-        title="التحليلات"
+        title="التقارير / التحليلات التشغيلية"
         description="قراءة تنفيذية دقيقة للتحويلات، الاستجابة، المنتجات، وأوقات الذروة."
         actions={
           <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
@@ -336,9 +336,9 @@ export default function AnalyticsPage() {
           <span className="text-foreground">{selectedPeriodSummary}</span>
         </div>
         <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
-          <Target className="h-3.5 w-3.5 text-[var(--accent-gold)]" />
+          <Target className="h-3.5 w-3.5 text-[var(--color-brand-primary)]" />
           <span className="text-muted-foreground">التحويل</span>
-          <span className="font-mono text-[var(--accent-gold)]">
+          <span className="font-mono text-[var(--color-brand-primary)]">
             {Math.round(conversionData?.rates?.conversionRate || 0)}%
           </span>
         </div>
@@ -465,8 +465,8 @@ export default function AnalyticsPage() {
                 <Card>
                   <CardContent className="p-4">
                     <div className="flex items-center gap-3">
-                      <div className="rounded-lg border border-[var(--accent-gold)]/30 bg-[var(--accent-gold)]/10 p-2">
-                        <BarChart className="h-5 w-5 text-[var(--accent-gold)]" />
+                      <div className="rounded-lg border border-[var(--color-brand-primary)]/30 bg-[var(--color-brand-primary)]/10 p-2">
+                        <BarChart className="h-5 w-5 text-[var(--color-brand-primary)]" />
                       </div>
                       <div>
                         <p className="text-2xl font-bold">
@@ -534,7 +534,7 @@ export default function AnalyticsPage() {
                         label: "الدفع",
                         value: conversionData.funnel.startedCheckout,
                         rate: conversionData.rates.checkoutRate,
-                        color: "bg-[var(--accent-gold)]",
+                        color: "bg-[var(--color-brand-primary)]",
                       },
                       {
                         label: "مكتمل",

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import { PageHeader } from "@/components/layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -96,16 +97,21 @@ export default function ExpiryAlertsPage() {
   return (
     <div className="space-y-6 animate-fadeIn p-4 sm:p-6">
       <PageHeader
-        title="تنبيهات الصلاحية"
-        description="تتبع المنتجات القابلة للتلف وتواريخ انتهاء الصلاحية"
+        title="المخزون > الصلاحية والتنبيهات"
+        description="أداة مساندة للمخزون: راجع الأصناف منتهية الصلاحية والمنتجات التي ينقصها تاريخ صلاحية."
         actions={
-          <Button
-            variant="outline"
-            onClick={fetchData}
-            className="w-full sm:w-auto"
-          >
-            <RefreshCw className="ml-2 h-4 w-4" /> تحديث
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button asChild variant="outline" className="w-full sm:w-auto">
+              <Link href="/merchant/inventory">قائمة المخزون</Link>
+            </Button>
+            <Button
+              variant="outline"
+              onClick={fetchData}
+              className="w-full sm:w-auto"
+            >
+              <RefreshCw className="ml-2 h-4 w-4" /> تحديث
+            </Button>
+          </div>
         }
       />
 
@@ -125,7 +131,7 @@ export default function ExpiryAlertsPage() {
         <StatCard
           title="تحذير (أقل من 7 أيام)"
           value={summary.warning?.toString() || "0"}
-          icon={<Timer className="h-5 w-5 text-[var(--accent-gold)]" />}
+          icon={<Timer className="h-5 w-5 text-[var(--color-brand-primary)]" />}
         />
         <StatCard
           title="إجمالي التنبيهات"
@@ -135,7 +141,9 @@ export default function ExpiryAlertsPage() {
       </KPIGrid>
 
       <div className="flex justify-start">
-        <Badge variant="outline">{dataSourceLabel}</Badge>
+        <Badge variant="outline">
+          المصدر: {dataSourceLabel} • آخر تحديث عند فتح الصفحة
+        </Badge>
       </div>
 
       {hasMissingExpiry && (
@@ -171,8 +179,13 @@ export default function ExpiryAlertsPage() {
             <CheckCircle className="mb-4 h-12 w-12 text-[var(--accent-success)]" />
             <p className="text-lg font-medium">لا توجد تنبيهات صلاحية</p>
             <p className="text-muted-foreground">
-              جميع المنتجات ضمن فترة الصلاحية
+              جميع المنتجات التي لديها تاريخ صلاحية ضمن الفترة الآمنة.
             </p>
+            <Button asChild variant="outline" className="mt-4">
+              <Link href="/merchant/inventory">
+                مراجعة المنتجات القابلة للتلف
+              </Link>
+            </Button>
           </CardContent>
         </Card>
       ) : (
@@ -195,7 +208,7 @@ export default function ExpiryAlertsPage() {
                       <AlertTriangle className="h-5 w-5 text-[var(--accent-warning)]" />
                     )}
                     {alert.alertType === "WARNING" && (
-                      <Timer className="h-5 w-5 text-[var(--accent-gold)]" />
+                      <Timer className="h-5 w-5 text-[var(--color-brand-primary)]" />
                     )}
                     <div>
                       <div className="font-medium">{alert.itemName}</div>

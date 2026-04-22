@@ -18,9 +18,8 @@ import {
   AlertTriangle,
   Banknote,
   CreditCard,
-  FileText,
   RefreshCw,
-  TrendingDown,
+  ShoppingCart,
   TrendingUp,
   Wallet,
 } from "lucide-react";
@@ -56,10 +55,10 @@ function getFreshness(updatedAt: Date | null) {
   if (minutes <= 30) {
     return { label: `آخر تحديث: منذ ${minutes} د`, state: "stale" as const };
   }
-  return { label: "بيانات المالية قديمة", state: "old" as const };
+  return { label: "بيانات الإيرادات قديمة", state: "old" as const };
 }
 
-export default function FinanceSummaryPage() {
+export default function FinanceRevenuePage() {
   const { merchantId, apiKey } = useMerchant();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -72,7 +71,7 @@ export default function FinanceSummaryPage() {
   const [data, setData] = useState<Record<string, any> | null>(null);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
 
-  const fetchFinance = useCallback(async () => {
+  const fetchRevenue = useCallback(async () => {
     if (!merchantId || !apiKey) return;
 
     try {
@@ -85,7 +84,7 @@ export default function FinanceSummaryPage() {
       setLastUpdatedAt(new Date());
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "فشل في تحميل الملخص المالي",
+        err instanceof Error ? err.message : "فشل في تحميل بيانات الإيرادات",
       );
     } finally {
       setLoading(false);
@@ -93,16 +92,14 @@ export default function FinanceSummaryPage() {
   }, [merchantId, apiKey, periodDays]);
 
   useEffect(() => {
-    fetchFinance();
-  }, [fetchFinance]);
+    fetchRevenue();
+  }, [fetchRevenue]);
 
-  const finance = useMemo(() => {
+  const revenue = useMemo(() => {
     const summary = data?.summary ?? {};
     const cashFlow = data?.cashFlow ?? {};
     const orders = data?.orders ?? {};
-    const expenseBreakdown = Array.isArray(data?.expenseBreakdown)
-      ? data.expenseBreakdown
-      : [];
+    const paymentMethodBreakdown = data?.paymentMethodBreakdown ?? {};
 
     const realizedRevenue = toNumber(
       summary.realizedRevenue ?? summary.revenue,
@@ -112,9 +109,8 @@ export default function FinanceSummaryPage() {
     const pendingCollections = toNumber(summary.pendingCollections);
     const pendingCod = toNumber(cashFlow.pendingCod);
     const pendingOnline = toNumber(cashFlow.pendingOnline);
-    const totalExpenses = toNumber(cashFlow.expenses);
-    const netCashFlow = toNumber(cashFlow.netCashFlow ?? cashFlow.profit);
     const refundsAmount = toNumber(cashFlow.refundsAmount);
+    const averageOrderValue = toNumber(summary.aov);
     const totalOrders = Math.max(0, Math.round(toNumber(orders.total)));
     const deliveredOrders = Math.max(0, Math.round(toNumber(orders.delivered)));
     const cancelledOrders =
@@ -128,29 +124,26 @@ export default function FinanceSummaryPage() {
       pendingCollections,
       pendingCod,
       pendingOnline,
-      totalExpenses,
-      netCashFlow,
       refundsAmount,
+      averageOrderValue,
       totalOrders,
       deliveredOrders,
       cancelledOrders,
-      expenseBreakdown,
+      paymentMethodBreakdown,
     };
   }, [data]);
 
   const freshness = getFreshness(lastUpdatedAt);
-  const variance = finance.pendingCollections - finance.pendingCod;
-  const hasFinanceData =
-    finance.realizedRevenue > 0 ||
-    finance.bookedSales > 0 ||
-    finance.totalExpenses > 0 ||
-    finance.pendingCollections > 0 ||
-    finance.totalOrders > 0;
+  const hasRevenueData =
+    revenue.realizedRevenue > 0 ||
+    revenue.bookedSales > 0 ||
+    revenue.pendingCollections > 0 ||
+    revenue.totalOrders > 0;
 
   if (loading) {
     return (
       <div className="space-y-6">
-        <PageHeader title="المالية" />
+        <PageHeader title="الإيرادات" />
         <TableSkeleton rows={6} columns={4} />
       </div>
     );
@@ -159,14 +152,14 @@ export default function FinanceSummaryPage() {
   if (error) {
     return (
       <div className="space-y-6">
-        <PageHeader title="المالية" />
+        <PageHeader title="الإيرادات" />
         <Card className="app-data-card border-[var(--color-danger-border)] bg-[var(--color-danger-bg)]">
           <CardContent className="space-y-3 p-6">
             <p className="font-semibold text-[var(--color-danger-text)]">
-              تعذر تحميل الملخص المالي
+              تعذر تحميل الإيرادات
             </p>
             <p className="text-sm text-[var(--color-danger-text)]">{error}</p>
-            <Button variant="outline" onClick={fetchFinance}>
+            <Button variant="outline" onClick={fetchRevenue}>
               <RefreshCw className="h-4 w-4" />
               إعادة المحاولة
             </Button>
@@ -179,8 +172,8 @@ export default function FinanceSummaryPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="المالية"
-        description="ملخص مالي تشغيلي يوضح الإيرادات، المصروفات، التدفق النقدي، والتسويات المطلوبة."
+        title="الإيرادات"
+        description="قراءة مالية لإيرادات المتجر: المحقق، المحجوز، قيد التحصيل، والمرتجعات."
         actions={
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
             <Select
@@ -202,7 +195,7 @@ export default function FinanceSummaryPage() {
                 ))}
               </SelectContent>
             </Select>
-            <Button variant="outline" onClick={fetchFinance}>
+            <Button variant="outline" onClick={fetchRevenue}>
               <RefreshCw className="h-4 w-4" />
               تحديث
             </Button>
@@ -222,7 +215,7 @@ export default function FinanceSummaryPage() {
             key={href}
             asChild
             variant={
-              href === "/merchant/finance/summary" ? "default" : "outline"
+              href === "/merchant/finance/revenue" ? "default" : "outline"
             }
             size="sm"
           >
@@ -235,23 +228,23 @@ export default function FinanceSummaryPage() {
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex flex-wrap items-center gap-3 text-sm">
             <span>
-              إيراد محقق:{" "}
+              محقق:{" "}
               <strong className="font-mono text-[var(--color-success-text)]">
-                {formatCurrency(finance.realizedRevenue)}
+                {formatCurrency(revenue.realizedRevenue)}
               </strong>
             </span>
             <span className="text-[var(--color-border)]">|</span>
             <span>
-              مصروفات:{" "}
-              <strong className="font-mono text-[var(--color-danger-text)]">
-                {formatCurrency(finance.totalExpenses)}
-              </strong>
-            </span>
-            <span className="text-[var(--color-border)]">|</span>
-            <span>
-              صافي النقد:{" "}
+              محجوز:{" "}
               <strong className="font-mono">
-                {formatCurrency(finance.netCashFlow)}
+                {formatCurrency(revenue.bookedSales)}
+              </strong>
+            </span>
+            <span className="text-[var(--color-border)]">|</span>
+            <span>
+              قيد التحصيل:{" "}
+              <strong className="font-mono text-[var(--color-warning-text)]">
+                {formatCurrency(revenue.pendingCollections)}
               </strong>
             </span>
           </div>
@@ -269,11 +262,11 @@ export default function FinanceSummaryPage() {
         </div>
       </section>
 
-      {!hasFinanceData ? (
+      {!hasRevenueData ? (
         <EmptyState
           icon={<Wallet className="h-7 w-7" />}
-          title="لا توجد بيانات مالية كافية"
-          description="ستظهر الإيرادات والمصروفات والتسويات بعد تسجيل طلبات مدفوعة أو مصروفات تشغيلية."
+          title="لا توجد إيرادات للفترة المحددة"
+          description="ستظهر الإيرادات بعد تسجيل طلبات مدفوعة أو تحصيل مبالغ COD."
           action={
             <Button asChild variant="outline">
               <Link href="/merchant/orders">فتح الطلبات</Link>
@@ -285,31 +278,28 @@ export default function FinanceSummaryPage() {
           <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             {[
               {
-                title: "الإيرادات المحققة",
-                value: finance.realizedRevenue,
+                title: "الإيراد المحقق",
+                value: revenue.realizedRevenue,
                 icon: Wallet,
                 tone: "text-[var(--color-success-text)]",
               },
               {
-                title: "المصروفات",
-                value: finance.totalExpenses,
-                icon: TrendingDown,
-                tone: "text-[var(--color-danger-text)]",
+                title: "الإيراد المسلم",
+                value: revenue.deliveredRevenue,
+                icon: ShoppingCart,
+                tone: "text-[var(--color-brand-primary)]",
               },
               {
                 title: "قيد التحصيل",
-                value: finance.pendingCollections,
+                value: revenue.pendingCollections,
                 icon: Banknote,
                 tone: "text-[var(--color-warning-text)]",
               },
               {
-                title: "صافي التدفق",
-                value: finance.netCashFlow,
-                icon: TrendingUp,
-                tone:
-                  finance.netCashFlow >= 0
-                    ? "text-[var(--color-success-text)]"
-                    : "text-[var(--color-danger-text)]",
+                title: "المرتجعات",
+                value: revenue.refundsAmount,
+                icon: AlertTriangle,
+                tone: "text-[var(--color-danger-text)]",
               },
             ].map((item) => {
               const Icon = item.icon;
@@ -335,52 +325,34 @@ export default function FinanceSummaryPage() {
             <Card className="app-data-card">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base">
-                  <CreditCard className="h-4 w-4 text-[var(--color-brand-primary)]" />
-                  التسويات والتحصيل
+                  <TrendingUp className="h-4 w-4 text-[var(--color-brand-primary)]" />
+                  جودة الإيراد
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid gap-3 sm:grid-cols-3">
-                  <div>
-                    <p className="text-xs text-[var(--color-text-secondary)]">
-                      المتوقع
-                    </p>
-                    <p className="mt-1 font-mono font-semibold">
-                      {formatCurrency(finance.pendingCollections)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-[var(--color-text-secondary)]">
-                      COD معلق
-                    </p>
-                    <p className="mt-1 font-mono font-semibold">
-                      {formatCurrency(finance.pendingCod)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-[var(--color-text-secondary)]">
-                      فرق ظاهر
-                    </p>
-                    <p
-                      className={`mt-1 font-mono font-semibold ${
-                        Math.abs(variance) > 0
-                          ? "text-[var(--color-warning-text)]"
-                          : "text-[var(--color-success-text)]"
-                      }`}
-                    >
-                      {formatCurrency(variance)}
-                    </p>
-                  </div>
+              <CardContent className="space-y-3 text-sm">
+                <div className="flex items-center justify-between gap-3">
+                  <span>متوسط قيمة الطلب</span>
+                  <strong className="font-mono">
+                    {formatCurrency(revenue.averageOrderValue)}
+                  </strong>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  <Button asChild>
-                    <Link href="/merchant/payments/cod">فتح التسويات</Link>
-                  </Button>
-                  <Button asChild variant="outline">
-                    <Link href="/merchant/payments/proofs">
-                      مراجعة إثباتات الدفع
-                    </Link>
-                  </Button>
+                <div className="flex items-center justify-between gap-3">
+                  <span>طلبات إجمالية</span>
+                  <strong className="font-mono">
+                    {formatNumber(revenue.totalOrders)}
+                  </strong>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <span>طلبات محققة</span>
+                  <strong className="font-mono">
+                    {formatNumber(revenue.deliveredOrders)}
+                  </strong>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <span>ملغية أو مرتجعة</span>
+                  <strong className="font-mono">
+                    {formatNumber(revenue.cancelledOrders)}
+                  </strong>
                 </div>
               </CardContent>
             </Card>
@@ -388,82 +360,34 @@ export default function FinanceSummaryPage() {
             <Card className="app-data-card">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base">
-                  <FileText className="h-4 w-4 text-[var(--color-brand-primary)]" />
-                  أسئلة المحاسب اليوم
+                  <CreditCard className="h-4 w-4 text-[var(--color-brand-primary)]" />
+                  طرق الدفع والتحصيل
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3 text-sm">
                 <div className="flex items-center justify-between gap-3">
-                  <span>طلبات محققة</span>
-                  <strong className="font-mono">
-                    {formatNumber(finance.deliveredOrders)}
+                  <span>COD معلق</span>
+                  <strong className="font-mono text-[var(--color-warning-text)]">
+                    {formatCurrency(revenue.pendingCod)}
                   </strong>
                 </div>
                 <div className="flex items-center justify-between gap-3">
-                  <span>مبيعات محجوزة</span>
+                  <span>أونلاين معلق</span>
                   <strong className="font-mono">
-                    {formatCurrency(finance.bookedSales)}
+                    {formatCurrency(revenue.pendingOnline)}
                   </strong>
                 </div>
-                <div className="flex items-center justify-between gap-3">
-                  <span>مدفوعات أونلاين معلقة</span>
-                  <strong className="font-mono">
-                    {formatCurrency(finance.pendingOnline)}
-                  </strong>
-                </div>
-                <div className="flex items-center justify-between gap-3">
-                  <span>مرتجعات</span>
-                  <strong className="font-mono">
-                    {formatCurrency(finance.refundsAmount)}
-                  </strong>
+                <div className="flex flex-wrap gap-2 pt-2">
+                  <Button asChild size="sm">
+                    <Link href="/merchant/payments/cod">فتح التسويات</Link>
+                  </Button>
+                  <Button asChild size="sm" variant="outline">
+                    <Link href="/merchant/payments/proofs">إثباتات الدفع</Link>
+                  </Button>
                 </div>
               </CardContent>
             </Card>
           </section>
-
-          {finance.expenseBreakdown.length > 0 ? (
-            <Card className="app-data-card">
-              <CardHeader>
-                <CardTitle className="text-base">أكبر بنود المصروفات</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {finance.expenseBreakdown.slice(0, 5).map((expense: any) => {
-                  const amount = toNumber(expense.amount);
-                  const percentage =
-                    finance.totalExpenses > 0
-                      ? Math.round((amount / finance.totalExpenses) * 100)
-                      : 0;
-                  return (
-                    <div
-                      key={String(expense.category)}
-                      className="flex items-center justify-between gap-3 rounded-[var(--radius-sm)] border border-[var(--color-border)] bg-[var(--bg-surface-2)] px-3 py-2 text-sm"
-                    >
-                      <span>{String(expense.category || "أخرى")}</span>
-                      <span className="font-mono">
-                        {formatCurrency(amount)} • {percentage}%
-                      </span>
-                    </div>
-                  );
-                })}
-              </CardContent>
-            </Card>
-          ) : (
-            <Card className="app-data-card">
-              <CardContent className="p-4">
-                <EmptyState
-                  icon={<AlertTriangle className="h-6 w-6" />}
-                  title="لم يتم تسجيل مصروفات بعد"
-                  description="سجل المصروفات حتى يظهر هامش التشغيل وصافي النقد بشكل أدق."
-                  action={
-                    <Button asChild variant="outline">
-                      <Link href="/merchant/expenses">إضافة مصروف</Link>
-                    </Button>
-                  }
-                  className="py-8"
-                />
-              </CardContent>
-            </Card>
-          )}
         </>
       )}
     </div>

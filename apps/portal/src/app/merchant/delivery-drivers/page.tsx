@@ -605,7 +605,7 @@ export default function DeliveryDriversPage() {
                     <div key={driver.id} className="app-data-card space-y-3">
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex min-w-0 items-center gap-3">
-                          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full border border-[var(--accent-gold)]/25 bg-[var(--accent-gold-dim)] font-bold text-[var(--accent-gold)]">
+                          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full border border-[var(--color-brand-primary)]/25 bg-[var(--color-brand-subtle)] font-bold text-[var(--color-brand-primary)]">
                             {driver.name.charAt(0)}
                           </div>
                           <div className="min-w-0">
@@ -720,7 +720,7 @@ export default function DeliveryDriversPage() {
                         <TableRow key={driver.id}>
                           <TableCell className="w-[22%]">
                             <div className="flex items-center gap-3">
-                              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full border border-[var(--accent-gold)]/25 bg-[var(--accent-gold-dim)] font-bold text-[var(--accent-gold)]">
+                              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full border border-[var(--color-brand-primary)]/25 bg-[var(--color-brand-subtle)] font-bold text-[var(--color-brand-primary)]">
                                 {driver.name.charAt(0)}
                               </div>
                               <div className="min-w-0">
@@ -850,8 +850,8 @@ export default function DeliveryDriversPage() {
               </p>
             </div>
             <div className="text-center p-4 bg-muted/30 rounded-lg">
-              <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full border border-[var(--accent-gold)]/25 bg-[var(--accent-gold-dim)]">
-                <Truck className="h-5 w-5 text-[var(--accent-gold)]" />
+              <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full border border-[var(--color-brand-primary)]/25 bg-[var(--color-brand-subtle)]">
+                <Truck className="h-5 w-5 text-[var(--color-brand-primary)]" />
               </div>
               <h4 className="font-medium text-sm">2. تعيين السائق</h4>
               <p className="text-xs text-muted-foreground mt-1">

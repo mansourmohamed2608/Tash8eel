@@ -239,7 +239,7 @@ export default function MerchantsPage() {
       <div className="flex flex-wrap gap-2">
         <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
           <span className="text-muted-foreground">إجمالي التجار</span>
-          <span className="font-mono text-[var(--accent-gold)]">
+          <span className="font-mono text-[var(--color-brand-primary)]">
             {merchants.length}
           </span>
         </div>
@@ -272,7 +272,7 @@ export default function MerchantsPage() {
                 <p className="text-sm text-muted-foreground">إجمالي التجار</p>
                 <p className="text-2xl font-bold">{merchants.length}</p>
               </div>
-              <Users className="h-8 w-8 text-[var(--accent-gold)]" />
+              <Users className="h-8 w-8 text-[var(--color-brand-primary)]" />
             </div>
           </CardContent>
         </Card>
@@ -361,7 +361,7 @@ export default function MerchantsPage() {
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-center gap-3">
                         <div className="flex h-10 w-10 items-center justify-center rounded-[12px] border border-[var(--border-subtle)] bg-[var(--bg-surface-2)]">
-                          <Store className="h-5 w-5 text-[var(--accent-gold)]" />
+                          <Store className="h-5 w-5 text-[var(--color-brand-primary)]" />
                         </div>
                         <div>
                           <p className="font-medium">{merchant.tradeName}</p>
@@ -477,12 +477,12 @@ export default function MerchantsPage() {
                     {paginatedMerchants.map((merchant) => (
                       <tr
                         key={merchant.id}
-                        className="transition-all duration-150 ease-in hover:border-r-2 hover:border-r-[var(--accent-gold)] hover:bg-[var(--bg-surface-2)]"
+                        className="transition-all duration-150 ease-in hover:border-r-2 hover:border-r-[var(--color-brand-primary)] hover:bg-[var(--bg-surface-2)]"
                       >
                         <td className="p-4">
                           <div className="flex items-center gap-3">
                             <div className="flex h-10 w-10 items-center justify-center rounded-[12px] border border-[var(--border-subtle)] bg-[var(--bg-surface-2)]">
-                              <Store className="h-5 w-5 text-[var(--accent-gold)]" />
+                              <Store className="h-5 w-5 text-[var(--color-brand-primary)]" />
                             </div>
                             <div>
                               <p className="font-medium">
@@ -702,7 +702,7 @@ export default function MerchantsPage() {
             <div className="space-y-4 py-4">
               <div className="flex items-center gap-4">
                 <div className="flex h-16 w-16 items-center justify-center rounded-[16px] border border-[var(--border-subtle)] bg-[var(--bg-surface-2)]">
-                  <Store className="h-8 w-8 text-[var(--accent-gold)]" />
+                  <Store className="h-8 w-8 text-[var(--color-brand-primary)]" />
                 </div>
                 <div>
                   <h3 className="text-lg font-semibold">

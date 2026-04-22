@@ -127,7 +127,7 @@ export default function HelpCenterPage() {
             <Card key={section.id} className="app-data-card">
               <CardHeader className="pb-2">
                 <CardTitle className="flex items-center gap-2 text-base">
-                  <Icon className="h-5 w-5 shrink-0 text-[color:var(--accent-gold)]" />
+                  <Icon className="h-5 w-5 shrink-0 text-[color:var(--color-brand-primary)]" />
                   {section.title}
                 </CardTitle>
               </CardHeader>

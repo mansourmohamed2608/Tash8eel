@@ -328,8 +328,8 @@ export function BroadcastNotificationsPanel() {
         </Card>
         <Card>
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="rounded-lg bg-[var(--accent-gold-dim)] p-2">
-              <CheckCircle className="h-5 w-5 text-[var(--accent-gold)]" />
+            <div className="rounded-lg bg-[var(--color-brand-subtle)] p-2">
+              <CheckCircle className="h-5 w-5 text-[var(--color-brand-primary)]" />
             </div>
             <div>
               <p className="text-xs text-muted-foreground">إجمالي المستلمين</p>
