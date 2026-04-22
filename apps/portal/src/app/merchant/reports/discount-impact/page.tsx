@@ -80,8 +80,8 @@ export default function DiscountImpactPage() {
     return (
       <div className="space-y-6">
         <PageHeader title="تحليل تأثير الخصومات" />
-        <Card className="border-[var(--accent-danger)]/20 bg-[var(--accent-danger)]/10">
-          <CardContent className="py-6 text-sm text-[var(--accent-danger)]">
+        <Card className="border-red-200 bg-red-50">
+          <CardContent className="py-6 text-red-700 text-sm">
             {error}
           </CardContent>
         </Card>
@@ -160,7 +160,7 @@ export default function DiscountImpactPage() {
         <StatCard
           title="إجمالي الخصومات"
           value={formatCurrency(overview.totalDiscount)}
-          icon={<Tag className="h-5 w-5 text-[var(--accent-warning)]" />}
+          icon={<Tag className="h-5 w-5 text-amber-600" />}
         />
         <StatCard
           title="طلبات مخصومة"
@@ -170,21 +170,17 @@ export default function DiscountImpactPage() {
         <StatCard
           title="متوسط مخصوم"
           value={formatCurrency(avgOv.discounted)}
-          icon={
-            <TrendingDown className="h-5 w-5 text-[var(--accent-danger)]" />
-          }
+          icon={<TrendingDown className="h-5 w-5 text-red-500" />}
         />
         <StatCard
           title="متوسط سعر كامل"
           value={formatCurrency(avgOv.fullPrice)}
-          icon={<Percent className="h-5 w-5 text-[var(--accent-success)]" />}
+          icon={<Percent className="h-5 w-5 text-green-500" />}
         />
         <StatCard
           title="الإيرادات المحققة"
           value={formatCurrency(realizedRevenue)}
-          icon={
-            <TrendingDown className="h-5 w-5 text-[var(--accent-success)]" />
-          }
+          icon={<TrendingDown className="h-5 w-5 text-emerald-600" />}
         />
       </KPIGrid>
 
@@ -226,7 +222,7 @@ export default function DiscountImpactPage() {
                 </div>
                 <div className="flex justify-between items-center">
                   <span>إجمالي المرتجعات</span>
-                  <span className="font-medium text-[var(--accent-danger)]">
+                  <span className="font-medium text-red-600">
                     {formatCurrency(refundsAmount)}
                   </span>
                 </div>
@@ -239,8 +235,8 @@ export default function DiscountImpactPage() {
                   <span
                     className={
                       avgOv.discounted < avgOv.fullPrice
-                        ? "text-[var(--accent-danger)]"
-                        : "text-[var(--accent-success)]"
+                        ? "text-red-600"
+                        : "text-green-600"
                     }
                   >
                     {formatCurrency(
@@ -270,7 +266,7 @@ export default function DiscountImpactPage() {
                   {byCode.map((c: any, i: number) => (
                     <div
                       key={i}
-                      className="flex items-center justify-between rounded-lg border p-3 transition-colors hover:bg-[var(--bg-surface-2)]"
+                      className="flex items-center justify-between border rounded-lg p-3 hover:bg-gray-50"
                     >
                       <div>
                         <Badge variant="outline" className="ml-2">
@@ -284,7 +280,7 @@ export default function DiscountImpactPage() {
                         <div className="font-medium">
                           {formatCurrency(c.revenue)}
                         </div>
-                        <div className="text-sm text-[var(--accent-warning)]">
+                        <div className="text-sm text-amber-600">
                           خصم: {formatCurrency(c.discount)}
                         </div>
                       </div>

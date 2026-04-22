@@ -6,7 +6,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { TableSkeleton } from "@/components/ui/skeleton";
 import {
   RefreshCw,
   Loader2,
@@ -24,7 +23,6 @@ import {
 } from "lucide-react";
 import portalApi from "@/lib/client";
 import { useToast } from "@/hooks/use-toast";
-import { ErrorState } from "@/components/ui/alerts";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -95,13 +93,13 @@ function urgencyVariant(
 function urgencyBg(u: string) {
   switch (u) {
     case "critical":
-      return "bg-[var(--accent-danger)]/10 border-[var(--accent-danger)]/20";
+      return "bg-red-50 border-red-200";
     case "high":
-      return "bg-[var(--accent-warning)]/10 border-[var(--accent-warning)]/20";
+      return "bg-orange-50 border-orange-200";
     case "medium":
-      return "bg-[var(--accent-warning)]/10 border-[var(--accent-warning)]/20";
+      return "bg-yellow-50 border-yellow-200";
     default:
-      return "bg-[var(--accent-success)]/10 border-[var(--accent-success)]/20";
+      return "bg-green-50 border-green-200";
   }
 }
 
@@ -143,10 +141,8 @@ function getDisplayCode(productId: string): string | null {
 }
 
 function TrendIcon({ pct }: { pct: number }) {
-  if (pct > 5)
-    return <TrendingUp className="h-3.5 w-3.5 text-[var(--accent-success)]" />;
-  if (pct < -5)
-    return <TrendingDown className="h-3.5 w-3.5 text-[var(--accent-danger)]" />;
+  if (pct > 5) return <TrendingUp className="w-3.5 h-3.5 text-green-600" />;
+  if (pct < -5) return <TrendingDown className="w-3.5 h-3.5 text-red-500" />;
   return <Minus className="w-3.5 h-3.5 text-muted-foreground" />;
 }
 
@@ -259,12 +255,8 @@ export default function ForecastPage() {
 
   if (loading) {
     return (
-      <div dir="rtl" className="w-full space-y-6 p-4 sm:p-6">
-        <PageHeader
-          title="التوقعات الذكية داخل المخزون"
-          description="تحميل توقعات الطلب من بيانات الطلبات والمخزون الحالية."
-        />
-        <TableSkeleton rows={6} columns={6} />
+      <div className="flex min-h-[50vh] items-center justify-center px-4 sm:px-6">
+        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
       </div>
     );
   }
@@ -274,13 +266,21 @@ export default function ForecastPage() {
       <div dir="rtl" className="w-full space-y-6 p-4 sm:p-6">
         <PageHeader
           title="توقعات الطلب"
-          description="تحليل داعم للمخزون والطلب"
+          description="تحليل ذكي للمخزون والطلب"
         />
-        <ErrorState
-          title="خطأ في تحميل التوقعات"
-          message={error}
-          onRetry={() => loadForecast()}
-        />
+        <Card className="mt-6 border-destructive">
+          <CardContent className="py-8 text-center">
+            <AlertCircle className="w-8 h-8 text-destructive mx-auto mb-2" />
+            <p className="text-destructive">{error}</p>
+            <Button
+              variant="outline"
+              className="mt-4"
+              onClick={() => loadForecast()}
+            >
+              إعادة المحاولة
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -288,8 +288,8 @@ export default function ForecastPage() {
   return (
     <div dir="rtl" className="w-full space-y-8 p-4 sm:p-6">
       <PageHeader
-        title="التوقعات الذكية داخل المخزون"
-        description="توقعات الطلب كدعم لقرارات التوريد، مع إظهار وقت الحساب ومصدر البيانات."
+        title="توقعات الطلب"
+        description="تحليل المبيعات والمخزون بالذكاء الاصطناعي"
         actions={
           <div className="flex items-center gap-2 self-start sm:self-auto">
             {computedAt && (
@@ -320,111 +320,119 @@ export default function ForecastPage() {
         }
       />
 
-      <div className="flex flex-wrap gap-2">
-        {[
-          `الأصناف المحللة: ${items.length}`,
-          `خطر خلال 7 أيام: ${nearStockout}`,
-          `إعادة طلب مقترحة: ${Math.round(totalReorderSuggested)}`,
-          `آخر حساب: ${computedAt ? new Date(computedAt).toLocaleString("ar-SA") : "غير متوفر"}`,
-          "المصدر: الطلبات + المخزون",
-        ].map((chip) => (
-          <div
-            key={chip}
-            className="inline-flex h-8 items-center rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs text-[var(--text-secondary)]"
-          >
-            {chip}
+      <section className="app-hero-band">
+        <div className="app-hero-band__grid">
+          <div>
+            <p className="app-hero-band__eyebrow">توقع وتشغيل</p>
+            <h2 className="app-hero-band__title">
+              تعرف على الأصناف المعرضة للنفاد قبل أن تتحول إلى خسارة مبيعات
+            </h2>
+            <p className="app-hero-band__copy">
+              يجمع هذا التقرير معدل الطلب، سرعة الاستهلاك، واتجاه التغير ليمنح
+              الفريق قائمة أولوية واضحة لإعادة الطلب والتوزيع.
+            </p>
           </div>
-        ))}
-      </div>
+          <div className="app-hero-band__metrics">
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">
+                الأصناف المحللة
+              </span>
+              <strong className="app-hero-band__metric-value">
+                {items.length}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">
+                خطر خلال 7 أيام
+              </span>
+              <strong className="app-hero-band__metric-value">
+                {nearStockout}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">
+                إعادة طلب مقترحة
+              </span>
+              <strong className="app-hero-band__metric-value">
+                {Math.round(totalReorderSuggested)}
+              </strong>
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* ── Summary strip ──────────────────────────────────────────────── */}
       {items.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-8 gap-3">
-          <Card className="app-data-card border-[var(--border-default)] bg-[var(--bg-surface-2)] md:col-span-2">
+          <Card className="app-data-card bg-slate-50 border-slate-200 md:col-span-2">
             <CardContent className="py-3 px-4 text-center">
-              <p className="text-2xl font-bold text-foreground">
+              <p className="text-2xl font-bold text-slate-700">
                 {items.length}
               </p>
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                إجمالي الأصناف
-              </p>
+              <p className="text-xs text-slate-600 mt-0.5">إجمالي الأصناف</p>
             </CardContent>
           </Card>
           <button
-            className={`text-right rounded-lg border transition ${filter === "critical" ? "ring-2 ring-[var(--accent-danger)]" : ""}`}
+            className={`text-right rounded-lg border transition ${filter === "critical" ? "ring-2 ring-red-500" : ""}`}
             onClick={() => setFilter("critical")}
             type="button"
           >
-            <Card className="app-data-card h-full border-[var(--accent-danger)]/20 bg-[var(--accent-danger)]/10">
+            <Card className="app-data-card bg-red-50 border-red-200 h-full">
               <CardContent className="py-3 px-4 text-center">
-                <p className="text-2xl font-bold text-[var(--accent-danger)]">
+                <p className="text-2xl font-bold text-red-700">
                   {counts.critical}
                 </p>
-                <p className="mt-0.5 text-xs text-[var(--accent-danger)]">
-                  حرج
-                </p>
+                <p className="text-xs text-red-600 mt-0.5">حرج</p>
               </CardContent>
             </Card>
           </button>
           <button
-            className={`text-right rounded-lg border transition ${filter === "high" ? "ring-2 ring-[var(--color-brand-primary)]" : ""}`}
+            className={`text-right rounded-lg border transition ${filter === "high" ? "ring-2 ring-orange-500" : ""}`}
             onClick={() => setFilter("high")}
             type="button"
           >
-            <Card className="app-data-card h-full border-[var(--color-brand-primary)]/20 bg-[var(--color-brand-primary)]/10">
+            <Card className="app-data-card bg-orange-50 border-orange-200 h-full">
               <CardContent className="py-3 px-4 text-center">
-                <p className="text-2xl font-bold text-[var(--color-brand-primary)]">
+                <p className="text-2xl font-bold text-orange-700">
                   {counts.high}
                 </p>
-                <p className="mt-0.5 text-xs text-[var(--color-brand-primary)]">
-                  عالي
-                </p>
+                <p className="text-xs text-orange-600 mt-0.5">عالي</p>
               </CardContent>
             </Card>
           </button>
           <button
-            className={`text-right rounded-lg border transition ${filter === "medium" ? "ring-2 ring-[var(--accent-warning)]" : ""}`}
+            className={`text-right rounded-lg border transition ${filter === "medium" ? "ring-2 ring-yellow-500" : ""}`}
             onClick={() => setFilter("medium")}
             type="button"
           >
-            <Card className="app-data-card h-full border-[var(--accent-warning)]/20 bg-[var(--accent-warning)]/10">
+            <Card className="app-data-card bg-yellow-50 border-yellow-200 h-full">
               <CardContent className="py-3 px-4 text-center">
-                <p className="text-2xl font-bold text-[var(--accent-warning)]">
+                <p className="text-2xl font-bold text-yellow-700">
                   {counts.medium}
                 </p>
-                <p className="mt-0.5 text-xs text-[var(--accent-warning)]">
-                  متوسط
-                </p>
+                <p className="text-xs text-yellow-600 mt-0.5">متوسط</p>
               </CardContent>
             </Card>
           </button>
           <button
-            className={`text-right rounded-lg border transition ${filter === "ok" ? "ring-2 ring-[var(--accent-success)]" : ""}`}
+            className={`text-right rounded-lg border transition ${filter === "ok" ? "ring-2 ring-green-500" : ""}`}
             onClick={() => setFilter("ok")}
             type="button"
           >
-            <Card className="app-data-card h-full border-[var(--accent-success)]/20 bg-[var(--accent-success)]/10">
+            <Card className="app-data-card bg-green-50 border-green-200 h-full">
               <CardContent className="py-3 px-4 text-center">
-                <p className="text-2xl font-bold text-[var(--accent-success)]">
-                  {counts.ok}
-                </p>
-                <p className="mt-0.5 text-xs text-[var(--accent-success)]">
-                  جيد
-                </p>
+                <p className="text-2xl font-bold text-green-700">{counts.ok}</p>
+                <p className="text-xs text-green-600 mt-0.5">جيد</p>
               </CardContent>
             </Card>
           </button>
-          <Card className="app-data-card border-[var(--accent-blue)]/20 bg-[var(--accent-blue)]/10">
+          <Card className="app-data-card bg-blue-50 border-blue-200">
             <CardContent className="py-3 px-4 text-center flex flex-col items-center">
               <div className="flex items-center gap-1">
-                <p className="text-2xl font-bold text-[var(--accent-blue)]">
-                  {trendingUp}
-                </p>
-                <TrendingUp className="h-4 w-4 text-[var(--accent-blue)]" />
+                <p className="text-2xl font-bold text-blue-700">{trendingUp}</p>
+                <TrendingUp className="w-4 h-4 text-blue-600" />
               </div>
-              <p className="mt-0.5 text-xs text-[var(--accent-blue)]">
-                طلب متصاعد
-              </p>
+              <p className="text-xs text-blue-600 mt-0.5">طلب متصاعد</p>
             </CardContent>
           </Card>
           <Card className="app-data-card bg-gray-50 border-gray-200">
@@ -514,7 +522,7 @@ export default function ForecastPage() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-            <div className="rounded-md border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 py-2">
+            <div className="rounded-md border bg-slate-50 px-3 py-2">
               <p className="text-muted-foreground">
                 إجمالي إعادة الطلب المقترح
               </p>
@@ -522,11 +530,11 @@ export default function ForecastPage() {
                 {Math.round(totalReorderSuggested)} وحدة
               </p>
             </div>
-            <div className="rounded-md border border-[color:color-mix(in_srgb,var(--accent-warning)_20%,transparent)] bg-[var(--warning-muted)] px-3 py-2">
+            <div className="rounded-md border bg-amber-50 px-3 py-2">
               <p className="text-muted-foreground">
                 أصناف مهددة بالنفاد خلال 7 أيام
               </p>
-              <p className="text-lg font-semibold text-[var(--accent-warning)]">
+              <p className="text-lg font-semibold text-amber-700">
                 {nearStockout} صنف
               </p>
             </div>
@@ -610,7 +618,7 @@ export default function ForecastPage() {
                       </div>
 
                       <div className="inline-flex items-center gap-1 rounded-md border bg-background px-2.5 py-1 text-xs self-start sm:self-auto">
-                        <AlertCircle className="h-3.5 w-3.5 text-[var(--accent-warning)]" />
+                        <AlertCircle className="w-3.5 h-3.5 text-amber-500" />
                         <span>
                           النفاد المتوقع: {formatDays(item.days_until_stockout)}
                         </span>
@@ -674,11 +682,11 @@ export default function ForecastPage() {
                         </p>
                       </div>
 
-                      <div className="rounded-md border border-[var(--accent-blue)]/20 bg-[var(--accent-blue-dim)] px-2.5 py-2">
+                      <div className="rounded-md border bg-blue-50 px-2.5 py-2">
                         <p className="text-muted-foreground">
                           إعادة الطلب المقترحة
                         </p>
-                        <p className="mt-0.5 text-base font-semibold text-[var(--accent-blue)]">
+                        <p className="font-semibold text-base text-blue-700 mt-0.5">
                           {item.reorder_suggestion}
                         </p>
                       </div>

@@ -79,8 +79,8 @@ export default function RefundAnalysisPage() {
     return (
       <div className="space-y-6">
         <PageHeader title="تحليل الاسترجاعات" />
-        <Card className="border-[var(--accent-danger)]/20 bg-[var(--accent-danger)]/10">
-          <CardContent className="py-6 text-[var(--accent-danger)] text-sm">
+        <Card className="border-red-200 bg-red-50">
+          <CardContent className="py-6 text-red-700 text-sm">
             {error}
           </CardContent>
         </Card>
@@ -147,26 +147,22 @@ export default function RefundAnalysisPage() {
         <StatCard
           title="استرجاعات مقبولة"
           value={summary.approvedRefunds?.toString() || "0"}
-          icon={<Undo2 className="h-5 w-5 text-[var(--accent-danger)]" />}
+          icon={<Undo2 className="h-5 w-5 text-red-500" />}
         />
         <StatCard
           title="إجمالي المسترجع"
           value={formatCurrency(summary.totalRefunded)}
-          icon={
-            <TrendingDown className="h-5 w-5 text-[var(--accent-danger)]" />
-          }
+          icon={<TrendingDown className="h-5 w-5 text-red-600" />}
         />
         <StatCard
           title="نسبة الاسترجاع"
           value={`${summary.refundRate || 0}%`}
-          icon={
-            <AlertTriangle className="h-5 w-5 text-[var(--accent-warning)]" />
-          }
+          icon={<AlertTriangle className="h-5 w-5 text-amber-500" />}
         />
         <StatCard
           title="استرجاعات معلقة"
           value={summary.pendingRefunds?.toString() || "0"}
-          icon={<Users className="h-5 w-5 text-[var(--accent-blue)]" />}
+          icon={<Users className="h-5 w-5 text-blue-500" />}
         />
       </KPIGrid>
 
@@ -213,7 +209,7 @@ export default function RefundAnalysisPage() {
                         {r.count} استرجاع
                       </span>
                     </div>
-                    <span className="font-bold text-[var(--accent-danger)]">
+                    <span className="font-bold text-red-600">
                       {formatCurrency(r.totalAmount)}
                     </span>
                   </div>

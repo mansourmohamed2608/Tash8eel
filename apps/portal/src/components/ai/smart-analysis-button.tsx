@@ -7,6 +7,7 @@ import {
   ChevronDown,
   Clock3,
   PlayCircle,
+  Sparkles,
   Target,
   TrendingUp,
 } from "lucide-react";
@@ -62,7 +63,7 @@ const ANALYSIS_PROMPTS: Record<AnalysisContext, string> = {
 4. الإجراء الآن: أهم إجراء واحد واضح وقابل للتنفيذ فوراً.
 5. فرصة قريبة: فرصة واحدة فقط، وإن لم توجد فرصة واضحة قل ذلك بصراحة.`,
 
-  inventory: `أنت مساعد إدارة مخزون. بناءً على بيانات المخزون الحية، قم بتحليل:
+  inventory: `أنت وكيل إدارة مخزون ذكي. بناءً على بيانات المخزون الحية، قم بتحليل:
 1. ملخص حالة المخزون (إجمالي المنتجات، منخفضة، نافذة)
 2. منتجات يجب إعادة طلبها فوراً مع تقدير الكميات
 3. تحليل حركة المخزون (منتجات بطيئة الحركة وسريعة الحركة)
@@ -72,7 +73,7 @@ const ANALYSIS_PROMPTS: Record<AnalysisContext, string> = {
 اكتب 5 نقاط مرقمة فقط بدون Markdown أو مقدمات إنشائية.
 لا تستخدم ايموجي نهائيا في الرد.`,
 
-  operations: `أنت مساعد عمليات. بناءً على بيانات النظام الحية، قم بتحليل:
+  operations: `أنت وكيل عمليات ذكي. بناءً على بيانات النظام الحية، قم بتحليل:
 1. ملخص العمليات اليومية (طلبات جديدة، معلقة، مكتملة، ملغاة)
 2. أداء التوصيل (متوسط وقت التوصيل، معدل النجاح، سائقين نشطين)
 3. تحليل المحادثات (معدل الرد، رضا العملاء)
@@ -84,11 +85,11 @@ const ANALYSIS_PROMPTS: Record<AnalysisContext, string> = {
 };
 
 const CONTEXT_TITLES: Record<AnalysisContext, string> = {
-  cfo: "مساعد التحليل المالي",
-  analytics: "مساعد تحليل الأداء",
+  cfo: "وكيل التحليل المالي",
+  analytics: "وكيل تحليل الأداء",
   dashboard: "موجز اليوم الذكي",
-  inventory: "مساعد المخزون",
-  operations: "مساعد العمليات",
+  inventory: "وكيل المخزون الذكي",
+  operations: "وكيل العمليات الذكي",
 };
 
 const CONTEXT_SUBTITLES: Record<AnalysisContext, string> = {
@@ -243,27 +244,24 @@ interface PortalInventoryResponse {
 const SECTION_STYLES = [
   {
     icon: Activity,
-    accent: "text-[var(--accent-blue)]",
-    bullet: "bg-[var(--accent-blue)]",
-    border:
-      "border-[color:color-mix(in_srgb,var(--accent-blue)_22%,transparent)]",
-    bg: "bg-[var(--accent-muted)]",
+    accent: "text-blue-700",
+    bullet: "bg-blue-700",
+    border: "border-blue-200 dark:border-blue-900/60",
+    bg: "bg-blue-50/80 dark:bg-blue-950/20",
   },
   {
     icon: TrendingUp,
-    accent: "text-[var(--accent-success)]",
-    bullet: "bg-[var(--accent-success)]",
-    border:
-      "border-[color:color-mix(in_srgb,var(--accent-success)_22%,transparent)]",
-    bg: "bg-[var(--success-muted)]",
+    accent: "text-emerald-700",
+    bullet: "bg-emerald-700",
+    border: "border-emerald-200 dark:border-emerald-900/60",
+    bg: "bg-emerald-50/80 dark:bg-emerald-950/20",
   },
   {
     icon: AlertTriangle,
-    accent: "text-[var(--accent-warning)]",
-    bullet: "bg-[var(--accent-warning)]",
-    border:
-      "border-[color:color-mix(in_srgb,var(--accent-warning)_22%,transparent)]",
-    bg: "bg-[var(--warning-muted)]",
+    accent: "text-amber-700",
+    bullet: "bg-amber-700",
+    border: "border-amber-200 dark:border-amber-900/60",
+    bg: "bg-amber-50/80 dark:bg-amber-950/20",
   },
   {
     icon: PlayCircle,
@@ -901,20 +899,20 @@ export function SmartAnalysisButton({
 
   return (
     <div
-      className={`overflow-hidden rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-surface-1)] shadow-sm ${className}`}
+      className={`overflow-hidden rounded-2xl border border-purple-200 bg-gradient-to-br from-purple-50 via-white to-blue-50 shadow-sm dark:border-purple-800 dark:from-purple-950/30 dark:via-slate-950 dark:to-blue-950/30 ${className}`}
     >
       {/* Header with button */}
       <div className="flex items-start justify-between gap-4 p-4">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
-            <span className="inline-flex h-9 w-9 items-center justify-center rounded-[var(--radius-sm)] bg-[var(--brand-blue-dim)] text-[var(--color-brand-primary)]">
-              <Activity className="h-4 w-4" />
+            <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300">
+              <Sparkles className="h-4 w-4" />
             </span>
             <div>
-              <h3 className="font-semibold text-foreground">
+              <h3 className="font-semibold text-purple-950 dark:text-purple-50">
                 {CONTEXT_TITLES[context]}
               </h3>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-purple-700/80 dark:text-purple-300/80">
                 {CONTEXT_SUBTITLES[context]}
               </p>
             </div>
@@ -923,7 +921,7 @@ export function SmartAnalysisButton({
         <button
           onClick={runAnalysis}
           disabled={loading}
-          className="inline-flex shrink-0 items-center gap-2 rounded-[var(--radius-sm)] bg-[var(--color-brand-primary)] px-4 py-2 text-sm font-medium text-white transition-colors hover:brightness-105 disabled:opacity-60"
+          className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-purple-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-purple-700 disabled:bg-purple-400"
         >
           {loading ? (
             <>
@@ -963,7 +961,7 @@ export function SmartAnalysisButton({
                   d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456z"
                 />
               </svg>
-              {normalizedAnalysis ? "تحديث التحليل" : "تحليل"}
+              {normalizedAnalysis ? "تحديث التحليل" : "تحليل ذكي"}
             </>
           )}
         </button>
@@ -971,7 +969,7 @@ export function SmartAnalysisButton({
 
       {formattedUpdatedAt && (
         <div className="px-4 pb-3">
-          <div className="inline-flex items-center gap-2 rounded-full border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 py-1 text-xs text-muted-foreground">
+          <div className="inline-flex items-center gap-2 rounded-full border border-purple-200 bg-white/70 px-3 py-1 text-xs text-purple-700 dark:border-purple-800 dark:bg-slate-950/40 dark:text-purple-300">
             <Clock3 className="h-3.5 w-3.5" />
             آخر تحديث: {formattedUpdatedAt}
           </div>
@@ -980,17 +978,17 @@ export function SmartAnalysisButton({
 
       {/* Error state */}
       {error && (
-        <div className="mx-4 mb-4 p-3 bg-[var(--danger-muted)] border border-[color:color-mix(in_srgb,var(--accent-danger)_22%,transparent)] rounded-lg text-[var(--accent-danger)] text-sm">
+        <div className="mx-4 mb-4 p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-300 text-sm">
           {error}
         </div>
       )}
 
       {/* Analysis result */}
       {normalizedAnalysis && (
-        <div className="border-t border-[var(--border-default)]">
+        <div className="border-t border-purple-200 dark:border-purple-800">
           <button
             onClick={() => setIsExpanded(!isExpanded)}
-            className="flex w-full items-center justify-between px-4 py-3 text-sm text-[var(--color-brand-primary)] transition-colors hover:bg-[var(--brand-blue-dim)]"
+            className="flex w-full items-center justify-between px-4 py-3 text-sm text-purple-700 transition-colors hover:bg-purple-100/50 dark:text-purple-300 dark:hover:bg-purple-900/30"
           >
             <span>{isExpanded ? "إخفاء التحليل" : "عرض التحليل"}</span>
             <ChevronDown
@@ -1073,16 +1071,16 @@ export function SmartAnalysisButton({
                 </div>
               ) : (
                 <div
-                  className="mx-auto max-w-4xl rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-surface-1)] p-5 text-sm leading-8 text-foreground shadow-sm whitespace-pre-wrap"
+                  className="mx-auto max-w-4xl rounded-2xl border border-purple-100 bg-white p-5 text-sm leading-8 text-gray-800 shadow-sm whitespace-pre-wrap dark:border-purple-900/60 dark:bg-gray-900 dark:text-gray-200"
                   dir="rtl"
                 >
                   {normalizedAnalysis}
                 </div>
               )}
-              <p className="mt-2 text-xs text-muted-foreground text-center">
+              <p className="mt-2 text-xs text-purple-500 dark:text-purple-400 text-center">
                 {context === "dashboard"
                   ? "تم توليد هذا الموجز من بيانات النظام مباشرة"
-                  : "تم التحليل بواسطة المساعد • البيانات من النظام مباشرة"}
+                  : "تم التحليل بواسطة الذكاء الاصطناعي • البيانات من النظام مباشرة"}
               </p>
             </div>
           )}
@@ -1095,10 +1093,10 @@ export function SmartAnalysisButton({
         !error &&
         isPersistedAnalysisHydrated && (
           <div className="px-4 pb-4 text-center">
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-purple-500 dark:text-purple-400">
               {context === "dashboard"
-                ? 'اضغط "تحليل" لتوليد موجز يومي مؤكد من بيانات النظام الحالية'
-                : 'اضغط "تحليل" للحصول على قراءة مبنية على بيانات نشاطك الحقيقية'}
+                ? 'اضغط "تحليل ذكي" لتوليد موجز يومي مؤكد من بيانات النظام الحالية'
+                : 'اضغط "تحليل ذكي" للحصول على تحليل مبني على بيانات نشاطك الحقيقية بالذكاء الاصطناعي'}
             </p>
           </div>
         )}

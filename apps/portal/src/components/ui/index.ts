@@ -15,7 +15,3 @@ export * from "./dropdown-menu";
 export * from "./alerts";
 export * from "./stat-card";
 export * from "./data-table";
-export * from "./page-patterns";
-export * from "./metric-cell";
-export * from "./action-item";
-export * from "./status-badge";

@@ -25,6 +25,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  Settings,
   Store,
   Bell,
   Clock,
@@ -33,14 +34,16 @@ import {
   Smartphone,
   Building2,
   Wallet,
+  AlertTriangle,
   ArrowUpRight,
   Shield,
-  Users,
-  Link2,
-  Globe2,
 } from "lucide-react";
 import { merchantApi } from "@/lib/client";
 import { useMerchant } from "@/hooks/use-merchant";
+import {
+  AiInsightsCard,
+  generateSettingsInsights,
+} from "@/components/ai/ai-insights-card";
 import { DeleteAccountPanel } from "@/components/merchant/settings/delete-account-panel";
 
 // Settings structure matching API response
@@ -186,8 +189,13 @@ export default function SettingsPage() {
     useState<MerchantSettings | null>(null);
   const [saved, setSaved] = useState(false);
   const searchParams = useSearchParams();
-  const [activeTab, setActiveTab] = useState("workspace");
-  const showGlobalSave = activeTab === "workspace";
+  const initialTab = searchParams?.get("tab") || "business";
+  const [activeTab, setActiveTab] = useState(initialTab);
+  const showGlobalSave =
+    activeTab === "business" ||
+    activeTab === "payout" ||
+    activeTab === "preferences" ||
+    activeTab === "pos";
   const categoryOptions = useMemo(() => {
     const current = settings?.business.category?.trim();
     if (current && !CATEGORY_OPTIONS.includes(current)) {
@@ -195,44 +203,6 @@ export default function SettingsPage() {
     }
     return CATEGORY_OPTIONS;
   }, [settings?.business.category]);
-  const settingsSections = [
-    {
-      title: "الفريق والأذونات",
-      description: "الأعضاء، الدعوات، الأدوار، وحوكمة الوصول.",
-      href: "/merchant/team",
-      icon: Users,
-    },
-    {
-      title: "الفواتير والاشتراك",
-      description: "اشتراك المنصة والفواتير وطريقة الدفع خارج المالية.",
-      href: "/merchant/billing",
-      icon: CreditCard,
-    },
-    {
-      title: "التكاملات",
-      description: "تكاملات POS والقنوات التشغيلية وحالة المزامنة.",
-      href: "/merchant/pos-integrations",
-      icon: Link2,
-    },
-    {
-      title: "المتجر والفروع",
-      description: "ملف المتجر، الفروع، ومعلومات التشغيل الأساسية.",
-      href: "/merchant/branches",
-      icon: Building2,
-    },
-    {
-      title: "الإشعارات",
-      description: "قنوات التنبيه، تفضيلات التقارير، والبث التشغيلي.",
-      href: "/merchant/notifications",
-      icon: Bell,
-    },
-    {
-      title: "مساحة العمل",
-      description: "اللغة، المنطقة الزمنية، العملة، وتفضيلات الكاشير.",
-      href: "/merchant/settings?tab=workspace",
-      icon: Globe2,
-    },
-  ];
 
   const fetchSettings = useCallback(async () => {
     if (!apiKey) return;
@@ -275,13 +245,29 @@ export default function SettingsPage() {
   }, [fetchSettings]);
 
   useEffect(() => {
-    setActiveTab("workspace");
+    const tab = searchParams?.get("tab");
+    if (
+      tab === "business" ||
+      tab === "payout" ||
+      tab === "notifications" ||
+      tab === "preferences" ||
+      tab === "pos" ||
+      tab === "danger"
+    ) {
+      setActiveTab(tab);
+      return;
+    }
+    setActiveTab("business");
   }, [searchParams]);
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
     const params = new URLSearchParams(searchParams?.toString() || "");
-    params.set("tab", tab);
+    if (tab === "business") {
+      params.delete("tab");
+    } else {
+      params.set("tab", tab);
+    }
     const query = params.toString();
     router.replace(query ? `${pathname}?${query}` : pathname, {
       scroll: false,
@@ -293,24 +279,6 @@ export default function SettingsPage() {
 
     setSaving(true);
     try {
-      if (activeTab === "workspace") {
-        const categoryValue = settings.business.category?.trim();
-        const mappedCategory = categoryValue
-          ? CATEGORY_TO_ENUM[categoryValue] || categoryValue
-          : "";
-
-        await merchantApi.updateSettings(apiKey, {
-          business: {
-            ...settings.business,
-            category: mappedCategory || "",
-          },
-          preferences: settings.preferences,
-          pos: settings.pos,
-        } as any);
-
-        setInitialSettings(settings);
-      }
-
       if (activeTab === "business") {
         const categoryValue = settings.business.category?.trim();
         const normalizedCategory = categoryValue || "";
@@ -407,7 +375,7 @@ export default function SettingsPage() {
     <div className="space-y-8 animate-fadeIn p-4 sm:p-6">
       <PageHeader
         title="الإعدادات"
-        description="إدارة النظام، الفريق، الاشتراك، التكاملات، الإشعارات، ومساحة العمل من مكان واحد."
+        description="إدارة إعدادات المتجر والإشعارات"
         actions={
           showGlobalSave && (
             <Button
@@ -423,42 +391,67 @@ export default function SettingsPage() {
       />
 
       {settings && (
-        <div className="flex flex-wrap gap-2">
-          <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
-            <Store className="h-3.5 w-3.5 text-muted-foreground" />
-            <span className="text-muted-foreground">وضع نقطة البيع</span>
-            <span className="font-mono text-foreground">
-              {settings.pos.enabled ? "مفعّل" : "معطّل"}
-            </span>
+        <section className="app-hero-band">
+          <div className="app-hero-band__grid">
+            <div>
+              <p className="app-hero-band__eyebrow">تهيئة المنصة</p>
+              <h2 className="app-hero-band__title">
+                اضبط المتجر والدفعات والتشغيل من لوحة إعدادات واحدة
+              </h2>
+              <p className="app-hero-band__copy">
+                هذه المساحة تجمع هوية النشاط، قنوات الدفع، إعدادات التشغيل،
+                وتجربة نقطة البيع ضمن نموذج واضح وقابل للمراجعة.
+              </p>
+            </div>
+            <div className="app-hero-band__metrics">
+              <div className="app-hero-band__metric">
+                <span className="app-hero-band__metric-label">
+                  وضع نقطة البيع
+                </span>
+                <strong className="app-hero-band__metric-value">
+                  {settings.pos.enabled ? "مفعّل" : "معطّل"}
+                </strong>
+              </div>
+              <div className="app-hero-band__metric">
+                <span className="app-hero-band__metric-label">
+                  جاهزية الدفع
+                </span>
+                <strong className="app-hero-band__metric-value">
+                  {settings.payout.instapayAlias ||
+                  settings.payout.vodafoneCashNumber ||
+                  settings.payout.bankAccount
+                    ? "مكتملة"
+                    : "بحاجة إعداد"}
+                </strong>
+              </div>
+              <div className="app-hero-band__metric">
+                <span className="app-hero-band__metric-label">
+                  الردود التلقائية
+                </span>
+                <strong className="app-hero-band__metric-value">
+                  {settings.preferences.autoResponseEnabled ? "نشطة" : "متوقفة"}
+                </strong>
+              </div>
+            </div>
           </div>
-          <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
-            <Wallet className="h-3.5 w-3.5 text-[var(--color-brand-primary)]" />
-            <span className="text-muted-foreground">جاهزية الدفع</span>
-            <span className="font-mono text-[var(--color-brand-primary)]">
-              {settings.payout.instapayAlias ||
-              settings.payout.vodafoneCashNumber ||
-              settings.payout.bankAccount
-                ? "مكتملة"
-                : "بحاجة إعداد"}
-            </span>
-          </div>
-          <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
-            <Bell className="h-3.5 w-3.5 text-[var(--accent-blue)]" />
-            <span className="text-muted-foreground">الردود التلقائية</span>
-            <span className="font-mono text-[var(--accent-blue)]">
-              {settings.preferences.autoResponseEnabled ? "نشطة" : "متوقفة"}
-            </span>
-          </div>
-          <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
-            <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-            <span className="text-muted-foreground">ساعات العمل</span>
-            <span className="font-mono text-foreground">
-              {settings.preferences.workingHours.start || "—"} /{" "}
-              {settings.preferences.workingHours.end || "—"}
-            </span>
-          </div>
-        </div>
+        </section>
       )}
+
+      <AiInsightsCard
+        insights={generateSettingsInsights({
+          hasKnowledgeBase: Boolean(settings?.business?.name),
+          hasPayoutSetup: Boolean(
+            settings?.payout?.instapayAlias ||
+            settings?.payout?.vodafoneCashNumber ||
+            settings?.payout?.bankAccount,
+          ),
+          hasDeliveryRules: Boolean(settings?.preferences?.workingHours?.start),
+          hasWorkingHours: Boolean(
+            settings?.preferences?.workingHours?.start &&
+            settings?.preferences?.workingHours?.end,
+          ),
+        })}
+      />
 
       {error && (
         <AlertBanner
@@ -477,382 +470,52 @@ export default function SettingsPage() {
         />
       )}
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        {settingsSections.map((section) => {
-          const SectionIcon = section.icon;
-          const isCurrent = section.href.includes("tab=workspace");
-          return (
-            <Link
-              key={section.title}
-              href={section.href}
-              className="group rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-surface-1)] p-4 transition hover:border-[var(--color-brand-primary)]/45 hover:bg-[var(--bg-surface-2)]"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-start gap-3">
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] text-[var(--color-brand-primary)]">
-                    <SectionIcon className="h-5 w-5" />
-                  </span>
-                  <div className="space-y-1">
-                    <p className="font-semibold text-foreground">
-                      {section.title}
-                    </p>
-                    <p className="text-sm leading-6 text-muted-foreground">
-                      {section.description}
-                    </p>
-                  </div>
-                </div>
-                {isCurrent ? (
-                  <span className="rounded-full bg-[var(--color-brand-primary)]/10 px-2 py-1 text-xs font-medium text-[var(--color-brand-primary)]">
-                    الحالي
-                  </span>
-                ) : (
-                  <ArrowUpRight className="h-4 w-4 shrink-0 text-muted-foreground transition group-hover:text-[var(--color-brand-primary)]" />
-                )}
-              </div>
-            </Link>
-          );
-        })}
-      </div>
-
       <Tabs
         value={activeTab}
         onValueChange={handleTabChange}
         className="space-y-6"
       >
-        <TabsList className="grid h-auto w-full grid-cols-1 gap-2 sm:max-w-sm">
+        <TabsList className="grid h-auto w-full grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-6">
           <TabsTrigger
-            value="workspace"
+            value="business"
             className="flex w-full items-center gap-2"
           >
-            <Globe2 className="h-4 w-4" />
-            مساحة العمل
+            <Store className="h-4 w-4" />
+            المتجر
+          </TabsTrigger>
+          <TabsTrigger
+            value="payout"
+            className="flex w-full items-center gap-2"
+          >
+            <Wallet className="h-4 w-4" />
+            الدفع
+          </TabsTrigger>
+          <TabsTrigger
+            value="notifications"
+            className="flex w-full items-center gap-2"
+          >
+            <Bell className="h-4 w-4" />
+            الإشعارات
+          </TabsTrigger>
+          <TabsTrigger
+            value="preferences"
+            className="flex w-full items-center gap-2"
+          >
+            <Clock className="h-4 w-4" />
+            التفضيلات
+          </TabsTrigger>
+          <TabsTrigger value="pos" className="flex w-full items-center gap-2">
+            <CreditCard className="h-4 w-4" />
+            نقطة البيع
+          </TabsTrigger>
+          <TabsTrigger
+            value="danger"
+            className="flex w-full items-center gap-2"
+          >
+            <AlertTriangle className="h-4 w-4" />
+            الحذف
           </TabsTrigger>
         </TabsList>
-
-        <TabsContent value="workspace" className="space-y-6">
-          <Card className="app-data-card">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Store className="h-5 w-5" />
-                ملف المتجر ومساحة العمل
-              </CardTitle>
-              <CardDescription>
-                اللغة، العملة، المنطقة الزمنية، وساعات العمل التي تؤثر على تجربة
-                الفريق والفرع.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">اسم المتجر</label>
-                  <Input
-                    value={settings.business.name}
-                    onChange={(e) =>
-                      setSettings({
-                        ...settings,
-                        business: {
-                          ...settings.business,
-                          name: e.target.value,
-                        },
-                      })
-                    }
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">الفئة</label>
-                  <Select
-                    value={settings.business.category || "عام"}
-                    onValueChange={(value) =>
-                      setSettings({
-                        ...settings,
-                        business: { ...settings.business, category: value },
-                      })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="اختر الفئة" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {categoryOptions.map((option) => (
-                        <SelectItem key={option} value={option}>
-                          {option}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">المدينة</label>
-                  <Input
-                    value={settings.business.city}
-                    onChange={(e) =>
-                      setSettings({
-                        ...settings,
-                        business: {
-                          ...settings.business,
-                          city: e.target.value,
-                        },
-                      })
-                    }
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">العملة</label>
-                  <Select
-                    value={settings.business.currency || "EGP"}
-                    onValueChange={(value) =>
-                      setSettings({
-                        ...settings,
-                        business: { ...settings.business, currency: value },
-                      })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="EGP">جنيه مصري</SelectItem>
-                      <SelectItem value="SAR">ريال سعودي</SelectItem>
-                      <SelectItem value="AED">درهم إماراتي</SelectItem>
-                      <SelectItem value="USD">دولار أمريكي</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">اللغة</label>
-                  <Select
-                    value={settings.business.language || "ar"}
-                    onValueChange={(value) =>
-                      setSettings({
-                        ...settings,
-                        business: { ...settings.business, language: value },
-                      })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="ar">العربية</SelectItem>
-                      <SelectItem value="en">English</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">المنطقة الزمنية</label>
-                  <Select
-                    value={settings.preferences.timezone}
-                    onValueChange={(value) =>
-                      setSettings({
-                        ...settings,
-                        preferences: {
-                          ...settings.preferences,
-                          timezone: value,
-                        },
-                      })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Africa/Cairo">
-                        القاهرة (توقيت مصر)
-                      </SelectItem>
-                      <SelectItem value="Asia/Riyadh">
-                        الرياض (توقيت السعودية)
-                      </SelectItem>
-                      <SelectItem value="Asia/Dubai">
-                        دبي (توقيت الإمارات)
-                      </SelectItem>
-                      <SelectItem value="Asia/Kuwait">الكويت</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">
-                    بداية ساعات العمل
-                  </label>
-                  <Input
-                    type="time"
-                    value={settings.preferences.workingHours.start}
-                    onChange={(e) =>
-                      setSettings({
-                        ...settings,
-                        preferences: {
-                          ...settings.preferences,
-                          workingHours: {
-                            ...settings.preferences.workingHours,
-                            start: e.target.value,
-                          },
-                        },
-                      })
-                    }
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">
-                    نهاية ساعات العمل
-                  </label>
-                  <Input
-                    type="time"
-                    value={settings.preferences.workingHours.end}
-                    onChange={(e) =>
-                      setSettings({
-                        ...settings,
-                        preferences: {
-                          ...settings.preferences,
-                          workingHours: {
-                            ...settings.preferences.workingHours,
-                            end: e.target.value,
-                          },
-                        },
-                      })
-                    }
-                  />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="app-data-card">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Shield className="h-5 w-5" />
-                تفضيلات الوصول والتشغيل
-              </CardTitle>
-              <CardDescription>
-                تفضيلات الردود، الجلسات، والكاشير التي تضبط سلوك مساحة العمل.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-4 lg:grid-cols-2">
-                <div className="flex flex-col gap-3 rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] p-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium">الردود التلقائية</p>
-                    <p className="text-xs text-muted-foreground">
-                      تفعيل الرد الآلي على الرسائل عند توفر القواعد.
-                    </p>
-                  </div>
-                  <Switch
-                    checked={settings.preferences.autoResponseEnabled}
-                    onCheckedChange={(checked) =>
-                      setSettings({
-                        ...settings,
-                        preferences: {
-                          ...settings.preferences,
-                          autoResponseEnabled: checked,
-                        },
-                      })
-                    }
-                  />
-                </div>
-                <div className="flex flex-col gap-3 rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] p-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium">
-                      حماية العمليات المالية
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      طلب إعادة المصادقة قبل العمليات الحساسة.
-                    </p>
-                  </div>
-                  <Switch
-                    checked={
-                      settings.preferences.requireReauthForFinance ?? true
-                    }
-                    onCheckedChange={(checked) =>
-                      setSettings({
-                        ...settings,
-                        preferences: {
-                          ...settings.preferences,
-                          requireReauthForFinance: checked,
-                        },
-                      })
-                    }
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">
-                    تأخير المتابعة بالدقائق
-                  </label>
-                  <Input
-                    type="number"
-                    value={settings.preferences.followupDelayMinutes}
-                    onChange={(e) =>
-                      setSettings({
-                        ...settings,
-                        preferences: {
-                          ...settings.preferences,
-                          followupDelayMinutes: parseInt(e.target.value) || 60,
-                        },
-                      })
-                    }
-                    min={15}
-                    max={1440}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">مهلة الجلسة</label>
-                  <Select
-                    value={String(
-                      settings.preferences.sessionTimeoutMinutes ?? 60,
-                    )}
-                    onValueChange={(value) =>
-                      setSettings({
-                        ...settings,
-                        preferences: {
-                          ...settings.preferences,
-                          sessionTimeoutMinutes: parseInt(value) || 60,
-                        },
-                      })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="15">15 دقيقة</SelectItem>
-                      <SelectItem value="30">30 دقيقة</SelectItem>
-                      <SelectItem value="60">ساعة واحدة</SelectItem>
-                      <SelectItem value="120">ساعتين</SelectItem>
-                      <SelectItem value="480">8 ساعات</SelectItem>
-                      <SelectItem value="0">بدون مهلة</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">وضع نقطة البيع</label>
-                  <Select
-                    value={settings.pos.mode}
-                    onValueChange={(
-                      value: "retail" | "restaurant" | "hybrid",
-                    ) =>
-                      setSettings({
-                        ...settings,
-                        pos: { ...settings.pos, mode: value },
-                      })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="retail">تجزئة</SelectItem>
-                      <SelectItem value="restaurant">مطاعم</SelectItem>
-                      <SelectItem value="hybrid">هجين</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
 
         {/* Business Tab */}
         <TabsContent value="business">
@@ -946,32 +609,6 @@ export default function SettingsPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="billing">
-          <Card className="app-data-card">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <CreditCard className="h-5 w-5" />
-                الفواتير والاشتراك
-              </CardTitle>
-              <CardDescription>
-                إدارة الخطة الحالية، الفواتير، وطريقة الدفع في سطح موحد.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="rounded-[var(--radius-md)] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-2)] p-4 text-sm text-muted-foreground">
-                تم نقل إدارة الاشتراك من المالية إلى الإعدادات لضمان فصل واضح
-                بين مالية التاجر واشتراك المنصة.
-              </div>
-              <Button asChild className="w-full sm:w-fit">
-                <Link href="/merchant/billing">
-                  فتح الفواتير والاشتراك
-                  <ArrowUpRight className="h-4 w-4" />
-                </Link>
-              </Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
         {/* Payout Settings Tab */}
         <TabsContent value="payout">
           <Card className="app-data-card">
@@ -1017,9 +654,9 @@ export default function SettingsPage() {
               </div>
 
               {/* InstaPay Section */}
-              <div className="rounded-[var(--radius-md)] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-2)] p-4 space-y-3">
+              <div className="border rounded-lg p-4 space-y-3">
                 <div className="flex items-center gap-2">
-                  <Smartphone className="h-4 w-4 text-[color:var(--accent-warning)]" />
+                  <Smartphone className="h-4 w-4 text-orange-600" />
                   <span className="font-medium">InstaPay</span>
                 </div>
                 <div className="space-y-2">
@@ -1047,9 +684,9 @@ export default function SettingsPage() {
               </div>
 
               {/* Vodafone Cash Section */}
-              <div className="rounded-[var(--radius-md)] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-2)] p-4 space-y-3">
+              <div className="border rounded-lg p-4 space-y-3">
                 <div className="flex items-center gap-2">
-                  <CreditCard className="h-4 w-4 text-[color:var(--accent-danger)]" />
+                  <CreditCard className="h-4 w-4 text-red-600" />
                   <span className="font-medium">فودافون كاش</span>
                 </div>
                 <div className="space-y-2">
@@ -1072,9 +709,9 @@ export default function SettingsPage() {
               </div>
 
               {/* Bank Transfer Section */}
-              <div className="rounded-[var(--radius-md)] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-2)] p-4 space-y-4">
+              <div className="border rounded-lg p-4 space-y-4">
                 <div className="flex items-center gap-2">
-                  <Building2 className="h-4 w-4 text-[color:var(--accent-blue)]" />
+                  <Building2 className="h-4 w-4 text-blue-600" />
                   <span className="font-medium">تحويل بنكي</span>
                 </div>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -1151,7 +788,7 @@ export default function SettingsPage() {
                 </div>
               </div>
 
-              <div className="rounded-[var(--radius-md)] border border-[color:rgba(245,158,11,0.26)] bg-[color:rgba(245,158,11,0.1)] p-3 text-sm text-[color:rgba(244,244,245,0.86)]">
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800">
                 <strong>ملاحظة:</strong> هذه البيانات ستظهر للعملاء عند اختيارهم
                 طريقة الدفع. تأكد من صحة البيانات.
               </div>
@@ -1168,17 +805,17 @@ export default function SettingsPage() {
                 إعدادات الإشعارات
               </CardTitle>
               <CardDescription>
-                تم توحيد إعدادات الإشعارات في سطح الإشعارات ضمن الإعدادات.
+                تم توحيد إعدادات الإشعارات في مركز الإشعارات.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="rounded-[var(--radius-md)] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-2)] p-4 text-sm text-muted-foreground">
+              <div className="rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground">
                 إعدادات القنوات، تفضيلات التنبيهات، فترات التقارير، وأرقام
                 الإشعارات تم دمجها في صفحة واحدة.
               </div>
               <Button asChild className="w-full sm:w-fit">
                 <Link href="/merchant/notifications?tab=settings">
-                  الانتقال إلى الإشعارات
+                  الانتقال إلى مركز الإشعارات
                   <ArrowUpRight className="h-4 w-4" />
                 </Link>
               </Button>
@@ -1197,7 +834,7 @@ export default function SettingsPage() {
               <CardDescription>إعدادات العمل والردود التلقائية</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="flex flex-col gap-3 rounded-[var(--radius-md)] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-2)] p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="space-y-0.5">
                   <label className="text-sm font-medium">
                     الردود التلقائية

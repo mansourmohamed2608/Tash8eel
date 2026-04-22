@@ -59,6 +59,10 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { portalApi } from "@/lib/client";
+import {
+  AiInsightsCard,
+  generateWebhooksInsights,
+} from "@/components/ai/ai-insights-card";
 
 interface WebhookConfig {
   id: string;
@@ -369,21 +373,13 @@ export default function WebhooksPage() {
   const getStatusBadge = (status?: string) => {
     switch (status) {
       case "SUCCESS":
-        return (
-          <Badge className="border-[color:rgba(34,197,94,0.28)] bg-[color:rgba(34,197,94,0.1)] text-[color:#86efac]">
-            ناجح
-          </Badge>
-        );
+        return <Badge className="bg-green-500">ناجح</Badge>;
       case "FAILED":
         return <Badge variant="destructive">فشل</Badge>;
       case "PENDING":
         return <Badge variant="secondary">قيد الانتظار</Badge>;
       case "RETRYING":
-        return (
-          <Badge className="border-[color:rgba(245,158,11,0.28)] bg-[color:rgba(245,158,11,0.12)] text-[color:#fcd34d]">
-            إعادة المحاولة
-          </Badge>
-        );
+        return <Badge className="bg-yellow-500">إعادة المحاولة</Badge>;
       default:
         return <Badge variant="outline">-</Badge>;
     }
@@ -415,10 +411,23 @@ export default function WebhooksPage() {
     <div className="space-y-6 p-4 sm:p-6">
       {loading ? (
         <div className="flex items-center justify-center py-20">
-          <Loader2 className="h-8 w-8 animate-spin text-[color:var(--accent-blue)]" />
+          <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
         </div>
       ) : (
         <>
+          {/* AI Webhooks Insights */}
+          <AiInsightsCard
+            title="مساعد تكاملات نقاط البيع"
+            insights={generateWebhooksInsights({
+              totalWebhooks: webhooks.length,
+              activeWebhooks: webhooks.filter((w) => w.isActive).length,
+              failureCount: webhooks.reduce(
+                (sum, w) => sum + (w.failureCount || 0),
+                0,
+              ),
+            })}
+            loading={loading}
+          />
           <PageHeader
             title="تكاملات نقاط البيع"
             description="إدارة تكاملات POS وإشعارات الأحداث"
@@ -536,8 +545,8 @@ export default function WebhooksPage() {
                     {testStatus !== "idle" && (
                       <div className="text-sm text-muted-foreground">
                         {testStatus === "success"
-                          ? "تم الاختبار بنجاح"
-                          : "فشل اختبار الرابط"}
+                          ? "✅ تم الاختبار بنجاح"
+                          : "❌ فشل اختبار الرابط"}
                         {testMessage ? ` - ${testMessage}` : ""}
                       </div>
                     )}
@@ -546,21 +555,6 @@ export default function WebhooksPage() {
               </div>
             }
           />
-          <div className="flex flex-wrap gap-2">
-            {[
-              `إجمالي التكاملات: ${webhooks.length}`,
-              `التكاملات النشطة: ${webhooks.filter((w) => w.isActive).length}`,
-              `معدّل النجاح: ${successRate}%`,
-              `إخفاقات تحتاج مراجعة: ${totalFailure}`,
-            ].map((chip) => (
-              <div
-                key={chip}
-                className="inline-flex h-8 items-center rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs text-[var(--text-secondary)]"
-              >
-                {chip}
-              </div>
-            ))}
-          </div>
 
           {/* Stats Cards */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -597,10 +591,10 @@ export default function WebhooksPage() {
                 <CardTitle className="text-sm font-medium">
                   معدل النجاح
                 </CardTitle>
-                <Activity className="h-4 w-4 text-[color:var(--accent-success)]" />
+                <Activity className="h-4 w-4 text-green-500" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-[color:var(--accent-success)]">
+                <div className="text-2xl font-bold text-green-600">
                   {successRate}%
                 </div>
                 <p className="text-xs text-muted-foreground">
@@ -611,10 +605,10 @@ export default function WebhooksPage() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">الفشل</CardTitle>
-                <AlertTriangle className="h-4 w-4 text-[color:var(--accent-danger)]" />
+                <AlertTriangle className="h-4 w-4 text-red-500" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-[color:var(--accent-danger)]">
+                <div className="text-2xl font-bold text-red-600">
                   {totalFailure}
                 </div>
                 <p className="text-xs text-muted-foreground">يحتاج مراجعة</p>
@@ -650,7 +644,7 @@ export default function WebhooksPage() {
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                           <div className="flex min-w-0 items-center gap-3">
                             <div
-                              className={`h-3 w-3 rounded-full ${webhook.isActive ? "bg-[color:var(--accent-success)]" : "bg-[color:var(--text-muted)]"}`}
+                              className={`h-3 w-3 rounded-full ${webhook.isActive ? "bg-green-500" : "bg-gray-300"}`}
                             />
                             <div className="min-w-0">
                               <h3 className="font-semibold">{webhook.name}</h3>
@@ -694,7 +688,7 @@ export default function WebhooksPage() {
                                   تعديل
                                 </DropdownMenuItem>
                                 <DropdownMenuItem
-                                  className="text-[color:var(--accent-danger)]"
+                                  className="text-red-600"
                                   onClick={() => handleDelete(webhook.id)}
                                 >
                                   <Trash2 className="h-4 w-4" />
@@ -755,13 +749,13 @@ export default function WebhooksPage() {
 
                         <div className="flex flex-col gap-3 border-t pt-3 text-sm sm:flex-row sm:flex-wrap sm:items-center sm:gap-6">
                           <div className="flex items-center gap-2">
-                            <CheckCircle className="h-4 w-4 text-[color:var(--accent-success)]" />
+                            <CheckCircle className="h-4 w-4 text-green-500" />
                             <span>
                               {webhook.successCount.toLocaleString()} ناجح
                             </span>
                           </div>
                           <div className="flex items-center gap-2">
-                            <XCircle className="h-4 w-4 text-[color:var(--accent-danger)]" />
+                            <XCircle className="h-4 w-4 text-red-500" />
                             <span>{webhook.failureCount} فشل</span>
                           </div>
                           <div className="flex items-center gap-2">
@@ -815,9 +809,9 @@ export default function WebhooksPage() {
                                 className={
                                   delivery.statusCode &&
                                   delivery.statusCode < 400
-                                    ? "text-[color:var(--accent-success)]"
+                                    ? "text-green-600"
                                     : delivery.statusCode
-                                      ? "text-[color:var(--accent-danger)]"
+                                      ? "text-red-600"
                                       : ""
                                 }
                               >
@@ -887,8 +881,8 @@ export default function WebhooksPage() {
                                   <span
                                     className={
                                       delivery.statusCode < 400
-                                        ? "text-[color:var(--accent-success)]"
-                                        : "text-[color:var(--accent-danger)]"
+                                        ? "text-green-600"
+                                        : "text-red-600"
                                     }
                                   >
                                     {delivery.statusCode}

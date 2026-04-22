@@ -69,15 +69,13 @@ export function MovementHistory({ movements, itemName }: MovementHistoryProps) {
   const getTypeIcon = (type: string) => {
     switch (type) {
       case "in":
-        return <TrendingUp className="h-4 w-4 text-[var(--accent-success)]" />;
+        return <TrendingUp className="h-4 w-4 text-green-500" />;
       case "out":
-        return <TrendingDown className="h-4 w-4 text-[var(--accent-danger)]" />;
+        return <TrendingDown className="h-4 w-4 text-red-500" />;
       case "adjustment":
-        return <RefreshCw className="h-4 w-4 text-[var(--accent-blue)]" />;
+        return <RefreshCw className="h-4 w-4 text-blue-500" />;
       case "transfer":
-        return (
-          <ArrowLeftRight className="h-4 w-4 text-[var(--accent-warning)]" />
-        );
+        return <ArrowLeftRight className="h-4 w-4 text-purple-500" />;
       default:
         return <Package className="h-4 w-4" />;
     }
@@ -85,10 +83,10 @@ export function MovementHistory({ movements, itemName }: MovementHistoryProps) {
 
   const getTypeBadge = (type: string) => {
     const variants: Record<string, string> = {
-      in: "bg-[color:rgba(34,197,94,0.12)] text-[var(--accent-success)]",
-      out: "bg-[color:rgba(239,68,68,0.12)] text-[var(--accent-danger)]",
-      adjustment: "bg-[color:rgba(59,130,246,0.12)] text-[var(--accent-blue)]",
-      transfer: "bg-[color:rgba(45,107,228,0.10)] text-[var(--brand-blue)]",
+      in: "bg-green-100 text-green-800",
+      out: "bg-red-100 text-red-800",
+      adjustment: "bg-blue-100 text-blue-800",
+      transfer: "bg-purple-100 text-purple-800",
     };
     const labels: Record<string, string> = {
       in: "إضافة",
@@ -97,13 +95,7 @@ export function MovementHistory({ movements, itemName }: MovementHistoryProps) {
       transfer: "نقل",
     };
     return (
-      <Badge
-        className={cn(
-          "text-xs",
-          variants[type] ||
-            "bg-[var(--bg-surface-2)] text-[var(--text-secondary)]",
-        )}
-      >
+      <Badge className={cn("text-xs", variants[type] || "bg-gray-100")}>
         {labels[type] || type}
       </Badge>
     );
@@ -465,10 +457,8 @@ export function BulkImportDialog({
             />
             {file ? (
               <div className="space-y-2">
-                <FileSpreadsheet className="h-12 w-12 mx-auto text-[var(--accent-success)]" />
-                <p className="font-medium text-[var(--accent-success)]">
-                  {file.name}
-                </p>
+                <FileSpreadsheet className="h-12 w-12 mx-auto text-green-500" />
+                <p className="font-medium text-green-700">{file.name}</p>
                 <p className="text-sm text-muted-foreground">
                   {(file.size / 1024).toFixed(1)} KB
                 </p>
@@ -546,9 +536,9 @@ export function InventorySummaryCards({
   }
 
   const getHealthColor = (score: number) => {
-    if (score >= 80) return "text-[var(--accent-success)]";
-    if (score >= 60) return "text-[var(--accent-warning)]";
-    return "text-[var(--accent-danger)]";
+    if (score >= 80) return "text-green-500";
+    if (score >= 60) return "text-yellow-500";
+    return "text-red-500";
   };
 
   const formatCurrency = (value: number) => {
@@ -604,8 +594,8 @@ export function InventorySummaryCards({
       <Card>
         <CardContent className="p-4">
           <div className="flex items-center gap-3">
-            <div className="rounded-lg bg-[var(--color-brand-subtle)] p-2">
-              <BarChart3 className="h-5 w-5 text-[var(--color-brand-primary)]" />
+            <div className="p-2 rounded-lg bg-purple-100">
+              <BarChart3 className="h-5 w-5 text-purple-600" />
             </div>
             <div>
               <p className="text-sm text-muted-foreground">صحة المخزون</p>
@@ -655,24 +645,28 @@ export function InventoryQuickActions({
       icon: Package,
       label: "إضافة منتج",
       onClick: onAddProduct,
+      color: "bg-blue-500",
       disabled: !canCreate,
     },
     {
       icon: Upload,
       label: "استيراد مجمّع",
       onClick: onBulkImport,
+      color: "bg-green-500",
       disabled: !canImport,
     },
     {
       icon: Download,
       label: "تصدير البيانات",
       onClick: onExport,
+      color: "bg-purple-500",
       disabled: !canExport,
     },
     {
       icon: Scan,
       label: "مسح الباركود",
       onClick: onScanBarcode,
+      color: "bg-orange-500",
       disabled: false,
     },
     // Viewing shrinkage/stock-count report should always be allowed, even in read-only mode.
@@ -680,28 +674,38 @@ export function InventoryQuickActions({
       icon: ClipboardList,
       label: "جرد المخزون",
       onClick: onStockCount,
+      color: "bg-teal-500",
       disabled: false,
     },
   ];
 
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-      {actions.map((action) => (
-        <Button
-          key={action.label}
-          variant="outline"
-          className={cn(
-            "h-10 justify-center gap-2 border-[var(--border-default)] bg-[var(--bg-surface-1)] px-3 text-[var(--text-secondary)] hover:border-[var(--color-brand-primary)] hover:text-[var(--color-brand-primary)]",
-            action.disabled && "cursor-not-allowed opacity-40",
-          )}
-          onClick={action.disabled ? undefined : action.onClick}
-          disabled={action.disabled}
-        >
-          <action.icon className="h-4 w-4" />
-          <span className="text-xs font-medium">{action.label}</span>
-        </Button>
-      ))}
-    </div>
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base">إجراءات سريعة</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+          {actions.map((action) => (
+            <Button
+              key={action.label}
+              variant="outline"
+              className={cn(
+                "h-auto py-3 flex-col gap-2 hover:bg-muted",
+                action.disabled && "opacity-40 cursor-not-allowed",
+              )}
+              onClick={action.disabled ? undefined : action.onClick}
+              disabled={action.disabled}
+            >
+              <div className={cn("p-2 rounded-lg text-white", action.color)}>
+                <action.icon className="h-4 w-4" />
+              </div>
+              <span className="text-xs font-medium">{action.label}</span>
+            </Button>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -811,19 +815,19 @@ export function StockLevel({
 
   const statusConfig = {
     out: {
-      color: "bg-[var(--accent-danger)]",
+      color: "bg-red-500",
       label: "نفد",
-      badge: "bg-[var(--danger-muted)] text-[var(--accent-danger)]",
+      badge: "bg-red-100 text-red-700",
     },
     low: {
-      color: "bg-[var(--accent-warning)]",
+      color: "bg-yellow-500",
       label: "منخفض",
-      badge: "bg-[var(--warning-muted)] text-[var(--accent-warning)]",
+      badge: "bg-yellow-100 text-yellow-700",
     },
     ok: {
-      color: "bg-[var(--accent-success)]",
+      color: "bg-green-500",
       label: "متوفر",
-      badge: "bg-[var(--success-muted)] text-[var(--accent-success)]",
+      badge: "bg-green-100 text-green-700",
     },
   };
 

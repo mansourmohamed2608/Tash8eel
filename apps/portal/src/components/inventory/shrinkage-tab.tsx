@@ -25,8 +25,8 @@ export function ShrinkageTab({
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 bg-[var(--danger-muted)] rounded-lg">
-              <TrendingDown className="h-5 w-5 text-[var(--accent-danger)]" />
+            <div className="p-2 bg-red-500/10 rounded-lg">
+              <TrendingDown className="h-5 w-5 text-red-500" />
             </div>
             <div>
               <p className="text-2xl font-bold">
@@ -40,8 +40,8 @@ export function ShrinkageTab({
         </Card>
         <Card>
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 bg-[var(--warning-muted)] rounded-lg">
-              <AlertTriangle className="h-5 w-5 text-[var(--accent-warning)]" />
+            <div className="p-2 bg-amber-500/10 rounded-lg">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
             </div>
             <div>
               <p className="text-2xl font-bold">
@@ -53,8 +53,8 @@ export function ShrinkageTab({
         </Card>
         <Card>
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="rounded-lg bg-[var(--accent-blue-dim)] p-2">
-              <Package className="h-5 w-5 text-[var(--accent-blue)]" />
+            <div className="p-2 bg-blue-500/10 rounded-lg">
+              <Package className="h-5 w-5 text-blue-500" />
             </div>
             <div>
               <p className="text-2xl font-bold">

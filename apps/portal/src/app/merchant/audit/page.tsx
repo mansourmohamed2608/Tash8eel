@@ -65,6 +65,10 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { portalApi } from "@/lib/client";
+import {
+  AiInsightsCard,
+  generateAuditInsights,
+} from "@/components/ai/ai-insights-card";
 
 interface AuditLog {
   id: string;
@@ -160,15 +164,14 @@ const buildChangesFromValues = (
 };
 
 const actionColors: Record<string, string> = {
-  CREATE: "border-0 bg-[var(--accent-success)]/15 text-[var(--accent-success)]",
-  UPDATE: "border-0 bg-[var(--accent-blue)]/15 text-[var(--accent-blue)]",
-  DELETE: "border-0 bg-[var(--accent-danger)]/15 text-[var(--accent-danger)]",
-  VIEW: "border-0 bg-[var(--bg-surface-3)] text-[var(--text-secondary)]",
-  LOGIN:
-    "border-0 bg-[var(--color-brand-primary)]/15 text-[var(--color-brand-primary)]",
-  LOGOUT: "border-0 bg-[var(--accent-warning)]/15 text-[var(--accent-warning)]",
-  EXPORT: "border-0 bg-[var(--accent-warning)]/15 text-[var(--accent-warning)]",
-  IMPORT: "border-0 bg-[var(--accent-blue)]/15 text-[var(--accent-blue)]",
+  CREATE: "bg-green-500",
+  UPDATE: "bg-blue-500",
+  DELETE: "bg-red-500",
+  VIEW: "bg-gray-500",
+  LOGIN: "bg-purple-500",
+  LOGOUT: "bg-purple-300",
+  EXPORT: "bg-yellow-500",
+  IMPORT: "bg-cyan-500",
 };
 
 const actionLabels: Record<string, string> = {
@@ -581,7 +584,7 @@ export default function AuditPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <Loader2 className="h-8 w-8 animate-spin text-[var(--accent-blue)]" />
+        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
       </div>
     );
   }
@@ -633,36 +636,66 @@ export default function AuditPage() {
         }
       />
 
-      <div className="flex flex-wrap gap-2">
-        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
-          <History className="h-3.5 w-3.5 text-[var(--color-brand-primary)]" />
-          <span className="text-muted-foreground">إجمالي السجل</span>
-          <span className="font-mono text-[var(--color-brand-primary)]">
-            {logs.length}
-          </span>
+      <section className="app-hero-band">
+        <div className="app-hero-band__grid">
+          <div className="space-y-4">
+            <span className="app-hero-band__eyebrow">Audit Timeline</span>
+            <div className="space-y-3">
+              <h2 className="app-hero-band__title">
+                طبقة المراجعة التشغيلية لكل تغيير، من الإعدادات إلى المخزون
+                والمحادثات والطلبات.
+              </h2>
+              <p className="app-hero-band__copy">
+                راقب من نفذ الإجراء، على أي مورد، ومتى حدث، مع إمكان التصفية
+                بحسب المستخدم أو نوع المورد أو الفترة الزمنية والتصدير عند
+                الحاجة.
+              </p>
+            </div>
+          </div>
+          <div className="app-hero-band__metrics">
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">إجمالي السجل</span>
+              <strong className="app-hero-band__metric-value">
+                {logs.length}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">بعد الفلترة</span>
+              <strong className="app-hero-band__metric-value">
+                {sortedLogs.length}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">
+                مستخدمون نشطون
+              </span>
+              <strong className="app-hero-band__metric-value">
+                {summary?.byStaff?.length || 0}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">الصفحة</span>
+              <strong className="app-hero-band__metric-value">
+                {safePage}/{totalPages}
+              </strong>
+            </div>
+          </div>
         </div>
-        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
-          <Filter className="h-3.5 w-3.5 text-[var(--accent-blue)]" />
-          <span className="text-muted-foreground">بعد الفلترة</span>
-          <span className="font-mono text-[var(--accent-blue)]">
-            {sortedLogs.length}
-          </span>
-        </div>
-        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
-          <Users className="h-3.5 w-3.5 text-foreground" />
-          <span className="text-muted-foreground">مستخدمون نشطون</span>
-          <span className="font-mono text-foreground">
-            {summary?.byStaff?.length || 0}
-          </span>
-        </div>
-        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
-          <Calendar className="h-3.5 w-3.5 text-[var(--accent-warning)]" />
-          <span className="text-muted-foreground">الصفحة</span>
-          <span className="font-mono text-[var(--accent-warning)]">
-            {safePage}/{totalPages}
-          </span>
-        </div>
-      </div>
+      </section>
+
+      {/* AI Audit Insights */}
+      <AiInsightsCard
+        title="مساعد سجل النشاط"
+        insights={generateAuditInsights({
+          totalLogs: (summary?.byAction || []).reduce(
+            (sum: number, a: any) => sum + a.count,
+            0,
+          ),
+          staffCount: (summary?.byStaff || []).length,
+          recentActions: logs.length,
+        })}
+        loading={loading}
+      />
 
       {/* Summary Stats */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -687,7 +720,7 @@ export default function AuditPage() {
             <CardTitle className="text-sm font-medium">
               التغييرات اليوم
             </CardTitle>
-            <Activity className="h-4 w-4 text-[var(--accent-blue)]" />
+            <Activity className="h-4 w-4 text-blue-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
@@ -703,7 +736,7 @@ export default function AuditPage() {
             <CardTitle className="text-sm font-medium">
               المستخدمون النشطون
             </CardTitle>
-            <Users className="h-4 w-4 text-[var(--accent-success)]" />
+            <Users className="h-4 w-4 text-green-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
@@ -712,10 +745,10 @@ export default function AuditPage() {
             <p className="text-xs text-muted-foreground">هذا الأسبوع</p>
           </CardContent>
         </Card>
-        <Card className="app-data-card">
+        <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">عمليات الحذف</CardTitle>
-            <FileText className="h-4 w-4 text-[var(--accent-danger)]" />
+            <FileText className="h-4 w-4 text-red-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
@@ -1012,7 +1045,9 @@ export default function AuditPage() {
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0 space-y-1">
                           <div className="flex items-center gap-2">
-                            <Badge className={actionColor}>{actionLabel}</Badge>
+                            <Badge className={`${actionColor} text-white`}>
+                              {actionLabel}
+                            </Badge>
                             <span className="text-xs text-muted-foreground">
                               {formatTimeSince(log.timestamp)}
                             </span>
@@ -1051,7 +1086,9 @@ export default function AuditPage() {
                                     الإجراء
                                   </label>
                                   <div className="mt-1">
-                                    <Badge className={actionColor}>
+                                    <Badge
+                                      className={`${actionColor} text-white`}
+                                    >
                                       {actionLabel}
                                     </Badge>
                                   </div>
@@ -1111,11 +1148,11 @@ export default function AuditPage() {
                                         <span className="font-medium break-all">
                                           {change.field}:
                                         </span>
-                                        <span className="break-words text-[var(--accent-danger)] line-through">
+                                        <span className="break-words text-red-600 line-through">
                                           {formatChangeValue(change.from)}
                                         </span>
                                         <span>→</span>
-                                        <span className="break-words text-[var(--accent-success)]">
+                                        <span className="break-words text-green-600">
                                           {formatChangeValue(change.to)}
                                         </span>
                                       </div>
@@ -1220,7 +1257,9 @@ export default function AuditPage() {
                       return (
                         <TableRow key={log.id}>
                           <TableCell className="text-center align-middle w-24">
-                            <Badge className={actionColor}>{actionLabel}</Badge>
+                            <Badge className={`${actionColor} text-white`}>
+                              {actionLabel}
+                            </Badge>
                           </TableCell>
                           <TableCell className="text-right w-56">
                             <div className="flex w-full items-center gap-2 text-right flex-row-reverse">
@@ -1264,7 +1303,7 @@ export default function AuditPage() {
                           </TableCell>
                           <TableCell className="text-right w-40">
                             <div className="flex w-full items-center gap-2 text-right flex-row-reverse">
-                              <div className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--accent-blue)]/30 bg-[var(--accent-blue)]/10 text-xs font-bold text-[var(--accent-blue)]">
+                              <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white text-xs font-bold">
                                 {isSystem ? (
                                   <Server className="h-4 w-4" />
                                 ) : (
@@ -1337,7 +1376,9 @@ export default function AuditPage() {
                                         الإجراء
                                       </label>
                                       <div className="mt-1">
-                                        <Badge className={actionColor}>
+                                        <Badge
+                                          className={`${actionColor} text-white`}
+                                        >
                                           {actionLabel}
                                         </Badge>
                                       </div>
@@ -1461,11 +1502,11 @@ export default function AuditPage() {
                                             <span className="font-medium break-all">
                                               {change.field}:
                                             </span>
-                                            <span className="break-words text-[var(--accent-danger)] line-through">
+                                            <span className="break-words text-red-600 line-through">
                                               {formatChangeValue(change.from)}
                                             </span>
                                             <span>→</span>
-                                            <span className="break-words text-[var(--accent-success)]">
+                                            <span className="break-words text-green-600">
                                               {formatChangeValue(change.to)}
                                             </span>
                                           </div>
@@ -1556,7 +1597,7 @@ export default function AuditPage() {
                 {safeSummary.byAction.map((item) => (
                   <div key={item.action} className="flex items-center gap-3">
                     <Badge
-                      className={`${actionColors[item.action]} w-20 justify-center`}
+                      className={`${actionColors[item.action]} text-white w-20 justify-center`}
                     >
                       {actionLabels[item.action]}
                     </Badge>
@@ -1626,7 +1667,7 @@ export default function AuditPage() {
                       key={staff.staffId}
                       className="flex items-center gap-3 p-3 bg-muted rounded-lg"
                     >
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full border border-[var(--accent-blue)]/30 bg-[var(--accent-blue)]/10 font-bold text-[var(--accent-blue)]">
+                      <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold">
                         {staff.name.charAt(0)}
                       </div>
                       <div className="flex-1">

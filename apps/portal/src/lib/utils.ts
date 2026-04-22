@@ -108,47 +108,36 @@ export function formatRelativeTime(date: string | Date): string {
 export function getStatusColor(status: string): string {
   const colors: Record<string, string> = {
     // Order statuses
-    DRAFT:
-      "border-[var(--border-default)] bg-[var(--bg-surface-2)] text-[var(--text-secondary)]",
-    CONFIRMED:
-      "border-[var(--accent-blue)]/25 bg-[var(--accent-blue)]/12 text-[var(--accent-blue)]",
-    BOOKED:
-      "border-[var(--accent-warning)]/25 bg-[var(--accent-warning)]/12 text-[var(--accent-warning)]",
-    SHIPPED:
-      "border-[var(--color-brand-primary)]/25 bg-[var(--color-brand-primary)]/12 text-[var(--color-brand-primary)]",
-    OUT_FOR_DELIVERY:
-      "border-[var(--accent-warning)]/25 bg-[var(--accent-warning)]/12 text-[var(--accent-warning)]",
-    DELIVERED:
-      "border-[var(--accent-success)]/25 bg-[var(--accent-success)]/12 text-[var(--accent-success)]",
-    CANCELLED:
-      "border-[var(--accent-danger)]/25 bg-[var(--accent-danger)]/12 text-[var(--accent-danger)]",
+    DRAFT: "bg-gray-100 text-gray-600 border-gray-300",
+    CONFIRMED: "bg-blue-100 text-blue-800 border-blue-300",
+    BOOKED: "bg-yellow-100 text-yellow-800 border-yellow-300",
+    SHIPPED: "bg-purple-100 text-purple-800 border-purple-300",
+    OUT_FOR_DELIVERY: "bg-orange-100 text-orange-800 border-orange-300",
+    DELIVERED: "bg-green-100 text-green-800 border-green-300",
+    CANCELLED: "bg-red-100 text-red-800 border-red-300",
     // Conversation states
-    GREETING: "bg-[var(--bg-surface-2)] text-[var(--text-secondary)]",
-    COLLECTING_ITEMS: "bg-[var(--accent-blue)]/12 text-[var(--accent-blue)]",
-    COLLECTING_VARIANTS: "bg-[var(--accent-blue)]/12 text-[var(--accent-blue)]",
-    COLLECTING_CUSTOMER_INFO:
-      "bg-[var(--accent-blue)]/12 text-[var(--accent-blue)]",
-    COLLECTING_ADDRESS: "bg-[var(--accent-blue)]/12 text-[var(--accent-blue)]",
-    NEGOTIATING: "bg-[var(--accent-warning)]/12 text-[var(--accent-warning)]",
-    CONFIRMING_ORDER:
-      "bg-[var(--color-brand-primary)]/12 text-[var(--color-brand-primary)]",
-    TRACKING: "bg-[var(--accent-success)]/12 text-[var(--accent-success)]",
-    FOLLOWUP: "bg-[var(--accent-warning)]/12 text-[var(--accent-warning)]",
-    ORDER_PLACED: "bg-[var(--accent-success)]/12 text-[var(--accent-success)]",
-    HUMAN_TAKEOVER: "bg-[var(--accent-danger)]/12 text-[var(--accent-danger)]",
-    CLOSED: "bg-[var(--bg-surface-2)] text-[var(--text-secondary)]",
+    GREETING: "bg-gray-100 text-gray-800",
+    COLLECTING_ITEMS: "bg-blue-100 text-blue-800",
+    COLLECTING_VARIANTS: "bg-indigo-100 text-indigo-800",
+    COLLECTING_CUSTOMER_INFO: "bg-sky-100 text-sky-800",
+    COLLECTING_ADDRESS: "bg-cyan-100 text-cyan-800",
+    NEGOTIATING: "bg-yellow-100 text-yellow-800",
+    CONFIRMING_ORDER: "bg-purple-100 text-purple-800",
+    TRACKING: "bg-emerald-100 text-emerald-800",
+    FOLLOWUP: "bg-amber-100 text-amber-800",
+    ORDER_PLACED: "bg-green-100 text-green-800",
+    HUMAN_TAKEOVER: "bg-red-100 text-red-800",
+    CLOSED: "bg-gray-100 text-gray-800",
     // Delivery statuses
-    PENDING: "bg-[var(--accent-warning)]/12 text-[var(--accent-warning)]",
-    SENT: "bg-[var(--accent-blue)]/12 text-[var(--accent-blue)]",
-    FAILED: "bg-[var(--accent-danger)]/12 text-[var(--accent-danger)]",
+    PENDING: "bg-yellow-100 text-yellow-800",
+    SENT: "bg-blue-100 text-blue-800",
+    FAILED: "bg-red-100 text-red-800",
     // Stock
-    LOW_STOCK: "bg-[var(--accent-warning)]/12 text-[var(--accent-warning)]",
-    OUT_OF_STOCK: "bg-[var(--accent-danger)]/12 text-[var(--accent-danger)]",
-    IN_STOCK: "bg-[var(--accent-success)]/12 text-[var(--accent-success)]",
+    LOW_STOCK: "bg-orange-100 text-orange-800",
+    OUT_OF_STOCK: "bg-red-100 text-red-800",
+    IN_STOCK: "bg-green-100 text-green-800",
   };
-  return (
-    colors[status] || "bg-[var(--bg-surface-2)] text-[var(--text-secondary)]"
-  );
+  return colors[status] || "bg-gray-100 text-gray-800";
 }
 
 export function getStatusLabel(status: string): string {

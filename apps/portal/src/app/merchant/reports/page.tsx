@@ -34,6 +34,10 @@ import { useMerchant } from "@/hooks/use-merchant";
 import { useRoleAccess } from "@/hooks/use-role-access";
 import { useToast } from "@/hooks/use-toast";
 import {
+  AiInsightsCard,
+  generateReportsInsights,
+} from "@/components/ai/ai-insights-card";
+import {
   getReportingDateRange,
   REPORTING_PERIOD_OPTIONS,
   getStoredReportingDays,
@@ -294,13 +298,13 @@ export default function ReportsPage() {
     const { stats } = dashboardData;
     const realizedRevenue = stats.realizedRevenue ?? stats.totalRevenue;
     const text = encodeURIComponent(
-      `ملخص الأداء - ${selectedPeriodSummary}\n\n` +
-        `الطلبات: ${stats.totalOrders}\n` +
-        `الإيرادات المحققة: ${formatCurrency(realizedRevenue)}\n` +
-        `المبيعات المحجوزة: ${formatCurrency(stats.bookedSales || 0)}\n` +
-        `قيد التحصيل: ${formatCurrency(stats.pendingCollections || 0)}\n` +
-        `المحادثات: ${stats.activeConversations}\n` +
-        `التوصيلات المعلقة: ${stats.pendingDeliveries}\n\n` +
+      `📊 ملخص الأداء - ${selectedPeriodSummary}\n\n` +
+        `📦 الطلبات: ${stats.totalOrders}\n` +
+        `💰 الإيرادات المحققة: ${formatCurrency(realizedRevenue)}\n` +
+        `🧾 المبيعات المحجوزة: ${formatCurrency(stats.bookedSales || 0)}\n` +
+        `⏳ قيد التحصيل: ${formatCurrency(stats.pendingCollections || 0)}\n` +
+        `💬 المحادثات: ${stats.activeConversations}\n` +
+        `🚚 التوصيلات المعلقة: ${stats.pendingDeliveries}\n\n` +
         `تم إنشاؤه بواسطة تسهيل`,
     );
     window.open(`https://wa.me/?text=${text}`, "_blank");
@@ -319,14 +323,12 @@ export default function ReportsPage() {
     return (
       <div className="space-y-6 p-4 sm:p-6">
         <PageHeader title="التقارير" />
-        <Card className="border-[var(--accent-danger)]/20 bg-[var(--accent-danger)]/10">
+        <Card className="border-red-200 bg-red-50">
           <CardContent className="flex items-center gap-3 p-6">
-            <AlertCircle className="h-6 w-6 text-[var(--accent-danger)]" />
+            <AlertCircle className="h-6 w-6 text-red-500" />
             <div>
-              <p className="font-medium text-[var(--accent-danger)]">
-                خطأ في تحميل البيانات
-              </p>
-              <p className="text-sm text-[var(--accent-danger)]">{error}</p>
+              <p className="font-medium text-red-800">خطأ في تحميل البيانات</p>
+              <p className="text-sm text-red-600">{error}</p>
             </div>
             <Button
               variant="outline"
@@ -345,10 +347,10 @@ export default function ReportsPage() {
     return (
       <div className="space-y-6 p-4 sm:p-6">
         <PageHeader title="التقارير" />
-        <Card className="border-[var(--accent-warning)]/20 bg-[var(--accent-warning)]/10">
+        <Card className="border-yellow-200 bg-yellow-50">
           <CardContent className="flex items-center gap-3 p-6">
-            <AlertCircle className="h-6 w-6 text-[var(--accent-warning)]" />
-            <p className="text-[var(--accent-warning)]">لا توجد بيانات متاحة</p>
+            <AlertCircle className="h-6 w-6 text-yellow-500" />
+            <p className="text-yellow-800">لا توجد بيانات متاحة</p>
           </CardContent>
         </Card>
       </div>
@@ -397,7 +399,7 @@ export default function ReportsPage() {
     <div className="space-y-8 animate-fadeIn p-4 sm:p-6">
       <PageHeader
         title="التقارير"
-        description="قراءة تنفيذية للأداء والمبيعات والتحويل خلال الفترة المحددة."
+        description="تحليل أداء متجرك ومؤشرات النجاح"
         actions={
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap">
             <Button
@@ -454,21 +456,55 @@ export default function ReportsPage() {
           </div>
         }
       />
-      <div className="flex flex-wrap gap-2">
-        {[
-          `الفترة: ${selectedPeriodSummary}`,
-          `الإيراد المحقق: ${formatCurrency(realizedRevenue)}`,
-          `الطلبات: ${formatNumber(stats.totalOrders)}`,
-          `الإكمال: ${completionRate}%`,
-        ].map((chip) => (
-          <div
-            key={chip}
-            className="inline-flex h-8 items-center rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs text-[var(--text-secondary)]"
-          >
-            {chip}
+
+      <section className="app-hero-band">
+        <div className="app-hero-band__grid">
+          <div>
+            <p className="app-hero-band__eyebrow">تقارير ورؤية تنفيذية</p>
+            <h2 className="app-hero-band__title">
+              حول البيانات اليومية إلى صورة أداء تنفيذية واضحة
+            </h2>
+            <p className="app-hero-band__copy">
+              اجمع الإيرادات، التحويل، جودة الطلبات، وأداء المنتجات في مسار
+              قراءة سريع يناسب القرار اليومي والإرسال الفوري.
+            </p>
           </div>
-        ))}
-      </div>
+          <div className="app-hero-band__metrics">
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">
+                الإيرادات المحققة
+              </span>
+              <strong className="app-hero-band__metric-value">
+                {formatCurrency(realizedRevenue)}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">الطلبات</span>
+              <strong className="app-hero-band__metric-value">
+                {formatNumber(stats.totalOrders)}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">الإكمال</span>
+              <strong className="app-hero-band__metric-value">
+                {completionRate}%
+              </strong>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* AI Reports Insights */}
+      <AiInsightsCard
+        title="تحليلات التقارير"
+        insights={generateReportsInsights({
+          totalRevenue: realizedRevenue,
+          totalOrders: stats.totalOrders,
+          avgOrderValue:
+            completedOrders > 0 ? realizedRevenue / completedOrders : 0,
+        })}
+        loading={loading}
+      />
 
       {/* KPI Overview */}
       <KPIGrid>
@@ -593,13 +629,13 @@ export default function ReportsPage() {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">نسبة الإكمال</p>
-                  <p className="text-xl font-bold text-[var(--accent-success)]">
+                  <p className="text-xl font-bold text-green-600">
                     {completionRate}%
                   </p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">نسبة الإلغاء</p>
-                  <p className="text-xl font-bold text-[var(--accent-danger)]">
+                  <p className="text-xl font-bold text-red-600">
                     {cancellationRate}%
                   </p>
                 </div>
@@ -684,7 +720,7 @@ export default function ReportsPage() {
                 </Card>
                 <Card>
                   <CardContent className="p-6 text-center">
-                    <p className="text-4xl font-bold text-[var(--accent-success)]">
+                    <p className="text-4xl font-bold text-green-600">
                       {conversionData.rates.cartRate}%
                     </p>
                     <p className="text-sm text-muted-foreground mt-2">
@@ -694,7 +730,7 @@ export default function ReportsPage() {
                 </Card>
                 <Card>
                   <CardContent className="p-6 text-center">
-                    <p className="text-4xl font-bold text-[var(--accent-blue)]">
+                    <p className="text-4xl font-bold text-blue-600">
                       {conversionData.rates.checkoutRate}%
                     </p>
                     <p className="text-sm text-muted-foreground mt-2">
@@ -718,7 +754,7 @@ export default function ReportsPage() {
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-4">
                       <div
-                        className="h-4 rounded-full bg-[var(--accent-blue)]"
+                        className="bg-blue-600 h-4 rounded-full"
                         style={{ width: "100%" }}
                       />
                     </div>
@@ -731,7 +767,7 @@ export default function ReportsPage() {
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-4">
                       <div
-                        className="h-4 rounded-full bg-[var(--accent-success)]"
+                        className="bg-green-500 h-4 rounded-full"
                         style={{ width: `${conversionData.rates.cartRate}%` }}
                       />
                     </div>
@@ -744,7 +780,7 @@ export default function ReportsPage() {
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-4">
                       <div
-                        className="h-4 rounded-full bg-[var(--accent-warning)]"
+                        className="bg-yellow-500 h-4 rounded-full"
                         style={{
                           width: `${conversionData.rates.checkoutRate}%`,
                         }}
@@ -759,7 +795,7 @@ export default function ReportsPage() {
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-4">
                       <div
-                        className="h-4 rounded-full bg-[var(--color-brand-primary)]"
+                        className="bg-purple-600 h-4 rounded-full"
                         style={{
                           width: `${conversionData.rates.conversionRate}%`,
                         }}
@@ -770,10 +806,10 @@ export default function ReportsPage() {
               </Card>
             </>
           ) : (
-            <Card className="border-[var(--accent-warning)]/20 bg-[var(--accent-warning)]/10">
+            <Card className="border-yellow-200 bg-yellow-50">
               <CardContent className="flex items-center gap-3 p-6">
-                <AlertCircle className="h-6 w-6 text-[var(--accent-warning)]" />
-                <p className="text-[var(--accent-warning)]">
+                <AlertCircle className="h-6 w-6 text-yellow-500" />
+                <p className="text-yellow-800">
                   بيانات التحويل غير متاحة حالياً
                 </p>
               </CardContent>
@@ -788,17 +824,17 @@ export default function ReportsPage() {
           <CardHeader className="pb-2">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <CardTitle className="text-base flex items-center gap-2">
-                <MessageCircle className="h-5 w-5 text-[var(--accent-success)]" />
+                <MessageCircle className="h-5 w-5 text-green-500" />
                 معدل تسليم واتساب (14 يوم)
               </CardTitle>
               <span
                 className={cn(
                   "text-sm font-bold px-2 py-0.5 rounded",
                   waTrend.overallRate >= 90
-                    ? "bg-[var(--accent-success)]/15 text-[var(--accent-success)]"
+                    ? "bg-green-100 text-green-700"
                     : waTrend.overallRate >= 70
-                      ? "bg-[var(--accent-warning)]/15 text-[var(--accent-warning)]"
-                      : "bg-[var(--accent-danger)]/15 text-[var(--accent-danger)]",
+                      ? "bg-amber-100 text-amber-700"
+                      : "bg-red-100 text-red-700",
                 )}
               >
                 {waTrend.overallRate}%
@@ -836,14 +872,13 @@ export default function ReportsPage() {
         <a href="/merchant/reports/cfo">
           <Card className="hover:border-primary/40 transition-colors cursor-pointer">
             <CardContent className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center">
-              <div className="rounded-lg border border-[var(--accent-blue)]/20 bg-[var(--accent-blue)]/10 p-3">
-                <FileText className="h-6 w-6 text-[var(--accent-blue)]" />
+              <div className="p-3 bg-blue-100 rounded-lg">
+                <FileText className="h-6 w-6 text-blue-600" />
               </div>
               <div>
-                <h3 className="font-semibold">الملخص المالي التنفيذي</h3>
+                <h3 className="font-semibold">التقرير التنفيذي (CFO Brief)</h3>
                 <p className="text-sm text-muted-foreground">
-                  تقرير دعم للإيرادات والمصروفات والتدفق النقدي داخل مسار
-                  التقارير
+                  ملخص مالي شامل بالإيرادات والمصروفات والتدفق النقدي
                 </p>
               </div>
             </CardContent>
@@ -852,8 +887,8 @@ export default function ReportsPage() {
         <a href="/merchant/reports/accountant">
           <Card className="hover:border-primary/40 transition-colors cursor-pointer">
             <CardContent className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center">
-              <div className="rounded-lg border border-[var(--accent-success)]/20 bg-[var(--accent-success)]/10 p-3">
-                <FileText className="h-6 w-6 text-[var(--accent-success)]" />
+              <div className="p-3 bg-green-100 rounded-lg">
+                <FileText className="h-6 w-6 text-green-600" />
               </div>
               <div>
                 <h3 className="font-semibold">حزمة المحاسب</h3>

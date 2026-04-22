@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import Link from "next/link";
 import { PageHeader } from "@/components/layout";
 import {
   Card,
@@ -87,35 +86,30 @@ export default function SkuMergePage() {
   return (
     <div className="space-y-6 animate-fadeIn p-4 sm:p-6">
       <PageHeader
-        title="المخزون > دمج تكرارات SKU"
-        description="أداة مساندة للمخزون: راجع التكرارات المحتملة قبل الدمج حتى لا تضيع حركة المخزون."
+        title="كشف التكرارات ودمج رموز الأصناف"
+        description="اكتشف المنتجات المكررة وادمجها لتنظيف المخزون"
         actions={
-          <div className="flex flex-wrap gap-2">
-            <Button asChild variant="outline" className="w-full sm:w-auto">
-              <Link href="/merchant/inventory">قائمة المخزون</Link>
-            </Button>
-            <Button
-              variant="outline"
-              onClick={fetchData}
-              className="w-full sm:w-auto"
-            >
-              <RefreshCw className="ml-2 h-4 w-4" /> فحص
-            </Button>
-          </div>
+          <Button
+            variant="outline"
+            onClick={fetchData}
+            className="w-full sm:w-auto"
+          >
+            <RefreshCw className="ml-2 h-4 w-4" /> فحص
+          </Button>
         }
       />
 
       {error && (
-        <Card className="border-[var(--accent-danger)]/20 bg-[var(--accent-danger)]/10">
-          <CardContent className="py-4 text-sm text-[var(--accent-danger)]">
+        <Card className="border-red-200 bg-red-50">
+          <CardContent className="py-4 text-red-700 text-sm">
             {error}
           </CardContent>
         </Card>
       )}
 
       {successMessage && (
-        <Card className="border-[var(--accent-success)]/20 bg-[var(--accent-success)]/10">
-          <CardContent className="py-4 text-sm text-[var(--accent-success)]">
+        <Card className="border-green-200 bg-green-50">
+          <CardContent className="py-4 text-green-700 text-sm">
             {successMessage}
           </CardContent>
         </Card>
@@ -125,28 +119,16 @@ export default function SkuMergePage() {
         <StatCard
           title="تكرارات محتملة"
           value={duplicates.length.toString()}
-          icon={<Copy className="h-5 w-5 text-[var(--accent-warning)]" />}
+          icon={<Copy className="h-5 w-5 text-amber-600" />}
         />
       </KPIGrid>
-
-      <Card className="border-[var(--accent-blue)]/20 bg-[var(--accent-blue)]/10">
-        <CardContent className="py-3 text-xs text-[var(--text-secondary)]">
-          الدمج يغيّر مرجع الصنف وحركة المخزون. استخدمه فقط بعد التأكد أن
-          المنتجين يمثلان نفس الصنف التشغيلي.
-        </CardContent>
-      </Card>
 
       {duplicates.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
-            <CheckCircle className="mb-4 h-12 w-12 text-[var(--accent-success)]" />
+            <CheckCircle className="h-12 w-12 text-green-500 mb-4" />
             <p className="text-lg font-medium">لا توجد تكرارات</p>
-            <p className="text-muted-foreground">
-              لم يجد النظام أزواج SKU تحتاج دمجاً في الفحص الحالي.
-            </p>
-            <Button asChild variant="outline" className="mt-4">
-              <Link href="/merchant/inventory">العودة إلى قائمة المخزون</Link>
-            </Button>
+            <p className="text-muted-foreground">جميع الأصناف فريدة</p>
           </CardContent>
         </Card>
       ) : (
@@ -161,8 +143,8 @@ export default function SkuMergePage() {
             {duplicates.map((dup: any, i: number) => (
               <div key={i} className="border rounded-lg p-4">
                 <div className="mb-3 grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <div className="rounded p-3 border border-[var(--accent-danger)]/20 bg-[var(--accent-danger)]/10">
-                    <div className="mb-1 text-sm font-medium text-[var(--accent-danger)]">
+                  <div className="bg-red-50 rounded p-3">
+                    <div className="text-sm text-red-600 font-medium mb-1">
                       المصدر (سيتم إلغاء تفعيله)
                     </div>
                     <div className="font-medium">{dup.itemA.name}</div>
@@ -171,8 +153,8 @@ export default function SkuMergePage() {
                       {formatCurrency(dup.itemA.price)}
                     </div>
                   </div>
-                  <div className="rounded p-3 border border-[var(--accent-success)]/20 bg-[var(--accent-success)]/10">
-                    <div className="mb-1 text-sm font-medium text-[var(--accent-success)]">
+                  <div className="bg-green-50 rounded p-3">
+                    <div className="text-sm text-green-600 font-medium mb-1">
                       الهدف (سيحتفظ بالمخزون)
                     </div>
                     <div className="font-medium">{dup.itemB.name}</div>

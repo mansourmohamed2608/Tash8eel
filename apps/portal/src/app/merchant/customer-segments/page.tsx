@@ -1,7 +1,6 @@
 ﻿"use client";
 
 import { useState, useEffect, useCallback } from "react";
-import Link from "next/link";
 import { PageHeader } from "@/components/layout";
 import {
   Card,
@@ -62,6 +61,10 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { authenticatedFetch } from "@/lib/client";
+import {
+  AiInsightsCard,
+  generateSegmentInsights,
+} from "@/components/ai/ai-insights-card";
 
 // ─── Types ────────────────────────────────────────────────────────
 interface SegmentRule {
@@ -406,8 +409,8 @@ export default function CustomerSegmentsPage() {
   return (
     <div className="space-y-6 p-4 sm:p-6">
       <PageHeader
-        title="الحملات والعملاء > شرائح العملاء"
-        description="سطح مساند للنمو: ابنِ جمهوراً قابلاً للمراجعة من بيانات الطلبات قبل الحملة أو المتابعة اليدوية."
+        title="شرائح العملاء المخصصة"
+        description="أنشئ شرائح بقواعد ذكية لاستهداف العملاء في حملاتك التسويقية"
         actions={
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
             <Button
@@ -436,45 +439,18 @@ export default function CustomerSegmentsPage() {
         }
       />
 
-      <div className="flex flex-wrap gap-2">
-        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
-          <Users className="h-3.5 w-3.5 text-[var(--color-brand-primary)]" />
-          <span className="text-muted-foreground">عدد الشرائح</span>
-          <span className="font-mono text-[var(--color-brand-primary)]">
-            {segments.length}
-          </span>
-        </div>
-        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
-          <Target className="h-3.5 w-3.5 text-[var(--accent-blue)]" />
-          <span className="text-muted-foreground">
-            إجمالي العملاء داخل الشرائح
-          </span>
-          <span className="font-mono text-[var(--accent-blue)]">
-            {segments.reduce((sum, s) => sum + (s.customer_count || 0), 0)}
-          </span>
-        </div>
-      </div>
-
-      <div className="grid gap-3 md:grid-cols-2">
-        <Link
-          href="/merchant/customers"
-          className="rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-surface-1)] p-4 transition-colors hover:border-[var(--accent-blue)]/40 hover:bg-[var(--bg-surface-2)]"
-        >
-          <p className="text-sm font-medium">العملاء</p>
-          <p className="mt-1 text-xs leading-5 text-[var(--text-secondary)]">
-            راجع سجلات العملاء وخطر الخسارة قبل تعديل قواعد الشرائح.
-          </p>
-        </Link>
-        <Link
-          href="/merchant/campaigns"
-          className="rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-surface-1)] p-4 transition-colors hover:border-[var(--accent-blue)]/40 hover:bg-[var(--bg-surface-2)]"
-        >
-          <p className="text-sm font-medium">الحملات</p>
-          <p className="mt-1 text-xs leading-5 text-[var(--text-secondary)]">
-            استخدم الشرائح كمدخل للحملة، مع مراجعة جاهزية واتساب قبل الإرسال.
-          </p>
-        </Link>
-      </div>
+      {/* AI Segment Insights */}
+      <AiInsightsCard
+        title="مساعد الشرائح"
+        insights={generateSegmentInsights({
+          totalSegments: segments.length,
+          totalCustomersInSegments: segments.reduce(
+            (sum, s) => sum + (s.customer_count || 0),
+            0,
+          ),
+        })}
+        loading={loading}
+      />
 
       {/* ─── Presets (empty state) ───────────────────────────── */}
       {segments.length === 0 && !loading && (
@@ -533,7 +509,7 @@ export default function CustomerSegmentsPage() {
       )}
 
       {error && (
-        <div className="rounded-lg border border-[var(--accent-danger)]/20 bg-[var(--accent-danger)]/10 p-3 text-sm text-[var(--accent-danger)]">
+        <div className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg p-3 text-sm text-red-700 dark:text-red-300">
           {error}
         </div>
       )}
@@ -601,7 +577,7 @@ export default function CustomerSegmentsPage() {
                       <Button
                         variant="outline"
                         size="sm"
-                        className="w-full text-[var(--accent-success)] hover:text-[var(--accent-success)] sm:w-auto"
+                        className="w-full text-green-600 hover:text-green-800 sm:w-auto"
                         onClick={() => openBroadcastDialog(seg)}
                       >
                         <Megaphone className="ml-1 h-4 w-4" />
@@ -619,7 +595,7 @@ export default function CustomerSegmentsPage() {
                       <Button
                         variant="outline"
                         size="sm"
-                        className="w-full text-[var(--accent-danger)] hover:text-[var(--accent-danger)] sm:w-auto"
+                        className="w-full text-red-500 hover:text-red-700 sm:w-auto"
                         onClick={() => setDeleteId(seg.id)}
                       >
                         <Trash2 className="ml-1 h-4 w-4" />
@@ -705,7 +681,7 @@ export default function CustomerSegmentsPage() {
                               size="sm"
                               onClick={() => openBroadcastDialog(seg)}
                               title="إرسال رسالة للشريحة"
-                              className="text-[var(--accent-success)] hover:text-[var(--accent-success)]"
+                              className="text-green-600 hover:text-green-800"
                             >
                               <Megaphone className="h-4 w-4" />
                             </Button>
@@ -722,7 +698,7 @@ export default function CustomerSegmentsPage() {
                               size="sm"
                               onClick={() => setDeleteId(seg.id)}
                               title="حذف"
-                              className="text-[var(--accent-danger)] hover:text-[var(--accent-danger)]"
+                              className="text-red-500 hover:text-red-700"
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -884,7 +860,7 @@ export default function CustomerSegmentsPage() {
                         variant="ghost"
                         size="sm"
                         onClick={() => removeRule(idx)}
-                        className="shrink-0 text-[var(--accent-danger)] hover:text-[var(--accent-danger)]"
+                        className="text-red-500 hover:text-red-700 shrink-0"
                       >
                         <Trash2 className="h-3 w-3" />
                       </Button>
@@ -894,9 +870,7 @@ export default function CustomerSegmentsPage() {
               </div>
             </div>
 
-            {formError && (
-              <p className="text-sm text-[var(--accent-danger)]">{formError}</p>
-            )}
+            {formError && <p className="text-sm text-red-600">{formError}</p>}
           </div>
 
           <DialogFooter className="gap-2 flex-col sm:flex-row">
@@ -954,8 +928,8 @@ export default function CustomerSegmentsPage() {
           </div>
 
           {previewLoading ? (
-            <div className="py-4">
-              <TableSkeleton rows={4} columns={4} />
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           ) : (
             <>
@@ -1085,7 +1059,7 @@ export default function CustomerSegmentsPage() {
             <AlertDialogAction
               onClick={handleDelete}
               disabled={deleting}
-              className="w-full bg-[var(--accent-danger)] text-[var(--text-primary)] hover:brightness-110 sm:w-auto"
+              className="w-full bg-red-600 hover:bg-red-700 sm:w-auto"
             >
               {deleting && <Loader2 className="h-4 w-4 ml-2 animate-spin" />}
               حذف
@@ -1112,7 +1086,7 @@ export default function CustomerSegmentsPage() {
         >
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Megaphone className="h-5 w-5 text-[var(--accent-success)]" />
+              <Megaphone className="h-5 w-5 text-green-600" />
               إرسال رسالة للشريحة
             </DialogTitle>
             <DialogDescription>
@@ -1124,16 +1098,16 @@ export default function CustomerSegmentsPage() {
 
           {broadcastResult ? (
             <div className="space-y-3 py-4">
-              <div className="rounded-lg border border-[var(--accent-success)]/20 bg-[var(--accent-success)]/10 p-4 text-center">
-                <p className="text-lg font-bold text-[var(--accent-success)]">
+              <div className="bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg p-4 text-center">
+                <p className="text-lg font-bold text-green-700 dark:text-green-300">
                   تم الإرسال بنجاح ✓
                 </p>
-                <p className="mt-1 text-sm text-[var(--accent-success)]">
+                <p className="text-sm text-green-600 dark:text-green-400 mt-1">
                   تم إرسال {broadcastResult.sentCount} من{" "}
                   {broadcastResult.recipientCount} رسالة
                 </p>
                 {broadcastResult.failCount > 0 && (
-                  <p className="mt-1 text-xs text-[var(--accent-danger)]">
+                  <p className="text-xs text-red-500 mt-1">
                     فشل إرسال {broadcastResult.failCount} رسالة
                   </p>
                 )}
@@ -1200,7 +1174,7 @@ export default function CustomerSegmentsPage() {
                     !broadcastTitle.trim() ||
                     !broadcastMessage.trim()
                   }
-                  className="bg-[var(--accent-success)] text-[var(--bg-base)] hover:brightness-110"
+                  className="bg-green-600 hover:bg-green-700"
                 >
                   {broadcasting && (
                     <Loader2 className="h-4 w-4 ml-2 animate-spin" />

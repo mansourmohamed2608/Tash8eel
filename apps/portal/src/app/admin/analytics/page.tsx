@@ -188,33 +188,64 @@ export default function AnalyticsPage() {
         }
       />
 
-      <div className="flex flex-wrap gap-2">
-        <Badge variant="info">الفترة: {period}</Badge>
-        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
-          <span className="text-muted-foreground">الإيراد المحقق</span>
-          <span className="font-mono text-[var(--color-brand-primary)]">
-            {formatCurrency(realizedPlatformRevenue)}
-          </span>
+      <section className="app-hero-band">
+        <div className="app-hero-band__grid">
+          <div className="space-y-4">
+            <span className="app-hero-band__eyebrow">Platform Analytics</span>
+            <div className="space-y-3">
+              <h2 className="app-hero-band__title">
+                اقرأ الأداء الكلي للمنصة ثم انزل مباشرة إلى التجار والوكلاء
+                والساعات الأكثر نشاطاً.
+              </h2>
+              <p className="app-hero-band__copy">
+                هذه الصفحة مبنية كلوحة قرار، لا كصفحة تقارير تقليدية. كل قسم
+                يجيب على سؤال تشغيل واضح: أين النمو، من يقود الإيراد، ما أداء
+                الوكلاء، ومتى تتركز الذروة.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Badge variant="info">الفترة: {period}</Badge>
+              <Badge variant="secondary">
+                الإيراد المحقق: {formatCurrency(realizedPlatformRevenue)}
+              </Badge>
+            </div>
+          </div>
+          <div className="app-hero-band__metrics">
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">
+                الإيراد المحقق
+              </span>
+              <strong className="app-hero-band__metric-value">
+                {formatCurrency(realizedPlatformRevenue)}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">
+                إجمالي الطلبات
+              </span>
+              <strong className="app-hero-band__metric-value">
+                {formatNumber(platformStats.totalOrders)}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">
+                التجار النشطون
+              </span>
+              <strong className="app-hero-band__metric-value">
+                {platformStats.activeMerchants}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">
+                إجمالي المحادثات
+              </span>
+              <strong className="app-hero-band__metric-value">
+                {formatNumber(platformStats.totalConversations)}
+              </strong>
+            </div>
+          </div>
         </div>
-        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
-          <span className="text-muted-foreground">إجمالي الطلبات</span>
-          <span className="font-mono text-[var(--accent-blue)]">
-            {formatNumber(platformStats.totalOrders)}
-          </span>
-        </div>
-        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
-          <span className="text-muted-foreground">التجار النشطون</span>
-          <span className="font-mono text-foreground">
-            {platformStats.activeMerchants}
-          </span>
-        </div>
-        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
-          <span className="text-muted-foreground">إجمالي المحادثات</span>
-          <span className="font-mono text-[var(--accent-success)]">
-            {formatNumber(platformStats.totalConversations)}
-          </span>
-        </div>
-      </div>
+      </section>
 
       {/* Platform KPIs */}
       <KPIGrid>
@@ -364,11 +395,11 @@ export default function AnalyticsPage() {
                                 className={cn(
                                   "w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold",
                                   index === 0
-                                    ? "bg-[var(--color-brand-primary)]/12 text-[var(--color-brand-primary)]"
+                                    ? "bg-yellow-100 text-yellow-700"
                                     : index === 1
-                                      ? "bg-[var(--bg-surface-2)] text-[var(--text-secondary)]"
+                                      ? "bg-gray-100 text-gray-700"
                                       : index === 2
-                                        ? "bg-[var(--accent-warning)]/12 text-[var(--accent-warning)]"
+                                        ? "bg-orange-100 text-orange-700"
                                         : "bg-muted text-muted-foreground",
                                 )}
                               >
@@ -431,9 +462,7 @@ export default function AnalyticsPage() {
                       <div
                         className={cn(
                           "flex items-center gap-1 text-sm",
-                          metric.change > 0
-                            ? "text-[var(--accent-success)]"
-                            : "text-[var(--accent-danger)]",
+                          metric.change > 0 ? "text-green-600" : "text-red-600",
                         )}
                       >
                         {metric.change > 0 ? "+" : ""}
@@ -474,8 +503,8 @@ export default function AnalyticsPage() {
                             className={cn(
                               "text-xs",
                               metric.change >= 0
-                                ? "text-[var(--accent-success)]"
-                                : "text-[var(--accent-danger)]",
+                                ? "text-green-600"
+                                : "text-red-600",
                             )}
                           >
                             {metric.change >= 0 ? "+" : ""}

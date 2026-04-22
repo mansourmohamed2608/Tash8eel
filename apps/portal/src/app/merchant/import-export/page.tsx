@@ -64,6 +64,10 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { portalApi } from "@/lib/client";
+import {
+  AiInsightsCard,
+  generateImportExportInsights,
+} from "@/components/ai/ai-insights-card";
 
 interface BulkOperation {
   id: string;
@@ -493,13 +497,13 @@ export default function BulkOperationsPage() {
     switch (status) {
       case "COMPLETED":
         return (
-          <Badge className="border-[color:rgba(34,197,94,0.28)] bg-[color:rgba(34,197,94,0.1)] text-[color:#86efac]">
+          <Badge className="bg-green-500">
             <CheckCircle className="w-3 h-3 mr-1" /> مكتمل
           </Badge>
         );
       case "PROCESSING":
         return (
-          <Badge className="border-[color:rgba(59,130,246,0.26)] bg-[color:rgba(59,130,246,0.12)] text-[color:#93c5fd]">
+          <Badge className="bg-blue-500">
             <RefreshCw className="w-3 h-3 mr-1 animate-spin" /> جاري المعالجة
           </Badge>
         );
@@ -605,7 +609,7 @@ export default function BulkOperationsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <Loader2 className="h-8 w-8 animate-spin text-[color:var(--accent-blue)]" />
+        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
       </div>
     );
   }
@@ -627,25 +631,16 @@ export default function BulkOperationsPage() {
         }
       />
 
-      <div className="flex flex-wrap gap-2">
-        {[
-          `إجمالي العمليات: ${operations.length}`,
-          `قيد التنفيذ: ${
-            operations.filter((op) => op.status === "PROCESSING").length
-          }`,
-          `مكتملة: ${
-            operations.filter((op) => op.status === "COMPLETED").length
-          }`,
-          `فاشلة: ${operations.filter((op) => op.status === "FAILED").length}`,
-        ].map((chip) => (
-          <div
-            key={chip}
-            className="inline-flex h-8 items-center rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs text-[var(--text-secondary)]"
-          >
-            {chip}
-          </div>
-        ))}
-      </div>
+      {/* AI Import/Export Insights */}
+      <AiInsightsCard
+        title="مساعد الاستيراد والتصدير"
+        insights={generateImportExportInsights({
+          totalOperations: operations.length,
+          failedOperations: operations.filter((op) => op.status === "FAILED")
+            .length,
+        })}
+        loading={loading}
+      />
 
       <Tabs value={activeTab} onValueChange={handleTabChange}>
         <TabsList className="grid h-auto w-full grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
@@ -687,7 +682,7 @@ export default function BulkOperationsPage() {
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <FileUp className="h-5 w-5 text-[var(--accent-success)]" />
+                    <FileUp className="h-5 w-5 text-green-500" />
                     استيراد{" "}
                     {tab === "products"
                       ? "المنتجات"
@@ -721,7 +716,7 @@ export default function BulkOperationsPage() {
                   {selectedFile && (
                     <div className="flex flex-col gap-3 rounded-lg bg-muted p-3 sm:flex-row sm:items-center sm:justify-between">
                       <div className="flex min-w-0 items-center gap-2">
-                        <FileSpreadsheet className="h-5 w-5 text-[var(--accent-success)]" />
+                        <FileSpreadsheet className="h-5 w-5 text-green-500" />
                         <span className="truncate text-sm">
                           {selectedFile.name}
                         </span>
@@ -824,7 +819,7 @@ export default function BulkOperationsPage() {
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <FileDown className="h-5 w-5 text-[var(--accent-blue)]" />
+                    <FileDown className="h-5 w-5 text-blue-500" />
                     تصدير{" "}
                     {tab === "products"
                       ? "المنتجات"
@@ -911,9 +906,7 @@ export default function BulkOperationsPage() {
                         </div>
                         <div>
                           {field.required ? (
-                            <Badge className="border-[color:rgba(239,68,68,0.3)] bg-[color:rgba(239,68,68,0.1)] text-[color:#fca5a5]">
-                              مطلوب
-                            </Badge>
+                            <Badge className="bg-red-500">مطلوب</Badge>
                           ) : (
                             <Badge variant="outline">اختياري</Badge>
                           )}
@@ -944,9 +937,7 @@ export default function BulkOperationsPage() {
                           <TableCell>{field.label}</TableCell>
                           <TableCell>
                             {field.required ? (
-                              <Badge className="border-[color:rgba(239,68,68,0.3)] bg-[color:rgba(239,68,68,0.1)] text-[color:#fca5a5]">
-                                مطلوب
-                              </Badge>
+                              <Badge className="bg-red-500">مطلوب</Badge>
                             ) : (
                               <Badge variant="outline">اختياري</Badge>
                             )}
@@ -1007,18 +998,12 @@ export default function BulkOperationsPage() {
                     <div className="flex flex-col gap-3">
                       <div className="flex flex-wrap items-center gap-2">
                         {op.operationType === "IMPORT" ? (
-                          <Badge
-                            variant="outline"
-                            className="border-[color:rgba(34,197,94,0.26)] bg-[color:rgba(34,197,94,0.08)] text-[color:#86efac]"
-                          >
+                          <Badge variant="outline" className="bg-green-50">
                             <FileUp className="w-3 h-3 mr-1" />
                             استيراد
                           </Badge>
                         ) : (
-                          <Badge
-                            variant="outline"
-                            className="border-[color:rgba(59,130,246,0.26)] bg-[color:rgba(59,130,246,0.1)] text-[color:#93c5fd]"
-                          >
+                          <Badge variant="outline" className="bg-blue-50">
                             <FileDown className="w-3 h-3 mr-1" />
                             تصدير
                           </Badge>
@@ -1032,7 +1017,7 @@ export default function BulkOperationsPage() {
                         <div>{getStatusBadge(op.status)}</div>
                         {op.status === "FAILED" && op.failureReason && (
                           <p
-                            className="text-[11px] text-[color:#fca5a5]"
+                            className="text-[11px] text-red-500"
                             title={op.failureReason}
                           >
                             {op.failureReason}
@@ -1046,13 +1031,13 @@ export default function BulkOperationsPage() {
                         </span>
                       </div>
                       <div className="text-sm">
-                        <span className="text-[color:var(--accent-success)]">
+                        <span className="text-green-600">
                           {op.successCount} ✓
                         </span>
                         {op.errorCount > 0 && (
                           <>
                             <span className="text-muted-foreground"> / </span>
-                            <span className="text-[color:var(--accent-danger)]">
+                            <span className="text-red-600">
                               {op.errorCount} ✗
                             </span>
                           </>
@@ -1074,7 +1059,7 @@ export default function BulkOperationsPage() {
                                 size="sm"
                                 onClick={() => setSelectedOperation(op)}
                               >
-                                <AlertCircle className="h-4 w-4 text-[color:var(--accent-danger)]" />
+                                <AlertCircle className="h-4 w-4 text-red-500" />
                               </Button>
                             </DialogTrigger>
                             <DialogContent className="max-h-[90vh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-2xl">
@@ -1107,7 +1092,7 @@ export default function BulkOperationsPage() {
                                     <p className="mt-2 text-xs text-muted-foreground">
                                       الخطأ
                                     </p>
-                                    <p className="text-sm text-[color:#fca5a5]">
+                                    <p className="text-sm text-red-600">
                                       {error.message ||
                                         error.error ||
                                         "خطأ غير محدد"}
@@ -1133,7 +1118,7 @@ export default function BulkOperationsPage() {
                                         <TableCell className="font-mono">
                                           {error.field || "-"}
                                         </TableCell>
-                                        <TableCell className="text-[color:#fca5a5]">
+                                        <TableCell className="text-red-600">
                                           {error.message ||
                                             error.error ||
                                             "خطأ غير محدد"}
@@ -1199,18 +1184,12 @@ export default function BulkOperationsPage() {
                       <TableRow key={op.id}>
                         <TableCell>
                           {op.operationType === "IMPORT" ? (
-                            <Badge
-                              variant="outline"
-                              className="border-[color:rgba(34,197,94,0.26)] bg-[color:rgba(34,197,94,0.08)] text-[color:#86efac]"
-                            >
+                            <Badge variant="outline" className="bg-green-50">
                               <FileUp className="w-3 h-3 mr-1" />
                               استيراد
                             </Badge>
                           ) : (
-                            <Badge
-                              variant="outline"
-                              className="border-[color:rgba(59,130,246,0.26)] bg-[color:rgba(59,130,246,0.1)] text-[color:#93c5fd]"
-                            >
+                            <Badge variant="outline" className="bg-blue-50">
                               <FileDown className="w-3 h-3 mr-1" />
                               تصدير
                             </Badge>
@@ -1224,7 +1203,7 @@ export default function BulkOperationsPage() {
                           {getStatusBadge(op.status)}
                           {op.status === "FAILED" && op.failureReason && (
                             <p
-                              className="mt-1 max-w-[180px] truncate text-[11px] text-[color:#fca5a5]"
+                              className="text-[11px] text-red-500 mt-1 max-w-[180px] truncate"
                               title={op.failureReason}
                             >
                               {op.failureReason}
@@ -1241,7 +1220,7 @@ export default function BulkOperationsPage() {
                         </TableCell>
                         <TableCell>
                           <div className="text-sm">
-                            <span className="text-[color:var(--accent-success)]">
+                            <span className="text-green-600">
                               {op.successCount} ✓
                             </span>
                             {op.errorCount > 0 && (
@@ -1250,7 +1229,7 @@ export default function BulkOperationsPage() {
                                   {" "}
                                   /{" "}
                                 </span>
-                                <span className="text-[color:var(--accent-danger)]">
+                                <span className="text-red-600">
                                   {op.errorCount} ✗
                                 </span>
                               </>
@@ -1262,7 +1241,7 @@ export default function BulkOperationsPage() {
                               {op.errors.slice(0, 2).map((err, i) => (
                                 <p
                                   key={i}
-                                  className="max-w-[200px] truncate text-[11px] text-[color:#fca5a5]"
+                                  className="text-[11px] text-red-500 truncate max-w-[200px]"
                                   title={`صف ${err.row}: ${err.field ? err.field + " - " : ""}${err.message || err.error || ""}`}
                                 >
                                   صف {err.row}:{" "}
@@ -1298,7 +1277,7 @@ export default function BulkOperationsPage() {
                                     size="icon"
                                     onClick={() => setSelectedOperation(op)}
                                   >
-                                    <AlertCircle className="h-4 w-4 text-[color:var(--accent-danger)]" />
+                                    <AlertCircle className="h-4 w-4 text-red-500" />
                                   </Button>
                                 </DialogTrigger>
                                 <DialogContent className="max-h-[90vh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-2xl">
@@ -1328,7 +1307,7 @@ export default function BulkOperationsPage() {
                                             <TableCell className="font-mono">
                                               {error.field || "-"}
                                             </TableCell>
-                                            <TableCell className="text-[color:#fca5a5]">
+                                            <TableCell className="text-red-600">
                                               {error.message ||
                                                 error.error ||
                                                 "خطأ غير محدد"}

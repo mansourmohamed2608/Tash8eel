@@ -77,34 +77,21 @@ const actionLabels: Record<string, string> = {
 };
 
 const actionColors: Record<string, string> = {
-  created:
-    "border-[color:rgba(34,197,94,0.28)] bg-[color:rgba(34,197,94,0.1)] text-[color:#86efac]",
-  updated:
-    "border-[color:rgba(59,130,246,0.26)] bg-[color:rgba(59,130,246,0.12)] text-[color:#93c5fd]",
-  deleted:
-    "border-[color:rgba(239,68,68,0.3)] bg-[color:rgba(239,68,68,0.1)] text-[color:#fca5a5]",
-  activated:
-    "border-[color:rgba(34,197,94,0.28)] bg-[color:rgba(34,197,94,0.1)] text-[color:#86efac]",
-  deactivated:
-    "border-[color:rgba(245,158,11,0.28)] bg-[color:rgba(245,158,11,0.12)] text-[color:#fcd34d]",
-  cancelled:
-    "border-[color:rgba(239,68,68,0.3)] bg-[color:rgba(239,68,68,0.1)] text-[color:#fca5a5]",
-  replayed:
-    "border-[color:rgba(45,107,228,0.15)] bg-[color:var(--brand-blue-dim)] text-[color:var(--brand-blue)]",
-  success:
-    "border-[color:rgba(34,197,94,0.28)] bg-[color:rgba(34,197,94,0.1)] text-[color:#86efac]",
-  failed:
-    "border-[color:rgba(239,68,68,0.3)] bg-[color:rgba(239,68,68,0.1)] text-[color:#fca5a5]",
-  rotated:
-    "border-[color:rgba(59,130,246,0.26)] bg-[color:rgba(59,130,246,0.12)] text-[color:#93c5fd]",
+  created: "bg-green-100 text-green-800",
+  updated: "bg-blue-100 text-blue-800",
+  deleted: "bg-red-100 text-red-800",
+  activated: "bg-green-100 text-green-800",
+  deactivated: "bg-yellow-100 text-yellow-800",
+  cancelled: "bg-red-100 text-red-800",
+  replayed: "bg-purple-100 text-purple-800",
+  success: "bg-green-100 text-green-800",
+  failed: "bg-red-100 text-red-800",
+  rotated: "bg-blue-100 text-blue-800",
 };
 
 const getActionColor = (action: string): string => {
   const verb = action.split(".")[1];
-  return (
-    actionColors[verb] ||
-    "border-[color:var(--border-default)] bg-[color:var(--bg-surface-2)] text-[color:var(--text-secondary)]"
-  );
+  return actionColors[verb] || "bg-gray-100 text-gray-800";
 };
 
 export default function AuditLogsPage() {
@@ -226,26 +213,44 @@ export default function AuditLogsPage() {
         }
       />
 
-      <div className="flex flex-wrap gap-2">
-        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
-          <span className="text-muted-foreground">إجمالي السجلات</span>
-          <span className="font-mono text-[var(--color-brand-primary)]">
-            {logs.length}
-          </span>
+      <section className="app-hero-band">
+        <div className="app-hero-band__grid">
+          <div>
+            <p className="app-hero-band__eyebrow">مراقبة وتدقيق</p>
+            <h2 className="app-hero-band__title">
+              راجع كل تغيير مؤثر في النظام مع توزيع واضح حسب الجهة المنفذة
+            </h2>
+            <p className="app-hero-band__copy">
+              هذه الصفحة تمنحك طبقة متابعة تشغيلية تساعد على التحقيق السريع،
+              تتبع الإجراءات الحساسة، والتأكد من سلامة النشاط الإداري والتجاري.
+            </p>
+          </div>
+          <div className="app-hero-band__metrics">
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">
+                إجمالي السجلات
+              </span>
+              <strong className="app-hero-band__metric-value">
+                {logs.length}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">نشاط المدراء</span>
+              <strong className="app-hero-band__metric-value">
+                {logs.filter((l) => l.actor.type === "admin").length}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">
+                النتائج المطابقة
+              </span>
+              <strong className="app-hero-band__metric-value">
+                {filteredLogs.length}
+              </strong>
+            </div>
+          </div>
         </div>
-        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
-          <span className="text-muted-foreground">نشاط المدراء</span>
-          <span className="font-mono text-[var(--accent-blue)]">
-            {logs.filter((l) => l.actor.type === "admin").length}
-          </span>
-        </div>
-        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
-          <span className="text-muted-foreground">النتائج المطابقة</span>
-          <span className="font-mono text-foreground">
-            {filteredLogs.length}
-          </span>
-        </div>
-      </div>
+      </section>
 
       {/* Stats Summary */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
@@ -256,7 +261,7 @@ export default function AuditLogsPage() {
                 <p className="text-sm text-muted-foreground">إجمالي السجلات</p>
                 <p className="text-2xl font-bold">{logs.length}</p>
               </div>
-              <FileText className="h-8 w-8 text-[color:var(--color-brand-primary)]" />
+              <FileText className="h-8 w-8 text-primary-600" />
             </div>
           </CardContent>
         </Card>
@@ -269,7 +274,7 @@ export default function AuditLogsPage() {
                   {logs.filter((l) => l.actor.type === "admin").length}
                 </p>
               </div>
-              <User className="h-8 w-8 text-[color:var(--accent-blue)]" />
+              <User className="h-8 w-8 text-blue-600" />
             </div>
           </CardContent>
         </Card>
@@ -282,7 +287,7 @@ export default function AuditLogsPage() {
                   {logs.filter((l) => l.actor.type === "merchant").length}
                 </p>
               </div>
-              <Activity className="h-8 w-8 text-[color:var(--accent-success)]" />
+              <Activity className="h-8 w-8 text-green-600" />
             </div>
           </CardContent>
         </Card>
@@ -295,7 +300,7 @@ export default function AuditLogsPage() {
                   {logs.filter((l) => l.actor.type === "system").length}
                 </p>
               </div>
-              <Clock className="h-8 w-8 text-[color:var(--accent-warning)]" />
+              <Clock className="h-8 w-8 text-purple-600" />
             </div>
           </CardContent>
         </Card>
@@ -410,7 +415,7 @@ export default function AuditLogsPage() {
               </div>
               <div className="hidden overflow-x-auto md:block">
                 <table className="w-full">
-                  <thead className="border-b bg-[color:var(--bg-surface-2)]">
+                  <thead className="bg-muted/50 border-b">
                     <tr>
                       <th className="text-right p-4 font-medium text-sm">
                         الحدث
@@ -434,10 +439,7 @@ export default function AuditLogsPage() {
                   </thead>
                   <tbody className="divide-y">
                     {paginatedLogs.map((log) => (
-                      <tr
-                        key={log.id}
-                        className="transition-colors hover:bg-[color:var(--bg-surface-2)]"
-                      >
+                      <tr key={log.id} className="hover:bg-muted/30">
                         <td className="p-4">
                           <Badge
                             className={cn(
@@ -452,12 +454,12 @@ export default function AuditLogsPage() {
                           <div className="flex items-center gap-2">
                             <div
                               className={cn(
-                                "flex h-8 w-8 items-center justify-center rounded-[var(--radius-sm)] border text-xs",
+                                "w-8 h-8 rounded-full flex items-center justify-center text-xs",
                                 log.actor.type === "admin"
-                                  ? "border-[color:rgba(59,130,246,0.24)] bg-[color:rgba(59,130,246,0.12)] text-[color:#93c5fd]"
+                                  ? "bg-blue-100 text-blue-700"
                                   : log.actor.type === "merchant"
-                                    ? "border-[color:rgba(34,197,94,0.26)] bg-[color:rgba(34,197,94,0.1)] text-[color:#86efac]"
-                                    : "border-[color:rgba(45,107,228,0.13)] bg-[color:var(--brand-blue-dim)] text-[color:var(--brand-blue)]",
+                                    ? "bg-green-100 text-green-700"
+                                    : "bg-purple-100 text-purple-700",
                               )}
                             >
                               {log.actor.type === "admin"
@@ -552,7 +554,7 @@ export default function AuditLogsPage() {
                 </div>
               </div>
 
-              <div className="space-y-3 rounded-[var(--radius-md)] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-2)] p-4">
+              <div className="p-4 rounded-lg bg-muted/50 space-y-3">
                 <h4 className="font-medium">المنفذ</h4>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
@@ -572,7 +574,7 @@ export default function AuditLogsPage() {
                 </div>
               </div>
 
-              <div className="space-y-3 rounded-[var(--radius-md)] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-2)] p-4">
+              <div className="p-4 rounded-lg bg-muted/50 space-y-3">
                 <h4 className="font-medium">الهدف</h4>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
@@ -594,7 +596,7 @@ export default function AuditLogsPage() {
                 </div>
               </div>
 
-              <div className="space-y-3 rounded-[var(--radius-md)] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-2)] p-4">
+              <div className="p-4 rounded-lg bg-muted/50 space-y-3">
                 <h4 className="font-medium">معلومات الجلسة</h4>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>

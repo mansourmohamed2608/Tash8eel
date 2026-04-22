@@ -4,12 +4,12 @@ import { useState, useEffect, useCallback } from "react";
 import { PageHeader } from "@/components/layout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { DataTable, Pagination } from "@/components/ui/data-table";
 import { TableSkeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/alerts";
-import { StatusBadge, getOrderStatusTone } from "@/components/ui/status-badge";
 import {
   Select,
   SelectContent,
@@ -45,21 +45,29 @@ import {
   Plus,
   Minus,
   Trash2,
-  LayoutGrid,
-  Rows3,
 } from "lucide-react";
 import {
   cn,
   formatCurrency,
   formatDate,
   formatRelativeTime,
+  getStatusColor,
   getStatusLabel,
 } from "@/lib/utils";
 import { merchantApi, branchesApi } from "@/lib/client";
 import portalApi from "@/lib/client";
 import { useToast } from "@/hooks/use-toast";
+import {
+  OrderQuickStats,
+  OrderStatusFilter,
+} from "@/components/orders/enhanced-features";
 import { useMerchant } from "@/hooks/use-merchant";
 import { useRoleAccess } from "@/hooks/use-role-access";
+import {
+  AiInsightsCard,
+  generateOrderInsights,
+} from "@/components/ai/ai-insights-card";
+import { SmartAnalysisButton } from "@/components/ai/smart-analysis-button";
 
 interface OrderItem {
   sku: string;
@@ -82,8 +90,6 @@ interface Order {
   status: string;
   sourceChannel?: string;
   deliveryType?: "delivery" | "pickup" | "dine_in";
-  branchName?: string;
-  branchId?: string;
   paymentStatus?: string;
   createdAt: string;
   updatedAt: string;
@@ -117,39 +123,13 @@ const statusIcons: Record<string, React.ReactNode> = {
 };
 
 const DRIVER_ASSIGNABLE_STATUSES = new Set(["CONFIRMED"]);
-const STATUS_TABS = [
-  { key: "all", label: "الكل" },
-  { key: "pending", label: "قيد الانتظار" },
-  { key: "processing", label: "قيد التنفيذ" },
-  { key: "completed", label: "مكتملة" },
-  { key: "cancelled", label: "ملغية" },
-] as const;
-
-const KANBAN_COLUMNS = [
-  {
-    key: "pending",
-    label: "قيد الانتظار",
-    border: "border-t-[var(--accent-warning)]",
-  },
-  {
-    key: "processing",
-    label: "قيد التنفيذ",
-    border: "border-t-[var(--accent-blue)]",
-  },
-  { key: "shipped", label: "تم الشحن", border: "border-t-[color:#8b5cf6]" },
-  {
-    key: "completed",
-    label: "مكتملة",
-    border: "border-t-[var(--accent-success)]",
-  },
-] as const;
 
 const SOURCE_LABELS: Record<string, string> = {
   manual_button: "زر يدوي",
   cashier: "الكاشير",
   calls: "المكالمات",
   whatsapp: "واتساب",
-  voice_ai: "مكالمة آلية",
+  voice_ai: "مكالمة AI",
   manual: "يدوي (قديم)",
 };
 
@@ -170,16 +150,16 @@ function getSourceLabel(value: unknown): string {
 function getSourceBadgeClass(value: unknown): string {
   const normalized = normalizeSourceChannel(value);
   if (normalized === "cashier")
-    return "border-[var(--color-info-border)] bg-[var(--color-info-bg)] text-[var(--color-info-text)]";
+    return "bg-blue-100 text-blue-700 border-blue-200";
   if (normalized === "calls")
-    return "border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] text-[var(--color-warning-text)]";
+    return "bg-amber-100 text-amber-700 border-amber-200";
   if (normalized === "manual_button")
-    return "border-[color:var(--border-default)] bg-[color:var(--bg-surface-2)] text-[color:var(--text-secondary)]";
+    return "bg-slate-100 text-slate-700 border-slate-200";
   if (normalized === "voice_ai")
-    return "border-[color:rgba(47,111,235,0.24)] bg-[color:var(--color-brand-subtle)] text-[color:var(--color-brand-primary)]";
+    return "bg-purple-100 text-purple-700 border-purple-200";
   if (normalized === "whatsapp")
-    return "border-[var(--color-success-border)] bg-[var(--color-success-bg)] text-[var(--color-success-text)]";
-  return "border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-2)] text-[color:var(--text-secondary)]";
+    return "bg-emerald-100 text-emerald-700 border-emerald-200";
+  return "bg-muted text-foreground border-border";
 }
 
 function getOrderDisplayStatus(order: Order): string {
@@ -225,15 +205,13 @@ function getCancelRisk(
   if (order.status === "DRAFT" && ageHours > 24) {
     return {
       label: "خطر إلغاء ↑",
-      className:
-        "border-[var(--color-danger-border)] bg-[var(--color-danger-bg)] text-[var(--color-danger-text)]",
+      className: "bg-red-100 text-red-700 border-red-200",
     };
   }
   if (order.status === "CONFIRMED" && ageHours > 48) {
     return {
       label: "تأخر التسليم",
-      className:
-        "border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] text-[var(--color-warning-text)]",
+      className: "bg-amber-100 text-amber-700 border-amber-200",
     };
   }
   if (
@@ -242,84 +220,10 @@ function getCancelRisk(
   ) {
     return {
       label: "لم يُسلَّم بعد",
-      className:
-        "border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] text-[var(--color-warning-text)]",
+      className: "bg-orange-100 text-orange-700 border-orange-200",
     };
   }
   return null;
-}
-
-function getBoardStatus(order: Order) {
-  const status = String(order.status || "").toUpperCase();
-  if (["CANCELLED", "RETURNED", "FAILED"].includes(status)) return "cancelled";
-  if (["DELIVERED", "COMPLETED"].includes(status)) return "completed";
-  if (["BOOKED", "SHIPPED", "OUT_FOR_DELIVERY"].includes(status))
-    return "shipped";
-  if (["CONFIRMED"].includes(status)) return "processing";
-  return "pending";
-}
-
-function getElapsedState(order: Order) {
-  const ageMinutes =
-    (Date.now() - new Date(order.createdAt).getTime()) / (1000 * 60);
-  if (ageMinutes > 60) return "critical";
-  if (ageMinutes > 30) return "warning";
-  return "default";
-}
-
-function getElapsedLabel(order: Order) {
-  return formatRelativeTime(order.createdAt);
-}
-
-function getOrdersFreshness(updatedAt: Date | null) {
-  if (!updatedAt) return { label: "لم يتم التحديث", state: "old" as const };
-
-  const minutes = Math.max(
-    0,
-    Math.floor((Date.now() - updatedAt.getTime()) / 60000),
-  );
-
-  if (minutes < 1) return { label: "آخر تحديث: الآن", state: "fresh" as const };
-  if (minutes <= 5) {
-    return { label: `آخر تحديث: منذ ${minutes} د`, state: "fresh" as const };
-  }
-  if (minutes <= 30) {
-    return { label: `آخر تحديث: منذ ${minutes} د`, state: "stale" as const };
-  }
-  return { label: "بيانات الطلبات قديمة", state: "old" as const };
-}
-
-function OrderLifecycle({ status }: { status: string }) {
-  const normalized = String(status || "").toUpperCase();
-  const steps = [
-    { key: "DRAFT", label: "إنشاء" },
-    { key: "CONFIRMED", label: "تأكيد" },
-    { key: "BOOKED", label: "تجهيز" },
-    { key: "SHIPPED", label: "شحن" },
-    { key: "DELIVERED", label: "تسليم" },
-    { key: "COMPLETED", label: "تسوية COD" },
-  ];
-  const activeIndex = Math.max(
-    0,
-    steps.findIndex((step) => step.key === normalized),
-  );
-
-  return (
-    <div className="mt-2 flex items-center gap-1" aria-label="دورة حياة الطلب">
-      {steps.map((step, index) => (
-        <span
-          key={step.key}
-          title={step.label}
-          className={cn(
-            "h-1.5 flex-1 rounded-full bg-[var(--color-neutral-border)]",
-            index <= activeIndex && "bg-[var(--color-brand-primary)]",
-            ["CANCELLED", "RETURNED", "FAILED"].includes(normalized) &&
-              "bg-[var(--color-neutral-border)]",
-          )}
-        />
-      ))}
-    </div>
-  );
 }
 
 export default function OrdersPage() {
@@ -333,11 +237,8 @@ export default function OrdersPage() {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [statusTab, setStatusTab] = useState<string>("all");
   const [branchFilter, setBranchFilter] = useState<string>("all");
   const [sourceFilter, setSourceFilter] = useState<string>("all");
-  const [viewMode, setViewMode] = useState<"kanban" | "table">("table");
-  const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
   const [branches, setBranches] = useState<{ id: string; name: string }[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [reordering, setReordering] = useState(false);
@@ -578,8 +479,6 @@ export default function OrdersPage() {
       sourceChannel: normalizeSourceChannel(
         order.sourceChannel || order.source_channel,
       ),
-      branchId: order.branchId || order.branch_id,
-      branchName: order.branchName || order.branch_name || order.branch?.name,
       deliveryType: (
         order.deliveryPreference ||
         order.delivery_preference ||
@@ -626,7 +525,6 @@ export default function OrdersPage() {
       } else {
         setOrders(allTransformed);
       }
-      setLastUpdatedAt(new Date());
     } catch (err) {
       console.error("Failed to fetch orders:", err);
       setError(err instanceof Error ? err.message : "فشل في تحميل الطلبات");
@@ -930,15 +828,7 @@ export default function OrdersPage() {
       order.orderNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
       order.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       order.customerPhone.includes(searchQuery);
-    const boardStatus = getBoardStatus(order);
-    const matchesTab =
-      statusTab === "all" ||
-      (statusTab === "pending" && boardStatus === "pending") ||
-      (statusTab === "processing" &&
-        (boardStatus === "processing" || boardStatus === "shipped")) ||
-      (statusTab === "completed" && boardStatus === "completed") ||
-      (statusTab === "cancelled" && boardStatus === "cancelled");
-    return matchesSearch && matchesTab;
+    return matchesSearch;
   });
 
   const filteredCatalogProducts =
@@ -1091,67 +981,31 @@ export default function OrdersPage() {
     completed: countedOrders.filter((o) => isCompletedStatus(o.status)).length,
     cancelled: countedOrders.filter((o) => isCancelledStatus(o.status)).length,
   };
-  const delayedOrders = countedOrders.filter(
-    (o) =>
-      !isCancelledStatus(o.status) &&
-      !isCompletedStatus(o.status) &&
-      getElapsedState(o) !== "default",
-  ).length;
 
-  // Calculate completed orders for today's operations strip.
+  // AOV for merchants: realized (completed) orders only.
+  const completedOrdersForAov = countedOrders.filter((o) =>
+    isCompletedStatus(o.status),
+  );
+  const completedRevenueTotal = completedOrdersForAov.reduce(
+    (sum, o) => sum + (o.total || 0),
+    0,
+  );
+  const averageOrderValue =
+    completedOrdersForAov.length > 0
+      ? completedRevenueTotal / completedOrdersForAov.length
+      : 0;
+
+  // Calculate revenue (today only, realized orders only: DELIVERED/COMPLETED).
   const startOfToday = new Date();
   startOfToday.setHours(0, 0, 0, 0);
-  const completedToday = countedOrders.filter((o) => {
-    if (!isCompletedStatus(o.status)) return false;
-    const createdAt = new Date(o.createdAt);
-    return !Number.isNaN(createdAt.getTime()) && createdAt >= startOfToday;
-  }).length;
-  const tabCounts = {
-    all: countedOrders.length,
-    pending: countedOrders.filter((o) => getBoardStatus(o) === "pending")
-      .length,
-    processing: countedOrders.filter((o) => {
-      const stage = getBoardStatus(o);
-      return stage === "processing" || stage === "shipped";
-    }).length,
-    completed: countedOrders.filter((o) => getBoardStatus(o) === "completed")
-      .length,
-    cancelled: countedOrders.filter((o) => getBoardStatus(o) === "cancelled")
-      .length,
-  };
-  const summaryColumns = [
-    {
-      label: "إجمالي الطلبات",
-      value: stats.total,
-      icon: <ShoppingCart className="h-4 w-4" />,
-      tone: "",
-    },
-    {
-      label: "قيد الانتظار",
-      value: tabCounts.pending,
-      icon: <Clock className="h-4 w-4" />,
-      tone: tabCounts.pending > 0 ? "bg-[color:rgba(245,158,11,0.10)]" : "",
-    },
-    {
-      label: "قيد التنفيذ",
-      value: stats.inProgress,
-      icon: <Package className="h-4 w-4" />,
-      tone: "",
-    },
-    {
-      label: "مكتملة",
-      value: stats.completed,
-      icon: <CheckCircle className="h-4 w-4" />,
-      tone: "",
-    },
-    {
-      label: "ملغية",
-      value: stats.cancelled,
-      icon: <XCircle className="h-4 w-4" />,
-      tone: "",
-    },
-  ];
-  const orderFreshness = getOrdersFreshness(lastUpdatedAt);
+  const isRevenueOrder = (status: string) => isCompletedStatus(status);
+  const todayRevenue = ordersForStats
+    .filter((o) => {
+      if (!isRevenueOrder(o.status)) return false;
+      const createdAt = new Date(o.createdAt);
+      return !Number.isNaN(createdAt.getTime()) && createdAt >= startOfToday;
+    })
+    .reduce((sum, o) => sum + (o.total || 0), 0);
 
   if (loading) {
     return (
@@ -1173,7 +1027,7 @@ export default function OrdersPage() {
               <h3 className="text-lg font-semibold">خطأ في تحميل الطلبات</h3>
               <p className="text-muted-foreground mt-2">{error}</p>
               <Button onClick={fetchOrders} variant="outline" className="mt-4">
-                <RefreshCw className="h-4 w-4 ms-2" />
+                <RefreshCw className="h-4 w-4 ml-2" />
                 إعادة المحاولة
               </Button>
             </div>
@@ -1187,7 +1041,11 @@ export default function OrdersPage() {
     <div className="space-y-8 animate-fadeIn">
       <PageHeader
         title="الطلبات"
-        description="تشغيل ومتابعة الطلبات الحالية بسرعة، مع قراءة فورية للحالات الحرجة."
+        description={
+          countedOrders.length !== ordersForStats.length
+            ? `تشغيل ومتابعة الطلبات (${countedOrders.length} طلب فعّال من أصل ${ordersForStats.length})`
+            : `تشغيل ومتابعة الطلبات (${countedOrders.length} طلب)`
+        }
         actions={
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
             {canCreate && (
@@ -1195,7 +1053,7 @@ export default function OrdersPage() {
                 onClick={openCreateOrderDialog}
                 className="w-full sm:w-auto"
               >
-                <Plus className="h-4 w-4 ms-2" />
+                <Plus className="h-4 w-4 ml-2" />
                 إنشاء طلب جديد
               </Button>
             )}
@@ -1214,7 +1072,7 @@ export default function OrdersPage() {
                 disabled={filteredOrders.length === 0}
                 className="w-full sm:w-auto"
               >
-                <FileSpreadsheet className="h-4 w-4 ms-2" />
+                <FileSpreadsheet className="h-4 w-4 ml-2" />
                 تصدير CSV
               </Button>
             )}
@@ -1222,180 +1080,203 @@ export default function OrdersPage() {
         }
       />
 
-      <section className="sticky top-14 z-20 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-surface)] p-3 shadow-[var(--shadow-sm)]">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex flex-wrap items-center gap-3 text-sm">
-            <span>
-              نشطة:{" "}
-              <strong className="font-mono text-[var(--color-brand-primary)]">
-                {stats.inProgress + stats.pending}
-              </strong>
-            </span>
-            <span className="text-[var(--color-border)]">|</span>
-            <span>
-              معلقة: <strong className="font-mono">{stats.pending}</strong>
-            </span>
-            <span className="text-[var(--color-border)]">|</span>
-            <span>
-              متأخرة:{" "}
-              <strong className="font-mono text-[var(--color-warning-text)]">
-                {delayedOrders}
-              </strong>
-            </span>
-            <span className="text-[var(--color-border)]">|</span>
-            <span>
-              مكتملة اليوم:{" "}
-              <strong className="font-mono text-[var(--color-success-text)]">
-                {completedToday}
-              </strong>
-            </span>
+      <section className="app-hero-band">
+        <div className="app-hero-band__grid">
+          <div className="space-y-4">
+            <span className="app-hero-band__eyebrow">Order Operations</span>
+            <div className="space-y-3">
+              <h2 className="app-hero-band__title">
+                واجهة تنفيذية واحدة للطلب منذ الإنشاء حتى التسليم أو الإلغاء.
+              </h2>
+              <p className="app-hero-band__copy">
+                راقب الحجم الكلي، حالات التنفيذ، الفروع، ومصادر الطلبات. صممت
+                هذه الصفحة لتسمح بالبحث السريع، قراءة المخاطر، واتخاذ الإجراء من
+                نفس السياق دون تشتيت.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Badge variant="info">طلبات فعالة: {countedOrders.length}</Badge>
+              <Badge variant="secondary">
+                متوسط قيمة الطلب: {formatCurrency(averageOrderValue)}
+              </Badge>
+              {branchFilter !== "all" ? (
+                <Badge variant="warning">فلتر الفرع مفعل</Badge>
+              ) : null}
+            </div>
           </div>
-          <div
-            className={cn(
-              "flex items-center gap-2 text-xs text-[var(--color-text-secondary)]",
-              orderFreshness.state === "stale" &&
-                "text-[var(--color-warning-text)]",
-              orderFreshness.state === "old" &&
-                "text-[var(--color-danger-text)]",
-            )}
-          >
-            <span>{orderFreshness.label}</span>
-            <Button variant="ghost" size="sm" onClick={fetchOrders}>
-              <RefreshCw className="h-4 w-4" />
-              تحديث
-            </Button>
-          </div>
-        </div>
-      </section>
-
-      <div className="flex flex-wrap items-center gap-2">
-        {STATUS_TABS.map((tab) => (
-          <button
-            key={tab.key}
-            type="button"
-            onClick={() => {
-              setStatusTab(tab.key);
-              setCurrentPage(1);
-            }}
-            className={cn(
-              "inline-flex h-9 items-center rounded-[var(--radius-sm)] border px-3 text-xs font-semibold transition-colors",
-              statusTab === tab.key
-                ? "border-[var(--color-brand-primary)] bg-[var(--color-brand-primary)] text-[var(--color-brand-on-primary)]"
-                : "border-[var(--border-default)] bg-[var(--bg-surface-1)] text-[var(--text-secondary)] hover:border-[var(--color-brand-primary)] hover:text-[var(--color-brand-primary)]",
-            )}
-          >
-            {tab.label} ({tabCounts[tab.key as keyof typeof tabCounts]})
-          </button>
-        ))}
-      </div>
-
-      <section className="overflow-hidden rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--bg-surface-2)]">
-        <div className="grid gap-0 lg:grid-cols-5">
-          {summaryColumns.map((item, index) => (
-            <div
-              key={item.label}
-              className={cn(
-                "flex h-16 items-center justify-between gap-3 px-4",
-                item.tone,
-                index !== summaryColumns.length - 1 &&
-                  "border-b border-[var(--border-subtle)] lg:border-b-0 lg:border-s",
-              )}
-            >
-              <div className="flex items-center gap-2 text-[var(--text-secondary)]">
-                {item.icon}
-                <span className="text-[11px]">{item.label}</span>
-              </div>
-              <strong className="font-mono text-[24px] font-bold text-[var(--text-primary)]">
-                {item.value}
+          <div className="app-hero-band__metrics">
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">
+                إجمالي الطلبات
+              </span>
+              <strong className="app-hero-band__metric-value">
+                {stats.total}
               </strong>
             </div>
-          ))}
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">قيد التنفيذ</span>
+              <strong className="app-hero-band__metric-value">
+                {stats.pending + stats.inProgress}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">مكتملة</span>
+              <strong className="app-hero-band__metric-value">
+                {stats.completed}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">إيراد اليوم</span>
+              <strong className="app-hero-band__metric-value">
+                {formatCurrency(todayRevenue)}
+              </strong>
+            </div>
+          </div>
         </div>
       </section>
+
+      {/* Order Quick Stats */}
+      <OrderQuickStats
+        stats={{
+          total: stats.total,
+          pending: stats.pending,
+          processing: stats.inProgress,
+          completed: stats.completed,
+          cancelled: stats.cancelled,
+          todayRevenue,
+          averageOrderValue,
+        }}
+      />
+
+      {/* AI Order Insights */}
+      <AiInsightsCard
+        title="تنبيهات الطلبات"
+        insights={generateOrderInsights({
+          totalOrders: stats.total,
+          cancelledOrders: stats.cancelled,
+          averageOrderValue,
+          deliveredOrders: stats.completed,
+          pendingOrders: stats.pending + stats.inProgress,
+        })}
+      />
+
+      <SmartAnalysisButton context="operations" />
 
       {/* Filters */}
       <Card className="app-data-card">
         <CardContent className="p-4">
-          <div className="flex flex-col gap-4 xl:flex-row">
+          <div className="flex flex-col sm:flex-row gap-4">
             <div className="relative flex-1">
-              <Search className="absolute end-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="بحث برقم الطلب، اسم العميل، أو رقم الهاتف..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pe-9"
+                className="pr-9"
               />
             </div>
-            <div className="flex flex-col gap-3 sm:flex-row">
+            <Select
+              value={statusFilter}
+              onValueChange={(value) => {
+                setStatusFilter(value);
+                setCurrentPage(1);
+              }}
+            >
+              <SelectTrigger className="w-full sm:w-48">
+                <Filter className="h-4 w-4 ml-2" />
+                <SelectValue placeholder="حالة الطلب" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">كل الحالات</SelectItem>
+                <SelectItem value="DRAFT">مسودة</SelectItem>
+                <SelectItem value="CONFIRMED">مؤكد</SelectItem>
+                <SelectItem value="BOOKED">محجوز</SelectItem>
+                <SelectItem value="SHIPPED">تم الشحن</SelectItem>
+                <SelectItem value="OUT_FOR_DELIVERY">قيد التوصيل</SelectItem>
+                <SelectItem value="DELIVERED">تم التوصيل</SelectItem>
+                <SelectItem value="CANCELLED">ملغي</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select
+              value={sourceFilter}
+              onValueChange={(value) => {
+                setSourceFilter(value);
+                setCurrentPage(1);
+              }}
+            >
+              <SelectTrigger className="w-full sm:w-44">
+                <SelectValue placeholder="المصدر" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">كل المصادر</SelectItem>
+                <SelectItem value="manual_button">زر يدوي</SelectItem>
+                <SelectItem value="cashier">الكاشير</SelectItem>
+                <SelectItem value="calls">المكالمات</SelectItem>
+                <SelectItem value="whatsapp">واتساب</SelectItem>
+                <SelectItem value="voice_ai">مكالمة AI</SelectItem>
+              </SelectContent>
+            </Select>
+            {branches.length > 1 && (
               <Select
-                value={sourceFilter}
+                value={branchFilter}
                 onValueChange={(value) => {
-                  setSourceFilter(value);
+                  setBranchFilter(value);
                   setCurrentPage(1);
                 }}
               >
                 <SelectTrigger className="w-full sm:w-44">
-                  <Filter className="ms-2 h-4 w-4" />
-                  <SelectValue placeholder="المصدر" />
+                  <SelectValue placeholder="الفرع" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">كل المصادر</SelectItem>
-                  <SelectItem value="manual_button">زر يدوي</SelectItem>
-                  <SelectItem value="cashier">الكاشير</SelectItem>
-                  <SelectItem value="calls">المكالمات</SelectItem>
-                  <SelectItem value="whatsapp">واتساب</SelectItem>
-                  <SelectItem value="voice_ai">مكالمة آلية</SelectItem>
+                  <SelectItem value="all">كل الفروع</SelectItem>
+                  {branches.map((b) => (
+                    <SelectItem key={b.id} value={b.id}>
+                      {b.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
-              {branches.length > 1 && (
-                <Select
-                  value={branchFilter}
-                  onValueChange={(value) => {
-                    setBranchFilter(value);
-                    setCurrentPage(1);
-                  }}
-                >
-                  <SelectTrigger className="w-full sm:w-44">
-                    <SelectValue placeholder="الفرع" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">كل الفروع</SelectItem>
-                    {branches.map((b) => (
-                      <SelectItem key={b.id} value={b.id}>
-                        {b.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-              <div className="inline-flex overflow-hidden rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-1)]">
-                <button
-                  type="button"
-                  onClick={() => setViewMode("kanban")}
-                  className={cn(
-                    "inline-flex h-10 items-center gap-2 px-3 text-xs font-semibold transition-colors",
-                    viewMode === "kanban"
-                      ? "bg-[var(--bg-surface-3)] text-[var(--text-primary)]"
-                      : "text-[var(--text-secondary)]",
-                  )}
-                >
-                  <LayoutGrid className="h-4 w-4" />
-                  كانبان
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setViewMode("table")}
-                  className={cn(
-                    "inline-flex h-10 items-center gap-2 px-3 text-xs font-semibold transition-colors",
-                    viewMode === "table"
-                      ? "bg-[var(--bg-surface-3)] text-[var(--text-primary)]"
-                      : "text-[var(--text-secondary)]",
-                  )}
-                >
-                  <Rows3 className="h-4 w-4" />
-                  جدول
-                </button>
-              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="app-data-card app-data-card--muted border-dashed">
+        <CardContent className="p-4 space-y-3">
+          <div className="text-sm font-semibold">شرح الحالات</div>
+          <div className="grid grid-cols-1 gap-2 text-xs text-muted-foreground sm:grid-cols-2 xl:grid-cols-4">
+            <div>
+              <span className="font-medium text-foreground">مسودة:</span> طلب
+              غير مكتمل ولم يبدأ تنفيذه.
+            </div>
+            <div>
+              <span className="font-medium text-foreground">مؤكد:</span> تم
+              تأكيد الطلب وجاهز للتجهيز.
+            </div>
+            <div>
+              <span className="font-medium text-foreground">محجوز:</span> تم حجز
+              الشحنة مع شركة التوصيل.
+            </div>
+            <div>
+              <span className="font-medium text-foreground">تم الشحن:</span>{" "}
+              الطلب خرج مع شركة الشحن.
+            </div>
+            <div>
+              <span className="font-medium text-foreground">قيد التوصيل:</span>{" "}
+              الطلب في الطريق للعميل.
+            </div>
+            <div>
+              <span className="font-medium text-foreground">تم التوصيل:</span>{" "}
+              طلب مكتمل ومُحقق للإيراد.
+            </div>
+            <div>
+              <span className="font-medium text-foreground">الكاشير:</span>{" "}
+              طلبات الاستلام وداخل الفرع قد تظهر كـ تم الدفع أو تم الاستلام
+              بدلاً من مسار الشحن.
+            </div>
+            <div>
+              <span className="font-medium text-foreground">ملغي:</span> طلب غير
+              محسوب ضمن الإيراد.
             </div>
           </div>
         </CardContent>
@@ -1421,373 +1302,233 @@ export default function OrdersPage() {
         </Card>
       ) : (
         <>
-          {viewMode === "kanban" ? (
-            <div className="grid gap-4 xl:grid-cols-4">
-              {KANBAN_COLUMNS.map((column) => {
-                const columnOrders = filteredOrders.filter(
-                  (order) => getBoardStatus(order) === column.key,
-                );
-
-                return (
-                  <Card
-                    key={column.key}
-                    className={cn(
-                      "app-data-card max-h-[70vh] overflow-hidden border-t-2",
-                      column.border,
-                    )}
-                  >
-                    <CardContent className="flex h-full flex-col gap-3 p-4">
-                      <div className="flex items-center justify-between">
-                        <h3 className="text-sm font-bold">{column.label}</h3>
-                        <span className="rounded-[4px] bg-[var(--bg-surface-3)] px-2 py-1 font-mono text-[11px] text-[var(--text-secondary)]">
-                          {columnOrders.length}
-                        </span>
+          <div className="space-y-3 md:hidden">
+            {paginatedOrders.map((order) => {
+              const risk = getCancelRisk(order);
+              return (
+                <Card
+                  key={order.id}
+                  className="app-data-card cursor-pointer"
+                  onClick={() => setSelectedOrder(order)}
+                >
+                  <CardContent className="space-y-3 p-4 text-sm">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="font-mono text-sm">{order.orderNumber}</p>
+                        <p className="font-medium">{order.customerName}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {formatRelativeTime(order.createdAt)}
+                        </p>
                       </div>
-                      <div className="space-y-3 overflow-y-auto">
-                        {columnOrders.length === 0 ? (
-                          <div className="rounded-[var(--radius-sm)] border border-dashed border-[var(--border-default)] px-3 py-6 text-center text-xs text-[var(--text-muted)]">
-                            لا توجد طلبات في هذه المرحلة
-                          </div>
-                        ) : (
-                          columnOrders.map((order) => {
-                            const elapsedState = getElapsedState(order);
-                            return (
-                              <button
-                                key={order.id}
-                                type="button"
-                                onClick={() => setSelectedOrder(order)}
-                                className={cn(
-                                  "w-full rounded-[8px] border border-[var(--border-default)] border-e-[3px] bg-[var(--bg-surface-2)] p-3 text-start transition-colors hover:bg-[var(--bg-surface-3)]",
-                                  column.key === "pending" &&
-                                    "border-e-[var(--accent-warning)]",
-                                  column.key === "processing" &&
-                                    "border-e-[var(--accent-blue)]",
-                                  column.key === "shipped" &&
-                                    "border-e-[color:#8b5cf6]",
-                                  column.key === "completed" &&
-                                    "border-e-[var(--accent-success)]",
-                                )}
-                              >
-                                <div className="flex items-center justify-between gap-2">
-                                  <span className="font-mono text-xs text-[var(--color-brand-primary)]">
-                                    {order.orderNumber}
-                                  </span>
-                                  <div className="flex items-center gap-2">
-                                    <span
-                                      className={cn(
-                                        "text-[11px] font-mono",
-                                        elapsedState === "critical" &&
-                                          "text-[var(--accent-danger)]",
-                                        elapsedState === "warning" &&
-                                          "text-[var(--accent-warning)]",
-                                        elapsedState === "default" &&
-                                          "text-[var(--text-muted)]",
-                                      )}
-                                    >
-                                      {formatRelativeTime(order.createdAt)}
-                                    </span>
-                                    <span
-                                      className={cn(
-                                        "inline-flex items-center rounded-[4px] border px-1.5 py-0.5 text-[10px] font-semibold",
-                                        getSourceBadgeClass(
-                                          order.sourceChannel,
-                                        ),
-                                      )}
-                                    >
-                                      {getSourceLabel(order.sourceChannel)}
-                                    </span>
-                                  </div>
-                                </div>
-                                <div className="mt-3">
-                                  <p className="text-sm font-semibold text-[var(--text-primary)]">
-                                    {order.customerName}
-                                  </p>
-                                  <p className="mt-1 line-clamp-2 text-xs text-[var(--text-secondary)]">
-                                    {order.items.length > 0
-                                      ? order.items
-                                          .slice(0, 2)
-                                          .map((item) => item.name)
-                                          .join("، ")
-                                      : "بدون منتجات واضحة"}
-                                  </p>
-                                </div>
-                                <div className="mt-3 flex items-center justify-between">
-                                  <strong className="font-mono text-sm text-[var(--text-primary)]">
-                                    {formatCurrency(order.total)}
-                                  </strong>
-                                  <span className="text-xs text-[var(--text-secondary)]">
-                                    {getOrderDisplayStatus(order)}
-                                  </span>
-                                </div>
-                              </button>
-                            );
-                          })
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedOrder(order);
+                        }}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <span
+                        className={cn(
+                          "inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold",
+                          getStatusColor(order.status),
                         )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          ) : (
-            <>
-              <div className="space-y-3 md:hidden">
-                {paginatedOrders.map((order) => {
-                  const risk = getCancelRisk(order);
-                  return (
-                    <Card
-                      key={order.id}
-                      className="app-data-card cursor-pointer"
-                      onClick={() => setSelectedOrder(order)}
-                    >
-                      <CardContent className="space-y-3 p-4 text-sm">
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <p className="font-mono text-sm">
-                              {order.orderNumber}
-                            </p>
-                            <p className="font-medium">{order.customerName}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {formatRelativeTime(order.createdAt)}
-                            </p>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedOrder(order);
-                            }}
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          <StatusBadge
-                            tone={getOrderStatusTone(
-                              order.status,
-                              getElapsedState(order) !== "default",
-                            )}
-                          >
-                            {statusIcons[order.status]}
-                            {getOrderDisplayStatus(order)}
-                          </StatusBadge>
-                          <span
-                            className={cn(
-                              "inline-flex items-center rounded-[var(--radius-sm)] border px-2.5 py-0.5 text-xs font-semibold",
-                              getSourceBadgeClass(order.sourceChannel),
-                            )}
-                          >
-                            {getSourceLabel(order.sourceChannel)}
-                          </span>
-                          {risk && (
-                            <span
-                              className={cn(
-                                "rounded border px-1.5 py-0.5 text-[10px] font-medium",
-                                risk.className,
-                              )}
-                            >
-                              {risk.label}
-                            </span>
-                          )}
-                        </div>
-                        <div className="space-y-1">
-                          <p className="text-xs text-muted-foreground">
-                            المنتجات
-                          </p>
-                          <p className="text-sm">
-                            {order.items.length > 0
-                              ? `${order.items
-                                  .slice(0, 2)
-                                  .map((i) => i.name)
-                                  .join(
-                                    "، ",
-                                  )}${order.items.length > 2 ? ` +${order.items.length - 2}` : ""}`
-                              : "غير محدد"}
-                          </p>
-                        </div>
-                        <div className="grid grid-cols-1 gap-3 text-xs sm:grid-cols-2">
-                          <div>
-                            <p className="text-muted-foreground">الإجمالي</p>
-                            <p className="font-semibold">
-                              {formatCurrency(order.total)}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-muted-foreground">عدد القطع</p>
-                            <p className="font-medium">
-                              {order.items.reduce(
-                                (sum, item) => sum + (item.quantity || 0),
-                                0,
-                              )}{" "}
-                              قطعة
-                            </p>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </div>
-              <div className="hidden md:block">
-                <DataTable
-                  data={paginatedOrders}
-                  columns={[
-                    {
-                      key: "status",
-                      header: "الحالة",
-                      render: (order) => {
-                        const risk = getCancelRisk(order);
-                        return (
-                          <div className="min-w-[160px]">
-                            <StatusBadge
-                              tone={getOrderStatusTone(
-                                order.status,
-                                getElapsedState(order) !== "default",
-                              )}
-                            >
-                              {statusIcons[order.status]}
-                              {getOrderDisplayStatus(order)}
-                            </StatusBadge>
-                            <OrderLifecycle status={order.status} />
-                            {risk && (
-                              <span
-                                className={cn(
-                                  "mt-2 inline-flex rounded border px-1.5 py-0.5 text-[10px] font-medium",
-                                  risk.className,
-                                )}
-                              >
-                                {risk.label}
-                              </span>
-                            )}
-                          </div>
-                        );
-                      },
-                    },
-                    {
-                      key: "branch",
-                      header: "الفرع",
-                      render: (order) => (
-                        <span className="text-sm">
-                          {order.branchName || "غير محدد"}
-                        </span>
-                      ),
-                    },
-                    {
-                      key: "sourceChannel",
-                      header: "المصدر",
-                      render: (order) => (
+                      >
+                        {statusIcons[order.status]}
+                        {getOrderDisplayStatus(order)}
+                      </span>
+                      <span
+                        className={cn(
+                          "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold",
+                          getSourceBadgeClass(order.sourceChannel),
+                        )}
+                      >
+                        {getSourceLabel(order.sourceChannel)}
+                      </span>
+                      {risk && (
                         <span
                           className={cn(
-                            "inline-flex items-center rounded-[var(--radius-sm)] border px-2.5 py-0.5 text-xs font-semibold",
-                            getSourceBadgeClass(order.sourceChannel),
+                            "rounded border px-1.5 py-0.5 text-[10px] font-medium",
+                            risk.className,
                           )}
                         >
-                          {getSourceLabel(order.sourceChannel)}
+                          {risk.label}
                         </span>
-                      ),
-                    },
-                    {
-                      key: "customerName",
-                      header: "العميل",
-                      render: (order) => (
-                        <div>
-                          <p className="font-medium text-[var(--text-primary)]">
-                            {order.customerName}
-                          </p>
-                          <p className="font-mono text-xs text-[var(--color-brand-primary)]">
-                            {order.orderNumber}
-                          </p>
-                        </div>
-                      ),
-                    },
-                    {
-                      key: "total",
-                      header: "المبلغ",
-                      render: (order) => (
-                        <span className="font-semibold">
+                      )}
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-xs text-muted-foreground">المنتجات</p>
+                      <p className="text-sm">
+                        {order.items.length > 0
+                          ? `${order.items
+                              .slice(0, 2)
+                              .map((i) => i.name)
+                              .join(
+                                "، ",
+                              )}${order.items.length > 2 ? ` +${order.items.length - 2}` : ""}`
+                          : "غير محدد"}
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-1 gap-3 text-xs sm:grid-cols-2">
+                      <div>
+                        <p className="text-muted-foreground">الإجمالي</p>
+                        <p className="font-semibold">
                           {formatCurrency(order.total)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">عدد القطع</p>
+                        <p className="font-medium">
+                          {order.items.reduce(
+                            (sum, item) => sum + (item.quantity || 0),
+                            0,
+                          )}{" "}
+                          قطعة
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+          <div className="hidden md:block">
+            <DataTable
+              data={paginatedOrders}
+              columns={[
+                {
+                  key: "orderNumber",
+                  header: "رقم الطلب",
+                  render: (order) => (
+                    <span className="font-mono text-sm">
+                      {order.orderNumber}
+                    </span>
+                  ),
+                },
+                { key: "customerName", header: "العميل" },
+                {
+                  key: "items",
+                  header: "المنتجات",
+                  render: (order) =>
+                    order.items.length > 0 ? (
+                      <div className="max-w-[220px]">
+                        <div
+                          className="truncate text-sm"
+                          title={order.items.map((i) => i.name).join("، ")}
+                        >
+                          {order.items
+                            .slice(0, 2)
+                            .map((i) => i.name)
+                            .join("، ")}
+                          {order.items.length > 2
+                            ? ` +${order.items.length - 2}`
+                            : ""}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {order.items.reduce(
+                            (sum, item) => sum + (item.quantity || 0),
+                            0,
+                          )}{" "}
+                          قطعة
+                        </div>
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground">غير محدد</span>
+                    ),
+                },
+                {
+                  key: "total",
+                  header: "الإجمالي",
+                  render: (order) => (
+                    <span className="font-semibold">
+                      {formatCurrency(order.total)}
+                    </span>
+                  ),
+                },
+                {
+                  key: "status",
+                  header: "الحالة",
+                  render: (order) => {
+                    const risk = getCancelRisk(order);
+                    return (
+                      <div className="flex flex-col gap-1 items-start">
+                        <span
+                          className={cn(
+                            "inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold",
+                            getStatusColor(order.status),
+                          )}
+                        >
+                          {statusIcons[order.status]}
+                          {getOrderDisplayStatus(order)}
                         </span>
-                      ),
-                    },
-                    {
-                      key: "elapsed",
-                      header: "الوقت المنقضي",
-                      render: (order) => {
-                        const elapsedState = getElapsedState(order);
-                        return (
+                        {risk && (
                           <span
                             className={cn(
-                              "rounded-[var(--radius-sm)] px-2 py-1 text-xs",
-                              elapsedState === "critical" &&
-                                "bg-[var(--color-danger-bg)] text-[var(--color-danger-text)]",
-                              elapsedState === "warning" &&
-                                "bg-[var(--color-warning-bg)] text-[var(--color-warning-text)]",
-                              elapsedState === "default" &&
-                                "bg-[var(--color-neutral-bg)] text-[var(--color-neutral-text)]",
+                              "text-[10px] px-1.5 py-0.5 rounded border font-medium",
+                              risk.className,
                             )}
                           >
-                            {getElapsedLabel(order)}
+                            {risk.label}
                           </span>
-                        );
-                      },
-                    },
-                    {
-                      key: "agent",
-                      header: "المصدر",
-                      render: (order) => (
-                        <span className="text-sm text-[var(--color-text-secondary)]">
-                          {normalizeSourceChannel(order.sourceChannel) ===
-                          "cashier"
-                            ? "الكاشير"
-                            : "النظام"}
-                        </span>
-                      ),
-                    },
-                    {
-                      key: "actions",
-                      header: "الإجراء",
-                      render: (order) => (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedOrder(order);
-                          }}
-                        >
-                          <Eye className="h-4 w-4" />
-                          مراجعة
-                        </Button>
-                      ),
-                    },
-                    {
-                      key: "delete",
-                      header: "حذف",
-                      render: () => (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          disabled
-                          title="الحذف غير متاح من طابور التشغيل"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      ),
-                    },
-                  ]}
-                  onRowClick={setSelectedOrder}
-                />
-              </div>
+                        )}
+                      </div>
+                    );
+                  },
+                },
+                {
+                  key: "source",
+                  header: "المصدر",
+                  render: (order) => (
+                    <span
+                      className={cn(
+                        "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold",
+                        getSourceBadgeClass(order.sourceChannel),
+                      )}
+                    >
+                      {getSourceLabel(order.sourceChannel)}
+                    </span>
+                  ),
+                },
+                {
+                  key: "createdAt",
+                  header: "التاريخ",
+                  render: (order) => (
+                    <span className="text-muted-foreground text-sm">
+                      {formatRelativeTime(order.createdAt)}
+                    </span>
+                  ),
+                },
+                {
+                  key: "actions",
+                  header: "",
+                  render: (order) => (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedOrder(order);
+                      }}
+                    >
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                  ),
+                },
+              ]}
+              onRowClick={setSelectedOrder}
+            />
+          </div>
 
-              {totalPages > 1 && (
-                <Pagination
-                  currentPage={currentPage}
-                  totalPages={totalPages}
-                  onPageChange={setCurrentPage}
-                />
-              )}
-            </>
+          {totalPages > 1 && (
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+            />
           )}
         </>
       )}
@@ -1838,16 +1579,16 @@ export default function OrdersPage() {
             <div className="space-y-3">
               <p className="text-sm font-medium">بحث المنتجات وإضافتها</p>
               <div className="relative">
-                <Search className="absolute end-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   value={productSearch}
                   onChange={(e) => setProductSearch(e.target.value)}
                   placeholder="اكتب اسم المنتج أو SKU..."
-                  className="pe-9"
+                  className="pr-9"
                 />
 
                 {productSearch.trim().length > 0 && (
-                  <div className="absolute z-20 mt-1 max-h-56 w-full overflow-y-auto rounded-[var(--radius-md)] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-2)]">
+                  <div className="absolute z-20 mt-1 w-full rounded-md border bg-background shadow-md max-h-56 overflow-y-auto">
                     {catalogLoading ? (
                       <div className="px-3 py-2 text-sm text-muted-foreground flex items-center gap-2">
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -1858,7 +1599,7 @@ export default function OrdersPage() {
                         <button
                           key={product.id}
                           type="button"
-                          className="w-full px-3 py-2 text-start transition-colors hover:bg-[color:var(--bg-surface-3)]"
+                          className="w-full text-right px-3 py-2 hover:bg-muted transition-colors"
                           onClick={() => addCatalogItemToManualOrder(product)}
                         >
                           <div className="font-medium text-sm">
@@ -2011,9 +1752,9 @@ export default function OrdersPage() {
                 )}
               </div>
 
-              <div className="flex flex-col gap-1 rounded-[var(--radius-md)] border border-[color:rgba(47,111,235,0.2)] bg-[color:var(--color-brand-subtle)] px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-col gap-1 rounded-md border bg-primary/5 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
                 <span className="text-sm font-medium">الإجمالي الحالي</span>
-                <span className="text-sm font-bold text-[color:var(--color-brand-primary)]">
+                <span className="text-sm font-bold text-primary">
                   {formatCurrency(manualOrderTotal)}
                 </span>
               </div>
@@ -2100,7 +1841,7 @@ export default function OrdersPage() {
               >
                 {creatingOrder ? (
                   <>
-                    <Loader2 className="h-4 w-4 ms-2 animate-spin" />
+                    <Loader2 className="h-4 w-4 ml-2 animate-spin" />
                     جاري الإنشاء...
                   </>
                 ) : (
@@ -2117,7 +1858,7 @@ export default function OrdersPage() {
         open={!!selectedOrder}
         onOpenChange={() => setSelectedOrder(null)}
       >
-        <DialogContent className="start-0 top-0 h-dvh max-h-dvh w-[min(100vw,520px)] max-w-none translate-x-0 translate-y-0 overflow-y-auto sm:rounded-none">
+        <DialogContent className="max-h-[90vh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Package className="h-5 w-5" />
@@ -2131,17 +1872,17 @@ export default function OrdersPage() {
           {selectedOrder && (
             <div className="space-y-6">
               {/* Status + Change */}
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-md)] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-2)] p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-muted/50 p-4">
                 <div className="flex items-center gap-2">
-                  <StatusBadge
-                    tone={getOrderStatusTone(
-                      selectedOrder.status,
-                      getElapsedState(selectedOrder) !== "default",
+                  <span
+                    className={cn(
+                      "inline-flex items-center gap-1 rounded-full border text-sm px-3 py-1 font-semibold",
+                      getStatusColor(selectedOrder.status),
                     )}
                   >
                     {statusIcons[selectedOrder.status]}
                     {getOrderDisplayStatus(selectedOrder)}
-                  </StatusBadge>
+                  </span>
                 </div>
                 {!isReadOnly &&
                   !["DELIVERED", "CANCELLED", "RETURNED"].includes(
@@ -2229,9 +1970,9 @@ export default function OrdersPage() {
 
               {/* Assign Delivery Driver */}
               {DRIVER_ASSIGNABLE_STATUSES.has(selectedOrder.status) && (
-                <div className="rounded-[var(--radius-md)] border border-[color:rgba(245,158,11,0.24)] bg-[color:rgba(245,158,11,0.08)] p-4">
+                <div className="p-4 border rounded-lg bg-orange-50/50">
                   <h4 className="font-medium flex items-center gap-2 mb-2">
-                    <Truck className="h-4 w-4 text-[color:var(--accent-warning)]" />
+                    <Truck className="h-4 w-4 text-orange-600" />
                     تعيين سائق توصيل
                   </h4>
                   <Select
@@ -2331,7 +2072,7 @@ export default function OrdersPage() {
                       {selectedOrder.items.map((item, idx) => (
                         <div
                           key={idx}
-                          className="rounded-[var(--radius-md)] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-2)] p-3"
+                          className="rounded-lg border bg-background p-3"
                         >
                           <div className="space-y-1">
                             <p className="break-words text-sm font-medium">
@@ -2370,27 +2111,27 @@ export default function OrdersPage() {
                           </div>
                         </div>
                       ))}
-                      <div className="flex items-center justify-between rounded-[var(--radius-md)] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-2)] px-3 py-2 text-sm">
+                      <div className="flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2 text-sm">
                         <span className="font-medium">الإجمالي</span>
-                        <span className="font-bold text-[color:var(--color-brand-primary)]">
+                        <span className="font-bold text-primary">
                           {formatCurrency(selectedOrder.total)}
                         </span>
                       </div>
                     </div>
                     <div className="hidden md:block">
                       <table className="w-full">
-                        <thead className="bg-[color:var(--bg-surface-2)]">
+                        <thead className="bg-muted/50">
                           <tr>
-                            <th className="p-3 text-start text-sm font-medium">
+                            <th className="p-3 text-right text-sm font-medium">
                               المنتج
                             </th>
-                            <th className="p-3 text-start text-sm font-medium">
+                            <th className="p-3 text-right text-sm font-medium">
                               الكمية
                             </th>
-                            <th className="p-3 text-start text-sm font-medium">
+                            <th className="p-3 text-right text-sm font-medium">
                               السعر
                             </th>
-                            <th className="p-3 text-start text-sm font-medium">
+                            <th className="p-3 text-right text-sm font-medium">
                               الإجمالي
                             </th>
                           </tr>
@@ -2419,7 +2160,7 @@ export default function OrdersPage() {
                             </tr>
                           ))}
                         </tbody>
-                        <tfoot className="bg-[color:var(--bg-surface-2)]">
+                        <tfoot className="bg-muted/50">
                           <tr>
                             <td
                               colSpan={3}
@@ -2427,7 +2168,7 @@ export default function OrdersPage() {
                             >
                               الإجمالي
                             </td>
-                            <td className="p-3 font-bold text-[color:var(--color-brand-primary)]">
+                            <td className="p-3 font-bold text-primary">
                               {formatCurrency(selectedOrder.total)}
                             </td>
                           </tr>
@@ -2450,17 +2191,17 @@ export default function OrdersPage() {
                 </h4>
                 <div className="space-y-3 p-4 border rounded-lg">
                   <div className="flex items-center gap-3">
-                    <div className="h-2 w-2 rounded-full bg-[color:var(--accent-success)]" />
+                    <div className="h-2 w-2 rounded-full bg-green-500" />
                     <span className="text-sm">تم الإنشاء</span>
-                    <span className="text-sm text-muted-foreground me-auto">
+                    <span className="text-sm text-muted-foreground mr-auto">
                       {formatDate(selectedOrder.createdAt, "long")}
                     </span>
                   </div>
                   {selectedOrder.updatedAt !== selectedOrder.createdAt && (
                     <div className="flex items-center gap-3">
-                      <div className="h-2 w-2 rounded-full bg-[color:var(--accent-blue)]" />
+                      <div className="h-2 w-2 rounded-full bg-blue-500" />
                       <span className="text-sm">آخر تحديث</span>
-                      <span className="text-sm text-muted-foreground me-auto">
+                      <span className="text-sm text-muted-foreground mr-auto">
                         {formatDate(selectedOrder.updatedAt, "long")}
                       </span>
                     </div>
@@ -2474,8 +2215,8 @@ export default function OrdersPage() {
                   className={cn(
                     "p-4 rounded-lg border",
                     reorderResult.success
-                      ? "border-[color:rgba(34,197,94,0.28)] bg-[color:rgba(34,197,94,0.1)] text-[color:#86efac]"
-                      : "border-[color:rgba(239,68,68,0.3)] bg-[color:rgba(239,68,68,0.1)] text-[color:#fca5a5]",
+                      ? "bg-green-50 border-green-200 text-green-800"
+                      : "bg-red-50 border-red-200 text-red-800",
                   )}
                 >
                   <div className="flex items-center gap-2">
@@ -2518,12 +2259,12 @@ export default function OrdersPage() {
                   >
                     {reordering ? (
                       <>
-                        <Loader2 className="h-4 w-4 ms-2 animate-spin" />
+                        <Loader2 className="h-4 w-4 ml-2 animate-spin" />
                         جاري إعادة الطلب...
                       </>
                     ) : (
                       <>
-                        <RotateCcw className="h-4 w-4 ms-2" />
+                        <RotateCcw className="h-4 w-4 ml-2" />
                         إعادة الطلب
                       </>
                     )}

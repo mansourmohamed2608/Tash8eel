@@ -73,7 +73,6 @@ import { portalApi } from "@/lib/client";
 const DEFAULT_PLANS = [
   "TRIAL",
   "STARTER",
-  "CHAT_ONLY",
   "BASIC",
   "GROWTH",
   "PRO",
@@ -85,7 +84,6 @@ type PlanType = string;
 const PLAN_NAMES: Record<string, string> = {
   TRIAL: "تجريبي",
   STARTER: "المبتدئ",
-  CHAT_ONLY: "شات فقط",
   BASIC: "الأساسي",
   GROWTH: "النمو",
   PRO: "الاحترافي",
@@ -94,21 +92,13 @@ const PLAN_NAMES: Record<string, string> = {
 };
 
 const PLAN_COLORS: Record<string, string> = {
-  TRIAL:
-    "border border-[var(--border-default)] bg-[var(--bg-surface-3)] text-[var(--text-secondary)]",
-  STARTER:
-    "border border-[var(--accent-blue)]/25 bg-[var(--accent-blue)]/12 text-[var(--accent-blue)]",
-  CHAT_ONLY:
-    "border border-[var(--border-active)] bg-[var(--bg-surface-2)] text-[var(--text-primary)]",
-  BASIC:
-    "border border-[var(--accent-blue)]/20 bg-[var(--accent-blue)]/10 text-[var(--text-primary)]",
-  GROWTH:
-    "border border-[var(--accent-success)]/25 bg-[var(--accent-success)]/12 text-[var(--accent-success)]",
-  PRO: "border border-[var(--color-brand-primary)]/25 bg-[var(--color-brand-subtle)] text-[var(--color-brand-primary)]",
-  ENTERPRISE:
-    "border border-[var(--accent-warning)]/25 bg-[var(--accent-warning)]/12 text-[var(--accent-warning)]",
-  CUSTOM:
-    "border border-[var(--border-active)] bg-[var(--bg-surface-2)] text-[var(--text-primary)]",
+  TRIAL: "bg-gray-100 text-gray-800",
+  STARTER: "bg-blue-100 text-blue-800",
+  BASIC: "bg-sky-100 text-sky-800",
+  GROWTH: "bg-green-100 text-green-800",
+  PRO: "bg-purple-100 text-purple-800",
+  ENTERPRISE: "bg-amber-100 text-amber-800",
+  CUSTOM: "bg-pink-100 text-pink-800",
 };
 
 type CatalogAgent = {
@@ -142,15 +132,6 @@ type CatalogPlan = {
   };
 };
 
-const isLiveSellableAgent = (agent: {
-  implemented?: boolean;
-  sellable?: boolean;
-  subscriptionEnabled?: boolean;
-}) =>
-  agent.implemented !== false &&
-  agent.sellable !== false &&
-  agent.subscriptionEnabled !== false;
-
 const AGENT_ICON_MAP: Record<string, ElementType> = {
   OPS_AGENT: Bot,
   INVENTORY_AGENT: Package,
@@ -166,7 +147,6 @@ const FEATURE_ICON_MAP: Record<string, ElementType> = {
   CONVERSATIONS: MessageSquare,
   ORDERS: ShoppingCart,
   CATALOG: Package,
-  CASHIER_POS: CreditCard,
   INVENTORY: Package,
   PAYMENTS: CreditCard,
   VISION_OCR: ScanLine,
@@ -185,13 +165,17 @@ const FALLBACK_AGENT_NAMES: Record<string, string> = {
   OPS_AGENT: "وكيل العمليات",
   INVENTORY_AGENT: "وكيل المخزون",
   FINANCE_AGENT: "وكيل المالية",
+  MARKETING_AGENT: "وكيل التسويق",
+  SUPPORT_AGENT: "وكيل الدعم",
+  CONTENT_AGENT: "وكيل المحتوى",
+  SALES_AGENT: "وكيل المبيعات",
+  CREATIVE_AGENT: "وكيل الإبداع",
 };
 
 const FALLBACK_FEATURE_NAMES: Record<string, string> = {
   CONVERSATIONS: "المحادثات",
   ORDERS: "الطلبات",
   CATALOG: "الكتالوج",
-  CASHIER_POS: "الكاشير",
   INVENTORY: "المخزون",
   PAYMENTS: "المدفوعات",
   VISION_OCR: "الرؤية البصرية",
@@ -221,26 +205,8 @@ const FALLBACK_PLAN_PRESETS: Record<
       "CONVERSATIONS",
       "ORDERS",
       "CATALOG",
-      "INVENTORY",
-      "PAYMENTS",
-      "REPORTS",
+      "VOICE_NOTES",
       "NOTIFICATIONS",
-      "WEBHOOKS",
-      "API_ACCESS",
-    ],
-  },
-  CHAT_ONLY: {
-    agents: ["OPS_AGENT"],
-    features: [
-      "CONVERSATIONS",
-      "ORDERS",
-      "CATALOG",
-      "INVENTORY",
-      "PAYMENTS",
-      "REPORTS",
-      "NOTIFICATIONS",
-      "WEBHOOKS",
-      "API_ACCESS",
     ],
   },
   BASIC: {
@@ -249,38 +215,24 @@ const FALLBACK_PLAN_PRESETS: Record<
       "CONVERSATIONS",
       "ORDERS",
       "CATALOG",
-      "CASHIER_POS",
       "INVENTORY",
       "PAYMENTS",
       "VOICE_NOTES",
       "REPORTS",
-      "WEBHOOKS",
-      "TEAM",
-      "LOYALTY",
       "NOTIFICATIONS",
-      "AUDIT_LOGS",
-      "KPI_DASHBOARD",
       "API_ACCESS",
     ],
   },
   GROWTH: {
-    agents: ["OPS_AGENT", "INVENTORY_AGENT", "FINANCE_AGENT"],
+    agents: ["OPS_AGENT", "INVENTORY_AGENT"],
     features: [
       "CONVERSATIONS",
       "ORDERS",
       "CATALOG",
-      "CASHIER_POS",
       "INVENTORY",
-      "PAYMENTS",
-      "VISION_OCR",
       "VOICE_NOTES",
       "REPORTS",
-      "WEBHOOKS",
-      "TEAM",
-      "LOYALTY",
       "NOTIFICATIONS",
-      "AUDIT_LOGS",
-      "KPI_DASHBOARD",
       "API_ACCESS",
     ],
   },
@@ -290,7 +242,6 @@ const FALLBACK_PLAN_PRESETS: Record<
       "CONVERSATIONS",
       "ORDERS",
       "CATALOG",
-      "CASHIER_POS",
       "INVENTORY",
       "PAYMENTS",
       "VISION_OCR",
@@ -305,12 +256,18 @@ const FALLBACK_PLAN_PRESETS: Record<
     ],
   },
   ENTERPRISE: {
-    agents: ["OPS_AGENT", "INVENTORY_AGENT", "FINANCE_AGENT"],
+    agents: [
+      "OPS_AGENT",
+      "INVENTORY_AGENT",
+      "FINANCE_AGENT",
+      "MARKETING_AGENT",
+      "SUPPORT_AGENT",
+      "CONTENT_AGENT",
+    ],
     features: [
       "CONVERSATIONS",
       "ORDERS",
       "CATALOG",
-      "CASHIER_POS",
       "INVENTORY",
       "PAYMENTS",
       "VISION_OCR",
@@ -335,23 +292,24 @@ const AGENT_DEPENDENCIES: Record<string, string[]> = {
   OPS_AGENT: [],
   INVENTORY_AGENT: ["OPS_AGENT"],
   FINANCE_AGENT: ["OPS_AGENT"],
-  SALES_AGENT: ["OPS_AGENT"],
-  CREATIVE_AGENT: ["OPS_AGENT"],
+  MARKETING_AGENT: ["OPS_AGENT"],
+  SUPPORT_AGENT: ["OPS_AGENT"],
+  CONTENT_AGENT: [],
 };
 
 const AGENT_FEATURE_MAP: Record<string, string[]> = {
   OPS_AGENT: ["CONVERSATIONS", "ORDERS", "CATALOG"],
   INVENTORY_AGENT: ["INVENTORY"],
-  FINANCE_AGENT: ["PAYMENTS", "REPORTS", "KPI_DASHBOARD"],
-  SALES_AGENT: ["LOYALTY"],
-  CREATIVE_AGENT: [],
+  FINANCE_AGENT: ["REPORTS", "KPI_DASHBOARD"],
+  MARKETING_AGENT: ["LOYALTY"],
+  SUPPORT_AGENT: ["CONVERSATIONS"],
+  CONTENT_AGENT: [],
 };
 
 const FEATURE_DEPENDENCIES: Record<string, string[]> = {
   CONVERSATIONS: [],
   ORDERS: ["CONVERSATIONS"],
   CATALOG: [],
-  CASHIER_POS: ["ORDERS"],
   INVENTORY: ["CATALOG"],
   PAYMENTS: ["ORDERS"],
   VISION_OCR: [],
@@ -369,7 +327,7 @@ const FEATURE_DEPENDENCIES: Record<string, string[]> = {
 const FEATURE_AGENT_MAP: Record<string, string> = {
   INVENTORY: "INVENTORY_AGENT",
   REPORTS: "FINANCE_AGENT",
-  LOYALTY: "OPS_AGENT",
+  LOYALTY: "MARKETING_AGENT",
   KPI_DASHBOARD: "FINANCE_AGENT",
 };
 
@@ -390,15 +348,6 @@ interface Merchant {
     messagesPerMonth: number;
     whatsappNumbers: number;
     teamMembers: number;
-  };
-  usage?: {
-    messagesUsedMonth: number;
-    messagesLimitMonth: number;
-    messagesUsagePercent: number | null;
-    aiRepliesUsedMonth: number;
-    aiRepliesLimitMonth: number;
-    aiRepliesUsagePercent: number | null;
-    thresholdBand: string;
   };
   createdAt: string;
 }
@@ -500,22 +449,18 @@ function AdminEntitlementsContent() {
 
   const allAgents = useMemo(() => {
     if (catalogData?.agents?.length) {
-      const liveAgents = catalogData.agents.filter(isLiveSellableAgent);
-      const sourceAgents = liveAgents.length > 0 ? liveAgents : [];
-      if (sourceAgents.length > 0) {
-        return sourceAgents.map((agent) => ({
-          key: agent.id,
-          name:
-            agent.nameAr ||
-            FALLBACK_AGENT_NAMES[agent.id] ||
-            agent.nameEn ||
-            agent.id,
-          icon: AGENT_ICON_MAP[agent.id] || Bot,
-          implemented: agent.implemented ?? true,
-          sellable: agent.sellable ?? true,
-          subscriptionEnabled: agent.subscriptionEnabled ?? true,
-        }));
-      }
+      return catalogData.agents.map((agent) => ({
+        key: agent.id,
+        name:
+          agent.nameAr ||
+          FALLBACK_AGENT_NAMES[agent.id] ||
+          agent.nameEn ||
+          agent.id,
+        icon: AGENT_ICON_MAP[agent.id] || Bot,
+        implemented: agent.implemented ?? false,
+        sellable: agent.sellable ?? false,
+        subscriptionEnabled: agent.subscriptionEnabled ?? false,
+      }));
     }
 
     return Object.entries(FALLBACK_AGENT_NAMES).map(([key, name]) => ({
@@ -527,11 +472,6 @@ function AdminEntitlementsContent() {
       subscriptionEnabled: true,
     }));
   }, [catalogData]);
-
-  const selectableAgentKeys = useMemo(
-    () => new Set(allAgents.map((agent) => agent.key)),
-    [allAgents],
-  );
 
   const allFeatures = useMemo(() => {
     if (catalogData?.features?.length) {
@@ -567,77 +507,47 @@ function AdminEntitlementsContent() {
         catalogData.plans.map((plan) => [
           String(plan.id).toUpperCase(),
           {
-            agents: (plan.enabledAgents || []).filter((agent) =>
-              selectableAgentKeys.has(agent),
-            ),
+            agents: plan.enabledAgents || [],
             features: plan.enabledFeatures || [],
           },
         ]),
       ) as Record<string, { agents: string[]; features: string[] }>;
     }
 
-    return Object.fromEntries(
-      Object.entries(FALLBACK_PLAN_PRESETS).map(([plan, preset]) => [
-        plan,
-        {
-          ...preset,
-          agents: preset.agents.filter((agent) =>
-            selectableAgentKeys.has(agent),
-          ),
-        },
-      ]),
-    ) as Record<string, { agents: string[]; features: string[] }>;
-  }, [catalogData, selectableAgentKeys]);
+    return FALLBACK_PLAN_PRESETS;
+  }, [catalogData]);
 
-  const agentDependencies = useMemo(() => {
-    const source =
-      catalogData?.agentDependencies &&
-      Object.keys(catalogData.agentDependencies).length > 0
-        ? catalogData.agentDependencies
-        : AGENT_DEPENDENCIES;
-    return Object.fromEntries(
-      Object.entries(source)
-        .filter(([agent]) => selectableAgentKeys.has(agent))
-        .map(([agent, deps]) => [
-          agent,
-          (deps || []).filter((dep) => selectableAgentKeys.has(dep)),
-        ]),
-    ) as Record<string, string[]>;
-  }, [catalogData, selectableAgentKeys]);
+  const agentDependencies = useMemo(
+    () => catalogData?.agentDependencies || AGENT_DEPENDENCIES,
+    [catalogData],
+  );
 
   const agentFeatureMap = useMemo(() => {
     if (catalogData?.agents?.length) {
       return Object.fromEntries(
-        catalogData.agents
-          .filter((agent) => selectableAgentKeys.has(agent.id))
-          .map((agent) => [
-            agent.id,
-            agent.requiredFeatures || agent.features || [],
-          ]),
+        catalogData.agents.map((agent) => [
+          agent.id,
+          agent.requiredFeatures || agent.features || [],
+        ]),
       ) as Record<string, string[]>;
     }
 
     return AGENT_FEATURE_MAP;
-  }, [catalogData, selectableAgentKeys]);
+  }, [catalogData]);
 
   const featureAgentMap = useMemo(() => {
     const derived: Record<string, string> = { ...FEATURE_AGENT_MAP };
 
     if (catalogData?.features?.length) {
       for (const feature of catalogData.features) {
-        if (
-          feature.requiredAgent &&
-          selectableAgentKeys.has(feature.requiredAgent)
-        ) {
+        if (feature.requiredAgent) {
           derived[feature.id] = feature.requiredAgent;
         }
       }
     }
 
     if (catalogData?.agents?.length) {
-      for (const agent of catalogData.agents.filter((entry) =>
-        selectableAgentKeys.has(entry.id),
-      )) {
+      for (const agent of catalogData.agents) {
         for (const feature of agent.requiredFeatures || agent.features || []) {
           if (!derived[feature]) {
             derived[feature] = agent.id;
@@ -647,7 +557,7 @@ function AdminEntitlementsContent() {
     }
 
     return derived;
-  }, [catalogData, selectableAgentKeys]);
+  }, [catalogData]);
 
   useEffect(() => {
     if (
@@ -755,25 +665,21 @@ function AdminEntitlementsContent() {
 
   const toggleAgent = (agent: string) => {
     if (!editingEntitlements) return;
-    const agentMeta = allAgents.find((entry) => entry.key === agent);
-    if (
-      !agentMeta ||
-      !agentMeta.implemented ||
-      !agentMeta.sellable ||
-      !agentMeta.subscriptionEnabled
-    ) {
-      setDependencyNotice("هذا الوكيل غير متاح للاشتراك حالياً");
-      return;
-    }
     setDependencyNotice(null);
 
     const isEnabled = editingEntitlements.enabledAgents.includes(agent);
     if (isEnabled) {
+      const dependents = Object.entries(AGENT_DEPENDENCIES)
+        .filter(([, deps]) => deps.includes(agent))
+        .map(([key]) => key)
+        .filter((dep) => editingEntitlements.enabledAgents.includes(dep));
       const catalogDependents = Object.entries(agentDependencies)
         .filter(([, deps]) => deps.includes(agent))
         .map(([key]) => key)
         .filter((dep) => editingEntitlements.enabledAgents.includes(dep));
-      const dependentsSet = Array.from(new Set(catalogDependents));
+      const dependentsSet = Array.from(
+        new Set([...dependents, ...catalogDependents]),
+      );
 
       if (dependentsSet.length > 0) {
         const names = dependentsSet
@@ -922,22 +828,6 @@ function AdminEntitlementsContent() {
     }
   };
 
-  const usageBandLabels: Record<string, string> = {
-    healthy: "طبيعي",
-    attention: "تنبيه",
-    warning: "تحذير",
-    critical: "حرج",
-    exceeded: "متجاوز",
-  };
-
-  const usageBandClasses: Record<string, string> = {
-    healthy: "bg-[var(--accent-success)]",
-    attention: "bg-[var(--accent-blue)]",
-    warning: "bg-[var(--accent-warning)]",
-    critical: "bg-[var(--accent-danger)]",
-    exceeded: "bg-[var(--accent-danger)]",
-  };
-
   const columns = [
     {
       key: "tradeName",
@@ -1001,43 +891,19 @@ function AdminEntitlementsContent() {
     {
       key: "limits",
       header: "الحدود",
-      render: (merchant: Merchant) => {
-        const usagePercent = merchant.usage?.messagesUsagePercent;
-        const usageBand = merchant.usage?.thresholdBand || "healthy";
-        const progress = Math.max(0, Math.min(100, Number(usagePercent || 0)));
-        const usageBandClass =
-          usageBandClasses[usageBand] || usageBandClasses.healthy;
-        return (
-          <div className="space-y-1 text-xs">
-            <div>
-              {merchant.limits.messagesPerMonth === -1
-                ? "∞"
-                : merchant.limits.messagesPerMonth.toLocaleString()}{" "}
-              رسالة
-            </div>
-            <div className="text-muted-foreground">
-              {merchant.limits.whatsappNumbers} رقم
-            </div>
-            {usagePercent != null ? (
-              <>
-                <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted/60">
-                  <div
-                    className={cn(
-                      "h-full rounded-full transition-all",
-                      usageBandClass,
-                    )}
-                    style={{ width: `${progress}%` }}
-                  />
-                </div>
-                <div className="text-[11px] text-muted-foreground">
-                  استخدام الرسائل: {usagePercent.toLocaleString("ar-EG")}٪ •{" "}
-                  {usageBandLabels[usageBand] || usageBandLabels.healthy}
-                </div>
-              </>
-            ) : null}
+      render: (merchant: Merchant) => (
+        <div className="text-xs">
+          <div>
+            {merchant.limits.messagesPerMonth === -1
+              ? "∞"
+              : merchant.limits.messagesPerMonth.toLocaleString()}{" "}
+            رسالة
           </div>
-        );
-      },
+          <div className="text-muted-foreground">
+            {merchant.limits.whatsappNumbers} رقم
+          </div>
+        </div>
+      ),
     },
     {
       key: "actions",
@@ -1217,15 +1083,6 @@ function AdminEntitlementsContent() {
                     <p className="text-xs text-muted-foreground">
                       {merchant.limits.whatsappNumbers} رقم
                     </p>
-                    {merchant.usage?.messagesUsagePercent != null ? (
-                      <p className="text-xs text-muted-foreground">
-                        استخدام الرسائل:{" "}
-                        {merchant.usage.messagesUsagePercent.toLocaleString(
-                          "ar-EG",
-                        )}
-                        ٪
-                      </p>
-                    ) : null}
                   </div>
                   <div>
                     <p className="text-muted-foreground">تاريخ الإنشاء</p>
@@ -1305,8 +1162,8 @@ function AdminEntitlementsContent() {
                       className={cn(
                         "p-4 border-2 rounded-lg cursor-pointer transition-all",
                         editingEntitlements.plan === plan
-                          ? "border-[var(--color-brand-primary)] bg-[var(--color-brand-subtle)]"
-                          : "border-[var(--border-default)] bg-[var(--bg-surface-2)] hover:border-[var(--border-active)]",
+                          ? "border-primary-500 bg-primary-50"
+                          : "border-muted hover:border-primary-300",
                       )}
                       onClick={() => handlePlanChange(plan)}
                     >
@@ -1319,7 +1176,7 @@ function AdminEntitlementsContent() {
                           {PLAN_NAMES[plan] || plan}
                         </Badge>
                         {editingEntitlements.plan === plan && (
-                          <Check className="h-5 w-5 text-[var(--color-brand-primary)]" />
+                          <Check className="h-5 w-5 text-primary-600" />
                         )}
                       </div>
                       <div className="text-xs text-muted-foreground">
@@ -1349,28 +1206,18 @@ function AdminEntitlementsContent() {
                     {allAgents.map((agent) => {
                       const enabled =
                         editingEntitlements.enabledAgents.includes(agent.key);
-                      const selectable =
-                        !!agent.implemented &&
-                        !!agent.sellable &&
-                        !!agent.subscriptionEnabled;
                       return (
                         <div
                           key={agent.key}
                           className={cn(
-                            "flex items-center gap-2 rounded-lg border p-3 transition-colors",
-                            !selectable
-                              ? "cursor-not-allowed opacity-60"
-                              : "cursor-pointer",
-                            enabled && selectable
-                              ? "border-[var(--accent-success)]/25 bg-[var(--accent-success)]/12"
-                              : "bg-[var(--bg-surface-2)] hover:bg-[var(--bg-surface-3)]",
+                            "flex items-center gap-2 p-3 rounded-lg border cursor-pointer transition-colors",
+                            enabled
+                              ? "bg-green-50 border-green-200"
+                              : "bg-muted/30 hover:bg-muted/50",
                           )}
-                          onClick={() => {
-                            if (!selectable) return;
-                            toggleAgent(agent.key);
-                          }}
+                          onClick={() => toggleAgent(agent.key)}
                         >
-                          <Checkbox checked={enabled} disabled={!selectable} />
+                          <Checkbox checked={enabled} />
                           <agent.icon className="h-4 w-4" />
                           <div className="min-w-0">
                             <span className="text-sm">{agent.name}</span>

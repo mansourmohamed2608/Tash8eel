@@ -1,15 +1,19 @@
 ﻿"use client";
 
-import { useMemo, useState } from "react";
-import { usePathname } from "next/navigation";
+import { useState } from "react";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
+  Sparkles,
   ChevronDown,
   ChevronUp,
   AlertTriangle,
   TrendingUp,
+  TrendingDown,
   Lightbulb,
   Target,
+  Shield,
+  Zap,
 } from "lucide-react";
 import { cn, formatNumber } from "@/lib/utils";
 import Link from "next/link";
@@ -75,37 +79,42 @@ function formatInsightPercent(value: number, maxFractionDigits = 1): string {
 
 const severityConfig: Record<
   InsightSeverity,
-  { icon: any; bg: string; border: string; text: string }
+  { icon: any; bg: string; border: string; text: string; dot: string }
 > = {
   critical: {
     icon: AlertTriangle,
-    bg: "bg-[var(--accent-danger)]/10",
-    border: "border-[var(--accent-danger)]/20",
-    text: "text-[var(--accent-danger)]",
+    bg: "bg-red-50 dark:bg-red-950/30",
+    border: "border-red-200 dark:border-red-900",
+    text: "text-red-700 dark:text-red-300",
+    dot: "bg-red-500",
   },
   warning: {
     icon: AlertTriangle,
-    bg: "bg-[var(--accent-warning)]/10",
-    border: "border-[var(--accent-warning)]/20",
-    text: "text-[var(--accent-warning)]",
+    bg: "bg-orange-50 dark:bg-orange-950/30",
+    border: "border-orange-200 dark:border-orange-900",
+    text: "text-orange-700 dark:text-orange-300",
+    dot: "bg-orange-500",
   },
   success: {
     icon: TrendingUp,
-    bg: "bg-[var(--accent-success)]/10",
-    border: "border-[var(--accent-success)]/20",
-    text: "text-[var(--accent-success)]",
+    bg: "bg-green-50 dark:bg-green-950/30",
+    border: "border-green-200 dark:border-green-900",
+    text: "text-green-700 dark:text-green-300",
+    dot: "bg-green-500",
   },
   info: {
     icon: Target,
-    bg: "bg-[var(--accent-blue)]/10",
-    border: "border-[var(--accent-blue)]/20",
-    text: "text-[var(--accent-blue)]",
+    bg: "bg-blue-50 dark:bg-blue-950/30",
+    border: "border-blue-200 dark:border-blue-900",
+    text: "text-blue-700 dark:text-blue-300",
+    dot: "bg-blue-500",
   },
   tip: {
     icon: Lightbulb,
-    bg: "bg-[var(--color-brand-primary)]/10",
-    border: "border-[var(--color-brand-primary)]/20",
-    text: "text-[var(--color-brand-primary)]",
+    bg: "bg-purple-50 dark:bg-purple-950/30",
+    border: "border-purple-200 dark:border-purple-900",
+    text: "text-purple-700 dark:text-purple-300",
+    dot: "bg-purple-500",
   },
 };
 
@@ -124,28 +133,33 @@ export function AiInsightsCard({
   maxVisible = 3,
   loading = false,
 }: AiInsightsCardProps) {
-  const pathname = usePathname();
   const [expanded, setExpanded] = useState(false);
-  const allowed = useMemo(
-    () =>
-      ["/merchant/dashboard", "/merchant/orders", "/merchant/inventory"].some(
-        (prefix) => pathname?.startsWith(prefix),
-      ),
-    [pathname],
-  );
-
-  if (!allowed) return null;
 
   if (loading) {
     return (
-      <div className={cn("app-insight-strip p-3", className)}>
-        <div className="flex items-center gap-2">
-          <Lightbulb className="h-4 w-4 animate-pulse text-[var(--color-brand-primary)]" />
-          <span className="text-sm font-semibold text-[var(--text-primary)]">
-            المساعد يراجع البيانات
-          </span>
-        </div>
-      </div>
+      <Card
+        className={cn(
+          "border-purple-200 dark:border-purple-800 bg-gradient-to-r from-purple-50/50 to-indigo-50/50 dark:from-purple-950/20 dark:to-indigo-950/20",
+          className,
+        )}
+      >
+        <CardContent className="p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Sparkles className="h-5 w-5 text-purple-500 animate-pulse" />
+            <span className="font-semibold text-purple-700 dark:text-purple-300">
+              {title}
+            </span>
+          </div>
+          <div className="space-y-2">
+            {[1, 2].map((i) => (
+              <div
+                key={i}
+                className="h-12 bg-purple-100/50 dark:bg-purple-900/20 rounded-lg animate-pulse"
+              />
+            ))}
+          </div>
+        </CardContent>
+      </Card>
     );
   }
 
@@ -155,33 +169,30 @@ export function AiInsightsCard({
   const hasMore = insights.length > maxVisible;
 
   return (
-    <section className={cn("app-insight-strip", className)}>
-      <button
-        type="button"
-        onClick={() => setExpanded((current) => !current)}
-        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-right"
-      >
-        <div className="min-w-0">
+    <Card
+      className={cn(
+        "border-purple-200 dark:border-purple-800 bg-gradient-to-r from-purple-50/50 to-indigo-50/50 dark:from-purple-950/20 dark:to-indigo-950/20",
+        className,
+      )}
+    >
+      <CardContent className="p-4">
+        <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <Lightbulb className="h-4 w-4 text-[var(--color-brand-primary)]" />
-            <span className="text-sm font-semibold text-[var(--text-primary)]">
-              المساعد لاحظ شيئاً
+            <Sparkles className="h-5 w-5 text-purple-500" />
+            <span className="font-semibold text-purple-700 dark:text-purple-300">
+              {title}
             </span>
-            <span className="rounded-[4px] border border-[var(--color-brand-primary)]/20 bg-[var(--color-brand-primary)]/10 px-2 py-0.5 text-[11px] text-[var(--color-brand-primary)]">
+            <span className="text-xs text-muted-foreground bg-purple-100 dark:bg-purple-900/40 px-2 py-0.5 rounded-full">
               {insights.length} {insights.length === 1 ? "توصية" : "توصيات"}
             </span>
           </div>
-          <p className="mt-1 text-xs text-[var(--text-secondary)]">{title}</p>
+          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+            <Zap className="h-3 w-3" />
+            <span>مُولّد تلقائياً</span>
+          </div>
         </div>
-        {expanded ? (
-          <ChevronUp className="h-4 w-4 text-[var(--text-muted)]" />
-        ) : (
-          <ChevronDown className="h-4 w-4 text-[var(--text-muted)]" />
-        )}
-      </button>
 
-      {expanded ? (
-        <div className="space-y-2 border-t border-[var(--border-subtle)] px-4 py-3">
+        <div className="space-y-2">
           {visible.map((insight) => {
             const config = severityConfig[insight.severity];
             const Icon = config.icon;
@@ -189,50 +200,63 @@ export function AiInsightsCard({
               <div
                 key={insight.id}
                 className={cn(
-                  "flex items-start gap-3 rounded-[8px] border px-3 py-3",
+                  "flex items-start gap-3 p-3 rounded-lg border",
                   config.bg,
                   config.border,
                 )}
               >
-                <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-[6px] border border-[var(--border-subtle)] bg-[var(--bg-surface-1)]">
-                  <Icon className={cn("h-4 w-4", config.text)} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-[var(--text-primary)]">
+                <div
+                  className={cn(
+                    "mt-0.5 h-2 w-2 rounded-full shrink-0",
+                    config.dot,
+                  )}
+                />
+                <div className="flex-1 min-w-0">
+                  <p className={cn("text-sm font-medium", config.text)}>
                     {insight.title}
                   </p>
-                  <p className="mt-1 text-xs leading-6 text-[var(--text-secondary)]">
+                  <p className="text-xs text-muted-foreground mt-0.5">
                     {insight.description}
                   </p>
                 </div>
-                {insight.actionLabel && insight.actionHref ? (
+                {insight.actionLabel && insight.actionHref && (
                   <Link href={insight.actionHref}>
                     <Button
                       size="sm"
-                      variant="outline"
-                      className="h-8 border-[var(--border-default)] text-xs"
+                      variant="ghost"
+                      className={cn("text-xs shrink-0 h-7", config.text)}
                     >
                       {insight.actionLabel}
                     </Button>
                   </Link>
-                ) : null}
+                )}
               </div>
             );
           })}
-
-          {hasMore ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 text-xs text-[var(--color-brand-primary)] hover:bg-[var(--color-brand-primary)]/10 hover:text-[var(--color-brand-primary)]"
-              onClick={() => setExpanded(false)}
-            >
-              عرض أقل
-            </Button>
-          ) : null}
         </div>
-      ) : null}
-    </section>
+
+        {hasMore && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full mt-2 text-purple-600 dark:text-purple-300 hover:bg-purple-100/50 dark:hover:bg-purple-900/30"
+            onClick={() => setExpanded(!expanded)}
+          >
+            {expanded ? (
+              <>
+                <ChevronUp className="h-4 w-4 ml-1" />
+                عرض أقل
+              </>
+            ) : (
+              <>
+                <ChevronDown className="h-4 w-4 ml-1" />
+                عرض {insights.length - maxVisible} توصيات أخرى
+              </>
+            )}
+          </Button>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -619,7 +643,7 @@ export function generateFollowupInsights(data: {
     severity: "tip",
     title: "فعّل المتابعة التلقائية",
     description:
-      "المساعد يمكنه اقتراح رسائل متابعة عبر واتساب بدلاً من المتابعة اليدوية.",
+      "الذكاء الاصطناعي يمكنه إرسال رسائل متابعة تلقائية عبر واتساب بدلاً من المتابعة اليدوية.",
     actionLabel: "الإعدادات",
     actionHref: "/merchant/settings",
   });
@@ -771,7 +795,7 @@ export function generateCodInsights(data: {
     insights.push({
       id: "cod-clear",
       severity: "success",
-      title: "جميع مبالغ COD محصّلة",
+      title: "جميع مبالغ COD محصّلة ✅",
       description: "لا توجد مبالغ معلقة. أداء ممتاز في إدارة التدفق النقدي.",
     });
   }
@@ -819,7 +843,7 @@ export function generateSegmentInsights(data: {
   insights.push({
     id: "segment-ai",
     severity: "tip",
-    title: "المساعد يقترح شرائح",
+    title: "الذكاء الاصطناعي يقترح شرائح",
     description:
       'بناءً على سجل الطلبات، يمكن للنظام اقتراح شرائح مثل "عملاء VIP" و"عملاء خاملين".',
   });
@@ -894,7 +918,7 @@ export function generateBillingInsights(data: {
       description:
         "ترقية الباقة تفتح ميزات AI متقدمة مثل المساعد الصوتي وتحليلات مفصلة.",
       actionLabel: "عرض الباقات",
-      actionHref: "/merchant/billing",
+      actionHref: "/merchant/plan",
     });
   }
 
@@ -1459,7 +1483,7 @@ export function generatePlanInsights(data: {
       title: "اقتربت من حدود خطتك",
       description: `استهلكت ${formatInsightPercent(data.usagePercent, 1)} من حدود خطتك. ترقية الخطة بتديك مساحة أكبر.`,
       actionLabel: "ترقية",
-      actionHref: "/merchant/billing",
+      actionHref: "/merchant/plan",
     });
   }
   insights.push({
@@ -1467,7 +1491,7 @@ export function generatePlanInsights(data: {
     severity: "info",
     title: "تعرف على مميزات خطتك",
     description:
-      "كل خطة بتديك قدرات تشغيلية مختلفة - اتأكد إنك مستفيد من كل المميزات.",
+      "كل خطة بتديك وكلاء وقدرات ذكية مختلفة - اتأكد إنك مستفيد من كل المميزات.",
   });
   return insights;
 }
@@ -1485,7 +1509,7 @@ export function generateOcrInsights(data: {
       severity: "warning",
       title: `${data.pendingReview} إيصال بانتظار المراجعة`,
       description:
-        "راجع إيصالات الدفع عشان تتأكد من صحة البيانات المستخرجة. المساعد يقرأها لكن التأكيد النهائي عليك.",
+        "راجع إيصالات الدفع عشان تتأكد من صحة البيانات المستخرجة. الذكاء الاصطناعي يقرأها لكن التأكيد النهائي عليك.",
     });
   }
   if (data.approved > 0) {

@@ -136,13 +136,13 @@ export function AIInsightsPanel({
   const getUrgencyColor = (urgency: string) => {
     switch (urgency) {
       case "critical":
-        return "bg-[var(--danger-muted)] text-[var(--accent-danger)] border-[color:color-mix(in_srgb,var(--accent-danger)_20%,transparent)]";
+        return "bg-red-100 text-red-800 border-red-200";
       case "high":
-        return "bg-[var(--warning-muted)] text-[var(--accent-warning)] border-[color:color-mix(in_srgb,var(--accent-warning)_20%,transparent)]";
+        return "bg-orange-100 text-orange-800 border-orange-200";
       case "medium":
-        return "bg-[color:color-mix(in_srgb,var(--warning-muted)_65%,white)] text-[var(--accent-warning)] border-[color:color-mix(in_srgb,var(--accent-warning)_14%,transparent)]";
+        return "bg-yellow-100 text-yellow-800 border-yellow-200";
       default:
-        return "bg-[var(--success-muted)] text-[var(--accent-success)] border-[color:color-mix(in_srgb,var(--accent-success)_20%,transparent)]";
+        return "bg-green-100 text-green-800 border-green-200";
     }
   };
 
@@ -187,8 +187,8 @@ export function AIInsightsPanel({
           className={cn(
             "flex items-center gap-3 rounded-lg p-4 border",
             aiStatus.budgetExhausted || aiStatus.error === "AI_QUOTA_EXHAUSTED"
-              ? "bg-[var(--warning-muted)] border-[color:color-mix(in_srgb,var(--accent-warning)_20%,transparent)] text-[var(--text-primary)]"
-              : "bg-[var(--bg-surface-2)] border-[var(--border-default)] text-[var(--text-primary)]",
+              ? "bg-orange-50 border-orange-200 text-orange-800"
+              : "bg-slate-50 border-slate-200 text-slate-700",
           )}
         >
           <AlertTriangle className="h-5 w-5 flex-shrink-0" />
@@ -226,7 +226,7 @@ export function AIInsightsPanel({
             )}
           </div>
           <a
-            href="/merchant/billing"
+            href="/merchant/plan"
             className={cn(
               "shrink-0 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
               aiStatus.budgetExhausted ||
@@ -249,7 +249,7 @@ export function AIInsightsPanel({
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-lg flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-[var(--color-brand-primary)]" />
+                <Sparkles className="h-5 w-5 text-purple-500" />
                 توصيات إعادة التخزين الذكية
               </CardTitle>
               <Button
@@ -274,7 +274,7 @@ export function AIInsightsPanel({
                 restockRecs.map((rec) => (
                   <div
                     key={rec.variantId}
-                    className="space-y-3 rounded-lg border border-[var(--border-default)] p-4 transition-colors hover:bg-[var(--bg-surface-2)]"
+                    className="border rounded-lg p-4 space-y-3 hover:shadow-md transition-shadow"
                   >
                     <div className="flex items-start justify-between">
                       <div>
@@ -300,10 +300,10 @@ export function AIInsightsPanel({
 
                     {/* AI Explanation */}
                     {rec.ai && (
-                      <div className="rounded-lg border border-[var(--color-brand-primary)]/20 bg-[var(--color-brand-subtle)] p-3">
+                      <div className="bg-purple-50 rounded-lg p-3 border border-purple-100">
                         <div className="flex items-start gap-2">
-                          <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-brand-primary)]" />
-                          <p className="text-sm text-[var(--text-primary)]">
+                          <Sparkles className="h-4 w-4 text-purple-500 mt-0.5 flex-shrink-0" />
+                          <p className="text-sm text-purple-900">
                             {rec.ai.explanationAr}
                           </p>
                         </div>
@@ -398,10 +398,10 @@ export function AIInsightsPanel({
                     </div>
 
                     {group.merchantMessageAr && (
-                      <div className="rounded-lg border border-[var(--accent-blue)]/20 bg-[var(--accent-blue-dim)] p-3">
+                      <div className="bg-blue-50 rounded-lg p-3 border border-blue-100">
                         <div className="flex items-start gap-2">
-                          <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-[var(--accent-blue)]" />
-                          <p className="text-sm text-[var(--text-primary)]">
+                          <Sparkles className="h-4 w-4 text-blue-500 mt-0.5 flex-shrink-0" />
+                          <p className="text-sm text-blue-900">
                             {group.merchantMessageAr}
                           </p>
                         </div>

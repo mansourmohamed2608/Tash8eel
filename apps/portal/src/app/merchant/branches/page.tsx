@@ -3,7 +3,13 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/layout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -222,8 +228,8 @@ export default function BranchesPage() {
   return (
     <div className="space-y-8">
       <PageHeader
-        title="الإعدادات / المتجر والفروع"
-        description="إعداد ملف المتجر والفروع ومعلومات الاتصال، بعيداً عن طابور العمليات."
+        title="إدارة الفروع"
+        description="إدارة الفروع، تشغيلها، ومتابعة انتشار النشاط جغرافياً من شاشة واحدة."
         actions={
           <div className="flex w-full flex-wrap items-center gap-2 md:w-auto md:justify-end">
             <Button variant="outline" size="sm" onClick={fetchBranches}>
@@ -240,35 +246,82 @@ export default function BranchesPage() {
         }
       />
 
-      <div className="flex flex-wrap gap-2">
-        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
-          <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
-          <span className="text-muted-foreground">إجمالي الفروع</span>
-          <span className="font-mono text-[var(--color-brand-primary)]">
-            {branches.length}
-          </span>
+      <section className="app-hero-band">
+        <div className="app-hero-band__grid">
+          <div className="space-y-4">
+            <span className="app-hero-band__eyebrow">Branch Network</span>
+            <div className="space-y-3">
+              <h2 className="app-hero-band__title">
+                تحكم في بنية الفروع كشبكة تشغيل، لا كقائمة إعدادات فقط.
+              </h2>
+              <p className="app-hero-band__copy">
+                أنشئ فروعاً جديدة، حدّث بياناتها، وادخل إلى التحليلات الخاصة بكل
+                فرع مباشرة. هذه الصفحة تربط بين إعداد الفرع وحضوره التشغيلي.
+              </p>
+            </div>
+          </div>
+          <div className="app-hero-band__metrics">
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">إجمالي الفروع</span>
+              <strong className="app-hero-band__metric-value">
+                {branches.length}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">نشطة</span>
+              <strong className="app-hero-band__metric-value">
+                {branches.filter((b) => b.is_active).length}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">معطلة</span>
+              <strong className="app-hero-band__metric-value">
+                {branches.filter((b) => !b.is_active).length}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">افتراضي</span>
+              <strong className="app-hero-band__metric-value">
+                {branches.find((b) => b.is_default)?.name || "غير محدد"}
+              </strong>
+            </div>
+          </div>
         </div>
-        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
-          <CheckCircle className="h-3.5 w-3.5 text-[var(--accent-success)]" />
-          <span className="text-muted-foreground">نشطة</span>
-          <span className="font-mono text-[var(--accent-success)]">
-            {branches.filter((b) => b.is_active).length}
-          </span>
-        </div>
-        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
-          <XCircle className="h-3.5 w-3.5 text-[var(--accent-danger)]" />
-          <span className="text-muted-foreground">معطلة</span>
-          <span className="font-mono text-[var(--accent-danger)]">
-            {branches.filter((b) => !b.is_active).length}
-          </span>
-        </div>
-        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
-          <Star className="h-3.5 w-3.5 text-[var(--accent-warning)]" />
-          <span className="text-muted-foreground">الفرع الافتراضي</span>
-          <span className="max-w-[220px] truncate text-foreground">
-            {branches.find((b) => b.is_default)?.name || "غير محدد"}
-          </span>
-        </div>
+      </section>
+
+      {/* Summary row */}
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+        <Card className="app-data-card">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 text-muted-foreground text-sm mb-1">
+              <Building2 className="h-4 w-4" />
+              إجمالي الفروع
+            </div>
+            <p className="text-2xl font-bold">{branches.length}</p>
+          </CardContent>
+        </Card>
+        <Card className="app-data-card">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 text-muted-foreground text-sm mb-1">
+              <CheckCircle className="h-4 w-4 text-green-500" />
+              فروع نشطة
+            </div>
+            <p className="text-2xl font-bold text-green-600">
+              {branches.filter((b) => b.is_active).length}
+            </p>
+          </CardContent>
+        </Card>
+        <Card className="app-data-card">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 text-muted-foreground text-sm mb-1">
+              <XCircle className="h-4 w-4 text-red-400" />
+              فروع معطلة
+            </div>
+            <p className="text-2xl font-bold text-red-500">
+              {branches.filter((b) => !b.is_active).length}
+            </p>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Branch cards */}
@@ -303,7 +356,7 @@ export default function BranchesPage() {
             <Card
               key={branch.id}
               className={cn(
-                "app-data-card relative overflow-hidden transition-colors hover:bg-[var(--bg-surface-2)]",
+                "app-data-card relative overflow-hidden transition-shadow hover:shadow-md",
                 !branch.is_active && "opacity-60",
               )}
             >
@@ -323,9 +376,9 @@ export default function BranchesPage() {
                     {branch.is_default && (
                       <Badge
                         variant="secondary"
-                        className="border-[var(--accent-warning)]/20 bg-[var(--accent-warning)]/10 text-xs text-[var(--accent-warning)]"
+                        className="text-xs bg-amber-100 text-amber-700 border-amber-200"
                       >
-                        <Star className="ml-1 h-3 w-3 fill-[var(--accent-warning)] text-[var(--accent-warning)]" />
+                        <Star className="h-3 w-3 ml-1 fill-amber-500 text-amber-500" />
                         افتراضي
                       </Badge>
                     )}
@@ -334,8 +387,8 @@ export default function BranchesPage() {
                       className={cn(
                         "text-xs",
                         branch.is_active
-                          ? "border-[var(--accent-success)]/20 bg-[var(--accent-success)]/10 text-[var(--accent-success)]"
-                          : "border-[var(--border-default)] bg-[var(--bg-surface-2)] text-muted-foreground",
+                          ? "bg-green-100 text-green-700 border-green-200"
+                          : "bg-gray-100 text-gray-500",
                       )}
                     >
                       {branch.is_active ? "نشط" : "معطل"}

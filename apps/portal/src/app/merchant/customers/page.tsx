@@ -1,7 +1,6 @@
 ﻿"use client";
 
 import { useState, useEffect, useCallback } from "react";
-import Link from "next/link";
 import { PageHeader } from "@/components/layout";
 import {
   Card,
@@ -29,6 +28,13 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Users,
@@ -52,6 +58,10 @@ import {
 import { cn, formatCurrency, formatRelativeTime } from "@/lib/utils";
 import { useMerchant } from "@/hooks/use-merchant";
 import { apiFetch } from "@/lib/client";
+import {
+  AiInsightsCard,
+  generateCustomerInsights,
+} from "@/components/ai/ai-insights-card";
 
 interface Customer {
   customerId: string;
@@ -115,36 +125,31 @@ const segmentConfig: Record<
 > = {
   VIP: {
     label: "VIP",
-    color:
-      "border border-[var(--color-brand-primary)]/25 bg-[var(--color-brand-primary)]/15 text-[var(--color-brand-primary)]",
+    color: "bg-yellow-500",
     icon: Crown,
     description: "5+ طلبات، 1000+ إنفاق، نشط آخر 30 يوم",
   },
   LOYAL: {
     label: "مخلص",
-    color:
-      "border border-[var(--accent-blue)]/25 bg-[var(--accent-blue)]/15 text-[var(--accent-blue)]",
+    color: "bg-purple-500",
     icon: Heart,
     description: "3+ طلبات، نشط آخر 60 يوم",
   },
   REGULAR: {
     label: "منتظم",
-    color:
-      "border border-[var(--border-default)] bg-[var(--bg-surface-3)] text-[var(--text-secondary)]",
+    color: "bg-blue-500",
     icon: UserCheck,
     description: "1-2 طلب، نشط آخر 90 يوم",
   },
   NEW: {
     label: "جديد (بدون طلب)",
-    color:
-      "border border-[var(--accent-success)]/25 bg-[var(--accent-success)]/15 text-[var(--accent-success)]",
+    color: "bg-green-500",
     icon: Star,
     description: "تمت إضافته كعميل لكن بدون طلبات حتى الآن",
   },
   AT_RISK: {
     label: "معرض للخسارة",
-    color:
-      "border border-[var(--accent-danger)]/25 bg-[var(--accent-danger)]/15 text-[var(--accent-danger)]",
+    color: "bg-red-500",
     icon: UserX,
     description: "غير نشط أكثر من 90 يوم",
   },
@@ -163,10 +168,9 @@ const localizeTierName = (tierName?: string | null): string | null => {
 };
 
 const churnRiskColors: Record<string, string> = {
-  LOW: "border border-[var(--accent-success)]/25 bg-[var(--accent-success)]/12 text-[var(--accent-success)]",
-  MEDIUM:
-    "border border-[var(--accent-warning)]/25 bg-[var(--accent-warning)]/12 text-[var(--accent-warning)]",
-  HIGH: "border border-[var(--accent-danger)]/25 bg-[var(--accent-danger)]/12 text-[var(--accent-danger)]",
+  LOW: "bg-green-100 text-green-800",
+  MEDIUM: "bg-yellow-100 text-yellow-800",
+  HIGH: "bg-red-100 text-red-800",
 };
 
 const ORDER_STATUS_AR: Record<string, string> = {
@@ -181,14 +185,14 @@ const ORDER_STATUS_AR: Record<string, string> = {
 const orderStatusBadgeClass = (status?: string): string => {
   switch (status) {
     case "DELIVERED":
-      return "text-[var(--accent-success)] border-[var(--accent-success)]/25";
+      return "text-green-600 border-green-200";
     case "CONFIRMED":
-      return "text-[var(--accent-blue)] border-[var(--accent-blue)]/25";
+      return "text-blue-600 border-blue-200";
     case "SHIPPED":
     case "OUT_FOR_DELIVERY":
-      return "text-[var(--color-brand-primary)] border-[var(--color-brand-primary)]/25";
+      return "text-purple-600 border-purple-200";
     case "CANCELLED":
-      return "text-[var(--accent-danger)] border-[var(--accent-danger)]/25";
+      return "text-red-600 border-red-200";
     default:
       return "text-muted-foreground";
   }
@@ -198,54 +202,6 @@ const orderStatusLabel = (status?: string): string => {
   if (!status) return "غير معروف";
   return ORDER_STATUS_AR[status] || status;
 };
-
-const AVATAR_TONES = [
-  "bg-[color:#1d4ed8] text-white",
-  "bg-[color:#065f46] text-white",
-  "bg-[color:#7c3aed] text-white",
-  "bg-[color:#92400e] text-white",
-  "bg-[color:#9f1239] text-white",
-  "bg-[color:#334155] text-white",
-  "bg-[color:#3f3f46] text-white",
-  "bg-[color:#1e40af] text-white",
-];
-
-function getCustomerAvatarSeed(customer: Customer) {
-  return customer.name?.trim() || customer.phone || customer.customerId;
-}
-
-function getCustomerAvatarTone(customer: Customer) {
-  const seed = Array.from(getCustomerAvatarSeed(customer)).reduce(
-    (sum, char) => sum + char.charCodeAt(0),
-    0,
-  );
-  return AVATAR_TONES[seed % AVATAR_TONES.length];
-}
-
-function getCustomerAvatarText(customer: Customer) {
-  const seed = getCustomerAvatarSeed(customer).trim();
-  return Array.from(seed)[0] || "ع";
-}
-
-function getCustomerStatus(customer: Customer) {
-  if (customer.segment === "VIP") {
-    return {
-      label: "VIP",
-      className:
-        "bg-[var(--color-brand-subtle)] text-[var(--color-brand-primary)]",
-    };
-  }
-  if ((customer.daysSinceLastOrder ?? 999) <= 30) {
-    return {
-      label: "نشط",
-      className: "bg-[color:rgba(34,197,94,0.15)] text-[var(--accent-success)]",
-    };
-  }
-  return {
-    label: "خامد",
-    className: "bg-[var(--bg-surface-3)] text-[var(--text-secondary)]",
-  };
-}
 
 export default function CustomersPage() {
   const { apiKey } = useMerchant();
@@ -367,24 +323,6 @@ export default function CustomersPage() {
       segmentFilter === "all" || c.segment === segmentFilter;
     return matchesSearch && matchesSegment;
   });
-  const statChips = [
-    `إجمالي العملاء: ${customers.length}`,
-    `عملاء جدد هذا الشهر: ${segmentSummary?.NEW?.count || 0}`,
-    `VIP عملاء: ${segmentSummary?.VIP?.count || 0}`,
-    `معرضون للخسارة: ${segmentSummary?.AT_RISK?.count || 0}`,
-  ];
-  const growthWorkflowLinks = [
-    {
-      label: "الحملات",
-      href: "/merchant/campaigns",
-      description: "حوّل الشرائح والعملاء المعرضين للخسارة إلى حملة واتساب.",
-    },
-    {
-      label: "شرائح العملاء",
-      href: "/merchant/customer-segments",
-      description: "أنشئ قواعد استهداف قبل إطلاق حملة أو متابعة يدوية.",
-    },
-  ];
 
   if (loading) {
     return (
@@ -423,12 +361,144 @@ export default function CustomersPage() {
   return (
     <div className="space-y-8 animate-fadeIn p-4 sm:p-6">
       <PageHeader
-        title="الحملات والعملاء > العملاء"
-        description="قاعدة النمو التشغيلية: من يشتري، من توقف، ومن يحتاج حملة أو متابعة."
+        title="إدارة العملاء"
+        description="فهم الشرائح، قيمة العميل، واحتمال فقدانه من شاشة تنفيذية واحدة."
         actions={
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
-            <div className="relative min-w-[260px]">
-              <Search className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={fetchCustomers}
+            className="w-full sm:w-auto"
+          >
+            <RefreshCw className="h-4 w-4" />
+          </Button>
+        }
+      />
+
+      <section className="app-hero-band">
+        <div className="app-hero-band__grid">
+          <div className="space-y-4">
+            <span className="app-hero-band__eyebrow">
+              Customer Intelligence
+            </span>
+            <div className="space-y-3">
+              <h2 className="app-hero-band__title">
+                حوّل قائمة العملاء إلى طبقة قرار: من الأكثر قيمة، من يحتاج
+                متابعة، ومن يقترب من التسرب.
+              </h2>
+              <p className="app-hero-band__copy">
+                هذه الصفحة تجمع الشريحة، الإنفاق، التكرار، والولاء في عرض واحد
+                يسهل البحث فيه والتصرف بناءً عليه، بدلاً من الاكتفاء بسجل أسماء
+                جامد.
+              </p>
+            </div>
+          </div>
+          <div className="app-hero-band__metrics">
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">
+                إجمالي العملاء
+              </span>
+              <strong className="app-hero-band__metric-value">
+                {customers.length}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">VIP</span>
+              <strong className="app-hero-band__metric-value">
+                {segmentSummary?.VIP?.count || 0}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">
+                معرضون للخسارة
+              </span>
+              <strong className="app-hero-band__metric-value">
+                {segmentSummary?.AT_RISK?.count || 0}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">جدد</span>
+              <strong className="app-hero-band__metric-value">
+                {segmentSummary?.NEW?.count || 0}
+              </strong>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <AiInsightsCard
+        insights={generateCustomerInsights({
+          totalCustomers: customers.length ?? 0,
+          vipCount: segmentSummary?.VIP?.count ?? 0,
+          newThisMonth: segmentSummary?.NEW?.count ?? 0,
+          repeatRate:
+            customers.length > 0
+              ? Math.round(
+                  (((segmentSummary?.LOYAL?.count ?? 0) +
+                    (segmentSummary?.VIP?.count ?? 0)) /
+                    customers.length) *
+                    100,
+                )
+              : 0,
+        })}
+      />
+
+      <Card className="app-data-card app-data-card--muted">
+        <CardContent className="py-3 text-sm text-muted-foreground">
+          الشريحة تُحسب من نشاط الطلبات (عدد الطلبات + حداثة آخر طلب)، بينما
+          الولاء يُحسب من نقاط برنامج الولاء والمستوى (برونزي/فضي/ذهبي).
+        </CardContent>
+      </Card>
+
+      {/* Segment Summary Cards */}
+      {segmentSummary && (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
+          {Object.entries(segmentConfig).map(([key, config]) => {
+            const data = segmentSummary[key as keyof SegmentSummary];
+            const Icon = config.icon;
+            return (
+              <Card
+                key={key}
+                className={cn(
+                  "app-data-card cursor-pointer transition-all hover:shadow-md",
+                  segmentFilter === key && "ring-2 ring-primary",
+                )}
+                onClick={() =>
+                  setSegmentFilter(segmentFilter === key ? "all" : key)
+                }
+              >
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={cn(
+                        "p-2 rounded-lg",
+                        config.color,
+                        "text-white",
+                      )}
+                    >
+                      <Icon className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">{config.label}</p>
+                      <p className="text-2xl font-bold">{data.count}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatCurrency(data.revenue)}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Filters */}
+      <Card className="app-data-card">
+        <CardContent className="p-4">
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="بحث بالاسم أو رقم الهاتف..."
                 value={searchQuery}
@@ -436,87 +506,22 @@ export default function CustomersPage() {
                 className="pr-9"
               />
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={fetchCustomers}
-              className="w-full sm:w-auto"
-            >
-              <RefreshCw className="h-4 w-4" />
-            </Button>
+            <Select value={segmentFilter} onValueChange={setSegmentFilter}>
+              <SelectTrigger className="w-full sm:w-40">
+                <SelectValue placeholder="كل الشرائح" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">كل الشرائح</SelectItem>
+                {Object.entries(segmentConfig).map(([key, config]) => (
+                  <SelectItem key={key} value={key}>
+                    {config.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-        }
-      />
-      <div className="flex flex-wrap gap-2">
-        {statChips.map((chip) => (
-          <div
-            key={chip}
-            className="inline-flex h-8 items-center rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs text-[var(--text-secondary)]"
-          >
-            {chip}
-          </div>
-        ))}
-      </div>
-
-      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_360px]">
-        <Card className="app-data-card border-[var(--accent-blue)]/20 bg-[var(--accent-blue)]/10">
-          <CardContent className="space-y-3 p-4">
-            <p className="text-sm font-semibold text-[var(--accent-blue)]">
-              صحة قاعدة العملاء
-            </p>
-            <p className="text-sm text-[var(--text-secondary)]">
-              {customers.length === 0
-                ? "لا توجد سجلات عملاء بعد. ستظهر هنا مؤشرات الإنفاق والتكرار والخطر بعد وصول الطلبات."
-                : `${(segmentSummary?.AT_RISK?.count || 0).toLocaleString("ar-EG")} عميل معرض للخسارة و${(segmentSummary?.VIP?.count || 0).toLocaleString("ar-EG")} عميل عالي القيمة. استخدم الحملات كخطوة تالية، وليس كصفحة منفصلة عن العملاء.`}
-            </p>
-          </CardContent>
-        </Card>
-
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
-          {growthWorkflowLinks.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-surface-1)] p-4 transition-colors hover:border-[var(--accent-blue)]/40 hover:bg-[var(--bg-surface-2)]"
-            >
-              <p className="text-sm font-medium">{item.label}</p>
-              <p className="mt-1 text-xs leading-5 text-[var(--text-secondary)]">
-                {item.description}
-              </p>
-            </Link>
-          ))}
-        </div>
-      </div>
-
-      <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          onClick={() => setSegmentFilter("all")}
-          className={cn(
-            "inline-flex h-9 items-center rounded-[var(--radius-sm)] border px-3 text-xs font-semibold",
-            segmentFilter === "all"
-              ? "border-[var(--color-brand-primary)] bg-[var(--color-brand-primary)] text-[var(--color-brand-on-primary)]"
-              : "border-[var(--border-default)] bg-[var(--bg-surface-1)] text-[var(--text-secondary)]",
-          )}
-        >
-          الكل
-        </button>
-        {Object.entries(segmentConfig).map(([key, config]) => (
-          <button
-            key={key}
-            type="button"
-            onClick={() => setSegmentFilter(key)}
-            className={cn(
-              "inline-flex h-9 items-center rounded-[var(--radius-sm)] border px-3 text-xs font-semibold",
-              segmentFilter === key
-                ? "border-[var(--color-brand-primary)] bg-[var(--color-brand-primary)] text-[var(--color-brand-on-primary)]"
-                : "border-[var(--border-default)] bg-[var(--bg-surface-1)] text-[var(--text-secondary)]",
-            )}
-          >
-            {config.label}
-          </button>
-        ))}
-      </div>
+        </CardContent>
+      </Card>
 
       {/* Customers Table */}
       <Card className="app-data-card">
@@ -524,19 +529,7 @@ export default function CustomersPage() {
           {filteredCustomers.length === 0 ? (
             <div className="py-12 text-center">
               <Users className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
-              <p className="font-medium">لا يوجد عملاء مطابقون</p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                جرّب مسح البحث أو افتح الحملات بعد وصول بيانات العملاء من
-                الطلبات والمحادثات.
-              </p>
-              <div className="mt-4 flex flex-col justify-center gap-2 sm:flex-row">
-                <Button variant="outline" onClick={() => setSearchQuery("")}>
-                  مسح البحث
-                </Button>
-                <Button asChild variant="outline">
-                  <Link href="/merchant/campaigns">فتح الحملات</Link>
-                </Button>
-              </div>
+              <p className="text-muted-foreground">لا يوجد عملاء</p>
             </div>
           ) : (
             <>
@@ -552,13 +545,10 @@ export default function CustomersPage() {
                     >
                       <CardContent className="space-y-3 p-4 text-sm">
                         <div className="flex items-start gap-3">
-                          <div
-                            className={cn(
-                              "flex h-10 w-10 items-center justify-center rounded-full text-lg font-bold",
-                              getCustomerAvatarTone(customer),
-                            )}
-                          >
-                            <span>{getCustomerAvatarText(customer)}</span>
+                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+                            <span className="text-lg font-bold text-primary">
+                              {customer.name.charAt(0)}
+                            </span>
                           </div>
                           <div className="min-w-0 flex-1">
                             <p className="font-medium">{customer.name}</p>
@@ -582,18 +572,10 @@ export default function CustomersPage() {
                           </Button>
                         </div>
                         <div className="flex flex-wrap gap-2">
-                          <Badge className={config.color}>
+                          <Badge className={cn(config.color, "text-white")}>
                             <Icon className="ml-1 h-3 w-3" />
                             {config.label}
                           </Badge>
-                          <span
-                            className={cn(
-                              "inline-flex h-[22px] items-center rounded-[4px] px-2 text-[11px] font-semibold",
-                              getCustomerStatus(customer).className,
-                            )}
-                          >
-                            {getCustomerStatus(customer).label}
-                          </span>
                           {customer.loyaltyTier ? (
                             <Badge variant="outline">
                               <Crown className="ml-1 h-3 w-3" />
@@ -624,7 +606,7 @@ export default function CustomersPage() {
                             {(customer.daysSinceLastOrder ?? 0) > 60 && (
                               <Badge
                                 variant="outline"
-                                className="mt-1 border-[var(--accent-danger)]/25 text-xs text-[var(--accent-danger)]"
+                                className="mt-1 border-red-200 text-xs text-red-500"
                               >
                                 <AlertTriangle className="ml-1 h-3 w-3" />
                                 {customer.daysSinceLastOrder} يوم
@@ -643,7 +625,6 @@ export default function CustomersPage() {
                     <TableRow>
                       <TableHead className="text-right">العميل</TableHead>
                       <TableHead className="text-right">الشريحة</TableHead>
-                      <TableHead className="text-right">الحالة</TableHead>
                       <TableHead className="text-right">الولاء</TableHead>
                       <TableHead className="text-right">الطلبات</TableHead>
                       <TableHead className="text-right">الإنفاق</TableHead>
@@ -662,13 +643,10 @@ export default function CustomersPage() {
                         >
                           <TableCell>
                             <div className="flex items-center gap-3">
-                              <div
-                                className={cn(
-                                  "flex h-10 w-10 items-center justify-center rounded-full text-lg font-bold",
-                                  getCustomerAvatarTone(customer),
-                                )}
-                              >
-                                <span>{getCustomerAvatarText(customer)}</span>
+                              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+                                <span className="text-lg font-bold text-primary">
+                                  {customer.name.charAt(0)}
+                                </span>
                               </div>
                               <div>
                                 <p className="font-medium">{customer.name}</p>
@@ -683,20 +661,10 @@ export default function CustomersPage() {
                             </div>
                           </TableCell>
                           <TableCell>
-                            <Badge className={config.color}>
+                            <Badge className={cn(config.color, "text-white")}>
                               <Icon className="ml-1 h-3 w-3" />
                               {config.label}
                             </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <span
-                              className={cn(
-                                "inline-flex h-[22px] items-center rounded-[4px] px-2 text-[11px] font-semibold",
-                                getCustomerStatus(customer).className,
-                              )}
-                            >
-                              {getCustomerStatus(customer).label}
-                            </span>
                           </TableCell>
                           <TableCell>
                             {customer.loyaltyTier ? (
@@ -739,7 +707,7 @@ export default function CustomersPage() {
                             {(customer.daysSinceLastOrder ?? 0) > 60 && (
                               <Badge
                                 variant="outline"
-                                className="mt-1 border-[var(--accent-danger)]/25 text-xs text-[var(--accent-danger)]"
+                                className="mt-1 border-red-200 text-xs text-red-500"
                               >
                                 <AlertTriangle className="ml-1 h-3 w-3" />
                                 {customer.daysSinceLastOrder} يوم
@@ -774,18 +742,9 @@ export default function CustomersPage() {
         <DialogContent className="max-h-[90vh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-3xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-3">
-              <div
-                className={cn(
-                  "flex h-12 w-12 items-center justify-center rounded-full text-xl font-bold",
-                  selectedCustomer
-                    ? getCustomerAvatarTone(selectedCustomer)
-                    : AVATAR_TONES[0],
-                )}
-              >
-                <span>
-                  {selectedCustomer
-                    ? getCustomerAvatarText(selectedCustomer)
-                    : "ع"}
+              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                <span className="text-xl font-bold text-primary">
+                  {selectedCustomer?.name.charAt(0)}
                 </span>
               </div>
               <div>
@@ -802,8 +761,8 @@ export default function CustomersPage() {
           </DialogHeader>
 
           {loadingInsights ? (
-            <div className="py-4">
-              <TableSkeleton rows={4} columns={4} />
+            <div className="py-12 text-center">
+              <RefreshCw className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />
             </div>
           ) : customerInsights ? (
             <Tabs defaultValue="overview" className="mt-4">
@@ -820,55 +779,48 @@ export default function CustomersPage() {
               </TabsList>
 
               <TabsContent value="overview" className="space-y-4 mt-4">
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                  {[
-                    {
-                      label: "الطلبات",
-                      value: customerInsights.profile.totalOrders,
-                      icon: ShoppingBag,
-                      color: "text-[var(--color-brand-primary)]",
-                    },
-                    {
-                      label: "الإنفاق",
-                      value: formatCurrency(
-                        customerInsights.profile.totalSpent,
-                      ),
-                      icon: DollarSign,
-                      color: "text-[var(--accent-success)]",
-                    },
-                    {
-                      label: "متوسط الطلب",
-                      value: formatCurrency(
-                        customerInsights.profile.avgOrderValue,
-                      ),
-                      icon: TrendingUp,
-                      color: "text-[var(--accent-blue)]",
-                    },
-                    {
-                      label: "القيمة المتوقعة",
-                      value: formatCurrency(customerInsights.insights.clv),
-                      icon: Crown,
-                      color: "text-[var(--color-brand-primary)]",
-                    },
-                  ].map((item) => {
-                    const Icon = item.icon;
-                    return (
-                      <div
-                        key={item.label}
-                        className="rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--bg-surface-1)] px-4 py-3"
-                      >
-                        <div className="mb-3 flex items-center justify-between">
-                          <span className="text-xs text-[var(--text-muted)]">
-                            {item.label}
-                          </span>
-                          <Icon className={cn("h-4 w-4", item.color)} />
-                        </div>
-                        <div className="font-mono text-2xl font-bold text-[var(--text-primary)]">
-                          {item.value}
-                        </div>
-                      </div>
-                    );
-                  })}
+                {/* Quick Stats */}
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                  <Card>
+                    <CardContent className="p-4 text-center">
+                      <ShoppingBag className="h-6 w-6 mx-auto text-primary mb-2" />
+                      <p className="text-2xl font-bold">
+                        {customerInsights.profile.totalOrders}
+                      </p>
+                      <p className="text-xs text-muted-foreground">الطلبات</p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="p-4 text-center">
+                      <DollarSign className="h-6 w-6 mx-auto text-green-500 mb-2" />
+                      <p className="text-2xl font-bold">
+                        {formatCurrency(customerInsights.profile.totalSpent)}
+                      </p>
+                      <p className="text-xs text-muted-foreground">الإنفاق</p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="p-4 text-center">
+                      <TrendingUp className="h-6 w-6 mx-auto text-blue-500 mb-2" />
+                      <p className="text-2xl font-bold">
+                        {formatCurrency(customerInsights.profile.avgOrderValue)}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        متوسط الطلب
+                      </p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="p-4 text-center">
+                      <Crown className="h-6 w-6 mx-auto text-yellow-500 mb-2" />
+                      <p className="text-2xl font-bold">
+                        {formatCurrency(customerInsights.insights.clv)}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        القيمة المتوقعة
+                      </p>
+                    </CardContent>
+                  </Card>
                 </div>
 
                 {/* Favorite Products */}
@@ -922,8 +874,8 @@ export default function CustomersPage() {
                               className="flex flex-col gap-3 rounded-lg bg-muted/50 p-3 sm:flex-row sm:items-center sm:justify-between"
                             >
                               <div className="flex items-center gap-3">
-                                <div className="rounded border border-[var(--color-brand-primary)]/25 bg-[var(--color-brand-subtle)] p-2">
-                                  <ShoppingBag className="h-4 w-4 text-[var(--color-brand-primary)]" />
+                                <div className="p-2 bg-primary/10 rounded">
+                                  <ShoppingBag className="h-4 w-4 text-primary" />
                                 </div>
                                 <div>
                                   <p className="font-medium">
@@ -968,7 +920,7 @@ export default function CustomersPage() {
                         className={cn(
                           segmentConfig[customerInsights.insights.segment]
                             ?.color,
-                          "text-[var(--text-primary)] text-lg px-3 py-1",
+                          "text-white text-lg px-3 py-1",
                         )}
                       >
                         {
@@ -995,10 +947,10 @@ export default function CustomersPage() {
                             className={cn(
                               "text-2xl font-bold",
                               customerInsights.insights.riskScore >= 50
-                                ? "text-[var(--accent-danger)]"
+                                ? "text-red-600"
                                 : customerInsights.insights.riskScore >= 25
-                                  ? "text-[var(--accent-warning)]"
-                                  : "text-[var(--accent-success)]",
+                                  ? "text-amber-600"
+                                  : "text-green-600",
                             )}
                           >
                             {customerInsights.insights.riskScore}%
@@ -1031,7 +983,7 @@ export default function CustomersPage() {
                                     key={idx}
                                     className="flex items-center gap-1"
                                   >
-                                    <AlertTriangle className="h-3 w-3 text-[var(--accent-warning)]" />
+                                    <AlertTriangle className="h-3 w-3 text-amber-500" />
                                     {factor}
                                   </li>
                                 ),
@@ -1099,7 +1051,7 @@ export default function CustomersPage() {
                           "",
                         );
                         const msg = encodeURIComponent(
-                          `مرحباً ${selectedCustomer.name}! لدينا عرض خاص لك.`,
+                          `مرحباً ${selectedCustomer.name}! لدينا عرض خاص لك 🎁`,
                         );
                         window.open(
                           `https://wa.me/${phone}?text=${msg}`,

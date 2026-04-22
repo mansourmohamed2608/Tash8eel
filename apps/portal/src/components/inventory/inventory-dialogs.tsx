@@ -105,8 +105,8 @@ export function StockUpdateDialog({
         </DialogHeader>
         <div className="space-y-4">
           {selectedVariant && (
-            <div className="rounded-lg bg-[var(--accent-blue-dim)] p-2 text-sm">
-              <span className="text-[var(--accent-blue)]">متغير: </span>
+            <div className="p-2 bg-blue-50 rounded-lg text-sm">
+              <span className="text-blue-600">متغير: </span>
               <span className="font-mono">{selectedVariant.sku}</span>
             </div>
           )}
@@ -262,12 +262,10 @@ export function ProductDialog({
                 onSkuErrorClear();
               }}
               placeholder="SKU001"
-              className={skuError ? "border-[var(--accent-danger)]" : ""}
+              className={skuError ? "border-red-500" : ""}
             />
             {skuError && (
-              <p className="text-sm text-[var(--accent-danger)] mt-1">
-                {skuError}
-              </p>
+              <p className="text-sm text-red-500 mt-1">{skuError}</p>
             )}
           </div>
           <div>
@@ -612,12 +610,12 @@ export function VariantDialog({
             />
           </div>
           {isEdit && editVariant && (
-            <div className="rounded-lg bg-[var(--accent-blue-dim)] p-3">
-              <p className="text-sm text-[var(--text-primary)]">
+            <div className="p-3 bg-blue-50 rounded-lg">
+              <p className="text-sm text-blue-800">
                 الكمية الحالية:{" "}
                 <strong>{editVariant.quantity_on_hand || 0}</strong>
               </p>
-              <p className="mt-1 text-xs text-[var(--text-secondary)]">
+              <p className="text-xs text-blue-600 mt-1">
                 لتعديل الكمية، استخدم زر تعديل المخزون
               </p>
             </div>

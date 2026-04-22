@@ -117,7 +117,7 @@ export function OrderTimeline({ events, currentStatus }: OrderTimelineProps) {
                 className={cn(
                   "w-10 h-10 rounded-full flex items-center justify-center border-2 transition-colors",
                   isCancelled && event.status === "CANCELLED"
-                    ? "bg-[var(--accent-danger)] border-[var(--accent-danger)] text-white"
+                    ? "bg-red-500 border-red-500 text-white"
                     : isCompleted
                       ? "bg-primary border-primary text-white"
                       : "bg-background border-muted-foreground/30 text-muted-foreground",
@@ -604,7 +604,7 @@ export function OrderQuickStats({ stats }: OrderQuickStatsProps) {
       label: "قيد الانتظار",
       value: stats.pending,
       icon: Clock,
-      color: "text-[var(--accent-warning)]",
+      color: "text-yellow-500",
     },
     {
       label: "قيد التنفيذ",
@@ -616,25 +616,25 @@ export function OrderQuickStats({ stats }: OrderQuickStatsProps) {
       label: "مكتملة",
       value: stats.completed,
       icon: CheckCircle,
-      color: "text-[var(--accent-success)]",
+      color: "text-green-500",
     },
     {
       label: "ملغية",
       value: stats.cancelled,
       icon: XCircle,
-      color: "text-[var(--accent-danger)]",
+      color: "text-red-500",
     },
     {
       label: "إيرادات اليوم",
       value: formatCurrency(stats.todayRevenue),
       icon: DollarSign,
-      color: "text-[var(--accent-success)]",
+      color: "text-emerald-500",
     },
     {
       label: "متوسط قيمة الطلب المكتمل",
       value: formatCurrency(stats.averageOrderValue),
       icon: Star,
-      color: "text-[var(--accent-warning)]",
+      color: "text-amber-500",
     },
   ];
 

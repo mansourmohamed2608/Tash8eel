@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import Link from "next/link";
 import { PageHeader } from "@/components/layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -76,8 +75,8 @@ export default function ExpiryAlertsPage() {
             </Button>
           }
         />
-        <Card className="border-[var(--accent-danger)]/20 bg-[var(--accent-danger)]/10">
-          <CardContent className="py-6 text-sm text-[var(--accent-danger)]">
+        <Card className="border-red-200 bg-red-50">
+          <CardContent className="py-6 text-red-700 text-sm">
             {error}
           </CardContent>
         </Card>
@@ -97,21 +96,16 @@ export default function ExpiryAlertsPage() {
   return (
     <div className="space-y-6 animate-fadeIn p-4 sm:p-6">
       <PageHeader
-        title="المخزون > الصلاحية والتنبيهات"
-        description="أداة مساندة للمخزون: راجع الأصناف منتهية الصلاحية والمنتجات التي ينقصها تاريخ صلاحية."
+        title="تنبيهات الصلاحية"
+        description="تتبع المنتجات القابلة للتلف وتواريخ انتهاء الصلاحية"
         actions={
-          <div className="flex flex-wrap gap-2">
-            <Button asChild variant="outline" className="w-full sm:w-auto">
-              <Link href="/merchant/inventory">قائمة المخزون</Link>
-            </Button>
-            <Button
-              variant="outline"
-              onClick={fetchData}
-              className="w-full sm:w-auto"
-            >
-              <RefreshCw className="ml-2 h-4 w-4" /> تحديث
-            </Button>
-          </div>
+          <Button
+            variant="outline"
+            onClick={fetchData}
+            className="w-full sm:w-auto"
+          >
+            <RefreshCw className="ml-2 h-4 w-4" /> تحديث
+          </Button>
         }
       />
 
@@ -119,19 +113,17 @@ export default function ExpiryAlertsPage() {
         <StatCard
           title="منتهي الصلاحية"
           value={summary.expired?.toString() || "0"}
-          icon={<XCircle className="h-5 w-5 text-[var(--accent-danger)]" />}
+          icon={<XCircle className="h-5 w-5 text-red-600" />}
         />
         <StatCard
           title="حرج (أقل من 3 أيام)"
           value={summary.critical?.toString() || "0"}
-          icon={
-            <AlertTriangle className="h-5 w-5 text-[var(--accent-warning)]" />
-          }
+          icon={<AlertTriangle className="h-5 w-5 text-amber-600" />}
         />
         <StatCard
           title="تحذير (أقل من 7 أيام)"
           value={summary.warning?.toString() || "0"}
-          icon={<Timer className="h-5 w-5 text-[var(--color-brand-primary)]" />}
+          icon={<Timer className="h-5 w-5 text-yellow-500" />}
         />
         <StatCard
           title="إجمالي التنبيهات"
@@ -141,29 +133,23 @@ export default function ExpiryAlertsPage() {
       </KPIGrid>
 
       <div className="flex justify-start">
-        <Badge variant="outline">
-          المصدر: {dataSourceLabel} • آخر تحديث عند فتح الصفحة
-        </Badge>
+        <Badge variant="outline">{dataSourceLabel}</Badge>
       </div>
 
       {hasMissingExpiry && (
-        <Card className="border-[var(--accent-warning)]/20 bg-[var(--accent-warning)]/10">
+        <Card className="border-amber-200 bg-amber-50">
           <CardContent className="py-4 space-y-2">
-            <p className="text-sm font-medium text-[var(--accent-warning)]">
+            <p className="text-sm font-medium text-amber-900">
               يوجد {summary.missingExpiryDates} صنف بالمخزون بدون تاريخ صلاحية.
             </p>
-            <p className="text-xs text-[var(--text-secondary)]">
+            <p className="text-xs text-amber-800">
               أضف تاريخ الصلاحية من المخزون عبر "تعديل المنتج" (منتج قابل للتلف
               + تاريخ الصلاحية) أو عند استلام دفعة جديدة لضمان دقة التنبيهات.
             </p>
             {missingExpiryItems.length > 0 && (
               <div className="flex flex-wrap gap-2 pt-1">
                 {missingExpiryItems.map((item: any) => (
-                  <Badge
-                    key={item.id}
-                    variant="outline"
-                    className="bg-[var(--bg-surface-1)]"
-                  >
+                  <Badge key={item.id} variant="outline" className="bg-white">
                     {item.itemName} {item.sku ? `(${item.sku})` : ""}
                   </Badge>
                 ))}
@@ -176,16 +162,11 @@ export default function ExpiryAlertsPage() {
       {alerts.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
-            <CheckCircle className="mb-4 h-12 w-12 text-[var(--accent-success)]" />
+            <CheckCircle className="h-12 w-12 text-green-500 mb-4" />
             <p className="text-lg font-medium">لا توجد تنبيهات صلاحية</p>
             <p className="text-muted-foreground">
-              جميع المنتجات التي لديها تاريخ صلاحية ضمن الفترة الآمنة.
+              جميع المنتجات ضمن فترة الصلاحية
             </p>
-            <Button asChild variant="outline" className="mt-4">
-              <Link href="/merchant/inventory">
-                مراجعة المنتجات القابلة للتلف
-              </Link>
-            </Button>
           </CardContent>
         </Card>
       ) : (
@@ -198,17 +179,17 @@ export default function ExpiryAlertsPage() {
               {alerts.map((alert: any) => (
                 <div
                   key={alert.id}
-                  className="flex flex-col gap-3 rounded-lg border p-4 transition-colors hover:bg-[var(--bg-surface-2)] sm:flex-row sm:items-center sm:justify-between"
+                  className="flex flex-col gap-3 rounded-lg border p-4 hover:bg-gray-50 sm:flex-row sm:items-center sm:justify-between"
                 >
                   <div className="flex items-center gap-3">
                     {alert.alertType === "EXPIRED" && (
-                      <XCircle className="h-5 w-5 text-[var(--accent-danger)]" />
+                      <XCircle className="h-5 w-5 text-red-600" />
                     )}
                     {alert.alertType === "CRITICAL" && (
-                      <AlertTriangle className="h-5 w-5 text-[var(--accent-warning)]" />
+                      <AlertTriangle className="h-5 w-5 text-amber-600" />
                     )}
                     {alert.alertType === "WARNING" && (
-                      <Timer className="h-5 w-5 text-[var(--color-brand-primary)]" />
+                      <Timer className="h-5 w-5 text-yellow-500" />
                     )}
                     <div>
                       <div className="font-medium">{alert.itemName}</div>

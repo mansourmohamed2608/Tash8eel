@@ -71,10 +71,9 @@ const POS_PROVIDERS: PosProvider[] = [
     id: "odoo",
     name: "Odoo",
     nameAr: "أودو",
-    logo: "OD",
+    logo: "🟣",
     description: "ربط مع نظام Odoo ERP - مزامنة الطلبات والمخزون تلقائياً",
-    color:
-      "border-[var(--color-brand-primary)]/20 bg-[var(--color-brand-primary)]/10",
+    color: "border-purple-200 bg-purple-50",
     fields: [
       {
         key: "url",
@@ -107,9 +106,9 @@ const POS_PROVIDERS: PosProvider[] = [
     id: "foodics",
     name: "Foodics",
     nameAr: "فودكس",
-    logo: "FD",
+    logo: "🔵",
     description: "ربط مع Foodics - أشهر نظام POS للمطاعم في الخليج ومصر",
-    color: "border-[var(--accent-blue)]/20 bg-[var(--accent-blue)]/10",
+    color: "border-blue-200 bg-blue-50",
     fields: [
       {
         key: "clientId",
@@ -143,10 +142,10 @@ const POS_PROVIDERS: PosProvider[] = [
     id: "oracle",
     name: "Oracle MICROS",
     nameAr: "أوراكل ميكروس",
-    logo: "OR",
+    logo: "🔴",
     description:
       "ربط مع Oracle MICROS Simphony - نظام POS للفنادق والمطاعم الكبيرة",
-    color: "border-[var(--accent-danger)]/20 bg-[var(--accent-danger)]/10",
+    color: "border-red-200 bg-red-50",
     fields: [
       {
         key: "apiUrl",
@@ -180,9 +179,9 @@ const POS_PROVIDERS: PosProvider[] = [
     id: "shopify",
     name: "Shopify",
     nameAr: "شوبيفاي",
-    logo: "SH",
+    logo: "🟢",
     description: "ربط مع متجر Shopify - مزامنة المنتجات والطلبات",
-    color: "border-[var(--accent-success)]/20 bg-[var(--accent-success)]/10",
+    color: "border-green-200 bg-green-50",
     fields: [
       {
         key: "storeDomain",
@@ -216,9 +215,9 @@ const POS_PROVIDERS: PosProvider[] = [
     id: "square",
     name: "Square",
     nameAr: "سكوير",
-    logo: "SQ",
+    logo: "⬛",
     description: "ربط مع Square POS - نظام الدفع ونقاط البيع لتجارة التجزئة",
-    color: "border-[var(--border-default)] bg-[var(--bg-surface-2)]",
+    color: "border-gray-200 bg-gray-50",
     fields: [
       {
         key: "applicationId",
@@ -252,9 +251,9 @@ const POS_PROVIDERS: PosProvider[] = [
     id: "custom",
     name: "Custom API",
     nameAr: "API مخصص",
-    logo: "API",
+    logo: "⚙️",
     description: "ربط مع أي نظام POS أو ERP عبر API مخصص (REST/Webhook)",
-    color: "border-[var(--border-default)] bg-[var(--bg-surface-2)]",
+    color: "border-slate-200 bg-slate-50",
     fields: [
       {
         key: "baseUrl",
@@ -286,10 +285,10 @@ const POS_PROVIDERS: PosProvider[] = [
     id: "google_slides",
     name: "Google Slides",
     nameAr: "جوجل سلايدز",
-    logo: "GS",
+    logo: "🟨",
     description:
       "ربط مع Google Slides لتوليد عروض تلقائية (تقارير يومية/أسبوعية أو عروض منتجات).",
-    color: "border-[var(--accent-warning)]/20 bg-[var(--accent-warning)]/10",
+    color: "border-amber-200 bg-amber-50",
     fields: [
       {
         key: "presentationId",
@@ -467,8 +466,8 @@ export default function PosIntegrationsPage() {
   return (
     <div className="space-y-6 p-4 sm:p-6">
       <PageHeader
-        title="الإعدادات / التكاملات"
-        description="إدارة تكاملات POS ومزامنة الطلبات والمنتجات والمخزون من سطح إعدادات واحد."
+        title="تكاملات أنظمة نقاط البيع (POS)"
+        description="اربط نظام نقاط البيع الخاص بك لمزامنة الطلبات والمنتجات تلقائياً"
         actions={
           <Button
             variant="outline"
@@ -487,7 +486,7 @@ export default function PosIntegrationsPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Zap className="h-5 w-5 text-[var(--accent-success)]" />
+              <Zap className="h-5 w-5 text-green-500" />
               التكاملات المفعّلة
             </CardTitle>
           </CardHeader>
@@ -503,9 +502,7 @@ export default function PosIntegrationsPage() {
                     className="flex flex-col gap-4 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between"
                   >
                     <div className="flex items-start gap-3 sm:items-center">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface-2)] font-mono text-xs font-semibold text-foreground">
-                        {provider?.logo || "API"}
-                      </div>
+                      <span className="text-2xl">{provider?.logo || "⚙️"}</span>
                       <div>
                         <h4 className="font-medium">{integration.name}</h4>
                         <p className="text-sm text-muted-foreground">
@@ -531,10 +528,10 @@ export default function PosIntegrationsPage() {
                         }
                         className={
                           integration.status === "ACTIVE"
-                            ? "border-0 bg-[var(--accent-success)]/15 text-[var(--accent-success)]"
+                            ? "bg-green-500"
                             : integration.status === "ERROR"
-                              ? "border-0 bg-[var(--accent-danger)]/15 text-[var(--accent-danger)]"
-                              : "border-0 bg-[var(--bg-surface-3)] text-muted-foreground"
+                              ? "bg-red-500 text-white"
+                              : ""
                         }
                       >
                         {integration.status === "ACTIVE"
@@ -560,7 +557,7 @@ export default function PosIntegrationsPage() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="self-start text-[var(--accent-danger)] sm:self-auto"
+                        className="text-red-500 self-start sm:self-auto"
                         onClick={() => handleDelete(integration)}
                       >
                         <Trash2 className="h-4 w-4" />
@@ -592,12 +589,10 @@ export default function PosIntegrationsPage() {
               return (
                 <div
                   key={provider.id}
-                  className={`rounded-xl border p-5 transition-colors hover:bg-[var(--bg-surface-2)] ${provider.color}`}
+                  className={`border rounded-xl p-5 transition-all hover:shadow-md ${provider.color}`}
                 >
                   <div className="flex items-center gap-3 mb-3">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface-1)] font-mono text-sm font-semibold text-foreground">
-                      {provider.logo}
-                    </div>
+                    <span className="text-3xl">{provider.logo}</span>
                     <div>
                       <h3 className="font-bold">{provider.name}</h3>
                       <p className="text-xs text-muted-foreground">
@@ -605,7 +600,7 @@ export default function PosIntegrationsPage() {
                       </p>
                     </div>
                     {isConnected && (
-                      <Badge className="ms-auto border-0 bg-[var(--accent-success)]/15 text-[var(--accent-success)]">
+                      <Badge className="bg-green-500 text-white ms-auto">
                         مربوط
                       </Badge>
                     )}
@@ -640,7 +635,7 @@ export default function PosIntegrationsPage() {
       </Card>
 
       {/* How it works - Data Flow */}
-      <Card className="border-[var(--accent-success)]/20 bg-[var(--bg-surface-2)]">
+      <Card className="border-green-200 bg-green-50/40">
         <CardHeader>
           <CardTitle>كيف تعمل تكاملات POS؟ - تدفق البيانات</CardTitle>
           <CardDescription>
@@ -649,9 +644,9 @@ export default function PosIntegrationsPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface-1)] p-4">
+            <div className="rounded-lg border bg-white p-4 space-y-2">
               <div className="flex items-center gap-2">
-                <Badge className="border-0 bg-[var(--accent-success)]/15 text-[var(--accent-success)]">
+                <Badge className="bg-green-500 text-white">
                   ← استقبال من POS
                 </Badge>
               </div>
@@ -669,13 +664,13 @@ export default function PosIntegrationsPage() {
                   لوحة التحكم
                 </li>
               </ul>
-              <p className="text-xs font-medium text-[var(--accent-success)]">
+              <p className="text-xs font-medium text-green-700">
                 POS → تشغيل (نسحب ونعرض البيانات)
               </p>
             </div>
-            <div className="space-y-2 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface-1)] p-4">
+            <div className="rounded-lg border bg-white p-4 space-y-2">
               <div className="flex items-center gap-2">
-                <Badge className="border-0 bg-[var(--accent-blue)]/15 text-[var(--accent-blue)]">
+                <Badge className="bg-blue-500 text-white">
                   → إرسال إلى POS
                 </Badge>
               </div>
@@ -693,42 +688,42 @@ export default function PosIntegrationsPage() {
                   النظامين
                 </li>
               </ul>
-              <p className="text-xs font-medium text-[var(--accent-blue)]">
+              <p className="text-xs font-medium text-blue-700">
                 تشغيل → POS (نرسل البيانات والتحديثات)
               </p>
             </div>
           </div>
           <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 pt-2">
-            <div className="rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface-1)] p-3 text-center">
-              <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-lg border border-[var(--accent-blue)]/30 bg-[var(--accent-blue)]/10">
-                <Link2 className="h-5 w-5 text-[var(--accent-blue)]" />
+            <div className="text-center p-3 bg-white rounded-lg border">
+              <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center mx-auto mb-2">
+                <Link2 className="h-5 w-5 text-blue-600" />
               </div>
               <h4 className="font-medium text-sm">1. ربط النظام</h4>
               <p className="text-xs text-muted-foreground mt-1">
                 أدخل بيانات الاتصال بنظام POS
               </p>
             </div>
-            <div className="rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface-1)] p-3 text-center">
-              <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-lg border border-[var(--accent-success)]/30 bg-[var(--accent-success)]/10">
-                <RefreshCw className="h-5 w-5 text-[var(--accent-success)]" />
+            <div className="text-center p-3 bg-white rounded-lg border">
+              <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-2">
+                <RefreshCw className="h-5 w-5 text-green-600" />
               </div>
               <h4 className="font-medium text-sm">2. مزامنة ثنائية</h4>
               <p className="text-xs text-muted-foreground mt-1">
                 المنتجات والطلبات تتزامن في الاتجاهين
               </p>
             </div>
-            <div className="rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface-1)] p-3 text-center">
-              <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-lg border border-[var(--accent-warning)]/30 bg-[var(--accent-warning)]/10">
-                <ShoppingBag className="h-5 w-5 text-[var(--accent-warning)]" />
+            <div className="text-center p-3 bg-white rounded-lg border">
+              <div className="h-10 w-10 rounded-full bg-orange-100 flex items-center justify-center mx-auto mb-2">
+                <ShoppingBag className="h-5 w-5 text-orange-600" />
               </div>
               <h4 className="font-medium text-sm">3. طلبات واتساب → POS</h4>
               <p className="text-xs text-muted-foreground mt-1">
                 طلبات العملاء تنشأ مباشرة في POS
               </p>
             </div>
-            <div className="rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface-1)] p-3 text-center">
-              <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-lg border border-[var(--color-brand-primary)]/30 bg-[var(--color-brand-primary)]/10">
-                <Database className="h-5 w-5 text-[var(--color-brand-primary)]" />
+            <div className="text-center p-3 bg-white rounded-lg border">
+              <div className="h-10 w-10 rounded-full bg-purple-100 flex items-center justify-center mx-auto mb-2">
+                <Database className="h-5 w-5 text-purple-600" />
               </div>
               <h4 className="font-medium text-sm">4. مخزون موحّد</h4>
               <p className="text-xs text-muted-foreground mt-1">
@@ -766,9 +761,7 @@ export default function PosIntegrationsPage() {
               <div key={field.key} className="space-y-2">
                 <Label className="flex items-center gap-1">
                   {field.label}
-                  {field.required && (
-                    <span className="text-[var(--accent-danger)]">*</span>
-                  )}
+                  {field.required && <span className="text-red-500">*</span>}
                 </Label>
                 <Input
                   type={field.type || "text"}
@@ -785,7 +778,7 @@ export default function PosIntegrationsPage() {
               </div>
             ))}
 
-            <div className="rounded-lg border border-[var(--accent-blue)]/20 bg-[var(--accent-blue)]/10 p-3 text-sm text-[var(--text-secondary)]">
+            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800">
               <AlertCircle className="h-4 w-4 inline mr-1" />
               البيانات مشفرة ولا يمكن لأحد كشفها - نحتفظ بها بشكل آمن فقط
               للاتصال بنظامك

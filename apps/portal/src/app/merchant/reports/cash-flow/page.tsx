@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import Link from "next/link";
 import { PageHeader } from "@/components/layout";
 import {
   Card,
@@ -61,22 +60,6 @@ function getDateRangeFromDays(days: number): {
   };
 }
 
-function getFreshness(updatedAt: Date | null) {
-  if (!updatedAt) return { label: "لم يتم التحديث", state: "old" as const };
-  const minutes = Math.max(
-    0,
-    Math.floor((Date.now() - updatedAt.getTime()) / 60000),
-  );
-  if (minutes < 1) return { label: "آخر تحديث: الآن", state: "fresh" as const };
-  if (minutes <= 5) {
-    return { label: `آخر تحديث: منذ ${minutes} د`, state: "fresh" as const };
-  }
-  if (minutes <= 30) {
-    return { label: `آخر تحديث: منذ ${minutes} د`, state: "stale" as const };
-  }
-  return { label: "بيانات التدفق قديمة", state: "old" as const };
-}
-
 export default function CashFlowPage() {
   const { merchantId, apiKey } = useMerchant();
   const [loading, setLoading] = useState(true);
@@ -87,7 +70,6 @@ export default function CashFlowPage() {
   const [reportingDays, setReportingDays] = useState<number>(initialDays);
   const [startDate, setStartDate] = useState(initialRange.startDate);
   const [endDate, setEndDate] = useState(initialRange.endDate);
-  const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
 
   const fetchData = useCallback(async () => {
     if (!merchantId || !apiKey) return;
@@ -100,7 +82,6 @@ export default function CashFlowPage() {
         endDate,
       });
       setData(result);
-      setLastUpdatedAt(new Date());
     } catch (err) {
       setError(
         err instanceof Error
@@ -135,10 +116,8 @@ export default function CashFlowPage() {
     return (
       <div className="space-y-6 p-4 sm:p-6">
         <PageHeader title="التدفق النقدي" />
-        <Card className="app-data-card border-[var(--accent-danger)]/20 bg-[var(--accent-danger)]/12">
-          <CardContent className="pt-6 text-[var(--accent-danger)]">
-            {error}
-          </CardContent>
+        <Card className="border-red-200 bg-red-50">
+          <CardContent className="pt-6 text-red-700">{error}</CardContent>
         </Card>
       </div>
     );
@@ -157,13 +136,12 @@ export default function CashFlowPage() {
     مصروفات: Number(f.projectedExpenses) || 0,
     صافي: Number(f.netCashFlow) || 0,
   }));
-  const freshness = getFreshness(lastUpdatedAt);
 
   return (
     <div className="space-y-6 animate-fadeIn p-4 sm:p-6">
       <PageHeader
         title="التدفق النقدي"
-        description="قراءة فعلية ومتوقعة لحركة النقد خلال الفترة المحددة."
+        description="توقعات الإيرادات والمصروفات والتدفق النقدي للفترة المحددة"
         actions={
           <Button
             variant="outline"
@@ -175,66 +153,7 @@ export default function CashFlowPage() {
         }
       />
 
-      <div className="flex flex-wrap gap-2">
-        {[
-          ["الملخص", "/merchant/finance/summary"],
-          ["الإيرادات", "/merchant/finance/revenue"],
-          ["المصروفات", "/merchant/expenses"],
-          ["التدفق النقدي", "/merchant/reports/cash-flow"],
-          ["التسويات", "/merchant/payments/cod"],
-        ].map(([label, href]) => (
-          <Button
-            key={href}
-            asChild
-            variant={
-              href === "/merchant/reports/cash-flow" ? "default" : "outline"
-            }
-            size="sm"
-          >
-            <Link href={href}>{label}</Link>
-          </Button>
-        ))}
-      </div>
-
-      <section className="rounded-[var(--radius-base)] border border-[var(--color-border)] bg-[var(--color-surface)] p-3 shadow-[var(--shadow-sm)]">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex flex-wrap items-center gap-3 text-sm">
-            <span>
-              فعلي:{" "}
-              <strong className="font-mono">
-                {formatCurrency(actualNetCashFlow)}
-              </strong>
-            </span>
-            <span className="text-[var(--color-border)]">|</span>
-            <span>
-              قيد التحصيل:{" "}
-              <strong className="font-mono text-[var(--color-warning-text)]">
-                {formatCurrency(pendingCollections)}
-              </strong>
-            </span>
-            <span className="text-[var(--color-border)]">|</span>
-            <span>
-              مرتجعات:{" "}
-              <strong className="font-mono text-[var(--color-danger-text)]">
-                {formatCurrency(refundsAmount)}
-              </strong>
-            </span>
-          </div>
-          <span
-            className={
-              freshness.state === "old"
-                ? "text-xs text-[var(--color-danger-text)]"
-                : freshness.state === "stale"
-                  ? "text-xs text-[var(--color-warning-text)]"
-                  : "text-xs text-[var(--color-text-secondary)]"
-            }
-          >
-            {freshness.label}
-          </span>
-        </div>
-      </section>
-
-      <Card className="app-data-card">
+      <Card>
         <CardHeader>
           <CardTitle>فلاتر الفترة</CardTitle>
           <CardDescription>
@@ -305,14 +224,12 @@ export default function CashFlowPage() {
         <StatCard
           title="الإيرادات المتوقعة"
           value={formatCurrency(summary.projectedMonthlyRevenue)}
-          icon={<TrendingUp className="h-5 w-5 text-[var(--accent-success)]" />}
+          icon={<TrendingUp className="h-5 w-5 text-green-600" />}
         />
         <StatCard
           title="المصروفات المتوقعة"
           value={formatCurrency(summary.projectedMonthlyExpenses)}
-          icon={
-            <TrendingDown className="h-5 w-5 text-[var(--accent-danger)]" />
-          }
+          icon={<TrendingDown className="h-5 w-5 text-red-600" />}
         />
         <StatCard
           title="صافي التدفق المتوقع"
@@ -332,7 +249,7 @@ export default function CashFlowPage() {
         />
       </KPIGrid>
 
-      <Card className="app-data-card border-[var(--accent-blue)]/20 bg-[var(--accent-blue)]/10">
+      <Card className="border-blue-200 bg-blue-50/60">
         <CardHeader>
           <CardTitle>الوضع الفعلي للفترة المحددة</CardTitle>
           <CardDescription>
@@ -344,30 +261,22 @@ export default function CashFlowPage() {
             <StatCard
               title="الإيرادات المحققة"
               value={formatCurrency(realizedRevenue)}
-              icon={
-                <DollarSign className="h-5 w-5 text-[var(--accent-success)]" />
-              }
+              icon={<DollarSign className="h-5 w-5 text-green-600" />}
             />
             <StatCard
               title="المبيعات المحجوزة"
               value={formatCurrency(bookedSales)}
-              icon={
-                <TrendingUp className="h-5 w-5 text-[var(--accent-blue)]" />
-              }
+              icon={<TrendingUp className="h-5 w-5 text-blue-600" />}
             />
             <StatCard
               title="قيد التحصيل"
               value={formatCurrency(pendingCollections)}
-              icon={
-                <Activity className="h-5 w-5 text-[var(--accent-warning)]" />
-              }
+              icon={<Activity className="h-5 w-5 text-amber-600" />}
             />
             <StatCard
               title="المرتجعات"
               value={formatCurrency(refundsAmount)}
-              icon={
-                <TrendingDown className="h-5 w-5 text-[var(--accent-danger)]" />
-              }
+              icon={<TrendingDown className="h-5 w-5 text-red-600" />}
             />
             <StatCard
               title="صافي التدفق الفعلي"
@@ -395,7 +304,7 @@ export default function CashFlowPage() {
         />
       </div>
 
-      <Card className="app-data-card">
+      <Card>
         <CardHeader>
           <CardTitle>التفاصيل اليومية</CardTitle>
           <CardDescription>
@@ -409,19 +318,19 @@ export default function CashFlowPage() {
                 <div key={i} className="rounded-lg border p-4 text-sm">
                   <div className="font-medium">{f.date}</div>
                   <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
-                    <div className="text-[var(--accent-success)]">
+                    <div className="text-green-600">
                       <span className="text-muted-foreground">الإيرادات:</span>{" "}
                       {formatCurrency(f.projectedRevenue)}
                     </div>
-                    <div className="text-[var(--accent-danger)]">
+                    <div className="text-red-600">
                       <span className="text-muted-foreground">المصروفات:</span>{" "}
                       {formatCurrency(f.projectedExpenses)}
                     </div>
                     <div
                       className={
                         f.netCashFlow >= 0
-                          ? "font-medium text-[var(--accent-success)]"
-                          : "font-medium text-[var(--accent-danger)]"
+                          ? "font-medium text-green-700"
+                          : "font-medium text-red-700"
                       }
                     >
                       <span className="text-muted-foreground">الصافي:</span>{" "}
@@ -433,7 +342,7 @@ export default function CashFlowPage() {
             </div>
             <div className="hidden md:block">
               <table className="w-full text-sm">
-                <thead className="sticky top-0 border-b bg-[var(--bg-surface-2)]">
+                <thead className="sticky top-0 border-b bg-white">
                   <tr className="text-right">
                     <th className="p-2">التاريخ</th>
                     <th className="p-2">الإيرادات</th>
@@ -443,19 +352,16 @@ export default function CashFlowPage() {
                 </thead>
                 <tbody>
                   {forecast.map((f: any, i: number) => (
-                    <tr
-                      key={i}
-                      className="border-b border-[var(--border-subtle)] hover:bg-[var(--bg-surface-2)]"
-                    >
+                    <tr key={i} className="border-b hover:bg-gray-50">
                       <td className="p-2">{f.date}</td>
-                      <td className="p-2 text-[var(--accent-success)]">
+                      <td className="p-2 text-green-600">
                         {formatCurrency(f.projectedRevenue)}
                       </td>
-                      <td className="p-2 text-[var(--accent-danger)]">
+                      <td className="p-2 text-red-600">
                         {formatCurrency(f.projectedExpenses)}
                       </td>
                       <td
-                        className={`p-2 font-medium ${f.netCashFlow >= 0 ? "text-[var(--accent-success)]" : "text-[var(--accent-danger)]"}`}
+                        className={`p-2 font-medium ${f.netCashFlow >= 0 ? "text-green-700" : "text-red-700"}`}
                       >
                         {formatCurrency(f.netCashFlow)}
                       </td>

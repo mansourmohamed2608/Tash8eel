@@ -289,7 +289,7 @@ export default function AgentTeamsPage() {
     lines.push(`الحالة: ${status}`);
     lines.push(`التقدم: ${completed}/${total} (فشل: ${failed})`);
     lines.push(
-      `مصدر التقرير: ${task.reportSource === "agent_output" ? "مخرجات نصية مباشرة من القدرات التشغيلية" : "بيانات تشغيل خام فقط (بدون تحليل نصي)"}`,
+      `مصدر التقرير: ${task.reportSource === "agent_output" ? "مخرجات نصية مباشرة من الوكلاء" : "بيانات تشغيل خام فقط (بدون تحليل AI نصي)"}`,
     );
     lines.push(`بدأت المهمة: ${formatDateTime(task.createdAt)}`);
     lines.push(`انتهت المهمة: ${formatDateTime(task.completedAt)}`);
@@ -303,7 +303,7 @@ export default function AgentTeamsPage() {
     } else {
       lines.push("## الملخص التنفيذي");
       lines.push(
-        "لا يوجد تحليل نصي محفوظ لهذه المهمة. يمكنك مراجعة ناتج القدرات الخام.",
+        "لا يوجد تحليل AI نصي محفوظ لهذه المهمة. يمكنك مراجعة ناتج الوكلاء الخام.",
       );
       lines.push("");
     }
@@ -383,7 +383,7 @@ export default function AgentTeamsPage() {
 </head>
 <body>
   <h1>${safeTitle}</h1>
-  <div class="meta">تم التوليد من مهمة تشغيل جماعية</div>
+  <div class="meta">تم التوليد من مهمة الوكلاء الجماعية</div>
   <pre>${safeBody}</pre>
 </body>
 </html>`;
@@ -416,7 +416,7 @@ export default function AgentTeamsPage() {
             : "";
         if (!strictReportText) {
           setDetailsError(
-            "تعذر تنزيل التقرير من الخادم، ولا يوجد تقرير نصي محفوظ محلياً.",
+            "تعذر تنزيل التقرير من الخادم، ولا يوجد تقرير نصي AI محفوظ محلياً.",
           );
           return;
         }
@@ -465,7 +465,7 @@ export default function AgentTeamsPage() {
             : "";
         if (!strictReportText) {
           setDetailsError(
-            "تعذر فتح نسخة الطباعة من الخادم، ولا يوجد تقرير نصي محفوظ.",
+            "تعذر فتح نسخة الطباعة من الخادم، ولا يوجد تقرير نصي AI محفوظ.",
           );
           return;
         }
@@ -507,7 +507,7 @@ export default function AgentTeamsPage() {
           errorMsg.includes("Token budget exceeded") ||
           errorMsg.includes("budget"));
       if (isQuotaError) {
-        setMessage({ text: "ASSISTANT_QUOTA", type: "error" });
+        setMessage({ text: "AI_QUOTA", type: "error" });
       } else {
         setMessage({ text: "خطأ في الاتصال بالخادم", type: "error" });
       }
@@ -520,8 +520,8 @@ export default function AgentTeamsPage() {
     return (
       <div className="p-4 sm:p-6">
         <PageHeader
-          title="مركز القيادة / فرق التشغيل"
-          description="تشغيل مهام متعددة الخطوات كمسار داعم داخل مركز القيادة."
+          title="المهام الجماعية للوكلاء"
+          description="توزيع المهام على عدة وكلاء للعمل بالتوازي"
         />
         <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
           {[1, 2, 3, 4].map((i) => (
@@ -536,19 +536,19 @@ export default function AgentTeamsPage() {
     return (
       <div className="p-4 sm:p-6">
         <PageHeader
-          title="مركز القيادة / فرق التشغيل"
-          description="تشغيل مهام متعددة الخطوات كمسار داعم داخل مركز القيادة."
+          title="المهام الجماعية للوكلاء"
+          description="توزيع المهام على عدة وكلاء للعمل بالتوازي"
         />
-        <Card className="app-data-card mt-6 border-[color:rgba(239,68,68,0.3)] bg-[color:rgba(239,68,68,0.08)]">
+        <Card className="mt-6">
           <CardContent className="p-8 text-center">
-            <AlertCircle className="mx-auto mb-4 h-12 w-12 text-[color:var(--accent-danger)]" />
+            <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
             <p className="text-lg font-medium text-foreground">{error}</p>
             <Button
               onClick={fetchData}
               variant="outline"
               className="mt-4 w-full sm:w-auto"
             >
-              <RefreshCw className="h-4 w-4 ms-2" />
+              <RefreshCw className="h-4 w-4 ml-2" />
               إعادة المحاولة
             </Button>
           </CardContent>
@@ -560,8 +560,8 @@ export default function AgentTeamsPage() {
   return (
     <div className="space-y-6 p-4 sm:p-6">
       <PageHeader
-        title="مركز القيادة / فرق التشغيل"
-        description="تنفيذ مهام جماعية تجمع أكثر من قدرة تشغيلية ثم تحفظ النتيجة كتقرير قابل للمراجعة."
+        title="المهام الجماعية للوكلاء"
+        description="بدلاً من أن يعمل وكيل واحد على تنفيذ المهام بشكل تسلسلي، يمكن توزيع العمل على عدة وكلاء"
         actions={
           <Button
             variant="outline"
@@ -569,17 +569,17 @@ export default function AgentTeamsPage() {
             onClick={fetchData}
             className="w-full sm:w-auto"
           >
-            <RefreshCw className="h-4 w-4 ms-2" />
+            <RefreshCw className="h-4 w-4 ml-2" />
             تحديث
           </Button>
         }
       />
 
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <Card className="app-data-card border-[color:rgba(59,130,246,0.24)] bg-[color:rgba(59,130,246,0.08)]">
+        <Card className="border-blue-200 bg-blue-50/50">
           <CardContent className="p-4">
             <p className="text-sm text-muted-foreground">القوالب المتاحة</p>
-            <p className="mt-1 text-2xl font-bold text-[color:var(--accent-blue)]">
+            <p className="mt-1 text-2xl font-bold text-blue-700">
               {availableTemplates}
             </p>
             <p className="mt-2 text-xs text-muted-foreground">
@@ -587,21 +587,21 @@ export default function AgentTeamsPage() {
             </p>
           </CardContent>
         </Card>
-        <Card className="app-data-card border-[color:rgba(245,158,11,0.24)] bg-[color:rgba(245,158,11,0.08)]">
+        <Card className="border-amber-200 bg-amber-50/50">
           <CardContent className="p-4">
             <p className="text-sm text-muted-foreground">مهام قيد التنفيذ</p>
-            <p className="mt-1 text-2xl font-bold text-[color:var(--accent-warning)]">
+            <p className="mt-1 text-2xl font-bold text-amber-700">
               {activeTasks}
             </p>
             <p className="mt-2 text-xs text-muted-foreground">
-              المهام الجارية الآن أو التي ما زالت تجمع نتائج القدرات.
+              المهام الجارية الآن أو التي ما زالت تجمع نتائج الوكلاء.
             </p>
           </CardContent>
         </Card>
-        <Card className="app-data-card border-[color:rgba(34,197,94,0.24)] bg-[color:rgba(34,197,94,0.08)]">
+        <Card className="border-emerald-200 bg-emerald-50/50">
           <CardContent className="p-4">
             <p className="text-sm text-muted-foreground">مهام مكتملة</p>
-            <p className="mt-1 text-2xl font-bold text-[color:var(--accent-success)]">
+            <p className="mt-1 text-2xl font-bold text-emerald-700">
               {completedTasks}
             </p>
             <p className="mt-2 text-xs text-muted-foreground">
@@ -609,10 +609,10 @@ export default function AgentTeamsPage() {
             </p>
           </CardContent>
         </Card>
-        <Card className="app-data-card border-[color:rgba(239,68,68,0.24)] bg-[color:rgba(239,68,68,0.08)]">
+        <Card className="border-rose-200 bg-rose-50/50">
           <CardContent className="p-4">
             <p className="text-sm text-muted-foreground">تحتاج مراجعة</p>
-            <p className="mt-1 text-2xl font-bold text-[color:var(--accent-danger)]">
+            <p className="mt-1 text-2xl font-bold text-rose-700">
               {partialOrFailedTasks}
             </p>
             <p className="mt-2 text-xs text-muted-foreground">
@@ -622,20 +622,20 @@ export default function AgentTeamsPage() {
         </Card>
       </div>
 
-      <Card className="app-data-card app-data-card--muted border-dashed">
+      <Card className="border-dashed">
         <CardContent className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <p className="font-medium">هذه الصفحة جزء من مركز القيادة</p>
+            <p className="font-medium">هذه الصفحة ليست سجل نشاط</p>
             <p className="text-sm text-muted-foreground">
-              هنا تشغّل مهام جماعية مثل تقرير شامل أو إغلاق اليوم. السجلات
-              والموافقات العامة تبقى في مركز القيادة.
+              هنا تشغّل workflows جماعية مثل تقرير شامل أو إغلاق اليوم. كل مهمة
+              تنقسم إلى subtasks على عدة وكلاء ثم تُجمّع في تقرير واحد.
             </p>
           </div>
           <a
-            href="/merchant/command-center"
+            href="/merchant/agent-activity"
             className="text-sm text-primary hover:underline"
           >
-            العودة لمركز القيادة
+            راجع نشاط الوكلاء
           </a>
         </CardContent>
       </Card>
@@ -645,31 +645,31 @@ export default function AgentTeamsPage() {
         <Card
           className={
             message.type === "success"
-              ? "border-[color:rgba(34,197,94,0.28)] bg-[color:rgba(34,197,94,0.1)]"
-              : "border-[color:rgba(239,68,68,0.3)] bg-[color:rgba(239,68,68,0.1)]"
+              ? "border-green-500/50 bg-green-50 dark:bg-green-950/20"
+              : "border-destructive/50 bg-red-50 dark:bg-red-950/20"
           }
         >
           <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
             {message.type === "success" ? (
-              <CheckCircle className="h-5 w-5 shrink-0 text-[color:var(--accent-success)]" />
+              <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400 shrink-0" />
             ) : (
               <XCircle className="h-5 w-5 text-destructive shrink-0" />
             )}
             <p
               className={
                 message.type === "success"
-                  ? "text-[color:#86efac]"
-                  : "flex-1 text-[color:#fca5a5]"
+                  ? "text-green-700 dark:text-green-300"
+                  : "text-destructive flex-1"
               }
             >
-              {message.text === "ASSISTANT_QUOTA"
-                ? "تم استنفاد رصيد المساعد اليومي. يتم التجديد يومياً أو قم بترقية الباقة."
+              {message.text === "AI_QUOTA"
+                ? "تم استنفاد رصيد الذكاء الاصطناعي اليومي. يتم التجديد يومياً أو قم بترقية الباقة."
                 : message.text}
             </p>
-            {message.text === "ASSISTANT_QUOTA" && (
+            {message.text === "AI_QUOTA" && (
               <a
-                href="/merchant/billing"
-                className="shrink-0 rounded-[var(--radius-sm)] border border-[color:var(--color-brand-primary)] bg-[color:var(--color-brand-primary)] px-3 py-1.5 text-xs font-medium text-[color:var(--bg-base)] transition-opacity hover:opacity-90"
+                href="/merchant/plan"
+                className="shrink-0 text-xs font-medium bg-primary text-primary-foreground rounded-md px-3 py-1.5 hover:bg-primary/90 transition-colors"
               >
                 ترقية الباقة
               </a>
@@ -744,7 +744,7 @@ export default function AgentTeamsPage() {
                             variant="outline"
                             className="text-[10px] px-1.5 py-0"
                           >
-                            <Link2 className="h-2.5 w-2.5 ms-0.5" />
+                            <Link2 className="h-2.5 w-2.5 ml-0.5" />
                             يعتمد على مهمة سابقة
                           </Badge>
                         )}
@@ -762,12 +762,12 @@ export default function AgentTeamsPage() {
                 >
                   {executing === template.id ? (
                     <>
-                      <Loader2 className="h-4 w-4 animate-spin ms-2" />
+                      <Loader2 className="h-4 w-4 animate-spin ml-2" />
                       جاري التنفيذ...
                     </>
                   ) : template.isAvailable ? (
                     <>
-                      <Rocket className="h-4 w-4 ms-2" />
+                      <Rocket className="h-4 w-4 ml-2" />
                       تنفيذ
                     </>
                   ) : (
@@ -787,7 +787,7 @@ export default function AgentTeamsPage() {
           المهام الجماعية الأخيرة
         </h2>
         {tasks.length === 0 ? (
-          <Card className="app-data-card">
+          <Card>
             <CardContent className="p-12 text-center">
               <Users className="h-12 w-12 text-muted-foreground/50 mx-auto mb-4" />
               <p className="text-lg font-medium text-foreground">
@@ -835,12 +835,12 @@ export default function AgentTeamsPage() {
               return (
                 <Card
                   key={task.id}
-                  className="app-data-card transition-colors hover:border-[color:rgba(45,107,228,0.30)]"
+                  className="hover:border-primary/30 transition-colors"
                 >
                   <CardContent className="p-4">
                     <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div className="flex items-center gap-3">
-                        <div className="flex h-9 w-9 items-center justify-center rounded-[var(--radius-md)] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-2)]">
+                        <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center">
                           <StatusIcon className="h-5 w-5 text-muted-foreground" />
                         </div>
                         <div>
@@ -879,7 +879,7 @@ export default function AgentTeamsPage() {
 
                     {failedSubtasks > 0 && (
                       <div className="mt-2">
-                        <p className="flex items-center gap-1 text-xs text-[color:var(--accent-danger)]">
+                        <p className="text-xs text-destructive flex items-center gap-1">
                           <AlertTriangle className="h-3 w-3" />
                           {failedSubtasks} مهام فرعية فشلت
                         </p>
@@ -902,8 +902,8 @@ export default function AgentTeamsPage() {
                     )}
 
                     {isSuccessfulTask && (
-                      <div className="mt-2 rounded-[var(--radius-sm)] border border-[color:rgba(34,197,94,0.26)] bg-[color:rgba(34,197,94,0.08)] px-2.5 py-2">
-                        <p className="text-xs font-medium text-[color:#86efac]">
+                      <div className="mt-2 rounded-md border border-green-200/70 bg-green-50/40 px-2.5 py-2">
+                        <p className="text-xs font-medium text-green-700">
                           ملخص التنفيذ
                         </p>
                         {resultSummary.length > 0 && (
@@ -929,14 +929,14 @@ export default function AgentTeamsPage() {
                         {resultSummary.length === 0 &&
                           completionSummaries.length === 0 && (
                             <p className="text-xs text-muted-foreground mt-1">
-                              تم التنفيذ، لكن لا يوجد ملخص نصي محفوظ.
+                              تم التنفيذ، لكن لا يوجد ملخص AI نصي محفوظ.
                             </p>
                           )}
                         <p className="mt-2 text-[11px] text-muted-foreground">
                           مصدر الملخص:{" "}
                           {task.reportSource === "agent_output"
-                            ? "مخرجات القدرات"
-                            : "بيانات تشغيل خام (بدون تحليل نصي)"}
+                            ? "مخرجات الوكلاء"
+                            : "بيانات تشغيل خام (بدون تحليل AI نصي)"}
                         </p>
                       </div>
                     )}
@@ -991,7 +991,7 @@ export default function AgentTeamsPage() {
               {selectedTaskDetails?.titleAr || "تفاصيل التقرير"}
             </DialogTitle>
             <DialogDescription>
-              يعرض هذا التقرير نتيجة القدرات بالتفصيل من نفس المهمة الجماعية.
+              يعرض هذا التقرير نتيجة الوكلاء بالتفصيل من نفس المهمة الجماعية.
             </DialogDescription>
           </DialogHeader>
 
@@ -1049,7 +1049,7 @@ export default function AgentTeamsPage() {
                       }
                     >
                       {selectedTaskDetails.reportSource === "agent_output"
-                        ? "مخرجات قدرات"
+                        ? "مخرجات وكلاء"
                         : "بيانات خام"}
                     </Badge>
                   </div>
@@ -1063,7 +1063,7 @@ export default function AgentTeamsPage() {
             {selectedTaskDetails?.aggregatedResult && (
               <Card>
                 <CardContent className="p-4">
-                  <p className="text-sm font-medium mb-2">ناتج القدرات (Raw)</p>
+                  <p className="text-sm font-medium mb-2">ناتج الوكلاء (Raw)</p>
                   <pre className="rounded-md bg-muted p-3 text-xs overflow-x-auto text-start">
                     {formatPrettyJson(selectedTaskDetails.aggregatedResult)}
                   </pre>

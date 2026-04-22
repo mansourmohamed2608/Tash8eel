@@ -35,41 +35,36 @@ function ToastNotification({
   onDismiss,
 }: ToastNotificationProps) {
   const icons = {
-    info: <Info className="h-5 w-5 text-[var(--accent-blue)]" />,
-    success: <CheckCircle className="h-5 w-5 text-[var(--accent-success)]" />,
-    warning: <AlertCircle className="h-5 w-5 text-[var(--accent-warning)]" />,
-    error: <XCircle className="h-5 w-5 text-[var(--accent-danger)]" />,
+    info: <Info className="h-5 w-5 text-blue-500" />,
+    success: <CheckCircle className="h-5 w-5 text-green-500" />,
+    warning: <AlertCircle className="h-5 w-5 text-amber-500" />,
+    error: <XCircle className="h-5 w-5 text-red-500" />,
   };
 
   const bgColors = {
-    info: "bg-[color:rgba(59,130,246,0.10)] border-[color:rgba(59,130,246,0.24)]",
-    success:
-      "bg-[color:rgba(34,197,94,0.10)] border-[color:rgba(34,197,94,0.24)]",
-    warning:
-      "bg-[color:rgba(245,158,11,0.10)] border-[color:rgba(245,158,11,0.24)]",
-    error:
-      "bg-[color:rgba(239,68,68,0.10)] border-[color:rgba(239,68,68,0.24)]",
+    info: "bg-blue-50 border-blue-200",
+    success: "bg-green-50 border-green-200",
+    warning: "bg-amber-50 border-amber-200",
+    error: "bg-red-50 border-red-200",
   };
 
   return (
     <div
       className={cn(
-        "animate-slide-in-right flex items-start gap-3 rounded-lg border p-4",
+        "flex items-start gap-3 p-4 rounded-lg border shadow-lg animate-slide-in-right",
         bgColors[notification.type],
       )}
     >
       {icons[notification.type]}
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-[var(--text-primary)]">
-          {notification.title}
-        </p>
-        <p className="mt-1 text-xs text-[var(--text-secondary)]">
+        <p className="font-medium text-sm">{notification.title}</p>
+        <p className="text-xs text-muted-foreground mt-1">
           {notification.message}
         </p>
         {notification.action && (
           <a
             href={notification.action.url}
-            className="mt-2 inline-block text-xs text-[var(--color-brand-primary)] hover:underline"
+            className="text-xs text-primary hover:underline mt-2 inline-block"
           >
             {notification.action.label} ←
           </a>
@@ -77,7 +72,7 @@ function ToastNotification({
       </div>
       <button
         onClick={() => onDismiss(notification.id)}
-        className="text-[var(--text-muted)] transition-colors hover:text-[var(--text-primary)]"
+        className="text-gray-400 hover:text-gray-600 transition-colors"
       >
         <X className="h-4 w-4" />
       </button>

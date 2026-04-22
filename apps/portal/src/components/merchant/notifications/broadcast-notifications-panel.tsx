@@ -328,8 +328,8 @@ export function BroadcastNotificationsPanel() {
         </Card>
         <Card>
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="rounded-lg bg-[var(--color-brand-subtle)] p-2">
-              <CheckCircle className="h-5 w-5 text-[var(--color-brand-primary)]" />
+            <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
+              <CheckCircle className="h-5 w-5 text-purple-600 dark:text-purple-400" />
             </div>
             <div>
               <p className="text-xs text-muted-foreground">إجمالي المستلمين</p>
@@ -340,10 +340,10 @@ export function BroadcastNotificationsPanel() {
       </div>
 
       {sendResult?.success && (
-        <Card className="border-[var(--accent-success)]/20 bg-[color:rgba(34,197,94,0.10)]">
+        <Card className="border-green-300 dark:border-green-800 bg-green-50 dark:bg-green-900/20">
           <CardContent className="p-4 flex items-center gap-3">
-            <CheckCircle className="h-5 w-5 shrink-0 text-[var(--accent-success)]" />
-            <p className="text-sm text-[var(--text-primary)]">
+            <CheckCircle className="h-5 w-5 text-green-600 shrink-0" />
+            <p className="text-sm text-green-800 dark:text-green-300">
               {sendResult.message}
             </p>
           </CardContent>

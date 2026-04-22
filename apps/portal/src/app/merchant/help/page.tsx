@@ -68,7 +68,7 @@ export default function HelpCenterPage() {
     <div className="space-y-6 animate-fadeIn p-4 sm:p-6">
       <PageHeader
         title="مركز المساعدة"
-        description="روابط مساعدة وتشغيل سريعة للوصول إلى أهم أقسام النظام."
+        description="مسارات واضحة لتجهيز النظام وتشغيله بكفاءة"
         actions={
           <Link
             href="/merchant/onboarding"
@@ -89,31 +89,22 @@ export default function HelpCenterPage() {
         summary.totalCustomers > 0) && (
         <div className="flex flex-wrap gap-3">
           {summary.totalProducts > 0 && (
-            <Badge
-              variant="secondary"
-              className="h-8 rounded-[var(--radius-sm)] px-3 text-xs"
-            >
+            <Badge variant="secondary" className="text-sm py-1 px-3">
               {summary.totalProducts} منتج
             </Badge>
           )}
           {summary.totalOrders > 0 && (
-            <Badge
-              variant="secondary"
-              className="h-8 rounded-[var(--radius-sm)] px-3 text-xs"
-            >
+            <Badge variant="secondary" className="text-sm py-1 px-3">
               {summary.totalOrders} طلب
             </Badge>
           )}
           {summary.totalCustomers > 0 && (
-            <Badge
-              variant="secondary"
-              className="h-8 rounded-[var(--radius-sm)] px-3 text-xs"
-            >
+            <Badge variant="secondary" className="text-sm py-1 px-3">
               {summary.totalCustomers} عميل
             </Badge>
           )}
           {summary.unreadNotifications > 0 && (
-            <Badge className="h-8 rounded-[var(--radius-sm)] border-[color:rgba(239,68,68,0.3)] bg-[color:rgba(239,68,68,0.1)] px-3 text-xs text-[color:#fca5a5]">
+            <Badge variant="destructive" className="text-sm py-1 px-3">
               {summary.unreadNotifications} إشعار غير مقروء
             </Badge>
           )}
@@ -124,10 +115,10 @@ export default function HelpCenterPage() {
         {sections.map((section: any) => {
           const Icon = ICON_MAP[section.icon] ?? BookOpen;
           return (
-            <Card key={section.id} className="app-data-card">
+            <Card key={section.id}>
               <CardHeader className="pb-2">
                 <CardTitle className="flex items-center gap-2 text-base">
-                  <Icon className="h-5 w-5 shrink-0 text-[color:var(--color-brand-primary)]" />
+                  <Icon className="h-5 w-5 text-primary shrink-0" />
                   {section.title}
                 </CardTitle>
               </CardHeader>
@@ -139,9 +130,7 @@ export default function HelpCenterPage() {
                   <p
                     className={cn(
                       "text-xs font-medium",
-                      section.hasData
-                        ? "text-[color:#86efac]"
-                        : "text-[color:#fcd34d]",
+                      section.hasData ? "text-green-700" : "text-amber-600",
                     )}
                   >
                     {section.metric}
@@ -150,8 +139,7 @@ export default function HelpCenterPage() {
                 <Link
                   href={section.href}
                   className={cn(
-                    buttonVariants({ variant: "outline", size: "sm" }),
-                    "w-full justify-center",
+                    buttonVariants({ variant: "secondary", size: "sm" }),
                   )}
                 >
                   فتح القسم

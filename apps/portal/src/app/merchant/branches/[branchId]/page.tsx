@@ -63,13 +63,9 @@ const PERIOD_OPTIONS = [
 
 function TrendIcon({ change }: { change: number }) {
   if (change > 0)
-    return (
-      <TrendingUp className="inline h-4 w-4 ml-1 text-[var(--accent-success)]" />
-    );
+    return <TrendingUp className="h-4 w-4 text-green-500 inline ml-1" />;
   if (change < 0)
-    return (
-      <TrendingDown className="inline h-4 w-4 ml-1 text-[var(--accent-danger)]" />
-    );
+    return <TrendingDown className="h-4 w-4 text-red-500 inline ml-1" />;
   return <Minus className="h-4 w-4 text-muted-foreground inline ml-1" />;
 }
 
@@ -79,9 +75,7 @@ function ChangeLabel({ change }: { change: number }) {
     <span
       className={cn(
         "text-xs font-medium",
-        change > 0
-          ? "text-[var(--accent-success)]"
-          : "text-[var(--accent-danger)]",
+        change > 0 ? "text-green-600" : "text-red-500",
       )}
     >
       <TrendIcon change={change} />
@@ -408,7 +402,7 @@ export default function BranchAnalyticsPage() {
                         </div>
                         <div>
                           <p className="text-muted-foreground">الإيرادات</p>
-                          <p className="font-medium text-[var(--accent-success)]">
+                          <p className="font-medium text-green-600">
                             {formatCurrency(product.revenue)}
                           </p>
                         </div>
@@ -434,7 +428,7 @@ export default function BranchAnalyticsPage() {
                           <TableCell className="text-sm text-muted-foreground">
                             {formatNumber(product.quantity)}
                           </TableCell>
-                          <TableCell className="text-sm font-medium text-[var(--accent-success)]">
+                          <TableCell className="text-sm font-medium text-green-600">
                             {formatCurrency(product.revenue)}
                           </TableCell>
                         </TableRow>
@@ -519,7 +513,7 @@ export default function BranchAnalyticsPage() {
               </div>
               <div>
                 <p className="text-muted-foreground">طلبات ملغاة</p>
-                <p className="font-semibold text-lg text-[var(--accent-danger)]">
+                <p className="font-semibold text-lg text-red-500">
                   {formatNumber(summary.cancelledOrders)}
                 </p>
               </div>
@@ -531,7 +525,7 @@ export default function BranchAnalyticsPage() {
               </div>
               <div>
                 <p className="text-muted-foreground">إجمالي الخصومات</p>
-                <p className="font-semibold text-lg text-[var(--accent-warning)]">
+                <p className="font-semibold text-lg text-amber-600">
                   {formatCurrency(summary.discountsGiven)}
                 </p>
               </div>
@@ -593,10 +587,10 @@ export default function BranchAnalyticsPage() {
                           className={cn(
                             "h-full rounded-full transition-all",
                             (goal.revenue_pct ?? 0) >= 100
-                              ? "bg-[var(--accent-success)]"
+                              ? "bg-green-500"
                               : (goal.revenue_pct ?? 0) >= 70
-                                ? "bg-[var(--accent-warning)]"
-                                : "bg-[var(--accent-blue)]",
+                                ? "bg-amber-500"
+                                : "bg-primary",
                           )}
                           style={{
                             width: `${Math.min(100, goal.revenue_pct ?? 0)}%`,
@@ -628,10 +622,10 @@ export default function BranchAnalyticsPage() {
                           className={cn(
                             "h-full rounded-full transition-all",
                             (goal.orders_pct ?? 0) >= 100
-                              ? "bg-[var(--accent-success)]"
+                              ? "bg-green-500"
                               : (goal.orders_pct ?? 0) >= 70
-                                ? "bg-[var(--accent-warning)]"
-                                : "bg-[var(--accent-blue)]",
+                                ? "bg-amber-500"
+                                : "bg-primary",
                           )}
                           style={{
                             width: `${Math.min(100, goal.orders_pct ?? 0)}%`,

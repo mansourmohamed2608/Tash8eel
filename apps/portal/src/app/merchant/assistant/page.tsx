@@ -23,6 +23,7 @@ import {
   Receipt,
   Send,
   ShieldCheck,
+  Sparkles,
   Square,
   Trash2,
   Wand2,
@@ -173,7 +174,7 @@ export default function MerchantAssistantPage() {
       .catch(() => {
         setAiStatus({
           connected: false,
-          message: "تعذر الاتصال بخدمة المساعد حالياً.",
+          message: "تعذر الاتصال بخدمة الذكاء الاصطناعي حالياً.",
           voice: false,
           vision: false,
         });
@@ -335,7 +336,7 @@ export default function MerchantAssistantPage() {
               : prev,
           );
           setError(
-            "تم استنفاد رصيد المساعد. قم بترقية الباقة أو انتظر تجديد الرصيد اليومي.",
+            "تم استنفاد رصيد الذكاء الاصطناعي. قم بترقية الباقة أو انتظر تجديد الرصيد اليومي.",
           );
         } else {
           setError(err.message || "فشل في تأكيد الأمر.");
@@ -493,7 +494,7 @@ export default function MerchantAssistantPage() {
 
         setError(
           isQuotaError
-            ? "تم استنفاد رصيد المساعد. قم بترقية الباقة أو انتظر تجديد الرصيد اليومي."
+            ? "تم استنفاد رصيد الذكاء الاصطناعي. قم بترقية الباقة أو انتظر تجديد الرصيد اليومي."
             : err.message || "فشل في إرسال الرسالة الصوتية.",
         );
         setMessages((prev) => [
@@ -502,7 +503,7 @@ export default function MerchantAssistantPage() {
             id: crypto.randomUUID(),
             role: "assistant",
             content: isQuotaError
-              ? "رصيد المساعد غير كافٍ حالياً. قم بالترقية للاستمرار."
+              ? "رصيد الذكاء الاصطناعي غير كافٍ حالياً. قم بالترقية للاستمرار."
               : "تعذر معالجة الرسالة الصوتية. حاول مرة أخرى.",
             createdAt: new Date().toISOString(),
           },
@@ -529,7 +530,7 @@ export default function MerchantAssistantPage() {
   const statusCards = useMemo(
     () => [
       {
-        label: "حالة المساعد",
+        label: "حالة الذكاء",
         value: aiStatus?.connected ? "متصل وجاهز" : "يحتاج تفعيل",
         note: aiStatus?.connected
           ? "يمكنك إرسال أوامر تشغيلية ونصوص تنفيذية الآن."
@@ -590,20 +591,20 @@ export default function MerchantAssistantPage() {
         <div className="assistant-hero-grid">
           <div className="assistant-hero-copy">
             <span className="assistant-hero-meta">
-              <Command className="h-4 w-4" />
-              مركز القيادة / مساعد إداري
+              <Sparkles className="h-4 w-4" />
+              AI Operator Console
             </span>
-            <h1 className="assistant-display">مساعد إداري</h1>
+            <h1 className="assistant-display">مساعد التاجر</h1>
             <p className="assistant-subheading">
-              سطح داعم للاستعلامات التشغيلية اليدوية ومراجعة النتائج داخل سياق
-              مركز القيادة.
+              واجهة تشغيل مكثفة لإدارة الأسئلة التنفيذية، مراجعة النتائج، واتخاذ
+              الأوامر من مكان واحد من دون التنقل بين شاشات كثيرة.
             </p>
           </div>
 
           <div className="assistant-hero-actions">
             <span className="assistant-chip">
               <Bot className="h-4 w-4" />
-              جلسة استعلام
+              Copilot Active
             </span>
             <button
               type="button"
@@ -713,7 +714,7 @@ export default function MerchantAssistantPage() {
           </div>
           <div className="assistant-inline-actions">
             <a
-              href="/merchant/billing"
+              href="/merchant/plan"
               className="assistant-button assistant-button--primary"
             >
               الاطلاع على الباقات
@@ -774,7 +775,7 @@ export default function MerchantAssistantPage() {
                       <div className="assistant-inline-actions">
                         {intentLabel && (
                           <span className="assistant-intent-badge">
-                            <Command className="h-3 w-3" />
+                            <Sparkles className="h-3 w-3" />
                             {intentLabel}
                           </span>
                         )}
@@ -801,7 +802,7 @@ export default function MerchantAssistantPage() {
                           </p>
                         </div>
                         <a
-                          href="/merchant/billing"
+                          href="/merchant/plan"
                           className="assistant-button assistant-button--secondary assistant-button--tiny"
                         >
                           راجع الباقات

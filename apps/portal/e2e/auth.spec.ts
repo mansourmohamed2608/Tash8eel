@@ -20,9 +20,9 @@ test.describe("Authentication", () => {
     await page.fill("#password", "badpass");
     await page.click('button[type="submit"]');
     // Error message should appear (div with bg-red-50)
-    await expect(
-      page.locator(".bg-red-50, .text-red-700").first(),
-    ).toBeVisible({ timeout: 8_000 });
+    await expect(page.locator(".bg-red-50, .text-red-700").first()).toBeVisible(
+      { timeout: 8_000 },
+    );
   });
 
   test("demo merchant logs in and reaches dashboard", async ({ page }) => {

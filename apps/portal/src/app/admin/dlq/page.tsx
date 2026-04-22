@@ -69,13 +69,10 @@ const statusLabels: Record<string, string> = {
 };
 
 const statusColors: Record<string, string> = {
-  pending:
-    "border border-[var(--accent-warning)]/25 bg-[var(--accent-warning)]/12 text-[var(--accent-warning)]",
-  retrying:
-    "border border-[var(--accent-blue)]/25 bg-[var(--accent-blue)]/12 text-[var(--accent-blue)]",
-  resolved:
-    "border border-[var(--accent-success)]/25 bg-[var(--accent-success)]/12 text-[var(--accent-success)]",
-  dead: "border border-[var(--accent-danger)]/25 bg-[var(--accent-danger)]/12 text-[var(--accent-danger)]",
+  pending: "bg-yellow-100 text-yellow-800",
+  retrying: "bg-blue-100 text-blue-800",
+  resolved: "bg-green-100 text-green-800",
+  dead: "bg-red-100 text-red-800",
 };
 
 const JsonPayloadPreview = ({ value }: { value: unknown }) => (
@@ -290,11 +287,11 @@ export default function DlqPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">معلق</p>
-                <p className="text-2xl font-bold text-[var(--accent-warning)]">
+                <p className="text-2xl font-bold text-yellow-600">
                   {pendingCount}
                 </p>
               </div>
-              <Clock className="h-8 w-8 text-[var(--accent-warning)]" />
+              <Clock className="h-8 w-8 text-yellow-600" />
             </div>
           </CardContent>
         </Card>
@@ -303,11 +300,11 @@ export default function DlqPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">تم الحل</p>
-                <p className="text-2xl font-bold text-[var(--accent-success)]">
+                <p className="text-2xl font-bold text-green-600">
                   {events.filter((e) => e.status === "resolved").length}
                 </p>
               </div>
-              <CheckCircle className="h-8 w-8 text-[var(--accent-success)]" />
+              <CheckCircle className="h-8 w-8 text-green-600" />
             </div>
           </CardContent>
         </Card>
@@ -316,11 +313,9 @@ export default function DlqPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">فشل نهائي</p>
-                <p className="text-2xl font-bold text-[var(--accent-danger)]">
-                  {deadCount}
-                </p>
+                <p className="text-2xl font-bold text-red-600">{deadCount}</p>
               </div>
-              <XCircle className="h-8 w-8 text-[var(--accent-danger)]" />
+              <XCircle className="h-8 w-8 text-red-600" />
             </div>
           </CardContent>
         </Card>
@@ -410,7 +405,7 @@ export default function DlqPage() {
                       </div>
                       <div className="sm:col-span-2">
                         <p className="text-muted-foreground">سبب الفشل</p>
-                        <p className="text-sm text-[var(--accent-danger)]">
+                        <p className="text-sm text-red-600">
                           {event.failReason}
                         </p>
                       </div>
@@ -449,10 +444,10 @@ export default function DlqPage() {
                       <Button
                         variant="outline"
                         size="sm"
-                        className="w-full text-[var(--accent-danger)] sm:w-auto"
+                        className="w-full text-red-600 sm:w-auto"
                         onClick={() => handleDelete(event.id)}
                       >
-                        <Trash2 className="ml-2 h-4 w-4 text-[var(--accent-danger)]" />
+                        <Trash2 className="ml-2 h-4 w-4 text-red-500" />
                         حذف
                       </Button>
                     </div>
@@ -504,7 +499,7 @@ export default function DlqPage() {
                         </td>
                         <td className="p-4 max-w-xs">
                           <p
-                            className="truncate text-sm text-[var(--accent-danger)]"
+                            className="text-sm text-red-600 truncate"
                             title={event.failReason}
                           >
                             {event.failReason}
@@ -559,7 +554,7 @@ export default function DlqPage() {
                               size="icon"
                               onClick={() => handleDelete(event.id)}
                             >
-                              <Trash2 className="h-4 w-4 text-[var(--accent-danger)]" />
+                              <Trash2 className="h-4 w-4 text-red-500" />
                             </Button>
                           </div>
                         </td>
@@ -637,8 +632,8 @@ export default function DlqPage() {
 
               <div>
                 <p className="text-sm text-muted-foreground mb-2">سبب الفشل</p>
-                <div className="rounded-lg border border-[var(--accent-danger)]/25 bg-[var(--accent-danger)]/12 p-3">
-                  <p className="break-words text-sm text-[var(--accent-danger)]">
+                <div className="p-3 rounded-lg bg-red-50 border border-red-200">
+                  <p className="break-words text-sm text-red-700">
                     {selectedEvent.failReason}
                   </p>
                 </div>

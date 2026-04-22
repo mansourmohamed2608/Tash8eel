@@ -147,34 +147,13 @@ const AGENT_GATES: Array<{
   description: string;
 }> = [];
 
-// ─── Pages that are removed or not yet launched - redirect to safe destinations ───
+// ─── Pages that are removed or not yet launched - always redirect to dashboard ───
 const BLOCKED_ROUTES = [
-  "/merchant/plan", // Retired in Phase 0 - compatibility redirect to billing
   "/merchant/integrations", // ERP integrations - removed (POS integrations is the single hub)
   "/merchant/webhooks", // Replaced by POS integrations
   "/merchant/vision", // General OCR removed (payment-proof workflow only)
   "/merchant/ocr-review", // OCR review - internal/not launched yet
 ];
-
-const BLOCKED_ROUTE_REDIRECTS: Record<string, string> = {
-  "/merchant/plan": "/merchant/billing",
-  "/merchant/integrations": "/merchant/pos-integrations",
-  "/merchant/webhooks": "/merchant/pos-integrations",
-  "/merchant/vision": "/merchant/payments/proofs",
-  "/merchant/ocr-review": "/merchant/payments/proofs",
-};
-
-function getBlockedRouteRedirect(pathname: string) {
-  const matchedPrefix = Object.keys(BLOCKED_ROUTE_REDIRECTS).find(
-    (prefix) => pathname === prefix || pathname.startsWith(prefix + "/"),
-  );
-
-  if (!matchedPrefix) {
-    return "/merchant/dashboard";
-  }
-
-  return BLOCKED_ROUTE_REDIRECTS[matchedPrefix];
-}
 
 const CHAT_ONLY_BLOCKED_ROUTES = [
   "/merchant/orders",
@@ -220,9 +199,7 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     }
     // Block access to removed/coming-soon pages
     if (status === "authenticated" && isHardBlockedRoute) {
-      router.replace(
-        getBlockedRouteRedirect(pathname || "/merchant/dashboard"),
-      );
+      router.replace("/merchant/plan");
     }
   }, [status, router, session, pathname, isHardBlockedRoute]);
 
@@ -358,7 +335,7 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
           <p className="text-muted-foreground">
-            جاري التوجيه إلى الصفحة المناسبة...
+            جاري التوجيه إلى صفحة الخطة...
           </p>
         </div>
       </div>
@@ -424,7 +401,7 @@ function MerchantLayoutContent({ children }: { children: React.ReactNode }) {
   const userRole = String(session?.user?.role || "");
   const isCashierUser = userRole === "CASHIER";
   const isCashierRoute = pathname === "/merchant/cashier";
-  const showShellChrome = !isCashierRoute;
+  const showCashierChrome = isCashierUser && isCashierRoute;
   const shouldWaitForEntitlements = !!(featureGate || agentGate) && isLoading;
   const isFeatureBlocked =
     !isLoading &&
@@ -455,16 +432,14 @@ function MerchantLayoutContent({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (isEntitlementBlocked && pathname) {
-      router.replace(
-        `/merchant/billing?blocked=${encodeURIComponent(pathname)}`,
-      );
+      router.replace(`/merchant/plan?blocked=${encodeURIComponent(pathname)}`);
     }
   }, [isEntitlementBlocked, pathname, router]);
 
   useEffect(() => {
     if (isChatOnlyRouteBlocked && pathname) {
       router.replace(
-        `/merchant/billing?blocked=${encodeURIComponent(pathname)}`,
+        `/merchant/pricing?blocked=${encodeURIComponent(pathname)}`,
       );
     }
   }, [isChatOnlyRouteBlocked, pathname, router]);
@@ -552,7 +527,7 @@ function MerchantLayoutContent({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="app-shell">
-      {showShellChrome && (
+      {(!isCashierRoute || showCashierChrome) && (
         <Sidebar
           role="merchant"
           merchantName={merchantName}
@@ -567,17 +542,33 @@ function MerchantLayoutContent({ children }: { children: React.ReactNode }) {
       )}
       <div
         className={cn(
-          isCashierRoute ? "min-h-screen" : "transition-all duration-300",
-          showShellChrome &&
-            (collapsed
-              ? "lg:me-[var(--sidebar-width-collapsed)]"
-              : "lg:me-[var(--sidebar-width-expanded)]"),
+          isCashierRoute && !showCashierChrome
+            ? "min-h-screen"
+            : "transition-all duration-300",
+          (!isCashierRoute || showCashierChrome) &&
+            (collapsed ? "lg:mr-[88px]" : "lg:mr-72"),
         )}
       >
-        {showShellChrome && <TopBar role="merchant" collapsed={collapsed} />}
+        {(!isCashierRoute || showCashierChrome) && (
+          <TopBar role="merchant" collapsed={collapsed} />
+        )}
         <main
-          className={cn(isCashierRoute ? "p-0" : "app-shell-main p-4 lg:p-6")}
+          className={cn(
+            isCashierRoute && !showCashierChrome
+              ? "p-0"
+              : "app-shell-main p-4 lg:p-6",
+          )}
         >
+          {isDemo && (!isCashierRoute || showCashierChrome) && (
+            <div className="mb-4 rounded-[18px] border border-amber-300/80 bg-amber-50/90 px-4 py-3 text-sm text-amber-800 shadow-[0_12px_24px_rgba(217,119,6,0.08)] dark:border-amber-700/70 dark:bg-amber-900/20 dark:text-amber-200">
+              <strong>وضع العرض التجريبي:</strong> البيانات المعروضة للتجربة
+              فقط.{" "}
+              <a href="/login" className="underline font-medium">
+                سجل دخول
+              </a>{" "}
+              للوصول لبياناتك الحقيقية.
+            </div>
+          )}
           {shouldWaitForEntitlements ? (
             <div className="app-surface mx-auto flex max-w-2xl flex-col items-center gap-4 rounded-[24px] p-8 text-center">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -593,10 +584,10 @@ function MerchantLayoutContent({ children }: { children: React.ReactNode }) {
                 والمالية، اختر خطة منصة كاملة.
               </p>
               <Link
-                href="/merchant/billing"
+                href="/merchant/pricing"
                 className={buttonVariants({ variant: "default" })}
               >
-                مراجعة الاشتراك
+                عرض الخطط
               </Link>
             </div>
           ) : isEntitlementBlocked ? (
@@ -604,7 +595,7 @@ function MerchantLayoutContent({ children }: { children: React.ReactNode }) {
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
               <p className="text-sm text-muted-foreground">
                 هذه الصفحة غير متاحة ضمن خطتك الحالية. جاري التوجيه إلى صفحة
-                الاشتراك...
+                الخطة...
               </p>
             </div>
           ) : (
@@ -614,7 +605,7 @@ function MerchantLayoutContent({ children }: { children: React.ReactNode }) {
       </div>
       {/* Real-time WebSocket Notifications */}
       <WebSocketNotifications />
-      {showShellChrome && <ActiveCallOrderFab />}
+      <ActiveCallOrderFab />
     </div>
   );
 }

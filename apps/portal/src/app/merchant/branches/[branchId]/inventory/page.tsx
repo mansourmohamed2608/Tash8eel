@@ -185,12 +185,12 @@ export default function BranchInventoryPage() {
             <CardContent className="pt-4">
               <p className="text-xs text-muted-foreground flex items-center gap-1">
                 {summary.lowStockItems > 0 && (
-                  <AlertTriangle className="h-3 w-3 text-[var(--accent-warning)]" />
+                  <AlertTriangle className="h-3 w-3 text-amber-500" />
                 )}
                 مخزون منخفض
               </p>
               <p
-                className={`mt-1 text-2xl font-bold ${summary.lowStockItems > 0 ? "text-[var(--accent-warning)]" : ""}`}
+                className={`text-2xl font-bold mt-1 ${summary.lowStockItems > 0 ? "text-amber-600" : ""}`}
               >
                 {summary.lowStockItems}
               </p>

@@ -47,6 +47,7 @@ import {
   MapPin,
   FileText,
   Search,
+  Sparkles,
   CheckCircle,
   AlertTriangle,
   Info,
@@ -61,6 +62,10 @@ import { merchantApi } from "@/lib/client";
 import { useMerchant } from "@/hooks/use-merchant";
 import { useRoleAccess } from "@/hooks/use-role-access";
 import { useToast } from "@/hooks/use-toast";
+import {
+  AiInsightsCard,
+  generateKnowledgeBaseInsights,
+} from "@/components/ai/ai-insights-card";
 import { RecipeManager } from "@/components/inventory/recipe-manager";
 
 // ==================== INTERFACES ====================
@@ -915,7 +920,7 @@ export default function KnowledgeBasePage() {
     <div className="space-y-6 animate-fadeIn p-4 sm:p-6">
       <PageHeader
         title="قاعدة المعرفة"
-        description="أضف المعلومات التي يستخدمها المساعد للرد على عملائك"
+        description="أضف المعلومات التي يستخدمها الذكاء الاصطناعي للرد على عملائك"
         actions={
           <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
             {lastSavedAt && (
@@ -935,42 +940,28 @@ export default function KnowledgeBasePage() {
         }
       />
 
-      <div className="flex flex-wrap gap-2">
-        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
-          <Package className="h-3.5 w-3.5 text-[var(--color-brand-primary)]" />
-          <span className="text-muted-foreground">العناصر</span>
-          <span className="font-mono text-[var(--color-brand-primary)]">
-            {menuItems.length ?? 0}
-          </span>
-        </div>
-        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
-          <HelpCircle className="h-3.5 w-3.5 text-[var(--accent-blue)]" />
-          <span className="text-muted-foreground">الأسئلة الشائعة</span>
-          <span className="font-mono text-[var(--accent-blue)]">
-            {faqs.length}
-          </span>
-        </div>
-        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
-          <FileText className="h-3.5 w-3.5 text-[var(--accent-success)]" />
-          <span className="text-muted-foreground">العروض</span>
-          <span className="font-mono text-[var(--accent-success)]">
-            {offers.length}
-          </span>
-        </div>
-      </div>
+      <AiInsightsCard
+        insights={generateKnowledgeBaseInsights({
+          totalEntries: menuItems.length ?? 0,
+          hasFaqs: faqs.length > 0,
+          hasOffers: offers.length > 0,
+          hasDeliveryPricing: hasValidDeliveryPricing ?? false,
+        })}
+      />
 
+      {/* AI Info Banner */}
       <Card className="border-primary/20 bg-primary/5">
         <CardContent className="p-4">
           <div className="flex items-start gap-3">
-            <Info className="h-5 w-5 text-primary mt-0.5" />
+            <Sparkles className="h-5 w-5 text-primary mt-0.5" />
             <div>
               <h4 className="font-medium text-primary">
-                كيف يستخدم المساعد هذه المعلومات؟
+                كيف يستخدم الذكاء الاصطناعي هذه المعلومات؟
               </h4>
               <p className="text-sm text-muted-foreground mt-1">
-                عندما يسأل عميل عن منتج أو سعر أو معلومة، يستخدم المساعد
-                البيانات التي تضيفها هنا للرد بدقة. كلما أضفت معلومات أكثر، كانت
-                الردود أفضل وأدق.
+                عندما يسأل عميل عن منتج أو سعر أو معلومة، يستخدم الذكاء
+                الاصطناعي البيانات التي تضيفها هنا للرد بدقة. كلما أضفت معلومات
+                أكثر، كانت الردود أفضل وأدق.
               </p>
             </div>
           </div>
@@ -981,12 +972,12 @@ export default function KnowledgeBasePage() {
         <Card className="border-amber-200 bg-amber-50/60">
           <CardContent className="p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="font-medium text-[var(--accent-warning)]">
+              <p className="font-medium text-amber-900">
                 استكمال قاعدة المعرفة
               </p>
-              <p className="text-sm text-[var(--text-secondary)]">
+              <p className="text-sm text-amber-800">
                 نسبة اكتمالك الحالية {checklistPercent}% - أكمل النقاط لتحسين
-                دقة ردود المساعد.
+                دقة ردود الذكاء الاصطناعي.
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -1008,10 +999,12 @@ export default function KnowledgeBasePage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <CheckCircle className="h-5 w-5 text-primary" />
+            <Sparkles className="h-5 w-5 text-primary" />
             البداية السريعة
           </CardTitle>
-          <CardDescription>أكمل هذه النقاط لتحسين ردود المساعد</CardDescription>
+          <CardDescription>
+            أكمل هذه النقاط لتحسين ردود الذكاء الاصطناعي
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="flex items-center gap-3">
@@ -1024,9 +1017,9 @@ export default function KnowledgeBasePage() {
             {checklistItems.map((item, idx) => (
               <div key={idx} className="flex items-center gap-2 text-sm">
                 {item.done ? (
-                  <CheckCircle className="h-4 w-4 text-[var(--accent-success)]" />
+                  <CheckCircle className="h-4 w-4 text-green-600" />
                 ) : (
-                  <AlertTriangle className="h-4 w-4 text-[var(--accent-warning)]" />
+                  <AlertTriangle className="h-4 w-4 text-amber-500" />
                 )}
                 <span
                   className={
@@ -1053,8 +1046,8 @@ export default function KnowledgeBasePage() {
                 <strong>المخزون</strong> لإدارة الكميات الفعلية والمواقع
                 والتوريد.
                 <strong className="ml-1">قاعدة المعرفة</strong> لتجميع معلومات
-                النشاط والأسئلة الشائعة وسياساتك حتى يستخدمها المساعد في الردود.
-                لا يوجد ربط تلقائي بينهما.
+                النشاط والأسئلة الشائعة وسياساتك حتى يستخدمها الذكاء الاصطناعي
+                في الردود. لا يوجد ربط تلقائي بينهما.
               </p>
             </div>
           </div>
@@ -1099,7 +1092,7 @@ export default function KnowledgeBasePage() {
                 <p className="text-sm text-muted-foreground">عناصر الكتالوج</p>
                 <p className="text-2xl font-bold">{stats.menuItems}</p>
               </div>
-              <Package className="h-8 w-8 text-[var(--accent-warning)]" />
+              <Package className="h-8 w-8 text-orange-500" />
             </div>
           </CardContent>
         </Card>
@@ -1108,11 +1101,11 @@ export default function KnowledgeBasePage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">متاح للبيع</p>
-                <p className="text-2xl font-bold text-[var(--accent-success)]">
+                <p className="text-2xl font-bold text-green-600">
                   {stats.availableItems}
                 </p>
               </div>
-              <CheckCircle className="h-8 w-8 text-[var(--accent-success)]" />
+              <CheckCircle className="h-8 w-8 text-green-500" />
             </div>
           </CardContent>
         </Card>
@@ -1123,7 +1116,7 @@ export default function KnowledgeBasePage() {
                 <p className="text-sm text-muted-foreground">الأسئلة الشائعة</p>
                 <p className="text-2xl font-bold">{stats.faqs}</p>
               </div>
-              <HelpCircle className="h-8 w-8 text-[var(--accent-blue)]" />
+              <HelpCircle className="h-8 w-8 text-blue-500" />
             </div>
           </CardContent>
         </Card>
@@ -1132,11 +1125,11 @@ export default function KnowledgeBasePage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">أسئلة مفعّلة</p>
-                <p className="text-2xl font-bold text-[var(--accent-success)]">
+                <p className="text-2xl font-bold text-green-600">
                   {stats.activeFaqs}
                 </p>
               </div>
-              <MessageSquare className="h-8 w-8 text-[var(--color-brand-primary)]" />
+              <MessageSquare className="h-8 w-8 text-purple-500" />
             </div>
           </CardContent>
         </Card>
@@ -1316,7 +1309,7 @@ export default function KnowledgeBasePage() {
             <EmptyState
               icon={<Package className="h-12 w-12" />}
               title="لا توجد منتجات أو خدمات"
-              description="أضف منتجاتك أو خدماتك ليتمكن المساعد من الإجابة عن أسئلة العملاء"
+              description="أضف منتجاتك أو خدماتك ليتمكن الذكاء الاصطناعي من الإجابة عن أسئلة العملاء"
               action={
                 canCreate ? (
                   <Button onClick={() => setShowMenuDialog(true)}>
@@ -1363,7 +1356,7 @@ export default function KnowledgeBasePage() {
                           {item.category}
                         </Badge>
                         {item.has_recipe && (
-                          <Badge className="mr-1 border-0 bg-[var(--accent-warning)]/15 text-xs text-[var(--accent-warning)]">
+                          <Badge className="mr-1 bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 text-xs">
                             <ChefHat className="h-3 w-3 ml-1" />
                             وصفة
                           </Badge>
@@ -1378,7 +1371,7 @@ export default function KnowledgeBasePage() {
                           disabled={!canEdit}
                           className={
                             item.has_recipe
-                              ? "text-[var(--accent-warning)]"
+                              ? "text-orange-600"
                               : "text-muted-foreground"
                           }
                         >
@@ -1411,11 +1404,11 @@ export default function KnowledgeBasePage() {
 
           {/* Recipe Management Panel */}
           {recipeItem && (
-            <Card className="border-[var(--accent-warning)]/20 bg-[color:rgba(245,158,11,0.06)]">
+            <Card className="border-orange-200 dark:border-orange-800">
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <ChefHat className="h-5 w-5 text-[var(--accent-warning)]" />
+                    <ChefHat className="h-5 w-5 text-orange-500" />
                     <CardTitle className="text-base">
                       وصفة: {recipeItem.name}
                     </CardTitle>
@@ -1478,7 +1471,7 @@ export default function KnowledgeBasePage() {
             <EmptyState
               icon={<HelpCircle className="h-12 w-12" />}
               title="لا توجد أسئلة شائعة"
-              description="أضف الأسئلة المتكررة وإجاباتها ليتمكن المساعد من الرد على العملاء تلقائياً"
+              description="أضف الأسئلة المتكررة وإجاباتها ليتمكن الذكاء الاصطناعي من الرد على العملاء تلقائياً"
               action={
                 <Button onClick={() => setShowFAQDialog(true)}>
                   <Plus className="h-4 w-4 ml-2" />
@@ -1497,7 +1490,7 @@ export default function KnowledgeBasePage() {
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <div className="flex-1">
                         <div className="mb-1 flex flex-wrap items-center gap-2">
-                          <HelpCircle className="h-4 w-4 text-[var(--accent-blue)]" />
+                          <HelpCircle className="h-4 w-4 text-blue-500" />
                           <h4 className="font-medium">{faq.question}</h4>
                           <Badge variant="outline">{faq.category}</Badge>
                           {!faq.isActive && (
@@ -1955,7 +1948,7 @@ export default function KnowledgeBasePage() {
             <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <CardTitle className="flex items-center gap-2">
-                  <FileText className="h-5 w-5" />
+                  <Sparkles className="h-5 w-5" />
                   العروض والخصومات
                 </CardTitle>
                 <CardDescription>
@@ -1973,7 +1966,7 @@ export default function KnowledgeBasePage() {
             <CardContent>
               {offers.length === 0 ? (
                 <EmptyState
-                  icon={<FileText className="h-12 w-12" />}
+                  icon={<Sparkles className="h-12 w-12" />}
                   title="لا توجد عروض بعد"
                   description="أنشئ عروضاً ترويجية لتظهر للعملاء داخل المحادثة"
                   action={
@@ -2258,7 +2251,7 @@ export default function KnowledgeBasePage() {
               <div className="max-h-40 overflow-y-auto space-y-2 text-sm text-muted-foreground">
                 {autoFaqs.slice(0, 6).map((faq) => (
                   <div key={faq.id} className="flex items-start gap-2">
-                    <CheckCircle className="mt-0.5 h-4 w-4 text-[var(--accent-success)]" />
+                    <CheckCircle className="h-4 w-4 text-green-600 mt-0.5" />
                     <span>{faq.question}</span>
                   </div>
                 ))}
@@ -2359,8 +2352,8 @@ export default function KnowledgeBasePage() {
               {editingMenuItem ? "تعديل المنتج/الخدمة" : "إضافة منتج/خدمة جديد"}
             </DialogTitle>
             <DialogDescription>
-              أضف منتج أو خدمة من الكتالوج ليتمكن المساعد من الإجابة عن أسئلة
-              العملاء
+              أضف منتج أو خدمة من الكتالوج ليتمكن الذكاء الاصطناعي من الإجابة عن
+              أسئلة العملاء
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -2483,7 +2476,8 @@ export default function KnowledgeBasePage() {
               {editingFAQ ? "تعديل السؤال" : "إضافة سؤال جديد"}
             </DialogTitle>
             <DialogDescription>
-              أضف سؤالاً متكرراً وإجابته ليتمكن المساعد من الرد تلقائياً
+              أضف سؤالاً متكرراً وإجابته ليتمكن الذكاء الاصطناعي من الرد
+              تلقائياً
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">

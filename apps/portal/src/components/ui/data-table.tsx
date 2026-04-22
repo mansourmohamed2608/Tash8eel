@@ -1,6 +1,5 @@
 "use client";
 
-import * as React from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "./button";
 import { EmptyState } from "./alerts";
@@ -32,17 +31,17 @@ export function DataTable<T extends { id?: string | number }>({
     return (
       <div
         className={cn(
-          "overflow-hidden rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--bg-surface-1)]",
+          "overflow-hidden rounded-[24px] border border-[color:color-mix(in_srgb,var(--border-strong)_88%,transparent)] bg-card shadow-[0_20px_48px_-34px_rgba(15,23,42,0.48)]",
           className,
         )}
       >
         <table className="w-full">
           <thead>
-            <tr className="border-b border-[var(--border-subtle)] bg-[var(--bg-surface-2)]">
+            <tr className="border-b border-[color:color-mix(in_srgb,var(--border-strong)_72%,transparent)] bg-[color:color-mix(in_srgb,var(--surface-muted)_90%,transparent)]">
               {columns.map((col) => (
                 <th
                   key={col.key}
-                  className="h-9 p-4 text-start text-[11px] font-semibold text-[var(--text-muted)]"
+                  className="p-4 text-right font-bold text-[var(--text-muted)]"
                 >
                   <Skeleton className="h-4 w-20" />
                 </th>
@@ -53,10 +52,10 @@ export function DataTable<T extends { id?: string | number }>({
             {Array.from({ length: 5 }).map((_, i) => (
               <tr
                 key={i}
-                className="border-b border-[var(--border-subtle)] last:border-0"
+                className="border-b border-[color:color-mix(in_srgb,var(--border-strong)_72%,transparent)]"
               >
                 {columns.map((col) => (
-                  <td key={col.key} className="h-12 p-4">
+                  <td key={col.key} className="p-4">
                     <Skeleton className="h-4 w-full" />
                   </td>
                 ))}
@@ -72,7 +71,7 @@ export function DataTable<T extends { id?: string | number }>({
     return (
       <div
         className={cn(
-          "rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--bg-surface-1)] p-4",
+          "rounded-[24px] border border-[color:color-mix(in_srgb,var(--border-strong)_88%,transparent)] bg-card p-3 shadow-[0_20px_48px_-34px_rgba(15,23,42,0.48)]",
           className,
         )}
       >
@@ -84,19 +83,19 @@ export function DataTable<T extends { id?: string | number }>({
   return (
     <div
       className={cn(
-        "overflow-hidden rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--bg-surface-1)]",
+        "overflow-hidden rounded-[24px] border border-[color:color-mix(in_srgb,var(--border-strong)_88%,transparent)] bg-card shadow-[0_20px_48px_-34px_rgba(15,23,42,0.48)]",
         className,
       )}
     >
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
-            <tr className="border-b border-[var(--border-subtle)] bg-[var(--bg-surface-2)]">
+            <tr className="border-b border-[color:color-mix(in_srgb,var(--border-strong)_72%,transparent)] bg-[color:color-mix(in_srgb,var(--surface-muted)_90%,transparent)]">
               {columns.map((col) => (
                 <th
                   key={col.key}
                   className={cn(
-                    "h-9 p-4 text-start text-[11px] font-semibold text-[var(--text-muted)]",
+                    "p-4 text-right text-[0.6875rem] font-bold tracking-[0.08em] text-[var(--text-muted)]",
                     col.className,
                   )}
                 >
@@ -110,19 +109,16 @@ export function DataTable<T extends { id?: string | number }>({
               <tr
                 key={item.id ?? idx}
                 className={cn(
-                  "border-b border-[var(--border-subtle)] transition-all duration-150 ease-in last:border-0",
+                  "border-b border-[color:color-mix(in_srgb,var(--border-strong)_72%,transparent)] transition-colors last:border-0",
                   onRowClick &&
-                    "cursor-pointer hover:bg-[var(--bg-surface-2)] hover:[border-inline-end:2px_solid_var(--color-brand-primary)]",
+                    "cursor-pointer hover:bg-[color:color-mix(in_srgb,var(--surface-muted)_60%,transparent)]",
                 )}
                 onClick={() => onRowClick?.(item)}
               >
                 {columns.map((col) => (
                   <td
                     key={col.key}
-                    className={cn(
-                      "h-12 p-4 text-[13px] text-[var(--text-secondary)]",
-                      col.className,
-                    )}
+                    className={cn("p-4 text-sm", col.className)}
                   >
                     {col.render
                       ? col.render(item)
@@ -153,10 +149,7 @@ export function Pagination({
   onPageChange,
   className,
 }: PaginationProps) {
-  const pages = React.useMemo(
-    () => Array.from({ length: totalPages }, (_, i) => i + 1),
-    [totalPages],
-  );
+  const pages = Array.from({ length: totalPages }, (_, i) => i + 1);
   const visiblePages = pages.slice(
     Math.max(0, currentPage - 2),
     Math.min(totalPages, currentPage + 2),

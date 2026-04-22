@@ -1,129 +1,135 @@
 import { cn } from "@/lib/utils";
 
-type SkeletonProps = {
-  className?: string;
-};
+interface SkeletonProps extends React.HTMLAttributes<HTMLDivElement> {}
 
-type TableSkeletonProps = {
-  rows?: number;
-  columns?: number;
-  className?: string;
-};
-
-export function Skeleton({ className }: SkeletonProps) {
-  return <div className={cn("tash-skeleton rounded-[8px]", className)} />;
+function Skeleton({ className, ...props }: SkeletonProps) {
+  return (
+    <div
+      className={cn(
+        "rounded-[14px] bg-[linear-gradient(90deg,color-mix(in_srgb,var(--surface-muted)_88%,transparent)_20%,color-mix(in_srgb,var(--surface-muted)_62%,white)_50%,color-mix(in_srgb,var(--surface-muted)_88%,transparent)_80%)] bg-[length:200%_100%] animate-[assistantShimmer_1.6s_linear_infinite]",
+        className,
+      )}
+      {...props}
+    />
+  );
 }
 
-export function DashboardSkeleton({ className }: SkeletonProps) {
+function CardSkeleton() {
   return (
-    <div className={cn("grid gap-4 md:grid-cols-2 xl:grid-cols-4", className)}>
-      {Array.from({ length: 4 }).map((_, index) => (
+    <div className="rounded-[24px] border border-[color:color-mix(in_srgb,var(--border-strong)_88%,transparent)] bg-card p-5 shadow-[0_18px_40px_-30px_rgba(15,23,42,0.45)]">
+      <Skeleton className="mb-4 h-3.5 w-1/3" />
+      <Skeleton className="mb-2 h-8 w-2/3" />
+      <Skeleton className="h-3 w-1/2" />
+    </div>
+  );
+}
+
+function TableRowSkeleton({ columns = 5 }: { columns?: number }) {
+  return (
+    <tr className="border-b border-[color:color-mix(in_srgb,var(--border-strong)_72%,transparent)]">
+      {Array.from({ length: columns }).map((_, i) => (
+        <td key={i} className="p-4">
+          <Skeleton className="h-4 w-full" />
+        </td>
+      ))}
+    </tr>
+  );
+}
+
+function TableSkeleton({
+  rows = 5,
+  columns = 5,
+}: {
+  rows?: number;
+  columns?: number;
+}) {
+  return (
+    <div className="overflow-hidden rounded-[24px] border border-[color:color-mix(in_srgb,var(--border-strong)_88%,transparent)] bg-card shadow-[0_18px_40px_-30px_rgba(15,23,42,0.45)]">
+      <div className="border-b border-[color:color-mix(in_srgb,var(--border-strong)_72%,transparent)] p-4">
+        <Skeleton className="h-6 w-1/4" />
+      </div>
+      <table className="w-full">
+        <thead>
+          <tr className="border-b border-[color:color-mix(in_srgb,var(--border-strong)_72%,transparent)] bg-[color:color-mix(in_srgb,var(--surface-muted)_92%,transparent)]">
+            {Array.from({ length: columns }).map((_, i) => (
+              <th key={i} className="p-4">
+                <Skeleton className="h-4 w-full" />
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {Array.from({ length: rows }).map((_, i) => (
+            <TableRowSkeleton key={i} columns={columns} />
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function ListSkeleton({ items = 5 }: { items?: number }) {
+  return (
+    <div className="space-y-3">
+      {Array.from({ length: items }).map((_, i) => (
         <div
-          key={index}
-          className="rounded-[8px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-1)] p-4"
+          key={i}
+          className="flex items-center space-x-4 rounded-[20px] border border-[color:color-mix(in_srgb,var(--border-strong)_84%,transparent)] p-4"
         >
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <Skeleton className="h-8 w-8 rounded-[6px]" />
-            <Skeleton className="h-4 w-20" />
+          <Skeleton className="h-12 w-12 rounded-full" />
+          <div className="flex-1 space-y-2">
+            <Skeleton className="h-4 w-1/3" />
+            <Skeleton className="h-3 w-2/3" />
           </div>
-          <Skeleton className="mb-3 h-9 w-28" />
-          <Skeleton className="h-4 w-24" />
         </div>
       ))}
     </div>
   );
 }
 
-export function CardSkeleton({ className }: SkeletonProps) {
-  return (
-    <div
-      className={cn(
-        "rounded-[8px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-1)] p-5",
-        className,
-      )}
-    >
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <Skeleton className="h-5 w-32" />
-        <Skeleton className="h-5 w-16 rounded-[6px]" />
-      </div>
-      <div className="space-y-3">
-        <Skeleton className="h-4 w-full" />
-        <Skeleton className="h-4 w-5/6" />
-        <Skeleton className="h-4 w-4/6" />
-      </div>
-    </div>
-  );
-}
+function ChartSkeleton() {
+  // Deterministic heights to avoid hydration mismatch
+  const barHeights = [65, 85, 45, 70, 90, 55, 75];
 
-export function ChartSkeleton({ className }: SkeletonProps) {
   return (
-    <div
-      className={cn(
-        "rounded-[8px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-1)] p-5",
-        className,
-      )}
-    >
-      <div className="mb-5 flex items-center justify-between gap-3">
-        <Skeleton className="h-5 w-28" />
-        <div className="flex items-center gap-2">
-          <Skeleton className="h-7 w-14 rounded-[6px]" />
-          <Skeleton className="h-7 w-14 rounded-[6px]" />
-          <Skeleton className="h-7 w-14 rounded-[6px]" />
-        </div>
-      </div>
-      <Skeleton className="h-[220px] w-full rounded-[8px]" />
-    </div>
-  );
-}
-
-export function TableSkeleton({
-  rows = 5,
-  columns = 5,
-  className,
-}: TableSkeletonProps) {
-  return (
-    <div
-      className={cn(
-        "overflow-hidden rounded-[8px] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-1)]",
-        className,
-      )}
-    >
-      <div className="grid min-h-9 gap-3 border-b border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-2)] px-4 py-2">
-        <div
-          className="grid gap-3"
-          style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
-        >
-          {Array.from({ length: columns }).map((_, index) => (
-            <Skeleton key={index} className="h-3 w-4/5" />
-          ))}
-        </div>
-      </div>
-      <div className="divide-y divide-[color:var(--border-subtle)]">
-        {Array.from({ length: rows }).map((_, rowIndex) => (
-          <div key={rowIndex} className="px-4 py-3">
-            <div
-              className="grid items-center gap-3"
-              style={{
-                gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
-              }}
-            >
-              {Array.from({ length: columns }).map((__, columnIndex) => (
-                <Skeleton
-                  key={columnIndex}
-                  className={cn(
-                    "h-4",
-                    columnIndex === 0
-                      ? "w-16"
-                      : columnIndex === columns - 1
-                        ? "w-12"
-                        : "w-full",
-                  )}
-                />
-              ))}
-            </div>
-          </div>
+    <div className="rounded-[24px] border border-[color:color-mix(in_srgb,var(--border-strong)_88%,transparent)] bg-card p-6 shadow-[0_18px_40px_-30px_rgba(15,23,42,0.45)]">
+      <Skeleton className="mb-4 h-6 w-1/3" />
+      <div className="flex items-end justify-between h-48 gap-2">
+        {barHeights.map((height, i) => (
+          <Skeleton
+            key={i}
+            className="w-full"
+            style={{ height: `${height}%` }}
+          />
         ))}
       </div>
     </div>
   );
 }
+
+function DashboardSkeleton() {
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <CardSkeleton key={i} />
+        ))}
+      </div>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <ChartSkeleton />
+        <ChartSkeleton />
+      </div>
+      <TableSkeleton rows={5} columns={6} />
+    </div>
+  );
+}
+
+export {
+  Skeleton,
+  CardSkeleton,
+  TableRowSkeleton,
+  TableSkeleton,
+  ListSkeleton,
+  ChartSkeleton,
+  DashboardSkeleton,
+};

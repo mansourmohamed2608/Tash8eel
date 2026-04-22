@@ -29,7 +29,7 @@ const alertConfig = {
   },
   info: {
     shell:
-      "border-[color:color-mix(in_srgb,var(--accent-blue)_18%,var(--border-strong))] bg-[var(--accent-muted)] text-[var(--accent-blue)]",
+      "border-[color:color-mix(in_srgb,var(--accent)_18%,var(--border-strong))] bg-[var(--accent-muted)] text-[var(--accent)]",
     icon: Info,
   },
 };
@@ -57,7 +57,7 @@ export function AlertBanner({
         <Icon className="h-[18px] w-[18px]" />
       </span>
       <div className="flex-1">
-        {title && <h4 className="font-semibold">{title}</h4>}
+        {title && <h4 className="font-black tracking-[-0.01em]">{title}</h4>}
         <p className="mt-1 text-sm leading-6 opacity-90">{message}</p>
       </div>
       {onDismiss && (
@@ -101,7 +101,7 @@ export function EmptyState({
           {icon}
         </div>
       )}
-      <h3 className="mb-1 text-lg font-semibold text-[var(--text-primary)]">
+      <h3 className="mb-1 text-lg font-black tracking-[-0.02em] text-[var(--text-primary)]">
         {title}
       </h3>
       {description && (
@@ -162,9 +162,9 @@ export function ErrorState({
       )}
     >
       <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-[20px] border border-[color:color-mix(in_srgb,var(--danger)_20%,var(--border-strong))] bg-white/60">
-        <XCircle className="h-8 w-8 text-[var(--accent-danger)]" />
+        <XCircle className="h-8 w-8 text-[var(--danger)]" />
       </div>
-      <h3 className="mb-1 text-lg font-semibold text-[var(--text-primary)]">
+      <h3 className="mb-1 text-lg font-black tracking-[-0.02em] text-[var(--text-primary)]">
         {title}
       </h3>
       <p className="mb-4 max-w-sm text-sm leading-6 text-[var(--text-muted)]">

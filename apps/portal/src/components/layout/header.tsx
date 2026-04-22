@@ -282,7 +282,7 @@ export function Header({ onMenuToggle, showMenuButton = true }: HeaderProps) {
                   size="sm"
                   fallback={session?.user?.name?.charAt(0) || "U"}
                 />
-                <div className="hidden md:flex flex-col items-start text-start">
+                <div className="hidden md:flex flex-col items-start text-right">
                   <span className="text-sm font-medium leading-none">
                     {session?.user?.name || "مستخدم"}
                   </span>
@@ -307,19 +307,19 @@ export function Header({ onMenuToggle, showMenuButton = true }: HeaderProps) {
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
                 <Link href="/merchant/settings" className="cursor-pointer">
-                  <User className="h-4 w-4 ms-2" />
+                  <User className="h-4 w-4 ml-2" />
                   الملف الشخصي
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
                 <Link href="/merchant/settings" className="cursor-pointer">
-                  <Store className="h-4 w-4 ms-2" />
+                  <Store className="h-4 w-4 ml-2" />
                   إعدادات المتجر
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
                 <Link href="/merchant/settings" className="cursor-pointer">
-                  <Settings className="h-4 w-4 ms-2" />
+                  <Settings className="h-4 w-4 ml-2" />
                   الإعدادات
                 </Link>
               </DropdownMenuItem>
@@ -328,7 +328,7 @@ export function Header({ onMenuToggle, showMenuButton = true }: HeaderProps) {
                 className="text-red-600 cursor-pointer focus:text-red-600 focus:bg-red-50"
                 onClick={() => signOut({ callbackUrl: "/login" })}
               >
-                <LogOut className="h-4 w-4 ms-2" />
+                <LogOut className="h-4 w-4 ml-2" />
                 تسجيل الخروج
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -382,7 +382,7 @@ export function Header({ onMenuToggle, showMenuButton = true }: HeaderProps) {
                     key={link.href}
                     onClick={() => handleNavigate(link.href)}
                     className={cn(
-                      "w-full flex items-center gap-3 px-3 py-2 rounded-md text-start",
+                      "w-full flex items-center gap-3 px-3 py-2 rounded-md text-right",
                       "hover:bg-muted transition-colors",
                       pathname === link.href && "bg-muted",
                     )}

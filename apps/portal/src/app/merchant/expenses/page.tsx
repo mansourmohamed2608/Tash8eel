@@ -1,7 +1,6 @@
 ﻿"use client";
 
 import { useState, useEffect, useCallback } from "react";
-import Link from "next/link";
 import { PageHeader } from "@/components/layout";
 import {
   Card,
@@ -15,8 +14,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { DataTable } from "@/components/ui/data-table";
-import { TableSkeleton } from "@/components/ui/skeleton";
-import { EmptyState } from "@/components/ui/alerts";
 import {
   Dialog,
   DialogContent,
@@ -57,6 +54,10 @@ import { formatCurrency, cn } from "@/lib/utils";
 import { useMerchant } from "@/hooks/use-merchant";
 import { useRoleAccess } from "@/hooks/use-role-access";
 import { authenticatedFetch } from "@/lib/client";
+import {
+  AiInsightsCard,
+  generateExpenseInsights,
+} from "@/components/ai/ai-insights-card";
 
 interface Expense {
   id: string;
@@ -79,18 +80,16 @@ interface ExpenseCategory {
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
-  inventory: "bg-[var(--accent-blue)]/12 text-[var(--accent-blue)]",
-  purchases: "bg-[var(--accent-blue)]/12 text-[var(--accent-blue)]",
-  shipping: "bg-[var(--accent-warning)]/12 text-[var(--accent-warning)]",
-  marketing:
-    "bg-[var(--color-brand-primary)]/12 text-[var(--color-brand-primary)]",
-  rent: "bg-[var(--accent-success)]/12 text-[var(--accent-success)]",
-  utilities: "bg-[var(--accent-warning)]/12 text-[var(--accent-warning)]",
-  salaries:
-    "bg-[var(--color-brand-primary)]/12 text-[var(--color-brand-primary)]",
-  equipment: "bg-[var(--accent-blue)]/12 text-[var(--accent-blue)]",
-  fees: "bg-[var(--accent-danger)]/12 text-[var(--accent-danger)]",
-  other: "bg-[var(--bg-surface-2)] text-[var(--text-secondary)]",
+  inventory: "bg-blue-100 text-blue-800",
+  purchases: "bg-blue-100 text-blue-800",
+  shipping: "bg-yellow-100 text-yellow-800",
+  marketing: "bg-purple-100 text-purple-800",
+  rent: "bg-green-100 text-green-800",
+  utilities: "bg-orange-100 text-orange-800",
+  salaries: "bg-pink-100 text-pink-800",
+  equipment: "bg-indigo-100 text-indigo-800",
+  fees: "bg-red-100 text-red-800",
+  other: "bg-gray-100 text-gray-800",
 };
 
 const CATEGORY_NAMES: Record<string, string> = {
@@ -445,7 +444,7 @@ export default function ExpensesPage() {
       key: "amount",
       header: "المبلغ",
       render: (item: Expense) => (
-        <span className="font-semibold text-[var(--accent-danger)]">
+        <span className="font-semibold text-red-600">
           - {formatCurrency(item.amount)}
         </span>
       ),
@@ -468,7 +467,7 @@ export default function ExpensesPage() {
               onClick={() => openEditDialog(item)}
               title="تعديل"
             >
-              <Pencil className="h-4 w-4 text-[var(--accent-blue)]" />
+              <Pencil className="h-4 w-4 text-blue-500" />
             </Button>
           )}
           {canDelete && (
@@ -478,7 +477,7 @@ export default function ExpensesPage() {
               onClick={() => setDeleteTarget(item)}
               title="حذف"
             >
-              <Trash2 className="h-4 w-4 text-[var(--accent-danger)]" />
+              <Trash2 className="h-4 w-4 text-red-500" />
             </Button>
           )}
         </div>
@@ -562,48 +561,57 @@ export default function ExpensesPage() {
         }
       />
 
-      <div className="flex flex-wrap gap-2">
-        {[
-          ["الملخص", "/merchant/finance/summary"],
-          ["الإيرادات", "/merchant/finance/revenue"],
-          ["المصروفات", "/merchant/expenses"],
-          ["التدفق النقدي", "/merchant/reports/cash-flow"],
-          ["التسويات", "/merchant/payments/cod"],
-        ].map(([label, href]) => (
-          <Button
-            key={href}
-            asChild
-            variant={href === "/merchant/expenses" ? "default" : "outline"}
-            size="sm"
-          >
-            <Link href={href}>{label}</Link>
-          </Button>
-        ))}
-      </div>
+      <section className="app-hero-band">
+        <div className="app-hero-band__grid">
+          <div>
+            <p className="app-hero-band__eyebrow">مصروفات وتشغيل</p>
+            <h2 className="app-hero-band__title">
+              رؤية مباشرة لتكلفة التشغيل وتوزيع الصرف
+            </h2>
+            <p className="app-hero-band__copy">
+              راقب حجم الإنفاق، واعزل أكثر الفئات استهلاكًا، وراجع السجل المالي
+              من نفس المساحة دون تفكيك السياق.
+            </p>
+          </div>
+          <div className="app-hero-band__metrics">
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">
+                الإجمالي الحالي
+              </span>
+              <strong className="app-hero-band__metric-value">
+                {formatCurrency(totalAmount)}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">عدد العمليات</span>
+              <strong className="app-hero-band__metric-value">
+                {expenses.length}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">
+                أعلى فئة إنفاق
+              </span>
+              <strong className="app-hero-band__metric-value">
+                {topCategories[0]
+                  ? getCategoryDisplayName(topCategories[0][0])
+                  : "لا يوجد"}
+              </strong>
+            </div>
+          </div>
+        </div>
+      </section>
 
-      <div className="flex flex-wrap gap-2">
-        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
-          <DollarSign className="h-3.5 w-3.5 text-[var(--color-brand-primary)]" />
-          <span className="text-muted-foreground">الإجمالي الحالي</span>
-          <span className="font-mono text-[var(--color-brand-primary)]">
-            {formatCurrency(totalAmount)}
-          </span>
-        </div>
-        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
-          <Receipt className="h-3.5 w-3.5 text-muted-foreground" />
-          <span className="text-muted-foreground">عدد العمليات</span>
-          <span className="font-mono text-foreground">{expenses.length}</span>
-        </div>
-        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
-          <Filter className="h-3.5 w-3.5 text-[var(--accent-warning)]" />
-          <span className="text-muted-foreground">أعلى فئة إنفاق</span>
-          <span className="text-foreground">
-            {topCategories[0]
-              ? getCategoryDisplayName(topCategories[0][0])
-              : "لا يوجد"}
-          </span>
-        </div>
-      </div>
+      {/* AI Expense Insights */}
+      <AiInsightsCard
+        title="تحليلات المصروفات"
+        insights={generateExpenseInsights({
+          totalExpenses: totalAmount,
+          expensesByCategory: normalizedByCategory,
+          monthlyTrend: [expenses.length],
+        })}
+        loading={loading}
+      />
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -619,7 +627,7 @@ export default function ExpensesPage() {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-[var(--accent-danger)]">
+            <div className="text-2xl font-bold text-red-600">
               {formatCurrency(totalAmount)}
             </div>
             <p className="text-xs text-muted-foreground">
@@ -726,22 +734,13 @@ export default function ExpensesPage() {
         </CardHeader>
         <CardContent>
           {loading ? (
-            <TableSkeleton rows={6} columns={6} />
+            <div className="text-center py-8 text-muted-foreground">
+              جاري التحميل...
+            </div>
           ) : expenses.length === 0 ? (
-            <EmptyState
-              icon={<Receipt className="h-7 w-7" />}
-              title="لا توجد مصروفات لهذه الفترة"
-              description="سجل المصروفات التشغيلية حتى يظهر صافي النقد وهامش التشغيل في الملخص المالي بدقة."
-              action={
-                canCreate ? (
-                  <Button onClick={openAddDialog}>
-                    <Plus className="h-4 w-4" />
-                    إضافة مصروف
-                  </Button>
-                ) : undefined
-              }
-              className="py-10"
-            />
+            <div className="text-center py-8 text-muted-foreground">
+              لا توجد مصروفات مسجلة لهذه الفترة
+            </div>
           ) : (
             <>
               <div className="space-y-3 md:hidden">
@@ -773,7 +772,7 @@ export default function ExpensesPage() {
                             )}
                           </p>
                         </div>
-                        <p className="font-semibold text-[var(--accent-danger)]">
+                        <p className="font-semibold text-red-600">
                           - {formatCurrency(expense.amount)}
                         </p>
                       </div>
@@ -794,7 +793,7 @@ export default function ExpensesPage() {
                               className="w-full sm:w-auto"
                               onClick={() => openEditDialog(expense)}
                             >
-                              <Pencil className="ml-2 h-4 w-4 text-[var(--accent-blue)]" />
+                              <Pencil className="ml-2 h-4 w-4 text-blue-500" />
                               تعديل
                             </Button>
                           )}
@@ -802,10 +801,10 @@ export default function ExpensesPage() {
                             <Button
                               variant="outline"
                               size="sm"
-                              className="w-full text-[var(--accent-danger)] sm:w-auto"
+                              className="w-full text-red-600 sm:w-auto"
                               onClick={() => setDeleteTarget(expense)}
                             >
-                              <Trash2 className="ml-2 h-4 w-4 text-[var(--accent-danger)]" />
+                              <Trash2 className="ml-2 h-4 w-4 text-red-500" />
                               حذف
                             </Button>
                           )}
@@ -903,7 +902,7 @@ export default function ExpensesPage() {
               إلغاء
             </AlertDialogCancel>
             <AlertDialogAction
-              className="w-full bg-[var(--accent-danger)] text-[var(--text-primary)] hover:brightness-110 sm:w-auto"
+              className="w-full bg-red-600 text-white hover:bg-red-700 sm:w-auto"
               onClick={handleDeleteExpense}
             >
               حذف

@@ -124,26 +124,24 @@ describe("formatRelativeTime", () => {
 describe("getStatusColor", () => {
   test("returns correct color for known status", () => {
     expect(getStatusColor("CONFIRMED")).toBe(
-      "border-[var(--accent-blue)]/25 bg-[var(--accent-blue)]/12 text-[var(--accent-blue)]",
+      "bg-blue-100 text-blue-800 border-blue-300",
     );
     expect(getStatusColor("DELIVERED")).toBe(
-      "border-[var(--accent-success)]/25 bg-[var(--accent-success)]/12 text-[var(--accent-success)]",
+      "bg-green-100 text-green-800 border-green-300",
     );
     expect(getStatusColor("CANCELLED")).toBe(
-      "border-[var(--accent-danger)]/25 bg-[var(--accent-danger)]/12 text-[var(--accent-danger)]",
+      "bg-red-100 text-red-800 border-red-300",
     );
   });
 
   test("returns default for unknown status", () => {
-    expect(getStatusColor("UNKNOWN_STATUS")).toBe(
-      "bg-[var(--bg-surface-2)] text-[var(--text-secondary)]",
-    );
+    expect(getStatusColor("UNKNOWN_STATUS")).toBe("bg-gray-100 text-gray-800");
   });
 
   test("handles stock statuses", () => {
-    expect(getStatusColor("LOW_STOCK")).toContain("--accent-warning");
-    expect(getStatusColor("OUT_OF_STOCK")).toContain("--accent-danger");
-    expect(getStatusColor("IN_STOCK")).toContain("--accent-success");
+    expect(getStatusColor("LOW_STOCK")).toContain("orange");
+    expect(getStatusColor("OUT_OF_STOCK")).toContain("red");
+    expect(getStatusColor("IN_STOCK")).toContain("green");
   });
 });
 

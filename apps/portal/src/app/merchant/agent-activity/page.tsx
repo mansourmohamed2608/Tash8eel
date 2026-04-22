@@ -25,7 +25,6 @@ import {
 } from "lucide-react";
 import { portalApi } from "@/lib/client";
 import Link from "next/link";
-import { cn } from "@/lib/utils";
 
 /* ─── Types ──────────────────────────────────────────────── */
 interface AgentAction {
@@ -54,48 +53,22 @@ const AGENT_META: Record<
   string,
   { icon: React.ElementType; label: string; color: string }
 > = {
-  OPS: {
-    icon: Zap,
-    label: "العمليات",
-    color: "bg-[color:rgba(59,130,246,0.16)] text-[color:var(--accent-blue)]",
-  },
-  INVENTORY: {
-    icon: Package,
-    label: "المخزون",
-    color:
-      "bg-[color:rgba(245,158,11,0.14)] text-[color:var(--accent-warning)]",
-  },
-  FINANCE: {
-    icon: TrendingUp,
-    label: "المالية",
-    color: "bg-[color:rgba(34,197,94,0.14)] text-[color:var(--accent-success)]",
-  },
-  OPS_AGENT: {
-    icon: Zap,
-    label: "العمليات",
-    color: "bg-[color:rgba(59,130,246,0.16)] text-[color:var(--accent-blue)]",
-  },
+  OPS: { icon: Zap, label: "وكيل العمليات", color: "bg-blue-500" },
+  INVENTORY: { icon: Package, label: "وكيل المخزون", color: "bg-amber-500" },
+  FINANCE: { icon: TrendingUp, label: "وكيل المالية", color: "bg-emerald-500" },
+  OPS_AGENT: { icon: Zap, label: "وكيل العمليات", color: "bg-blue-500" },
   INVENTORY_AGENT: {
     icon: Package,
-    label: "المخزون",
-    color:
-      "bg-[color:rgba(245,158,11,0.14)] text-[color:var(--accent-warning)]",
+    label: "وكيل المخزون",
+    color: "bg-amber-500",
   },
   FINANCE_AGENT: {
     icon: TrendingUp,
-    label: "المالية",
-    color: "bg-[color:rgba(34,197,94,0.14)] text-[color:var(--accent-success)]",
+    label: "وكيل المالية",
+    color: "bg-emerald-500",
   },
-  SUPPORT_AGENT: {
-    icon: Bell,
-    label: "الدعم",
-    color: "bg-[color:rgba(45,107,228,0.10)] text-[color:var(--brand-blue)]",
-  },
-  MARKETING_AGENT: {
-    icon: Bell,
-    label: "النمو",
-    color: "bg-[color:rgba(59,130,246,0.12)] text-[color:#93c5fd]",
-  },
+  SUPPORT_AGENT: { icon: Bell, label: "وكيل الدعم", color: "bg-violet-500" },
+  MARKETING_AGENT: { icon: Bell, label: "وكيل التسويق", color: "bg-pink-500" },
 };
 
 const SEVERITY_META: Record<
@@ -109,30 +82,26 @@ const SEVERITY_META: Record<
 > = {
   CRITICAL: {
     icon: AlertOctagon,
-    color: "text-[color:var(--accent-danger)]",
-    badgeVariant:
-      "border-[color:rgba(239,68,68,0.28)] bg-[color:rgba(239,68,68,0.1)] text-[color:#fca5a5]",
+    color: "text-red-600",
+    badgeVariant: "bg-red-100 text-red-700 border-red-200",
     label: "حرج",
   },
   ACTION: {
     icon: ShieldCheck,
-    color: "text-[color:var(--accent-warning)]",
-    badgeVariant:
-      "border-[color:rgba(245,158,11,0.26)] bg-[color:rgba(245,158,11,0.1)] text-[color:#fdba74]",
+    color: "text-orange-600",
+    badgeVariant: "bg-orange-100 text-orange-700 border-orange-200",
     label: "إجراء تم",
   },
   WARNING: {
     icon: AlertTriangle,
-    color: "text-[color:var(--accent-warning)]",
-    badgeVariant:
-      "border-[color:rgba(245,158,11,0.28)] bg-[color:rgba(245,158,11,0.12)] text-[color:#fcd34d]",
+    color: "text-yellow-600",
+    badgeVariant: "bg-yellow-100 text-yellow-700 border-yellow-200",
     label: "تنبيه",
   },
   INFO: {
     icon: Info,
-    color: "text-[color:var(--accent-blue)]",
-    badgeVariant:
-      "border-[color:rgba(59,130,246,0.26)] bg-[color:rgba(59,130,246,0.12)] text-[color:#93c5fd]",
+    color: "text-blue-600",
+    badgeVariant: "bg-blue-100 text-blue-700 border-blue-200",
     label: "معلومة",
   },
 };
@@ -248,8 +217,8 @@ export default function AgentActivityPage() {
     return (
       <div className="space-y-6 p-6" dir="rtl">
         <PageHeader
-          title="مركز القيادة / سجل النشاط"
-          description="ما التقطه النظام أو نفذه تلقائياً ضمن مسارات التشغيل."
+          title="سجل نشاط الوكلاء"
+          description="ما قامت به الوكلاء تلقائياً"
         />
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           {[1, 2, 3, 4].map((i) => (
@@ -275,84 +244,166 @@ export default function AgentActivityPage() {
     <div className="space-y-8 p-4 sm:p-6" dir="rtl">
       {/* Back link */}
       <Link
-        href="/merchant/command-center"
+        href="/merchant/agents"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
       >
-        <ChevronLeft className="h-4 w-4" /> العودة لمركز القيادة
+        <ChevronLeft className="h-4 w-4" /> العودة للوكلاء
       </Link>
 
       <PageHeader
-        title="مركز القيادة / سجل النشاط"
-        description="عرض تشغيلي مباشر لكل ما التقطه النظام أو نفذه من تنبيهات وإجراءات."
+        title="سجل نشاط الوكلاء"
+        description="عرض تشغيلي مباشر لكل ما التقطه النظام أو نفذه الوكلاء من تنبيهات وإجراءات."
       />
 
-      <div className="flex flex-wrap gap-2">
-        {[
-          ["إجمالي السجل", String(actions.length), "text-[var(--accent-blue)]"],
-          [
-            "غير مطلع عليه",
-            String(unresolvedCount),
-            "text-[var(--accent-warning)]",
-          ],
-          [
-            "تم حلها تلقائياً",
-            String(autoResolvedCount),
-            "text-[var(--accent-success)]",
-          ],
-          [
-            "مجالات نشطة",
-            String(activeAgentsCount),
-            "text-[var(--color-brand-primary)]",
-          ],
-          [
-            "آخر حركة",
-            latestAction ? timeAgo(latestAction.created_at) : "لا يوجد",
-            "text-foreground",
-          ],
-        ].map(([label, value, color]) => (
-          <div
-            key={label}
-            className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs"
-          >
-            <span className="text-muted-foreground">{label}</span>
-            <span className={cn("font-mono", color)}>{value}</span>
+      <section className="app-hero-band">
+        <div className="app-hero-band__grid">
+          <div className="space-y-4">
+            <span className="app-hero-band__eyebrow">
+              Agent Operations Feed
+            </span>
+            <div className="space-y-3">
+              <h2 className="app-hero-band__title">
+                راقب ما اكتشفه الوكلاء، ما تم حله تلقائياً، وما يزال يحتاج تدخل
+                بشري.
+              </h2>
+              <p className="app-hero-band__copy">
+                هذا السجل يركز على النشاط التنفيذي نفسه: تنبيهات، محاولات إصلاح،
+                عناصر حرجة، وإشارات تحتاج اطلاعك. إذا كنت تريد منطق القرار نفسه
+                فانتقل إلى سجل قرارات الذكاء.
+              </p>
+            </div>
           </div>
-        ))}
+          <div className="app-hero-band__metrics">
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">السجل الحالي</span>
+              <strong className="app-hero-band__metric-value">
+                {actions.length}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">غير مطلع عليه</span>
+              <strong className="app-hero-band__metric-value">
+                {unresolvedCount}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">
+                تم حلها تلقائياً
+              </span>
+              <strong className="app-hero-band__metric-value">
+                {autoResolvedCount}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">آخر حركة</span>
+              <strong className="app-hero-band__metric-value">
+                {latestAction ? timeAgo(latestAction.created_at) : "لا يوجد"}
+              </strong>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <Card className="app-data-card border-[color:color-mix(in_srgb,var(--accent)_18%,var(--border-strong))] bg-[var(--accent-muted)]">
+          <CardContent className="p-4">
+            <p className="text-sm text-muted-foreground">إجمالي السجل الحالي</p>
+            <p className="mt-1 text-2xl font-bold text-blue-700">
+              {actions.length}
+            </p>
+            <p className="mt-2 text-xs text-muted-foreground">
+              هذا feed النشاط التشغيلي للوكلاء، وليس سجل قراراتهم.
+            </p>
+          </CardContent>
+        </Card>
+        <Card className="app-data-card border-[color:color-mix(in_srgb,var(--warning)_18%,var(--border-strong))] bg-[var(--warning-muted)]">
+          <CardContent className="p-4">
+            <p className="text-sm text-muted-foreground">غير مُطّلع عليه</p>
+            <p className="mt-1 text-2xl font-bold text-amber-700">
+              {unresolvedCount}
+            </p>
+            <p className="mt-2 text-xs text-muted-foreground">
+              عناصر ما زالت تحتاج اطلاع أو متابعة من التاجر.
+            </p>
+          </CardContent>
+        </Card>
+        <Card className="app-data-card border-[color:color-mix(in_srgb,var(--success)_18%,var(--border-strong))] bg-[var(--success-muted)]">
+          <CardContent className="p-4">
+            <p className="text-sm text-muted-foreground">تم حلها تلقائياً</p>
+            <p className="mt-1 text-2xl font-bold text-emerald-700">
+              {autoResolvedCount}
+            </p>
+            <p className="mt-2 text-xs text-muted-foreground">
+              تنبيهات أو إجراءات أنجزها النظام بدون تدخل يدوي.
+            </p>
+          </CardContent>
+        </Card>
+        <Card className="app-data-card">
+          <CardContent className="p-4">
+            <p className="text-sm text-muted-foreground">وكلاء ظهر نشاطهم</p>
+            <p className="mt-1 text-2xl font-bold text-violet-700">
+              {activeAgentsCount}
+            </p>
+            <p className="mt-2 text-xs text-muted-foreground">
+              {latestAction
+                ? `آخر نشاط: ${timeAgo(latestAction.created_at)}`
+                : "لا يوجد نشاط مسجل بعد."}
+            </p>
+          </CardContent>
+        </Card>
       </div>
 
+      {/* ─── Summary Cards ──────────────────────────── */}
       {summary && (
-        <div className="flex flex-wrap gap-2">
-          {[
-            ["آخر 24 ساعة", String(summary.last_24h || 0), "text-foreground"],
-            [
-              "حل تلقائي",
-              String(summary.auto_resolved_24h || 0),
-              "text-[var(--accent-success)]",
-            ],
-            [
-              "إجراءات منفذة",
-              String(summary.actions_taken_24h || 0),
-              "text-[var(--accent-warning)]",
-            ],
-            [
-              "حرج غير مقروء",
-              String(summary.unack_critical || 0),
-              "text-[var(--accent-danger)]",
-            ],
-            [
-              "تنبيهات غير مقروءة",
-              String(summary.unack_warning || 0),
-              "text-[var(--accent-warning)]",
-            ],
-          ].map(([label, value, color]) => (
-            <div
-              key={label}
-              className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs"
-            >
-              <span className="text-muted-foreground">{label}</span>
-              <span className={cn("font-mono", color)}>{value}</span>
-            </div>
-          ))}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          <Card className="app-data-card">
+            <CardContent className="pt-4 pb-3 text-center">
+              <div className="text-2xl font-bold">{summary.last_24h || 0}</div>
+              <div className="text-xs text-muted-foreground">
+                نشاط آخر 24 ساعة
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-4 pb-3 text-center">
+              <div className="text-2xl font-bold text-green-600">
+                {summary.auto_resolved_24h || 0}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                تم حلها تلقائياً
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-4 pb-3 text-center">
+              <div className="text-2xl font-bold text-orange-600">
+                {summary.actions_taken_24h || 0}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                إجراءات اتخذها
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-4 pb-3 text-center">
+              <div className="text-2xl font-bold text-red-600">
+                {summary.unack_critical || 0}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                حرج - يحتاج انتباهك
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-4 pb-3 text-center">
+              <div className="text-2xl font-bold text-yellow-600">
+                {summary.unack_warning || 0}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                تنبيهات لم تُقرأ
+              </div>
+            </CardContent>
+          </Card>
         </div>
       )}
 
@@ -361,16 +412,16 @@ export default function AgentActivityPage() {
         <Card className="app-data-card">
           <CardContent className="pt-4 pb-3">
             <p className="text-xs font-medium text-muted-foreground mb-2">
-              نشاط النظام حسب الساعة
+              نشاط الوكلاء حسب الساعة
             </p>
             <div className="flex items-end gap-1 flex-wrap" dir="ltr">
               {heatmap.map(({ hour, count, intensity }) => {
                 const colors = [
-                  "bg-[color:var(--bg-surface-3)]",
-                  "bg-[color:rgba(59,130,246,0.24)]",
-                  "bg-[color:rgba(59,130,246,0.42)]",
-                  "bg-[color:rgba(59,130,246,0.68)]",
-                  "bg-[color:var(--accent-blue)]",
+                  "bg-muted",
+                  "bg-blue-200",
+                  "bg-blue-400",
+                  "bg-blue-600",
+                  "bg-blue-800",
                 ];
                 return (
                   <div
@@ -402,15 +453,15 @@ export default function AgentActivityPage() {
               ما الفرق بين هذه الصفحة وسجل القرارات؟
             </p>
             <p className="text-sm text-muted-foreground">
-              هنا ترى ما نفذه النظام أو اكتشفه عملياً. أما سجل القرارات فيعرض
-              منطق القرار نفسه ودرجة الثقة.
+              هنا ترى ما فعله الوكلاء أو اكتشفوه عملياً. أما سجل قرارات الذكاء
+              فيعرض منطق القرار نفسه ودرجة الثقة.
             </p>
           </div>
           <Link
             href="/merchant/audit/ai-decisions"
             className="text-sm text-primary hover:underline"
           >
-            افتح سجل القرارات
+            افتح سجل قرارات الذكاء
           </Link>
         </CardContent>
       </Card>
@@ -454,7 +505,7 @@ export default function AgentActivityPage() {
             <Bot className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
             <p className="text-lg font-medium">لا يوجد نشاط بعد</p>
             <p className="text-sm text-muted-foreground mt-1">
-              النظام يراجع النشاط دورياً - ستظهر النتائج هنا تلقائياً
+              الوكلاء تعمل كل ساعة - سيظهر النشاط هنا تلقائياً
             </p>
           </CardContent>
         </Card>
@@ -476,7 +527,7 @@ export default function AgentActivityPage() {
                   <div className="flex items-start gap-3">
                     {/* Agent icon */}
                     <div
-                      className={`mt-0.5 rounded-[var(--radius-sm)] p-2 ${agentMeta.color} flex-shrink-0`}
+                      className={`mt-0.5 p-2 rounded-lg ${agentMeta.color} text-white flex-shrink-0`}
                     >
                       <AgentIcon className="h-4 w-4" />
                     </div>
@@ -497,7 +548,7 @@ export default function AgentActivityPage() {
                         {action.auto_resolved && (
                           <Badge
                             variant="outline"
-                            className="border-[color:rgba(34,197,94,0.28)] bg-[color:rgba(34,197,94,0.1)] px-1.5 py-0 text-[10px] text-[color:#86efac]"
+                            className="text-[10px] px-1.5 py-0 bg-green-100 text-green-700 border-green-200"
                           >
                             <CheckCircle2 className="h-3 w-3 ml-0.5" />
                             تم الحل تلقائياً
@@ -506,7 +557,7 @@ export default function AgentActivityPage() {
                         {action.merchant_ack && (
                           <Badge
                             variant="outline"
-                            className="border-[color:var(--border-default)] bg-[color:var(--bg-surface-2)] px-1.5 py-0 text-[10px] text-[color:var(--text-secondary)]"
+                            className="text-[10px] px-1.5 py-0 bg-gray-100 text-gray-500 border-gray-200"
                           >
                             <Eye className="h-3 w-3 ml-0.5" />
                             تم الإطلاع
@@ -526,7 +577,7 @@ export default function AgentActivityPage() {
                               .map(([k, v]) => (
                                 <span
                                   key={k}
-                                  className="rounded-[var(--radius-sm)] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-2)] px-2 py-0.5 text-[10px] text-[color:var(--text-secondary)]"
+                                  className="text-[10px] bg-muted px-2 py-0.5 rounded-full"
                                 >
                                   {metadataLabel(k)}: {formatMetadataValue(v)}
                                 </span>

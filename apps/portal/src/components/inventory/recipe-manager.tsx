@@ -247,8 +247,8 @@ export function RecipeManager({
     <Card dir="rtl">
       <CardHeader className="flex flex-row items-center justify-between pb-3">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-[var(--warning-muted)] rounded-lg">
-            <ChefHat className="h-5 w-5 text-[var(--accent-warning)]" />
+          <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
+            <ChefHat className="h-5 w-5 text-orange-600 dark:text-orange-400" />
           </div>
           <div>
             <CardTitle className="text-lg">وصفة: {catalogItemName}</CardTitle>
@@ -299,7 +299,7 @@ export function RecipeManager({
             {ingredients.map((ing) => (
               <div
                 key={ing.id}
-                className="grid grid-cols-12 gap-2 items-center bg-[var(--bg-surface-2)] rounded-lg px-3 py-2 text-sm"
+                className="grid grid-cols-12 gap-2 items-center bg-gray-50 dark:bg-gray-800/50 rounded-lg px-3 py-2 text-sm"
               >
                 <div className="col-span-4 flex items-center gap-2">
                   <Package className="h-4 w-4 text-gray-400 flex-shrink-0" />
@@ -334,7 +334,7 @@ export function RecipeManager({
                     onChange={(e) =>
                       handleUpdateIngredient(ing.id, "unit", e.target.value)
                     }
-                    className="h-7 w-full rounded border border-[var(--border-default)] bg-[var(--bg-surface-1)] px-1 text-xs text-[var(--text-primary)]"
+                    className="h-7 text-xs w-full rounded border bg-white dark:bg-gray-900 px-1"
                   >
                     {UNITS.map((u) => (
                       <option key={u.value} value={u.value}>
@@ -381,7 +381,7 @@ export function RecipeManager({
                     onClick={() =>
                       handleDeleteIngredient(ing.id, ing.ingredient_name)
                     }
-                    className="h-7 w-7 p-0 text-[var(--accent-danger)] hover:opacity-80"
+                    className="h-7 w-7 p-0 text-red-500 hover:text-red-700"
                   >
                     <Trash2 className="h-3 w-3" />
                   </Button>
@@ -399,8 +399,8 @@ export function RecipeManager({
 
         {/* Availability details */}
         {availability?.ingredients && availability.ingredients.length > 0 && (
-          <div className="rounded-lg border border-[var(--accent-blue)]/20 bg-[var(--accent-blue-dim)] p-3">
-            <h4 className="mb-2 text-sm font-medium text-[var(--accent-blue)]">
+          <div className="border rounded-lg p-3 bg-blue-50 dark:bg-blue-950/20">
+            <h4 className="text-sm font-medium text-blue-800 dark:text-blue-300 mb-2">
               حالة المخزون للمكونات
             </h4>
             <div className="space-y-1">
@@ -411,7 +411,7 @@ export function RecipeManager({
                 >
                   <span>{ing.name}</span>
                   <div className="flex items-center gap-3">
-                    <span className="text-[var(--text-secondary)]">
+                    <span className="text-gray-500">
                       متوفر: {ing.stockOnHand}{" "}
                       {UNITS.find((u) => u.value === ing.unit)?.label ||
                         ing.unit}
@@ -429,7 +429,7 @@ export function RecipeManager({
                       يكفي لـ {ing.canMake}
                     </Badge>
                     {ing.canMake === 0 && (
-                      <AlertTriangle className="h-3 w-3 text-[var(--accent-danger)]" />
+                      <AlertTriangle className="h-3 w-3 text-red-500" />
                     )}
                   </div>
                 </div>
@@ -440,7 +440,7 @@ export function RecipeManager({
 
         {/* Add ingredient form */}
         {showAddForm ? (
-          <div className="space-y-3 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface-1)] p-4">
+          <div className="border rounded-lg p-4 bg-white dark:bg-gray-900 space-y-3">
             <h4 className="text-sm font-semibold">اضافة مكون جديد</h4>
             <div className="grid grid-cols-2 gap-3">
               <div className="relative" ref={dropdownRef}>
@@ -448,8 +448,8 @@ export function RecipeManager({
                   اختر مكون من المخزون
                 </label>
                 {selectedInventoryItem ? (
-                  <div className="flex h-9 items-center gap-2 rounded-md border border-[var(--accent-success)]/20 bg-[color:rgba(34,197,94,0.10)] px-3 text-sm">
-                    <Check className="h-4 w-4 shrink-0 text-[var(--accent-success)]" />
+                  <div className="flex items-center gap-2 h-9 px-3 border rounded-md bg-green-50 dark:bg-green-900/20 text-sm">
+                    <Check className="h-4 w-4 text-green-600 flex-shrink-0" />
                     <span className="truncate font-medium">
                       {selectedInventoryItem.name}
                     </span>
@@ -480,7 +480,7 @@ export function RecipeManager({
                   </div>
                 ) : (
                   <div className="relative">
-                    <Search className="absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]" />
+                    <Search className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                     <Input
                       value={inventorySearch}
                       onChange={(e) => {
@@ -494,13 +494,13 @@ export function RecipeManager({
                   </div>
                 )}
                 {showInventoryDropdown && !selectedInventoryItem && (
-                  <div className="absolute top-full z-50 mt-1 max-h-48 w-full overflow-y-auto rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface-1)]">
+                  <div className="absolute z-50 top-full mt-1 w-full bg-white dark:bg-gray-900 border rounded-lg shadow-lg max-h-48 overflow-y-auto">
                     {inventoryItems.length > 0 ? (
                       inventoryItems.map((item) => (
                         <button
                           key={item.id}
                           type="button"
-                          className="flex w-full items-center justify-between border-b border-[var(--border-subtle)] px-3 py-2 text-right text-sm hover:bg-[var(--bg-surface-2)] last:border-b-0"
+                          className="w-full text-right px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 flex items-center justify-between text-sm border-b last:border-b-0"
                           onClick={() => {
                             setSelectedInventoryItem(item);
                             setNewIngredient({
@@ -514,7 +514,7 @@ export function RecipeManager({
                           }}
                         >
                           <div className="flex items-center gap-2">
-                            <Package className="h-4 w-4 shrink-0 text-[var(--text-muted)]" />
+                            <Package className="h-4 w-4 text-gray-400 flex-shrink-0" />
                             <div>
                               <span className="font-medium">{item.name}</span>
                               {item.sku && (
@@ -571,7 +571,7 @@ export function RecipeManager({
                   onChange={(e) =>
                     setNewIngredient({ ...newIngredient, unit: e.target.value })
                   }
-                  className="h-9 w-full rounded border border-[var(--border-default)] bg-[var(--bg-surface-1)] px-2 text-sm text-[var(--text-primary)]"
+                  className="h-9 text-sm w-full rounded border bg-white dark:bg-gray-800 px-2"
                 >
                   {UNITS.map((u) => (
                     <option key={u.value} value={u.value}>
@@ -659,7 +659,7 @@ export function RecipeManager({
         )}
 
         {/* Info note */}
-        <div className="text-xs text-[var(--text-muted)] bg-[var(--bg-surface-2)] rounded p-3 space-y-1">
+        <div className="text-xs text-gray-400 bg-gray-50 dark:bg-gray-800/30 rounded p-3 space-y-1">
           <p className="font-medium text-gray-500">كيف تعمل الوصفات:</p>
           <p>- عند طلب هذا الصنف، يتم خصم المكونات تلقائيا من المخزون</p>
           <p>- عند الغاء الطلب، يتم ارجاع المكونات للمخزون</p>

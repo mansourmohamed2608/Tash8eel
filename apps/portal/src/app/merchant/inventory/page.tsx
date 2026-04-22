@@ -1,11 +1,11 @@
 ﻿"use client";
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { PageHeader } from "@/components/layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -23,14 +23,10 @@ import {
   Plus,
   AlertTriangle,
   RefreshCw,
+  ArrowUp,
   TrendingDown,
   Warehouse,
   Store,
-  CalendarDays,
-  Layers3,
-  Merge,
-  Truck,
-  Clock,
 } from "lucide-react";
 
 import {
@@ -73,8 +69,14 @@ import { useMerchant } from "@/hooks/use-merchant";
 import { useWebSocket, RealTimeEvent } from "@/hooks/use-websocket";
 import { useToast } from "@/hooks/use-toast";
 import { useRoleAccess } from "@/hooks/use-role-access";
+import {
+  AiInsightsCard,
+  generateInventoryInsights,
+} from "@/components/ai/ai-insights-card";
+import { SmartAnalysisButton } from "@/components/ai/smart-analysis-button";
+
 export default function InventoryPage() {
-  const { merchantId, apiKey } = useMerchant();
+  const { merchantId, apiKey, isDemo } = useMerchant();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -205,7 +207,7 @@ export default function InventoryPage() {
           .writeText(result.description)
           .catch(() => null);
         toast({
-          title: "تم توليد الوصف",
+          title: "✨ تم توليد الوصف",
           description:
             result.description.slice(0, 120) +
             (result.description.length > 120 ? "..." : ""),
@@ -1448,74 +1450,48 @@ export default function InventoryPage() {
     );
   }
 
-  const totalProducts = Number(summary?.total_items || inventory.length);
-  const totalAvailable = Number(summary?.total_available || 0);
-  const lowStockCount = Number(
-    summary?.low_stock_count || lowStockItems.length,
-  );
-  const outOfStockCount = Number(
-    summary?.out_of_stock_count || outOfStockItems.length,
-  );
-  const inventoryStatChips = [
-    `إجمالي المنتجات: ${totalProducts}`,
-    `الكمية المتاحة: ${totalAvailable}`,
-    `نفد المخزون: ${outOfStockCount}`,
-    `قيمة المخزون: ${formatCurrency(safeInventoryValue)}`,
-  ];
-  const urgentStockCount = lowStockCount + outOfStockCount;
-  const inventoryWorkflowLinks = [
-    {
-      title: "الصلاحية والتنبيهات",
-      description: "راجع الأصناف القابلة للتلف وما ينقصه تاريخ صلاحية.",
-      href: "/merchant/inventory-insights/expiry-alerts",
-      icon: CalendarDays,
-      tone: "warning",
-    },
-    {
-      title: "تقييم FIFO",
-      description: "افحص قيمة المخزون وتكلفة الدفعات أو تقدير المتوسط.",
-      href: "/merchant/inventory-insights/fifo-valuation",
-      icon: Layers3,
-      tone: "blue",
-    },
-    {
-      title: "دمج التكرارات",
-      description: "نظف رموز SKU المكررة قبل الجرد أو التوريد.",
-      href: "/merchant/inventory-insights/sku-merge",
-      icon: Merge,
-      tone: "neutral",
-    },
-    {
-      title: "الموردون",
-      description: "اربط الموردين بالأصناف الحرجة ومهل التوريد.",
-      href: "/merchant/suppliers",
-      icon: Truck,
-      tone: "neutral",
-    },
-  ];
-
   return (
     <div className="space-y-8 animate-fadeIn p-4 sm:p-6">
       <PageHeader
         title="المخزون"
-        description="أولوية التشغيل: ما الذي سينفد، أين توجد الكميات، وما الإجراء التالي."
+        description="إدارة منتجات وكميات المخزون"
         actions={
           <div className="flex gap-2 flex-wrap">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleRefresh}
-              disabled={refreshing}
-            >
-              <RefreshCw
-                className={cn("h-4 w-4", refreshing && "animate-spin")}
-              />
-              تحديث
-            </Button>
-            {canCreate && (
-              <Button size="sm" onClick={openAddDialog}>
-                <Plus className="h-4 w-4" />
-                إضافة منتج
+            {canEdit && (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={refreshing}
+                onClick={async () => {
+                  if (!merchantId || !apiKey) return;
+                  try {
+                    const result = await merchantApi.pushInventoryToCatalog(
+                      merchantId,
+                      apiKey,
+                    );
+                    toast({
+                      title: "تم",
+                      description:
+                        result.created > 0
+                          ? `تم إرسال ${result.created} منتج للقائمة`
+                          : result.updated > 0
+                            ? `تم تحديث ${result.updated} منتج`
+                            : "جميع المنتجات موجودة في القائمة",
+                    });
+                  } catch (err) {
+                    toast({
+                      title: "خطأ",
+                      description: getErrorMessage(
+                        err,
+                        "فشل إرسال المنتجات للقائمة",
+                      ),
+                      variant: "destructive",
+                    });
+                  }
+                }}
+              >
+                <Store className="h-4 w-4" />
+                إرسال للقائمة
               </Button>
             )}
             {canEdit && (
@@ -1531,12 +1507,12 @@ export default function InventoryPage() {
                       apiKey,
                     );
                     const parts: string[] = [];
-                    if (result.created > 0) {
-                      parts.push(`تم استيراد ${result.created} منتج`);
-                    }
-                    if ((result as any).variantsCreated > 0) {
+                    if (result.created > 0)
+                      parts.push(
+                        `تم استيراد ${result.created} منتج من القائمة`,
+                      );
+                    if ((result as any).variantsCreated > 0)
                       parts.push(`${(result as any).variantsCreated} متغير`);
-                    }
                     if (result.linked > 0)
                       parts.push(`تم ربط ${result.linked}`);
                     toast({
@@ -1560,126 +1536,74 @@ export default function InventoryPage() {
                 }}
               >
                 <Package className="h-4 w-4" />
-                استيراد
+                استيراد من القائمة
               </Button>
             )}
-            {canExport && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowBulkImport(true)}
-              >
-                <Store className="h-4 w-4" />
-                استيراد مجمع
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRefresh}
+              disabled={refreshing}
+            >
+              <RefreshCw
+                className={cn("h-4 w-4", refreshing && "animate-spin")}
+              />
+              تحديث
+            </Button>
+            {canCreate && (
+              <Button size="sm" onClick={openAddDialog}>
+                <Plus className="h-4 w-4" />
+                إضافة منتج
               </Button>
             )}
           </div>
         }
       />
-      {(lowStockCount > 0 || outOfStockCount > 0) && (
-        <button
-          type="button"
-          onClick={() => handleTabChange("inventory")}
-          className="flex h-11 w-full items-center justify-between rounded-[var(--radius-md)] border border-[color:rgba(245,158,11,0.24)] border-r-2 border-r-[var(--accent-warning)] bg-[color:rgba(245,158,11,0.12)] px-4 text-sm text-[var(--text-primary)]"
-        >
-          <span className="flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4 text-[var(--accent-warning)]" />
-            {outOfStockCount > 0
-              ? `${outOfStockCount} منتج نفد من المخزون`
-              : `${lowStockCount} منتج يقترب من النفاد`}
-          </span>
-          <span className="text-[var(--text-secondary)]">عرض التفاصيل</span>
-        </button>
-      )}
-      <div className="flex flex-wrap gap-2">
-        {inventoryStatChips.map((chip) => (
-          <div
-            key={chip}
-            className="inline-flex h-8 items-center rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs text-[var(--text-secondary)]"
-          >
-            {chip}
+      <section className="app-hero-band">
+        <div className="app-hero-band__grid">
+          <div>
+            <p className="app-hero-band__eyebrow">مخزون وتشغيل</p>
+            <h2 className="app-hero-band__title">
+              إدارة لحظية للمنتجات، التوافر، والتحويلات عبر الفروع والمواقع
+            </h2>
+            <p className="app-hero-band__copy">
+              هذه الصفحة تجمع وضع المخزون، التنبيهات الحرجة، والتحركات التشغيلية
+              في مساحة مكثفة تساعد الفريق على القرار السريع.
+            </p>
           </div>
-        ))}
-      </div>
-      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_320px]">
-        <Card className="app-data-card border-[var(--accent-blue)]/20 bg-[var(--accent-blue)]/10">
-          <CardContent className="space-y-3 p-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-sm font-semibold text-[var(--accent-blue)]">
-                  أولوية المخزون الآن
-                </p>
-                <p className="mt-1 text-sm text-[var(--text-secondary)]">
-                  {totalProducts === 0
-                    ? "ابدأ بإضافة منتجات ومواقع تخزين حتى تظهر الأولويات."
-                    : urgentStockCount > 0
-                      ? `يوجد ${urgentStockCount.toLocaleString("ar-EG")} صنف يحتاج إجراء: توريد، نقل، أو تعديل حد التنبيه.`
-                      : "لا توجد أولوية نفاد ظاهرة حالياً. راقب الصلاحية وتكلفة الدفعات."}
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-2 text-xs">
-                <span className="rounded-[var(--radius-sm)] border border-[var(--accent-danger)]/20 bg-[var(--accent-danger)]/10 px-2.5 py-1 text-[var(--accent-danger)]">
-                  نفد: {outOfStockCount}
-                </span>
-                <span className="rounded-[var(--radius-sm)] border border-[var(--accent-warning)]/20 bg-[var(--accent-warning)]/10 px-2.5 py-1 text-[var(--accent-warning)]">
-                  منخفض: {lowStockCount}
-                </span>
-                <span className="rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-1)] px-2.5 py-1 text-[var(--text-secondary)]">
-                  <Clock className="ml-1 inline h-3.5 w-3.5" />
-                  مباشر مع تحديث دوري
-                </span>
-              </div>
+          <div className="app-hero-band__metrics">
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">المنتجات</span>
+              <strong className="app-hero-band__metric-value">
+                {summary?.total_items || inventory.length}
+              </strong>
             </div>
-          </CardContent>
-        </Card>
-
-        <Card className="app-data-card border-[var(--color-ai)]/25 bg-[var(--color-ai-subtle)]">
-          <CardContent className="space-y-3 p-4">
-            <p className="text-sm font-semibold text-[var(--text-primary)]">
-              التوقعات الذكية داخل المخزون
-            </p>
-            <p className="text-sm text-[var(--text-secondary)]">
-              {totalProducts === 0
-                ? "التوقعات غير متاحة قبل وجود منتجات وطلبات كافية."
-                : "استخدم توقع الطلب كإشارة مساعدة لقرار التوريد، مع مراجعة تاريخ الحساب والثقة في صفحة التوقعات."}
-            </p>
-            <Button asChild variant="outline" size="sm" className="w-full">
-              <Link href="/merchant/analytics/forecast">فتح توقعات الطلب</Link>
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        {inventoryWorkflowLinks.map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            className="group rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-surface-1)] p-4 transition-colors hover:border-[var(--accent-blue)]/40 hover:bg-[var(--bg-surface-2)]"
-          >
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <item.icon
-                className={cn(
-                  "h-5 w-5",
-                  item.tone === "warning"
-                    ? "text-[var(--accent-warning)]"
-                    : item.tone === "blue"
-                      ? "text-[var(--accent-blue)]"
-                      : "text-[var(--text-muted)]",
-                )}
-              />
-              <span className="text-xs text-[var(--accent-blue)] opacity-0 transition-opacity group-hover:opacity-100">
-                فتح
-              </span>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">مخزون منخفض</span>
+              <strong className="app-hero-band__metric-value">
+                {summary?.low_stock_count || lowStockItems.length}
+              </strong>
             </div>
-            <p className="font-medium">{item.title}</p>
-            <p className="mt-1 text-xs leading-5 text-[var(--text-secondary)]">
-              {item.description}
-            </p>
-          </Link>
-        ))}
-      </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">قيمة المخزون</span>
+              <strong className="app-hero-band__metric-value">
+                {formatCurrency(safeInventoryValue)}
+              </strong>
+            </div>
+          </div>
+        </div>
+      </section>
+      <AiInsightsCard
+        title="تنبيهات المخزون"
+        insights={generateInventoryInsights({
+          totalProducts: parseInt(summary?.total_items ?? "0"),
+          lowStockCount: parseInt(summary?.low_stock_count ?? "0"),
+          outOfStockCount: parseInt(summary?.out_of_stock_count ?? "0"),
+          totalValue: safeInventoryValue,
+        })}
+      />
       {/* Tab Navigation */}
-      <div className="flex border-b border-[var(--border-subtle)]">
+      <div className="flex border-b">
         <button
           onClick={() => handleTabChange("inventory")}
           className={cn(
@@ -1822,21 +1746,19 @@ export default function InventoryPage() {
 
           {/* Error Banner */}
           {error && (
-            <Card className="app-data-card border-[color:rgba(239,68,68,0.32)] bg-[color:rgba(239,68,68,0.08)]">
+            <Card className="border-red-200 bg-red-50">
               <CardContent className="flex items-center gap-3 p-6">
-                <AlertTriangle className="h-6 w-6 text-[color:var(--accent-danger)]" />
+                <AlertTriangle className="h-6 w-6 text-red-500" />
                 <div>
-                  <p className="font-medium text-[color:var(--text-primary)]">
+                  <p className="font-medium text-red-800">
                     خطأ في تحميل البيانات
                   </p>
-                  <p className="text-sm text-[color:rgba(244,244,245,0.78)]">
-                    {error}
-                  </p>
+                  <p className="text-sm text-red-600">{error}</p>
                 </div>
                 <Button
                   variant="outline"
                   onClick={handleRefresh}
-                  className="mr-auto border-[color:var(--border-default)] bg-[color:var(--bg-surface-2)] text-[color:var(--text-secondary)] hover:border-[color:var(--border-active)] hover:text-[color:var(--text-primary)]"
+                  className="mr-auto"
                 >
                   إعادة المحاولة
                 </Button>
@@ -1896,6 +1818,95 @@ export default function InventoryPage() {
             </div>
           )}
 
+          {/* Stats Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+            <Card className="app-data-card">
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm text-muted-foreground">
+                      إجمالي المنتجات
+                    </p>
+                    <p className="text-2xl font-bold">
+                      {summary?.total_items || inventory.length}
+                    </p>
+                  </div>
+                  <Package className="h-8 w-8 text-primary-600" />
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="app-data-card">
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm text-muted-foreground">
+                      الكمية المتاحة
+                    </p>
+                    <p className="text-2xl font-bold text-green-600">
+                      {summary?.total_available || "-"}
+                    </p>
+                  </div>
+                  <ArrowUp className="h-8 w-8 text-green-600" />
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="app-data-card">
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm text-muted-foreground">مخزون منخفض</p>
+                    <p className="text-2xl font-bold text-yellow-600">
+                      {summary?.low_stock_count || lowStockItems.length}
+                    </p>
+                  </div>
+                  <AlertTriangle className="h-8 w-8 text-yellow-600" />
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="app-data-card">
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm text-muted-foreground">نفد المخزون</p>
+                    <p className="text-2xl font-bold text-red-600">
+                      {summary?.out_of_stock_count || outOfStockItems.length}
+                    </p>
+                  </div>
+                  <TrendingDown className="h-8 w-8 text-red-600" />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Inventory Value Card */}
+          {summary && (
+            <Card className="app-data-card">
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm text-muted-foreground">
+                      قيمة المخزون الإجمالية
+                    </p>
+                    <p className="text-3xl font-bold">
+                      {formatCurrency(safeInventoryValue)}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm text-muted-foreground">
+                      محجوز: {summary.total_reserved || "0"} وحدة
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {summary.total_variants || "0"} متغير
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* AI Inventory Agent - GPT Deep Analysis */}
+          <SmartAnalysisButton context="inventory" />
+
           {/* Search and Filters */}
           <Card className="app-data-card">
             <CardContent className="p-4">
@@ -1945,9 +1956,8 @@ export default function InventoryPage() {
                       size="sm"
                       onClick={() => setCategoryFilter("all")}
                       className={cn(
-                        "rounded-[var(--radius-sm)] whitespace-nowrap border-[color:var(--border-default)]",
-                        categoryFilter === "all" &&
-                          "border-[color:var(--color-brand-primary)]",
+                        "rounded-full whitespace-nowrap",
+                        categoryFilter === "all" && "shadow-sm",
                       )}
                     >
                       الكل
@@ -1964,9 +1974,8 @@ export default function InventoryPage() {
                         size="sm"
                         onClick={() => setCategoryFilter(category.name)}
                         className={cn(
-                          "rounded-[var(--radius-sm)] whitespace-nowrap border-[color:var(--border-default)]",
-                          categoryFilter === category.name &&
-                            "border-[color:var(--color-brand-primary)]",
+                          "rounded-full whitespace-nowrap",
+                          categoryFilter === category.name && "shadow-sm",
                         )}
                       >
                         {category.name} ({category.count})

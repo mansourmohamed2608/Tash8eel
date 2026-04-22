@@ -11,7 +11,6 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { CardSkeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -43,6 +42,10 @@ import { formatDistanceToNow } from "date-fns";
 import { ar } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import {
+  AiInsightsCard,
+  generateNotificationsInsights,
+} from "@/components/ai/ai-insights-card";
 import { useMerchant } from "@/hooks/use-merchant";
 import { BroadcastNotificationsPanel } from "@/components/merchant/notifications/broadcast-notifications-panel";
 
@@ -119,11 +122,11 @@ const getNotificationIcon = (type: string) => {
 const getPriorityColor = (priority: string) => {
   switch (priority) {
     case "URGENT":
-      return "bg-[var(--accent-danger)]/12 text-[var(--accent-danger)] border-[var(--accent-danger)]/20";
+      return "bg-red-100 text-red-800 border-red-200";
     case "HIGH":
-      return "bg-[var(--accent-warning)]/12 text-[var(--accent-warning)] border-[var(--accent-warning)]/20";
+      return "bg-orange-100 text-orange-800 border-orange-200";
     case "MEDIUM":
-      return "bg-[var(--accent-blue)]/12 text-[var(--accent-blue)] border-[var(--accent-blue)]/20";
+      return "bg-blue-100 text-blue-800 border-blue-200";
     default:
       return "bg-muted text-muted-foreground border";
   }
@@ -443,16 +446,8 @@ export default function NotificationsPage() {
 
   if (loading && notifications.length === 0) {
     return (
-      <div className="space-y-6 p-4 sm:p-6">
-        <PageHeader
-          title="الإعدادات / الإشعارات"
-          description="تحميل قنوات التنبيه وتفضيلات التقارير."
-        />
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          <CardSkeleton />
-          <CardSkeleton />
-          <CardSkeleton />
-        </div>
+      <div className="flex h-96 items-center justify-center px-4 sm:px-6">
+        <RefreshCw className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -461,8 +456,9 @@ export default function NotificationsPage() {
     <div className="container mx-auto space-y-6 p-4 sm:p-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <PageHeader
-          title="الإعدادات / الإشعارات"
-          description="قنوات التنبيه، تفضيلات التقارير، والبث التشغيلي ضمن إعدادات النظام."
+          title="مركز الإشعارات"
+          titleEn="Notifications Center"
+          description="إدارة الإشعارات والتنبيهات"
         />
         {unreadCount > 0 && (
           <Badge variant="destructive" className="text-lg px-3 py-1">
@@ -470,40 +466,24 @@ export default function NotificationsPage() {
           </Badge>
         )}
       </div>
-      <div className="flex flex-wrap gap-2">
-        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
-          <Bell className="h-3.5 w-3.5 text-muted-foreground" />
-          <span className="text-muted-foreground">إجمالي الإشعارات</span>
-          <span className="font-mono text-foreground">{total}</span>
-        </div>
-        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
-          <AlertCircle className="h-3.5 w-3.5 text-[var(--accent-warning)]" />
-          <span className="text-muted-foreground">غير مقروء</span>
-          <span className="font-mono text-[var(--accent-warning)]">
-            {unreadCount}
-          </span>
-        </div>
-        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
-          <MessageSquare className="h-3.5 w-3.5 text-[var(--accent-success)]" />
-          <span className="text-muted-foreground">واتساب</span>
-          <span className="font-mono text-[var(--accent-success)]">
-            {preferences?.whatsappEnabled ? "مفعل" : "معطل"}
-          </span>
-        </div>
-        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
-          <Mail className="h-3.5 w-3.5 text-[var(--accent-blue)]" />
-          <span className="text-muted-foreground">البريد</span>
-          <span className="font-mono text-[var(--accent-blue)]">
-            {preferences?.emailEnabled ? "مفعل" : "معطل"}
-          </span>
-        </div>
-      </div>
+
+      {/* AI Notifications Insights */}
+      <AiInsightsCard
+        title="مساعد الإشعارات"
+        insights={generateNotificationsInsights({
+          unreadCount,
+          totalNotifications: total,
+          whatsappEnabled: preferences?.whatsappEnabled,
+          emailEnabled: preferences?.emailEnabled,
+        })}
+        loading={loading}
+      />
 
       {error && (
-        <Card className="border-[var(--accent-danger)]/20 bg-[var(--accent-danger)]/10">
+        <Card className="border-destructive bg-destructive/10">
           <CardContent className="py-4 flex items-center gap-2">
-            <AlertCircle className="w-5 h-5 text-[var(--accent-danger)]" />
-            <span className="text-[var(--accent-danger)]">{error}</span>
+            <AlertCircle className="w-5 h-5 text-destructive" />
+            <span className="text-destructive">{error}</span>
           </CardContent>
         </Card>
       )}
@@ -665,9 +645,9 @@ export default function NotificationsPage() {
         {/* Settings Tab */}
         <TabsContent value="settings" className="space-y-6">
           {preferencesDirty && (
-            <Card className="border-[var(--accent-warning)]/20 bg-[var(--accent-warning)]/10">
+            <Card className="border-amber-200 bg-amber-50/60">
               <CardContent className="py-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex items-center gap-2 text-[var(--accent-warning)]">
+                <div className="flex items-center gap-2 text-amber-800">
                   <AlertCircle className="w-4 h-4" />
                   <span>لديك تغييرات غير محفوظة</span>
                 </div>
@@ -697,8 +677,8 @@ export default function NotificationsPage() {
             </Card>
           )}
 
-          <Card className="border-[var(--accent-blue)]/20 bg-[var(--accent-blue)]/10">
-            <CardContent className="py-3 text-sm text-[var(--accent-blue)]">
+          <Card className="border-blue-200 bg-blue-50/50">
+            <CardContent className="py-3 text-sm text-blue-900">
               أدخل بريدك ورقم واتساب فقط. إعدادات مزوّد البريد والواتساب تُدار
               مركزياً بواسطة النظام.
             </CardContent>
@@ -870,7 +850,7 @@ export default function NotificationsPage() {
           {merchantSettingsDirty && (
             <Card className="border-amber-200 bg-amber-50/60">
               <CardContent className="py-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex items-center gap-2 text-[var(--accent-warning)]">
+                <div className="flex items-center gap-2 text-amber-800">
                   <AlertCircle className="w-4 h-4" />
                   <span>لديك تغييرات غير محفوظة في إشعارات التشغيل</span>
                 </div>

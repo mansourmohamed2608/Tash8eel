@@ -427,7 +427,7 @@ function doPost(e) {
       />
 
       {/* Data Flow Explanation */}
-      <Card className="app-data-card border-[var(--accent-blue)]/20 bg-[var(--accent-blue)]/10">
+      <Card className="border-blue-200 bg-blue-50/40">
         <CardHeader>
           <CardTitle className="text-base">كيف تعمل التكاملات؟</CardTitle>
           <CardDescription>
@@ -436,11 +436,9 @@ function doPost(e) {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div className="space-y-2 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface-2)] p-4">
+            <div className="rounded-lg border bg-white p-4 space-y-2">
               <div className="flex items-center gap-2">
-                <Badge className="border border-[var(--accent-success)]/25 bg-[var(--accent-success)]/12 text-[var(--accent-success)]">
-                  ← استقبال
-                </Badge>
+                <Badge className="bg-green-500 text-white">← استقبال</Badge>
                 <span className="font-semibold text-sm">Push (Webhook)</span>
               </div>
               <p className="text-sm text-muted-foreground">
@@ -452,11 +450,9 @@ function doPost(e) {
                 ERP → تشغيل (إضافة طلبات + مدفوعات جديدة)
               </p>
             </div>
-            <div className="space-y-2 rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface-2)] p-4">
+            <div className="rounded-lg border bg-white p-4 space-y-2">
               <div className="flex items-center gap-2">
-                <Badge className="border border-[var(--accent-blue)]/25 bg-[var(--accent-blue)]/12 text-[var(--accent-blue)]">
-                  → سحب
-                </Badge>
+                <Badge className="bg-blue-500 text-white">→ سحب</Badge>
                 <span className="font-semibold text-sm">Pull (Connector)</span>
               </div>
               <p className="text-sm text-muted-foreground">
@@ -476,7 +472,7 @@ function doPost(e) {
         </CardContent>
       </Card>
 
-      <Card className="app-data-card">
+      <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Link2 className="h-5 w-5 text-primary" />
@@ -545,7 +541,7 @@ function doPost(e) {
         </CardContent>
       </Card>
 
-      <Card className="app-data-card">
+      <Card>
         <CardHeader>
           <CardTitle>قواعد الربط (Field Mapping)</CardTitle>
           <CardDescription>
@@ -761,7 +757,7 @@ function doPost(e) {
         </CardContent>
       </Card>
 
-      <Card className="app-data-card">
+      <Card>
         <CardHeader>
           <CardTitle>سحب البيانات من الـ ERP (Pull Connector)</CardTitle>
           <CardDescription>
@@ -909,21 +905,21 @@ function doPost(e) {
       </Card>
 
       {/* ─── Google Sheets Integration ─── */}
-      <Card className="app-data-card border-[var(--accent-success)]/20">
+      <Card className="border-green-200">
         <CardHeader>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="space-y-1">
               <CardTitle className="flex items-center gap-2">
-                <Sheet className="h-5 w-5 text-[var(--accent-success)]" />
+                <Sheet className="h-5 w-5 text-green-600" />
                 تكامل جداول جوجل (Google Sheets)
                 {gsWebhook && (
                   <Badge
                     className={
                       gsWebhook.status === "ACTIVE"
-                        ? "border border-[var(--accent-success)]/25 bg-[var(--accent-success)]/12 text-[var(--accent-success)]"
+                        ? "bg-green-500 text-white"
                         : gsWebhook.status === "FAILING"
-                          ? "border border-[var(--accent-danger)]/25 bg-[var(--accent-danger)]/12 text-[var(--accent-danger)]"
-                          : "border border-[var(--accent-warning)]/25 bg-[var(--accent-warning)]/12 text-[var(--accent-warning)]"
+                          ? "bg-red-500 text-white"
+                          : "bg-yellow-500 text-white"
                     }
                   >
                     {gsWebhook.status === "ACTIVE"
@@ -944,7 +940,7 @@ function doPost(e) {
                 variant="ghost"
                 size="sm"
                 onClick={handleGsDelete}
-                className="text-[var(--accent-danger)] hover:text-[var(--accent-danger)]"
+                className="text-red-500 hover:text-red-600"
               >
                 <Trash2 className="h-4 w-4" />
               </Button>
@@ -955,7 +951,7 @@ function doPost(e) {
           {/* Step 1 - Deploy Apps Script */}
           <div className="rounded-lg border p-4 space-y-3">
             <div className="flex items-center gap-2">
-              <span className="flex h-6 w-6 items-center justify-center rounded-md border border-[var(--accent-success)]/25 bg-[var(--accent-success)]/12 text-xs font-bold text-[var(--accent-success)]">
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-green-100 text-green-700 text-xs font-bold">
                 1
               </span>
               <span className="font-semibold text-sm">
@@ -996,7 +992,7 @@ function doPost(e) {
                   onClick={handleGsCopyScript}
                 >
                   {gsScriptCopied ? (
-                    <CheckCircle2 className="h-3 w-3 text-[var(--accent-success)]" />
+                    <CheckCircle2 className="h-3 w-3 text-green-600" />
                   ) : (
                     <Copy className="h-3 w-3" />
                   )}
@@ -1012,7 +1008,7 @@ function doPost(e) {
                 onClick={handleGsCopyScript}
               >
                 {gsScriptCopied ? (
-                  <CheckCircle2 className="h-4 w-4 text-[var(--accent-success)]" />
+                  <CheckCircle2 className="h-4 w-4 text-green-600" />
                 ) : (
                   <Copy className="h-4 w-4" />
                 )}
@@ -1024,7 +1020,7 @@ function doPost(e) {
           {/* Step 2 - Paste URL */}
           <div className="rounded-lg border p-4 space-y-3">
             <div className="flex items-center gap-2">
-              <span className="flex h-6 w-6 items-center justify-center rounded-md border border-[var(--accent-success)]/25 bg-[var(--accent-success)]/12 text-xs font-bold text-[var(--accent-success)]">
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-green-100 text-green-700 text-xs font-bold">
                 2
               </span>
               <span className="font-semibold text-sm">
@@ -1042,7 +1038,7 @@ function doPost(e) {
           {/* Step 3 - Choose events */}
           <div className="rounded-lg border p-4 space-y-3">
             <div className="flex items-center gap-2">
-              <span className="flex h-6 w-6 items-center justify-center rounded-md border border-[var(--accent-success)]/25 bg-[var(--accent-success)]/12 text-xs font-bold text-[var(--accent-success)]">
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-green-100 text-green-700 text-xs font-bold">
                 3
               </span>
               <span className="font-semibold text-sm">
@@ -1101,7 +1097,7 @@ function doPost(e) {
         </CardContent>
       </Card>
 
-      <Card className="app-data-card">
+      <Card>
         <CardHeader>
           <CardTitle>موصلات جاهزة (ERP)</CardTitle>
           <CardDescription>

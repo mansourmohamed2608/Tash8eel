@@ -55,9 +55,12 @@ import {
   Award,
   Ticket,
   Target,
-  RotateCcw,
 } from "lucide-react";
 import { portalApi } from "@/lib/client";
+import {
+  AiInsightsCard,
+  generateLoyaltyInsights,
+} from "@/components/ai/ai-insights-card";
 
 interface LoyaltyTier {
   id: string;
@@ -381,36 +384,17 @@ export default function LoyaltyPage() {
         description="إدارة برنامج ولاء العملاء والعروض الترويجية"
       />
 
-      <div className="flex flex-wrap gap-2">
-        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
-          <Users className="h-3.5 w-3.5 text-[var(--color-brand-primary)]" />
-          <span className="text-muted-foreground">إجمالي الأعضاء</span>
-          <span className="font-mono text-[var(--color-brand-primary)]">
-            {stats?.totalMembers ?? 0}
-          </span>
-        </div>
-        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
-          <Star className="h-3.5 w-3.5 text-[var(--accent-success)]" />
-          <span className="text-muted-foreground">نشطون</span>
-          <span className="font-mono text-[var(--accent-success)]">
-            {stats?.activeMembers ?? 0}
-          </span>
-        </div>
-        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
-          <Gift className="h-3.5 w-3.5 text-[var(--accent-blue)]" />
-          <span className="text-muted-foreground">النقاط المصدرة</span>
-          <span className="font-mono text-[var(--accent-blue)]">
-            {stats?.totalPointsIssued ?? 0}
-          </span>
-        </div>
-        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
-          <RotateCcw className="h-3.5 w-3.5 text-[var(--accent-warning)]" />
-          <span className="text-muted-foreground">النقاط المستبدلة</span>
-          <span className="font-mono text-[var(--accent-warning)]">
-            {stats?.totalPointsRedeemed ?? 0}
-          </span>
-        </div>
-      </div>
+      {/* AI Loyalty Insights */}
+      <AiInsightsCard
+        title="مساعد برنامج الولاء"
+        insights={generateLoyaltyInsights({
+          totalMembers: stats?.totalMembers ?? 0,
+          activeMembers: stats?.activeMembers ?? 0,
+          totalPointsIssued: stats?.totalPointsIssued ?? 0,
+          totalPointsRedeemed: stats?.totalPointsRedeemed ?? 0,
+        })}
+        loading={loading}
+      />
 
       {error && (
         <Card className="border-destructive bg-destructive/10">
@@ -1085,10 +1069,7 @@ export default function LoyaltyPage() {
                               {member.customerPhone}
                             </div>
                           </div>
-                          <Badge
-                            variant="default"
-                            className="bg-[var(--accent-warning)]/15 text-[var(--accent-warning)]"
-                          >
+                          <Badge variant="default" className="bg-yellow-500">
                             <Star className="h-3 w-3 ml-1" />
                             {member.currentPoints.toLocaleString("ar-SA")}
                           </Badge>
@@ -1151,7 +1132,7 @@ export default function LoyaltyPage() {
                             <TableCell>
                               <Badge
                                 variant="default"
-                                className="bg-[var(--accent-warning)]/15 text-[var(--accent-warning)]"
+                                className="bg-yellow-500"
                               >
                                 <Star className="h-3 w-3 ml-1" />
                                 {member.currentPoints.toLocaleString("ar-SA")}

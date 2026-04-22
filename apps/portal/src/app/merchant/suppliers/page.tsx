@@ -54,13 +54,12 @@ import {
   ChevronDown,
   ChevronUp,
   ExternalLink,
+  Sparkles,
 } from "lucide-react";
 import portalApi from "@/lib/client";
 const authenticatedApi = portalApi;
 import { Switch } from "@/components/ui/switch";
-import { TableSkeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { cn } from "@/lib/utils";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -407,13 +406,6 @@ export default function SuppliersPage() {
     return () => window.clearTimeout(timeoutId);
   }, [highlightedSupplierId]);
 
-  const supplierStatChips = [
-    `إجمالي الموردين: ${suppliers.length}`,
-    `موردون نشطون: ${suppliers.filter((supplier) => supplier.is_active).length}`,
-    `تنبيه تلقائي: ${suppliers.filter((supplier) => supplier.auto_notify_low_stock).length}`,
-    `اقتراحات حالية: ${autoSuggestions.length}`,
-  ];
-
   // ── Supplier discovery ─────────────────────────────────────────────────
   const openSupplierLookup = (
     mode: SupplierLookupMode,
@@ -565,77 +557,109 @@ export default function SuppliersPage() {
   return (
     <div dir="rtl" className="space-y-8 p-4 sm:p-6">
       <PageHeader
-        title="الموردون"
-        description="جزء من المخزون: مهل التوريد، حالة الموردين، وربط المنتجات التي تحتاج إعادة طلب."
-        actions={
-          <div className="flex flex-wrap gap-2">
-            <Button
-              variant="outline"
-              onClick={() => openSupplierLookup("internal")}
-            >
-              <Search className="ml-1 h-4 w-4" />
-              ابحث في الموردين
-            </Button>
-            <Button
-              variant="outline"
-              onClick={loadSuppliers}
-              disabled={loading}
-            >
-              <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
-            </Button>
-            <Button onClick={openCreate}>
-              <Plus className="ml-1 h-4 w-4" />
-              إضافة مورد
-            </Button>
-          </div>
-        }
+        title="إدارة الموردين"
+        description="أضف موردّيك وفعّل التنبيهات التلقائية عند انخفاض المخزون"
       />
 
-      <div className="flex flex-wrap gap-2">
-        {supplierStatChips.map((chip) => (
-          <div
-            key={chip}
-            className="inline-flex h-8 items-center rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs text-[var(--text-secondary)]"
-          >
-            {chip}
+      <section className="app-hero-band">
+        <div className="app-hero-band__grid">
+          <div>
+            <p className="app-hero-band__eyebrow">توريد واكتشاف</p>
+            <h2 className="app-hero-band__title">
+              شبكة الموردين، الاقتراحات الذكية، وتنبيهات النقص من شاشة واحدة
+            </h2>
+            <p className="app-hero-band__copy">
+              اربط كل مورّد بمنتجاته، افتح قنوات التواصل فورًا، واستفد من
+              الترشيحات الخلفية عندما يكتشف النظام مصادر أفضل أو أسرع.
+            </p>
           </div>
-        ))}
-      </div>
+          <div className="app-hero-band__metrics">
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">
+                الموردون النشطون
+              </span>
+              <strong className="app-hero-band__metric-value">
+                {suppliers.filter((supplier) => supplier.is_active).length}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">
+                تنبيهات تلقائية
+              </span>
+              <strong className="app-hero-band__metric-value">
+                {
+                  suppliers.filter((supplier) => supplier.auto_notify_low_stock)
+                    .length
+                }
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">
+                اقتراحات حالية
+              </span>
+              <strong className="app-hero-band__metric-value">
+                {autoSuggestions.length}
+              </strong>
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* Toolbar */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+      <div className="app-data-card app-data-card--muted flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
         <Input
           placeholder="بحث باسم المورّد..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="w-full sm:max-w-xs"
         />
+        <Button onClick={openCreate} className="w-full sm:mr-auto sm:w-auto">
+          <Plus className="w-4 h-4 ml-1" />
+          إضافة مورّد
+        </Button>
+        <Button
+          variant="outline"
+          onClick={() => openSupplierLookup("internal")}
+          className="w-full sm:w-auto"
+        >
+          <Search className="w-4 h-4 ml-1" />
+          ابحث في مورديك
+        </Button>
         <Button
           variant="outline"
           onClick={() => openSupplierLookup("external")}
-          className="w-full sm:mr-auto sm:w-auto"
+          className="w-full sm:w-auto"
         >
-          <Search className="ml-1 h-4 w-4 text-[var(--accent-blue)]" />
+          <Sparkles className="w-4 h-4 ml-1 text-purple-500" />
           اكتشف موردين جدد
+        </Button>
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={loadSuppliers}
+          disabled={loading}
+          className="w-full sm:w-10"
+        >
+          <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
         </Button>
       </div>
 
       {/* Auto-discovered supplier suggestions banner */}
       {autoSuggestions.length > 0 && (
-        <Card className="app-data-card border-[var(--color-ai)]/25 bg-[var(--color-ai-subtle)]">
+        <Card className="app-data-card border-purple-200 bg-purple-50/50">
           <CardContent className="pt-4 pb-3">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex items-center gap-2 text-[var(--text-primary)]">
-                <Star className="w-4 h-4 shrink-0 text-[var(--color-ai)]" />
+              <div className="flex items-center gap-2 text-purple-800">
+                <Sparkles className="w-4 h-4 shrink-0" />
                 <span className="font-medium text-sm">
-                  توجد {autoSuggestions.length} اقتراحات موردين مرتبطة بأصناف
-                  حرجة
+                  الذكاء الاصطناعي اكتشف {autoSuggestions.length} مورّد محتمل
+                  لمنتجاتك الحرجة
                 </span>
               </div>
               <Button
                 size="sm"
                 variant="outline"
-                className="w-full border-[var(--color-ai)]/30 text-[var(--text-primary)] hover:bg-[var(--color-ai-subtle)] sm:w-auto"
+                className="w-full border-purple-300 text-purple-700 hover:bg-purple-100 sm:w-auto"
                 onClick={() => {
                   openSupplierLookup("external", autoSuggestions.slice(0, 8));
                 }}
@@ -650,8 +674,8 @@ export default function SuppliersPage() {
 
       {/* Error */}
       {error && (
-        <Card className="app-data-card border-[var(--accent-danger)]/20 bg-[var(--accent-danger)]/12">
-          <CardContent className="flex items-center gap-2 pt-4 text-[var(--accent-danger)]">
+        <Card className="app-data-card border-red-200 bg-red-50">
+          <CardContent className="pt-4 flex gap-2 items-center text-red-700">
             <AlertCircle className="w-4 h-4 shrink-0" />
             {error}
           </CardContent>
@@ -659,260 +683,240 @@ export default function SuppliersPage() {
       )}
 
       {/* Empty */}
-      {loading && !error && <TableSkeleton rows={4} columns={4} />}
-
       {!loading && !error && filtered.length === 0 && (
         <Card className="app-data-card">
           <CardContent className="py-16 text-center text-muted-foreground">
             <Truck className="w-12 h-12 mx-auto mb-4 opacity-30" />
             <p className="font-medium">لا يوجد موردون حتى الآن</p>
             <p className="text-sm mt-1">
-              أضف الموردين واربطهم بالأصناف منخفضة المخزون ومهل التوريد.
+              أضف موردّيك للبدء في إدارة المخزون التلقائي
             </p>
-            <Button onClick={openCreate} className="mt-4">
-              <Plus className="ml-1 h-4 w-4" />
-              إضافة مورد
-            </Button>
           </CardContent>
         </Card>
       )}
 
       {/* Grid */}
-      {!loading && (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {filtered.map((s) => (
-            <Card
-              key={s.id}
-              ref={(node) => {
-                supplierCardRefs.current[s.id] = node;
-              }}
-              className={`app-data-card relative ${!s.is_active ? "opacity-60" : ""} ${highlightedSupplierId === s.id ? "border-[var(--accent-blue)]" : ""}`}
-            >
-              <CardHeader className="pb-2">
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <CardTitle className="text-base">{s.name}</CardTitle>
-                    {s.contact_name && (
-                      <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
-                        <User className="w-3 h-3" />
-                        {s.contact_name}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7"
-                      onClick={() => openEdit(s)}
-                    >
-                      <Pencil className="w-3.5 h-3.5" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 text-destructive hover:text-destructive"
-                      onClick={() => setDeleteTarget(s)}
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </Button>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {/* Contact info */}
-                <div className="flex flex-wrap gap-2 text-sm">
-                  {s.whatsapp_phone && (
-                    <span className="flex items-center gap-1 text-[var(--accent-success)]">
-                      <MessageSquare className="w-3.5 h-3.5" />
-                      {s.whatsapp_phone}
-                    </span>
-                  )}
-                  {s.phone && !s.whatsapp_phone && (
-                    <span className="flex items-center gap-1 text-muted-foreground">
-                      <Phone className="w-3.5 h-3.5" />
-                      {s.phone}
-                    </span>
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {filtered.map((s) => (
+          <Card
+            key={s.id}
+            ref={(node) => {
+              supplierCardRefs.current[s.id] = node;
+            }}
+            className={`app-data-card relative ${!s.is_active ? "opacity-60" : ""} ${highlightedSupplierId === s.id ? "ring-2 ring-blue-500 shadow-lg" : ""}`}
+          >
+            <CardHeader className="pb-2">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <CardTitle className="text-base">{s.name}</CardTitle>
+                  {s.contact_name && (
+                    <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                      <User className="w-3 h-3" />
+                      {s.contact_name}
+                    </p>
                   )}
                 </div>
-
-                {/* Auto-notify toggle */}
-                <div className="flex items-center justify-between rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 py-2">
-                  <div className="flex items-center gap-2">
-                    {s.auto_notify_low_stock ? (
-                      <Bell className="w-4 h-4 text-[var(--accent-warning)]" />
-                    ) : (
-                      <BellOff className="w-4 h-4 text-muted-foreground" />
-                    )}
-                    <div className="text-xs">
-                      <p className="font-medium">
-                        {s.auto_notify_low_stock
-                          ? "تنبيه تلقائي مفعّل"
-                          : "تنبيه تلقائي معطّل"}
-                      </p>
-                      {s.auto_notify_low_stock && (
-                        <p className="text-muted-foreground">
-                          {THRESHOLD_LABELS[
-                            s.notify_threshold as NotifyThreshold
-                          ] ?? s.notify_threshold}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  <Switch
-                    checked={s.auto_notify_low_stock}
-                    onCheckedChange={() => handleToggleNotify(s)}
-                  />
-                </div>
-
-                {s.last_auto_notified_at && (
-                  <p className="text-[11px] text-muted-foreground">
-                    آخر إشعار:{" "}
-                    {new Date(s.last_auto_notified_at).toLocaleDateString(
-                      "ar-SA",
-                      {
-                        day: "numeric",
-                        month: "short",
-                        year: "numeric",
-                      },
-                    )}
-                  </p>
-                )}
-
-                {/* No WA phone warning */}
-                {!s.whatsapp_phone && !s.phone && (
-                  <div className="flex items-center gap-2 rounded px-2 py-1.5 text-xs text-[var(--accent-warning)] bg-[var(--accent-warning)]/12">
-                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                    <span>لا يوجد رقم واتساب – </span>
-                    <button
-                      className="underline font-medium"
-                      onClick={() => {
-                        setDiscoverQuery(s.name);
-                        openSupplierLookup("external");
-                      }}
-                    >
-                      ابحث عن رقم
-                    </button>
-                  </div>
-                )}
-
-                {/* Send message button */}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full border-[var(--accent-success)]/25 bg-[var(--accent-success)]/12 text-[var(--accent-success)] hover:border-[var(--accent-success)] hover:bg-[var(--accent-success)]/18 hover:text-[var(--accent-success)]"
-                  onClick={() => {
-                    setMsgTarget(s);
-                    setMsgText("");
-                  }}
-                  disabled={!s.whatsapp_phone && !s.phone}
-                >
-                  <Send className="w-3.5 h-3.5 ml-1" />
-                  إرسال رسالة واتساب
-                </Button>
-
-                {/* Product linking panel */}
-                <div className="border-t pt-2">
-                  <button
-                    className="flex items-center justify-between w-full text-xs text-muted-foreground hover:text-foreground transition-colors"
-                    onClick={() => toggleProductPanel(s.id)}
+                <div className="flex gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={() => openEdit(s)}
                   >
-                    <span className="flex items-center gap-1">
-                      <Package className="w-3.5 h-3.5" />
-                      منتجات المورّد
-                      {supplierProducts[s.id]?.length > 0 && (
-                        <Badge
-                          variant="outline"
-                          className="text-[10px] h-4 px-1"
-                        >
-                          {supplierProducts[s.id].length}
-                        </Badge>
-                      )}
-                    </span>
-                    {expandedSupplierId === s.id ? (
-                      <ChevronUp className="w-3.5 h-3.5" />
-                    ) : (
-                      <ChevronDown className="w-3.5 h-3.5" />
-                    )}
-                  </button>
-
-                  {expandedSupplierId === s.id && (
-                    <div className="mt-2 space-y-1.5">
-                      {loadingProducts === s.id ? (
-                        <div className="flex justify-center py-2">
-                          <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
-                        </div>
-                      ) : (
-                        <>
-                          {(supplierProducts[s.id] ?? []).map((p) => (
-                            <div
-                              key={p.product_id}
-                              className="flex items-center justify-between text-xs bg-muted/50 rounded px-2 py-1"
-                            >
-                              <div>
-                                <span className="font-medium">
-                                  {p.product_name}
-                                </span>
-                                <span className="text-muted-foreground mr-1">
-                                  ({p.quantity_in_stock ?? 0})
-                                </span>
-                              </div>
-                              <button
-                                className="text-destructive hover:opacity-80"
-                                onClick={() =>
-                                  handleUnlinkProduct(s.id, p.product_id)
-                                }
-                              >
-                                ✕
-                              </button>
-                            </div>
-                          ))}
-                          <div className="flex gap-1.5">
-                            <Input
-                              placeholder="معرّف المنتج..."
-                              value={selectedProductId[s.id] ?? ""}
-                              onChange={(e) =>
-                                setSelectedProductId((prev) => ({
-                                  ...prev,
-                                  [s.id]: e.target.value,
-                                }))
-                              }
-                              className="h-7 text-xs"
-                            />
-                            <Button
-                              size="sm"
-                              className="h-7 px-2 text-xs"
-                              disabled={
-                                !selectedProductId[s.id] || linking === s.id
-                              }
-                              onClick={() => handleLinkProduct(s.id)}
-                            >
-                              {linking === s.id ? (
-                                <Loader2 className="w-3 h-3 animate-spin" />
-                              ) : (
-                                "ربط"
-                              )}
-                            </Button>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  )}
+                    <Pencil className="w-3.5 h-3.5" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-destructive hover:text-destructive"
+                    onClick={() => setDeleteTarget(s)}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </Button>
                 </div>
-
-                <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[var(--border-subtle)] pt-3 text-[11px] text-[var(--text-muted)]">
-                  <span>مهلة التوريد: {s.lead_time_days || 0} يوم</span>
-                  <span>
-                    {s.last_auto_notified_at
-                      ? `آخر إشعار: ${new Date(s.last_auto_notified_at).toLocaleDateString("en-GB")}`
-                      : "لم يُرسل إشعار بعد"}
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {/* Contact info */}
+              <div className="flex flex-wrap gap-2 text-sm">
+                {s.whatsapp_phone && (
+                  <span className="flex items-center gap-1 text-green-700">
+                    <MessageSquare className="w-3.5 h-3.5" />
+                    {s.whatsapp_phone}
                   </span>
+                )}
+                {s.phone && !s.whatsapp_phone && (
+                  <span className="flex items-center gap-1 text-muted-foreground">
+                    <Phone className="w-3.5 h-3.5" />
+                    {s.phone}
+                  </span>
+                )}
+              </div>
+
+              {/* Auto-notify toggle */}
+              <div className="flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2">
+                <div className="flex items-center gap-2">
+                  {s.auto_notify_low_stock ? (
+                    <Bell className="w-4 h-4 text-amber-500" />
+                  ) : (
+                    <BellOff className="w-4 h-4 text-muted-foreground" />
+                  )}
+                  <div className="text-xs">
+                    <p className="font-medium">
+                      {s.auto_notify_low_stock
+                        ? "تنبيه تلقائي مفعّل"
+                        : "تنبيه تلقائي معطّل"}
+                    </p>
+                    {s.auto_notify_low_stock && (
+                      <p className="text-muted-foreground">
+                        {THRESHOLD_LABELS[
+                          s.notify_threshold as NotifyThreshold
+                        ] ?? s.notify_threshold}
+                      </p>
+                    )}
+                  </div>
                 </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
+                <Switch
+                  checked={s.auto_notify_low_stock}
+                  onCheckedChange={() => handleToggleNotify(s)}
+                />
+              </div>
+
+              {s.last_auto_notified_at && (
+                <p className="text-[11px] text-muted-foreground">
+                  آخر إشعار:{" "}
+                  {new Date(s.last_auto_notified_at).toLocaleDateString(
+                    "ar-SA",
+                    {
+                      day: "numeric",
+                      month: "short",
+                      year: "numeric",
+                    },
+                  )}
+                </p>
+              )}
+
+              {/* No WA phone warning */}
+              {!s.whatsapp_phone && !s.phone && (
+                <div className="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 rounded px-2 py-1.5">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  <span>لا يوجد رقم واتساب – </span>
+                  <button
+                    className="underline font-medium"
+                    onClick={() => {
+                      setDiscoverQuery(s.name);
+                      openSupplierLookup("external");
+                    }}
+                  >
+                    ابحث عن رقم
+                  </button>
+                </div>
+              )}
+
+              {/* Send message button */}
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onClick={() => {
+                  setMsgTarget(s);
+                  setMsgText("");
+                }}
+                disabled={!s.whatsapp_phone && !s.phone}
+              >
+                <Send className="w-3.5 h-3.5 ml-1" />
+                إرسال رسالة واتساب
+              </Button>
+
+              {/* Product linking panel */}
+              <div className="border-t pt-2">
+                <button
+                  className="flex items-center justify-between w-full text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  onClick={() => toggleProductPanel(s.id)}
+                >
+                  <span className="flex items-center gap-1">
+                    <Package className="w-3.5 h-3.5" />
+                    منتجات المورّد
+                    {supplierProducts[s.id]?.length > 0 && (
+                      <Badge variant="outline" className="text-[10px] h-4 px-1">
+                        {supplierProducts[s.id].length}
+                      </Badge>
+                    )}
+                  </span>
+                  {expandedSupplierId === s.id ? (
+                    <ChevronUp className="w-3.5 h-3.5" />
+                  ) : (
+                    <ChevronDown className="w-3.5 h-3.5" />
+                  )}
+                </button>
+
+                {expandedSupplierId === s.id && (
+                  <div className="mt-2 space-y-1.5">
+                    {loadingProducts === s.id ? (
+                      <div className="flex justify-center py-2">
+                        <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                      </div>
+                    ) : (
+                      <>
+                        {(supplierProducts[s.id] ?? []).map((p) => (
+                          <div
+                            key={p.product_id}
+                            className="flex items-center justify-between text-xs bg-muted/50 rounded px-2 py-1"
+                          >
+                            <div>
+                              <span className="font-medium">
+                                {p.product_name}
+                              </span>
+                              <span className="text-muted-foreground mr-1">
+                                ({p.quantity_in_stock ?? 0})
+                              </span>
+                            </div>
+                            <button
+                              className="text-destructive hover:opacity-80"
+                              onClick={() =>
+                                handleUnlinkProduct(s.id, p.product_id)
+                              }
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ))}
+                        <div className="flex gap-1.5">
+                          <Input
+                            placeholder="معرّف المنتج..."
+                            value={selectedProductId[s.id] ?? ""}
+                            onChange={(e) =>
+                              setSelectedProductId((prev) => ({
+                                ...prev,
+                                [s.id]: e.target.value,
+                              }))
+                            }
+                            className="h-7 text-xs"
+                          />
+                          <Button
+                            size="sm"
+                            className="h-7 px-2 text-xs"
+                            disabled={
+                              !selectedProductId[s.id] || linking === s.id
+                            }
+                            onClick={() => handleLinkProduct(s.id)}
+                          >
+                            {linking === s.id ? (
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                            ) : (
+                              "ربط"
+                            )}
+                          </Button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
 
       {/* ── Create / Edit Dialog ────────────────────────────────────────────── */}
       <Dialog open={showForm} onOpenChange={setShowForm}>
@@ -1038,7 +1042,7 @@ export default function SuppliersPage() {
             </div>
 
             {/* Auto-notify section */}
-            <div className="space-y-3 rounded-lg border border-[var(--accent-warning)]/20 bg-[var(--accent-warning)]/12 p-4">
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="font-medium text-sm">
@@ -1118,7 +1122,7 @@ export default function SuppliersPage() {
           </DialogHeader>
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">
-              <MessageSquare className="ml-1 inline h-3.5 w-3.5 text-[var(--accent-success)]" />
+              <MessageSquare className="w-3.5 h-3.5 inline ml-1 text-green-600" />
               {msgTarget?.whatsapp_phone || msgTarget?.phone}
             </p>
             <Textarea
@@ -1192,9 +1196,9 @@ export default function SuppliersPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               {discoverMode === "internal" ? (
-                <Search className="h-5 w-5 text-[var(--accent-blue)]" />
+                <Search className="w-5 h-5 text-blue-600" />
               ) : (
-                <Search className="h-5 w-5 text-[var(--accent-blue)]" />
+                <Sparkles className="w-5 h-5 text-purple-500" />
               )}
               {discoverMode === "internal"
                 ? "ابحث في مورديك"
@@ -1203,7 +1207,7 @@ export default function SuppliersPage() {
             <DialogDescription>
               {discoverMode === "internal"
                 ? "ابحث داخل الموردين الموجودين في نظامك مع ترجيح الفرع الرسمي والمنتجات المرتبطة"
-                : "ابحث عن موردين جدد بالمنتج أو الفئة، ثم راجع النتائج قبل إضافتها للمخزون"}
+                : "ابحث عن موردين جدد بالمنتج أو الفئة - يستخدم خرائط Google والذكاء الاصطناعي"}
             </DialogDescription>
           </DialogHeader>
 
@@ -1233,7 +1237,7 @@ export default function SuppliersPage() {
                 setDiscoverContext(null);
               }}
             >
-              <Search className="w-4 h-4 ml-1" />
+              <Sparkles className="w-4 h-4 ml-1" />
               اكتشف موردين جدد
             </Button>
           </div>
@@ -1337,7 +1341,7 @@ export default function SuppliersPage() {
             )}
 
           {discoverMessage && (
-            <div className="rounded-lg border border-[var(--accent-warning)]/20 bg-[var(--accent-warning)]/12 px-3 py-2 text-sm text-[var(--accent-warning)]">
+            <div className="rounded-lg border bg-amber-50 px-3 py-2 text-sm text-amber-900">
               {discoverMessage}
             </div>
           )}
@@ -1345,7 +1349,7 @@ export default function SuppliersPage() {
           {discoverResults.length > 0 && (
             <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
               <div
-                className={`rounded-lg border px-3 py-2 text-xs font-medium ${discoverMode === "internal" ? "border-[var(--accent-blue)]/20 bg-[var(--accent-blue)]/12 text-[var(--accent-blue)]" : "border-[var(--color-brand-primary)]/20 bg-[var(--color-brand-subtle)] text-[var(--color-brand-primary)]"}`}
+                className={`rounded-lg border px-3 py-2 text-xs font-medium ${discoverMode === "internal" ? "border-blue-200 bg-blue-50 text-blue-800" : "border-purple-200 bg-purple-50 text-purple-800"}`}
               >
                 {discoverMode === "internal"
                   ? "نتائج من داخل نظامك"
@@ -1375,7 +1379,7 @@ export default function SuppliersPage() {
                       )}
                       {r.rating != null && (
                         <p className="text-xs flex items-center gap-1 mt-0.5">
-                          <Star className="h-3 w-3 text-[var(--color-brand-primary)]" />
+                          <Star className="w-3 h-3 text-yellow-500" />
                           {r.rating}
                           {r.totalRatings != null && (
                             <span className="text-muted-foreground">
@@ -1385,7 +1389,7 @@ export default function SuppliersPage() {
                         </p>
                       )}
                       {r.searchTip && (
-                        <p className="mt-1 text-xs text-[var(--accent-blue)]">
+                        <p className="text-xs text-blue-600 mt-1">
                           💡 {r.searchTip}
                         </p>
                       )}
@@ -1401,7 +1405,7 @@ export default function SuppliersPage() {
                         </p>
                       )}
                       {r.matchReasons && r.matchReasons.length > 0 && (
-                        <p className="mt-1 text-xs text-[var(--accent-blue)]">
+                        <p className="text-xs text-blue-700 mt-1">
                           {r.matchReasons.join(" · ")}
                         </p>
                       )}

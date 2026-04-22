@@ -9,12 +9,6 @@ export default defineConfig({
     environment: "jsdom",
     setupFiles: ["./src/test/setup.ts"],
     css: true,
-    pool: "forks",
-    poolOptions: {
-      forks: {
-        singleFork: true,
-      },
-    },
     // Exclude E2E tests and Next.js build artifacts
     exclude: ["**/node_modules/**", "**/dist/**", "**/.next/**", "**/e2e/**"],
     coverage: {

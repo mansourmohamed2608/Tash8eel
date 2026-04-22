@@ -66,12 +66,6 @@ const categoryLabels: Record<string, string> = {
   GENERIC: "عام",
 };
 
-function getMerchantStatusClass(isActive: boolean) {
-  return isActive
-    ? "border-[color:rgba(34,197,94,0.24)] bg-[color:rgba(34,197,94,0.14)] text-[var(--accent-success)]"
-    : "border-[color:rgba(239,68,68,0.24)] bg-[color:rgba(239,68,68,0.14)] text-[var(--accent-danger)]";
-}
-
 export default function MerchantsPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -236,32 +230,48 @@ export default function MerchantsPage() {
         }
       />
 
-      <div className="flex flex-wrap gap-2">
-        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
-          <span className="text-muted-foreground">إجمالي التجار</span>
-          <span className="font-mono text-[var(--color-brand-primary)]">
-            {merchants.length}
-          </span>
+      <section className="app-hero-band">
+        <div className="app-hero-band__grid">
+          <div className="space-y-4">
+            <span className="app-hero-band__eyebrow">Merchant Management</span>
+            <div className="space-y-3">
+              <h2 className="app-hero-band__title">
+                تحكم كامل في حسابات التجار، تفعيلهم، وتصنيفهم دون مغادرة اللوحة.
+              </h2>
+              <p className="app-hero-band__copy">
+                هذه الصفحة مبنية للإدارة التشغيلية اليومية: مراجعة النشاط، فلترة
+                التجار، إنشاء حسابات جديدة، وتعطيل أو حذف الحسابات عند الحاجة.
+              </p>
+            </div>
+          </div>
+          <div className="app-hero-band__metrics">
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">إجمالي التجار</span>
+              <strong className="app-hero-band__metric-value">
+                {merchants.length}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">نشط</span>
+              <strong className="app-hero-band__metric-value">
+                {merchants.filter((m) => m.isActive).length}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">معطل</span>
+              <strong className="app-hero-band__metric-value">
+                {merchants.filter((m) => !m.isActive).length}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">نتائج الفلتر</span>
+              <strong className="app-hero-band__metric-value">
+                {filteredMerchants.length}
+              </strong>
+            </div>
+          </div>
         </div>
-        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
-          <span className="text-muted-foreground">نشط</span>
-          <span className="font-mono text-[var(--accent-success)]">
-            {merchants.filter((m) => m.isActive).length}
-          </span>
-        </div>
-        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
-          <span className="text-muted-foreground">معطل</span>
-          <span className="font-mono text-[var(--accent-danger)]">
-            {merchants.filter((m) => !m.isActive).length}
-          </span>
-        </div>
-        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
-          <span className="text-muted-foreground">نتائج الفلتر</span>
-          <span className="font-mono text-foreground">
-            {filteredMerchants.length}
-          </span>
-        </div>
-      </div>
+      </section>
 
       {/* Stats Summary */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -272,7 +282,7 @@ export default function MerchantsPage() {
                 <p className="text-sm text-muted-foreground">إجمالي التجار</p>
                 <p className="text-2xl font-bold">{merchants.length}</p>
               </div>
-              <Users className="h-8 w-8 text-[var(--color-brand-primary)]" />
+              <Users className="h-8 w-8 text-primary-600" />
             </div>
           </CardContent>
         </Card>
@@ -281,11 +291,11 @@ export default function MerchantsPage() {
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">نشط</p>
-                <p className="text-2xl font-bold text-[var(--accent-success)]">
+                <p className="text-2xl font-bold text-green-600">
                   {merchants.filter((m) => m.isActive).length}
                 </p>
               </div>
-              <Check className="h-8 w-8 text-[var(--accent-success)]" />
+              <Check className="h-8 w-8 text-green-600" />
             </div>
           </CardContent>
         </Card>
@@ -294,11 +304,11 @@ export default function MerchantsPage() {
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">معطل</p>
-                <p className="text-2xl font-bold text-[var(--accent-danger)]">
+                <p className="text-2xl font-bold text-red-600">
                   {merchants.filter((m) => !m.isActive).length}
                 </p>
               </div>
-              <X className="h-8 w-8 text-[var(--accent-danger)]" />
+              <X className="h-8 w-8 text-red-600" />
             </div>
           </CardContent>
         </Card>
@@ -360,8 +370,8 @@ export default function MerchantsPage() {
                   <div key={merchant.id} className="space-y-4 p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-[12px] border border-[var(--border-subtle)] bg-[var(--bg-surface-2)]">
-                          <Store className="h-5 w-5 text-[var(--color-brand-primary)]" />
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-100">
+                          <Store className="h-5 w-5 text-primary-600" />
                         </div>
                         <div>
                           <p className="font-medium">{merchant.tradeName}</p>
@@ -371,7 +381,11 @@ export default function MerchantsPage() {
                         </div>
                       </div>
                       <Badge
-                        className={getMerchantStatusClass(merchant.isActive)}
+                        className={cn(
+                          merchant.isActive
+                            ? "bg-green-100 text-green-800"
+                            : "bg-red-100 text-red-800",
+                        )}
                       >
                         {merchant.isActive ? "نشط" : "معطل"}
                       </Badge>
@@ -424,8 +438,8 @@ export default function MerchantsPage() {
                           className={cn(
                             "ml-2 h-4 w-4",
                             merchant.isActive
-                              ? "text-[var(--accent-success)]"
-                              : "text-[var(--accent-danger)]",
+                              ? "text-green-600"
+                              : "text-red-600",
                           )}
                         />
                         {merchant.isActive ? "تعطيل" : "تفعيل"}
@@ -433,13 +447,13 @@ export default function MerchantsPage() {
                       <Button
                         variant="outline"
                         size="sm"
-                        className="w-full border-[color:rgba(239,68,68,0.24)] text-[var(--accent-danger)] hover:border-[var(--accent-danger)] sm:w-auto"
+                        className="w-full text-red-600 sm:w-auto"
                         onClick={() => {
                           setMerchantToDelete(merchant);
                           setShowDeleteDialog(true);
                         }}
                       >
-                        <Trash2 className="ml-2 h-4 w-4 text-[var(--accent-danger)]" />
+                        <Trash2 className="ml-2 h-4 w-4 text-red-500" />
                         حذف
                       </Button>
                     </div>
@@ -477,12 +491,12 @@ export default function MerchantsPage() {
                     {paginatedMerchants.map((merchant) => (
                       <tr
                         key={merchant.id}
-                        className="transition-all duration-150 ease-in hover:border-r-2 hover:border-r-[var(--color-brand-primary)] hover:bg-[var(--bg-surface-2)]"
+                        className="hover:bg-[color:color-mix(in_srgb,var(--surface-muted)_60%,transparent)]"
                       >
                         <td className="p-4">
                           <div className="flex items-center gap-3">
-                            <div className="flex h-10 w-10 items-center justify-center rounded-[12px] border border-[var(--border-subtle)] bg-[var(--bg-surface-2)]">
-                              <Store className="h-5 w-5 text-[var(--color-brand-primary)]" />
+                            <div className="h-10 w-10 rounded-full bg-primary-100 flex items-center justify-center">
+                              <Store className="h-5 w-5 text-primary-600" />
                             </div>
                             <div>
                               <p className="font-medium">
@@ -513,8 +527,10 @@ export default function MerchantsPage() {
                         </td>
                         <td className="p-4">
                           <Badge
-                            className={getMerchantStatusClass(
-                              merchant.isActive,
+                            className={cn(
+                              merchant.isActive
+                                ? "bg-green-100 text-green-800"
+                                : "bg-red-100 text-red-800",
                             )}
                           >
                             {merchant.isActive ? "نشط" : "معطل"}
@@ -554,8 +570,8 @@ export default function MerchantsPage() {
                                 className={cn(
                                   "h-4 w-4",
                                   merchant.isActive
-                                    ? "text-[var(--accent-success)]"
-                                    : "text-[var(--accent-danger)]",
+                                    ? "text-green-600"
+                                    : "text-red-600",
                                 )}
                               />
                             </Button>
@@ -567,7 +583,7 @@ export default function MerchantsPage() {
                                 setShowDeleteDialog(true);
                               }}
                             >
-                              <Trash2 className="h-4 w-4 text-[var(--accent-danger)]" />
+                              <Trash2 className="h-4 w-4 text-red-500" />
                             </Button>
                           </div>
                         </td>
@@ -701,16 +717,18 @@ export default function MerchantsPage() {
           {selectedMerchant && (
             <div className="space-y-4 py-4">
               <div className="flex items-center gap-4">
-                <div className="flex h-16 w-16 items-center justify-center rounded-[16px] border border-[var(--border-subtle)] bg-[var(--bg-surface-2)]">
-                  <Store className="h-8 w-8 text-[var(--color-brand-primary)]" />
+                <div className="h-16 w-16 rounded-full bg-primary-100 flex items-center justify-center">
+                  <Store className="h-8 w-8 text-primary-600" />
                 </div>
                 <div>
                   <h3 className="text-lg font-semibold">
                     {selectedMerchant.tradeName}
                   </h3>
                   <Badge
-                    className={getMerchantStatusClass(
-                      selectedMerchant.isActive,
+                    className={cn(
+                      selectedMerchant.isActive
+                        ? "bg-green-100 text-green-800"
+                        : "bg-red-100 text-red-800",
                     )}
                   >
                     {selectedMerchant.isActive ? "نشط" : "معطل"}

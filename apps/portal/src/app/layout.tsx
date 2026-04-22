@@ -1,34 +1,20 @@
 import type { Metadata } from "next";
-import { Cairo, IBM_Plex_Sans_Arabic, JetBrains_Mono } from "next/font/google";
+import { IBM_Plex_Sans_Arabic } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/providers/auth-provider";
 import { Toaster } from "@/components/ui/toaster";
 
-const headingFont = Cairo({
+const uiFont = IBM_Plex_Sans_Arabic({
   subsets: ["arabic", "latin"],
-  weight: ["600", "700", "900"],
+  weight: ["300", "400", "500", "600", "700"],
   display: "swap",
-  variable: "--font-cairo",
-});
-
-const bodyFont = IBM_Plex_Sans_Arabic({
-  subsets: ["arabic", "latin"],
-  weight: ["400", "500"],
-  display: "swap",
-  variable: "--font-ibm-plex-arabic",
-});
-
-const monoFont = JetBrains_Mono({
-  subsets: ["latin"],
-  weight: ["500", "600", "700"],
-  display: "swap",
-  variable: "--font-jetbrains-mono",
+  variable: "--font-ui",
 });
 
 export const metadata: Metadata = {
-  title: "Tash8eel",
+  title: "Tash8eel - لوحة التحكم",
   description:
-    "تشغيل - نظام تشغيل للتجار والمطاعم والمقاهي ومتاجر التجزئة في مصر",
+    "منصة التجارة الإلكترونية الذكية للشركات الصغيرة والمتوسطة في مصر",
 };
 
 export default async function RootLayout({
@@ -39,9 +25,7 @@ export default async function RootLayout({
   return (
     <html lang="ar" dir="rtl">
       <head />
-      <body
-        className={`${headingFont.variable} ${bodyFont.variable} ${monoFont.variable}`}
-      >
+      <body className={uiFont.variable}>
         <AuthProvider>
           {children}
           <Toaster />

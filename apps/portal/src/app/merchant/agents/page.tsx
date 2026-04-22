@@ -17,13 +17,12 @@ import { CardSkeleton } from "@/components/ui/skeleton";
 import {
   Bot,
   Check,
-  Camera,
-  Mic,
   Lock,
   Zap,
   Package,
   TrendingUp,
   MessageSquare,
+  Sparkles,
   Palette,
   ShoppingCart,
   HeadphonesIcon,
@@ -38,12 +37,10 @@ import {
   Globe,
   Shield,
   Lightbulb,
-  Users,
 } from "lucide-react";
 import { merchantApi } from "@/lib/client";
 import { useMerchant } from "@/hooks/use-merchant";
 import Link from "next/link";
-import { cn } from "@/lib/utils";
 
 interface AgentInfo {
   id: string;
@@ -80,7 +77,18 @@ const AGENT_ICONS: Record<string, React.ElementType> = {
   CREATIVE_AGENT: Palette,
 };
 
-const ASSISTANT_CAPABILITIES = [
+const AGENT_EMOJIS: Record<string, string> = {
+  OPS_AGENT: "🔄",
+  INVENTORY_AGENT: "📦",
+  FINANCE_AGENT: "💰",
+  MARKETING_AGENT: "📢",
+  SUPPORT_AGENT: "🎧",
+  CONTENT_AGENT: "✍️",
+  SALES_AGENT: "📊",
+  CREATIVE_AGENT: "🎨",
+};
+
+const AI_CAPABILITIES = [
   {
     icon: Brain,
     title: "تصنيف العملاء تلقائياً",
@@ -114,7 +122,7 @@ const ASSISTANT_CAPABILITIES = [
   {
     icon: BarChart3,
     title: "الملخص التنفيذي الأسبوعي",
-    description: "يلخص الأداء المالي والتشغيلي ويقارن الفترة الحالية بالسابق",
+    description: "يكتب تقرير CFO يقارن الأداء الحالي بالسابق",
     category: "تقارير",
   },
   {
@@ -132,7 +140,7 @@ const ASSISTANT_CAPABILITIES = [
   {
     icon: Lightbulb,
     title: "رؤى ذكية في كل صفحة",
-    description: "تحليلات فورية لبياناتك بدون استهلاك رصيد المساعد",
+    description: "تحليلات فورية لبياناتك بدون استهلاك رصيد AI",
     category: "عام",
   },
   {
@@ -148,7 +156,7 @@ const QUICK_LINKS = [
     label: "المحادثات",
     href: "/merchant/conversations",
     icon: MessageSquare,
-    description: "صندوق محادثات موحد مع اقتراحات تشغيلية",
+    description: "بوت WhatsApp الذكي",
   },
   {
     label: "المخزون",
@@ -157,10 +165,10 @@ const QUICK_LINKS = [
     description: "تحليلات وتنبؤات المخزون",
   },
   {
-    label: "ملخص مالي تنفيذي",
+    label: "تقرير CFO",
     href: "/merchant/reports/cfo",
     icon: TrendingUp,
-    description: "تقرير دعم داخل التقارير والمالية",
+    description: "الملخص التنفيذي الذكي",
   },
   {
     label: "المصاريف",
@@ -178,7 +186,7 @@ const QUICK_LINKS = [
     label: "الإعدادات",
     href: "/merchant/settings",
     icon: Settings,
-    description: "إعدادات القدرات",
+    description: "إعدادات الذكاء الاصطناعي",
   },
 ];
 
@@ -239,71 +247,154 @@ export default function AgentsPage() {
   const comingSoonCount = agents.filter(
     (a) => a.status === "coming_soon",
   ).length;
-  const categoriesCount = new Set(ASSISTANT_CAPABILITIES.map((c) => c.category))
-    .size;
+  const categoriesCount = new Set(AI_CAPABILITIES.map((c) => c.category)).size;
 
   return (
     <div className="space-y-8">
       <PageHeader
-        title="مركز القيادة / قدرات النظام"
-        description="سطح داعم لمراجعة القدرات المتاحة وروابطها التشغيلية ضمن مركز القيادة."
+        title="مركز الذكاء"
+        description="واجهة موحدة للوكلاء والقدرات الذكية التي تدير التسويق والعمليات والمخزون والمالية."
       />
 
-      <Card className="app-data-card app-data-card--muted border-dashed">
-        <CardContent className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between">
-          <div>
-            <p className="font-medium">هذه الصفحة جزء من مركز القيادة</p>
-            <p className="text-sm text-muted-foreground">
-              استخدمها لفهم القدرات المتاحة، بينما تبقى الموافقات والسجلات
-              والقرارات في مركز القيادة.
-            </p>
+      <section className="app-hero-band">
+        <div className="app-hero-band__grid">
+          <div className="space-y-4">
+            <span className="app-hero-band__eyebrow">AI Control Center</span>
+            <div className="space-y-3">
+              <h2 className="app-hero-band__title">
+                تعرف على ما هو مفعّل الآن، ما المتاح في الخطة، وما الذي سيزيد
+                أثر النظام مباشرة على التشغيل.
+              </h2>
+              <p className="app-hero-band__copy">
+                هذه الصفحة تجمع الوكلاء، حالاتهم، وروابطهم التنفيذية في مكان
+                واحد. ليست مجرد صفحة تعريفية، بل خريطة تشغيل للذكاء عبر النظام.
+              </p>
+            </div>
           </div>
-          <Link
-            href="/merchant/command-center"
-            className="text-sm text-primary hover:underline"
-          >
-            العودة لمركز القيادة
-          </Link>
-        </CardContent>
-      </Card>
+          <div className="app-hero-band__metrics">
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">مفعّل الآن</span>
+              <strong className="app-hero-band__metric-value">
+                {enabledCount || 0}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">المتاح بالخطة</span>
+              <strong className="app-hero-band__metric-value">
+                {availableCount}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">مجالات الذكاء</span>
+              <strong className="app-hero-band__metric-value">
+                {categoriesCount}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">الخطة الحالية</span>
+              <strong className="app-hero-band__metric-value">
+                {currentPlan}
+              </strong>
+            </div>
+          </div>
+        </div>
+      </section>
 
-      <div className="flex flex-wrap gap-2">
-        {[
-          [
-            "القدرات المفعلة",
-            String(enabledCount || 0),
-            "text-[var(--accent-blue)]",
-          ],
-          [
-            "المتاحة بالخطة",
-            String(availableCount),
-            "text-[var(--accent-success)]",
-          ],
-          [
-            "مجالات الدعم",
-            String(categoriesCount),
-            "text-[var(--color-brand-primary)]",
-          ],
-          [
-            "قدرات قادمة",
-            String(comingSoonCount),
-            "text-[var(--accent-warning)]",
-          ],
-          ["الخطة الحالية", currentPlan, "text-foreground"],
-          [
-            "القدرات",
-            String(ASSISTANT_CAPABILITIES.length),
-            "text-[var(--accent-blue)]",
-          ],
-        ].map(([label, value, color]) => (
-          <div
-            key={label}
-            className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs"
-          >
-            <span className="text-muted-foreground">{label}</span>
-            <span className={cn("font-mono", color)}>{value}</span>
-          </div>
-        ))}
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <Card className="app-data-card border-[color:color-mix(in_srgb,var(--accent)_18%,var(--border-strong))] bg-[var(--accent-muted)]">
+          <CardContent className="p-4">
+            <p className="text-sm text-muted-foreground">
+              الوكلاء المفعلة الآن
+            </p>
+            <p className="mt-1 text-2xl font-bold text-blue-700">
+              {enabledCount || 0}
+            </p>
+            <p className="mt-2 text-xs text-muted-foreground">
+              هذه هي الوكلاء التي تعمل فعلياً في خطتك الحالية.
+            </p>
+          </CardContent>
+        </Card>
+        <Card className="app-data-card border-[color:color-mix(in_srgb,var(--success)_18%,var(--border-strong))] bg-[var(--success-muted)]">
+          <CardContent className="p-4">
+            <p className="text-sm text-muted-foreground">المتاح في الخطة</p>
+            <p className="mt-1 text-2xl font-bold text-emerald-700">
+              {availableCount}
+            </p>
+            <p className="mt-2 text-xs text-muted-foreground">
+              عدد الوكلاء أو القدرات التي يحق لك تشغيلها الآن.
+            </p>
+          </CardContent>
+        </Card>
+        <Card className="app-data-card">
+          <CardContent className="p-4">
+            <p className="text-sm text-muted-foreground">مجالات الذكاء</p>
+            <p className="mt-1 text-2xl font-bold text-violet-700">
+              {categoriesCount}
+            </p>
+            <p className="mt-2 text-xs text-muted-foreground">
+              مبيعات، مالية، مخزون، مدفوعات، وتقارير تشغيلية.
+            </p>
+          </CardContent>
+        </Card>
+        <Card className="app-data-card border-[color:color-mix(in_srgb,var(--warning)_18%,var(--border-strong))] bg-[var(--warning-muted)]">
+          <CardContent className="p-4">
+            <p className="text-sm text-muted-foreground">قدرات قادمة</p>
+            <p className="mt-1 text-2xl font-bold text-amber-700">
+              {comingSoonCount}
+            </p>
+            <p className="mt-2 text-xs text-muted-foreground">
+              تظهر هنا القدرات التي لم تدخل الخطة أو لم تُطرح بعد.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Hero Stats */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4">
+        <Card className="app-data-card">
+          <CardContent className="p-4 text-center">
+            <div className="flex items-center justify-center gap-2 mb-1">
+              <Activity className="h-4 w-4 text-green-500" />
+              <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+                {AI_CAPABILITIES.length}
+              </p>
+            </div>
+            <p className="text-xs text-muted-foreground">قدرة ذكية نشطة</p>
+          </CardContent>
+        </Card>
+        <Card className="app-data-card">
+          <CardContent className="p-4 text-center">
+            <div className="flex items-center justify-center gap-2 mb-1">
+              <Bot className="h-4 w-4 text-blue-500" />
+              <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                {enabledCount || 1}
+              </p>
+            </div>
+            <p className="text-xs text-muted-foreground">وكيل مفعّل</p>
+          </CardContent>
+        </Card>
+        <Card className="app-data-card">
+          <CardContent className="p-4 text-center">
+            <div className="flex items-center justify-center gap-2 mb-1">
+              <Sparkles className="h-4 w-4 text-purple-500" />
+              <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+                متقدم
+              </p>
+            </div>
+            <p className="text-xs text-muted-foreground">موديل الذكاء</p>
+          </CardContent>
+        </Card>
+        <Card className="app-data-card">
+          <CardContent className="p-4 text-center">
+            <div className="flex items-center justify-center gap-2 mb-1">
+              <Globe className="h-4 w-4 text-amber-500" />
+              <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">
+                {currentPlan}
+              </p>
+            </div>
+            <p className="text-xs text-muted-foreground">خطتك الحالية</p>
+          </CardContent>
+        </Card>
       </div>
 
       <Tabs value={activeTab} onValueChange={handleTabChange}>
@@ -312,10 +403,10 @@ export default function AgentsPage() {
             نظرة عامة
           </TabsTrigger>
           <TabsTrigger value="agents" className="w-full">
-            القدرات ({agents.length || 8})
+            الوكلاء ({agents.length || 8})
           </TabsTrigger>
           <TabsTrigger value="capabilities" className="w-full">
-            القدرات الداعمة
+            القدرات الذكية
           </TabsTrigger>
         </TabsList>
 
@@ -324,26 +415,25 @@ export default function AgentsPage() {
           <Card className="app-data-card">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Brain className="h-5 w-5 text-[var(--accent-blue)]" />
-                كيف تعمل القدرات في متجرك
+                <Brain className="h-5 w-5 text-blue-500" />
+                كيف يعمل الذكاء الاصطناعي في متجرك
               </CardTitle>
               <CardDescription>
-                قدرات تشغيلية تربط الطلبات، العملاء، المخزون، والمالية عند
-                الحاجة.
+                نظام تشغيل ذكي يعمل 24/7 لأتمتة عملياتك وزيادة مبيعاتك
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="rounded-xl border border-[var(--accent-success)]/25 bg-[var(--accent-success)]/10 p-4">
+                <div className="p-4 rounded-xl bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800">
                   <div className="flex items-start gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-[var(--radius-md)] border border-[color:rgba(34,197,94,0.22)] bg-[color:rgba(34,197,94,0.12)]">
-                      <MessageSquare className="h-5 w-5 text-[color:var(--accent-success)]" />
+                    <div className="h-10 w-10 rounded-lg bg-green-500/20 flex items-center justify-center text-lg">
+                      💬
                     </div>
                     <div className="flex-1">
-                      <h4 className="mb-1 font-medium text-[var(--accent-success)]">
+                      <h4 className="font-medium text-green-800 dark:text-green-300 mb-1">
                         بوت واتساب ذكي
                       </h4>
-                      <p className="text-sm text-[var(--text-secondary)]">
+                      <p className="text-sm text-green-700/80 dark:text-green-400/80">
                         يتحدث بالعامية المصرية مع عملاءك ← يأخذ الطلبات ← يتفاوض
                         ← يؤكد ويحجز التوصيل
                       </p>
@@ -351,7 +441,7 @@ export default function AgentsPage() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="mt-2 h-auto p-0 text-[color:var(--accent-success)]"
+                          className="mt-2 text-green-600 dark:text-green-400 p-0 h-auto"
                         >
                           عرض المحادثات →
                         </Button>
@@ -359,32 +449,32 @@ export default function AgentsPage() {
                     </div>
                   </div>
                 </div>
-                <div className="rounded-xl border border-[var(--accent-blue)]/25 bg-[var(--accent-blue)]/10 p-4">
+                <div className="p-4 rounded-xl bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800">
                   <div className="flex items-start gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-[var(--radius-md)] border border-[color:rgba(59,130,246,0.22)] bg-[color:rgba(59,130,246,0.12)]">
-                      <Mic className="h-5 w-5 text-[color:var(--accent-blue)]" />
+                    <div className="h-10 w-10 rounded-lg bg-blue-500/20 flex items-center justify-center text-lg">
+                      🎙️
                     </div>
                     <div className="flex-1">
-                      <h4 className="mb-1 font-medium text-[var(--accent-blue)]">
+                      <h4 className="font-medium text-blue-800 dark:text-blue-300 mb-1">
                         مساعد الأوامر
                       </h4>
-                      <p className="text-sm text-[var(--text-secondary)]">
+                      <p className="text-sm text-blue-700/80 dark:text-blue-400/80">
                         قوله "دفعت 500 للكهربا" أو "زوّد التيشيرت 10" - يفهم
                         ويحول لإجراءات فوراً
                       </p>
                     </div>
                   </div>
                 </div>
-                <div className="rounded-xl border border-[var(--color-brand-primary)]/25 bg-[var(--color-brand-primary)]/10 p-4">
+                <div className="p-4 rounded-xl bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800">
                   <div className="flex items-start gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-[var(--color-brand-primary)]/25 bg-[var(--color-brand-primary)]/12">
-                      <Camera className="h-5 w-5 text-[var(--color-brand-primary)]" />
+                    <div className="h-10 w-10 rounded-lg bg-purple-500/20 flex items-center justify-center text-lg">
+                      📸
                     </div>
                     <div className="flex-1">
-                      <h4 className="mb-1 font-medium text-[var(--color-brand-primary)]">
+                      <h4 className="font-medium text-purple-800 dark:text-purple-300 mb-1">
                         قراءة الصور والإيصالات
                       </h4>
-                      <p className="text-sm text-[var(--text-secondary)]">
+                      <p className="text-sm text-purple-700/80 dark:text-purple-400/80">
                         يقرأ إيصالات الدفع ويستخرج البيانات تلقائياً - يحلل صور
                         المنتجات للكتالوج
                       </p>
@@ -392,7 +482,7 @@ export default function AgentsPage() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="mt-2 h-auto p-0 text-[var(--color-brand-primary)]"
+                          className="mt-2 text-purple-600 dark:text-purple-400 p-0 h-auto"
                         >
                           إثباتات الدفع →
                         </Button>
@@ -400,26 +490,26 @@ export default function AgentsPage() {
                     </div>
                   </div>
                 </div>
-                <div className="rounded-xl border border-[var(--accent-warning)]/25 bg-[var(--accent-warning)]/10 p-4">
+                <div className="p-4 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
                   <div className="flex items-start gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-[var(--accent-warning)]/25 bg-[var(--accent-warning)]/12">
-                      <BarChart3 className="h-5 w-5 text-[var(--accent-warning)]" />
+                    <div className="h-10 w-10 rounded-lg bg-amber-500/20 flex items-center justify-center text-lg">
+                      📊
                     </div>
                     <div className="flex-1">
-                      <h4 className="mb-1 font-medium text-[var(--accent-warning)]">
-                        تحليلات وتقارير داعمة
+                      <h4 className="font-medium text-amber-800 dark:text-amber-300 mb-1">
+                        تحليلات وتقارير ذكية
                       </h4>
-                      <p className="text-sm text-[var(--text-secondary)]">
-                        ملخص مالي أسبوعي - كشف الأنماط الشاذة - توصيات قابلة
-                        للمراجعة
+                      <p className="text-sm text-amber-700/80 dark:text-amber-400/80">
+                        ملخص CFO أسبوعي - كشف الأنماط الشاذة - رؤى ذكية في كل
+                        صفحة
                       </p>
                       <Link href="/merchant/reports/cfo">
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="mt-2 h-auto p-0 text-[var(--accent-warning)]"
+                          className="mt-2 text-amber-600 dark:text-amber-400 p-0 h-auto"
                         >
-                          فتح الملخص المالي →
+                          تقرير CFO →
                         </Button>
                       </Link>
                     </div>
@@ -439,18 +529,16 @@ export default function AgentsPage() {
                   const Icon = link.icon;
                   return (
                     <Link key={link.href} href={link.href}>
-                      <div className="flex min-h-[72px] items-center gap-3 rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-surface-1)] px-3 py-3 transition-colors hover:border-[var(--color-brand-primary)] hover:text-[var(--color-brand-primary)]">
-                        <div className="flex h-9 w-9 items-center justify-center rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)]">
+                      <div className="p-3 rounded-lg border hover:bg-muted/50 transition-all cursor-pointer">
+                        <div className="flex items-center gap-2 mb-1">
                           <Icon className="h-4 w-4 text-muted-foreground" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="text-sm font-medium">
+                          <span className="text-sm font-medium">
                             {link.label}
-                          </div>
-                          <p className="text-xs text-muted-foreground">
-                            {link.description}
-                          </p>
+                          </span>
                         </div>
+                        <p className="text-xs text-muted-foreground">
+                          {link.description}
+                        </p>
                       </div>
                     </Link>
                   );
@@ -459,20 +547,19 @@ export default function AgentsPage() {
             </CardContent>
           </Card>
 
-          <Card className="app-data-card">
+          <Card className="bg-gradient-to-l from-indigo-50 to-blue-50 dark:from-indigo-950/30 dark:to-blue-950/30 border-indigo-200 dark:border-indigo-800/50">
             <CardContent className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h3 className="font-bold text-lg flex items-center gap-2">
-                  <Users className="h-5 w-5 text-[color:var(--accent-blue)]" />
-                  المهام الجماعية
+                  👥 المهام الجماعية للوكلاء
                 </h3>
                 <p className="text-muted-foreground text-sm mt-1">
-                  وزّع العمل على عدة قدرات تشغيلية عند تنفيذ مهام معقدة
+                  وزّع العمل على عدة وكلاء ليعملوا معاً بالتوازي على مهام معقدة
                 </p>
               </div>
               <Link href="/merchant/teams">
                 <Button className="w-full sm:w-auto">
-                  إدارة الفرق <ChevronLeft className="h-4 w-4 me-1" />
+                  إدارة الفرق <ChevronLeft className="h-4 w-4 mr-1" />
                 </Button>
               </Link>
             </CardContent>
@@ -482,19 +569,19 @@ export default function AgentsPage() {
         {/* Agents Tab */}
         <TabsContent value="agents" className="space-y-4">
           {currentPlan && (
-            <div className="flex flex-col gap-4 rounded-[var(--radius-lg)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-4 rounded-xl border border-blue-200 bg-gradient-to-l from-blue-50 to-purple-50 p-4 dark:border-blue-800/50 dark:from-blue-950/30 dark:to-purple-950/30 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="font-medium">
                   خطتك الحالية:{" "}
-                  <span className="font-bold text-[color:var(--accent-blue)]">
+                  <span className="text-blue-600 dark:text-blue-300 font-bold">
                     {currentPlan}
                   </span>
                 </p>
                 <p className="text-muted-foreground text-sm mt-1">
-                  بعض القدرات مضمن في خطتك والبقية يمكن إضافته كإضافات
+                  بعض الوكلاء مضمنون في خطتك والبقية يمكن إضافتهم كإضافات
                 </p>
               </div>
-              <Link href="/merchant/billing">
+              <Link href="/merchant/plan">
                 <Button
                   variant="outline"
                   size="sm"
@@ -516,53 +603,56 @@ export default function AgentsPage() {
               <CardContent className="p-12 text-center">
                 <Bot className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
                 <p className="text-lg font-medium mb-1">
-                  القدرات غير متوفرة حالياً
+                  الوكلاء غير متوفرين حالياً
                 </p>
                 <p className="text-muted-foreground text-sm">
-                  تعمل القدرات المدمجة ضمن نظام التشغيل
+                  يعمل النظام بالذكاء الاصطناعي المدمج
                 </p>
               </CardContent>
             </Card>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {agents.map((agent) => {
-                const AgentIcon = AGENT_ICONS[agent.id] || Bot;
+                const emoji = AGENT_EMOJIS[agent.id] || "🤖";
                 const isComingSoon = agent.status === "coming_soon";
                 const isBeta = agent.status === "beta";
                 const isNotSellable = !agent.sellable;
                 return (
                   <Card
                     key={agent.id}
-                    className={`border transition-all ${agent.isEnabled ? "border-[var(--accent-success)]/25 bg-[var(--accent-success)]/10" : isComingSoon ? "opacity-60" : ""}`}
+                    className={`border transition-all ${agent.isEnabled ? "border-green-200 dark:border-green-800/50 bg-green-50/50 dark:bg-green-950/10" : isComingSoon ? "opacity-60" : ""}`}
                   >
                     <CardHeader className="pb-3">
                       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                         <div className="flex items-center gap-3">
                           <div
-                            className={`flex h-10 w-10 items-center justify-center rounded-lg ${agent.isEnabled ? "border border-[var(--accent-success)]/25 bg-[var(--accent-success)]/12 text-[var(--accent-success)]" : "border border-[var(--border-subtle)] bg-muted text-[var(--text-secondary)]"}`}
+                            className={`w-10 h-10 rounded-lg flex items-center justify-center text-lg ${agent.isEnabled ? "bg-green-100 dark:bg-green-900/40" : "bg-muted"}`}
                           >
-                            <AgentIcon className="h-5 w-5" />
+                            {emoji}
                           </div>
                           <div>
                             <CardTitle className="text-base">
                               {agent.nameAr}
                             </CardTitle>
+                            <p className="text-muted-foreground text-xs">
+                              {agent.nameEn}
+                            </p>
                           </div>
                         </div>
                         {agent.isEnabled ? (
                           <Badge
                             variant="outline"
-                            className="border-[var(--accent-success)]/25 bg-[var(--accent-success)]/12 text-[var(--accent-success)] text-xs"
+                            className="text-green-600 dark:text-green-400 border-green-300 text-xs"
                           >
-                            <Check className="h-3 w-3 ms-1" />
+                            <Check className="h-3 w-3 ml-1" />
                             مفعّل
                           </Badge>
                         ) : isBeta ? (
                           <Badge
                             variant="outline"
-                            className="border-[var(--color-brand-primary)]/25 bg-[var(--color-brand-primary)]/12 text-[var(--color-brand-primary)] text-xs"
+                            className="text-purple-600 dark:text-purple-400 border-purple-300 text-xs"
                           >
-                            <Check className="h-3 w-3 ms-1" />
+                            <Sparkles className="h-3 w-3 ml-1" />
                             تجريبي
                           </Badge>
                         ) : isComingSoon ? (
@@ -571,7 +661,7 @@ export default function AgentsPage() {
                           </Badge>
                         ) : (
                           <Badge variant="secondary" className="text-xs">
-                            <Lock className="h-3 w-3 ms-1" />
+                            <Lock className="h-3 w-3 ml-1" />
                             غير مفعّل
                           </Badge>
                         )}
@@ -586,13 +676,13 @@ export default function AgentsPage() {
                           {agent.features.slice(0, 4).map((f) => (
                             <span
                               key={f}
-                              className="rounded-[var(--radius-sm)] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-2)] px-2 py-0.5 text-[10px] text-muted-foreground"
+                              className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground"
                             >
                               {f}
                             </span>
                           ))}
                           {agent.features.length > 4 && (
-                            <span className="rounded-[var(--radius-sm)] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-2)] px-2 py-0.5 text-[10px] text-muted-foreground">
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
                               +{agent.features.length - 4}
                             </span>
                           )}
@@ -614,8 +704,8 @@ export default function AgentsPage() {
                       </div>
                       <div className="pt-3 border-t">
                         {agent.isIncludedInPlan ? (
-                          <p className="text-xs text-[color:var(--accent-success)]">
-                            مضمن في خطتك
+                          <p className="text-xs text-green-600 dark:text-green-400">
+                            ✅ مضمن في خطتك
                           </p>
                         ) : isComingSoon ? (
                           <p className="text-xs text-muted-foreground">
@@ -623,15 +713,15 @@ export default function AgentsPage() {
                             {isNotSellable ? " وغير جاهز للبيع حالياً" : ""}
                           </p>
                         ) : !agent.subscriptionEnabled ? (
-                          <p className="text-xs text-[var(--accent-warning)]">
+                          <p className="text-xs text-amber-600 dark:text-amber-400">
                             غير قابل للتفعيل حالياً من سجل القدرات
                           </p>
                         ) : (
-                          <Link href="/merchant/billing">
+                          <Link href="/merchant/plan">
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-auto p-0 text-xs text-[var(--accent-blue)]"
+                              className="text-blue-500 p-0 h-auto text-xs"
                             >
                               ترقية لتفعيل →
                             </Button>
@@ -651,7 +741,7 @@ export default function AgentsPage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Activity className="h-5 w-5 text-[var(--color-brand-primary)]" />
+                <Sparkles className="h-5 w-5 text-purple-500" />
                 القدرات الذكية المفعّلة
               </CardTitle>
               <CardDescription>
@@ -660,15 +750,15 @@ export default function AgentsPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {ASSISTANT_CAPABILITIES.map((cap, i) => {
+                {AI_CAPABILITIES.map((cap, i) => {
                   const Icon = cap.icon;
                   return (
                     <div
                       key={i}
                       className="flex items-start gap-3 p-3 rounded-lg border hover:bg-muted/50 transition-all"
                     >
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[var(--accent-blue)]/20 bg-[var(--accent-blue)]/10">
-                        <Icon className="h-4 w-4 text-[color:var(--accent-blue)]" />
+                      <div className="h-9 w-9 rounded-lg bg-blue-50 dark:bg-blue-950/30 flex items-center justify-center shrink-0">
+                        <Icon className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-0.5">
@@ -682,7 +772,7 @@ export default function AgentsPage() {
                         </p>
                       </div>
                       <div className="shrink-0">
-                        <div className="h-2 w-2 rounded-full bg-[color:var(--accent-success)] animate-pulse" />
+                        <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
                       </div>
                     </div>
                   );
@@ -700,7 +790,7 @@ export default function AgentsPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="p-4 rounded-lg bg-muted/50">
                   <div className="flex items-center gap-2 mb-2">
-                    <Brain className="h-5 w-5 text-[var(--accent-blue)]" />
+                    <Brain className="h-5 w-5 text-blue-500" />
                     <h4 className="font-medium">المحادثات والتحليل</h4>
                   </div>
                   <p className="text-sm text-muted-foreground mb-2">
@@ -715,7 +805,7 @@ export default function AgentsPage() {
                 </div>
                 <div className="p-4 rounded-lg bg-muted/50">
                   <div className="flex items-center gap-2 mb-2">
-                    <Eye className="h-5 w-5 text-[var(--color-brand-primary)]" />
+                    <Eye className="h-5 w-5 text-purple-500" />
                     <h4 className="font-medium">تحليل الصور والمستندات</h4>
                   </div>
                   <p className="text-sm text-muted-foreground mb-2">

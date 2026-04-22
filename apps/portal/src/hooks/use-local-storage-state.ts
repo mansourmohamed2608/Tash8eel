@@ -17,7 +17,9 @@ export function useLocalStorageState<T>(
   options: UseLocalStorageStateOptions<T> = {},
 ): [T, Dispatch<SetStateAction<T>>, boolean] {
   const { serialize = JSON.stringify, deserialize = JSON.parse } = options;
-  const [state, setState] = useState<T>(() => resolveInitialValue(initialValue));
+  const [state, setState] = useState<T>(() =>
+    resolveInitialValue(initialValue),
+  );
   const [isHydrated, setIsHydrated] = useState(false);
 
   useEffect(() => {

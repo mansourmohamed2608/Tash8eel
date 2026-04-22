@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import Link from "next/link";
 import { PageHeader } from "@/components/layout";
 import {
   Card,
@@ -77,8 +76,8 @@ export default function FifoValuationPage() {
             </Button>
           }
         />
-        <Card className="border-[var(--accent-danger)]/20 bg-[var(--accent-danger)]/10">
-          <CardContent className="py-6 text-sm text-[var(--accent-danger)]">
+        <Card className="border-red-200 bg-red-50">
+          <CardContent className="py-6 text-red-700 text-sm">
             {error}
           </CardContent>
         </Card>
@@ -117,27 +116,22 @@ export default function FifoValuationPage() {
   return (
     <div className="space-y-6 animate-fadeIn p-4 sm:p-6">
       <PageHeader
-        title="المخزون > تقييم FIFO"
-        description="أداة مساندة للمخزون: قيمة الدفعات والتكلفة الحالية، مع توضيح عندما يكون الحساب تقديرياً."
+        title="تقييم المخزون (الوارد أولاً صادر أولاً)"
+        description="تقييم المخزون بطريقة FIFO أو تقدير متوسط التكلفة عند غياب طبقات التكلفة"
         actions={
-          <div className="flex flex-wrap gap-2">
-            <Button asChild variant="outline" className="w-full sm:w-auto">
-              <Link href="/merchant/inventory">قائمة المخزون</Link>
-            </Button>
-            <Button
-              variant="outline"
-              onClick={fetchData}
-              className="w-full sm:w-auto"
-            >
-              <RefreshCw className="ml-2 h-4 w-4" /> تحديث
-            </Button>
-          </div>
+          <Button
+            variant="outline"
+            onClick={fetchData}
+            className="w-full sm:w-auto"
+          >
+            <RefreshCw className="ml-2 h-4 w-4" /> تحديث
+          </Button>
         }
       />
 
       {usingEstimatedMethod && (
-        <Card className="border-[var(--accent-warning)]/20 bg-[var(--accent-warning)]/10">
-          <CardContent className="flex items-start gap-2 py-4 text-sm text-[var(--text-secondary)]">
+        <Card className="border-amber-200 bg-amber-50">
+          <CardContent className="py-4 flex items-start gap-2 text-amber-900 text-sm">
             <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
             <p>
               لا توجد طبقات FIFO كافية، لذلك يعرض النظام تقديراً من تكلفة
@@ -152,19 +146,17 @@ export default function FifoValuationPage() {
         <StatCard
           title="قيمة التكلفة"
           value={formatCurrency(calculatedSummary.totalCostValue)}
-          icon={<DollarSign className="h-5 w-5 text-[var(--accent-blue)]" />}
+          icon={<DollarSign className="h-5 w-5 text-blue-600" />}
         />
         <StatCard
           title="قيمة المخزون بسعر البيع"
           value={formatCurrency(calculatedSummary.totalRetailValue)}
-          icon={<TrendingUp className="h-5 w-5 text-[var(--accent-success)]" />}
+          icon={<TrendingUp className="h-5 w-5 text-green-600" />}
         />
         <StatCard
           title="هامش الربح التقديري"
           value={`${calculatedSummary.overallMarginPct || 0}%`}
-          icon={
-            <BarChart3 className="h-5 w-5 text-[var(--color-brand-primary)]" />
-          }
+          icon={<BarChart3 className="h-5 w-5 text-purple-600" />}
         />
         <StatCard
           title="عدد الأكواد (SKU)"
@@ -173,11 +165,10 @@ export default function FifoValuationPage() {
         />
       </KPIGrid>
 
-      <Card className="border-[var(--accent-blue)]/20 bg-[var(--accent-blue)]/10">
-        <CardContent className="py-3 text-xs text-[var(--text-secondary)]">
+      <Card className="border-blue-200 bg-blue-50">
+        <CardContent className="py-3 text-xs text-blue-900">
           هذه الصفحة تحسب قيمة المخزون الحالية، وليست إجمالي الإيرادات المحققة
-          من الطلبات. الأرقام أعلى الصفحة محسوبة من نفس صفوف الجدول أدناه. آخر
-          حساب يتم عند تحديث الصفحة من مصدر المخزون الحالي.
+          من الطلبات. الأرقام أعلى الصفحة محسوبة من نفس صفوف الجدول أدناه.
         </CardContent>
       </Card>
 

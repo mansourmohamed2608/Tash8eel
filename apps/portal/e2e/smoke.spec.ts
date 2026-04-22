@@ -2,9 +2,9 @@ import { test, expect, Page } from "@playwright/test";
 import { DEMO, ADMIN, login } from "./helpers/auth";
 
 async function noErrors(page: Page) {
-  await expect(
-    page.locator("h2:has-text('Something went wrong')"),
-  ).toHaveCount(0);
+  await expect(page.locator("h2:has-text('Something went wrong')")).toHaveCount(
+    0,
+  );
   await expect(
     page.locator("h1:has-text('404'), h1:has-text('500')"),
   ).toHaveCount(0);

@@ -17,7 +17,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CardSkeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
   DialogContent,
@@ -57,6 +56,10 @@ import {
 import { cn } from "@/lib/utils";
 import { useMerchant } from "@/hooks/use-merchant";
 import portalApi from "@/lib/client";
+import {
+  AiInsightsCard,
+  generateSecurityInsights,
+} from "@/components/ai/ai-insights-card";
 
 interface Session {
   id: string;
@@ -65,7 +68,6 @@ interface Session {
   os: string;
   ip: string;
   location?: string;
-  locationKnown: boolean;
   lastActive: string;
   createdAt: string;
   isCurrent: boolean;
@@ -139,9 +141,9 @@ export default function SecurityPage() {
             ? "mobile"
             : "desktop";
 
-        // Parse browser/OS from user agent when the session provider exposes it.
-        let browser = "غير معروف";
-        let os = "غير معروف";
+        // Parse browser/OS from user agent
+        let browser = "Unknown";
+        let os = "Unknown";
         if (ua.includes("Chrome")) browser = "Chrome";
         else if (ua.includes("Firefox")) browser = "Firefox";
         else if (ua.includes("Safari")) browser = "Safari";
@@ -153,23 +155,12 @@ export default function SecurityPage() {
         else if (ua.includes("Android")) os = "Android";
         else if (ua.includes("Linux")) os = "Linux";
 
-        const sessionLocation = [
-          (s as any).city,
-          (s as any).region,
-          (s as any).country,
-        ]
-          .filter(Boolean)
-          .join("، ");
-        const explicitLocation = (s as any).location || sessionLocation;
-
         return {
           id: s.id,
           deviceType,
           browser,
           os,
-          ip: s.ipAddress?.replace(/\.\d+$/, ".xxx") || "غير متاح",
-          location: explicitLocation || undefined,
-          locationKnown: Boolean(explicitLocation),
+          ip: s.ipAddress?.replace(/\.\d+$/, ".xxx") || "Unknown",
           lastActive: s.lastUsedAt || s.createdAt,
           createdAt: s.createdAt,
           isCurrent: s.isCurrent,
@@ -196,8 +187,8 @@ export default function SecurityPage() {
         id: log.id,
         action: ACTION_LABELS[log.action] || log.action,
         details: log.metadata ? JSON.stringify(log.metadata) : "",
-        ip: log.ipAddress?.replace(/\.\d+$/, ".xxx") || "غير معروف",
-        userAgent: log.userAgent || "غير معروف",
+        ip: log.ipAddress?.replace(/\.\d+$/, ".xxx") || "Unknown",
+        userAgent: log.userAgent || "Unknown",
         createdAt: log.createdAt,
         status:
           log.action.includes("FAIL") || log.action === "ACCOUNT_LOCKED"
@@ -324,23 +315,10 @@ export default function SecurityPage() {
     return `منذ ${diffDays} يوم`;
   };
 
-  const latestActivity = sessions
-    .map((session) => new Date(session.lastActive).getTime())
-    .filter(Number.isFinite)
-    .sort((a, b) => b - a)[0];
-
   if (loading) {
     return (
-      <div className="space-y-6 p-4 sm:p-6">
-        <PageHeader
-          title="الإعدادات / الأمان والجلسات"
-          description="تحميل سياق الأجهزة والجلسات المرتبط بالفريق والأذونات."
-        />
-        <div className="grid gap-4">
-          <CardSkeleton />
-          <CardSkeleton />
-          <CardSkeleton />
-        </div>
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-muted-foreground">جاري التحميل...</div>
       </div>
     );
   }
@@ -348,8 +326,8 @@ export default function SecurityPage() {
   return (
     <div className="space-y-6 p-4 sm:p-6">
       <PageHeader
-        title="الإعدادات / الأمان والجلسات"
-        description="سطح دعم للفريق والأذونات يوضح الأجهزة، آخر نشاط، وسجل الوصول حسب البيانات المتاحة."
+        title="الأمان والخصوصية"
+        description="إدارة الجلسات النشطة وإعدادات الأمان"
         actions={
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
             <Button variant="outline" size="sm" onClick={fetchSecurityData}>
@@ -360,62 +338,16 @@ export default function SecurityPage() {
         }
       />
 
-      <div className="flex flex-wrap gap-2">
-        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
-          <Laptop className="h-3.5 w-3.5 text-muted-foreground" />
-          <span className="text-muted-foreground">الجلسات النشطة</span>
-          <span className="font-mono text-foreground">{sessions.length}</span>
-        </div>
-        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
-          <Fingerprint className="h-3.5 w-3.5 text-[var(--color-brand-primary)]" />
-          <span className="text-muted-foreground">المصادقة الثنائية</span>
-          <span className="font-mono text-[var(--color-brand-primary)]">
-            {settings?.twoFactorEnabled ? "مفعلة" : "معطلة"}
-          </span>
-        </div>
-        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
-          <Clock className="h-3.5 w-3.5 text-[var(--accent-blue)]" />
-          <span className="text-muted-foreground">آخر تغيير كلمة مرور</span>
-          <span className="font-mono text-[var(--accent-blue)]">
-            {settings?.lastPasswordChange
-              ? formatTimeAgo(settings.lastPasswordChange)
-              : "—"}
-          </span>
-        </div>
-        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
-          <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
-          <span className="text-muted-foreground">مواقع معروفة</span>
-          <span className="font-mono text-foreground">
-            {sessions.filter((session) => session.locationKnown).length}
-          </span>
-        </div>
-        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
-          <History className="h-3.5 w-3.5 text-muted-foreground" />
-          <span className="text-muted-foreground">آخر نشاط جلسة</span>
-          <span className="font-mono text-foreground">
-            {latestActivity
-              ? formatTimeAgo(new Date(latestActivity).toISOString())
-              : "—"}
-          </span>
-        </div>
-      </div>
-
-      <Card className="border-[var(--color-brand-primary)]/20 bg-[var(--bg-surface-2)]">
-        <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="space-y-1">
-            <p className="text-sm font-semibold text-foreground">
-              تابع للفريق والأذونات
-            </p>
-            <p className="text-sm text-muted-foreground">
-              استخدم هذا السطح لمراجعة الجلسات وسجل الوصول، وإدارة أعضاء الفريق
-              من صفحة الفريق والأذونات.
-            </p>
-          </div>
-          <Button asChild variant="outline" className="w-full sm:w-auto">
-            <Link href="/merchant/team">فتح الفريق والأذونات</Link>
-          </Button>
-        </CardContent>
-      </Card>
+      {/* AI Security Insights */}
+      <AiInsightsCard
+        title="مساعد الأمان"
+        insights={generateSecurityInsights({
+          twoFactorEnabled: settings?.twoFactorEnabled,
+          activeSessions: sessions.length,
+          lastPasswordChange: settings?.lastPasswordChange,
+        })}
+        loading={loading}
+      />
 
       <Tabs value={activeTab} onValueChange={handleTabChange}>
         <TabsList className="grid h-auto w-full grid-cols-1 gap-2 sm:grid-cols-3">
@@ -440,8 +372,7 @@ export default function SecurityPage() {
               <div>
                 <CardTitle>الأجهزة المتصلة</CardTitle>
                 <CardDescription>
-                  {sessions.length} جلسة معروضة. الموقع يظهر فقط إذا وفره مزود
-                  الجلسة.
+                  {sessions.length} جهاز متصل بحسابك
                 </CardDescription>
               </div>
               {sessions.length > 1 && (
@@ -488,9 +419,8 @@ export default function SecurityPage() {
                       لا توجد جلسات نشطة
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">
-                      ستظهر الأجهزة المتصلة عند تسجيل الدخول عبر حساب فريق
-                      العمل. إذا لم يظهر الموقع، فهذا يعني أن مزود الجلسة لم
-                      يرسله.
+                      ستظهر الأجهزة المتصلة عند تسجيل الدخول عبر حساب فريق العمل
+                      (Staff Login)
                     </p>
                   </div>
                 )}
@@ -531,30 +461,13 @@ export default function SecurityPage() {
                               </Badge>
                             )}
                           </div>
-                          <div className="mt-3 grid gap-2 text-xs text-muted-foreground sm:grid-cols-2">
-                            <div className="flex items-center gap-2">
-                              <MapPin className="h-3 w-3" />
-                              <span>
-                                {session.location ||
-                                  "الموقع غير متاح من مزود الجلسة"}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <Shield className="h-3 w-3" />
-                              <span>عنوان IP: {session.ip}</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <Clock className="h-3 w-3" />
-                              <span>
-                                آخر نشاط: {formatTimeAgo(session.lastActive)}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <History className="h-3 w-3" />
-                              <span>
-                                بداية الجلسة: {formatTimeAgo(session.createdAt)}
-                              </span>
-                            </div>
+                          <div className="text-sm text-muted-foreground flex items-center gap-2">
+                            <MapPin className="h-3 w-3" />
+                            {session.location || "غير معروف"} • {session.ip}
+                          </div>
+                          <div className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                            <Clock className="h-3 w-3" />
+                            آخر نشاط: {formatTimeAgo(session.lastActive)}
                           </div>
                         </div>
                       </div>
@@ -563,7 +476,7 @@ export default function SecurityPage() {
                           variant="ghost"
                           size="sm"
                           onClick={() => handleRevokeSession(session.id)}
-                          className="w-full text-[var(--accent-danger)] hover:bg-[var(--accent-danger)]/10 hover:text-[var(--accent-danger)] sm:w-auto"
+                          className="w-full text-red-600 hover:bg-red-50 hover:text-red-700 sm:w-auto"
                         >
                           <LogOut className="h-4 w-4 ml-1" />
                           إنهاء
@@ -669,7 +582,7 @@ export default function SecurityPage() {
                           </button>
                         </div>
                         {newPassword.length > 0 && newPassword.length < 8 && (
-                          <p className="text-xs text-[var(--accent-warning)]">
+                          <p className="text-xs text-amber-600">
                             يجب أن تكون 8 أحرف على الأقل
                           </p>
                         )}
@@ -703,13 +616,13 @@ export default function SecurityPage() {
                         </div>
                         {confirmPassword.length > 0 &&
                           newPassword !== confirmPassword && (
-                            <p className="text-xs text-[var(--accent-danger)]">
+                            <p className="text-xs text-red-600">
                               كلمتا المرور غير متطابقتين
                             </p>
                           )}
                       </div>
                       {passwordError && (
-                        <p className="text-sm font-medium text-[var(--accent-danger)]">
+                        <p className="text-sm text-red-600 font-medium">
                           {passwordError}
                         </p>
                       )}
@@ -795,14 +708,14 @@ export default function SecurityPage() {
                         className={cn(
                           "mt-0.5 p-1 rounded-full",
                           log.status === "success"
-                            ? "bg-[var(--accent-success)]/10"
-                            : "bg-[var(--accent-danger)]/10",
+                            ? "bg-green-100"
+                            : "bg-red-100",
                         )}
                       >
                         {log.status === "success" ? (
-                          <CheckCircle2 className="h-4 w-4 text-[var(--accent-success)]" />
+                          <CheckCircle2 className="h-4 w-4 text-green-600" />
                         ) : (
-                          <AlertTriangle className="h-4 w-4 text-[var(--accent-danger)]" />
+                          <AlertTriangle className="h-4 w-4 text-red-600" />
                         )}
                       </div>
                       <div className="min-w-0">

@@ -38,7 +38,7 @@ import { useRoleAccess } from "@/hooks/use-role-access";
 
 const CATEGORIES = [
   { value: "FEATURE", label: "ميزة" },
-  { value: "AGENT", label: "قدرة تشغيلية" },
+  { value: "AGENT", label: "وكيل ذكاء" },
   { value: "INTEGRATION", label: "تكامل" },
   { value: "UX", label: "تحسين واجهة" },
   { value: "QUOTE", label: "عرض سعر" },
@@ -285,28 +285,42 @@ export default function FeatureRequestsPage() {
         actions={headerActions}
       />
 
-      <div className="flex flex-wrap gap-2">
-        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
-          <Lightbulb className="h-3.5 w-3.5 text-[var(--color-brand-primary)]" />
-          <span className="text-muted-foreground">الاقتراحات</span>
-          <span className="font-mono text-[var(--color-brand-primary)]">
-            {requests.length}
-          </span>
+      <section className="app-hero-band">
+        <div className="app-hero-band__grid">
+          <div>
+            <p className="app-hero-band__eyebrow">صوت العميل</p>
+            <h2 className="app-hero-band__title">
+              حوّل الطلبات والاحتياجات الخاصة إلى مسار واضح للمتابعة والتنفيذ
+            </h2>
+            <p className="app-hero-band__copy">
+              هذه المساحة تجمع الاقتراحات اليومية وعروض السعر المخصصة في واجهة
+              واحدة حتى يعرف التاجر ما تم استلامه وما الذي ينتظر قرارًا.
+            </p>
+          </div>
+          <div className="app-hero-band__metrics">
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">الاقتراحات</span>
+              <strong className="app-hero-band__metric-value">
+                {requests.length}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">عروض السعر</span>
+              <strong className="app-hero-band__metric-value">
+                {quotes.length}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">
+                التبويب الحالي
+              </span>
+              <strong className="app-hero-band__metric-value">
+                {activeTab === "quotes" ? "العروض" : "الاقتراحات"}
+              </strong>
+            </div>
+          </div>
         </div>
-        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
-          <MessageSquare className="h-3.5 w-3.5 text-[var(--accent-blue)]" />
-          <span className="text-muted-foreground">عروض السعر</span>
-          <span className="font-mono text-[var(--accent-blue)]">
-            {quotes.length}
-          </span>
-        </div>
-        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
-          <span className="text-muted-foreground">التبويب الحالي</span>
-          <span className="font-mono text-foreground">
-            {activeTab === "quotes" ? "العروض" : "الاقتراحات"}
-          </span>
-        </div>
-      </div>
+      </section>
 
       {error && (
         <AlertBanner
@@ -332,7 +346,7 @@ export default function FeatureRequestsPage() {
             <EmptyState
               icon={<Lightbulb className="h-12 w-12" />}
               title="لا توجد اقتراحات بعد"
-              description="شاركنا أفكارك حول الميزات أو القدرات التي تحتاجها"
+              description="شاركنا أفكارك حول الميزات أو الوكلاء الذين تحتاجهم"
               action={
                 <Button onClick={() => setShowDialog(true)}>
                   <Plus className="h-4 w-4 ml-2" />
@@ -425,7 +439,7 @@ export default function FeatureRequestsPage() {
                             {quote.title || "عرض سعر مخصص"}
                           </CardTitle>
                           <CardDescription>
-                            {agentsCount} قدرات • {featuresCount} ميزات
+                            {agentsCount} وكلاء • {featuresCount} ميزات
                             {quotedPrice
                               ? ` • السعر المقترح: ${quotedPrice}`
                               : ""}
@@ -458,7 +472,7 @@ export default function FeatureRequestsPage() {
                         <div className="space-y-3">
                           {quote.status === "QUOTED" && (
                             <div className="flex flex-wrap items-center gap-2 rounded-md border border-dashed border-green-200 bg-green-50 p-3 text-sm">
-                              <div className="font-semibold text-[var(--accent-success)]">
+                              <div className="text-green-700 font-semibold">
                                 تم التسعير - هل تريد قبول العرض؟
                               </div>
                               <Button
@@ -559,7 +573,7 @@ export default function FeatureRequestsPage() {
               <Input
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="مثال: قدرة متابعة العملاء"
+                placeholder="مثال: وكيل متابعة العملاء"
               />
             </div>
             <div className="space-y-2">

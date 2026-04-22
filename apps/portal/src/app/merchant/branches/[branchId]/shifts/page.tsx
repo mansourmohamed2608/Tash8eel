@@ -153,17 +153,9 @@ export default function BranchShiftsPage() {
   function cashDiffLabel(diff: number | null) {
     if (diff == null) return "-";
     if (diff > 0)
-      return (
-        <span className="text-[var(--accent-success)]">
-          +{formatCurrency(diff)}
-        </span>
-      );
+      return <span className="text-green-600">+{formatCurrency(diff)}</span>;
     if (diff < 0)
-      return (
-        <span className="text-[var(--accent-danger)]">
-          {formatCurrency(diff)}
-        </span>
-      );
+      return <span className="text-red-500">{formatCurrency(diff)}</span>;
     return <span className="text-muted-foreground">0</span>;
   }
 
@@ -252,11 +244,11 @@ export default function BranchShiftsPage() {
 
       {/* Current Open Shift Banner */}
       {currentShift && (
-        <Card className="border-[var(--accent-success)]/25 bg-[var(--bg-surface-2)]">
+        <Card className="border-green-400 bg-green-50 dark:bg-green-950/20">
           <CardContent className="pt-4">
             <div className="flex items-center gap-2 mb-3">
-              <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-[var(--accent-success)]" />
-              <span className="font-semibold text-[var(--accent-success)]">
+              <span className="h-2.5 w-2.5 rounded-full bg-green-500 animate-pulse" />
+              <span className="font-semibold text-green-700 dark:text-green-400">
                 جلسة مفتوحة الآن
               </span>
               <span className="text-sm text-muted-foreground">
@@ -278,7 +270,7 @@ export default function BranchShiftsPage() {
               </div>
               <div>
                 <p className="text-muted-foreground">الإيراد الجاري</p>
-                <p className="font-semibold text-[var(--accent-success)]">
+                <p className="font-semibold text-green-600">
                   {formatCurrency(currentShift.running_revenue ?? 0)}
                 </p>
               </div>
@@ -336,8 +328,7 @@ export default function BranchShiftsPage() {
                           }
                           className={cn(
                             "text-xs",
-                            s.status === "OPEN" &&
-                              "border-0 bg-[var(--accent-success)]/15 text-[var(--accent-success)]",
+                            s.status === "OPEN" && "bg-green-500 text-white",
                           )}
                         >
                           {s.status === "OPEN"
@@ -434,8 +425,7 @@ export default function BranchShiftsPage() {
                             }
                             className={cn(
                               "text-xs",
-                              s.status === "OPEN" &&
-                                "border-0 bg-[var(--accent-success)]/15 text-[var(--accent-success)]",
+                              s.status === "OPEN" && "bg-green-500 text-white",
                             )}
                           >
                             {s.status === "OPEN"

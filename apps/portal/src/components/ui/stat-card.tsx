@@ -27,7 +27,7 @@ export function StatCard({
     return (
       <div
         className={cn(
-          "min-h-[80px] rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--bg-surface-1)] p-4",
+          "rounded-[24px] border border-[color:color-mix(in_srgb,var(--border-strong)_88%,transparent)] bg-card p-5 shadow-[0_18px_40px_-30px_rgba(15,23,42,0.45)]",
           className,
         )}
       >
@@ -45,51 +45,49 @@ export function StatCard({
   return (
     <div
       className={cn(
-        "group min-h-[80px] rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--bg-surface-1)] p-4 transition-all duration-150 ease-in-out hover:border-[var(--accent-blue)]",
-        isNegative && "border-r-2 border-r-[var(--accent-danger)]",
+        "group rounded-[24px] border border-[color:color-mix(in_srgb,var(--border-strong)_88%,transparent)] bg-card p-5 shadow-[0_18px_40px_-30px_rgba(15,23,42,0.45)] transition-all duration-150 ease-in-out hover:border-[color:color-mix(in_srgb,var(--accent)_18%,var(--border-strong))] hover:shadow-[0_24px_50px_-34px_rgba(15,23,42,0.55)]",
         className,
       )}
     >
-      <div className="flex items-start justify-between gap-3">
+      <div className="mb-3 flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[0.6875rem] font-bold tracking-[0.08em] text-[var(--text-muted)]">
+            {title}
+          </p>
+        </div>
         {icon && (
-          <div className="inline-flex h-8 w-8 items-center justify-center rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] text-[var(--accent-blue)]">
+          <div className="inline-flex h-11 w-11 items-center justify-center rounded-[16px] border border-[color:color-mix(in_srgb,var(--border-strong)_86%,transparent)] bg-[color:color-mix(in_srgb,var(--surface-muted)_80%,transparent)] text-[var(--accent)]">
             {icon}
           </div>
         )}
-        <p className="min-w-0 text-[11px] font-semibold text-[var(--text-muted)]">
-          {title}
-        </p>
-        {change !== undefined && (
-          <div className="flex items-center gap-1 text-[11px] font-semibold">
-            {isPositive && (
-              <TrendingUp className="h-3.5 w-3.5 text-[var(--accent-success)]" />
-            )}
-            {isNegative && (
-              <TrendingDown className="h-3.5 w-3.5 text-[var(--accent-danger)]" />
-            )}
-            {isNeutral && (
-              <Minus className="h-3.5 w-3.5 text-[var(--text-muted)]" />
-            )}
-            <span
-              className={cn(
-                isPositive && "text-[var(--accent-success)]",
-                isNegative && "text-[var(--accent-danger)]",
-                isNeutral && "text-[var(--text-muted)]",
-              )}
-            >
-              {isPositive && "+"}
-              {change}%
-            </span>
-          </div>
-        )}
       </div>
-      <p className="mt-3 font-mono text-[28px] font-extrabold leading-none tracking-[-0.03em] text-[var(--text-primary)]">
+      <p className="text-[1.8rem] font-black tracking-[-0.03em] text-[var(--text-primary)]">
         {value}
       </p>
-      {changeLabel && (
-        <p className="mt-2 text-[11px] text-[var(--text-muted)]">
-          {changeLabel}
-        </p>
+      {change !== undefined && (
+        <div className="mt-3 flex flex-wrap items-center gap-1.5 text-sm">
+          {isPositive && (
+            <TrendingUp className="h-4 w-4 text-[var(--success)]" />
+          )}
+          {isNegative && (
+            <TrendingDown className="h-4 w-4 text-[var(--danger)]" />
+          )}
+          {isNeutral && <Minus className="h-4 w-4 text-[var(--text-muted)]" />}
+          <span
+            className={cn(
+              "font-bold",
+              isPositive && "text-[var(--success)]",
+              isNegative && "text-[var(--danger)]",
+              isNeutral && "text-[var(--text-muted)]",
+            )}
+          >
+            {isPositive && "+"}
+            {change}%
+          </span>
+          {changeLabel && (
+            <span className="text-[var(--text-muted)]">{changeLabel}</span>
+          )}
+        </div>
       )}
     </div>
   );

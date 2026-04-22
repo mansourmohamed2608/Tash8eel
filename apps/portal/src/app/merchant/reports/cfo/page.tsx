@@ -35,11 +35,16 @@ import {
   Receipt,
   PieChart,
   BarChart3,
-  FileText,
+  Sparkles,
 } from "lucide-react";
 import { formatCurrency, formatNumber, cn } from "@/lib/utils";
 import { useMerchant } from "@/hooks/use-merchant";
 import portalApi from "@/lib/client";
+import {
+  AiInsightsCard,
+  generateCfoInsights,
+} from "@/components/ai/ai-insights-card";
+import { SmartAnalysisButton } from "@/components/ai/smart-analysis-button";
 import {
   REPORTING_PERIOD_OPTIONS,
   getStoredReportingDays,
@@ -178,16 +183,12 @@ function MetricCard({
         {safeChange !== undefined && (
           <div className="flex items-center gap-1 text-xs">
             {safeChange >= 0 ? (
-              <TrendingUp className="h-3 w-3 text-[var(--accent-success)]" />
+              <TrendingUp className="h-3 w-3 text-green-500" />
             ) : (
-              <TrendingDown className="h-3 w-3 text-[var(--accent-danger)]" />
+              <TrendingDown className="h-3 w-3 text-red-500" />
             )}
             <span
-              className={
-                safeChange >= 0
-                  ? "text-[var(--accent-success)]"
-                  : "text-[var(--accent-danger)]"
-              }
+              className={safeChange >= 0 ? "text-green-600" : "text-red-600"}
             >
               {safeChange >= 0 ? "+" : ""}
               {roundTo(safeChange, 1).toFixed(1)}%
@@ -217,18 +218,18 @@ function AlertCard({
   const config = {
     warning: {
       icon: AlertTriangle,
-      color: "border-[var(--accent-warning)]/20 bg-[var(--accent-warning)]/10",
-      iconColor: "text-[var(--accent-warning)]",
+      color: "border-yellow-200 bg-yellow-50",
+      iconColor: "text-yellow-600",
     },
     danger: {
       icon: AlertTriangle,
-      color: "border-[var(--accent-danger)]/20 bg-[var(--accent-danger)]/10",
-      iconColor: "text-[var(--accent-danger)]",
+      color: "border-red-200 bg-red-50",
+      iconColor: "text-red-600",
     },
     info: {
       icon: CheckCircle2,
-      color: "border-[var(--accent-blue)]/20 bg-[var(--accent-blue)]/10",
-      iconColor: "text-[var(--accent-blue)]",
+      color: "border-blue-200 bg-blue-50",
+      iconColor: "text-blue-600",
     },
   };
 
@@ -493,8 +494,8 @@ export default function CFOBriefPage() {
   return (
     <div className="space-y-6 p-4 sm:p-6">
       <PageHeader
-        title="التقارير / الملخص المالي التنفيذي"
-        description="تقرير دعم يقرأ الإيرادات والمصروفات والتدفق النقدي بدون خلطه مع مسار المالية الأساسي."
+        title="ملخص المدير المالي"
+        description="نظرة شاملة على الأداء المالي والتشغيلي"
         actions={
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
             <Select
@@ -539,7 +540,7 @@ export default function CFOBriefPage() {
                   CFO_PERIOD_OPTIONS.find((opt) => opt.value === periodDays)
                     ?.label || `آخر ${periodDays} يوم`;
                 w.document
-                  .write(`<!DOCTYPE html><html dir="rtl"><head><title>الملخص المالي التنفيذي - ${periodLabel}</title>
+                  .write(`<!DOCTYPE html><html dir="rtl"><head><title>تقرير CFO - ${periodLabel}</title>
                 <style>body{font-family:system-ui,sans-serif;padding:2rem;direction:rtl}
                 table{width:100%;border-collapse:collapse;margin:1rem 0}
                 th,td{border:1px solid #ddd;padding:8px;text-align:right}
@@ -580,28 +581,48 @@ export default function CFOBriefPage() {
         }
       />
 
-      <Card className="border-[var(--accent-blue)]/20 bg-[var(--accent-blue)]/10">
+      <Card className="border-blue-200 bg-blue-50/60">
         <CardContent className="pt-4 space-y-1 text-sm">
-          <p className="font-medium text-[var(--accent-blue)]">
+          <p className="font-medium text-blue-900">
             مصدر الأرقام في هذا التقرير
           </p>
-          <p className="text-[var(--accent-blue)]">
+          <p className="text-blue-800">
             الأرقام المحاسبية أدناه محسوبة مباشرة من بيانات قاعدة البيانات
             (الطلبات، المدفوعات، المصروفات، المخزون).
           </p>
-          <p className="text-[var(--accent-blue)]">
+          <p className="text-blue-700">
             يستخدم هذا التقرير نفس تعريف الإيراد المحقق المستخدم في لوحة التحكم:
             مبالغ مدفوعة ومحصلة فعلياً، وليس كل الطلبات المحجوزة.
           </p>
         </CardContent>
       </Card>
 
+      {/* AI CFO Insights */}
+      <AiInsightsCard
+        title="تحليلات الذكاء الاصطناعي للمدير المالي"
+        insights={generateCfoInsights({
+          revenue: realizedRevenue,
+          expenses: metrics.totalExpenses,
+          profit: metrics.netCashFlow,
+          orderCount: metrics.realizedOrders,
+          aov: metrics.averageOrderValue,
+          codPercentage:
+            metrics.pendingCOD > 0 && realizedRevenue > 0
+              ? (metrics.pendingCOD / realizedRevenue) * 100
+              : 0,
+          uniqueCustomers: metrics.totalCustomers,
+        })}
+      />
+
+      {/* GPT-Powered Smart Analysis */}
+      <SmartAnalysisButton context="cfo" />
+
       {/* Alerts Section */}
       {metrics.alerts.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-[var(--accent-warning)]" />
+              <AlertTriangle className="h-5 w-5 text-yellow-500" />
               تنبيهات تحتاج اهتمامك
             </CardTitle>
           </CardHeader>
@@ -618,23 +639,23 @@ export default function CFOBriefPage() {
         </Card>
       )}
 
-      {/* Weekly interpretation layer, not source of record */}
+      {/* AI-Generated Weekly CFO Brief (interpretation layer, not source of record) */}
       {aiBriefError === "quota" && !aiBrief && (
-        <Card className="border-[var(--accent-warning)]/20 bg-[var(--accent-warning)]/10">
+        <Card className="border-orange-200 bg-orange-50">
           <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
-            <FileText className="h-5 w-5 shrink-0 text-[var(--accent-warning)]" />
+            <Sparkles className="h-5 w-5 text-orange-500 shrink-0" />
             <div className="flex-1">
-              <p className="text-sm font-medium text-[var(--accent-warning)]">
-                تم استنفاد رصيد المساعد اليومي
+              <p className="text-sm font-medium text-orange-800">
+                تم استنفاد رصيد الذكاء الاصطناعي اليومي
               </p>
-              <p className="mt-0.5 text-xs text-[var(--accent-warning)]">
-                ملخص التفسير الأسبوعي غير متاح حالياً. يتم تجديد الرصيد يومياً
-                أو يمكنك ترقية الباقة.
+              <p className="text-xs text-orange-600 mt-0.5">
+                الملخص الأسبوعي بالذكاء الاصطناعي غير متاح حالياً. يتم تجديد
+                الرصيد يومياً أو يمكنك ترقية الباقة.
               </p>
             </div>
             <a
-              href="/merchant/billing"
-              className="inline-flex w-full items-center justify-center rounded-md bg-[var(--accent-warning)] px-3 py-1.5 text-xs font-medium text-[var(--bg-base)] transition-colors hover:brightness-110 sm:w-auto"
+              href="/merchant/plan"
+              className="inline-flex w-full items-center justify-center rounded-md bg-orange-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-orange-700 sm:w-auto"
             >
               ترقية الباقة
             </a>
@@ -642,12 +663,12 @@ export default function CFOBriefPage() {
         </Card>
       )}
       {aiBrief && (
-        <Card className="border-[var(--color-brand-primary)]/20 bg-[var(--color-brand-primary)]/10">
+        <Card className="border-purple-200 bg-gradient-to-r from-purple-50/50 to-transparent">
           <CardHeader>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <CardTitle className="flex items-center gap-2">
-                <FileText className="h-5 w-5 text-[var(--color-brand-primary)]" />
-                ملخص تفسيري أسبوعي
+                <Sparkles className="h-5 w-5 text-purple-600" />
+                الملخص الأسبوعي بالذكاء الاصطناعي
               </CardTitle>
               <Badge variant="secondary" className="text-xs">
                 {new Date(aiBrief.generatedAt).toLocaleDateString("ar-EG")}
@@ -661,31 +682,31 @@ export default function CFOBriefPage() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface-2)] p-3 text-center">
-                <div className="text-xl font-bold text-[var(--accent-success)]">
+              <div className="text-center p-3 bg-white rounded-lg border">
+                <div className="text-xl font-bold text-green-600">
                   {formatCurrency(aiBriefRevenue)}
                 </div>
                 <div className="text-xs text-muted-foreground">
                   الإيرادات المحققة للأسبوع
                 </div>
               </div>
-              <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface-2)] p-3 text-center">
-                <div className="text-xl font-bold text-[var(--accent-blue)]">
+              <div className="text-center p-3 bg-white rounded-lg border">
+                <div className="text-xl font-bold text-blue-600">
                   {(aiBrief.data.paidOrders ?? 0).toLocaleString("ar-EG")}
                 </div>
                 <div className="text-xs text-muted-foreground">
                   طلبات مدفوعة
                 </div>
               </div>
-              <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface-2)] p-3 text-center">
-                <div className="text-xl font-bold text-[var(--accent-warning)]">
+              <div className="text-center p-3 bg-white rounded-lg border">
+                <div className="text-xl font-bold text-yellow-600">
                   {formatCurrency(aiBrief.data.pendingPayments ?? 0)}
                 </div>
                 <div className="text-xs text-muted-foreground">
                   مدفوعات معلقة
                 </div>
               </div>
-              <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface-2)] p-3 text-center">
+              <div className="text-center p-3 bg-white rounded-lg border">
                 <div className="text-xl font-bold">
                   {formatCurrency(aiBrief.data.averageOrderValue ?? 0)}
                 </div>
@@ -695,7 +716,7 @@ export default function CFOBriefPage() {
               </div>
             </div>
             {aiBrief.data.codPendingAmount > 0 && (
-              <div className="mt-3 flex flex-col gap-2 rounded border border-[var(--accent-warning)]/20 bg-[var(--accent-warning)]/10 p-2 text-sm text-[var(--accent-warning)] sm:flex-row sm:items-center">
+              <div className="mt-3 flex flex-col gap-2 rounded bg-yellow-50 p-2 text-sm text-yellow-700 sm:flex-row sm:items-center">
                 <AlertTriangle className="h-4 w-4" />
                 <span>
                   COD قيد التحصيل:{" "}
@@ -704,7 +725,7 @@ export default function CFOBriefPage() {
               </div>
             )}
             {aiBrief.data.refundsCount > 0 && (
-              <div className="mt-2 flex flex-col gap-2 rounded border border-[var(--accent-danger)]/20 bg-[var(--accent-danger)]/10 p-2 text-sm text-[var(--accent-danger)] sm:flex-row sm:items-center">
+              <div className="mt-2 flex flex-col gap-2 rounded bg-red-50 p-2 text-sm text-red-700 sm:flex-row sm:items-center">
                 <AlertTriangle className="h-4 w-4" />
                 <span>
                   مرتجعات: {aiBrief.data.refundsCount} (
@@ -795,13 +816,13 @@ export default function CFOBriefPage() {
         <CardContent>
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-5">
             <div className="text-center">
-              <div className="text-2xl font-bold text-[var(--accent-success)]">
+              <div className="text-2xl font-bold text-green-600">
                 {formatCurrency(metrics.cashInHand)}
               </div>
               <div className="text-sm text-muted-foreground">نقدي متاح</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-[var(--accent-warning)]">
+              <div className="text-2xl font-bold text-yellow-600">
                 {formatCurrency(metrics.pendingCOD)}
               </div>
               <div className="text-sm text-muted-foreground">
@@ -809,7 +830,7 @@ export default function CFOBriefPage() {
               </div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-[var(--accent-blue)]">
+              <div className="text-2xl font-bold text-blue-600">
                 {formatCurrency(metrics.pendingOnline)}
               </div>
               <div className="text-sm text-muted-foreground">
@@ -817,7 +838,7 @@ export default function CFOBriefPage() {
               </div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-[var(--accent-danger)]">
+              <div className="text-2xl font-bold text-red-600">
                 {formatCurrency(metrics.totalExpenses)}
               </div>
               <div className="text-sm text-muted-foreground">

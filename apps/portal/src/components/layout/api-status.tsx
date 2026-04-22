@@ -49,20 +49,20 @@ export function ApiStatusIndicator({ collapsed }: ApiStatusIndicatorProps) {
   const statusConfig = {
     connected: {
       icon: Wifi,
-      color: "text-[var(--accent-success)]",
-      bgColor: "bg-[var(--success-muted)]",
+      color: "text-green-600",
+      bgColor: "bg-green-100 dark:bg-green-900/30",
       label: "متصل",
     },
     disconnected: {
       icon: WifiOff,
-      color: "text-[var(--accent-danger)]",
-      bgColor: "bg-[var(--danger-muted)]",
+      color: "text-red-600",
+      bgColor: "bg-red-100 dark:bg-red-900/30",
       label: "غير متصل",
     },
     checking: {
       icon: RefreshCw,
-      color: "text-[var(--accent-warning)]",
-      bgColor: "bg-[var(--warning-muted)]",
+      color: "text-yellow-600",
+      bgColor: "bg-yellow-100 dark:bg-yellow-900/30",
       label: "جاري الفحص...",
     },
   };
@@ -92,8 +92,8 @@ export function ApiStatusIndicator({ collapsed }: ApiStatusIndicatorProps) {
               />
             </button>
           </TooltipTrigger>
-          <TooltipContent side="bottom" align="end">
-            <div className="text-start">
+          <TooltipContent side="left">
+            <div className="text-right">
               <p className="font-medium">{config.label}</p>
               <p className="text-xs text-muted-foreground">{message}</p>
               {lastChecked && (
@@ -119,7 +119,7 @@ export function ApiStatusIndicator({ collapsed }: ApiStatusIndicatorProps) {
           className={cn("h-4 w-4", config.color, isChecking && "animate-spin")}
         />
       </div>
-      <div className="text-start">
+      <div className="text-right">
         <p className={cn("font-medium", config.color)}>{config.label}</p>
         {lastChecked && (
           <p className="text-xs text-muted-foreground">

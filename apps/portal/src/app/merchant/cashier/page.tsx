@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ArrowRight,
@@ -191,46 +190,6 @@ interface RegisterSummary {
   };
 }
 
-interface CashierCopilotSuggestion {
-  id: string;
-  type: "alert" | "insight" | "action";
-  priority: "high" | "medium" | "low";
-  title: string;
-  body: string;
-  action?: {
-    kind: string;
-    label: string;
-    payload?: Record<string, unknown>;
-    requiresApproval?: boolean;
-  };
-}
-
-interface CashierCopilotApprovalRecord {
-  actionId: string;
-  intent: string;
-  status: string;
-  previewSummary: string | null;
-  expiresAt: string | null;
-  riskTier: "low" | "medium" | "high" | "critical";
-}
-
-interface CashierCopilotResponse {
-  generatedAt: string;
-  contextDigest: {
-    todayCashierOrders: number;
-    todayCashierRevenue: number;
-    pendingApprovals: number;
-    openRegisters: number;
-    activeDrafts: number;
-    forecastRisks: {
-      lowConfidencePredictions: number;
-      staleRuns: number;
-      highUrgencyReplenishments: number;
-    };
-  };
-  suggestions: CashierCopilotSuggestion[];
-}
-
 const DELIVERY_OPTIONS: Array<{
   key: DeliveryType;
   label: string;
@@ -269,14 +228,6 @@ const DEFAULT_POS_SETTINGS: PosSettings = {
 export default function CashierPage() {
   const { merchant, merchantId, apiKey } = useMerchant();
   const { toast } = useToast();
-  const router = useRouter();
-
-  useEffect(() => {
-    document.body.classList.add("pos-mode");
-    return () => {
-      document.body.classList.remove("pos-mode");
-    };
-  }, []);
 
   const [catalogLoading, setCatalogLoading] = useState(true);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
@@ -362,35 +313,8 @@ export default function CashierPage() {
   const [selectedOrderPayments, setSelectedOrderPayments] = useState<
     PaymentEntry[]
   >([]);
-  const [cashierCopilotLoading, setCashierCopilotLoading] = useState(false);
-  const [cashierCopilotQuery, setCashierCopilotQuery] = useState("");
-  const [cashierCopilotData, setCashierCopilotData] =
-    useState<CashierCopilotResponse | null>(null);
-  const [cashierCopilotApprovals, setCashierCopilotApprovals] = useState<
-    CashierCopilotApprovalRecord[]
-  >([]);
-  const [cashierCopilotApprovalsLoading, setCashierCopilotApprovalsLoading] =
-    useState(false);
-  const [showCashierApprovalsPanel, setShowCashierApprovalsPanel] =
-    useState(false);
-  const [approvalActionLoadingId, setApprovalActionLoadingId] = useState<
-    string | null
-  >(null);
 
   const merchantName = merchant?.name || "الكاشير";
-
-  const getSuggestionTone = useCallback(
-    (priority: CashierCopilotSuggestion["priority"]) => {
-      if (priority === "high") {
-        return "border-[var(--accent-danger)]/25 bg-[var(--accent-danger)]/10 text-[var(--accent-danger)]";
-      }
-      if (priority === "medium") {
-        return "border-[var(--accent-warning)]/25 bg-[var(--accent-warning)]/10 text-[var(--accent-warning)]";
-      }
-      return "border-[var(--accent-blue)]/25 bg-[var(--accent-blue)]/10 text-[var(--accent-blue)]";
-    },
-    [],
-  );
 
   const mapOrderToReceiptSummary = useCallback(
     (order: any): CreatedOrderSummary => ({
@@ -740,243 +664,6 @@ export default function CashierPage() {
   useEffect(() => {
     void loadRecentOrders();
   }, [loadRecentOrders]);
-
-  const loadCashierCopilotSuggestions = useCallback(
-    async (queryOverride?: string) => {
-      if (!apiKey) {
-        setCashierCopilotData(null);
-        setCashierCopilotLoading(false);
-        return;
-      }
-
-      setCashierCopilotLoading(true);
-      try {
-        const normalizedQuery = String(queryOverride || "").trim() || undefined;
-        const response = await merchantApi.getCashierCopilotSuggestions(
-          apiKey,
-          {
-            draftId: currentDraftId || undefined,
-            branchId: selectedBranchId || undefined,
-            query: normalizedQuery,
-          },
-        );
-
-        setCashierCopilotData({
-          generatedAt: String(
-            response?.generatedAt || new Date().toISOString(),
-          ),
-          contextDigest: {
-            todayCashierOrders: Number(
-              response?.contextDigest?.todayCashierOrders || 0,
-            ),
-            todayCashierRevenue: Number(
-              response?.contextDigest?.todayCashierRevenue || 0,
-            ),
-            pendingApprovals: Number(
-              response?.contextDigest?.pendingApprovals || 0,
-            ),
-            openRegisters: Number(response?.contextDigest?.openRegisters || 0),
-            activeDrafts: Number(response?.contextDigest?.activeDrafts || 0),
-            forecastRisks: {
-              lowConfidencePredictions: Number(
-                response?.contextDigest?.forecastRisks
-                  ?.lowConfidencePredictions || 0,
-              ),
-              staleRuns: Number(
-                response?.contextDigest?.forecastRisks?.staleRuns || 0,
-              ),
-              highUrgencyReplenishments: Number(
-                response?.contextDigest?.forecastRisks
-                  ?.highUrgencyReplenishments || 0,
-              ),
-            },
-          },
-          suggestions: Array.isArray(response?.suggestions)
-            ? (response.suggestions as CashierCopilotSuggestion[])
-            : [],
-        });
-      } catch {
-        setCashierCopilotData(null);
-      } finally {
-        setCashierCopilotLoading(false);
-      }
-    },
-    [apiKey, currentDraftId, selectedBranchId],
-  );
-
-  useEffect(() => {
-    void loadCashierCopilotSuggestions();
-  }, [loadCashierCopilotSuggestions]);
-
-  useEffect(() => {
-    if (!cashierCopilotData) return;
-    if (Number(cashierCopilotData.contextDigest.pendingApprovals || 0) > 0) {
-      setShowCashierApprovalsPanel(true);
-    }
-  }, [cashierCopilotData]);
-
-  const loadCashierCopilotApprovals = useCallback(
-    async (status = "pending") => {
-      if (!apiKey) {
-        setCashierCopilotApprovals([]);
-        setCashierCopilotApprovalsLoading(false);
-        return;
-      }
-
-      setCashierCopilotApprovalsLoading(true);
-      try {
-        const response = await merchantApi.copilotApprovals(apiKey, {
-          status,
-          limit: 8,
-          offset: 0,
-        });
-        setCashierCopilotApprovals(
-          Array.isArray(response?.approvals)
-            ? response.approvals.map((row) => ({
-                actionId: String(row?.actionId || ""),
-                intent: String(row?.intent || "UNKNOWN"),
-                status: String(row?.status || "pending"),
-                previewSummary:
-                  String(row?.previewSummary || "").trim() || null,
-                expiresAt:
-                  String(row?.expiresAt || "").trim() || row?.expiresAt || null,
-                riskTier: row?.riskTier || "low",
-              }))
-            : [],
-        );
-      } catch {
-        setCashierCopilotApprovals([]);
-      } finally {
-        setCashierCopilotApprovalsLoading(false);
-      }
-    },
-    [apiKey],
-  );
-
-  useEffect(() => {
-    if (!showCashierApprovalsPanel) return;
-    void loadCashierCopilotApprovals("pending");
-  }, [showCashierApprovalsPanel, loadCashierCopilotApprovals]);
-
-  const confirmCashierCopilotApproval = useCallback(
-    async (actionId: string, confirm: boolean) => {
-      if (!apiKey || !actionId) return;
-      setApprovalActionLoadingId(actionId);
-      try {
-        const response = await merchantApi.copilotConfirm(
-          apiKey,
-          actionId,
-          confirm,
-        );
-        if (response?.success) {
-          toast({
-            title: confirm ? "تم اعتماد الإجراء" : "تم رفض الإجراء",
-          });
-        } else {
-          toast({
-            title: "تعذر تحديث الإجراء",
-            description:
-              String(response?.reply || "").trim() || "يرجى المحاولة مرة أخرى",
-            variant: "destructive",
-          });
-        }
-      } catch (error) {
-        toast({
-          title: "تعذر تحديث الإجراء",
-          description:
-            error instanceof Error ? error.message : "حدث خطأ غير متوقع",
-          variant: "destructive",
-        });
-      } finally {
-        setApprovalActionLoadingId(null);
-        await Promise.all([
-          loadCashierCopilotSuggestions(),
-          loadCashierCopilotApprovals("pending"),
-        ]);
-      }
-    },
-    [apiKey, loadCashierCopilotApprovals, loadCashierCopilotSuggestions, toast],
-  );
-
-  const handleCashierSuggestionAction = useCallback(
-    async (suggestion: CashierCopilotSuggestion) => {
-      const action = suggestion.action;
-      if (!action?.kind) return;
-
-      if (action.kind === "review_approvals" || action.requiresApproval) {
-        setShowCashierApprovalsPanel(true);
-        await loadCashierCopilotApprovals(
-          String(action.payload?.status || "pending"),
-        );
-        return;
-      }
-
-      if (action.kind === "open_register") {
-        setOpenShiftDialog(true);
-        return;
-      }
-
-      if (action.kind === "open_replenishment") {
-        router.push("/merchant/forecast");
-        return;
-      }
-
-      if (action.kind === "open_inventory_item") {
-        const catalogItemId = String(
-          action.payload?.catalogItemId || "",
-        ).trim();
-        const search = catalogItemId
-          ? `?item=${encodeURIComponent(catalogItemId)}`
-          : "";
-        router.push(`/merchant/inventory${search}`);
-        return;
-      }
-
-      if (action.kind === "open_forecast") {
-        router.push("/merchant/forecast");
-        return;
-      }
-
-      if (action.kind === "open_discount_report") {
-        router.push("/merchant/reports/discount-impact");
-        return;
-      }
-
-      if (action.kind === "review_cart_items") {
-        setProductSearch("");
-        toast({
-          title: "تم تفعيل مراجعة السلة",
-          description: "راجع الكميات والأسعار قبل إتمام الإغلاق.",
-        });
-        return;
-      }
-
-      if (action.kind === "review_payment_split") {
-        setPaymentEntries((current) => {
-          if (Array.isArray(current) && current.length > 0) {
-            return current;
-          }
-          return [{ method: paymentMethod, amount: 0 }];
-        });
-        toast({
-          title: "راجع توزيع التحصيل",
-          description:
-            "تأكد من مطابقة مجموع طرق الدفع مع إجمالي الطلب قبل الإغلاق.",
-        });
-        return;
-      }
-
-      setCashierCopilotQuery(suggestion.title);
-      await loadCashierCopilotSuggestions(suggestion.title);
-    },
-    [
-      loadCashierCopilotApprovals,
-      loadCashierCopilotSuggestions,
-      paymentMethod,
-      router,
-      toast,
-    ],
-  );
 
   const handleOpenShift = useCallback(async () => {
     if (!apiKey || !selectedBranchId) return;
@@ -2353,35 +2040,38 @@ export default function CashierPage() {
         <header className="cashier-command-bar mb-3">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-[18px] border border-[var(--accent)]/25 bg-[var(--accent-muted)] text-[var(--accent)]">
+              <div className="flex h-12 w-12 items-center justify-center rounded-[18px] bg-[var(--accent)] text-white shadow-[0_18px_40px_-24px_color-mix(in_srgb,var(--accent)_84%,black)]">
                 <ShoppingCart className="h-5 w-5" />
               </div>
               <div>
                 <p className="text-lg font-black tracking-[-0.02em] text-[var(--text-primary)]">
                   {merchantName}
                 </p>
-                <p className="text-sm text-[var(--text-muted)]">وضع الكاشير</p>
+                <p className="text-sm text-[var(--text-muted)]">
+                  مساحة تشغيل سريعة للكاشير، المبيعات، الجلسات، والطباعة من شاشة
+                  واحدة.
+                </p>
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="secondary" className="h-9 px-3 text-sm">
-                <ArrowUpDown className="ms-1 h-4 w-4" />
+                <ArrowUpDown className="ml-1 h-4 w-4" />
                 {selectedBranchId
                   ? branches.find((branch) => branch.id === selectedBranchId)
                       ?.name || "الفرع"
                   : "بدون فرع"}
               </Badge>
               <Badge variant="secondary" className="h-9 px-3 text-sm">
-                <ShoppingCart className="ms-1 h-4 w-4" />
+                <ShoppingCart className="ml-1 h-4 w-4" />
                 {cartItemsCount} عنصر
               </Badge>
               <Badge variant="secondary" className="h-9 px-3 text-sm">
-                <Banknote className="ms-1 h-4 w-4" />
+                <Banknote className="ml-1 h-4 w-4" />
                 {formatCurrency(totalAfterDiscount)}
               </Badge>
               <Button asChild variant="outline" className="h-9 px-4">
                 <Link href="/merchant/orders">
-                  <ArrowRight className="ms-1 h-4 w-4" />
+                  <ArrowRight className="ml-1 h-4 w-4" />
                   الخروج من الكاشير
                 </Link>
               </Button>
@@ -2389,10 +2079,8 @@ export default function CashierPage() {
           </div>
           <div className="cashier-command-bar__stats">
             <div className="cashier-command-bar__stat">
-              <span className="cashier-command-bar__stat-label">
-                حالة الجلسة
-              </span>
-              <strong className="cashier-command-bar__stat-value">
+              <span className="app-hero-band__metric-label">حالة الجلسة</span>
+              <strong className="app-hero-band__metric-value">
                 {registerLoading
                   ? "جارٍ التحقق..."
                   : currentRegister?.status === "open"
@@ -2401,28 +2089,24 @@ export default function CashierPage() {
               </strong>
             </div>
             <div className="cashier-command-bar__stat">
-              <span className="cashier-command-bar__stat-label">
-                نوع الخدمة
-              </span>
-              <strong className="cashier-command-bar__stat-value">
+              <span className="app-hero-band__metric-label">نوع الخدمة</span>
+              <strong className="app-hero-band__metric-value">
                 {DELIVERY_OPTIONS.find((option) => option.key === deliveryType)
                   ?.label || "استلام"}
               </strong>
             </div>
             <div className="cashier-command-bar__stat">
-              <span className="cashier-command-bar__stat-label">
-                وسيلة الدفع
-              </span>
-              <strong className="cashier-command-bar__stat-value">
+              <span className="app-hero-band__metric-label">وسيلة الدفع</span>
+              <strong className="app-hero-band__metric-value">
                 {PAYMENT_OPTIONS.find((option) => option.key === paymentMethod)
                   ?.label || "نقدي"}
               </strong>
             </div>
             <div className="cashier-command-bar__stat">
-              <span className="cashier-command-bar__stat-label">
+              <span className="app-hero-band__metric-label">
                 الإجمالي الحالي
               </span>
-              <strong className="cashier-command-bar__stat-value">
+              <strong className="app-hero-band__metric-value">
                 {formatCurrency(totalAfterDiscount)}
               </strong>
             </div>
@@ -2438,7 +2122,7 @@ export default function CashierPage() {
               </CardTitle>
               <div className="flex gap-2">
                 <div className="relative flex-1">
-                  <ScanLine className="pointer-events-none absolute end-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <ScanLine className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     value={barcodeInput}
                     onChange={(event) => setBarcodeInput(event.target.value)}
@@ -2449,7 +2133,7 @@ export default function CashierPage() {
                       }
                     }}
                     placeholder="أضف بالباركود أو SKU"
-                    className="h-10 rounded-xl pe-9"
+                    className="h-10 rounded-xl pr-9"
                   />
                 </div>
                 <Button
@@ -2467,12 +2151,12 @@ export default function CashierPage() {
                 </Button>
               </div>
               <div className="relative">
-                <Search className="pointer-events-none absolute end-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Search className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   value={productSearch}
                   onChange={(event) => setProductSearch(event.target.value)}
                   placeholder="ابحث بالاسم أو SKU"
-                  className="h-10 rounded-xl pe-9"
+                  className="h-10 rounded-xl pr-9"
                 />
               </div>
               <div className="flex gap-2 overflow-x-auto pb-1">
@@ -2498,7 +2182,7 @@ export default function CashierPage() {
             <CardContent className="min-h-0 flex-1 overflow-y-auto pb-4">
               {catalogLoading ? (
                 <div className="flex h-full items-center justify-center text-[var(--text-muted)]">
-                  <Loader2 className="ms-2 h-5 w-5 animate-spin" />
+                  <Loader2 className="ml-2 h-5 w-5 animate-spin" />
                   جاري تحميل المنتجات...
                 </div>
               ) : filteredProducts.length === 0 ? (
@@ -2512,7 +2196,7 @@ export default function CashierPage() {
                       key={product.id}
                       type="button"
                       onClick={() => addToCart(product)}
-                      className="flex min-h-[132px] flex-col justify-between rounded-[22px] border border-[color:color-mix(in_srgb,var(--border-strong)_86%,transparent)] bg-[color:color-mix(in_srgb,var(--surface)_98%,transparent)] p-3 text-start transition-all duration-150 ease-in-out hover:-translate-y-0.5 hover:border-[color:color-mix(in_srgb,var(--accent)_22%,var(--border-strong))]"
+                      className="flex min-h-[132px] flex-col justify-between rounded-[22px] border border-[color:color-mix(in_srgb,var(--border-strong)_86%,transparent)] bg-[color:color-mix(in_srgb,var(--surface)_98%,transparent)] p-3 text-right transition-all duration-150 ease-in-out hover:-translate-y-0.5 hover:border-[color:color-mix(in_srgb,var(--accent)_22%,var(--border-strong))] hover:shadow-[0_20px_38px_-28px_rgba(15,23,42,0.45)]"
                     >
                       <div>
                         <p className="line-clamp-2 text-sm font-semibold text-slate-900">
@@ -2528,10 +2212,10 @@ export default function CashierPage() {
                         )}
                       </div>
                       <div className="mt-2 flex items-center justify-between gap-3">
-                        <span className="text-sm font-bold text-[var(--accent-success)]">
+                        <span className="text-sm font-bold text-emerald-700">
                           {formatCurrency(product.unitPrice)}
                         </span>
-                        <span className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[var(--accent-success)]/25 bg-[var(--accent-success)]/12 text-[var(--accent-success)]">
+                        <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
                           <Plus className="h-4 w-4" />
                         </span>
                       </div>
@@ -2561,19 +2245,19 @@ export default function CashierPage() {
             </CardHeader>
             <CardContent className="min-h-0 flex-1 overflow-y-auto space-y-3">
               {lastCreatedOrder ? (
-                <div className="space-y-3 rounded-2xl border border-[var(--accent-success)]/25 bg-[var(--accent-success)]/10 p-4">
+                <div className="space-y-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
                   <div className="flex items-start gap-2">
-                    <CheckCircle2 className="mt-0.5 h-5 w-5 text-[var(--accent-success)]" />
+                    <CheckCircle2 className="mt-0.5 h-5 w-5 text-emerald-600" />
                     <div>
-                      <p className="text-base font-semibold text-[var(--accent-success)]">
+                      <p className="text-base font-semibold text-emerald-900">
                         تم تنفيذ الطلب بنجاح
                       </p>
-                      <p className="text-sm text-[var(--text-secondary)]">
+                      <p className="text-sm text-emerald-800">
                         رقم الطلب: {lastCreatedOrder.orderNumber}
                       </p>
                     </div>
                   </div>
-                  <div className="space-y-1 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface-2)] p-3 text-sm">
+                  <div className="space-y-1 rounded-xl bg-white/80 p-3 text-sm">
                     <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                       <span className="text-muted-foreground">الإجمالي</span>
                       <span className="font-semibold">
@@ -2627,7 +2311,7 @@ export default function CashierPage() {
                       className="h-10 w-full flex-1 rounded-xl bg-emerald-600 hover:bg-emerald-700"
                       onClick={printReceipt}
                     >
-                      <Printer className="ms-2 h-4 w-4" />
+                      <Printer className="ml-2 h-4 w-4" />
                       طباعة الإيصال
                     </Button>
                     <Button
@@ -2636,7 +2320,7 @@ export default function CashierPage() {
                       className="h-10 w-full flex-1 rounded-xl"
                       onClick={startNewOrder}
                     >
-                      <Plus className="ms-2 h-4 w-4" />
+                      <Plus className="ml-2 h-4 w-4" />
                       طلب جديد
                     </Button>
                   </div>
@@ -2649,7 +2333,7 @@ export default function CashierPage() {
                         onClick={() => void handleFullRefund(false)}
                         disabled={refundLoading}
                       >
-                        <RotateCcw className="ms-2 h-4 w-4" />
+                        <RotateCcw className="ml-2 h-4 w-4" />
                         استرجاع كامل
                       </Button>
                       <Button
@@ -2659,7 +2343,7 @@ export default function CashierPage() {
                         onClick={() => void handleFullRefund(true)}
                         disabled={refundLoading}
                       >
-                        <ArrowUpDown className="ms-2 h-4 w-4" />
+                        <ArrowUpDown className="ml-2 h-4 w-4" />
                         استبدال
                       </Button>
                       <Button
@@ -2669,7 +2353,7 @@ export default function CashierPage() {
                         onClick={openPartialRefundSheet}
                         disabled={refundLoading}
                       >
-                        <ClipboardList className="ms-2 h-4 w-4" />
+                        <ClipboardList className="ml-2 h-4 w-4" />
                         استرجاع جزئي
                       </Button>
                     </div>
@@ -2736,7 +2420,7 @@ export default function CashierPage() {
                               className="h-9 w-full rounded-lg sm:w-auto"
                               onClick={() => setCloseShiftDialog(true)}
                             >
-                              <Square className="ms-2 h-4 w-4" />
+                              <Square className="ml-2 h-4 w-4" />
                               إغلاق الجلسة
                             </Button>
                           ) : (
@@ -2745,7 +2429,7 @@ export default function CashierPage() {
                               className="h-9 w-full rounded-lg bg-emerald-600 hover:bg-emerald-700 sm:w-auto"
                               onClick={() => setOpenShiftDialog(true)}
                             >
-                              <Plus className="ms-2 h-4 w-4" />
+                              <Plus className="ml-2 h-4 w-4" />
                               فتح جلسة
                             </Button>
                           )
@@ -2755,8 +2439,8 @@ export default function CashierPage() {
 
                     {selectedBranchId ? (
                       currentRegister ? (
-                        <div className="mt-3 flex flex-col gap-2 rounded-lg border border-[var(--accent-success)]/25 bg-[var(--accent-success)]/10 px-3 py-2 text-xs sm:flex-row sm:flex-wrap sm:items-center">
-                          <Badge className="rounded-full border border-[var(--accent-success)]/25 bg-[var(--accent-success)]/15 text-[var(--accent-success)] hover:bg-[var(--accent-success)]/15">
+                        <div className="mt-3 flex flex-col gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs sm:flex-row sm:flex-wrap sm:items-center">
+                          <Badge className="rounded-full bg-emerald-600 text-white hover:bg-emerald-600">
                             جلسة مفتوحة
                           </Badge>
                           <span>
@@ -2785,7 +2469,7 @@ export default function CashierPage() {
                           </span>
                         </div>
                       ) : (
-                        <div className="mt-3 rounded-lg border border-[var(--accent-warning)]/25 bg-[var(--accent-warning)]/10 px-3 py-2 text-xs text-[var(--accent-warning)]">
+                        <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
                           لا توجد جلسة POS مفتوحة لهذا الفرع حالياً.
                           {posSettings.requireActiveRegisterSession
                             ? " لن تستطيع تنفيذ البيع قبل فتح الجلسة."
@@ -2835,7 +2519,7 @@ export default function CashierPage() {
                       </div>
 
                       {currentDraftId ? (
-                        <div className="mb-3 rounded-lg border border-[var(--accent-blue)]/25 bg-[var(--accent-blue)]/10 px-3 py-2 text-xs text-[var(--accent-blue)]">
+                        <div className="mb-3 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-900">
                           يوجد طلب جاري مرتبط بالمسودة الحالية. أي تعديل في
                           السلة سيُحفظ عليها عند التنفيذ أو التحديث.
                         </div>
@@ -2843,7 +2527,7 @@ export default function CashierPage() {
 
                       {draftsLoading ? (
                         <div className="flex items-center justify-center py-4 text-sm text-muted-foreground">
-                          <Loader2 className="ms-2 h-4 w-4 animate-spin" />
+                          <Loader2 className="ml-2 h-4 w-4 animate-spin" />
                           جاري تحميل الطلبات المعلقة...
                         </div>
                       ) : posDrafts.length === 0 ? (
@@ -2858,7 +2542,7 @@ export default function CashierPage() {
                               className={cn(
                                 "rounded-xl border px-3 py-2",
                                 currentDraftId === draft.id
-                                  ? "border-[var(--accent-blue)]/25 bg-[var(--accent-blue)]/10"
+                                  ? "border-blue-300 bg-blue-50"
                                   : "bg-muted/20",
                               )}
                             >
@@ -2888,7 +2572,7 @@ export default function CashierPage() {
                                   <Button
                                     type="button"
                                     variant="ghost"
-                                    className="h-8 w-full rounded-full px-3 text-xs text-[var(--accent-danger)] hover:text-[var(--accent-danger)] sm:w-auto"
+                                    className="h-8 w-full rounded-full px-3 text-xs text-red-600 hover:text-red-700 sm:w-auto"
                                     onClick={async () => {
                                       if (!apiKey) return;
                                       await merchantApi.deletePosDraft(
@@ -2914,237 +2598,6 @@ export default function CashierPage() {
                     </div>
                   )}
 
-                  <div className="rounded-2xl border bg-background p-3">
-                    <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                      <div>
-                        <p className="text-sm font-semibold text-slate-900">
-                          مساعد الكاشير
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          اقتراحات تشغيلية حتمية مبنية على سياق POS والتنبؤات.
-                        </p>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 w-full rounded-full px-3 sm:w-auto"
-                        onClick={() => void loadCashierCopilotSuggestions()}
-                        disabled={cashierCopilotLoading}
-                      >
-                        {cashierCopilotLoading ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <RefreshCw className="h-4 w-4" />
-                        )}
-                      </Button>
-                    </div>
-
-                    <div className="mb-3 flex flex-col gap-2 sm:flex-row">
-                      <Input
-                        value={cashierCopilotQuery}
-                        onChange={(event) =>
-                          setCashierCopilotQuery(event.target.value)
-                        }
-                        className="h-9 rounded-lg"
-                        placeholder="سؤال سريع للمساعد (مثال: خصم أو مخزون)"
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="h-9 rounded-lg px-4"
-                        onClick={() =>
-                          void loadCashierCopilotSuggestions(
-                            cashierCopilotQuery,
-                          )
-                        }
-                        disabled={cashierCopilotLoading}
-                      >
-                        <Search className="ms-1 h-4 w-4" />
-                        تحليل
-                      </Button>
-                    </div>
-
-                    {cashierCopilotLoading ? (
-                      <div className="flex items-center justify-center py-4 text-sm text-muted-foreground">
-                        <Loader2 className="ms-2 h-4 w-4 animate-spin" />
-                        جاري تجهيز اقتراحات الكاشير...
-                      </div>
-                    ) : !cashierCopilotData ? (
-                      <p className="text-xs text-muted-foreground">
-                        لا توجد اقتراحات حالياً.
-                      </p>
-                    ) : (
-                      <div className="space-y-3">
-                        <div className="grid grid-cols-1 gap-2 text-[11px] sm:grid-cols-2">
-                          <div className="rounded-lg border bg-muted/30 px-2 py-1">
-                            طلبات اليوم:{" "}
-                            {
-                              cashierCopilotData.contextDigest
-                                .todayCashierOrders
-                            }
-                          </div>
-                          <div className="rounded-lg border bg-muted/30 px-2 py-1">
-                            إيراد اليوم:{" "}
-                            {formatCurrency(
-                              cashierCopilotData.contextDigest
-                                .todayCashierRevenue,
-                            )}
-                          </div>
-                          <div className="rounded-lg border bg-muted/30 px-2 py-1">
-                            إجراءات معلقة:{" "}
-                            {cashierCopilotData.contextDigest.pendingApprovals}
-                          </div>
-                          <div className="rounded-lg border bg-muted/30 px-2 py-1">
-                            جلسات مفتوحة:{" "}
-                            {cashierCopilotData.contextDigest.openRegisters}
-                          </div>
-                        </div>
-
-                        <div className="space-y-2">
-                          {cashierCopilotData.suggestions.map((suggestion) => (
-                            <div
-                              key={suggestion.id}
-                              className={cn(
-                                "rounded-lg border px-3 py-2",
-                                getSuggestionTone(suggestion.priority),
-                              )}
-                            >
-                              <p className="text-sm font-semibold text-slate-900">
-                                {suggestion.title}
-                              </p>
-                              <p className="mt-1 text-xs text-slate-700">
-                                {suggestion.body}
-                              </p>
-                              {suggestion.action?.label ? (
-                                <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                                  <p className="text-[11px] font-medium text-slate-700">
-                                    إجراء مقترح: {suggestion.action.label}
-                                  </p>
-                                  <Button
-                                    type="button"
-                                    size="sm"
-                                    variant={
-                                      suggestion.action.requiresApproval
-                                        ? "default"
-                                        : "outline"
-                                    }
-                                    className="h-7 rounded-full px-3 text-[11px]"
-                                    onClick={() =>
-                                      void handleCashierSuggestionAction(
-                                        suggestion,
-                                      )
-                                    }
-                                  >
-                                    {suggestion.action.requiresApproval
-                                      ? "مراجعة واعتماد"
-                                      : suggestion.action.label}
-                                  </Button>
-                                </div>
-                              ) : null}
-                            </div>
-                          ))}
-                        </div>
-
-                        {showCashierApprovalsPanel ? (
-                          <div className="space-y-2 rounded-lg border border-[var(--accent-blue)]/20 bg-[var(--accent-blue)]/5 p-3">
-                            <div className="flex items-center justify-between">
-                              <p className="text-xs font-semibold text-slate-900">
-                                إجراءات تحتاج موافقة
-                              </p>
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="ghost"
-                                className="h-7 rounded-full px-2 text-[11px]"
-                                onClick={() =>
-                                  void loadCashierCopilotApprovals("pending")
-                                }
-                                disabled={cashierCopilotApprovalsLoading}
-                              >
-                                {cashierCopilotApprovalsLoading ? (
-                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                ) : (
-                                  <RefreshCw className="h-3.5 w-3.5" />
-                                )}
-                              </Button>
-                            </div>
-
-                            {cashierCopilotApprovalsLoading ? (
-                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                جاري تحميل إجراءات الموافقة...
-                              </div>
-                            ) : cashierCopilotApprovals.length === 0 ? (
-                              <p className="text-xs text-muted-foreground">
-                                لا توجد إجراءات معلقة حالياً.
-                              </p>
-                            ) : (
-                              <div className="space-y-2">
-                                {cashierCopilotApprovals.map((approval) => {
-                                  const isBusy =
-                                    approvalActionLoadingId ===
-                                    approval.actionId;
-                                  return (
-                                    <div
-                                      key={approval.actionId}
-                                      className="rounded-md border bg-background px-2 py-2"
-                                    >
-                                      <p className="text-xs font-medium text-slate-900">
-                                        {approval.previewSummary ||
-                                          `إجراء ${approval.intent}`}
-                                      </p>
-                                      <p className="mt-1 text-[11px] text-muted-foreground">
-                                        المخاطرة: {approval.riskTier} • الحالة:{" "}
-                                        {approval.status}
-                                      </p>
-                                      <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
-                                        <Button
-                                          type="button"
-                                          size="sm"
-                                          className="h-7 rounded-full px-3 text-[11px]"
-                                          onClick={() =>
-                                            void confirmCashierCopilotApproval(
-                                              approval.actionId,
-                                              true,
-                                            )
-                                          }
-                                          disabled={isBusy}
-                                        >
-                                          {isBusy ? (
-                                            <Loader2 className="ms-1 h-3.5 w-3.5 animate-spin" />
-                                          ) : (
-                                            <CheckCircle2 className="ms-1 h-3.5 w-3.5" />
-                                          )}
-                                          اعتماد
-                                        </Button>
-                                        <Button
-                                          type="button"
-                                          size="sm"
-                                          variant="outline"
-                                          className="h-7 rounded-full px-3 text-[11px]"
-                                          onClick={() =>
-                                            void confirmCashierCopilotApproval(
-                                              approval.actionId,
-                                              false,
-                                            )
-                                          }
-                                          disabled={isBusy}
-                                        >
-                                          رفض
-                                        </Button>
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            )}
-                          </div>
-                        ) : null}
-                      </div>
-                    )}
-                  </div>
-
                   {posSettings.tablesEnabled && (
                     <div className="rounded-2xl border bg-background p-3">
                       <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -3165,7 +2618,7 @@ export default function CashierPage() {
                             onClick={() => setCreateTableDialog(true)}
                             disabled={!selectedBranchId}
                           >
-                            <Plus className="ms-1 h-3.5 w-3.5" />
+                            <Plus className="ml-1 h-3.5 w-3.5" />
                             طاولة جديدة
                           </Button>
                           <Button
@@ -3200,9 +2653,9 @@ export default function CashierPage() {
                                 className={cn(
                                   "rounded-xl border p-3",
                                   isSelected
-                                    ? "border-[var(--accent-blue)]/20 bg-[var(--accent-blue-dim)]"
+                                    ? "border-blue-300 bg-blue-50"
                                     : isOccupied
-                                      ? "border-[var(--accent-warning)]/20 bg-[color:rgba(245,158,11,0.10)]"
+                                      ? "border-amber-300 bg-amber-50"
                                       : "bg-muted/20",
                                 )}
                               >
@@ -3371,7 +2824,7 @@ export default function CashierPage() {
                             <button
                               type="button"
                               onClick={() => removeCartItem(index)}
-                              className="rounded-full p-1 text-muted-foreground transition hover:bg-[var(--accent-danger)]/10 hover:text-[var(--accent-danger)]"
+                              className="rounded-full p-1 text-muted-foreground transition hover:bg-red-50 hover:text-red-600"
                               aria-label="حذف عنصر"
                             >
                               <Trash2 className="h-4 w-4" />
@@ -3416,7 +2869,7 @@ export default function CashierPage() {
                             >
                               <Plus className="h-3.5 w-3.5" />
                             </Button>
-                            <span className="me-auto text-sm font-semibold text-slate-900">
+                            <span className="mr-auto text-sm font-semibold text-slate-900">
                               {formatCurrency(item.quantity * item.unitPrice)}
                             </span>
                           </div>
@@ -3426,18 +2879,18 @@ export default function CashierPage() {
                   </div>
 
                   <div className="space-y-2 rounded-2xl border bg-background p-3">
-                    <div className="space-y-2 rounded-xl border border-dashed border-[var(--accent-success)]/25 bg-[var(--accent-success)]/10 p-3">
+                    <div className="space-y-2 rounded-xl border border-dashed border-emerald-200 bg-emerald-50/60 p-3">
                       <label className="block text-xs font-medium text-muted-foreground">
                         ابحث عن عميل موجود
                       </label>
                       <div className="relative">
-                        <UserRound className="pointer-events-none absolute end-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                        <UserRound className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                         <Input
                           value={customerSearch}
                           onChange={(event) =>
                             setCustomerSearch(event.target.value)
                           }
-                          className="h-9 rounded-lg pe-9"
+                          className="h-9 rounded-lg pr-9"
                           placeholder="اسم العميل أو رقم الهاتف"
                         />
                       </div>
@@ -3452,7 +2905,7 @@ export default function CashierPage() {
                               key={customer.customerId}
                               type="button"
                               onClick={() => applySelectedCustomer(customer)}
-                              className="w-full rounded-lg border bg-[var(--bg-surface-2)] px-3 py-2 text-start transition hover:border-[var(--accent-success)]/25 hover:bg-[var(--accent-success)]/10"
+                              className="w-full rounded-lg border bg-white px-3 py-2 text-right transition hover:border-emerald-300 hover:bg-emerald-50"
                             >
                               <div className="flex items-center justify-between gap-2">
                                 <div>
@@ -3490,8 +2943,8 @@ export default function CashierPage() {
                       ) : null}
 
                       {selectedCustomer ? (
-                        <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-[var(--bg-surface-2)] px-3 py-2 text-xs">
-                          <Badge className="rounded-full border border-[var(--accent-success)]/25 bg-[var(--accent-success)]/15 text-[var(--accent-success)] hover:bg-[var(--accent-success)]/15">
+                        <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-white px-3 py-2 text-xs">
+                          <Badge className="rounded-full bg-emerald-600 text-white hover:bg-emerald-600">
                             عميل مرتبط
                           </Badge>
                           <span>{selectedCustomer.name}</span>
@@ -3554,7 +3007,7 @@ export default function CashierPage() {
                               className={cn(
                                 "flex h-9 items-center justify-center gap-1 rounded-lg border text-xs font-medium transition",
                                 isActive
-                                  ? "border-[var(--accent-success)]/25 bg-[var(--accent-success)]/10 text-[var(--accent-success)]"
+                                  ? "border-emerald-600 bg-emerald-50 text-emerald-700"
                                   : "border-border text-muted-foreground hover:bg-muted",
                               )}
                             >
@@ -3567,7 +3020,7 @@ export default function CashierPage() {
                     </div>
 
                     {selectedTableId && deliveryType === "dine_in" ? (
-                      <div className="rounded-lg border border-[var(--accent-blue)]/25 bg-[var(--accent-blue)]/10 px-3 py-2 text-xs text-[var(--accent-blue)]">
+                      <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-900">
                         الطلب الحالي مرتبط بطاولة{" "}
                         {posTables.find((table) => table.id === selectedTableId)
                           ?.name || "داخل الفرع"}
@@ -3629,7 +3082,7 @@ export default function CashierPage() {
                             className="h-7 w-full rounded-full px-2 text-xs sm:w-auto"
                             onClick={addPaymentEntry}
                           >
-                            <Plus className="ms-1 h-3.5 w-3.5" />
+                            <Plus className="ml-1 h-3.5 w-3.5" />
                             وسيلة أخرى
                           </Button>
                         </div>
@@ -3693,8 +3146,8 @@ export default function CashierPage() {
                             className={cn(
                               "font-medium",
                               remainingBalance > 0
-                                ? "text-[var(--accent-warning)]"
-                                : "text-[var(--accent-success)]",
+                                ? "text-amber-700"
+                                : "text-emerald-700",
                             )}
                           >
                             {formatCurrency(remainingBalance)}
@@ -3759,7 +3212,7 @@ export default function CashierPage() {
                     </div>
                     <div className="mt-1 flex flex-col gap-1 text-sm sm:flex-row sm:items-center sm:justify-between">
                       <span className="text-muted-foreground">الخصم</span>
-                      <span className="font-medium text-[var(--accent-danger)]">
+                      <span className="font-medium text-red-600">
                         -{formatCurrency(discount)}
                       </span>
                     </div>
@@ -3780,7 +3233,7 @@ export default function CashierPage() {
                       <span>{formatCurrency(totalPaid)}</span>
                     </div>
                     {remainingBalance > 0 ? (
-                      <div className="mt-2 rounded-lg border border-[var(--accent-warning)]/25 bg-[var(--accent-warning)]/10 px-3 py-2 text-xs text-[var(--accent-warning)]">
+                      <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
                         ما زال هناك مبلغ متبقٍ قبل تنفيذ الطلب:{" "}
                         {formatCurrency(remainingBalance)}
                       </div>
@@ -3825,12 +3278,12 @@ export default function CashierPage() {
                       >
                         {checkoutLoading ? (
                           <>
-                            <Loader2 className="ms-2 h-4 w-4 animate-spin" />
+                            <Loader2 className="ml-2 h-4 w-4 animate-spin" />
                             جاري التنفيذ...
                           </>
                         ) : (
                           <>
-                            <CheckCircle2 className="ms-2 h-4 w-4" />
+                            <CheckCircle2 className="ml-2 h-4 w-4" />
                             تنفيذ الطلب
                           </>
                         )}
@@ -3866,7 +3319,7 @@ export default function CashierPage() {
 
                     {recentOrdersLoading ? (
                       <div className="flex items-center justify-center py-6 text-sm text-muted-foreground">
-                        <Loader2 className="ms-2 h-4 w-4 animate-spin" />
+                        <Loader2 className="ml-2 h-4 w-4 animate-spin" />
                         جاري تحميل آخر الطلبات...
                       </div>
                     ) : recentOrders.length === 0 ? (
@@ -3883,7 +3336,7 @@ export default function CashierPage() {
                             }
                             type="button"
                             onClick={() => void handleSelectRecentOrder(order)}
-                            className="w-full rounded-xl border px-3 py-2 text-start transition hover:border-emerald-300 hover:bg-emerald-50"
+                            className="w-full rounded-xl border px-3 py-2 text-right transition hover:border-emerald-300 hover:bg-emerald-50"
                           >
                             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                               <div>
@@ -3906,7 +3359,7 @@ export default function CashierPage() {
                                   </p>
                                 ) : null}
                               </div>
-                              <div className="text-start sm:text-left">
+                              <div className="text-right sm:text-left">
                                 <p className="text-sm font-semibold text-emerald-700">
                                   {formatCurrency(order.total)}
                                 </p>
@@ -4052,7 +3505,7 @@ export default function CashierPage() {
             >
               {openingShift ? (
                 <>
-                  <Loader2 className="ms-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="ml-2 h-4 w-4 animate-spin" />
                   جاري الفتح...
                 </>
               ) : (
@@ -4181,7 +3634,7 @@ export default function CashierPage() {
             >
               {closingShift ? (
                 <>
-                  <Loader2 className="ms-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="ml-2 h-4 w-4 animate-spin" />
                   جاري الإغلاق...
                 </>
               ) : (
@@ -4253,7 +3706,7 @@ export default function CashierPage() {
             >
               {creatingTable ? (
                 <>
-                  <Loader2 className="ms-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="ml-2 h-4 w-4 animate-spin" />
                   جاري الإنشاء...
                 </>
               ) : (
@@ -4345,7 +3798,7 @@ export default function CashierPage() {
             >
               {refundLoading ? (
                 <>
-                  <Loader2 className="ms-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="ml-2 h-4 w-4 animate-spin" />
                   جاري التنفيذ...
                 </>
               ) : (
@@ -4483,7 +3936,7 @@ export default function CashierPage() {
             >
               {tableActionLoading ? (
                 <>
-                  <Loader2 className="ms-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="ml-2 h-4 w-4 animate-spin" />
                   جاري التنفيذ...
                 </>
               ) : (

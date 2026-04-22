@@ -44,6 +44,10 @@ import portalApi from "@/lib/client";
 import { useMerchant } from "@/hooks/use-merchant";
 import { useToast } from "@/hooks/use-toast";
 import {
+  AiInsightsCard,
+  generateKpiInsights,
+} from "@/components/ai/ai-insights-card";
+import {
   getReportingDateRange,
   REPORTING_PERIOD_OPTIONS,
   getStoredReportingDays,
@@ -266,10 +270,10 @@ export default function KpisPage() {
         className={cn(
           "flex items-center gap-1 text-sm font-medium",
           isGood
-            ? "text-[var(--accent-success)]"
+            ? "text-green-600"
             : value === 0
-              ? "text-muted-foreground"
-              : "text-[var(--accent-danger)]",
+              ? "text-gray-500"
+              : "text-red-600",
         )}
       >
         <Icon className="h-4 w-4" />
@@ -294,14 +298,17 @@ export default function KpisPage() {
     icon: React.ElementType;
     trend?: number;
     trendGood?: "up" | "down";
-    color?: "blue" | "green" | "yellow" | "red" | "gold";
+    color?: "blue" | "green" | "yellow" | "red" | "purple";
   }) => {
     const colorClasses = {
-      blue: "bg-[var(--accent-blue)]/10 text-[var(--accent-blue)]",
-      green: "bg-[var(--accent-success)]/10 text-[var(--accent-success)]",
-      yellow: "bg-[var(--accent-warning)]/10 text-[var(--accent-warning)]",
-      red: "bg-[var(--accent-danger)]/10 text-[var(--accent-danger)]",
-      gold: "bg-[var(--color-brand-primary)]/10 text-[var(--color-brand-primary)]",
+      blue: "bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400",
+      green:
+        "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400",
+      yellow:
+        "bg-yellow-100 text-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-400",
+      red: "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400",
+      purple:
+        "bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400",
     };
     return (
       <Card>
@@ -340,12 +347,12 @@ export default function KpisPage() {
     const percent = max > 0 ? (value / max) * 100 : 0;
     const colorClass =
       color === "green"
-        ? "bg-[var(--accent-success)]"
+        ? "bg-green-500"
         : color === "red"
-          ? "bg-[var(--accent-danger)]"
+          ? "bg-red-500"
           : color === "yellow"
-            ? "bg-[var(--accent-warning)]"
-            : "bg-[var(--accent-blue)]";
+            ? "bg-yellow-500"
+            : "bg-blue-500";
     return (
       <div className="w-full bg-muted rounded-full h-2.5">
         <div
@@ -377,8 +384,8 @@ export default function KpisPage() {
   return (
     <div className="space-y-6 p-4 sm:p-6">
       <PageHeader
-        title="التقارير / مؤشرات الأداء"
-        description="سطح دعم لقراءة مؤشرات السلات، التوصيل، القدرات التشغيلية، والعملاء."
+        title="مؤشرات الأداء (KPIs)"
+        description="تحليل شامل لأداء متجرك ومعدلات النجاح"
         actions={
           <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
             <Select
@@ -414,29 +421,13 @@ export default function KpisPage() {
         }
       />
 
-      <div className="flex flex-wrap gap-2">
-        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
-          <Target className="h-3.5 w-3.5 text-[var(--color-brand-primary)]" />
-          <span className="text-muted-foreground">استرداد السلات</span>
-          <span className="font-mono text-[var(--color-brand-primary)]">
-            {recoveredCarts?.recoveryRate ?? 0}%
-          </span>
-        </div>
-        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
-          <DollarSign className="h-3.5 w-3.5 text-[var(--accent-blue)]" />
-          <span className="text-muted-foreground">متوسط قيمة الطلب</span>
-          <span className="font-mono text-[var(--accent-blue)]">
-            {formatCurrency(revenue?.averageOrderValue ?? 0)}
-          </span>
-        </div>
-        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
-          <Bot className="h-3.5 w-3.5 text-[var(--accent-success)]" />
-          <span className="text-muted-foreground">نجاح القدرات</span>
-          <span className="font-mono text-[var(--accent-success)]">
-            {agentPerformance?.successRate ?? 0}%
-          </span>
-        </div>
-      </div>
+      <AiInsightsCard
+        insights={generateKpiInsights({
+          conversionRate: recoveredCarts?.recoveryRate ?? 0,
+          avgOrderValue: revenue?.averageOrderValue ?? 0,
+          customerSatisfaction: agentPerformance?.successRate ?? 0,
+        })}
+      />
 
       {loading ? (
         <LoadingSkeleton />
@@ -453,7 +444,7 @@ export default function KpisPage() {
               التوصيل
             </TabsTrigger>
             <TabsTrigger value="agents" className="w-full">
-              القدرات
+              الوكلاء
             </TabsTrigger>
             <TabsTrigger value="customers" className="w-full">
               العملاء
@@ -478,11 +469,11 @@ export default function KpisPage() {
                 color="red"
               />
               <StatCard
-                title="نجاح القدرة التشغيلية"
+                title="نجاح الوكيل الذكي"
                 value={formatPercentValue(agentPerformance?.successRate || 0)}
                 subtitle={`ناجح: ${agentPerformance?.successfulTasks || 0} / ${agentPerformance?.totalTasks || agentPerformance?.totalInteractions || 0} مهمة`}
                 icon={Bot}
-                color="gold"
+                color="purple"
               />
               <StatCard
                 title="إجمالي الإيرادات المحققة"
@@ -496,12 +487,12 @@ export default function KpisPage() {
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-base flex items-center gap-2">
-                    <DollarSign className="h-5 w-5 text-[var(--accent-blue)]" />
+                    <DollarSign className="h-5 w-5 text-blue-600" />
                     إجمالي المبيعات المحجوزة
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-3xl font-bold text-[var(--accent-blue)]">
+                  <p className="text-3xl font-bold text-blue-600">
                     {formatCurrency(bookedSales, "EGP")}
                   </p>
                 </CardContent>
@@ -509,12 +500,12 @@ export default function KpisPage() {
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-base flex items-center gap-2">
-                    <CheckCircle className="h-5 w-5 text-[var(--accent-success)]" />
+                    <CheckCircle className="h-5 w-5 text-green-600" />
                     الإيراد من الطلبات المسلّمة
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-3xl font-bold text-[var(--accent-success)]">
+                  <p className="text-3xl font-bold text-green-600">
                     {formatCurrency(deliveredRevenue, "EGP")}
                   </p>
                 </CardContent>
@@ -522,12 +513,12 @@ export default function KpisPage() {
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-base flex items-center gap-2">
-                    <Timer className="h-5 w-5 text-[var(--accent-warning)]" />
+                    <Timer className="h-5 w-5 text-amber-600" />
                     مبالغ قيد التحصيل
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-3xl font-bold text-[var(--accent-warning)]">
+                  <p className="text-3xl font-bold text-amber-600">
                     {formatCurrency(pendingCollections, "EGP")}
                   </p>
                 </CardContent>
@@ -535,12 +526,12 @@ export default function KpisPage() {
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-base flex items-center gap-2">
-                    <TrendingDown className="h-5 w-5 text-[var(--accent-danger)]" />
+                    <TrendingDown className="h-5 w-5 text-red-600" />
                     المرتجعات
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-3xl font-bold text-[var(--accent-danger)]">
+                  <p className="text-3xl font-bold text-red-600">
                     {formatCurrency(refundsAmount, "EGP")}
                   </p>
                 </CardContent>
@@ -548,12 +539,12 @@ export default function KpisPage() {
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-base flex items-center gap-2">
-                    <Target className="h-5 w-5 text-[var(--accent-success)]" />
+                    <Target className="h-5 w-5 text-green-600" />
                     قيمة السلات المستردة
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-3xl font-bold text-[var(--accent-success)]">
+                  <p className="text-3xl font-bold text-green-600">
                     {formatCurrency(recoveredCarts?.recoveredValue || 0, "EGP")}
                   </p>
                   <p className="text-sm text-muted-foreground mt-1">
@@ -565,12 +556,12 @@ export default function KpisPage() {
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-base flex items-center gap-2">
-                    <Zap className="h-5 w-5 text-[var(--color-brand-primary)]" />
+                    <Zap className="h-5 w-5 text-purple-600" />
                     معدل التدخل البشري
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-3xl font-bold text-[var(--color-brand-primary)]">
+                  <p className="text-3xl font-bold text-purple-600">
                     {formatPercentValue(agentPerformance?.takeoverRate || 0)}
                   </p>
                   <p className="text-sm text-muted-foreground mt-1">
@@ -582,12 +573,12 @@ export default function KpisPage() {
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-base flex items-center gap-2">
-                    <Users className="h-5 w-5 text-[var(--accent-blue)]" />
+                    <Users className="h-5 w-5 text-blue-600" />
                     عملاء أول طلب خلال الفترة
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-3xl font-bold text-[var(--accent-blue)]">
+                  <p className="text-3xl font-bold text-blue-600">
                     {customers?.newCustomers || 0}
                   </p>
                   <p className="text-sm text-muted-foreground mt-1">
@@ -629,7 +620,7 @@ export default function KpisPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-center py-8">
-                  <p className="text-5xl font-bold text-[var(--accent-success)]">
+                  <p className="text-5xl font-bold text-green-600">
                     {formatCurrency(recoveredCarts?.recoveredValue || 0, "EGP")}
                   </p>
                   <p className="text-muted-foreground mt-2">
@@ -726,8 +717,8 @@ export default function KpisPage() {
               <Card
                 className={
                   aiAvailable === "quota"
-                    ? "border-[var(--accent-warning)]/20 bg-[var(--accent-warning)]/10"
-                    : "border-[var(--accent-blue)]/20 bg-[var(--accent-blue)]/10"
+                    ? "border-orange-200 bg-orange-50 dark:border-orange-800 dark:bg-orange-950/30"
+                    : "border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30"
                 }
               >
                 <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
@@ -735,25 +726,25 @@ export default function KpisPage() {
                     className={cn(
                       "h-5 w-5 shrink-0",
                       aiAvailable === "quota"
-                        ? "text-[var(--accent-warning)]"
-                        : "text-[var(--accent-blue)]",
+                        ? "text-orange-500"
+                        : "text-blue-500",
                     )}
                   />
                   <div className="flex-1">
                     <p className="text-sm font-medium">
                       {aiAvailable === "quota"
-                        ? "تم استنفاد رصيد المساعد اليومي"
-                        : "المساعد غير مفعّل"}
+                        ? "تم استنفاد رصيد الذكاء الاصطناعي اليومي"
+                        : "الذكاء الاصطناعي غير مفعّل"}
                     </p>
                     <p className="text-xs text-muted-foreground mt-0.5">
                       {aiAvailable === "quota"
                         ? "البيانات المعروضة من الفترة السابقة. يتم تجديد الرصيد يومياً أو يمكنك ترقية الباقة."
-                        : "فعّل المساعد لتتبع أداء القدرات بدقة."}
+                        : "فعّل الذكاء الاصطناعي لتتبع أداء الوكلاء بدقة."}
                     </p>
                   </div>
                   <a
-                    href="/merchant/billing"
-                    className="shrink-0 rounded-md bg-[var(--color-brand-primary)] px-3 py-1.5 text-xs font-medium text-[var(--bg-base)] transition-[filter] hover:brightness-110"
+                    href="/merchant/plan"
+                    className="shrink-0 text-xs font-medium bg-primary text-primary-foreground rounded-md px-3 py-1.5 hover:bg-primary/90 transition-colors"
                   >
                     ترقية الباقة
                   </a>
@@ -765,7 +756,7 @@ export default function KpisPage() {
                 title="إجمالي المهام"
                 value={agentPerformance?.totalTasks || 0}
                 icon={Bot}
-                color="gold"
+                color="purple"
               />
               <StatCard
                 title="مهام ناجحة"
@@ -788,8 +779,8 @@ export default function KpisPage() {
             </div>
             <Card>
               <CardHeader>
-                <CardTitle>أداء القدرات</CardTitle>
-                <CardDescription>مقارنة أداء كل قدرة تشغيلية</CardDescription>
+                <CardTitle>أداء الوكلاء</CardTitle>
+                <CardDescription>مقارنة أداء كل وكيل ذكي</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
@@ -800,8 +791,8 @@ export default function KpisPage() {
                         className="flex flex-col gap-3 rounded-lg bg-muted/50 p-4 sm:flex-row sm:items-center sm:justify-between"
                       >
                         <div className="flex items-center gap-3">
-                          <div className="rounded-lg bg-[var(--color-brand-primary)]/10 p-2">
-                            <Bot className="h-5 w-5 text-[var(--color-brand-primary)]" />
+                          <div className="p-2 rounded-lg bg-purple-100 dark:bg-purple-900/30">
+                            <Bot className="h-5 w-5 text-purple-600" />
                           </div>
                           <div>
                             <p className="font-medium">{agent.agent}</p>
@@ -863,7 +854,7 @@ export default function KpisPage() {
                 title="عملاء لديهم طلبات قبل الفترة"
                 value={customers?.returningCustomers || 0}
                 icon={RefreshCw}
-                color="gold"
+                color="purple"
               />
               <StatCard
                 title="معدل الاحتفاظ"
@@ -899,7 +890,7 @@ export default function KpisPage() {
                             {customer.totalOrders} طلب
                           </p>
                         </div>
-                        <p className="font-semibold text-[var(--accent-success)]">
+                        <p className="font-semibold text-green-600">
                           {formatCurrency(customer.totalSpent, "EGP")}
                         </p>
                       </div>

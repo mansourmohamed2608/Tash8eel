@@ -1,7 +1,6 @@
 ﻿"use client";
 
 import { useState, useCallback, useEffect } from "react";
-import Link from "next/link";
 import { PageHeader } from "@/components/layout";
 import {
   Card,
@@ -15,7 +14,6 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { TableSkeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
   DialogContent,
@@ -48,93 +46,32 @@ import {
   UserMinus,
   TrendingUp,
   MessageSquare,
-  PhoneCall,
+  Percent,
   Calendar,
   Loader2,
   CheckCircle2,
   AlertTriangle,
   AlertCircle,
   Users,
-  Target,
-  RefreshCw,
+  Zap,
+  Video,
+  Share2,
+  Sparkles,
 } from "lucide-react";
-import portalApi, { authenticatedFetch, merchantApi } from "@/lib/client";
+import { authenticatedFetch } from "@/lib/client";
 import { useMerchant } from "@/hooks/use-merchant";
+import {
+  AiInsightsCard,
+  generateCampaignInsights,
+} from "@/components/ai/ai-insights-card";
+import { SmartAnalysisButton } from "@/components/ai/smart-analysis-button";
+import portalApi from "@/lib/client";
 import { useLocalStorageState } from "@/hooks/use-local-storage-state";
 
 interface CampaignResult {
   sent: number;
   totalTargeted: number;
   message: string;
-}
-
-interface CampaignPerformanceSummary {
-  generatedAt: string;
-  windowDays: number;
-  campaignType: "ALL" | "WIN_BACK" | "SEASONAL" | "REENGAGEMENT";
-  totals: {
-    campaigns: number;
-    targeted: number;
-    sent: number;
-    failed: number;
-    successRatePct: number;
-    avgAudienceSize: number;
-  };
-  byType: Array<{
-    type: string;
-    campaigns: number;
-    targeted: number;
-    sent: number;
-    failed: number;
-    successRatePct: number;
-  }>;
-  recentCampaigns: Array<{
-    id: string;
-    createdAt: string;
-    type: string;
-    label: string;
-    targeted: number;
-    sent: number;
-    failed: number;
-    successRatePct: number;
-    metadata?: {
-      code?: string | null;
-      recipientFilter?: string | null;
-      inactiveDays?: number | null;
-      discountPercent?: number | null;
-      validDays?: number | null;
-    };
-  }>;
-}
-
-type CallbackBridgeStatus =
-  | "DRAFT"
-  | "APPROVED"
-  | "EXECUTING"
-  | "EXECUTED"
-  | "CANCELLED";
-
-interface CallbackBridgeDraft {
-  id: string;
-  status: CallbackBridgeStatus;
-  createdAt?: string;
-  approvedAt?: string | null;
-  executedAt?: string | null;
-  targetCount: number;
-  sentCount?: number;
-  failedCount?: number;
-  messageTemplate: string;
-  discountCode?: string | null;
-  inactiveDays: number;
-  callbackDueBefore?: string | null;
-}
-
-interface CallbackBridgeRecipient {
-  callId: string;
-  workflowEventId?: string | null;
-  customerPhone: string;
-  customerName?: string | null;
-  callbackDueAt?: string | null;
 }
 
 export default function WinbackCampaignsPage() {
@@ -155,14 +92,14 @@ export default function WinbackCampaignsPage() {
   const [validDays, setValidDays] = useState(7);
   const [message, setMessage] = useLocalStorageState(
     merchantId ? `campaigns:winback-message:${merchantId}` : null,
-    "وحشتنا. عرض خاص لك: خصم {discount}% على طلبك القادم. العرض ساري لمدة {days} أيام فقط.",
+    "وحشتنا! 🎁 عرض خاص لك - خصم {discount}% على طلبك القادم. العرض ساري لمدة {days} أيام فقط!",
   );
 
   // Seasonal campaign state
   const [showSeasonal, setShowSeasonal] = useState(false);
   const [seasonalMsg, setSeasonalMsg] = useLocalStorageState(
     merchantId ? `campaigns:seasonal-message:${merchantId}` : null,
-    "مرحباً {name}. لدينا عرض موسمي مناسب لك. استخدم كود الخصم: {code}",
+    "مرحباً {name}! 🎉 بمناسبة العيد، استمتع بعروضنا الحصرية. تسوق الآن وادخل كود الخصم: {code}",
   );
   const [seasonalSegment, setSeasonalSegment] = useState<
     "all" | "vip" | "loyal" | "regular" | "new" | "at_risk"
@@ -191,40 +128,6 @@ export default function WinbackCampaignsPage() {
     null,
   );
   const [generatingReengageMsg, setGeneratingReengageMsg] = useState(false);
-
-  const [performanceLoading, setPerformanceLoading] = useState(false);
-  const [performanceError, setPerformanceError] = useState<string | null>(null);
-  const [performanceSummary, setPerformanceSummary] =
-    useState<CampaignPerformanceSummary | null>(null);
-  const [opsRefreshNonce, setOpsRefreshNonce] = useState(0);
-  const [callbackActionability, setCallbackActionability] = useState<{
-    callbackRequested: number;
-    callbackDueSoon: number;
-    openHighPriority: number;
-  }>({
-    callbackRequested: 0,
-    callbackDueSoon: 0,
-    openHighPriority: 0,
-  });
-  const [callbackBridgeActorId, setCallbackBridgeActorId] =
-    useState("ops-supervisor");
-  const [callbackBridgeApprovalNote, setCallbackBridgeApprovalNote] =
-    useState("");
-  const [callbackBridgeDraft, setCallbackBridgeDraft] =
-    useState<CallbackBridgeDraft | null>(null);
-  const [callbackBridgeRecipients, setCallbackBridgeRecipients] = useState<
-    CallbackBridgeRecipient[]
-  >([]);
-  const [callbackBridgeOpen, setCallbackBridgeOpen] = useState(false);
-  const [callbackBridgeBusy, setCallbackBridgeBusy] = useState(false);
-  const [callbackBridgeError, setCallbackBridgeError] = useState<string | null>(
-    null,
-  );
-  const [callbackBridgeInfo, setCallbackBridgeInfo] = useState<string | null>(
-    null,
-  );
-  const [callbackBridgeExecutionErrors, setCallbackBridgeExecutionErrors] =
-    useState<Array<{ phone: string; error: string }>>([]);
 
   // AI audience suggestion state
   const [aiAudienceGoal, setAiAudienceGoal] = useState("");
@@ -268,113 +171,6 @@ export default function WinbackCampaignsPage() {
         /* WA status check non-blocking */
       });
   }, [apiKey]);
-
-  useEffect(() => {
-    if (!apiKey) {
-      setPerformanceSummary(null);
-      setPerformanceError(null);
-      setCallbackActionability({
-        callbackRequested: 0,
-        callbackDueSoon: 0,
-        openHighPriority: 0,
-      });
-      return;
-    }
-
-    let cancelled = false;
-    const loadCampaignOps = async () => {
-      setPerformanceLoading(true);
-      setPerformanceError(null);
-      try {
-        const [summaryRaw, followUpRaw] = await Promise.all([
-          portalApi.getCampaignPerformanceSummary({
-            days: 30,
-            campaignType: "ALL",
-            limit: 8,
-          }),
-          merchantApi.getCallFollowUpQueue(merchantId, apiKey, {
-            limit: 200,
-            offset: 0,
-            hours: 168,
-            includeResolved: true,
-            handledBy: "all",
-          }),
-        ]);
-
-        if (cancelled) return;
-
-        const summary = summaryRaw as CampaignPerformanceSummary;
-        setPerformanceSummary(summary);
-
-        const queueRows = Array.isArray(followUpRaw?.queue)
-          ? followUpRaw.queue
-          : [];
-        const now = Date.now();
-        const callbackDueSoonCutoff = now + 24 * 60 * 60 * 1000;
-
-        const callbackRequested = queueRows.filter(
-          (row: any) =>
-            String((row as any)?.disposition || "")
-              .trim()
-              .toUpperCase() === "CALLBACK_REQUESTED",
-        ).length;
-
-        const callbackDueSoon = queueRows.filter((row: any) => {
-          const disposition = String((row as any)?.disposition || "")
-            .trim()
-            .toUpperCase();
-          if (disposition !== "CALLBACK_REQUESTED") return false;
-
-          const rawDueAt = String((row as any)?.callbackDueAt || "").trim();
-          if (!rawDueAt) return false;
-
-          const epoch = new Date(rawDueAt).getTime();
-          if (!Number.isFinite(epoch)) return false;
-
-          return epoch <= callbackDueSoonCutoff;
-        }).length;
-
-        const openHighPriority = queueRows.filter((row: any) => {
-          const workflowState = String((row as any)?.workflowState || "OPEN")
-            .trim()
-            .toUpperCase();
-          const priority = String((row as any)?.priority || "")
-            .trim()
-            .toLowerCase();
-          return workflowState !== "RESOLVED" && priority === "high";
-        }).length;
-
-        setCallbackActionability({
-          callbackRequested,
-          callbackDueSoon,
-          openHighPriority,
-        });
-      } catch (error) {
-        if (cancelled) return;
-        setPerformanceSummary(null);
-        setPerformanceError(
-          error instanceof Error
-            ? error.message
-            : "تعذر تحميل مؤشرات تشغيل الحملات",
-        );
-        setCallbackActionability({
-          callbackRequested: 0,
-          callbackDueSoon: 0,
-          openHighPriority: 0,
-        });
-      } finally {
-        if (!cancelled) {
-          setPerformanceLoading(false);
-        }
-      }
-    };
-
-    void loadCampaignOps();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [apiKey, merchantId, opsRefreshNonce]);
 
   const handleCreateCampaign = useCallback(async () => {
     setSending(true);
@@ -455,142 +251,6 @@ export default function WinbackCampaignsPage() {
     }
   }, [reengageMsg, reengageInactiveDays, reengageCode]);
 
-  const handleCreateCallbackBridgeDraft = useCallback(async () => {
-    const actorId = callbackBridgeActorId.trim();
-    if (!actorId) {
-      setCallbackBridgeError("أدخل معرف المشغل أولاً");
-      return;
-    }
-
-    setCallbackBridgeBusy(true);
-    setCallbackBridgeError(null);
-    setCallbackBridgeInfo(null);
-    setCallbackBridgeExecutionErrors([]);
-
-    try {
-      const data = await portalApi.createCallbackCampaignBridgeDraft({
-        actorId,
-        dueWithinHours: 24,
-        maxRecipients: 200,
-        inactiveDays: reengageInactiveDays,
-        messageTemplate: reengageMsg,
-        discountCode: reengageCode || undefined,
-      });
-
-      if (!data.created || !data.bridge) {
-        setCallbackBridgeDraft(null);
-        setCallbackBridgeRecipients([]);
-        setCallbackBridgeInfo(data.reason || "لا توجد حالات مؤهلة حاليًا");
-        setCallbackBridgeOpen(true);
-        return;
-      }
-
-      setCallbackBridgeDraft({
-        id: data.bridge.id,
-        status: data.bridge.status,
-        createdAt: data.bridge.createdAt,
-        targetCount: data.bridge.targetCount,
-        messageTemplate: data.bridge.messageTemplate,
-        discountCode: data.bridge.discountCode,
-        inactiveDays: data.bridge.inactiveDays,
-        callbackDueBefore: data.bridge.callbackDueBefore,
-      });
-      setCallbackBridgeRecipients(data.recipients || []);
-      setCallbackBridgeInfo(
-        `تم تجهيز مسودة تضم ${data.bridge.targetCount} عميل. يلزم اعتماد صريح قبل التنفيذ.`,
-      );
-      setCallbackBridgeOpen(true);
-    } catch (err: any) {
-      setCallbackBridgeError(err?.message || "تعذر إنشاء مسودة جسر المعاودة");
-      setCallbackBridgeOpen(true);
-    } finally {
-      setCallbackBridgeBusy(false);
-    }
-  }, [callbackBridgeActorId, reengageCode, reengageInactiveDays, reengageMsg]);
-
-  const handleApproveCallbackBridgeDraft = useCallback(async () => {
-    const actorId = callbackBridgeActorId.trim();
-    if (!actorId || !callbackBridgeDraft?.id) {
-      setCallbackBridgeError("تعذر اعتماد المسودة: بيانات غير مكتملة");
-      return;
-    }
-
-    setCallbackBridgeBusy(true);
-    setCallbackBridgeError(null);
-    setCallbackBridgeInfo(null);
-    try {
-      const data = await portalApi.approveCallbackCampaignBridgeDraft(
-        callbackBridgeDraft.id,
-        {
-          actorId,
-          note: callbackBridgeApprovalNote || undefined,
-        },
-      );
-
-      setCallbackBridgeDraft((prev) =>
-        prev
-          ? {
-              ...prev,
-              status: data.bridge.status,
-              approvedAt: data.bridge.approvedAt,
-            }
-          : prev,
-      );
-      setCallbackBridgeInfo("تم اعتماد المسودة ويمكن التنفيذ الآن.");
-    } catch (err: any) {
-      setCallbackBridgeError(err?.message || "فشل اعتماد المسودة");
-    } finally {
-      setCallbackBridgeBusy(false);
-    }
-  }, [
-    callbackBridgeActorId,
-    callbackBridgeApprovalNote,
-    callbackBridgeDraft?.id,
-  ]);
-
-  const handleExecuteCallbackBridgeDraft = useCallback(async () => {
-    const actorId = callbackBridgeActorId.trim();
-    if (!actorId || !callbackBridgeDraft?.id) {
-      setCallbackBridgeError("تعذر تنفيذ المسودة: بيانات غير مكتملة");
-      return;
-    }
-
-    setCallbackBridgeBusy(true);
-    setCallbackBridgeError(null);
-    setCallbackBridgeInfo(null);
-    setCallbackBridgeExecutionErrors([]);
-    try {
-      const data = await portalApi.executeCallbackCampaignBridgeDraft(
-        callbackBridgeDraft.id,
-        {
-          actorId,
-        },
-      );
-
-      setCallbackBridgeDraft((prev) =>
-        prev
-          ? {
-              ...prev,
-              status: data.bridge.status,
-              executedAt: data.bridge.executedAt,
-              targetCount: data.bridge.targetCount,
-              sentCount: data.bridge.sentCount,
-              failedCount: data.bridge.failedCount,
-            }
-          : prev,
-      );
-      setCallbackBridgeExecutionErrors(data.sampleErrors || []);
-      setCallbackBridgeInfo(
-        `تم التنفيذ: ${data.bridge.sentCount} نجحت و${data.bridge.failedCount} فشلت.`,
-      );
-      setOpsRefreshNonce((value) => value + 1);
-    } catch (err: any) {
-      setCallbackBridgeError(err?.message || "فشل تنفيذ المسودة");
-    } finally {
-      setCallbackBridgeBusy(false);
-    }
-  }, [callbackBridgeActorId, callbackBridgeDraft?.id]);
-
   const campaignTypes = [
     {
       id: "winback",
@@ -599,8 +259,8 @@ export default function WinbackCampaignsPage() {
       description:
         "إرسال عروض خاصة عبر واتساب للعملاء الذين لم يطلبوا منذ فترة",
       icon: UserMinus,
-      color: "text-[var(--accent-warning)]",
-      bgColor: "bg-[var(--accent-warning)]/12",
+      color: "text-orange-500",
+      bgColor: "bg-orange-50 dark:bg-orange-950",
       available: true,
       channel: "واتساب",
     },
@@ -610,9 +270,9 @@ export default function WinbackCampaignsPage() {
       titleEn: "Seasonal Campaign",
       description:
         "إرسال رسائل ترويجية موسمية لشريحة مختارة من العملاء (عيد، تخفيضات، مناسبات)",
-      icon: Gift,
-      color: "text-[var(--accent-success)]",
-      bgColor: "bg-[var(--accent-success)]/12",
+      icon: Sparkles,
+      color: "text-green-500",
+      bgColor: "bg-green-50 dark:bg-green-950",
       available: true,
       channel: "واتساب",
     },
@@ -622,9 +282,9 @@ export default function WinbackCampaignsPage() {
       titleEn: "Re-engagement",
       description:
         "إرسال رسائل تذكيرية مع كود خصم للعملاء الذين توقفوا عن الطلب",
-      icon: RefreshCw,
-      color: "text-[var(--accent-blue)]",
-      bgColor: "bg-[var(--accent-blue)]/12",
+      icon: Zap,
+      color: "text-blue-500",
+      bgColor: "bg-blue-50 dark:bg-blue-950",
       available: true,
       channel: "واتساب",
     },
@@ -634,8 +294,8 @@ export default function WinbackCampaignsPage() {
       titleEn: "Loyalty Reward",
       description: "إرسال خصومات حصرية لأفضل العملاء كمكافأة على ولائهم",
       icon: Gift,
-      color: "text-[var(--color-brand-primary)]",
-      bgColor: "bg-[var(--color-brand-subtle)]",
+      color: "text-purple-500",
+      bgColor: "bg-purple-50 dark:bg-purple-950",
       available: false,
       channel: "واتساب",
     },
@@ -645,8 +305,8 @@ export default function WinbackCampaignsPage() {
       titleEn: "Instagram Campaign",
       description: "إرسال رسائل ترويجية عبر Instagram Direct لمتابعيك",
       icon: MessageSquare,
-      color: "text-[var(--color-brand-primary)]",
-      bgColor: "bg-[var(--color-brand-primary)]/12",
+      color: "text-pink-500",
+      bgColor: "bg-pink-50 dark:bg-pink-950",
       available: false,
       channel: "إنستغرام",
     },
@@ -655,9 +315,9 @@ export default function WinbackCampaignsPage() {
       title: "حملة فيسبوك",
       titleEn: "Facebook Campaign",
       description: "إرسال رسائل ترويجية عبر Messenger لمتابعي صفحتك",
-      icon: MessageSquare,
-      color: "text-[var(--accent-blue)]",
-      bgColor: "bg-[var(--accent-blue)]/12",
+      icon: Share2,
+      color: "text-blue-600",
+      bgColor: "bg-blue-50 dark:bg-blue-950",
       available: false,
       channel: "فيسبوك",
     },
@@ -666,9 +326,9 @@ export default function WinbackCampaignsPage() {
       title: "حملة تيك توك",
       titleEn: "TikTok Campaign",
       description: "إرسال عروض ترويجية عبر رسائل تيك توك لمتابعيك",
-      icon: MessageSquare,
-      color: "text-[var(--text-secondary)]",
-      bgColor: "bg-[var(--bg-surface-2)]",
+      icon: Video,
+      color: "text-slate-800 dark:text-slate-200",
+      bgColor: "bg-slate-50 dark:bg-slate-900",
       available: false,
       channel: "تيك توك",
     },
@@ -679,28 +339,17 @@ export default function WinbackCampaignsPage() {
       description: "إرسال عروض وتحديثات لمشتركي قناة تيليغرام الخاصة بك",
       icon: Send,
       color: "text-sky-500",
-      bgColor: "bg-sky-50",
+      bgColor: "bg-sky-50 dark:bg-sky-950",
       available: false,
       channel: "تيليغرام",
     },
   ];
 
-  const campaignTotals = performanceSummary?.totals || null;
-  const recentCampaignRows =
-    performanceSummary?.recentCampaigns.slice(0, 4) || [];
-  const byTypeRows = performanceSummary?.byType.slice(0, 3) || [];
-  const executableCampaignTypes = campaignTypes.filter(
-    (type) => type.available,
-  );
-  const unavailableCampaignTypes = campaignTypes.filter(
-    (type) => !type.available,
-  );
-
   return (
     <div className="space-y-6 p-4 sm:p-6">
       <PageHeader
-        title="الحملات والعملاء > الحملات"
-        description="حوّل العملاء والشرائح إلى حملات واتساب قابلة للمراجعة، مع حالة جاهزية واضحة قبل الإرسال."
+        title="الحملات التسويقية"
+        description="إنشاء وإدارة حملات استعادة العملاء والتسويق الذكي"
         actions={
           <Button
             onClick={() => {
@@ -717,61 +366,21 @@ export default function WinbackCampaignsPage() {
         }
       />
 
-      <div className="flex flex-wrap gap-2">
-        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
-          <Send className="h-3.5 w-3.5 text-[var(--color-brand-primary)]" />
-          <span className="text-muted-foreground">حملات آخر 30 يوم</span>
-          <span className="font-mono text-[var(--color-brand-primary)]">
-            {campaignTotals?.campaigns ?? 0}
-          </span>
-        </div>
-        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
-          <MessageSquare className="h-3.5 w-3.5 text-[var(--accent-success)]" />
-          <span className="text-muted-foreground">واتساب</span>
-          <span className="font-mono text-[var(--accent-success)]">
-            {waReady ? "جاهز" : "غير مفعّل"}
-          </span>
-        </div>
-      </div>
-
-      <div className="grid gap-3 md:grid-cols-3">
-        <Link
-          href="/merchant/customers"
-          className="rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-surface-1)] p-4 transition-colors hover:border-[var(--accent-blue)]/40 hover:bg-[var(--bg-surface-2)]"
-        >
-          <p className="text-sm font-medium">العملاء</p>
-          <p className="mt-1 text-xs leading-5 text-[var(--text-secondary)]">
-            راجع الإنفاق وآخر طلب وخطر الخسارة قبل اختيار الحملة.
-          </p>
-        </Link>
-        <Link
-          href="/merchant/customer-segments"
-          className="rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-surface-1)] p-4 transition-colors hover:border-[var(--accent-blue)]/40 hover:bg-[var(--bg-surface-2)]"
-        >
-          <p className="text-sm font-medium">شرائح العملاء</p>
-          <p className="mt-1 text-xs leading-5 text-[var(--text-secondary)]">
-            ابنِ جمهوراً مستهدفاً من قواعد حقيقية قبل الإرسال.
-          </p>
-        </Link>
-        <Card className="app-data-card border-[var(--accent-warning)]/20 bg-[var(--accent-warning)]/10">
-          <CardContent className="p-4">
-            <p className="text-sm font-medium text-[var(--accent-warning)]">
-              جاهزية التنفيذ
-            </p>
-            <p className="mt-1 text-xs leading-5 text-[var(--text-secondary)]">
-              الإرسال الإنتاجي الحالي مرتبط بواتساب فقط. القنوات الأخرى تبقى
-              توافقية ولا تظهر كخيارات تنفيذ مباشرة.
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+      {/* AI Campaign Insights */}
+      <AiInsightsCard
+        title="مساعد الحملات"
+        insights={generateCampaignInsights({
+          totalCampaigns: 0,
+          activeCampaigns: result ? 1 : 0,
+        })}
+      />
 
       {/* WhatsApp Status */}
       {!waReady && (
-        <Card className="app-data-card border-[var(--accent-warning)]/20 bg-[var(--accent-warning)]/12">
+        <Card className="border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20">
           <CardContent className="p-4 flex items-center gap-3">
-            <AlertCircle className="h-5 w-5 shrink-0 text-[var(--accent-warning)]" />
-            <p className="text-sm text-[var(--accent-warning)]">
+            <AlertCircle className="h-5 w-5 text-amber-600 shrink-0" />
+            <p className="text-sm text-amber-800 dark:text-amber-300">
               يجب تفعيل واتساب أولاً لإرسال الحملات. أضف رقم واتساب الأعمال في
               الإعدادات ← الإشعارات.
             </p>
@@ -779,9 +388,9 @@ export default function WinbackCampaignsPage() {
         </Card>
       )}
       {waReady && waNumber && (
-        <Card className="app-data-card border-[var(--accent-success)]/20">
+        <Card className="border-green-200 dark:border-green-800">
           <CardContent className="p-4 flex items-center gap-3">
-            <MessageSquare className="h-5 w-5 text-[var(--accent-success)]" />
+            <MessageSquare className="h-5 w-5 text-green-600" />
             <div className="flex-1">
               <p className="text-sm font-medium">
                 واتساب جاهز{" "}
@@ -808,16 +417,12 @@ export default function WinbackCampaignsPage() {
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <Users className="h-8 w-8 text-[var(--accent-blue)]" />
+              <Users className="h-8 w-8 text-blue-500" />
               <div>
                 <p className="text-sm text-muted-foreground">عملاء مستهدفون</p>
-                <p className="text-2xl font-bold">
-                  {campaignTotals
-                    ? campaignTotals.targeted.toLocaleString("ar-EG")
-                    : "٠"}
-                </p>
+                <p className="text-2xl font-bold">-</p>
                 <p className="text-xs text-muted-foreground">
-                  آخر {performanceSummary?.windowDays || 30} يوم
+                  أنشئ حملة لمعرفة العدد
                 </p>
               </div>
             </div>
@@ -826,16 +431,11 @@ export default function WinbackCampaignsPage() {
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <MessageSquare className="h-8 w-8 text-[var(--accent-success)]" />
+              <MessageSquare className="h-8 w-8 text-green-500" />
               <div>
                 <p className="text-sm text-muted-foreground">رسائل مرسلة</p>
                 <p className="text-2xl font-bold">
-                  {campaignTotals
-                    ? campaignTotals.sent.toLocaleString("ar-EG")
-                    : result?.sent?.toLocaleString("ar-EG") || "٠"}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  فشل التسليم: {campaignTotals ? campaignTotals.failed : 0}
+                  {result?.sent?.toLocaleString("ar-EG") || "٠"}
                 </p>
               </div>
             </div>
@@ -844,17 +444,12 @@ export default function WinbackCampaignsPage() {
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <TrendingUp className="h-8 w-8 text-[var(--color-brand-primary)]" />
+              <TrendingUp className="h-8 w-8 text-purple-500" />
               <div>
                 <p className="text-sm text-muted-foreground">معدل الاستجابة</p>
-                <p className="text-2xl font-bold">
-                  {campaignTotals
-                    ? `${campaignTotals.successRatePct.toLocaleString("ar-EG")}%`
-                    : "-"}
-                </p>
+                <p className="text-2xl font-bold">-</p>
                 <p className="text-xs text-muted-foreground">
-                  متوسط الجمهور:{" "}
-                  {campaignTotals ? campaignTotals.avgAudienceSize : 0}
+                  ستظهر بعد الإرسال
                 </p>
               </div>
             </div>
@@ -863,310 +458,26 @@ export default function WinbackCampaignsPage() {
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <PhoneCall className="h-8 w-8 text-[var(--accent-warning)]" />
+              <Percent className="h-8 w-8 text-orange-500" />
               <div>
-                <p className="text-sm text-muted-foreground">فرص المعاودة</p>
-                <p className="text-2xl font-bold">
-                  {callbackActionability.callbackRequested.toLocaleString(
-                    "ar-EG",
-                  )}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  خلال 24 ساعة: {callbackActionability.callbackDueSoon} • عالية
-                  الأولوية: {callbackActionability.openHighPriority}
-                </p>
+                <p className="text-sm text-muted-foreground">الخصم الحالي</p>
+                <p className="text-2xl font-bold">{discountPercent}%</p>
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {performanceError ? (
-        <Card className="app-data-card border-[var(--accent-warning)]/20 bg-[var(--accent-warning)]/12">
-          <CardContent className="p-4 text-sm text-[var(--accent-warning)]">
-            {performanceError}
-          </CardContent>
-        </Card>
-      ) : null}
-
-      <Card className="app-data-card border-[var(--accent-blue)]/20">
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <TrendingUp className="h-5 w-5 text-[var(--accent-blue)]" />
-            نضج تشغيل الحملات
-          </CardTitle>
-          <CardDescription>
-            قياس التنفيذ الفعلي للحملات مع ربط فرص المعاودة القادمة من العمليات.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {performanceLoading ? (
-            <TableSkeleton rows={3} columns={4} />
-          ) : performanceSummary ? (
-            <>
-              <div className="flex flex-wrap gap-2">
-                {byTypeRows.length > 0 ? (
-                  byTypeRows.map((row) => (
-                    <Badge key={row.type} variant="outline" className="text-xs">
-                      {row.type}: {row.successRatePct}% ({row.campaigns})
-                    </Badge>
-                  ))
-                ) : (
-                  <p className="text-xs text-muted-foreground">
-                    لا توجد بيانات أنواع حملات كافية حتى الآن.
-                  </p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                {recentCampaignRows.length > 0 ? (
-                  recentCampaignRows.map((campaign) => (
-                    <div
-                      key={campaign.id}
-                      className="rounded-md border border-[var(--border-default)] p-2 text-xs"
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="font-medium">{campaign.label}</p>
-                        <Badge variant="secondary">{campaign.type}</Badge>
-                      </div>
-                      <p className="mt-1 text-muted-foreground">
-                        مستهدف {campaign.targeted} • مرسل {campaign.sent} • نجاح{" "}
-                        {campaign.successRatePct}%
-                      </p>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-xs text-muted-foreground">
-                    لم يتم تسجيل حملات حديثة خلال النافذة المحددة.
-                  </p>
-                )}
-              </div>
-
-              {callbackActionability.callbackRequested > 0 ? (
-                <div className="space-y-3 rounded-md border border-[var(--accent-blue)]/25 bg-[var(--accent-blue)]/12 p-3">
-                  <p className="text-xs text-[var(--accent-blue)]">
-                    يوجد {callbackActionability.callbackRequested} عميل بطلب
-                    معاودة اتصال. يمكن تحويل الحالات المؤهلة إلى مسودة حملة
-                    إعادة تفاعل مع اعتماد صريح قبل التنفيذ.
-                  </p>
-
-                  <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
-                    <Input
-                      value={callbackBridgeActorId}
-                      onChange={(e) => setCallbackBridgeActorId(e.target.value)}
-                      placeholder="معرف المشغل المسؤول"
-                      dir="ltr"
-                    />
-                    <Button
-                      onClick={handleCreateCallbackBridgeDraft}
-                      disabled={
-                        callbackBridgeBusy ||
-                        !waReady ||
-                        callbackActionability.callbackRequested <= 0
-                      }
-                      className="w-full sm:w-auto"
-                    >
-                      {callbackBridgeBusy ? (
-                        <>
-                          <Loader2 className="h-4 w-4 ml-2 animate-spin" />
-                          جاري إنشاء المسودة...
-                        </>
-                      ) : (
-                        <>
-                          <PhoneCall className="h-4 w-4 ml-2" />
-                          إنشاء مسودة جسر المعاودة
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                </div>
-              ) : null}
-            </>
-          ) : (
-            <p className="text-xs text-muted-foreground">
-              لا توجد بيانات تشغيل حملات كافية حتى الآن.
-            </p>
-          )}
-        </CardContent>
-      </Card>
-
-      <Dialog open={callbackBridgeOpen} onOpenChange={setCallbackBridgeOpen}>
-        <DialogContent
-          className="max-h-[90vh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-2xl"
-          dir="rtl"
-        >
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <PhoneCall className="h-5 w-5 text-[var(--accent-blue)]" />
-              جسر المعاودة إلى حملة إعادة التفاعل
-            </DialogTitle>
-            <DialogDescription>
-              تحويل الحالات المؤهلة إلى مسودة حملات مع اعتماد صريح قبل التنفيذ.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 py-2">
-            {callbackBridgeInfo ? (
-              <div className="rounded-md border border-[var(--accent-blue)]/25 bg-[var(--accent-blue)]/12 p-3 text-xs text-[var(--accent-blue)]">
-                {callbackBridgeInfo}
-              </div>
-            ) : null}
-
-            {callbackBridgeError ? (
-              <div className="rounded-md border border-[var(--accent-danger)]/25 bg-[var(--accent-danger)]/12 p-3 text-xs text-[var(--accent-danger)]">
-                {callbackBridgeError}
-              </div>
-            ) : null}
-
-            {callbackBridgeDraft ? (
-              <div className="space-y-3">
-                <div className="grid gap-2 text-xs sm:grid-cols-2">
-                  <div className="rounded-md border p-2">
-                    <p className="text-muted-foreground">حالة المسودة</p>
-                    <p className="font-semibold">
-                      {callbackBridgeDraft.status}
-                    </p>
-                  </div>
-                  <div className="rounded-md border p-2">
-                    <p className="text-muted-foreground">العملاء المستهدفون</p>
-                    <p className="font-semibold">
-                      {callbackBridgeDraft.targetCount.toLocaleString("ar-EG")}
-                    </p>
-                  </div>
-                  <div className="rounded-md border p-2">
-                    <p className="text-muted-foreground">كود الخصم</p>
-                    <p className="font-semibold" dir="ltr">
-                      {callbackBridgeDraft.discountCode || "-"}
-                    </p>
-                  </div>
-                  <div className="rounded-md border p-2">
-                    <p className="text-muted-foreground">حد عدم النشاط</p>
-                    <p className="font-semibold">
-                      {callbackBridgeDraft.inactiveDays.toLocaleString("ar-EG")}{" "}
-                      يوم
-                    </p>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>ملاحظة الاعتماد (اختياري)</Label>
-                  <Textarea
-                    value={callbackBridgeApprovalNote}
-                    onChange={(e) =>
-                      setCallbackBridgeApprovalNote(e.target.value)
-                    }
-                    rows={2}
-                    placeholder="سبب أو ملاحظة تنفيذ الحملة"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <p className="text-xs font-medium">
-                    عينة المستلمين المرتبطين بالأحداث
-                  </p>
-                  <div className="max-h-56 space-y-2 overflow-y-auto rounded-md border p-2">
-                    {callbackBridgeRecipients.length > 0 ? (
-                      callbackBridgeRecipients.slice(0, 20).map((recipient) => (
-                        <div
-                          key={`${recipient.callId}:${recipient.customerPhone}`}
-                          className="rounded-md border p-2 text-xs"
-                        >
-                          <p className="font-medium">
-                            {recipient.customerName || "عميل"} •{" "}
-                            {recipient.customerPhone}
-                          </p>
-                          <p className="text-muted-foreground" dir="ltr">
-                            Call: {recipient.callId}
-                          </p>
-                          <p className="text-muted-foreground" dir="ltr">
-                            Event: {recipient.workflowEventId || "-"}
-                          </p>
-                        </div>
-                      ))
-                    ) : (
-                      <p className="text-xs text-muted-foreground">
-                        لا توجد عناصر مستلمين في هذه المسودة.
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                {callbackBridgeDraft.status === "EXECUTED" ? (
-                  <div className="rounded-md border border-[var(--accent-success)]/25 bg-[var(--accent-success)]/12 p-3 text-xs text-[var(--accent-success)]">
-                    التنفيذ النهائي: نجحت {callbackBridgeDraft.sentCount || 0}{" "}
-                    وفشلت {callbackBridgeDraft.failedCount || 0}
-                  </div>
-                ) : null}
-
-                {callbackBridgeExecutionErrors.length > 0 ? (
-                  <div className="space-y-1 rounded-md border border-[var(--accent-warning)]/25 bg-[var(--accent-warning)]/12 p-3 text-xs text-[var(--accent-warning)]">
-                    <p className="font-medium">أخطاء تنفيذ (عينة):</p>
-                    {callbackBridgeExecutionErrors.map((item, index) => (
-                      <p key={`${item.phone}:${index}`} dir="ltr">
-                        {item.phone}: {item.error}
-                      </p>
-                    ))}
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
-          </div>
-
-          <DialogFooter className="flex-col gap-2 sm:flex-row">
-            <Button
-              variant="outline"
-              onClick={() => setCallbackBridgeOpen(false)}
-              disabled={callbackBridgeBusy}
-              className="w-full sm:w-auto"
-            >
-              إغلاق
-            </Button>
-            {callbackBridgeDraft?.status === "DRAFT" ? (
-              <Button
-                onClick={handleApproveCallbackBridgeDraft}
-                disabled={callbackBridgeBusy || !callbackBridgeActorId.trim()}
-                className="w-full sm:w-auto"
-              >
-                {callbackBridgeBusy ? (
-                  <>
-                    <Loader2 className="h-4 w-4 ml-2 animate-spin" />
-                    جاري الاعتماد...
-                  </>
-                ) : (
-                  "اعتماد المسودة"
-                )}
-              </Button>
-            ) : null}
-            {callbackBridgeDraft?.status === "APPROVED" ? (
-              <Button
-                onClick={handleExecuteCallbackBridgeDraft}
-                disabled={callbackBridgeBusy || !callbackBridgeActorId.trim()}
-                className="w-full sm:w-auto"
-              >
-                {callbackBridgeBusy ? (
-                  <>
-                    <Loader2 className="h-4 w-4 ml-2 animate-spin" />
-                    جاري التنفيذ...
-                  </>
-                ) : (
-                  "تنفيذ الحملة"
-                )}
-              </Button>
-            ) : null}
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Audience Picker */}
-      <Card className="app-data-card border-[var(--color-ai)]/25 bg-[var(--color-ai-subtle)]">
+      {/* AI Audience Picker */}
+      <Card className="border-purple-100 bg-gradient-to-br from-purple-50 to-white dark:from-purple-950/30 dark:to-background">
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
-            <Target className="h-5 w-5 text-[var(--color-ai)]" />
-            اقتراح الجمهور
+            <Sparkles className="h-5 w-5 text-purple-500" />
+            اقتراح الجمهور بالذكاء الاصطناعي
           </CardTitle>
           <CardDescription>
-            اكتب هدف الحملة وسيُقترح جمهور مناسب من الشرائح المتاحة. راجع السبب
-            والحجم قبل الإرسال.
+            اكتب هدف حملتك بالعربي وسيقترح الذكاء الاصطناعي أفضل شريحة عملاء
+            لاستهدافها
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -1186,7 +497,7 @@ export default function WinbackCampaignsPage() {
               {aiAudienceLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
-                <Target className="h-4 w-4" />
+                <Sparkles className="h-4 w-4" />
               )}
               اقتراح
             </Button>
@@ -1197,7 +508,7 @@ export default function WinbackCampaignsPage() {
                 <div>
                   <p className="font-medium text-sm">
                     الشريحة المقترحة:{" "}
-                    <span className="text-[var(--color-ai)]">
+                    <span className="text-purple-600">
                       {aiAudienceResult.segmentName}
                     </span>
                   </p>
@@ -1230,10 +541,10 @@ export default function WinbackCampaignsPage() {
 
       {/* Campaign Types */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {executableCampaignTypes.map((type) => (
+        {campaignTypes.map((type) => (
           <Card
             key={type.id}
-            className={`app-data-card relative ${!type.available ? "opacity-60" : "cursor-pointer transition-colors hover:border-[var(--border-active)]"}`}
+            className={`relative ${!type.available ? "opacity-60" : "cursor-pointer hover:shadow-md transition-shadow"}`}
             onClick={
               type.available
                 ? () => {
@@ -1254,6 +565,11 @@ export default function WinbackCampaignsPage() {
                 : undefined
             }
           >
+            {!type.available && (
+              <Badge variant="secondary" className="absolute top-3 left-3">
+                قريباً
+              </Badge>
+            )}
             <CardHeader>
               <div
                 className={`w-12 h-12 rounded-lg ${type.bgColor} flex items-center justify-center mb-2`}
@@ -1275,33 +591,14 @@ export default function WinbackCampaignsPage() {
         ))}
       </div>
 
-      {unavailableCampaignTypes.length > 0 && (
-        <Card className="app-data-card border-dashed">
-          <CardHeader>
-            <CardTitle className="text-base">قنوات غير جاهزة للتنفيذ</CardTitle>
-            <CardDescription>
-              هذه المسارات محفوظة للتوافق أو التخطيط، لكنها ليست خيارات إرسال
-              إنتاجية في هذه الشاشة.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-wrap gap-2">
-            {unavailableCampaignTypes.map((type) => (
-              <Badge key={type.id} variant="outline">
-                {type.title} - {type.channel}
-              </Badge>
-            ))}
-          </CardContent>
-        </Card>
-      )}
-
       {/* Previous Results */}
       {result && (
-        <Card className="app-data-card border-[var(--accent-success)]/20">
+        <Card className="border-green-200 dark:border-green-800">
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <CheckCircle2 className="h-6 w-6 text-[var(--accent-success)]" />
+              <CheckCircle2 className="h-6 w-6 text-green-500" />
               <div>
-                <p className="font-medium text-[var(--accent-success)]">
+                <p className="font-medium text-green-700 dark:text-green-300">
                   تم إرسال الحملة بنجاح!
                 </p>
                 <p className="text-sm text-muted-foreground">
@@ -1322,7 +619,7 @@ export default function WinbackCampaignsPage() {
         >
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <UserMinus className="h-5 w-5 text-[var(--accent-warning)]" />
+              <UserMinus className="h-5 w-5 text-orange-500" />
               حملة استعادة العملاء
             </DialogTitle>
             <DialogDescription>
@@ -1393,14 +690,14 @@ export default function WinbackCampaignsPage() {
                     } catch {}
                     setGeneratingMsg(false);
                   }}
-                  className="border-[var(--color-ai)]/30 text-[var(--color-ai)] hover:bg-[var(--color-ai-subtle)]"
+                  className="text-purple-700 border-purple-300 hover:bg-purple-50"
                 >
                   {generatingMsg ? (
                     <Loader2 className="h-3 w-3 animate-spin ml-1" />
                   ) : (
-                    <Target className="h-3 w-3 ml-1" />
+                    <Zap className="h-3 w-3 ml-1" />
                   )}
-                  اقتراح رسالة
+                  اقتراح بالذكاء الاصطناعي
                 </Button>
               </div>
               <Textarea
@@ -1415,14 +712,14 @@ export default function WinbackCampaignsPage() {
             </div>
 
             {error && (
-              <div className="flex items-center gap-2 rounded-lg bg-[var(--accent-danger)]/12 p-3 text-sm text-[var(--accent-danger)]">
+              <div className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950 p-3 rounded-lg">
                 <AlertTriangle className="h-4 w-4 flex-shrink-0" />
                 {error}
               </div>
             )}
 
             {result && (
-              <div className="flex items-center gap-2 rounded-lg bg-[var(--accent-success)]/12 p-3 text-sm text-[var(--accent-success)]">
+              <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-950 p-3 rounded-lg">
                 <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
                 تم إرسال {result.sent} رسالة بنجاح!
               </div>
@@ -1497,7 +794,7 @@ export default function WinbackCampaignsPage() {
         >
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Gift className="h-5 w-5 text-[var(--accent-success)]" />
+              <Sparkles className="h-5 w-5 text-green-500" />
               حملة موسمية
             </DialogTitle>
             <DialogDescription>
@@ -1578,14 +875,14 @@ export default function WinbackCampaignsPage() {
                     } catch {}
                     setGeneratingSeasonalMsg(false);
                   }}
-                  className="w-full border-[var(--color-ai)]/30 text-[var(--color-ai)] hover:bg-[var(--color-ai-subtle)] sm:w-auto"
+                  className="w-full text-purple-700 border-purple-300 hover:bg-purple-50 sm:w-auto"
                 >
                   {generatingSeasonalMsg ? (
                     <Loader2 className="h-3 w-3 animate-spin ml-1" />
                   ) : (
-                    <Target className="h-3 w-3 ml-1" />
+                    <Zap className="h-3 w-3 ml-1" />
                   )}
-                  اقتراح رسالة
+                  اقتراح بالذكاء الاصطناعي
                 </Button>
               </div>
               <Textarea
@@ -1600,13 +897,13 @@ export default function WinbackCampaignsPage() {
             </div>
 
             {seasonalError && (
-              <div className="flex items-center gap-2 rounded-lg bg-[var(--accent-danger)]/12 p-3 text-sm text-[var(--accent-danger)]">
+              <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 dark:bg-red-950 p-3 rounded-lg">
                 <AlertTriangle className="h-4 w-4 shrink-0" />
                 {seasonalError}
               </div>
             )}
             {seasonalResult && (
-              <div className="flex items-center gap-2 rounded-lg bg-[var(--accent-success)]/12 p-3 text-sm text-[var(--accent-success)]">
+              <div className="flex items-center gap-2 text-sm text-green-600 bg-green-50 dark:bg-green-950 p-3 rounded-lg">
                 <CheckCircle2 className="h-4 w-4 shrink-0" />
                 تم إرسال {seasonalResult.sent} رسالة من{" "}
                 {seasonalResult.totalTargeted} عميل
@@ -1652,7 +949,7 @@ export default function WinbackCampaignsPage() {
         >
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <RefreshCw className="h-5 w-5 text-[var(--accent-blue)]" />
+              <Zap className="h-5 w-5 text-blue-500" />
               حملة إعادة التفاعل
             </DialogTitle>
             <DialogDescription>
@@ -1717,14 +1014,14 @@ export default function WinbackCampaignsPage() {
                     } catch {}
                     setGeneratingReengageMsg(false);
                   }}
-                  className="border-[var(--color-ai)]/30 text-[var(--color-ai)] hover:bg-[var(--color-ai-subtle)]"
+                  className="text-purple-700 border-purple-300 hover:bg-purple-50"
                 >
                   {generatingReengageMsg ? (
                     <Loader2 className="h-3 w-3 animate-spin ml-1" />
                   ) : (
-                    <Target className="h-3 w-3 ml-1" />
+                    <Zap className="h-3 w-3 ml-1" />
                   )}
-                  اقتراح رسالة
+                  اقتراح بالذكاء الاصطناعي
                 </Button>
               </div>
               <Textarea
@@ -1740,13 +1037,13 @@ export default function WinbackCampaignsPage() {
             </div>
 
             {reengagementError && (
-              <div className="flex items-center gap-2 rounded-lg bg-[var(--accent-danger)]/12 p-3 text-sm text-[var(--accent-danger)]">
+              <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 dark:bg-red-950 p-3 rounded-lg">
                 <AlertTriangle className="h-4 w-4 shrink-0" />
                 {reengagementError}
               </div>
             )}
             {reengagementResult && (
-              <div className="flex items-center gap-2 rounded-lg bg-[var(--accent-success)]/12 p-3 text-sm text-[var(--accent-success)]">
+              <div className="flex items-center gap-2 text-sm text-green-600 bg-green-50 dark:bg-green-950 p-3 rounded-lg">
                 <CheckCircle2 className="h-4 w-4 shrink-0" />
                 تم إرسال {reengagementResult.sent} رسالة من{" "}
                 {reengagementResult.totalTargeted} عميل

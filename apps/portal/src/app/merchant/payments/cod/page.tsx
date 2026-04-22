@@ -1,7 +1,6 @@
 ﻿"use client";
 
 import { useState, useEffect, useCallback } from "react";
-import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { PageHeader } from "@/components/layout";
 import {
@@ -14,8 +13,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { DataTable } from "@/components/ui/data-table";
-import { TableSkeleton } from "@/components/ui/skeleton";
-import { EmptyState } from "@/components/ui/alerts";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
@@ -50,13 +47,16 @@ import {
   Bell,
   Send,
   CalendarClock,
-  CreditCard,
 } from "lucide-react";
 import { formatCurrency, cn } from "@/lib/utils";
 import { useMerchant } from "@/hooks/use-merchant";
 import portalApi from "@/lib/client";
 import { branchesApi } from "@/lib/client";
 import { REPORTING_PERIOD_OPTIONS } from "@/lib/reporting-period";
+import {
+  AiInsightsCard,
+  generateCodInsights,
+} from "@/components/ai/ai-insights-card";
 
 interface CODOrder {
   id: string;
@@ -111,26 +111,22 @@ interface CODReminder {
 const STATUS_CONFIG = {
   pending: {
     label: "قيد الانتظار",
-    color:
-      "border-[color:rgba(245,158,11,0.28)] bg-[color:rgba(245,158,11,0.12)] text-[color:#fcd34d]",
+    color: "bg-yellow-100 text-yellow-800",
     icon: Clock,
   },
   collected: {
     label: "تم التحصيل",
-    color:
-      "border-[color:rgba(59,130,246,0.26)] bg-[color:rgba(59,130,246,0.12)] text-[color:#93c5fd]",
+    color: "bg-blue-100 text-blue-800",
     icon: Banknote,
   },
   reconciled: {
     label: "تمت التسوية",
-    color:
-      "border-[color:rgba(34,197,94,0.28)] bg-[color:rgba(34,197,94,0.1)] text-[color:#86efac]",
+    color: "bg-green-100 text-green-800",
     icon: CheckCircle2,
   },
   disputed: {
     label: "متنازع عليه",
-    color:
-      "border-[color:rgba(239,68,68,0.3)] bg-[color:rgba(239,68,68,0.1)] text-[color:#fca5a5]",
+    color: "bg-red-100 text-red-800",
     icon: AlertTriangle,
   },
 };
@@ -170,22 +166,6 @@ const isCodStatus = (value: unknown): value is CODOrder["status"] =>
   value === "reconciled" ||
   value === "disputed";
 
-function getFreshness(updatedAt: Date | null) {
-  if (!updatedAt) return { label: "لم يتم التحديث", state: "old" as const };
-  const minutes = Math.max(
-    0,
-    Math.floor((Date.now() - updatedAt.getTime()) / 60000),
-  );
-  if (minutes < 1) return { label: "آخر تحديث: الآن", state: "fresh" as const };
-  if (minutes <= 5) {
-    return { label: `آخر تحديث: منذ ${minutes} د`, state: "fresh" as const };
-  }
-  if (minutes <= 30) {
-    return { label: `آخر تحديث: منذ ${minutes} د`, state: "stale" as const };
-  }
-  return { label: "بيانات التسويات قديمة", state: "old" as const };
-}
-
 export default function CODReconciliationPage() {
   const { merchantId, apiKey } = useMerchant();
   const router = useRouter();
@@ -209,7 +189,6 @@ export default function CODReconciliationPage() {
   const [disputeNotes, setDisputeNotes] = useState("");
   const [actualAmount, setActualAmount] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
 
   // CSV Import state
   const [importDialogOpen, setImportDialogOpen] = useState(false);
@@ -404,7 +383,6 @@ export default function CODReconciliationPage() {
           localSummary.totalDisputedAmount,
         ),
       });
-      setLastUpdatedAt(new Date());
     } catch (error) {
       console.error("Failed to fetch COD orders:", error);
     } finally {
@@ -755,17 +733,6 @@ export default function CODReconciliationPage() {
       },
     },
   ];
-  const expectedAmount = summary
-    ? summary.totalPendingAmount +
-      summary.totalCollectedAmount +
-      summary.totalReconciledAmount +
-      summary.totalDisputedAmount
-    : 0;
-  const collectedAmount = summary
-    ? summary.totalCollectedAmount + summary.totalReconciledAmount
-    : 0;
-  const varianceAmount = expectedAmount - collectedAmount;
-  const freshness = getFreshness(lastUpdatedAt);
 
   return (
     <div className="space-y-6">
@@ -799,101 +766,123 @@ export default function CODReconciliationPage() {
           </div>
         }
       />
-      <div className="flex flex-wrap gap-2">
-        {[
-          ["الملخص", "/merchant/finance/summary"],
-          ["الإيرادات", "/merchant/finance/revenue"],
-          ["المصروفات", "/merchant/expenses"],
-          ["التدفق النقدي", "/merchant/reports/cash-flow"],
-          ["التسويات", "/merchant/payments/cod"],
-        ].map(([label, href]) => (
-          <Button
-            key={href}
-            asChild
-            variant={href === "/merchant/payments/cod" ? "default" : "outline"}
-            size="sm"
-          >
-            <Link href={href}>{label}</Link>
-          </Button>
-        ))}
-      </div>
 
-      <section className="rounded-[var(--radius-base)] border border-[var(--color-border)] bg-[var(--color-surface)] p-3 shadow-[var(--shadow-sm)]">
-        <div className="grid gap-3 lg:grid-cols-[1fr_auto] lg:items-center">
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div>
-              <p className="text-xs text-[var(--color-text-secondary)]">
-                المتوقع من شركات الشحن
-              </p>
-              <p className="mt-1 font-mono text-lg font-bold">
-                {formatCurrency(expectedAmount)}
-              </p>
-            </div>
-            <div>
-              <p className="text-xs text-[var(--color-text-secondary)]">
-                المحصل أو المسوى
-              </p>
-              <p className="mt-1 font-mono text-lg font-bold text-[var(--color-success-text)]">
-                {formatCurrency(collectedAmount)}
-              </p>
-            </div>
-            <div>
-              <p className="text-xs text-[var(--color-text-secondary)]">
-                الفرق المطلوب متابعته
-              </p>
-              <p
-                className={`mt-1 font-mono text-lg font-bold ${
-                  varianceAmount > 0
-                    ? "text-[var(--color-warning-text)]"
-                    : "text-[var(--color-success-text)]"
-                }`}
-              >
-                {formatCurrency(varianceAmount)}
-              </p>
-            </div>
+      <section className="app-hero-band">
+        <div className="app-hero-band__grid">
+          <div>
+            <p className="app-hero-band__eyebrow">تحصيل وتسوية</p>
+            <h2 className="app-hero-band__title">
+              تحكم أدق في دورة الدفع عند الاستلام من الشحن حتى التسوية المالية
+            </h2>
+            <p className="app-hero-band__copy">
+              اجمع حالات الشركات، مبالغ التحصيل، النزاعات، والتذكيرات في واجهة
+              واحدة مناسبة للمتابعة اليومية مع فرق التشغيل والمالية.
+            </p>
           </div>
-          <div className="flex flex-col gap-2 sm:flex-row lg:justify-end">
-            <Button asChild variant="outline">
-              <Link href="/merchant/payments/proofs">
-                <CreditCard className="h-4 w-4" />
-                إثباتات الدفع
-              </Link>
-            </Button>
-            <span
-              className={
-                freshness.state === "old"
-                  ? "text-xs text-[var(--color-danger-text)]"
-                  : freshness.state === "stale"
-                    ? "text-xs text-[var(--color-warning-text)]"
-                    : "text-xs text-[var(--color-text-secondary)]"
-              }
-            >
-              {freshness.label}
-            </span>
+          <div className="app-hero-band__metrics">
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">قيد الانتظار</span>
+              <strong className="app-hero-band__metric-value">
+                {summary ? formatCurrency(summary.totalPendingAmount) : "-"}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">تم التحصيل</span>
+              <strong className="app-hero-band__metric-value">
+                {summary ? formatCurrency(summary.totalCollectedAmount) : "-"}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">متنازع عليه</span>
+              <strong className="app-hero-band__metric-value">
+                {summary ? formatCurrency(summary.totalDisputedAmount) : "-"}
+              </strong>
+            </div>
           </div>
         </div>
       </section>
 
+      {/* AI COD Insights */}
+      <AiInsightsCard
+        title="تحليلات الدفع عند الاستلام"
+        insights={generateCodInsights({
+          pendingAmount: summary?.totalPendingAmount ?? 0,
+          collectedAmount: summary?.totalCollectedAmount ?? 0,
+          disputedAmount: summary?.totalDisputedAmount ?? 0,
+          totalOrders: orders.length,
+        })}
+        loading={loading}
+      />
+
+      {/* Summary Cards */}
       {summary && (
-        <div className="flex flex-wrap gap-2">
-          {[
-            `قيد الانتظار: ${formatCurrency(summary.totalPendingAmount)} (${summary.totalPending})`,
-            `تم التحصيل: ${formatCurrency(summary.totalCollectedAmount)} (${summary.totalCollected})`,
-            `تمت التسوية: ${formatCurrency(summary.totalReconciledAmount)} (${summary.totalReconciled})`,
-            `متنازع عليه: ${formatCurrency(summary.totalDisputedAmount)} (${summary.totalDisputed})`,
-          ].map((chip) => (
-            <div
-              key={chip}
-              className="inline-flex h-8 items-center rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs text-[var(--text-secondary)]"
-            >
-              {chip}
-            </div>
-          ))}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <Card className="app-data-card">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                قيد الانتظار
+              </CardTitle>
+              <Clock className="h-4 w-4 text-yellow-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-yellow-600">
+                {formatCurrency(summary.totalPendingAmount)}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {summary.totalPending} طلب
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="app-data-card">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">تم التحصيل</CardTitle>
+              <Banknote className="h-4 w-4 text-blue-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-blue-600">
+                {formatCurrency(summary.totalCollectedAmount)}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {summary.totalCollected} طلب
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="app-data-card">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">تمت التسوية</CardTitle>
+              <CheckCircle2 className="h-4 w-4 text-green-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-600">
+                {formatCurrency(summary.totalReconciledAmount)}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {summary.totalReconciled} طلب
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="app-data-card">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">متنازع عليه</CardTitle>
+              <AlertTriangle className="h-4 w-4 text-red-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-red-600">
+                {formatCurrency(summary.totalDisputedAmount)}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {summary.totalDisputed} طلب
+              </p>
+            </CardContent>
+          </Card>
         </div>
       )}
 
-      <Card className="app-data-card border-[color:rgba(59,130,246,0.24)] bg-[color:rgba(59,130,246,0.1)]">
-        <CardContent className="pt-4 text-sm text-[color:rgba(244,244,245,0.84)]">
+      <Card className="app-data-card border-blue-200 bg-blue-50/60">
+        <CardContent className="pt-4 text-sm text-blue-800">
           حالات COD هنا مبنية على حالة التسوية المالية (`pending / collected /
           reconciled / disputed`) وليست مرادفة تلقائياً لحالة الشحن.
         </CardContent>
@@ -990,7 +979,7 @@ export default function CODReconciliationPage() {
                 <Button
                   size="sm"
                   onClick={() => setReconcileDialogOpen(true)}
-                  className="bg-[var(--accent-success)] text-[var(--bg-base)] hover:brightness-110"
+                  className="bg-green-600 hover:bg-green-700"
                 >
                   <CheckCircle2 className="h-4 w-4 ml-2" />
                   تسوية ({selectedOrders.length})
@@ -1043,23 +1032,13 @@ export default function CODReconciliationPage() {
               </CardHeader>
               <CardContent>
                 {loading ? (
-                  <TableSkeleton rows={6} columns={7} />
+                  <div className="text-center py-8 text-muted-foreground">
+                    جاري التحميل...
+                  </div>
                 ) : filteredOrders.length === 0 ? (
-                  <EmptyState
-                    icon={<Banknote className="h-7 w-7" />}
-                    title="لا توجد طلبات في حالة التسوية الحالية"
-                    description="غيّر الحالة أو شركة الشحن أو الفترة الزمنية لعرض طلبات أخرى، أو استورد كشف شركة الشحن عند توفره."
-                    action={
-                      <Button
-                        variant="outline"
-                        onClick={() => setImportDialogOpen(true)}
-                      >
-                        <Upload className="h-4 w-4" />
-                        استيراد كشف
-                      </Button>
-                    }
-                    className="py-8"
-                  />
+                  <div className="text-center py-8 text-muted-foreground">
+                    لا توجد طلبات في هذه الفئة
+                  </div>
                 ) : (
                   <>
                     <div className="space-y-3 md:hidden">
@@ -1225,14 +1204,19 @@ export default function CODReconciliationPage() {
                 </CardHeader>
                 <CardContent>
                   {remindersLoading ? (
-                    <TableSkeleton rows={5} columns={7} />
+                    <div className="text-center py-8 text-muted-foreground">
+                      جاري التحميل...
+                    </div>
                   ) : reminders.length === 0 ? (
-                    <EmptyState
-                      icon={<Bell className="h-7 w-7" />}
-                      title="لا توجد تذكيرات مجدولة"
-                      description="استخدم إجراء الجدولة بالأعلى لإنشاء تذكيرات للطلبات المتأخرة في التحصيل."
-                      className="py-10"
-                    />
+                    <div className="text-center py-12 text-muted-foreground">
+                      <Bell className="h-12 w-12 mx-auto mb-4 opacity-30" />
+                      <p className="text-lg font-medium">
+                        لا توجد تذكيرات مجدولة
+                      </p>
+                      <p className="text-sm mt-1">
+                        استخدم الزر أعلاه لجدولة تذكيرات للطلبات المتأخرة
+                      </p>
+                    </div>
                   ) : (
                     <>
                       <div className="space-y-3 md:hidden">
@@ -1253,11 +1237,11 @@ export default function CODReconciliationPage() {
                               <Badge
                                 className={cn(
                                   reminder.status === "pending" &&
-                                    "border-[color:var(--border-default)] bg-[color:var(--bg-surface-2)] text-[color:var(--text-secondary)]",
+                                    "bg-gray-100 text-gray-800",
                                   reminder.status === "sent" &&
-                                    "border-[color:rgba(34,197,94,0.28)] bg-[color:rgba(34,197,94,0.1)] text-[color:#86efac]",
+                                    "bg-green-100 text-green-800",
                                   reminder.status === "acknowledged" &&
-                                    "border-[color:rgba(59,130,246,0.26)] bg-[color:rgba(59,130,246,0.12)] text-[color:#93c5fd]",
+                                    "bg-blue-100 text-blue-800",
                                 )}
                               >
                                 {reminder.status === "pending" && "في الانتظار"}
@@ -1279,7 +1263,7 @@ export default function CODReconciliationPage() {
                                 </p>
                                 <Badge
                                   variant="outline"
-                                  className="border-[color:rgba(245,158,11,0.24)] bg-[color:rgba(245,158,11,0.1)] text-[color:#fdba74]"
+                                  className="bg-orange-50 text-orange-700"
                                 >
                                   {reminder.daysPastDue} يوم
                                 </Badge>
@@ -1292,12 +1276,12 @@ export default function CODReconciliationPage() {
                                   className={cn(
                                     reminder.reminderType ===
                                       "first_reminder" &&
-                                      "border-[color:rgba(59,130,246,0.26)] bg-[color:rgba(59,130,246,0.12)] text-[color:#93c5fd]",
+                                      "bg-blue-100 text-blue-800",
                                     reminder.reminderType ===
                                       "second_reminder" &&
-                                      "border-[color:rgba(245,158,11,0.28)] bg-[color:rgba(245,158,11,0.12)] text-[color:#fcd34d]",
+                                      "bg-yellow-100 text-yellow-800",
                                     reminder.reminderType === "final_notice" &&
-                                      "border-[color:rgba(239,68,68,0.3)] bg-[color:rgba(239,68,68,0.1)] text-[color:#fca5a5]",
+                                      "bg-red-100 text-red-800",
                                   )}
                                 >
                                   {reminder.reminderType === "first_reminder" &&
@@ -1322,9 +1306,9 @@ export default function CODReconciliationPage() {
                           </div>
                         ))}
                       </div>
-                      <div className="hidden overflow-hidden rounded-[var(--radius-md)] border border-[color:var(--border-subtle)] md:block">
+                      <div className="hidden overflow-hidden rounded-md border md:block">
                         <table className="w-full text-sm" dir="rtl">
-                          <thead className="bg-[color:var(--bg-surface-2)]">
+                          <thead className="bg-muted/50">
                             <tr>
                               <th className="p-3 text-right font-medium">
                                 رقم الطلب
@@ -1353,7 +1337,7 @@ export default function CODReconciliationPage() {
                             {reminders.map((reminder) => (
                               <tr
                                 key={reminder.id}
-                                className="border-t border-[color:var(--border-subtle)] transition-colors hover:bg-[color:var(--bg-surface-2)]"
+                                className="border-t hover:bg-muted/30"
                               >
                                 <td className="p-3 font-mono text-xs">
                                   {reminder.orderNumber}
@@ -1365,7 +1349,7 @@ export default function CODReconciliationPage() {
                                 <td className="p-3">
                                   <Badge
                                     variant="outline"
-                                    className="border-[color:rgba(245,158,11,0.24)] bg-[color:rgba(245,158,11,0.1)] text-[color:#fdba74]"
+                                    className="bg-orange-50 text-orange-700"
                                   >
                                     {reminder.daysPastDue} يوم
                                   </Badge>
@@ -1375,13 +1359,13 @@ export default function CODReconciliationPage() {
                                     className={cn(
                                       reminder.reminderType ===
                                         "first_reminder" &&
-                                        "border-[color:rgba(59,130,246,0.26)] bg-[color:rgba(59,130,246,0.12)] text-[color:#93c5fd]",
+                                        "bg-blue-100 text-blue-800",
                                       reminder.reminderType ===
                                         "second_reminder" &&
-                                        "border-[color:rgba(245,158,11,0.28)] bg-[color:rgba(245,158,11,0.12)] text-[color:#fcd34d]",
+                                        "bg-yellow-100 text-yellow-800",
                                       reminder.reminderType ===
                                         "final_notice" &&
-                                        "border-[color:rgba(239,68,68,0.3)] bg-[color:rgba(239,68,68,0.1)] text-[color:#fca5a5]",
+                                        "bg-red-100 text-red-800",
                                     )}
                                   >
                                     {reminder.reminderType ===
@@ -1396,11 +1380,11 @@ export default function CODReconciliationPage() {
                                   <Badge
                                     className={cn(
                                       reminder.status === "pending" &&
-                                        "border-[color:var(--border-default)] bg-[color:var(--bg-surface-2)] text-[color:var(--text-secondary)]",
+                                        "bg-gray-100 text-gray-800",
                                       reminder.status === "sent" &&
-                                        "border-[color:rgba(34,197,94,0.28)] bg-[color:rgba(34,197,94,0.1)] text-[color:#86efac]",
+                                        "bg-green-100 text-green-800",
                                       reminder.status === "acknowledged" &&
-                                        "border-[color:rgba(59,130,246,0.26)] bg-[color:rgba(59,130,246,0.12)] text-[color:#93c5fd]",
+                                        "bg-blue-100 text-blue-800",
                                     )}
                                   >
                                     {reminder.status === "pending" &&
@@ -1543,7 +1527,7 @@ export default function CODReconciliationPage() {
             {!importPreview ? (
               <>
                 {/* File Upload Section */}
-                <div className="rounded-lg border-2 border-dashed border-[var(--border-default)] p-8 text-center transition-colors hover:border-[var(--accent-blue)]">
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-primary transition-colors">
                   <input
                     type="file"
                     accept=".csv,.txt"
@@ -1552,7 +1536,7 @@ export default function CODReconciliationPage() {
                     id="csv-upload"
                   />
                   <label htmlFor="csv-upload" className="cursor-pointer">
-                    <Upload className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
+                    <Upload className="h-12 w-12 mx-auto text-gray-400 mb-4" />
                     <p className="text-sm text-muted-foreground mb-2">
                       اسحب ملف CSV هنا أو انقر للاختيار
                     </p>
@@ -1593,7 +1577,7 @@ export default function CODReconciliationPage() {
                 {/* Summary Stats */}
                 {importSummary && (
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                    <div className="rounded-[var(--radius-sm)] border border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-2)] p-3 text-center">
+                    <div className="bg-muted rounded p-3 text-center">
                       <div className="text-lg font-bold">
                         {importSummary.total}
                       </div>
@@ -1601,24 +1585,24 @@ export default function CODReconciliationPage() {
                         إجمالي الصفوف
                       </div>
                     </div>
-                    <div className="rounded-[var(--radius-sm)] border border-[color:rgba(34,197,94,0.28)] bg-[color:rgba(34,197,94,0.1)] p-3 text-center">
-                      <div className="text-lg font-bold text-[color:var(--accent-success)]">
+                    <div className="bg-green-50 rounded p-3 text-center">
+                      <div className="text-lg font-bold text-green-600">
                         {importSummary.matched}
                       </div>
                       <div className="text-xs text-muted-foreground">
                         متطابق
                       </div>
                     </div>
-                    <div className="rounded-[var(--radius-sm)] border border-[color:rgba(245,158,11,0.28)] bg-[color:rgba(245,158,11,0.12)] p-3 text-center">
-                      <div className="text-lg font-bold text-[color:var(--accent-warning)]">
+                    <div className="bg-yellow-50 rounded p-3 text-center">
+                      <div className="text-lg font-bold text-yellow-600">
                         {importSummary.unmatched}
                       </div>
                       <div className="text-xs text-muted-foreground">
                         غير متطابق
                       </div>
                     </div>
-                    <div className="rounded-[var(--radius-sm)] border border-[color:rgba(59,130,246,0.26)] bg-[color:rgba(59,130,246,0.12)] p-3 text-center">
-                      <div className="text-lg font-bold text-[color:var(--accent-blue)]">
+                    <div className="bg-blue-50 rounded p-3 text-center">
+                      <div className="text-lg font-bold text-blue-600">
                         {formatCurrency(importSummary.totalAmount)}
                       </div>
                       <div className="text-xs text-muted-foreground">
@@ -1635,11 +1619,11 @@ export default function CODReconciliationPage() {
                       <div className="flex items-start justify-between gap-3">
                         <p className="font-mono text-xs">{row.orderNumber}</p>
                         {row.matched ? (
-                          <Badge className="border-[color:rgba(34,197,94,0.28)] bg-[color:rgba(34,197,94,0.1)] text-[color:#86efac]">
+                          <Badge className="bg-green-100 text-green-800">
                             ✓ متطابق
                           </Badge>
                         ) : (
-                          <Badge className="border-[color:rgba(245,158,11,0.28)] bg-[color:rgba(245,158,11,0.12)] text-[color:#fcd34d]">
+                          <Badge className="bg-yellow-100 text-yellow-800">
                             ؟ غير متطابق
                           </Badge>
                         )}
@@ -1662,9 +1646,9 @@ export default function CODReconciliationPage() {
                     </div>
                   )}
                 </div>
-                <div className="hidden max-h-64 overflow-auto rounded-[var(--radius-md)] border border-[color:var(--border-subtle)] md:block">
+                <div className="hidden max-h-64 overflow-auto rounded-lg border md:block">
                   <table className="w-full text-sm">
-                    <thead className="sticky top-0 bg-[color:var(--bg-surface-2)]">
+                    <thead className="bg-muted sticky top-0">
                       <tr>
                         <th className="text-right p-2">رقم الطلب</th>
                         <th className="text-right p-2">المبلغ</th>
@@ -1684,11 +1668,11 @@ export default function CODReconciliationPage() {
                           </td>
                           <td className="p-2">
                             {row.matched ? (
-                              <Badge className="border-[color:rgba(34,197,94,0.28)] bg-[color:rgba(34,197,94,0.1)] text-[color:#86efac]">
+                              <Badge className="bg-green-100 text-green-800">
                                 ✓ متطابق
                               </Badge>
                             ) : (
-                              <Badge className="border-[color:rgba(245,158,11,0.28)] bg-[color:rgba(245,158,11,0.12)] text-[color:#fcd34d]">
+                              <Badge className="bg-yellow-100 text-yellow-800">
                                 ؟ غير متطابق
                               </Badge>
                             )}
@@ -1696,7 +1680,7 @@ export default function CODReconciliationPage() {
                         </tr>
                       ))}
                       {importedRows.length > 10 && (
-                        <tr className="border-t border-[color:var(--border-subtle)] bg-[color:var(--bg-surface-2)]">
+                        <tr className="border-t bg-muted/50">
                           <td
                             colSpan={4}
                             className="p-2 text-center text-muted-foreground"

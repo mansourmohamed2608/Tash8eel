@@ -117,15 +117,15 @@ export default function OnboardingPage() {
             <Link key={step.id} href={step.href}>
               <Card
                 className={cn(
-                  "h-full cursor-pointer transition-colors hover:bg-[var(--bg-surface-2)]",
+                  "cursor-pointer transition-shadow hover:shadow-md h-full",
                   step.completed &&
-                    "border-[color:color-mix(in_srgb,var(--accent-success)_20%,transparent)] bg-[var(--success-muted)]",
+                    "border-green-200 bg-green-50/30 dark:border-green-900 dark:bg-green-950/20",
                 )}
               >
                 <CardHeader className="pb-2">
                   <CardTitle className="flex items-center gap-2 text-base">
                     {step.completed ? (
-                      <CheckCircle2 className="h-5 w-5 shrink-0 text-[var(--accent-success)]" />
+                      <CheckCircle2 className="h-5 w-5 text-green-600 shrink-0" />
                     ) : (
                       <Icon className="h-5 w-5 text-muted-foreground shrink-0" />
                     )}
@@ -144,9 +144,7 @@ export default function OnboardingPage() {
                   <div
                     className={cn(
                       "text-xs font-medium",
-                      step.completed
-                        ? "text-[var(--accent-success)]"
-                        : "text-[var(--accent-warning)]",
+                      step.completed ? "text-green-700" : "text-amber-600",
                     )}
                   >
                     {step.metric}
@@ -165,7 +163,7 @@ export default function OnboardingPage() {
         <CardContent className="space-y-2 text-sm text-muted-foreground">
           <p>• فعّل الإشعارات المهمة لتفادي نفاد المخزون أو تأخير الطلبات.</p>
           <p>• راجع لوحة التقارير والمؤشرات لفهم الأداء واتخاذ قرارات أسرع.</p>
-          <p>• أضف قاعدة المعرفة ليفهم المساعد سياساتك وأسعارك.</p>
+          <p>• أضف قاعدة المعرفة ليتعلم الذكاء الاصطناعي عن سياساتك وأسعارك.</p>
         </CardContent>
       </Card>
     </div>

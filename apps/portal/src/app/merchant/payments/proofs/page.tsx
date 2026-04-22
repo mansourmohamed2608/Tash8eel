@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import Link from "next/link";
 import { PageHeader } from "@/components/layout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,6 +10,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { DataTable, Pagination } from "@/components/ui/data-table";
 import { TableSkeleton } from "@/components/ui/skeleton";
 import { EmptyState, AlertBanner } from "@/components/ui/alerts";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -34,6 +40,10 @@ import { formatDate, formatCurrency } from "@/lib/utils";
 import { merchantApi } from "@/lib/client";
 import { useMerchant } from "@/hooks/use-merchant";
 import { useToast } from "@/hooks/use-toast";
+import {
+  AiInsightsCard,
+  generatePaymentsInsights,
+} from "@/components/ai/ai-insights-card";
 
 interface PaymentProof {
   id: string;
@@ -84,22 +94,6 @@ interface ProofSummary {
   rejected: number;
 }
 
-function getFreshness(updatedAt: Date | null) {
-  if (!updatedAt) return { label: "لم يتم التحديث", state: "old" as const };
-  const minutes = Math.max(
-    0,
-    Math.floor((Date.now() - updatedAt.getTime()) / 60000),
-  );
-  if (minutes < 1) return { label: "آخر تحديث: الآن", state: "fresh" as const };
-  if (minutes <= 5) {
-    return { label: `آخر تحديث: منذ ${minutes} د`, state: "fresh" as const };
-  }
-  if (minutes <= 30) {
-    return { label: `آخر تحديث: منذ ${minutes} د`, state: "stale" as const };
-  }
-  return { label: "بيانات الإثباتات قديمة", state: "old" as const };
-}
-
 function resolveProofImageUrl(rawUrl?: string): string | null {
   if (!rawUrl) return null;
   if (/^https?:\/\//i.test(rawUrl) || rawUrl.startsWith("data:")) return rawUrl;
@@ -130,7 +124,6 @@ export default function PaymentProofsPage() {
   const [rejectionReason, setRejectionReason] = useState("");
   const [verifying, setVerifying] = useState(false);
   const [imageLoadFailed, setImageLoadFailed] = useState(false);
-  const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
 
   const limit = 10;
 
@@ -151,7 +144,6 @@ export default function PaymentProofsPage() {
         approved: Number(response.summary?.approved || 0),
         rejected: Number(response.summary?.rejected || 0),
       });
-      setLastUpdatedAt(new Date());
     } catch (err) {
       console.error("Failed to fetch proofs:", err);
       toast({
@@ -209,19 +201,19 @@ export default function PaymentProofsPage() {
     switch (status) {
       case "PENDING":
         return (
-          <Badge className="border-[color:rgba(245,158,11,0.28)] bg-[color:rgba(245,158,11,0.12)] text-[color:#fcd34d]">
+          <Badge className="bg-amber-100 text-amber-800">
             <Clock className="h-3 w-3 ml-1" /> في الانتظار
           </Badge>
         );
       case "APPROVED":
         return (
-          <Badge className="border-[color:rgba(34,197,94,0.28)] bg-[color:rgba(34,197,94,0.1)] text-[color:#86efac]">
+          <Badge className="bg-green-100 text-green-800">
             <CheckCircle className="h-3 w-3 ml-1" /> معتمد
           </Badge>
         );
       case "REJECTED":
         return (
-          <Badge className="border-[color:rgba(239,68,68,0.3)] bg-[color:rgba(239,68,68,0.1)] text-[color:#fca5a5]">
+          <Badge className="bg-red-100 text-red-800">
             <XCircle className="h-3 w-3 ml-1" /> مرفوض
           </Badge>
         );
@@ -234,47 +226,23 @@ export default function PaymentProofsPage() {
     if (!confidence) return null;
     const pct = Math.round(confidence * 100);
     if (pct >= 85) {
-      return (
-        <Badge className="border-[color:rgba(34,197,94,0.28)] bg-[color:rgba(34,197,94,0.1)] text-[color:#86efac]">
-          {pct}%
-        </Badge>
-      );
+      return <Badge className="bg-green-100 text-green-800">{pct}%</Badge>;
     } else if (pct >= 60) {
-      return (
-        <Badge className="border-[color:rgba(245,158,11,0.28)] bg-[color:rgba(245,158,11,0.12)] text-[color:#fcd34d]">
-          {pct}%
-        </Badge>
-      );
+      return <Badge className="bg-amber-100 text-amber-800">{pct}%</Badge>;
     } else {
-      return (
-        <Badge className="border-[color:rgba(239,68,68,0.3)] bg-[color:rgba(239,68,68,0.1)] text-[color:#fca5a5]">
-          {pct}%
-        </Badge>
-      );
+      return <Badge className="bg-red-100 text-red-800">{pct}%</Badge>;
     }
   };
 
   const getRiskBadge = (level?: string, score?: number) => {
     const label = `${level || "LOW"} (${Number(score || 0)})`;
     if (level === "HIGH") {
-      return (
-        <Badge className="border-[color:rgba(239,68,68,0.3)] bg-[color:rgba(239,68,68,0.1)] text-[color:#fca5a5]">
-          {label}
-        </Badge>
-      );
+      return <Badge className="bg-red-100 text-red-800">{label}</Badge>;
     }
     if (level === "MEDIUM") {
-      return (
-        <Badge className="border-[color:rgba(245,158,11,0.28)] bg-[color:rgba(245,158,11,0.12)] text-[color:#fcd34d]">
-          {label}
-        </Badge>
-      );
+      return <Badge className="bg-amber-100 text-amber-800">{label}</Badge>;
     }
-    return (
-      <Badge className="border-[color:rgba(34,197,94,0.28)] bg-[color:rgba(34,197,94,0.1)] text-[color:#86efac]">
-        {label}
-      </Badge>
-    );
+    return <Badge className="bg-emerald-100 text-emerald-800">{label}</Badge>;
   };
 
   const pendingCount = summary.pending;
@@ -282,18 +250,14 @@ export default function PaymentProofsPage() {
   const rejectedCount = summary.rejected;
   const summaryTotal = summary.total;
   const proofImageUrl = resolveProofImageUrl(selectedProof?.imageUrl);
-  const freshness = getFreshness(lastUpdatedAt);
 
   return (
     <div className="space-y-6 p-4 sm:p-6">
       <PageHeader
         title="إثباتات الدفع"
-        description="مراجعة إثباتات الدفع وربطها بتسويات التحصيل قبل الاعتماد."
+        description="مراجعة واعتماد إثباتات الدفع من العملاء"
         actions={
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
-            <Button asChild variant="outline" size="sm">
-              <Link href="/merchant/payments/cod">فتح التسويات</Link>
-            </Button>
+          <div className="flex w-full sm:w-auto">
             <Button
               onClick={fetchProofs}
               variant="outline"
@@ -306,65 +270,94 @@ export default function PaymentProofsPage() {
           </div>
         }
       />
-      <section className="rounded-[var(--radius-base)] border border-[var(--color-border)] bg-[var(--color-surface)] p-3 shadow-[var(--shadow-sm)]">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex flex-wrap items-center gap-3 text-sm">
-            <span>
-              تحتاج مراجعة:{" "}
-              <strong className="font-mono text-[var(--color-warning-text)]">
-                {pendingCount}
-              </strong>
-            </span>
-            <span className="text-[var(--color-border)]">|</span>
-            <span>
-              معتمدة:{" "}
-              <strong className="font-mono text-[var(--color-success-text)]">
-                {approvedCount}
-              </strong>
-            </span>
-            <span className="text-[var(--color-border)]">|</span>
-            <span>
-              مرفوضة:{" "}
-              <strong className="font-mono text-[var(--color-danger-text)]">
-                {rejectedCount}
-              </strong>
-            </span>
-          </div>
-          <span
-            className={
-              freshness.state === "old"
-                ? "text-xs text-[var(--color-danger-text)]"
-                : freshness.state === "stale"
-                  ? "text-xs text-[var(--color-warning-text)]"
-                  : "text-xs text-[var(--color-text-secondary)]"
-            }
-          >
-            {freshness.label}
-          </span>
-        </div>
-      </section>
-      <div className="flex flex-wrap gap-2">
-        {[
-          { id: "ALL", label: "الكل", count: summaryTotal },
-          { id: "PENDING", label: "في الانتظار", count: pendingCount },
-          { id: "APPROVED", label: "معتمد", count: approvedCount },
-          { id: "REJECTED", label: "مرفوض", count: rejectedCount },
-        ].map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            onClick={() => setStatusFilter(item.id)}
-            className={
-              statusFilter === item.id
-                ? "inline-flex h-9 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--color-brand-primary)] bg-[var(--color-brand-primary)] px-3 text-xs font-semibold text-[var(--color-brand-on-primary)]"
-                : "inline-flex h-9 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-1)] px-3 text-xs font-semibold text-[var(--text-secondary)] hover:border-[var(--border-active)] hover:text-[var(--text-primary)]"
-            }
-          >
-            <span>{item.label}</span>
-            <span className="font-mono">{item.count}</span>
-          </button>
-        ))}
+
+      {/* AI Payment Proofs Insights */}
+      <AiInsightsCard
+        title="مساعد إثباتات الدفع"
+        insights={generatePaymentsInsights({
+          totalLinks: 0,
+          pendingProofs: pendingCount,
+          totalProofs: summaryTotal,
+        })}
+        loading={loading}
+      />
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-amber-100 rounded-lg">
+                <Clock className="h-5 w-5 text-amber-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{pendingCount}</p>
+                <p className="text-sm text-muted-foreground">في الانتظار</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-green-100 rounded-lg">
+                <CheckCircle className="h-5 w-5 text-green-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{approvedCount}</p>
+                <p className="text-sm text-muted-foreground">معتمد</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-red-100 rounded-lg">
+                <XCircle className="h-5 w-5 text-red-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{rejectedCount}</p>
+                <p className="text-sm text-muted-foreground">مرفوض</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-blue-100 rounded-lg">
+                <Receipt className="h-5 w-5 text-blue-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{summaryTotal}</p>
+                <p className="text-sm text-muted-foreground">إجمالي</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
+
+      {/* Filters */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+            <div className="w-full sm:w-48">
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="كل الحالات" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">كل الحالات</SelectItem>
+                  <SelectItem value="PENDING">في الانتظار</SelectItem>
+                  <SelectItem value="APPROVED">معتمد</SelectItem>
+                  <SelectItem value="REJECTED">مرفوض</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Proofs List */}
       {loading ? (
@@ -373,15 +366,10 @@ export default function PaymentProofsPage() {
         <EmptyState
           icon={<Receipt className="h-12 w-12" />}
           title="لا توجد إثباتات دفع"
-          description="لا توجد إثباتات تحتاج مراجعة ضمن الفلتر الحالي. ارجع إلى التسويات لمتابعة التحصيل المتوقع أو غيّر حالة الفلتر."
-          action={
-            <Button asChild variant="outline">
-              <Link href="/merchant/payments/cod">فتح التسويات</Link>
-            </Button>
-          }
+          description="لم يتم إرسال أي إثباتات دفع بعد"
         />
       ) : (
-        <Card className="app-data-card">
+        <Card>
           <div className="md:hidden divide-y">
             {proofs.map((proof) => (
               <div key={proof.id} className="space-y-4 p-4">

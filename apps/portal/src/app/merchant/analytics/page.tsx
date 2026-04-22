@@ -37,6 +37,11 @@ import { merchantApi } from "@/lib/client";
 import { formatCurrency } from "@/lib/utils";
 import { useMerchant } from "@/hooks/use-merchant";
 import {
+  AiInsightsCard,
+  generateAnalyticsInsights,
+} from "@/components/ai/ai-insights-card";
+import { SmartAnalysisButton } from "@/components/ai/smart-analysis-button";
+import {
   REPORTING_PERIOD_OPTIONS,
   getReportingDateRange,
   getStoredReportingDays,
@@ -236,7 +241,7 @@ export default function AnalyticsPage() {
   if (loading) {
     return (
       <div className="p-4 sm:p-6">
-        <PageHeader title="التقارير / التحليلات التشغيلية" />
+        <PageHeader title="التحليلات" />
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {[...Array(4)].map((_, i) => (
             <Card key={i}>
@@ -253,7 +258,7 @@ export default function AnalyticsPage() {
   if (error) {
     return (
       <div className="p-4 sm:p-6">
-        <PageHeader title="التقارير / التحليلات التشغيلية" />
+        <PageHeader title="التحليلات" />
         <Card>
           <CardContent className="p-12">
             <div className="flex flex-col items-center justify-center text-center">
@@ -293,7 +298,7 @@ export default function AnalyticsPage() {
   return (
     <div className="space-y-8 animate-fadeIn p-4 sm:p-6">
       <PageHeader
-        title="التقارير / التحليلات التشغيلية"
+        title="التحليلات"
         description="قراءة تنفيذية دقيقة للتحويلات، الاستجابة، المنتجات، وأوقات الذروة."
         actions={
           <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
@@ -329,54 +334,77 @@ export default function AnalyticsPage() {
         }
       />
 
-      <div className="flex flex-wrap gap-2">
-        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
-          <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-          <span className="text-muted-foreground">الفترة</span>
-          <span className="text-foreground">{selectedPeriodSummary}</span>
+      <section className="app-hero-band">
+        <div className="app-hero-band__grid">
+          <div className="space-y-4">
+            <span className="app-hero-band__eyebrow">Commerce Analytics</span>
+            <div className="space-y-3">
+              <h2 className="app-hero-band__title">
+                تحليلات تشغيلية مركزة على القرارات، لا مجرد رسوم بيانية.
+              </h2>
+              <p className="app-hero-band__copy">
+                راقب مسار التحويل، زمن الاستجابة، المنتجات الأعلى أداءً، وأوقات
+                الذروة من نفس الصفحة. كل تبويب هنا مصمم ليقودك إلى إجراء واضح.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Badge variant="info">{selectedPeriodSummary}</Badge>
+              {failedSectionsCount > 0 ? (
+                <Badge variant="warning">
+                  تعذر تحميل {failedSectionsCount} قسم
+                </Badge>
+              ) : (
+                <Badge variant="success">جميع الأقسام محدثة</Badge>
+              )}
+            </div>
+          </div>
+          <div className="app-hero-band__metrics">
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">التحويل الكلي</span>
+              <strong className="app-hero-band__metric-value">
+                {Math.round(conversionData?.rates?.conversionRate || 0)}%
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">
+                متوسط الاستجابة
+              </span>
+              <strong className="app-hero-band__metric-value">
+                {responseTimeData?.formatted?.average || "—"}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">أعلى منتج</span>
+              <strong className="app-hero-band__metric-value">
+                {popularProducts[0]?.name || "—"}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">ذروة الرسائل</span>
+              <strong className="app-hero-band__metric-value">
+                {peakHoursData?.peaks?.messages?.label || "—"}
+              </strong>
+            </div>
+          </div>
         </div>
-        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
-          <Target className="h-3.5 w-3.5 text-[var(--color-brand-primary)]" />
-          <span className="text-muted-foreground">التحويل</span>
-          <span className="font-mono text-[var(--color-brand-primary)]">
-            {Math.round(conversionData?.rates?.conversionRate || 0)}%
-          </span>
-        </div>
-        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
-          <Clock className="h-3.5 w-3.5 text-[var(--accent-blue)]" />
-          <span className="text-muted-foreground">الاستجابة</span>
-          <span className="font-mono text-[var(--accent-blue)]">
-            {responseTimeData?.formatted?.average || "—"}
-          </span>
-        </div>
-        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
-          <Package className="h-3.5 w-3.5 text-[var(--accent-success)]" />
-          <span className="text-muted-foreground">أعلى منتج</span>
-          <span className="max-w-[220px] truncate text-foreground">
-            {popularProducts[0]?.name || "—"}
-          </span>
-        </div>
-        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
-          <Zap className="h-3.5 w-3.5 text-[var(--accent-warning)]" />
-          <span className="text-muted-foreground">ذروة الرسائل</span>
-          <span className="font-mono text-[var(--accent-warning)]">
-            {peakHoursData?.peaks?.messages?.label || "—"}
-          </span>
-        </div>
-        <div className="flex h-8 items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface-2)] px-3 text-xs">
-          <AlertCircle className="h-3.5 w-3.5 text-[var(--accent-warning)]" />
-          <span className="text-muted-foreground">الأقسام المتعثرة</span>
-          <span
-            className={
-              failedSectionsCount > 0
-                ? "font-mono text-[var(--accent-warning)]"
-                : "font-mono text-[var(--accent-success)]"
-            }
-          >
-            {failedSectionsCount}
-          </span>
-        </div>
-      </div>
+      </section>
+
+      {/* AI Analytics Insights */}
+      <AiInsightsCard
+        title="تحليلات ذكية"
+        insights={generateAnalyticsInsights({
+          conversionRate: conversionData?.rates?.conversionRate,
+          avgResponseTime: responseTimeData?.responseTimes?.averageSeconds
+            ? responseTimeData.responseTimes.averageSeconds / 60
+            : undefined,
+          topProductCount: popularProducts?.length ?? 0,
+          peakHour: peakHoursData?.peaks?.messages?.hour,
+        })}
+        loading={loading}
+      />
+
+      {/* GPT-Powered Smart Analysis */}
+      <SmartAnalysisButton context="analytics" />
 
       <div className="app-data-card app-data-card--muted rounded-[22px] px-3 py-2 text-sm text-muted-foreground">
         <div className="flex flex-wrap items-center gap-2">
@@ -387,7 +415,7 @@ export default function AnalyticsPage() {
         </div>
       </div>
       {failedSectionsCount > 0 && (
-        <p className="text-xs text-[var(--accent-warning)]">
+        <p className="text-xs text-amber-600">
           تعذر تحميل {failedSectionsCount} قسم من التحليلات في هذه المحاولة.
           يمكن إعادة التحديث.
         </p>
@@ -428,8 +456,8 @@ export default function AnalyticsPage() {
                 <Card className="app-data-card">
                   <CardContent className="p-4">
                     <div className="flex items-center gap-3">
-                      <div className="rounded-lg border border-[var(--accent-blue)]/30 bg-[var(--accent-blue)]/10 p-2">
-                        <Users className="h-5 w-5 text-[var(--accent-blue)]" />
+                      <div className="p-2 bg-blue-500/10 rounded-lg">
+                        <Users className="h-5 w-5 text-blue-500" />
                       </div>
                       <div>
                         <p className="text-2xl font-bold">
@@ -445,8 +473,8 @@ export default function AnalyticsPage() {
                 <Card className="app-data-card">
                   <CardContent className="p-4">
                     <div className="flex items-center gap-3">
-                      <div className="rounded-lg border border-[var(--accent-warning)]/30 bg-[var(--accent-warning)]/10 p-2">
-                        <ShoppingCart className="h-5 w-5 text-[var(--accent-warning)]" />
+                      <div className="p-2 bg-yellow-500/10 rounded-lg">
+                        <ShoppingCart className="h-5 w-5 text-yellow-500" />
                       </div>
                       <div>
                         <p className="text-2xl font-bold">
@@ -465,8 +493,8 @@ export default function AnalyticsPage() {
                 <Card>
                   <CardContent className="p-4">
                     <div className="flex items-center gap-3">
-                      <div className="rounded-lg border border-[var(--color-brand-primary)]/30 bg-[var(--color-brand-primary)]/10 p-2">
-                        <BarChart className="h-5 w-5 text-[var(--color-brand-primary)]" />
+                      <div className="p-2 bg-orange-500/10 rounded-lg">
+                        <BarChart className="h-5 w-5 text-orange-500" />
                       </div>
                       <div>
                         <p className="text-2xl font-bold">
@@ -485,8 +513,8 @@ export default function AnalyticsPage() {
                 <Card>
                   <CardContent className="p-4">
                     <div className="flex items-center gap-3">
-                      <div className="rounded-lg border border-[var(--accent-success)]/30 bg-[var(--accent-success)]/10 p-2">
-                        <TrendingUp className="h-5 w-5 text-[var(--accent-success)]" />
+                      <div className="p-2 bg-green-500/10 rounded-lg">
+                        <TrendingUp className="h-5 w-5 text-green-500" />
                       </div>
                       <div>
                         <p className="text-2xl font-bold">
@@ -497,7 +525,7 @@ export default function AnalyticsPage() {
                         </p>
                         <Badge
                           variant="default"
-                          className="mt-1 border-0 bg-[var(--accent-success)]/15 text-xs text-[var(--accent-success)]"
+                          className="text-xs mt-1 bg-green-500"
                         >
                           {conversionData.rates.checkoutToOrder}% من الدفع
                         </Badge>
@@ -522,25 +550,25 @@ export default function AnalyticsPage() {
                         label: "المحادثات",
                         value: conversionData.funnel.totalConversations,
                         rate: 100,
-                        color: "bg-[var(--accent-blue)]",
+                        color: "bg-blue-500",
                       },
                       {
                         label: "السلة",
                         value: conversionData.funnel.addedToCart,
                         rate: conversionData.rates.cartRate,
-                        color: "bg-[var(--accent-warning)]",
+                        color: "bg-yellow-500",
                       },
                       {
                         label: "الدفع",
                         value: conversionData.funnel.startedCheckout,
                         rate: conversionData.rates.checkoutRate,
-                        color: "bg-[var(--color-brand-primary)]",
+                        color: "bg-orange-500",
                       },
                       {
                         label: "مكتمل",
                         value: conversionData.funnel.completedOrder,
                         rate: conversionData.rates.conversionRate,
-                        color: "bg-[var(--accent-success)]",
+                        color: "bg-green-500",
                       },
                     ].map((step, idx) => (
                       <div key={idx} className="flex items-center gap-4">
@@ -619,7 +647,7 @@ export default function AnalyticsPage() {
               </Card>
               <Card>
                 <CardContent className="p-6 text-center">
-                  <TrendingDown className="mx-auto mb-2 h-8 w-8 text-[var(--accent-success)]" />
+                  <TrendingDown className="h-8 w-8 mx-auto text-green-500 mb-2" />
                   <p className="text-3xl font-bold">
                     {responseTimeData.formatted.min}
                   </p>
@@ -628,7 +656,7 @@ export default function AnalyticsPage() {
               </Card>
               <Card>
                 <CardContent className="p-6 text-center">
-                  <TrendingUp className="mx-auto mb-2 h-8 w-8 text-[var(--accent-danger)]" />
+                  <TrendingUp className="h-8 w-8 mx-auto text-red-500 mb-2" />
                   <p className="text-3xl font-bold">
                     {responseTimeData.formatted.max}
                   </p>
@@ -637,7 +665,7 @@ export default function AnalyticsPage() {
               </Card>
               <Card>
                 <CardContent className="p-6 text-center">
-                  <BarChart className="mx-auto mb-2 h-8 w-8 text-[var(--accent-blue)]" />
+                  <BarChart className="h-8 w-8 mx-auto text-blue-500 mb-2" />
                   <p className="text-3xl font-bold">
                     {responseTimeData.formatted.median}
                   </p>
@@ -703,7 +731,7 @@ export default function AnalyticsPage() {
                         <p className="font-bold">
                           {product.totalQuantity} قطعة
                         </p>
-                        <p className="text-sm text-[var(--accent-success)]">
+                        <p className="text-sm text-green-600">
                           {formatCurrency(product.totalRevenue)}
                         </p>
                       </div>
@@ -749,8 +777,8 @@ export default function AnalyticsPage() {
                 <Card>
                   <CardContent className="p-6">
                     <div className="flex items-center gap-4">
-                      <div className="rounded-lg border border-[var(--accent-blue)]/30 bg-[var(--accent-blue)]/10 p-3">
-                        <Users className="h-6 w-6 text-[var(--accent-blue)]" />
+                      <div className="p-3 bg-blue-500/10 rounded-lg">
+                        <Users className="h-6 w-6 text-blue-500" />
                       </div>
                       <div>
                         <p className="text-sm text-muted-foreground">
@@ -769,8 +797,8 @@ export default function AnalyticsPage() {
                 <Card>
                   <CardContent className="p-6">
                     <div className="flex items-center gap-4">
-                      <div className="rounded-lg border border-[var(--accent-success)]/30 bg-[var(--accent-success)]/10 p-3">
-                        <ShoppingCart className="h-6 w-6 text-[var(--accent-success)]" />
+                      <div className="p-3 bg-green-500/10 rounded-lg">
+                        <ShoppingCart className="h-6 w-6 text-green-500" />
                       </div>
                       <div>
                         <p className="text-sm text-muted-foreground">
@@ -826,7 +854,7 @@ export default function AnalyticsPage() {
                                 }}
                               />
                               <div
-                                className="w-[45%] rounded-t bg-[var(--accent-success)]/80 transition-all duration-300 hover:bg-[var(--accent-success)]"
+                                className="w-[45%] bg-green-500/80 rounded-t transition-all duration-300 hover:bg-green-500"
                                 style={{
                                   height: `${orderHeight}%`,
                                   minHeight: stat.orderCount > 0 ? "4px" : "0",
@@ -849,7 +877,7 @@ export default function AnalyticsPage() {
                       <span>الرسائل</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <div className="h-3 w-3 rounded bg-[var(--accent-success)]" />
+                      <div className="w-3 h-3 bg-green-500 rounded" />
                       <span>الطلبات</span>
                     </div>
                   </div>
