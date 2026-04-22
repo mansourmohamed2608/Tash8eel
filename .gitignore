@@ -3,6 +3,9 @@ dist/
 coverage/
 .env
 .env.local
+.env.*
+!.env.example
+!**/.env.example
 *.log
 *.err.txt
 *.out.txt
@@ -28,6 +31,20 @@ Ai Agents/
 # Archive files
 *.zip
 *.tar.gz
+
+# Local backup snapshots / throwaway compose copies
+docker-compose.yml.bak.*
+
+# Local troubleshooting outputs
+dev_output.txt
+seed-demo-result.txt
+seed[0-9].txt
+table-audit-results.txt
+tsc_*.txt
+worker_tsc_errors.txt
+audit_fix_result.txt
+schema-out.txt
+wrong-stack-snapshot.sql
 
 # Legacy root-level files (use apps/api/migrations instead)
 /migrations/
