@@ -13,7 +13,11 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./apps/api/migrations:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-operations}",
+        ]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -96,6 +100,8 @@ services:
       OUTBOX_BATCH_SIZE: ${OUTBOX_BATCH_SIZE:-10}
       ORCHESTRATOR_CONCURRENCY: ${ORCHESTRATOR_CONCURRENCY:-5}
       WORKER_HEALTH_PORT: 3002
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-}
+      API_BASE_URL: ${API_BASE_URL:-http://api:3000}
     depends_on:
       postgres:
         condition: service_healthy
