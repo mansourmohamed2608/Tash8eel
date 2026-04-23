@@ -700,6 +700,49 @@ export const merchantApi = {
     );
   },
 
+  async getCashierCopilotSuggestions(
+    apiKey: string,
+    payload?: {
+      draftId?: string;
+      branchId?: string;
+      query?: string;
+    },
+  ) {
+    return apiFetch<{
+      success: boolean;
+      generatedAt: string;
+      contextDigest: {
+        todayCashierOrders: number;
+        todayCashierRevenue: number;
+        pendingApprovals: number;
+        openRegisters: number;
+        activeDrafts: number;
+        forecastRisks: {
+          lowConfidencePredictions: number;
+          staleRuns: number;
+          highUrgencyReplenishments: number;
+        };
+      };
+      suggestions: Array<{
+        id: string;
+        type: "alert" | "insight" | "action";
+        priority: "high" | "medium" | "low";
+        title: string;
+        body: string;
+        action?: {
+          kind: string;
+          label: string;
+          payload?: Record<string, unknown>;
+          requiresApproval?: boolean;
+        };
+      }>;
+    }>("/v1/portal/pos/copilot/suggestions", {
+      method: "POST",
+      apiKey,
+      body: JSON.stringify(payload || {}),
+    });
+  },
+
   async listPosTables(apiKey: string, branchId?: string) {
     const params = new URLSearchParams();
     if (branchId) params.set("branchId", branchId);
@@ -1792,6 +1835,89 @@ export const merchantApi = {
         createdAt: string;
       }>;
     }>(`/v1/portal/copilot/history?limit=${limit}`, { apiKey });
+  },
+
+  async copilotApprovals(
+    apiKey: string,
+    params?: {
+      status?: string;
+      intent?: string;
+      limit?: number;
+      offset?: number;
+    },
+  ) {
+    const query = new URLSearchParams();
+    if (params?.status) query.set("status", params.status);
+    if (params?.intent) query.set("intent", params.intent);
+    if (params?.limit !== undefined) query.set("limit", String(params.limit));
+    if (params?.offset !== undefined)
+      query.set("offset", String(params.offset));
+
+    return apiFetch<{
+      success: boolean;
+      approvals: Array<{
+        actionId: string;
+        intent: string;
+        source: string;
+        status: string;
+        actorRole: string | null;
+        actorId: string | null;
+        previewSummary: string | null;
+        commandPreview: Record<string, any> | null;
+        expiresAt: string | null;
+        details: Record<string, any>;
+        executionResult: Record<string, any> | null;
+        riskTier: "low" | "medium" | "high" | "critical";
+        timeline: {
+          pendingAt: string | null;
+          confirmedAt: string | null;
+          deniedAt: string | null;
+          cancelledAt: string | null;
+          expiredAt: string | null;
+          executingAt: string | null;
+          executedAt: string | null;
+          updatedAt: string | null;
+        };
+      }>;
+      pagination: {
+        total: number;
+        limit: number;
+        offset: number;
+      };
+    }>(
+      `/v1/portal/copilot/approvals${query.toString() ? `?${query.toString()}` : ""}`,
+      { apiKey },
+    );
+  },
+
+  async copilotApproval(apiKey: string, actionId: string) {
+    return apiFetch<{
+      success: boolean;
+      approval: {
+        actionId: string;
+        intent: string;
+        source: string;
+        status: string;
+        actorRole: string | null;
+        actorId: string | null;
+        previewSummary: string | null;
+        commandPreview: Record<string, any> | null;
+        expiresAt: string | null;
+        details: Record<string, any>;
+        executionResult: Record<string, any> | null;
+        riskTier: "low" | "medium" | "high" | "critical";
+        timeline: {
+          pendingAt: string | null;
+          confirmedAt: string | null;
+          deniedAt: string | null;
+          cancelledAt: string | null;
+          expiredAt: string | null;
+          executingAt: string | null;
+          executedAt: string | null;
+          updatedAt: string | null;
+        };
+      };
+    }>(`/v1/portal/copilot/approvals/${actionId}`, { apiKey });
   },
 
   async copilotStatus(apiKey: string) {
@@ -3126,6 +3252,31 @@ export const merchantApi = {
     return apiFetch<any>(`/v1/intelligence/${merchantId}/ai-decisions${qs}`, {
       apiKey,
     });
+  },
+
+  async getCallFollowUpQueue(
+    _merchantId: string,
+    apiKey: string,
+    params?: {
+      limit?: number;
+      offset?: number;
+      hours?: number;
+      includeResolved?: boolean;
+      handledBy?: string;
+    },
+  ) {
+    const qs = new URLSearchParams();
+    if (params?.limit != null) qs.append("limit", String(params.limit));
+    if (params?.offset != null) qs.append("offset", String(params.offset));
+    if (params?.hours != null) qs.append("hours", String(params.hours));
+    if (params?.includeResolved != null)
+      qs.append("includeResolved", String(params.includeResolved));
+    if (params?.handledBy) qs.append("handledBy", params.handledBy);
+    const q = qs.toString() ? `?${qs.toString()}` : "";
+    return apiFetch<{ queue: any[]; total: number }>(
+      `/v1/portal/calls/follow-up-queue${q}`,
+      { apiKey },
+    );
   },
 };
 
@@ -4512,6 +4663,73 @@ export const portalApi = {
     );
   },
 
+  getErpRuntimeHealth: () =>
+    authenticatedFetch<any>("/api/v1/portal/integrations/erp/runtime/health"),
+
+  processErpRuntimeQueue: (data?: { limit?: number; endpointId?: string }) =>
+    authenticatedFetch<any>("/api/v1/portal/integrations/erp/runtime/process", {
+      method: "POST",
+      body: data || {},
+    }),
+
+  getErpRuntimeDlq: (params?: { limit?: number; offset?: number }) => {
+    const query = new URLSearchParams();
+    if (params?.limit) query.set("limit", String(params.limit));
+    if (params?.offset) query.set("offset", String(params.offset));
+    return authenticatedFetch<any>(
+      `/api/v1/portal/integrations/erp/runtime/dlq${query.toString() ? `?${query}` : ""}`,
+    );
+  },
+
+  retryOpenErpRuntimeDlq: (data?: { limit?: number; endpointId?: string }) =>
+    authenticatedFetch<any>(
+      "/api/v1/portal/integrations/erp/runtime/dlq/retry-open",
+      {
+        method: "POST",
+        body: data || {},
+      },
+    ),
+
+  getControlPlaneCommandCenterOverview: () =>
+    authenticatedFetch<any>(
+      "/api/v1/portal/control-plane/command-center/overview",
+    ),
+
+  getControlPlaneCommandCenterFeed: (limit = 25) =>
+    authenticatedFetch<any>(
+      `/api/v1/portal/control-plane/command-center/feed?limit=${Math.max(5, Math.min(limit, 100))}`,
+    ),
+
+  getControlPlanePlannerRuns: (params?: {
+    status?: "STARTED" | "COMPLETED" | "FAILED" | "SKIPPED";
+    triggerType?: "EVENT" | "SCHEDULED" | "ON_DEMAND" | "ESCALATION";
+    triggerKey?: string;
+    limit?: number;
+    offset?: number;
+  }) => {
+    const query = new URLSearchParams();
+    if (params?.status) query.set("status", params.status);
+    if (params?.triggerType) query.set("triggerType", params.triggerType);
+    if (params?.triggerKey) query.set("triggerKey", params.triggerKey);
+    if (params?.limit) query.set("limit", String(params.limit));
+    if (params?.offset) query.set("offset", String(params.offset));
+    return authenticatedFetch<any>(
+      `/api/v1/portal/control-plane/planner-runs${query.toString() ? `?${query}` : ""}`,
+    );
+  },
+
+  replayControlPlanePlannerRun: (
+    runId: string,
+    data?: { reason?: string; dryRun?: boolean },
+  ) =>
+    authenticatedFetch<any>(
+      `/api/v1/portal/control-plane/planner-runs/${runId}/replay`,
+      {
+        method: "POST",
+        body: data || {},
+      },
+    ),
+
   // Audit Logs
   getAuditLogs: (params?: {
     action?: string;
@@ -5773,6 +5991,58 @@ export const portalApi = {
       { method: "POST", body: options },
     ),
 
+  // --- Campaign Performance ---
+  getCampaignPerformanceSummary: (params?: {
+    days?: number;
+    campaignType?: string;
+    limit?: number;
+  }) =>
+    authenticatedFetch<any>(
+      `/api/v1/portal/campaigns/performance-summary${
+        params
+          ? `?${new URLSearchParams(
+              Object.fromEntries(
+                Object.entries(params)
+                  .filter(([, v]) => v != null)
+                  .map(([k, v]) => [k, String(v)]),
+              ),
+            ).toString()}`
+          : ""
+      }`,
+    ),
+
+  // --- Callback Campaign Bridge ---
+  createCallbackCampaignBridgeDraft: (options: {
+    actorId: string;
+    dueWithinHours?: number;
+    maxRecipients?: number;
+    inactiveDays?: number;
+    messageTemplate?: string;
+    discountCode?: string;
+  }) =>
+    authenticatedFetch<any>("/api/v1/portal/campaigns/callback-bridge/draft", {
+      method: "POST",
+      body: options,
+    }),
+
+  approveCallbackCampaignBridgeDraft: (
+    draftId: string,
+    options: { actorId: string; note?: string },
+  ) =>
+    authenticatedFetch<any>(
+      `/api/v1/portal/campaigns/callback-bridge/draft/${draftId}/approve`,
+      { method: "POST", body: options },
+    ),
+
+  executeCallbackCampaignBridgeDraft: (
+    draftId: string,
+    options: { actorId: string },
+  ) =>
+    authenticatedFetch<any>(
+      `/api/v1/portal/campaigns/callback-bridge/draft/${draftId}/execute`,
+      { method: "POST", body: options },
+    ),
+
   // --- Supplier Management ---
   getSuppliers: () =>
     authenticatedFetch<{ suppliers: any[] }>("/api/v1/portal/suppliers"),
@@ -6272,6 +6542,57 @@ export const portalApi = {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ poReference }),
       },
+    ),
+
+  // --- Monthly Close ---
+  getMonthlyClosePacket: (year: number, month: number) =>
+    authenticatedFetch<any>(
+      `/api/v1/portal/reports/monthly-close/${year}/${month}/packet`,
+    ),
+
+  getMonthlyCloseLedger: (
+    year: number,
+    month: number,
+    params?: { limit?: number; offset?: number },
+  ) =>
+    authenticatedFetch<{ items: any[]; total: number }>(
+      `/api/v1/portal/reports/monthly-close/${year}/${month}/ledger${params ? `?limit=${params.limit ?? 100}&offset=${params.offset ?? 0}` : ""}`,
+    ),
+
+  closeMonthlyClosePeriod: (
+    year: number,
+    month: number,
+    body: {
+      packetHash?: string;
+      lockAfterClose?: boolean;
+      notes?: string;
+      approval?: {
+        force?: boolean;
+        approvedBy?: string;
+        reason?: string;
+        secondApprovedBy?: string;
+        secondReason?: string;
+      };
+      evidence?: any;
+    },
+  ) =>
+    authenticatedFetch<any>(
+      `/api/v1/portal/reports/monthly-close/${year}/${month}/close`,
+      { method: "POST", body },
+    ),
+
+  reopenMonthlyClosePeriod: (
+    year: number,
+    month: number,
+    body: {
+      notes?: string;
+      approval?: { force?: boolean; approvedBy?: string; reason?: string };
+      evidence?: any;
+    },
+  ) =>
+    authenticatedFetch<any>(
+      `/api/v1/portal/reports/monthly-close/${year}/${month}/reopen`,
+      { method: "POST", body },
     ),
 };
 

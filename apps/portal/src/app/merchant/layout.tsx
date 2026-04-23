@@ -149,8 +149,6 @@ const AGENT_GATES: Array<{
 
 // ─── Pages that are removed or not yet launched - always redirect to dashboard ───
 const BLOCKED_ROUTES = [
-  "/merchant/integrations", // ERP integrations - removed (POS integrations is the single hub)
-  "/merchant/webhooks", // Replaced by POS integrations
   "/merchant/vision", // General OCR removed (payment-proof workflow only)
   "/merchant/ocr-review", // OCR review - internal/not launched yet
 ];
@@ -401,7 +399,7 @@ function MerchantLayoutContent({ children }: { children: React.ReactNode }) {
   const userRole = String(session?.user?.role || "");
   const isCashierUser = userRole === "CASHIER";
   const isCashierRoute = pathname === "/merchant/cashier";
-  const showCashierChrome = isCashierUser && isCashierRoute;
+  const showShellChrome = !isCashierRoute;
   const shouldWaitForEntitlements = !!(featureGate || agentGate) && isLoading;
   const isFeatureBlocked =
     !isLoading &&
@@ -527,7 +525,7 @@ function MerchantLayoutContent({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="app-shell">
-      {(!isCashierRoute || showCashierChrome) && (
+      {showShellChrome && (
         <Sidebar
           role="merchant"
           merchantName={merchantName}
@@ -542,33 +540,14 @@ function MerchantLayoutContent({ children }: { children: React.ReactNode }) {
       )}
       <div
         className={cn(
-          isCashierRoute && !showCashierChrome
-            ? "min-h-screen"
-            : "transition-all duration-300",
-          (!isCashierRoute || showCashierChrome) &&
-            (collapsed ? "lg:mr-[88px]" : "lg:mr-72"),
+          isCashierRoute ? "min-h-screen" : "transition-all duration-300",
+          showShellChrome && (collapsed ? "lg:mr-[88px]" : "lg:mr-72"),
         )}
       >
-        {(!isCashierRoute || showCashierChrome) && (
-          <TopBar role="merchant" collapsed={collapsed} />
-        )}
+        {showShellChrome && <TopBar role="merchant" collapsed={collapsed} />}
         <main
-          className={cn(
-            isCashierRoute && !showCashierChrome
-              ? "p-0"
-              : "app-shell-main p-4 lg:p-6",
-          )}
+          className={cn(isCashierRoute ? "p-0" : "app-shell-main p-4 lg:p-6")}
         >
-          {isDemo && (!isCashierRoute || showCashierChrome) && (
-            <div className="mb-4 rounded-[18px] border border-amber-300/80 bg-amber-50/90 px-4 py-3 text-sm text-amber-800 shadow-[0_12px_24px_rgba(217,119,6,0.08)] dark:border-amber-700/70 dark:bg-amber-900/20 dark:text-amber-200">
-              <strong>وضع العرض التجريبي:</strong> البيانات المعروضة للتجربة
-              فقط.{" "}
-              <a href="/login" className="underline font-medium">
-                سجل دخول
-              </a>{" "}
-              للوصول لبياناتك الحقيقية.
-            </div>
-          )}
           {shouldWaitForEntitlements ? (
             <div className="app-surface mx-auto flex max-w-2xl flex-col items-center gap-4 rounded-[24px] p-8 text-center">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -605,7 +584,7 @@ function MerchantLayoutContent({ children }: { children: React.ReactNode }) {
       </div>
       {/* Real-time WebSocket Notifications */}
       <WebSocketNotifications />
-      <ActiveCallOrderFab />
+      {showShellChrome && <ActiveCallOrderFab />}
     </div>
   );
 }
