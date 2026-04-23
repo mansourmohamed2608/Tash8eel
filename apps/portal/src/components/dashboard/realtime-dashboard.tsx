@@ -264,15 +264,15 @@ export function RealTimeDashboard() {
 export function QuickActionsPanel() {
   const actions = [
     {
-      label: "طلب جديد",
+      label: "إدارة الطلبات",
       icon: ShoppingCart,
-      href: "/merchant/orders/new",
+      href: "/merchant/orders",
       color: "bg-blue-500",
     },
     {
-      label: "إضافة منتج",
+      label: "إدارة المخزون",
       icon: Package,
-      href: "/merchant/inventory/add",
+      href: "/merchant/inventory",
       color: "bg-green-500",
     },
     {
