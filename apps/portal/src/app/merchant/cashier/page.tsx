@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ArrowRight,
@@ -20,6 +21,7 @@ import {
   ScanLine,
   Search,
   ShoppingCart,
+  Sparkles,
   Square,
   Store,
   Table2,
@@ -190,6 +192,46 @@ interface RegisterSummary {
   };
 }
 
+interface CashierCopilotSuggestion {
+  id: string;
+  type: "alert" | "insight" | "action";
+  priority: "high" | "medium" | "low";
+  title: string;
+  body: string;
+  action?: {
+    kind: string;
+    label: string;
+    payload?: Record<string, unknown>;
+    requiresApproval?: boolean;
+  };
+}
+
+interface CashierCopilotApprovalRecord {
+  actionId: string;
+  intent: string;
+  status: string;
+  previewSummary: string | null;
+  expiresAt: string | null;
+  riskTier: "low" | "medium" | "high" | "critical";
+}
+
+interface CashierCopilotResponse {
+  generatedAt: string;
+  contextDigest: {
+    todayCashierOrders: number;
+    todayCashierRevenue: number;
+    pendingApprovals: number;
+    openRegisters: number;
+    activeDrafts: number;
+    forecastRisks: {
+      lowConfidencePredictions: number;
+      staleRuns: number;
+      highUrgencyReplenishments: number;
+    };
+  };
+  suggestions: CashierCopilotSuggestion[];
+}
+
 const DELIVERY_OPTIONS: Array<{
   key: DeliveryType;
   label: string;
@@ -228,6 +270,7 @@ const DEFAULT_POS_SETTINGS: PosSettings = {
 export default function CashierPage() {
   const { merchant, merchantId, apiKey } = useMerchant();
   const { toast } = useToast();
+  const router = useRouter();
 
   const [catalogLoading, setCatalogLoading] = useState(true);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
@@ -313,8 +356,35 @@ export default function CashierPage() {
   const [selectedOrderPayments, setSelectedOrderPayments] = useState<
     PaymentEntry[]
   >([]);
+  const [cashierCopilotLoading, setCashierCopilotLoading] = useState(false);
+  const [cashierCopilotQuery, setCashierCopilotQuery] = useState("");
+  const [cashierCopilotData, setCashierCopilotData] =
+    useState<CashierCopilotResponse | null>(null);
+  const [cashierCopilotApprovals, setCashierCopilotApprovals] = useState<
+    CashierCopilotApprovalRecord[]
+  >([]);
+  const [cashierCopilotApprovalsLoading, setCashierCopilotApprovalsLoading] =
+    useState(false);
+  const [showCashierApprovalsPanel, setShowCashierApprovalsPanel] =
+    useState(false);
+  const [approvalActionLoadingId, setApprovalActionLoadingId] = useState<
+    string | null
+  >(null);
 
   const merchantName = merchant?.name || "الكاشير";
+
+  const getSuggestionTone = useCallback(
+    (priority: CashierCopilotSuggestion["priority"]) => {
+      if (priority === "high") {
+        return "border-red-200 bg-red-50 text-red-700";
+      }
+      if (priority === "medium") {
+        return "border-amber-200 bg-amber-50 text-amber-800";
+      }
+      return "border-blue-200 bg-blue-50 text-blue-800";
+    },
+    [],
+  );
 
   const mapOrderToReceiptSummary = useCallback(
     (order: any): CreatedOrderSummary => ({
@@ -664,6 +734,243 @@ export default function CashierPage() {
   useEffect(() => {
     void loadRecentOrders();
   }, [loadRecentOrders]);
+
+  const loadCashierCopilotSuggestions = useCallback(
+    async (queryOverride?: string) => {
+      if (!apiKey) {
+        setCashierCopilotData(null);
+        setCashierCopilotLoading(false);
+        return;
+      }
+
+      setCashierCopilotLoading(true);
+      try {
+        const normalizedQuery = String(queryOverride || "").trim() || undefined;
+        const response = await merchantApi.getCashierCopilotSuggestions(
+          apiKey,
+          {
+            draftId: currentDraftId || undefined,
+            branchId: selectedBranchId || undefined,
+            query: normalizedQuery,
+          },
+        );
+
+        setCashierCopilotData({
+          generatedAt: String(
+            response?.generatedAt || new Date().toISOString(),
+          ),
+          contextDigest: {
+            todayCashierOrders: Number(
+              response?.contextDigest?.todayCashierOrders || 0,
+            ),
+            todayCashierRevenue: Number(
+              response?.contextDigest?.todayCashierRevenue || 0,
+            ),
+            pendingApprovals: Number(
+              response?.contextDigest?.pendingApprovals || 0,
+            ),
+            openRegisters: Number(response?.contextDigest?.openRegisters || 0),
+            activeDrafts: Number(response?.contextDigest?.activeDrafts || 0),
+            forecastRisks: {
+              lowConfidencePredictions: Number(
+                response?.contextDigest?.forecastRisks
+                  ?.lowConfidencePredictions || 0,
+              ),
+              staleRuns: Number(
+                response?.contextDigest?.forecastRisks?.staleRuns || 0,
+              ),
+              highUrgencyReplenishments: Number(
+                response?.contextDigest?.forecastRisks
+                  ?.highUrgencyReplenishments || 0,
+              ),
+            },
+          },
+          suggestions: Array.isArray(response?.suggestions)
+            ? (response.suggestions as CashierCopilotSuggestion[])
+            : [],
+        });
+      } catch {
+        setCashierCopilotData(null);
+      } finally {
+        setCashierCopilotLoading(false);
+      }
+    },
+    [apiKey, currentDraftId, selectedBranchId],
+  );
+
+  useEffect(() => {
+    void loadCashierCopilotSuggestions();
+  }, [loadCashierCopilotSuggestions]);
+
+  useEffect(() => {
+    if (!cashierCopilotData) return;
+    if (Number(cashierCopilotData.contextDigest.pendingApprovals || 0) > 0) {
+      setShowCashierApprovalsPanel(true);
+    }
+  }, [cashierCopilotData]);
+
+  const loadCashierCopilotApprovals = useCallback(
+    async (status = "pending") => {
+      if (!apiKey) {
+        setCashierCopilotApprovals([]);
+        setCashierCopilotApprovalsLoading(false);
+        return;
+      }
+
+      setCashierCopilotApprovalsLoading(true);
+      try {
+        const response = await merchantApi.copilotApprovals(apiKey, {
+          status,
+          limit: 8,
+          offset: 0,
+        });
+        setCashierCopilotApprovals(
+          Array.isArray(response?.approvals)
+            ? response.approvals.map((row) => ({
+                actionId: String(row?.actionId || ""),
+                intent: String(row?.intent || "UNKNOWN"),
+                status: String(row?.status || "pending"),
+                previewSummary:
+                  String(row?.previewSummary || "").trim() || null,
+                expiresAt:
+                  String(row?.expiresAt || "").trim() || row?.expiresAt || null,
+                riskTier: row?.riskTier || "low",
+              }))
+            : [],
+        );
+      } catch {
+        setCashierCopilotApprovals([]);
+      } finally {
+        setCashierCopilotApprovalsLoading(false);
+      }
+    },
+    [apiKey],
+  );
+
+  useEffect(() => {
+    if (!showCashierApprovalsPanel) return;
+    void loadCashierCopilotApprovals("pending");
+  }, [showCashierApprovalsPanel, loadCashierCopilotApprovals]);
+
+  const confirmCashierCopilotApproval = useCallback(
+    async (actionId: string, confirm: boolean) => {
+      if (!apiKey || !actionId) return;
+      setApprovalActionLoadingId(actionId);
+      try {
+        const response = await merchantApi.copilotConfirm(
+          apiKey,
+          actionId,
+          confirm,
+        );
+        if (response?.success) {
+          toast({
+            title: confirm ? "تم اعتماد الإجراء" : "تم رفض الإجراء",
+          });
+        } else {
+          toast({
+            title: "تعذر تحديث الإجراء",
+            description:
+              String(response?.reply || "").trim() || "يرجى المحاولة مرة أخرى",
+            variant: "destructive",
+          });
+        }
+      } catch (error) {
+        toast({
+          title: "تعذر تحديث الإجراء",
+          description:
+            error instanceof Error ? error.message : "حدث خطأ غير متوقع",
+          variant: "destructive",
+        });
+      } finally {
+        setApprovalActionLoadingId(null);
+        await Promise.all([
+          loadCashierCopilotSuggestions(),
+          loadCashierCopilotApprovals("pending"),
+        ]);
+      }
+    },
+    [apiKey, loadCashierCopilotApprovals, loadCashierCopilotSuggestions, toast],
+  );
+
+  const handleCashierSuggestionAction = useCallback(
+    async (suggestion: CashierCopilotSuggestion) => {
+      const action = suggestion.action;
+      if (!action?.kind) return;
+
+      if (action.kind === "review_approvals" || action.requiresApproval) {
+        setShowCashierApprovalsPanel(true);
+        await loadCashierCopilotApprovals(
+          String(action.payload?.status || "pending"),
+        );
+        return;
+      }
+
+      if (action.kind === "open_register") {
+        setOpenShiftDialog(true);
+        return;
+      }
+
+      if (action.kind === "open_replenishment") {
+        router.push("/merchant/forecast");
+        return;
+      }
+
+      if (action.kind === "open_inventory_item") {
+        const catalogItemId = String(
+          action.payload?.catalogItemId || "",
+        ).trim();
+        const search = catalogItemId
+          ? `?item=${encodeURIComponent(catalogItemId)}`
+          : "";
+        router.push(`/merchant/inventory${search}`);
+        return;
+      }
+
+      if (action.kind === "open_forecast") {
+        router.push("/merchant/forecast");
+        return;
+      }
+
+      if (action.kind === "open_discount_report") {
+        router.push("/merchant/reports/discount-impact");
+        return;
+      }
+
+      if (action.kind === "review_cart_items") {
+        setProductSearch("");
+        toast({
+          title: "تم تفعيل مراجعة السلة",
+          description: "راجع الكميات والأسعار قبل إتمام الإغلاق.",
+        });
+        return;
+      }
+
+      if (action.kind === "review_payment_split") {
+        setPaymentEntries((current) => {
+          if (Array.isArray(current) && current.length > 0) {
+            return current;
+          }
+          return [{ method: paymentMethod, amount: 0 }];
+        });
+        toast({
+          title: "راجع توزيع التحصيل",
+          description:
+            "تأكد من مطابقة مجموع طرق الدفع مع إجمالي الطلب قبل الإغلاق.",
+        });
+        return;
+      }
+
+      setCashierCopilotQuery(suggestion.title);
+      await loadCashierCopilotSuggestions(suggestion.title);
+    },
+    [
+      loadCashierCopilotApprovals,
+      loadCashierCopilotSuggestions,
+      paymentMethod,
+      router,
+      toast,
+    ],
+  );
 
   const handleOpenShift = useCallback(async () => {
     if (!apiKey || !selectedBranchId) return;
@@ -2032,25 +2339,19 @@ export default function CashierPage() {
   ]);
 
   return (
-    <div
-      dir="rtl"
-      className="cashier-shell min-h-screen bg-[color:color-mix(in_srgb,var(--surface-muted)_52%,var(--bg))]"
-    >
+    <div dir="rtl" className="cashier-shell min-h-screen bg-slate-50">
       <div className="mx-auto flex min-h-[100dvh] max-w-[1700px] flex-col px-3 py-3 lg:h-screen lg:px-5">
         <header className="cashier-command-bar mb-3">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-[18px] bg-[var(--accent)] text-white shadow-[0_18px_40px_-24px_color-mix(in_srgb,var(--accent)_84%,black)]">
+              <div className="flex h-12 w-12 items-center justify-center rounded-[18px] border border-[var(--accent)]/25 bg-[var(--accent-muted)] text-[var(--accent)]">
                 <ShoppingCart className="h-5 w-5" />
               </div>
               <div>
                 <p className="text-lg font-black tracking-[-0.02em] text-[var(--text-primary)]">
                   {merchantName}
                 </p>
-                <p className="text-sm text-[var(--text-muted)]">
-                  مساحة تشغيل سريعة للكاشير، المبيعات، الجلسات، والطباعة من شاشة
-                  واحدة.
-                </p>
+                <p className="text-sm text-[var(--text-muted)]">وضع الكاشير</p>
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -2079,8 +2380,10 @@ export default function CashierPage() {
           </div>
           <div className="cashier-command-bar__stats">
             <div className="cashier-command-bar__stat">
-              <span className="app-hero-band__metric-label">حالة الجلسة</span>
-              <strong className="app-hero-band__metric-value">
+              <span className="cashier-command-bar__stat-label">
+                حالة الجلسة
+              </span>
+              <strong className="cashier-command-bar__stat-value">
                 {registerLoading
                   ? "جارٍ التحقق..."
                   : currentRegister?.status === "open"
@@ -2089,24 +2392,28 @@ export default function CashierPage() {
               </strong>
             </div>
             <div className="cashier-command-bar__stat">
-              <span className="app-hero-band__metric-label">نوع الخدمة</span>
-              <strong className="app-hero-band__metric-value">
+              <span className="cashier-command-bar__stat-label">
+                نوع الخدمة
+              </span>
+              <strong className="cashier-command-bar__stat-value">
                 {DELIVERY_OPTIONS.find((option) => option.key === deliveryType)
                   ?.label || "استلام"}
               </strong>
             </div>
             <div className="cashier-command-bar__stat">
-              <span className="app-hero-band__metric-label">وسيلة الدفع</span>
-              <strong className="app-hero-band__metric-value">
+              <span className="cashier-command-bar__stat-label">
+                وسيلة الدفع
+              </span>
+              <strong className="cashier-command-bar__stat-value">
                 {PAYMENT_OPTIONS.find((option) => option.key === paymentMethod)
                   ?.label || "نقدي"}
               </strong>
             </div>
             <div className="cashier-command-bar__stat">
-              <span className="app-hero-band__metric-label">
+              <span className="cashier-command-bar__stat-label">
                 الإجمالي الحالي
               </span>
-              <strong className="app-hero-band__metric-value">
+              <strong className="cashier-command-bar__stat-value">
                 {formatCurrency(totalAfterDiscount)}
               </strong>
             </div>
@@ -2196,7 +2503,7 @@ export default function CashierPage() {
                       key={product.id}
                       type="button"
                       onClick={() => addToCart(product)}
-                      className="flex min-h-[132px] flex-col justify-between rounded-[22px] border border-[color:color-mix(in_srgb,var(--border-strong)_86%,transparent)] bg-[color:color-mix(in_srgb,var(--surface)_98%,transparent)] p-3 text-right transition-all duration-150 ease-in-out hover:-translate-y-0.5 hover:border-[color:color-mix(in_srgb,var(--accent)_22%,var(--border-strong))] hover:shadow-[0_20px_38px_-28px_rgba(15,23,42,0.45)]"
+                      className="flex min-h-[132px] flex-col justify-between rounded-[22px] border border-slate-200 bg-white p-3 text-right transition-all duration-150 ease-in-out hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-[0_20px_38px_-28px_rgba(15,23,42,0.45)]"
                     >
                       <div>
                         <p className="line-clamp-2 text-sm font-semibold text-slate-900">
@@ -2597,6 +2904,237 @@ export default function CashierPage() {
                       )}
                     </div>
                   )}
+
+                  <div className="rounded-2xl border bg-background p-3">
+                    <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900">
+                          مساعد الكاشير
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          اقتراحات تشغيلية حتمية مبنية على سياق POS والتنبؤات.
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-full rounded-full px-3 sm:w-auto"
+                        onClick={() => void loadCashierCopilotSuggestions()}
+                        disabled={cashierCopilotLoading}
+                      >
+                        {cashierCopilotLoading ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <RefreshCw className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </div>
+
+                    <div className="mb-3 flex flex-col gap-2 sm:flex-row">
+                      <Input
+                        value={cashierCopilotQuery}
+                        onChange={(event) =>
+                          setCashierCopilotQuery(event.target.value)
+                        }
+                        className="h-9 rounded-lg"
+                        placeholder="سؤال سريع للمساعد (مثال: خصم أو مخزون)"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="h-9 rounded-lg px-4"
+                        onClick={() =>
+                          void loadCashierCopilotSuggestions(
+                            cashierCopilotQuery,
+                          )
+                        }
+                        disabled={cashierCopilotLoading}
+                      >
+                        <Sparkles className="ml-1 h-4 w-4" />
+                        تحليل
+                      </Button>
+                    </div>
+
+                    {cashierCopilotLoading ? (
+                      <div className="flex items-center justify-center py-4 text-sm text-muted-foreground">
+                        <Loader2 className="ml-2 h-4 w-4 animate-spin" />
+                        جاري تجهيز اقتراحات الكاشير...
+                      </div>
+                    ) : !cashierCopilotData ? (
+                      <p className="text-xs text-muted-foreground">
+                        لا توجد اقتراحات حالياً.
+                      </p>
+                    ) : (
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-1 gap-2 text-[11px] sm:grid-cols-2">
+                          <div className="rounded-lg border bg-muted/30 px-2 py-1">
+                            طلبات اليوم:{" "}
+                            {
+                              cashierCopilotData.contextDigest
+                                .todayCashierOrders
+                            }
+                          </div>
+                          <div className="rounded-lg border bg-muted/30 px-2 py-1">
+                            إيراد اليوم:{" "}
+                            {formatCurrency(
+                              cashierCopilotData.contextDigest
+                                .todayCashierRevenue,
+                            )}
+                          </div>
+                          <div className="rounded-lg border bg-muted/30 px-2 py-1">
+                            إجراءات معلقة:{" "}
+                            {cashierCopilotData.contextDigest.pendingApprovals}
+                          </div>
+                          <div className="rounded-lg border bg-muted/30 px-2 py-1">
+                            جلسات مفتوحة:{" "}
+                            {cashierCopilotData.contextDigest.openRegisters}
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          {cashierCopilotData.suggestions.map((suggestion) => (
+                            <div
+                              key={suggestion.id}
+                              className={cn(
+                                "rounded-lg border px-3 py-2",
+                                getSuggestionTone(suggestion.priority),
+                              )}
+                            >
+                              <p className="text-sm font-semibold text-slate-900">
+                                {suggestion.title}
+                              </p>
+                              <p className="mt-1 text-xs text-slate-700">
+                                {suggestion.body}
+                              </p>
+                              {suggestion.action?.label ? (
+                                <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                  <p className="text-[11px] font-medium text-slate-700">
+                                    إجراء مقترح: {suggestion.action.label}
+                                  </p>
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant={
+                                      suggestion.action.requiresApproval
+                                        ? "default"
+                                        : "outline"
+                                    }
+                                    className="h-7 rounded-full px-3 text-[11px]"
+                                    onClick={() =>
+                                      void handleCashierSuggestionAction(
+                                        suggestion,
+                                      )
+                                    }
+                                  >
+                                    {suggestion.action.requiresApproval
+                                      ? "مراجعة واعتماد"
+                                      : suggestion.action.label}
+                                  </Button>
+                                </div>
+                              ) : null}
+                            </div>
+                          ))}
+                        </div>
+
+                        {showCashierApprovalsPanel ? (
+                          <div className="space-y-2 rounded-lg border border-blue-200 bg-blue-50/70 p-3">
+                            <div className="flex items-center justify-between">
+                              <p className="text-xs font-semibold text-slate-900">
+                                إجراءات تحتاج موافقة
+                              </p>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 rounded-full px-2 text-[11px]"
+                                onClick={() =>
+                                  void loadCashierCopilotApprovals("pending")
+                                }
+                                disabled={cashierCopilotApprovalsLoading}
+                              >
+                                {cashierCopilotApprovalsLoading ? (
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                ) : (
+                                  <RefreshCw className="h-3.5 w-3.5" />
+                                )}
+                              </Button>
+                            </div>
+
+                            {cashierCopilotApprovalsLoading ? (
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                جاري تحميل إجراءات الموافقة...
+                              </div>
+                            ) : cashierCopilotApprovals.length === 0 ? (
+                              <p className="text-xs text-muted-foreground">
+                                لا توجد إجراءات معلقة حالياً.
+                              </p>
+                            ) : (
+                              <div className="space-y-2">
+                                {cashierCopilotApprovals.map((approval) => {
+                                  const isBusy =
+                                    approvalActionLoadingId ===
+                                    approval.actionId;
+                                  return (
+                                    <div
+                                      key={approval.actionId}
+                                      className="rounded-md border bg-white px-2 py-2"
+                                    >
+                                      <p className="text-xs font-medium text-slate-900">
+                                        {approval.previewSummary ||
+                                          `إجراء ${approval.intent}`}
+                                      </p>
+                                      <p className="mt-1 text-[11px] text-muted-foreground">
+                                        المخاطرة: {approval.riskTier} • الحالة:{" "}
+                                        {approval.status}
+                                      </p>
+                                      <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
+                                        <Button
+                                          type="button"
+                                          size="sm"
+                                          className="h-7 rounded-full px-3 text-[11px]"
+                                          onClick={() =>
+                                            void confirmCashierCopilotApproval(
+                                              approval.actionId,
+                                              true,
+                                            )
+                                          }
+                                          disabled={isBusy}
+                                        >
+                                          {isBusy ? (
+                                            <Loader2 className="ml-1 h-3.5 w-3.5 animate-spin" />
+                                          ) : (
+                                            <CheckCircle2 className="ml-1 h-3.5 w-3.5" />
+                                          )}
+                                          اعتماد
+                                        </Button>
+                                        <Button
+                                          type="button"
+                                          size="sm"
+                                          variant="outline"
+                                          className="h-7 rounded-full px-3 text-[11px]"
+                                          onClick={() =>
+                                            void confirmCashierCopilotApproval(
+                                              approval.actionId,
+                                              false,
+                                            )
+                                          }
+                                          disabled={isBusy}
+                                        >
+                                          رفض
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        ) : null}
+                      </div>
+                    )}
+                  </div>
 
                   {posSettings.tablesEnabled && (
                     <div className="rounded-2xl border bg-background p-3">
@@ -3007,7 +3545,7 @@ export default function CashierPage() {
                               className={cn(
                                 "flex h-9 items-center justify-center gap-1 rounded-lg border text-xs font-medium transition",
                                 isActive
-                                  ? "border-emerald-600 bg-emerald-50 text-emerald-700"
+                                  ? "border-emerald-300 bg-emerald-50 text-emerald-700"
                                   : "border-border text-muted-foreground hover:bg-muted",
                               )}
                             >

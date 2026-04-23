@@ -330,6 +330,12 @@ const merchantNavItems: NavItem[] = [
 
   // OTHER (أخيراً)
   { href: "/merchant/assistant", label: "مساعد التاجر", icon: Bot },
+  {
+    href: "/merchant/command-center",
+    label: "غرفة القيادة",
+    icon: Activity,
+    minRole: "MANAGER",
+  },
   { href: "/merchant/agents", label: "مركز الذكاء", icon: Cpu },
   { href: "/merchant/agent-activity", label: "سجل نشاط الوكلاء", icon: Brain },
   {
@@ -417,6 +423,7 @@ const MERCHANT_SECTION_CONFIG: MerchantSidebarSection[] = [
         href: "/merchant/audit/ai-decisions",
         label: "سجل قرارات الذكاء",
       },
+      { href: "/merchant/command-center", label: "غرفة القيادة" },
       { href: "/merchant/agent-activity", label: "سجل نشاط الوكلاء" },
       { href: "/merchant/agents", label: "مركز الذكاء" },
       { href: "/merchant/teams", label: "المهام الجماعية للوكلاء" },
@@ -428,18 +435,32 @@ const MERCHANT_SECTION_CONFIG: MerchantSidebarSection[] = [
     icon: ShoppingCart,
     items: [
       { href: "/merchant/orders", label: "الطلبات" },
+      { href: "/merchant/followups", label: "المتابعات" },
+      { href: "/merchant/delivery-drivers", label: "سائقو التوصيل" },
+      { href: "/merchant/feature-requests", label: "اقتراحات وعروض السعر" },
+    ],
+  },
+  {
+    id: "cashier",
+    label: "الكاشير",
+    icon: Banknote,
+    items: [
       {
         href: "/merchant/cashier",
         label: "الكاشير",
         featureKey: "cashier",
       },
+    ],
+  },
+  {
+    id: "finance",
+    label: "المالية والاشتراك",
+    icon: Receipt,
+    items: [
       { href: "/merchant/billing", label: "الفواتير" },
       { href: "/merchant/payments/cod", label: "تحصيل عند الاستلام" },
       { href: "/merchant/payments/proofs", label: "إثبات الدفع" },
-      { href: "/merchant/plan", label: "خطي والأسعار" },
-      { href: "/merchant/followups", label: "المتابعات" },
-      { href: "/merchant/delivery-drivers", label: "سائقو التوصيل" },
-      { href: "/merchant/feature-requests", label: "اقتراحات وعروض السعر" },
+      { href: "/merchant/plan", label: "خطتي والأسعار" },
     ],
   },
   {
@@ -869,7 +890,7 @@ export function Sidebar({
       {/* Mobile menu button */}
       <button
         onClick={() => setMobileOpen(true)}
-        className="lg:hidden fixed top-4 right-4 z-50 inline-flex h-11 w-11 items-center justify-center rounded-[14px] border border-border/80 bg-card/95 shadow-[0_18px_48px_rgba(15,23,42,0.08)] backdrop-blur"
+        className="lg:hidden fixed top-4 right-4 z-50 inline-flex h-11 w-11 items-center justify-center rounded-[14px] border border-border/80 bg-card/95 text-muted-foreground shadow-[0_18px_48px_rgba(15,23,42,0.08)] backdrop-blur transition duration-150 ease-in hover:bg-accent/60 hover:text-foreground"
         aria-label="فتح القائمة الجانبية"
         aria-expanded={mobileOpen}
         aria-controls="main-sidebar"
@@ -916,14 +937,14 @@ export function Sidebar({
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setMobileOpen(false)}
-                className="lg:hidden inline-flex h-10 w-10 items-center justify-center rounded-[12px] border border-border/70 bg-background/70 text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+                className="lg:hidden inline-flex h-10 w-10 items-center justify-center rounded-[12px] border border-border/70 bg-background/70 text-muted-foreground transition duration-150 ease-in hover:bg-accent/60 hover:text-foreground"
                 aria-label="إغلاق القائمة الجانبية"
               >
                 <X className="h-5 w-5" aria-hidden="true" />
               </button>
               <button
                 onClick={() => setCollapsed(!collapsed)}
-                className="hidden lg:inline-flex h-10 w-10 items-center justify-center rounded-[12px] border border-border/70 bg-background/70 text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+                className="hidden lg:inline-flex h-10 w-10 items-center justify-center rounded-[12px] border border-border/70 bg-background/70 text-muted-foreground transition duration-150 ease-in hover:bg-accent/60 hover:text-foreground"
                 aria-label={collapsed ? "توسيع القائمة" : "تصغير القائمة"}
                 aria-expanded={!collapsed}
               >
@@ -1185,7 +1206,7 @@ export function Sidebar({
             {!collapsed && (
               <Button
                 variant="ghost"
-                className="mt-3 w-full justify-center border border-border/70 bg-background/70 text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+                className="mt-3 w-full justify-center border border-border/70 bg-transparent text-muted-foreground hover:border-red-300 hover:bg-red-50 hover:text-red-600"
                 onClick={() => signOut({ callbackUrl: "/login" })}
               >
                 <LogOut className="h-4 w-4 ml-2" />
@@ -1237,10 +1258,10 @@ interface TopBarProps {
 
 export function TopBar({ role, collapsed }: TopBarProps) {
   return (
-    <header className="app-topbar-shell sticky top-0 z-30 flex h-16 items-center px-4 lg:px-6">
+    <header className="app-topbar-shell sticky top-0 z-30 flex h-14 items-center px-4 lg:px-5">
       <div className="app-shell-main flex w-full items-center justify-between">
         {/* Page title area - right side in RTL */}
-        <h1 className="text-lg font-bold tracking-[-0.02em] text-foreground lg:hidden">
+        <h1 className="text-[16px] font-bold tracking-[-0.02em] text-[var(--text-primary)] lg:hidden">
           لوحة التحكم
         </h1>
         <div className="hidden lg:block" />

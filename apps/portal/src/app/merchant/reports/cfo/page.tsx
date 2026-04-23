@@ -41,11 +41,6 @@ import { formatCurrency, formatNumber, cn } from "@/lib/utils";
 import { useMerchant } from "@/hooks/use-merchant";
 import portalApi from "@/lib/client";
 import {
-  AiInsightsCard,
-  generateCfoInsights,
-} from "@/components/ai/ai-insights-card";
-import { SmartAnalysisButton } from "@/components/ai/smart-analysis-button";
-import {
   REPORTING_PERIOD_OPTIONS,
   getStoredReportingDays,
   setStoredReportingDays,
@@ -173,22 +168,28 @@ function MetricCard({
           });
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium">{title}</CardTitle>
-        <Icon className="h-4 w-4 text-muted-foreground" />
+    <Card className="border-slate-200 bg-white shadow-sm">
+      <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0 pb-2">
+        <CardTitle className="text-sm font-medium text-slate-700">
+          {title}
+        </CardTitle>
+        <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
+          <Icon className="h-4 w-4" />
+        </span>
       </CardHeader>
       <CardContent>
-        <div className="text-2xl font-bold">{formattedValue}</div>
+        <div className="text-2xl font-bold text-slate-950">
+          {formattedValue}
+        </div>
         {safeChange !== undefined && (
-          <div className="flex items-center gap-1 text-xs">
+          <div className="mt-2 flex flex-wrap items-center gap-1 text-xs">
             {safeChange >= 0 ? (
-              <TrendingUp className="h-3 w-3 text-green-500" />
+              <TrendingUp className="h-3 w-3 text-emerald-600" />
             ) : (
-              <TrendingDown className="h-3 w-3 text-red-500" />
+              <TrendingDown className="h-3 w-3 text-red-600" />
             )}
             <span
-              className={safeChange >= 0 ? "text-green-600" : "text-red-600"}
+              className={safeChange >= 0 ? "text-emerald-700" : "text-red-700"}
             >
               {safeChange >= 0 ? "+" : ""}
               {roundTo(safeChange, 1).toFixed(1)}%
@@ -218,8 +219,8 @@ function AlertCard({
   const config = {
     warning: {
       icon: AlertTriangle,
-      color: "border-yellow-200 bg-yellow-50",
-      iconColor: "text-yellow-600",
+      color: "border-amber-200 bg-amber-50",
+      iconColor: "text-amber-600",
     },
     danger: {
       icon: AlertTriangle,
@@ -476,8 +477,10 @@ export default function CFOBriefPage() {
 
   if (loading || !metrics) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-muted-foreground">جاري تحميل التقرير...</div>
+      <div className="flex min-h-[400px] items-center justify-center p-4 sm:p-6">
+        <div className="rounded-2xl border border-slate-200 bg-white px-5 py-4 text-sm text-muted-foreground shadow-sm">
+          جاري تحميل التقرير...
+        </div>
       </div>
     );
   }
@@ -597,32 +600,12 @@ export default function CFOBriefPage() {
         </CardContent>
       </Card>
 
-      {/* AI CFO Insights */}
-      <AiInsightsCard
-        title="تحليلات الذكاء الاصطناعي للمدير المالي"
-        insights={generateCfoInsights({
-          revenue: realizedRevenue,
-          expenses: metrics.totalExpenses,
-          profit: metrics.netCashFlow,
-          orderCount: metrics.realizedOrders,
-          aov: metrics.averageOrderValue,
-          codPercentage:
-            metrics.pendingCOD > 0 && realizedRevenue > 0
-              ? (metrics.pendingCOD / realizedRevenue) * 100
-              : 0,
-          uniqueCustomers: metrics.totalCustomers,
-        })}
-      />
-
-      {/* GPT-Powered Smart Analysis */}
-      <SmartAnalysisButton context="cfo" />
-
       {/* Alerts Section */}
       {metrics.alerts.length > 0 && (
-        <Card>
+        <Card className="border-slate-200 bg-white shadow-sm">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-yellow-500" />
+              <AlertTriangle className="h-5 w-5 text-amber-600" />
               تنبيهات تحتاج اهتمامك
             </CardTitle>
           </CardHeader>
@@ -641,21 +624,21 @@ export default function CFOBriefPage() {
 
       {/* AI-Generated Weekly CFO Brief (interpretation layer, not source of record) */}
       {aiBriefError === "quota" && !aiBrief && (
-        <Card className="border-orange-200 bg-orange-50">
+        <Card className="border-amber-200 bg-amber-50">
           <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
-            <Sparkles className="h-5 w-5 text-orange-500 shrink-0" />
+            <Sparkles className="h-5 w-5 shrink-0 text-amber-600" />
             <div className="flex-1">
-              <p className="text-sm font-medium text-orange-800">
+              <p className="text-sm font-medium text-amber-900">
                 تم استنفاد رصيد الذكاء الاصطناعي اليومي
               </p>
-              <p className="text-xs text-orange-600 mt-0.5">
+              <p className="mt-0.5 text-xs text-amber-800">
                 الملخص الأسبوعي بالذكاء الاصطناعي غير متاح حالياً. يتم تجديد
                 الرصيد يومياً أو يمكنك ترقية الباقة.
               </p>
             </div>
             <a
               href="/merchant/plan"
-              className="inline-flex w-full items-center justify-center rounded-md bg-orange-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-orange-700 sm:w-auto"
+              className="inline-flex w-full items-center justify-center rounded-md bg-amber-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-amber-700 sm:w-auto"
             >
               ترقية الباقة
             </a>
@@ -663,11 +646,11 @@ export default function CFOBriefPage() {
         </Card>
       )}
       {aiBrief && (
-        <Card className="border-purple-200 bg-gradient-to-r from-purple-50/50 to-transparent">
+        <Card className="border-blue-200 bg-blue-50/60 shadow-sm">
           <CardHeader>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <CardTitle className="flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-purple-600" />
+                <Sparkles className="h-5 w-5 text-blue-700" />
                 الملخص الأسبوعي بالذكاء الاصطناعي
               </CardTitle>
               <Badge variant="secondary" className="text-xs">
@@ -682,32 +665,32 @@ export default function CFOBriefPage() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              <div className="text-center p-3 bg-white rounded-lg border">
-                <div className="text-xl font-bold text-green-600">
+              <div className="rounded-lg border border-blue-100 bg-white p-3 text-center">
+                <div className="text-xl font-bold text-emerald-700">
                   {formatCurrency(aiBriefRevenue)}
                 </div>
                 <div className="text-xs text-muted-foreground">
                   الإيرادات المحققة للأسبوع
                 </div>
               </div>
-              <div className="text-center p-3 bg-white rounded-lg border">
-                <div className="text-xl font-bold text-blue-600">
+              <div className="rounded-lg border border-blue-100 bg-white p-3 text-center">
+                <div className="text-xl font-bold text-blue-700">
                   {(aiBrief.data.paidOrders ?? 0).toLocaleString("ar-EG")}
                 </div>
                 <div className="text-xs text-muted-foreground">
                   طلبات مدفوعة
                 </div>
               </div>
-              <div className="text-center p-3 bg-white rounded-lg border">
-                <div className="text-xl font-bold text-yellow-600">
+              <div className="rounded-lg border border-blue-100 bg-white p-3 text-center">
+                <div className="text-xl font-bold text-amber-700">
                   {formatCurrency(aiBrief.data.pendingPayments ?? 0)}
                 </div>
                 <div className="text-xs text-muted-foreground">
                   مدفوعات معلقة
                 </div>
               </div>
-              <div className="text-center p-3 bg-white rounded-lg border">
-                <div className="text-xl font-bold">
+              <div className="rounded-lg border border-blue-100 bg-white p-3 text-center">
+                <div className="text-xl font-bold text-slate-950">
                   {formatCurrency(aiBrief.data.averageOrderValue ?? 0)}
                 </div>
                 <div className="text-xs text-muted-foreground">
@@ -716,7 +699,7 @@ export default function CFOBriefPage() {
               </div>
             </div>
             {aiBrief.data.codPendingAmount > 0 && (
-              <div className="mt-3 flex flex-col gap-2 rounded bg-yellow-50 p-2 text-sm text-yellow-700 sm:flex-row sm:items-center">
+              <div className="mt-3 flex flex-col gap-2 rounded border border-amber-200 bg-amber-50 p-2 text-sm text-amber-800 sm:flex-row sm:items-center">
                 <AlertTriangle className="h-4 w-4" />
                 <span>
                   COD قيد التحصيل:{" "}
@@ -725,7 +708,7 @@ export default function CFOBriefPage() {
               </div>
             )}
             {aiBrief.data.refundsCount > 0 && (
-              <div className="mt-2 flex flex-col gap-2 rounded bg-red-50 p-2 text-sm text-red-700 sm:flex-row sm:items-center">
+              <div className="mt-2 flex flex-col gap-2 rounded border border-red-200 bg-red-50 p-2 text-sm text-red-700 sm:flex-row sm:items-center">
                 <AlertTriangle className="h-4 w-4" />
                 <span>
                   مرتجعات: {aiBrief.data.refundsCount} (
@@ -806,7 +789,7 @@ export default function CFOBriefPage() {
       </div>
 
       {/* Cash Flow */}
-      <Card>
+      <Card className="border-slate-200 bg-white shadow-sm">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Wallet className="h-5 w-5" />
@@ -816,13 +799,13 @@ export default function CFOBriefPage() {
         <CardContent>
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-5">
             <div className="text-center">
-              <div className="text-2xl font-bold text-green-600">
+              <div className="text-2xl font-bold text-emerald-700">
                 {formatCurrency(metrics.cashInHand)}
               </div>
               <div className="text-sm text-muted-foreground">نقدي متاح</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-yellow-600">
+              <div className="text-2xl font-bold text-amber-700">
                 {formatCurrency(metrics.pendingCOD)}
               </div>
               <div className="text-sm text-muted-foreground">
@@ -830,7 +813,7 @@ export default function CFOBriefPage() {
               </div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-blue-600">
+              <div className="text-2xl font-bold text-blue-700">
                 {formatCurrency(metrics.pendingOnline)}
               </div>
               <div className="text-sm text-muted-foreground">
@@ -838,7 +821,7 @@ export default function CFOBriefPage() {
               </div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-red-600">
+              <div className="text-2xl font-bold text-red-700">
                 {formatCurrency(metrics.totalExpenses)}
               </div>
               <div className="text-sm text-muted-foreground">
@@ -857,7 +840,7 @@ export default function CFOBriefPage() {
 
       <div className="grid gap-4 xl:grid-cols-2">
         {/* Top Products */}
-        <Card>
+        <Card className="border-slate-200 bg-white shadow-sm">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <BarChart3 className="h-5 w-5" />
@@ -870,7 +853,7 @@ export default function CFOBriefPage() {
                 {metrics.topProducts.map((product, index) => (
                   <div
                     key={index}
-                    className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
+                    className="rounded-xl border border-slate-100 bg-slate-50/60 px-3 py-2 sm:flex sm:items-center sm:justify-between"
                   >
                     <div className="flex-1">
                       <div className="font-medium">{product.name}</div>
@@ -901,7 +884,7 @@ export default function CFOBriefPage() {
         </Card>
 
         {/* Expenses Breakdown */}
-        <Card>
+        <Card className="border-slate-200 bg-white shadow-sm">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <PieChart className="h-5 w-5" />
@@ -912,7 +895,10 @@ export default function CFOBriefPage() {
             {metrics.expensesByCategory.length > 0 ? (
               <div className="space-y-4">
                 {metrics.expensesByCategory.map((expense, index) => (
-                  <div key={index}>
+                  <div
+                    key={index}
+                    className="rounded-xl border border-slate-100 bg-slate-50/60 px-3 py-2"
+                  >
                     <div className="mb-1 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                       <span className="text-sm font-medium">
                         {expense.category}

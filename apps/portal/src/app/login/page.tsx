@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { signIn, getSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -58,12 +58,8 @@ function LoginForm() {
         "انتهت صلاحية الجلسة أو تعذر تحديثها. سجّل الدخول مرة أخرى.",
       );
     }
-    if (nextMerchantId) {
-      setMerchantId(nextMerchantId);
-    }
-    if (nextEmail) {
-      setEmail(nextEmail);
-    }
+    if (nextMerchantId) setMerchantId(nextMerchantId);
+    if (nextEmail) setEmail(nextEmail);
   }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -80,8 +76,6 @@ function LoginForm() {
       });
 
       if (result?.error) {
-        // Map known error codes; fall back to a friendly Arabic message
-        // Never show raw API messages like "غير مصرح." or English text
         const errorMessages: Record<string, string> = {
           CredentialsSignin: "البريد الإلكتروني أو كلمة المرور غير صحيحة",
           "fetch failed":
@@ -95,14 +89,8 @@ function LoginForm() {
             "البريد الإلكتروني أو كلمة المرور غير صحيحة",
         );
       } else {
-        // Wait a moment for session to be established, then check role
-        // This prevents the double-click issue
         await new Promise((resolve) => setTimeout(resolve, 100));
         const session = await getSession();
-
-        // Redirect based on role
-        // ADMIN goes to admin dashboard (system admin only)
-        // OWNER, MANAGER, STAFF go to merchant dashboard
         const targetUrl =
           session?.user?.role === "ADMIN" &&
           session?.user?.merchantId === "system"
@@ -111,15 +99,13 @@ function LoginForm() {
               ? "/merchant/cashier"
               : callbackUrl;
 
-        // Keep client-side routing for immediate transition, then force full
-        // navigation so the server picks up fresh auth session state.
         router.push(targetUrl);
         if (process.env.NODE_ENV !== "test") {
           window.location.href = targetUrl;
         }
-        return; // Don't call setIsLoading(false) since we're navigating away
+        return;
       }
-    } catch (err) {
+    } catch {
       setError("البريد الإلكتروني أو كلمة المرور غير صحيحة");
     } finally {
       setIsLoading(false);
@@ -316,7 +302,6 @@ function LoginForm() {
               </div>
             </form>
 
-            {/* Demo credentials hint — click any value to auto-fill */}
             {process.env.NODE_ENV === "development" && (
               <div className="mt-6 rounded-[18px] border border-border/70 bg-background/80 p-4 text-xs text-muted-foreground">
                 <p className="mb-2 font-semibold text-foreground">
@@ -362,7 +347,6 @@ function LoginForm() {
   );
 }
 
-// Loading fallback for Suspense
 function LoginFormSkeleton() {
   return (
     <div className="app-auth-shell">

@@ -36,6 +36,8 @@ import {
   Snowflake,
   MapPin,
   Lightbulb,
+  Instagram,
+  Phone,
 } from "lucide-react";
 import {
   cn,
@@ -45,10 +47,6 @@ import {
 } from "@/lib/utils";
 import { merchantApi } from "@/lib/client";
 import { useMerchant } from "@/hooks/use-merchant";
-import {
-  AiInsightsCard,
-  generateConversationInsights,
-} from "@/components/ai/ai-insights-card";
 import { useRoleAccess } from "@/hooks/use-role-access";
 
 interface Message {
@@ -172,10 +170,10 @@ function ConversationChannelIcon({
   if (normalized === "messenger") {
     return (
       <span
-        className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-blue-100"
+        className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-[var(--accent-blue)]/20 bg-[var(--accent-blue)]/12"
         title="Messenger"
       >
-        <MessageSquare className="h-3.5 w-3.5 text-blue-600" />
+        <MessageSquare className="h-3.5 w-3.5 text-[var(--accent-blue)]" />
       </span>
     );
   }
@@ -183,39 +181,70 @@ function ConversationChannelIcon({
   if (normalized === "instagram") {
     return (
       <span
-        className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-br from-fuchsia-500 via-rose-500 to-amber-400"
+        className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-[var(--accent-gold)]/20 bg-[var(--accent-gold)]/12"
         title="Instagram"
       >
-        <span className="text-[9px] font-bold text-white leading-none">IG</span>
+        <span className="text-[9px] font-bold leading-none text-[var(--accent-gold)]">
+          IG
+        </span>
       </span>
     );
   }
 
   return (
     <span
-      className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-green-100"
+      className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-[var(--accent-success)]/20 bg-[var(--accent-success)]/12"
       title="WhatsApp"
     >
-      <MessageCircle className="h-3.5 w-3.5 text-green-600" />
+      <MessageCircle className="h-3.5 w-3.5 text-[var(--accent-success)]" />
     </span>
   );
 }
+
+const CHANNEL_FILTERS = [
+  { id: "all", label: "الكل", icon: MessageSquare, color: "" },
+  {
+    id: "whatsapp",
+    label: "واتساب",
+    icon: MessageCircle,
+    color: "text-[var(--accent-success)]",
+  },
+  {
+    id: "messenger",
+    label: "ماسنجر",
+    icon: MessageSquare,
+    color: "text-[var(--accent-blue)]",
+  },
+  {
+    id: "instagram",
+    label: "إنستاجرام",
+    icon: Instagram,
+    color: "text-[var(--accent-gold)]",
+  },
+];
 
 // Lead Score Badge Component
 function LeadScoreBadge({ score }: { score?: "HOT" | "WARM" | "COLD" | null }) {
   if (!score) return null;
 
   const config = {
-    HOT: { icon: Flame, color: "bg-red-500 text-white", label: "🔥 ساخن" },
+    HOT: {
+      icon: Flame,
+      color:
+        "border border-[var(--accent-danger)]/25 bg-[var(--accent-danger)]/15 text-[var(--accent-danger)]",
+      label: "ساخن",
+    },
     WARM: {
       icon: Thermometer,
-      color: "bg-orange-500 text-white",
-      label: "🌡️ دافئ",
+      color:
+        "border border-[var(--accent-warning)]/25 bg-[var(--accent-warning)]/15 text-[var(--accent-warning)]",
+      label: "دافئ",
     },
     COLD: {
       icon: Snowflake,
-      color: "bg-blue-500 text-white",
-      label: "❄️ بارد",
+      color:
+        "border border-[var(--accent-blue)]/25 bg-[var(--accent-blue)]/15 text-[var(--accent-blue)]",
+      label: "بارد",
     },
   };
 
@@ -236,13 +265,13 @@ function AddressConfidenceBadge({ confidence }: { confidence?: number }) {
 
   const color =
     confidence >= 80
-      ? "bg-green-500"
+      ? "border border-[var(--accent-success)]/25 bg-[var(--accent-success)]/15 text-[var(--accent-success)]"
       : confidence >= 50
-        ? "bg-yellow-500"
-        : "bg-red-500";
+        ? "border border-[var(--accent-warning)]/25 bg-[var(--accent-warning)]/15 text-[var(--accent-warning)]"
+        : "border border-[var(--accent-danger)]/25 bg-[var(--accent-danger)]/15 text-[var(--accent-danger)]";
 
   return (
-    <Badge className={cn("text-xs text-white", color)}>
+    <Badge className={cn("text-xs", color)}>
       <MapPin className="h-3 w-3 ml-1" />
       {confidence}%
     </Badge>
@@ -284,6 +313,7 @@ export default function ConversationsPage() {
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [stateFilter, setStateFilter] = useState<string>("all");
+  const [channelFilter, setChannelFilter] = useState<string>("all");
   const [newMessage, setNewMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [takingOver, setTakingOver] = useState(false);
@@ -333,17 +363,33 @@ export default function ConversationsPage() {
   );
 
   const getCustomerAvatarLetter = useCallback((conversation: Conversation) => {
-    const name =
-      conversation.customerName != null
-        ? String(conversation.customerName).trim()
-        : "";
+    const seed =
+      String(conversation.customerName || "").trim() ||
+      String(conversation.customerPhone || "").trim() ||
+      String(conversation.senderId || "").trim();
+    return Array.from(seed)[0] || "ع";
+  }, []);
 
-    if (!name) {
-      return null;
-    }
-
-    const firstCharacter = Array.from(name)[0] || "";
-    return /[\p{L}]/u.test(firstCharacter) ? firstCharacter : null;
+  const getCustomerAvatarTone = useCallback((conversation: Conversation) => {
+    const seed = Array.from(
+      String(
+        conversation.customerName ||
+          conversation.customerPhone ||
+          conversation.senderId ||
+          "",
+      ),
+    ).reduce((sum, char) => sum + char.charCodeAt(0), 0);
+    const tones = [
+      "bg-[color:#1d4ed8] text-white",
+      "bg-[color:#065f46] text-white",
+      "bg-[color:#7c3aed] text-white",
+      "bg-[color:#92400e] text-white",
+      "bg-[color:#9f1239] text-white",
+      "bg-[color:#0f766e] text-white",
+      "bg-[color:#3f3f46] text-white",
+      "bg-[color:#1e40af] text-white",
+    ];
+    return tones[seed % tones.length];
   }, []);
 
   const getConversationPreview = useCallback(
@@ -421,12 +467,15 @@ export default function ConversationsPage() {
   const filteredConversations = conversations.filter((conv) => {
     const matchesState =
       stateFilter === "all" || getEffectiveState(conv) === stateFilter;
+    const matchesChannel =
+      channelFilter === "all" ||
+      String(conv.channel || "whatsapp") === channelFilter;
     const matchesSearch =
       getDisplayName(conv).toLowerCase().includes(searchQuery.toLowerCase()) ||
       (conv.customerPhone || "").includes(searchQuery) ||
       (conv.senderId || "").includes(searchQuery) ||
       String(conv.id || "").includes(searchQuery);
-    return matchesState && matchesSearch;
+    return matchesState && matchesChannel && matchesSearch;
   });
 
   useEffect(() => {
@@ -580,7 +629,7 @@ export default function ConversationsPage() {
     <div className="space-y-8 animate-fadeIn p-4 sm:p-6">
       <PageHeader
         title="المحادثات"
-        description="تشغيل المحادثات الحية بين العميل والذكاء والفريق من واجهة واحدة."
+        description="تابع كل محادثة نشطة، واعرف متى يتدخل الفريق أو الذكاء مباشرة."
         actions={
           <Button
             variant="outline"
@@ -604,7 +653,8 @@ export default function ConversationsPage() {
               </h2>
               <p className="app-hero-band__copy">
                 راقب حالة كل محادثة، التقط الحالات التي تحتاج تدخلاً بشرياً،
-                وتابع الرسائل من عرض ثنائي يسمح للفريق بالاستجابة بسرعة ووضوح.
+                وتابع واتساب وماسنجر وإنستاجرام من عرض ثنائي يحافظ على سياق
+                العميل والرسائل.
               </p>
             </div>
           </div>
@@ -639,69 +689,36 @@ export default function ConversationsPage() {
         </div>
       </section>
 
-      <AiInsightsCard
-        insights={generateConversationInsights({
-          totalConversations: stats.total ?? 0,
-          activeConversations: stats.active ?? 0,
-          avgResponseTime: 0,
-          unreadCount: stats.humanTakeover ?? 0,
-        })}
-      />
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Card className="app-data-card">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 bg-primary/10 rounded-lg">
-              <MessageSquare className="h-5 w-5 text-primary" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold">{stats.total}</p>
-              <p className="text-xs text-muted-foreground">إجمالي المحادثات</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="app-data-card">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 bg-blue-500/10 rounded-lg">
-              <Clock className="h-5 w-5 text-blue-500" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold">{stats.active}</p>
-              <p className="text-xs text-muted-foreground">نشطة</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="app-data-card">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 bg-red-500/10 rounded-lg">
-              <UserCheck className="h-5 w-5 text-red-500" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold">{stats.humanTakeover}</p>
-              <p className="text-xs text-muted-foreground">تدخل بشري</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="app-data-card">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 bg-green-500/10 rounded-lg">
-              <CheckCircle className="h-5 w-5 text-green-500" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold">{stats.completed}</p>
-              <p className="text-xs text-muted-foreground">مكتملة</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
       {/* Main Content - Split View */}
       <div className="grid min-h-0 grid-cols-1 gap-4 xl:h-[calc(100vh-10rem)] xl:min-h-[52rem] xl:grid-cols-[380px_minmax(0,1fr)] 2xl:grid-cols-[440px_minmax(0,1fr)]">
         {/* Conversations List */}
-        <Card className="app-data-card h-full overflow-hidden border-border/70 shadow-sm">
+        <Card className="app-data-card h-full overflow-hidden border-border/70">
           <CardHeader className="border-b bg-muted/20 pb-3">
             <div className="space-y-3">
+              <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                {CHANNEL_FILTERS.map((filter) => {
+                  const Icon = filter.icon;
+                  const isActive = channelFilter === filter.id;
+                  return (
+                    <button
+                      key={filter.id}
+                      type="button"
+                      onClick={() => setChannelFilter(filter.id)}
+                      className={cn(
+                        "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--radius-sm)] border transition-colors",
+                        isActive
+                          ? "border-[var(--accent-gold)] bg-[var(--accent-gold-dim)] text-[var(--accent-gold)]"
+                          : "border-[var(--border-default)] bg-[var(--bg-surface-1)] text-[var(--text-secondary)] hover:border-[var(--border-active)] hover:text-[var(--text-primary)]",
+                      )}
+                      title={filter.label}
+                    >
+                      <Icon
+                        className={cn("h-4 w-4", isActive ? "" : filter.color)}
+                      />
+                    </button>
+                  );
+                })}
+              </div>
               <div className="relative">
                 <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -768,10 +785,13 @@ export default function ConversationsPage() {
                               alt={getDisplayName(conv)}
                             />
                           )}
-                          <AvatarFallback className="bg-primary/10 text-primary">
-                            {getCustomerAvatarLetter(conv) || (
-                              <User className="h-4 w-4" />
+                          <AvatarFallback
+                            className={cn(
+                              "font-semibold",
+                              getCustomerAvatarTone(conv),
                             )}
+                          >
+                            {getCustomerAvatarLetter(conv)}
                           </AvatarFallback>
                         </Avatar>
                         <div className="flex-1 min-w-0">
@@ -840,11 +860,29 @@ export default function ConversationsPage() {
         </Card>
 
         {/* Chat View */}
-        <Card className="flex min-h-[28rem] flex-col overflow-hidden border-border/70 shadow-sm xl:h-full xl:min-h-0">
+        <Card className="flex min-h-[28rem] flex-col overflow-hidden border-border/70 xl:h-full xl:min-h-0">
           {selectedConversation ? (
             <>
               {/* Chat Header */}
               <CardHeader className="border-b bg-muted/20 px-5 py-4">
+                <div className="mb-3 flex flex-wrap gap-2">
+                  {[
+                    { label: "إجمالي", value: stats.total },
+                    { label: "نشطة", value: stats.active },
+                    { label: "تدخل بشري", value: stats.humanTakeover },
+                    { label: "مكتملة", value: stats.completed },
+                  ].map((item) => (
+                    <span
+                      key={item.label}
+                      className="inline-flex h-7 items-center gap-2 rounded-[4px] border border-[var(--border-default)] bg-[var(--bg-surface-1)] px-2 text-[11px] text-[var(--text-secondary)]"
+                    >
+                      <span>{item.label}</span>
+                      <span className="font-mono text-[var(--text-primary)]">
+                        {item.value}
+                      </span>
+                    </span>
+                  ))}
+                </div>
                 <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                   <div className="flex min-w-0 items-center gap-3">
                     <Avatar className="h-11 w-11">
@@ -854,10 +892,13 @@ export default function ConversationsPage() {
                           alt={getDisplayName(selectedConversation)}
                         />
                       )}
-                      <AvatarFallback className="bg-primary/10 text-primary">
-                        {getCustomerAvatarLetter(selectedConversation) || (
-                          <User className="h-4 w-4" />
+                      <AvatarFallback
+                        className={cn(
+                          "font-semibold",
+                          getCustomerAvatarTone(selectedConversation),
                         )}
+                      >
+                        {getCustomerAvatarLetter(selectedConversation)}
                       </AvatarFallback>
                     </Avatar>
                     <div className="min-w-0">
@@ -950,7 +991,7 @@ export default function ConversationsPage() {
               </CardHeader>
 
               {/* Messages Area */}
-              <CardContent className="min-h-0 flex-1 overflow-hidden bg-[linear-gradient(180deg,rgba(59,130,246,0.03),transparent_28%)] p-0">
+              <CardContent className="min-h-0 flex-1 overflow-hidden bg-[color:color-mix(in_srgb,var(--bg-surface-2)_35%,transparent)] p-0">
                 <ScrollArea className="h-full px-5 py-5">
                   {loadingMessages ? (
                     <div className="flex items-center justify-center h-full">
@@ -984,8 +1025,10 @@ export default function ConversationsPage() {
                               <AvatarFallback
                                 className={cn(
                                   isOutbound
-                                    ? "bg-primary text-primary-foreground"
-                                    : "bg-muted",
+                                    ? "border border-[var(--accent-gold)]/20 bg-[var(--bg-surface-3)] text-[var(--accent-gold)]"
+                                    : getCustomerAvatarTone(
+                                        selectedConversation,
+                                      ),
                                 )}
                               >
                                 {isOutbound ? (
@@ -997,20 +1040,25 @@ export default function ConversationsPage() {
                             </Avatar>
                             <div
                               className={cn(
-                                "max-w-[88%] rounded-2xl px-4 py-3 shadow-sm sm:max-w-[82%] xl:max-w-[78%]",
+                                "max-w-[88%] rounded-2xl px-4 py-3 sm:max-w-[82%] xl:max-w-[78%]",
                                 isOutbound
-                                  ? "rounded-br-md bg-primary text-primary-foreground"
+                                  ? "rounded-br-md border border-[var(--accent-gold)]/20 bg-[var(--bg-surface-2)] text-[var(--text-primary)]"
                                   : "rounded-bl-md border border-border/60 bg-background",
                               )}
                             >
+                              {isOutbound && (
+                                <div className="mb-2 inline-flex h-5 items-center rounded-[4px] border border-[var(--accent-gold)]/20 bg-[var(--accent-gold-dim)] px-2 text-[10px] font-semibold text-[var(--accent-gold)]">
+                                  ✦ AI
+                                </div>
+                              )}
                               <p className="text-sm whitespace-pre-wrap leading-6">
                                 {safeText || "-"}
                               </p>
                               <p
                                 className={cn(
-                                  "mt-2 text-[11px]",
+                                  "mt-2 font-mono text-[11px]",
                                   isOutbound
-                                    ? "text-primary-foreground/70"
+                                    ? "text-[var(--text-secondary)]"
                                     : "text-muted-foreground",
                                 )}
                               >
@@ -1047,12 +1095,12 @@ export default function ConversationsPage() {
                             handleSendMessage();
                           }
                         }}
-                        className="min-h-[74px] resize-none rounded-2xl border-border/70 bg-background"
+                        className="h-[54px] min-h-[54px] resize-none rounded-[10px] border-[var(--border-default)] bg-[var(--bg-surface-3)] px-4 py-3 leading-6"
                       />
                       <Button
                         onClick={handleSendMessage}
                         disabled={!canCreate || !newMessage.trim() || sending}
-                        className="h-auto min-h-[74px] shrink-0 rounded-2xl px-5"
+                        className="h-10 w-10 shrink-0 rounded-[10px] px-0"
                       >
                         {sending ? (
                           <RefreshCw className="h-4 w-4 animate-spin" />

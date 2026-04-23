@@ -12,9 +12,9 @@ const uiFont = IBM_Plex_Sans_Arabic({
 });
 
 export const metadata: Metadata = {
-  title: "Tash8eel - لوحة التحكم",
+  title: "Tash8eel AI",
   description:
-    "منصة التجارة الإلكترونية الذكية للشركات الصغيرة والمتوسطة في مصر",
+    "تشغيل AI - منصة تشغيل ذكية للمطاعم والمقاهي ومتاجر التجزئة في مصر",
 };
 
 export default async function RootLayout({
