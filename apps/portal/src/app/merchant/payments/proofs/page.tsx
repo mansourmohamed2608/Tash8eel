@@ -248,7 +248,7 @@ export default function PaymentProofsPage() {
   const proofImageUrl = resolveProofImageUrl(selectedProof?.imageUrl);
 
   return (
-    <div className="app-page-frame space-y-6 p-4 pb-8 sm:p-6">
+    <div className="space-y-6 p-4 sm:p-6">
       <PageHeader
         title="إثباتات الدفع"
         description="مراجعة واعتماد إثباتات الدفع من العملاء"
@@ -267,9 +267,10 @@ export default function PaymentProofsPage() {
         }
       />
 
+      {/* AI Payment Proofs Insights */}
       {/* Stats Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Card className="app-data-card">
+        <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-amber-100 rounded-lg">
@@ -282,7 +283,7 @@ export default function PaymentProofsPage() {
             </div>
           </CardContent>
         </Card>
-        <Card className="app-data-card">
+        <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-green-100 rounded-lg">
@@ -295,7 +296,7 @@ export default function PaymentProofsPage() {
             </div>
           </CardContent>
         </Card>
-        <Card className="app-data-card">
+        <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-red-100 rounded-lg">
@@ -308,7 +309,7 @@ export default function PaymentProofsPage() {
             </div>
           </CardContent>
         </Card>
-        <Card className="app-data-card">
+        <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-blue-100 rounded-lg">
@@ -324,7 +325,7 @@ export default function PaymentProofsPage() {
       </div>
 
       {/* Filters */}
-      <Card className="app-data-card app-data-card--muted">
+      <Card>
         <CardContent className="p-4">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
             <div className="w-full sm:w-48">

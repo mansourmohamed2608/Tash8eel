@@ -93,13 +93,13 @@ function urgencyVariant(
 function urgencyBg(u: string) {
   switch (u) {
     case "critical":
-      return "bg-white border-red-200";
+      return "bg-red-50 border-red-200";
     case "high":
-      return "bg-white border-orange-200";
+      return "bg-orange-50 border-orange-200";
     case "medium":
-      return "bg-white border-yellow-200";
+      return "bg-yellow-50 border-yellow-200";
     default:
-      return "bg-white border-green-200";
+      return "bg-green-50 border-green-200";
   }
 }
 
@@ -286,90 +286,50 @@ export default function ForecastPage() {
   }
 
   return (
-    <div dir="rtl" className="app-page-frame w-full space-y-6 p-4 pb-8 sm:p-6">
-      <PageHeader
-        title="توقعات الطلب"
-        description="تحليل المبيعات والمخزون بالذكاء الاصطناعي"
-        actions={
-          <div className="flex items-center gap-2 self-start sm:self-auto">
-            {computedAt && (
-              <span className="text-xs text-muted-foreground flex items-center gap-1">
-                <Clock className="w-3 h-3" />
-                {new Date(computedAt).toLocaleString("ar-SA", {
-                  month: "short",
-                  day: "numeric",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
-              </span>
+    <div dir="rtl" className="w-full space-y-6 p-4 sm:p-6">
+      {/* ── Header ─────────────────────────────────────────────────────── */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <PageHeader
+          title="توقعات الطلب"
+          description="تحليل المبيعات والمخزون بالذكاء الاصطناعي"
+        />
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          {computedAt && (
+            <span className="text-xs text-muted-foreground flex items-center gap-1">
+              <Clock className="w-3 h-3" />
+              {new Date(computedAt).toLocaleString("ar-SA", {
+                month: "short",
+                day: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </span>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={refreshing}
+            onClick={() => loadForecast(true)}
+          >
+            {refreshing ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <RefreshCw className="w-4 h-4" />
             )}
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={refreshing}
-              onClick={() => loadForecast(true)}
-            >
-              {refreshing ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <RefreshCw className="w-4 h-4" />
-              )}
-              <span className="mr-1.5">تحديث</span>
-            </Button>
-          </div>
-        }
-      />
-
-      <section className="app-hero-band">
-        <div className="app-hero-band__grid">
-          <div>
-            <p className="app-hero-band__eyebrow">توقع وتشغيل</p>
-            <h2 className="app-hero-band__title">
-              تعرف على الأصناف المعرضة للنفاد قبل أن تتحول إلى خسارة مبيعات
-            </h2>
-            <p className="app-hero-band__copy">
-              يجمع هذا التقرير معدل الطلب، سرعة الاستهلاك، واتجاه التغير ليمنح
-              الفريق قائمة أولوية واضحة لإعادة الطلب والتوزيع.
-            </p>
-          </div>
-          <div className="app-hero-band__metrics">
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">
-                الأصناف المحللة
-              </span>
-              <strong className="app-hero-band__metric-value">
-                {items.length}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">
-                خطر خلال 7 أيام
-              </span>
-              <strong className="app-hero-band__metric-value">
-                {nearStockout}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">
-                إعادة طلب مقترحة
-              </span>
-              <strong className="app-hero-band__metric-value">
-                {Math.round(totalReorderSuggested)}
-              </strong>
-            </div>
-          </div>
+            <span className="mr-1.5">تحديث</span>
+          </Button>
         </div>
-      </section>
+      </div>
 
       {/* ── Summary strip ──────────────────────────────────────────────── */}
       {items.length > 0 && (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-8">
-          <Card className="app-data-card app-data-card--muted md:col-span-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-8 gap-3">
+          <Card className="bg-slate-50 border-slate-200 md:col-span-2">
             <CardContent className="py-3 px-4 text-center">
-              <p className="text-2xl font-bold">{items.length}</p>
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                إجمالي الأصناف
+              <p className="text-2xl font-bold text-slate-700">
+                {items.length}
               </p>
+              <p className="text-xs text-slate-600 mt-0.5">إجمالي الأصناف</p>
             </CardContent>
           </Card>
           <button
@@ -377,7 +337,7 @@ export default function ForecastPage() {
             onClick={() => setFilter("critical")}
             type="button"
           >
-            <Card className="app-data-card h-full border-red-200">
+            <Card className="bg-red-50 border-red-200 h-full">
               <CardContent className="py-3 px-4 text-center">
                 <p className="text-2xl font-bold text-red-700">
                   {counts.critical}
@@ -391,7 +351,7 @@ export default function ForecastPage() {
             onClick={() => setFilter("high")}
             type="button"
           >
-            <Card className="app-data-card h-full border-orange-200">
+            <Card className="bg-orange-50 border-orange-200 h-full">
               <CardContent className="py-3 px-4 text-center">
                 <p className="text-2xl font-bold text-orange-700">
                   {counts.high}
@@ -405,7 +365,7 @@ export default function ForecastPage() {
             onClick={() => setFilter("medium")}
             type="button"
           >
-            <Card className="app-data-card h-full border-yellow-200">
+            <Card className="bg-yellow-50 border-yellow-200 h-full">
               <CardContent className="py-3 px-4 text-center">
                 <p className="text-2xl font-bold text-yellow-700">
                   {counts.medium}
@@ -419,14 +379,14 @@ export default function ForecastPage() {
             onClick={() => setFilter("ok")}
             type="button"
           >
-            <Card className="app-data-card h-full border-green-200">
+            <Card className="bg-green-50 border-green-200 h-full">
               <CardContent className="py-3 px-4 text-center">
                 <p className="text-2xl font-bold text-green-700">{counts.ok}</p>
                 <p className="text-xs text-green-600 mt-0.5">جيد</p>
               </CardContent>
             </Card>
           </button>
-          <Card className="app-data-card border-blue-200">
+          <Card className="bg-blue-50 border-blue-200">
             <CardContent className="py-3 px-4 text-center flex flex-col items-center">
               <div className="flex items-center gap-1">
                 <p className="text-2xl font-bold text-blue-700">{trendingUp}</p>
@@ -435,7 +395,7 @@ export default function ForecastPage() {
               <p className="text-xs text-blue-600 mt-0.5">طلب متصاعد</p>
             </CardContent>
           </Card>
-          <Card className="app-data-card app-data-card--muted border-gray-200">
+          <Card className="bg-gray-50 border-gray-200">
             <CardContent className="py-3 px-4 text-center flex flex-col items-center">
               <div className="flex items-center gap-1">
                 <p className="text-2xl font-bold text-gray-700">
@@ -450,7 +410,7 @@ export default function ForecastPage() {
       )}
 
       {/* ── Filter & search bar ─────────────────────────────────────────── */}
-      <Card className="app-workbench-strip border-dashed">
+      <Card className="border-dashed">
         <CardContent className="py-4 space-y-3">
           <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
             <div className="relative lg:col-span-2">
@@ -474,7 +434,7 @@ export default function ForecastPage() {
               )}
             </div>
 
-            <div className="app-mini-surface flex flex-col gap-2 px-3 py-2 sm:flex-row sm:flex-wrap sm:items-center">
+            <div className="flex flex-col gap-2 rounded-md border bg-muted/30 px-3 py-2 sm:flex-row sm:flex-wrap sm:items-center">
               <ArrowUpDown className="w-4 h-4 text-muted-foreground" />
               <span className="text-xs text-muted-foreground">ترتيب:</span>
               <div className="flex flex-wrap gap-1">
@@ -522,7 +482,7 @@ export default function ForecastPage() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-            <div className="app-mini-surface px-3 py-2">
+            <div className="rounded-md border bg-slate-50 px-3 py-2">
               <p className="text-muted-foreground">
                 إجمالي إعادة الطلب المقترح
               </p>
@@ -530,7 +490,7 @@ export default function ForecastPage() {
                 {Math.round(totalReorderSuggested)} وحدة
               </p>
             </div>
-            <div className="app-mini-surface border-amber-200 bg-amber-50/70 px-3 py-2">
+            <div className="rounded-md border bg-amber-50 px-3 py-2">
               <p className="text-muted-foreground">
                 أصناف مهددة بالنفاد خلال 7 أيام
               </p>
@@ -554,7 +514,7 @@ export default function ForecastPage() {
 
       {/* ── Empty state ─────────────────────────────────────────────────── */}
       {items.length === 0 ? (
-        <Card className="app-data-card">
+        <Card>
           <CardContent className="py-12 text-center">
             <BarChart3 className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
             <p className="text-muted-foreground">
@@ -571,7 +531,7 @@ export default function ForecastPage() {
           </CardContent>
         </Card>
       ) : visibleItems.length === 0 ? (
-        <Card className="app-data-card">
+        <Card>
           <CardContent className="py-10 text-center">
             <Search className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
             <p className="text-muted-foreground">

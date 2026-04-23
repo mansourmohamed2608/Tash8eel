@@ -368,7 +368,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="app-page-frame space-y-6 animate-fadeIn px-4 pb-8 sm:px-6">
+    <div className="space-y-6 animate-fadeIn p-4 sm:p-6">
       <PageHeader
         title="الإعدادات"
         description="إدارة إعدادات المتجر والإشعارات"
@@ -385,54 +385,6 @@ export default function SettingsPage() {
           )
         }
       />
-
-      {settings && (
-        <section className="app-hero-band">
-          <div className="app-hero-band__grid">
-            <div>
-              <p className="app-hero-band__eyebrow">تهيئة المنصة</p>
-              <h2 className="app-hero-band__title">
-                اضبط المتجر والدفعات والتشغيل من لوحة إعدادات واحدة
-              </h2>
-              <p className="app-hero-band__copy">
-                هذه المساحة تجمع هوية النشاط، قنوات الدفع، إعدادات التشغيل،
-                وتجربة نقطة البيع ضمن نموذج واضح وقابل للمراجعة.
-              </p>
-            </div>
-            <div className="app-hero-band__metrics">
-              <div className="app-hero-band__metric">
-                <span className="app-hero-band__metric-label">
-                  وضع نقطة البيع
-                </span>
-                <strong className="app-hero-band__metric-value">
-                  {settings.pos.enabled ? "مفعّل" : "معطّل"}
-                </strong>
-              </div>
-              <div className="app-hero-band__metric">
-                <span className="app-hero-band__metric-label">
-                  جاهزية الدفع
-                </span>
-                <strong className="app-hero-band__metric-value">
-                  {settings.payout.instapayAlias ||
-                  settings.payout.vodafoneCashNumber ||
-                  settings.payout.bankAccount
-                    ? "مكتملة"
-                    : "بحاجة إعداد"}
-                </strong>
-              </div>
-              <div className="app-hero-band__metric">
-                <span className="app-hero-band__metric-label">
-                  الردود التلقائية
-                </span>
-                <strong className="app-hero-band__metric-value">
-                  {settings.preferences.autoResponseEnabled ? "نشطة" : "متوقفة"}
-                </strong>
-              </div>
-            </div>
-          </div>
-        </section>
-      )}
-
       {error && (
         <AlertBanner
           type="error"
@@ -455,7 +407,7 @@ export default function SettingsPage() {
         onValueChange={handleTabChange}
         className="space-y-6"
       >
-        <TabsList className="app-workbench-strip grid h-auto w-full grid-cols-2 gap-2 p-2 sm:grid-cols-3 md:grid-cols-6">
+        <TabsList className="grid h-auto w-full grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-6">
           <TabsTrigger
             value="business"
             className="flex w-full items-center gap-2"
@@ -499,7 +451,7 @@ export default function SettingsPage() {
 
         {/* Business Tab */}
         <TabsContent value="business">
-          <Card className="app-data-card">
+          <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Store className="h-5 w-5" />
@@ -591,7 +543,7 @@ export default function SettingsPage() {
 
         {/* Payout Settings Tab */}
         <TabsContent value="payout">
-          <Card className="app-data-card">
+          <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Wallet className="h-5 w-5" />
@@ -778,7 +730,7 @@ export default function SettingsPage() {
 
         {/* Notifications Tab */}
         <TabsContent value="notifications">
-          <Card className="app-data-card">
+          <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Bell className="h-5 w-5" />
@@ -805,7 +757,7 @@ export default function SettingsPage() {
 
         {/* Preferences Tab */}
         <TabsContent value="preferences">
-          <Card className="app-data-card">
+          <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Clock className="h-5 w-5" />
@@ -1001,7 +953,7 @@ export default function SettingsPage() {
         </TabsContent>
 
         <TabsContent value="pos">
-          <Card className="app-data-card">
+          <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <CreditCard className="h-5 w-5" />

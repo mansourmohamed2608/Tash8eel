@@ -307,7 +307,7 @@ export default function KpisPage() {
         "bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400",
     };
     return (
-      <Card className="app-data-card">
+      <Card>
         <CardContent className="pt-6">
           <div className="flex items-start justify-between">
             <div>
@@ -378,7 +378,7 @@ export default function KpisPage() {
   );
 
   return (
-    <div className="app-page-frame space-y-6 p-4 pb-8 sm:p-6">
+    <div className="space-y-6 p-4 sm:p-6">
       <PageHeader
         title="مؤشرات الأداء (KPIs)"
         description="تحليل شامل لأداء متجرك ومعدلات النجاح"
@@ -416,12 +416,11 @@ export default function KpisPage() {
           </div>
         }
       />
-
       {loading ? (
         <LoadingSkeleton />
       ) : (
         <Tabs value={activeTab} onValueChange={handleTabChange}>
-          <TabsList className="app-workbench-strip grid h-auto w-full grid-cols-2 gap-2 p-2 sm:grid-cols-3 xl:max-w-2xl xl:grid-cols-5">
+          <TabsList className="grid h-auto w-full grid-cols-2 gap-2 sm:grid-cols-3 xl:max-w-2xl xl:grid-cols-5">
             <TabsTrigger value="overview" className="w-full">
               نظرة عامة
             </TabsTrigger>

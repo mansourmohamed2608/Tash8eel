@@ -60,13 +60,13 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { portalApi } from "@/lib/client";
-import { PageHeader } from "@/components/layout";
+import { PageHeader } from "@/components/layout/sidebar";
 
 interface Staff {
   id: string;
   email: string;
   name: string;
-  role: "OWNER" | "ADMIN" | "MANAGER" | "AGENT" | "CASHIER" | "VIEWER";
+  role: "OWNER" | "ADMIN" | "MANAGER" | "AGENT" | "VIEWER";
   status: "ACTIVE" | "INACTIVE" | "SUSPENDED" | "PENDING_INVITE";
   permissions?: Record<string, string[]>;
   lastLoginAt?: string;
@@ -165,15 +165,6 @@ const defaultPermissionsByRole: Record<string, Record<string, string[]>> = {
     knowledge_base: ["read"],
     reports: ["read"],
   },
-  CASHIER: {
-    orders: ["create", "read", "update"],
-    customers: ["read", "update"],
-    products: ["read"],
-    inventory: ["read"],
-    expenses: ["create", "read", "update"],
-    payments_cod: ["read"],
-    notifications: ["read"],
-  },
   VIEWER: {
     orders: ["read"],
     conversations: ["read"],
@@ -206,7 +197,6 @@ const roleColors: Record<string, string> = {
   ADMIN: "bg-purple-500",
   MANAGER: "bg-blue-500",
   AGENT: "bg-green-500",
-  CASHIER: "bg-orange-500",
   VIEWER: "bg-gray-500",
 };
 
@@ -215,7 +205,6 @@ const roleLabels: Record<string, string> = {
   ADMIN: "مدير",
   MANAGER: "مشرف",
   AGENT: "وكيل",
-  CASHIER: "كاشير",
   VIEWER: "مشاهد",
 };
 
@@ -574,10 +563,10 @@ export default function TeamPage() {
   };
 
   return (
-    <div className="app-page-frame space-y-6 p-4 pb-8 sm:p-6">
+    <div className="space-y-6 p-4 sm:p-6">
       <PageHeader
         title="إدارة الفريق"
-        description="إدارة الأدوار، الدعوات، وحوكمة الوصول داخل النشاط من واجهة واحدة."
+        description="إدارة أعضاء الفريق وصلاحياتهم"
         actions={
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
             <Button
@@ -653,9 +642,6 @@ export default function TeamPage() {
                         <SelectItem value="AGENT">
                           وكيل - خدمة العملاء
                         </SelectItem>
-                        <SelectItem value="CASHIER">
-                          كاشير - نقطة البيع ومشتريات الفرع
-                        </SelectItem>
                         <SelectItem value="VIEWER">مشاهد - عرض فقط</SelectItem>
                       </SelectContent>
                     </Select>
@@ -686,58 +672,11 @@ export default function TeamPage() {
         }
       />
 
-      <section className="app-hero-band">
-        <div className="app-hero-band__grid">
-          <div className="space-y-4">
-            <span className="app-hero-band__eyebrow">Team Access Control</span>
-            <div className="space-y-3">
-              <h2 className="app-hero-band__title">
-                ابْنِ الفريق بصلاحيات واضحة بدل مشاركة الوصول العشوائي.
-              </h2>
-              <p className="app-hero-band__copy">
-                من هنا تدير الدعوات، تتابع حالة القبول، وتراجع صلاحيات كل دور
-                بما في ذلك الكاشير والوكلاء والمشرفين. الهدف ليس فقط إضافة
-                أعضاء، بل ضبط من يرى ماذا ومن يستطيع تنفيذ ماذا.
-              </p>
-            </div>
-          </div>
-          <div className="app-hero-band__metrics">
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">
-                إجمالي الأعضاء
-              </span>
-              <strong className="app-hero-band__metric-value">
-                {staff.length}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">نشطون</span>
-              <strong className="app-hero-band__metric-value">
-                {staff.filter((s) => s.status === "ACTIVE").length}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">
-                بانتظار القبول
-              </span>
-              <strong className="app-hero-band__metric-value">
-                {staff.filter((s) => s.status === "PENDING_INVITE").length}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">موقوفون</span>
-              <strong className="app-hero-band__metric-value">
-                {staff.filter((s) => s.status === "SUSPENDED").length}
-              </strong>
-            </div>
-          </div>
-        </div>
-      </section>
-
+      {/* AI Team Insights */}
       {loading ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {[...Array(4)].map((_, i) => (
-            <Card key={i} className="app-data-card">
+            <Card key={i}>
               <CardContent className="p-6">
                 <div className="h-16 bg-muted animate-pulse rounded" />
               </CardContent>
@@ -748,7 +687,7 @@ export default function TeamPage() {
         <>
           {/* Stats Cards */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <Card className="app-data-card">
+            <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">
                   إجمالي الأعضاء
@@ -759,7 +698,7 @@ export default function TeamPage() {
                 <div className="text-2xl font-bold">{staff.length}</div>
               </CardContent>
             </Card>
-            <Card className="app-data-card">
+            <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">نشطون</CardTitle>
                 <CheckCircle className="h-4 w-4 text-green-500" />
@@ -770,7 +709,7 @@ export default function TeamPage() {
                 </div>
               </CardContent>
             </Card>
-            <Card className="app-data-card">
+            <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">
                   بانتظار القبول
@@ -783,7 +722,7 @@ export default function TeamPage() {
                 </div>
               </CardContent>
             </Card>
-            <Card className="app-data-card">
+            <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">موقوفون</CardTitle>
                 <Ban className="h-4 w-4 text-red-500" />
@@ -797,7 +736,7 @@ export default function TeamPage() {
           </div>
 
           {/* Staff Table */}
-          <Card className="app-data-card">
+          <Card>
             <CardHeader>
               <CardTitle>أعضاء الفريق</CardTitle>
               <CardDescription>
@@ -809,10 +748,7 @@ export default function TeamPage() {
                 {staff.map((member) => {
                   const StatusIcon = statusIcons[member.status];
                   return (
-                    <div
-                      key={member.id}
-                      className="rounded-[22px] border border-[color:color-mix(in_srgb,var(--border-strong)_86%,transparent)] p-4 shadow-[0_16px_34px_-28px_rgba(15,23,42,0.4)]"
-                    >
+                    <div key={member.id} className="rounded-lg border p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex items-center gap-3">
                           <div className="relative">
@@ -1067,14 +1003,6 @@ export default function TeamPage() {
                             className={`h-2 w-2 rounded-full ${roleColors.AGENT}`}
                           />
                           وكيل - خدمة العملاء (محادثات، طلبات - قراءة)
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="CASHIER">
-                        <div className="flex items-center gap-2">
-                          <div
-                            className={`h-2 w-2 rounded-full ${roleColors.CASHIER}`}
-                          />
-                          كاشير - بيع مباشر ومشتريات الفرع
                         </div>
                       </SelectItem>
                       <SelectItem value="VIEWER">

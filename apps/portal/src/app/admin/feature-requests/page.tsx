@@ -361,51 +361,12 @@ export default function AdminFeatureRequestsPage() {
     );
 
   return (
-    <div className="space-y-8 p-4 sm:p-6 animate-fadeIn">
+    <div className="space-y-6 p-4 sm:p-6 animate-fadeIn">
       <PageHeader
         title="اقتراحات الميزات"
         description="مراجعة اقتراحات التجار وتحديد أولويات التنفيذ"
         actions={headerActions}
       />
-
-      <section className="app-hero-band">
-        <div className="app-hero-band__grid">
-          <div>
-            <p className="app-hero-band__eyebrow">بحث المنتج</p>
-            <h2 className="app-hero-band__title">
-              اقرأ احتياجات التجار كإشارات منتج قابلة للتنفيذ
-            </h2>
-            <p className="app-hero-band__copy">
-              هذه اللوحة تربط الاقتراحات بالوضع التنفيذي، وتُظهر أثر طلبات
-              التخصيص وعروض السعر قبل نقلها إلى الصلاحيات أو خارطة الطريق.
-            </p>
-          </div>
-          <div className="app-hero-band__metrics">
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">الاقتراحات</span>
-              <strong className="app-hero-band__metric-value">
-                {requests.length}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">عروض السعر</span>
-              <strong className="app-hero-band__metric-value">
-                {quotes.length}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">
-                مطابقة الفلاتر
-              </span>
-              <strong className="app-hero-band__metric-value">
-                {activeTab === "quotes"
-                  ? quotes.length
-                  : filteredRequests.length}
-              </strong>
-            </div>
-          </div>
-        </div>
-      </section>
 
       {error && (
         <AlertBanner
@@ -427,7 +388,7 @@ export default function AdminFeatureRequestsPage() {
         </TabsList>
 
         <TabsContent value="requests" className="space-y-4">
-          <Card className="app-data-card app-data-card--muted">
+          <Card>
             <CardContent className="grid grid-cols-1 gap-3 p-4 md:grid-cols-4">
               <Input
                 placeholder="بحث بالعنوان أو التاجر"
@@ -503,7 +464,7 @@ export default function AdminFeatureRequestsPage() {
                     : null;
 
                 return (
-                  <Card key={req.id} className="app-data-card">
+                  <Card key={req.id}>
                     <CardHeader>
                       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                         <CardTitle className="text-base">{req.title}</CardTitle>

@@ -1438,7 +1438,7 @@ export default function InventoryPage() {
 
   if (loading) {
     return (
-      <div className="app-page-frame space-y-6 p-4 pb-8 sm:p-6">
+      <div>
         <PageHeader title="المخزون" />
         <TableSkeleton rows={5} columns={6} />
       </div>
@@ -1446,7 +1446,7 @@ export default function InventoryPage() {
   }
 
   return (
-    <div className="app-page-frame space-y-8 animate-fadeIn p-4 pb-8 sm:p-6">
+    <div className="space-y-6 animate-fadeIn p-4 sm:p-6">
       <PageHeader
         title="المخزون"
         description="إدارة منتجات وكميات المخزون"
@@ -1553,50 +1553,16 @@ export default function InventoryPage() {
             )}
           </div>
         }
-      />
-      <section className="app-hero-band">
-        <div className="app-hero-band__grid">
-          <div>
-            <p className="app-hero-band__eyebrow">مخزون وتشغيل</p>
-            <h2 className="app-hero-band__title">
-              إدارة لحظية للمنتجات، التوافر، والتحويلات عبر الفروع والمواقع
-            </h2>
-            <p className="app-hero-band__copy">
-              هذه الصفحة تجمع وضع المخزون، التنبيهات الحرجة، والتحركات التشغيلية
-              في مساحة مكثفة تساعد الفريق على القرار السريع.
-            </p>
-          </div>
-          <div className="app-hero-band__metrics">
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">المنتجات</span>
-              <strong className="app-hero-band__metric-value">
-                {summary?.total_items || inventory.length}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">مخزون منخفض</span>
-              <strong className="app-hero-band__metric-value">
-                {summary?.low_stock_count || lowStockItems.length}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">قيمة المخزون</span>
-              <strong className="app-hero-band__metric-value">
-                {formatCurrency(safeInventoryValue)}
-              </strong>
-            </div>
-          </div>
-        </div>
-      </section>
+      />{" "}
       {/* Tab Navigation */}
-      <div className="app-workbench-strip flex flex-wrap gap-2 rounded-3xl p-2">
+      <div className="flex border-b">
         <button
           onClick={() => handleTabChange("inventory")}
           className={cn(
-            "inline-flex items-center rounded-2xl px-4 py-2 text-sm font-medium transition-colors",
+            "px-4 py-2 font-medium text-sm border-b-2 -mb-px",
             activeTab === "inventory"
-              ? "bg-background text-foreground shadow-sm"
-              : "text-muted-foreground hover:bg-background/70 hover:text-foreground",
+              ? "border-primary text-primary"
+              : "border-transparent text-muted-foreground hover:text-foreground",
           )}
         >
           <Package className="h-4 w-4 inline-block ml-2" />
@@ -1605,10 +1571,10 @@ export default function InventoryPage() {
         <button
           onClick={() => handleTabChange("locations")}
           className={cn(
-            "inline-flex items-center rounded-2xl px-4 py-2 text-sm font-medium transition-colors",
+            "px-4 py-2 font-medium text-sm border-b-2 -mb-px",
             activeTab === "locations"
-              ? "bg-background text-foreground shadow-sm"
-              : "text-muted-foreground hover:bg-background/70 hover:text-foreground",
+              ? "border-primary text-primary"
+              : "border-transparent text-muted-foreground hover:text-foreground",
           )}
         >
           <Warehouse className="h-4 w-4 inline-block ml-2" />
@@ -1617,10 +1583,10 @@ export default function InventoryPage() {
         <button
           onClick={() => handleTabChange("shrinkage")}
           className={cn(
-            "inline-flex items-center rounded-2xl px-4 py-2 text-sm font-medium transition-colors",
+            "px-4 py-2 font-medium text-sm border-b-2 -mb-px",
             activeTab === "shrinkage"
-              ? "bg-background text-foreground shadow-sm"
-              : "text-muted-foreground hover:bg-background/70 hover:text-foreground",
+              ? "border-primary text-primary"
+              : "border-transparent text-muted-foreground hover:text-foreground",
           )}
         >
           <TrendingDown className="h-4 w-4 inline-block ml-2" />
@@ -1806,7 +1772,7 @@ export default function InventoryPage() {
 
           {/* Stats Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-            <Card className="app-data-card">
+            <Card>
               <CardContent className="p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div>
@@ -1821,7 +1787,7 @@ export default function InventoryPage() {
                 </div>
               </CardContent>
             </Card>
-            <Card className="app-data-card">
+            <Card>
               <CardContent className="p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div>
@@ -1836,7 +1802,7 @@ export default function InventoryPage() {
                 </div>
               </CardContent>
             </Card>
-            <Card className="app-data-card">
+            <Card>
               <CardContent className="p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div>
@@ -1849,7 +1815,7 @@ export default function InventoryPage() {
                 </div>
               </CardContent>
             </Card>
-            <Card className="app-data-card">
+            <Card>
               <CardContent className="p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div>
@@ -1866,7 +1832,7 @@ export default function InventoryPage() {
 
           {/* Inventory Value Card */}
           {summary && (
-            <Card className="app-data-card">
+            <Card>
               <CardContent className="p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div>
@@ -1890,8 +1856,9 @@ export default function InventoryPage() {
             </Card>
           )}
 
+          {/* AI Inventory Agent - GPT Deep Analysis */}
           {/* Search and Filters */}
-          <Card className="app-data-card">
+          <Card>
             <CardContent className="p-4">
               <div className="space-y-4">
                 <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_260px] lg:items-end">

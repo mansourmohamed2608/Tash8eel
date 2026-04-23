@@ -3,7 +3,7 @@
 import { useSession } from "next-auth/react";
 
 /**
- * Role hierarchy: OWNER(100) > ADMIN(80) > MANAGER(60) > AGENT(40) > CASHIER(30) > VIEWER(20)
+ * Role hierarchy: OWNER(100) > ADMIN(80) > MANAGER(60) > AGENT(40) > VIEWER(20)
  *
  * Permissions matrix:
  * ┌─────────────────┬───────┬───────┬─────────┬───────┬────────┐
@@ -28,20 +28,13 @@ import { useSession } from "next-auth/react";
  * └─────────────────┴───────┴───────┴─────────┴───────┴────────┘
  */
 
-export type StaffRole =
-  | "OWNER"
-  | "ADMIN"
-  | "MANAGER"
-  | "AGENT"
-  | "CASHIER"
-  | "VIEWER";
+export type StaffRole = "OWNER" | "ADMIN" | "MANAGER" | "AGENT" | "VIEWER";
 
 const ROLE_LEVEL: Record<StaffRole, number> = {
   OWNER: 100,
   ADMIN: 80,
   MANAGER: 60,
   AGENT: 40,
-  CASHIER: 30,
   VIEWER: 20,
 };
 
@@ -127,7 +120,7 @@ export function useRoleAccess(section: PageSection): RoleAccess {
   const isAdmin = level >= ROLE_LEVEL.ADMIN;
   const isManager = level >= ROLE_LEVEL.MANAGER;
   const isAgent = role === "AGENT";
-  const isCashier = role === "CASHIER";
+  const isViewer = role === "VIEWER";
 
   // Default: full access for MANAGER+, read-only for AGENT/VIEWER
   let canView = true;
@@ -149,16 +142,18 @@ export function useRoleAccess(section: PageSection): RoleAccess {
       break;
 
     case "orders":
-      canCreate = isCashier || isManager;
-      canEdit = isCashier || isManager;
+      // AGENT can view orders, no create/edit/delete
+      // VIEWER can only view
+      canCreate = isManager;
+      canEdit = isManager;
       canDelete = isManager;
       canExport = isManager;
       break;
 
     case "customers":
-      // Cashier can update customer details during checkout.
+      // AGENT/VIEWER: view only
       canCreate = isManager;
-      canEdit = isCashier || isManager;
+      canEdit = isManager;
       canDelete = isManager;
       break;
 
@@ -174,15 +169,17 @@ export function useRoleAccess(section: PageSection): RoleAccess {
       break;
 
     case "payments":
-      canCreate = isCashier || isManager;
+      // MANAGER+ can create links, approve/reject proofs
+      canCreate = isManager;
       canApprove = isManager;
       canDelete = isManager;
       break;
 
     case "expenses":
-      canCreate = isCashier || isManager;
+      // MANAGER+ can add/delete expenses
+      canCreate = isManager;
       canDelete = isManager;
-      canEdit = isCashier || isManager;
+      canEdit = isManager;
       break;
 
     case "reports":
@@ -266,13 +263,6 @@ export function useRoleAccess(section: PageSection): RoleAccess {
       break;
   }
 
-  if (isCashier) {
-    canExport = false;
-    canImport = false;
-    canApprove = false;
-    canManageSettings = false;
-  }
-
   const isReadOnly =
     !canCreate &&
     !canEdit &&
@@ -306,7 +296,6 @@ export function getRoleLabel(role: StaffRole): string {
     ADMIN: "مدير",
     MANAGER: "مشرف",
     AGENT: "وكيل",
-    CASHIER: "كاشير",
     VIEWER: "مشاهد",
   };
   return labels[role] || role;

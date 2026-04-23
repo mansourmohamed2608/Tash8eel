@@ -118,20 +118,16 @@ export default function AdminLayout({
 
   return (
     <TooltipProvider>
-      <div className="app-shell">
-        <Sidebar
-          role="admin"
-          collapsed={collapsed}
-          onCollapsedChange={setCollapsed}
-        />
+      <div className="min-h-screen bg-muted/30">
+        <Sidebar role="admin" />
         <div
           className={cn(
             "transition-all duration-300",
-            collapsed ? "lg:mr-[88px]" : "lg:mr-72",
+            collapsed ? "lg:mr-16" : "lg:mr-64",
           )}
         >
           <TopBar role="admin" collapsed={collapsed} />
-          <main key={liveRevision} className="app-shell-main p-4 lg:p-6">
+          <main key={liveRevision} className="p-4 lg:p-6">
             {children}
           </main>
         </div>

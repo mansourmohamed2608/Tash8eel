@@ -5,10 +5,7 @@ interface SkeletonProps extends React.HTMLAttributes<HTMLDivElement> {}
 function Skeleton({ className, ...props }: SkeletonProps) {
   return (
     <div
-      className={cn(
-        "rounded-[14px] bg-[linear-gradient(90deg,color-mix(in_srgb,var(--surface-muted)_88%,transparent)_20%,color-mix(in_srgb,var(--surface-muted)_62%,white)_50%,color-mix(in_srgb,var(--surface-muted)_88%,transparent)_80%)] bg-[length:200%_100%] animate-[assistantShimmer_1.6s_linear_infinite]",
-        className,
-      )}
+      className={cn("animate-pulse rounded-md bg-muted", className)}
       {...props}
     />
   );
@@ -16,9 +13,9 @@ function Skeleton({ className, ...props }: SkeletonProps) {
 
 function CardSkeleton() {
   return (
-    <div className="rounded-[24px] border border-[color:color-mix(in_srgb,var(--border-strong)_88%,transparent)] bg-card p-5 shadow-[0_18px_40px_-30px_rgba(15,23,42,0.45)]">
-      <Skeleton className="mb-4 h-3.5 w-1/3" />
-      <Skeleton className="mb-2 h-8 w-2/3" />
+    <div className="rounded-lg border bg-card p-6 shadow-sm">
+      <Skeleton className="h-4 w-1/3 mb-4" />
+      <Skeleton className="h-8 w-2/3 mb-2" />
       <Skeleton className="h-3 w-1/2" />
     </div>
   );
@@ -26,7 +23,7 @@ function CardSkeleton() {
 
 function TableRowSkeleton({ columns = 5 }: { columns?: number }) {
   return (
-    <tr className="border-b border-[color:color-mix(in_srgb,var(--border-strong)_72%,transparent)]">
+    <tr className="border-b">
       {Array.from({ length: columns }).map((_, i) => (
         <td key={i} className="p-4">
           <Skeleton className="h-4 w-full" />
@@ -44,13 +41,13 @@ function TableSkeleton({
   columns?: number;
 }) {
   return (
-    <div className="overflow-hidden rounded-[24px] border border-[color:color-mix(in_srgb,var(--border-strong)_88%,transparent)] bg-card shadow-[0_18px_40px_-30px_rgba(15,23,42,0.45)]">
-      <div className="border-b border-[color:color-mix(in_srgb,var(--border-strong)_72%,transparent)] p-4">
+    <div className="rounded-lg border bg-card shadow-sm overflow-hidden">
+      <div className="p-4 border-b">
         <Skeleton className="h-6 w-1/4" />
       </div>
       <table className="w-full">
         <thead>
-          <tr className="border-b border-[color:color-mix(in_srgb,var(--border-strong)_72%,transparent)] bg-[color:color-mix(in_srgb,var(--surface-muted)_92%,transparent)]">
+          <tr className="border-b bg-muted/50">
             {Array.from({ length: columns }).map((_, i) => (
               <th key={i} className="p-4">
                 <Skeleton className="h-4 w-full" />
@@ -74,7 +71,7 @@ function ListSkeleton({ items = 5 }: { items?: number }) {
       {Array.from({ length: items }).map((_, i) => (
         <div
           key={i}
-          className="flex items-center space-x-4 rounded-[20px] border border-[color:color-mix(in_srgb,var(--border-strong)_84%,transparent)] p-4"
+          className="flex items-center space-x-4 p-4 rounded-lg border"
         >
           <Skeleton className="h-12 w-12 rounded-full" />
           <div className="flex-1 space-y-2">
@@ -92,8 +89,8 @@ function ChartSkeleton() {
   const barHeights = [65, 85, 45, 70, 90, 55, 75];
 
   return (
-    <div className="rounded-[24px] border border-[color:color-mix(in_srgb,var(--border-strong)_88%,transparent)] bg-card p-6 shadow-[0_18px_40px_-30px_rgba(15,23,42,0.45)]">
-      <Skeleton className="mb-4 h-6 w-1/3" />
+    <div className="rounded-lg border bg-card p-6 shadow-sm">
+      <Skeleton className="h-6 w-1/3 mb-4" />
       <div className="flex items-end justify-between h-48 gap-2">
         {barHeights.map((height, i) => (
           <Skeleton
@@ -110,12 +107,12 @@ function ChartSkeleton() {
 function DashboardSkeleton() {
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {Array.from({ length: 4 }).map((_, i) => (
           <CardSkeleton key={i} />
         ))}
       </div>
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <ChartSkeleton />
         <ChartSkeleton />
       </div>
