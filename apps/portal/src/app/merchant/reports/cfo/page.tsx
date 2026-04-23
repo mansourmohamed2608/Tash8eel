@@ -168,12 +168,12 @@ function MetricCard({
           });
 
   return (
-    <Card className="border-slate-200 bg-white shadow-sm">
+    <Card className="app-data-card">
       <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0 pb-2">
         <CardTitle className="text-sm font-medium text-slate-700">
           {title}
         </CardTitle>
-        <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
+        <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-border/70 bg-muted/60 text-slate-600">
           <Icon className="h-4 w-4" />
         </span>
       </CardHeader>
@@ -478,7 +478,7 @@ export default function CFOBriefPage() {
   if (loading || !metrics) {
     return (
       <div className="flex min-h-[400px] items-center justify-center p-4 sm:p-6">
-        <div className="rounded-2xl border border-slate-200 bg-white px-5 py-4 text-sm text-muted-foreground shadow-sm">
+        <div className="app-data-card px-5 py-4 text-sm text-muted-foreground">
           جاري تحميل التقرير...
         </div>
       </div>
@@ -495,7 +495,7 @@ export default function CFOBriefPage() {
   );
 
   return (
-    <div className="space-y-6 p-4 sm:p-6">
+    <div className="space-y-8 animate-fadeIn p-4 sm:p-6">
       <PageHeader
         title="ملخص المدير المالي"
         description="نظرة شاملة على الأداء المالي والتشغيلي"
@@ -584,16 +584,16 @@ export default function CFOBriefPage() {
         }
       />
 
-      <Card className="border-blue-200 bg-blue-50/60">
+      <Card className="app-data-card border-[color:color-mix(in_srgb,var(--accent)_18%,var(--border-strong))] bg-[var(--accent-muted)]">
         <CardContent className="pt-4 space-y-1 text-sm">
-          <p className="font-medium text-blue-900">
+          <p className="font-medium text-[var(--accent)]">
             مصدر الأرقام في هذا التقرير
           </p>
-          <p className="text-blue-800">
+          <p className="text-[var(--text-primary)]">
             الأرقام المحاسبية أدناه محسوبة مباشرة من بيانات قاعدة البيانات
             (الطلبات، المدفوعات، المصروفات، المخزون).
           </p>
-          <p className="text-blue-700">
+          <p className="text-[var(--text-muted)]">
             يستخدم هذا التقرير نفس تعريف الإيراد المحقق المستخدم في لوحة التحكم:
             مبالغ مدفوعة ومحصلة فعلياً، وليس كل الطلبات المحجوزة.
           </p>
@@ -602,7 +602,7 @@ export default function CFOBriefPage() {
 
       {/* Alerts Section */}
       {metrics.alerts.length > 0 && (
-        <Card className="border-slate-200 bg-white shadow-sm">
+        <Card className="app-data-card">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-amber-600" />
@@ -646,7 +646,7 @@ export default function CFOBriefPage() {
         </Card>
       )}
       {aiBrief && (
-        <Card className="border-blue-200 bg-blue-50/60 shadow-sm">
+        <Card className="app-data-card border-[color:color-mix(in_srgb,var(--accent)_18%,var(--border-strong))] bg-[var(--accent-muted)]">
           <CardHeader>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <CardTitle className="flex items-center gap-2">
@@ -789,7 +789,7 @@ export default function CFOBriefPage() {
       </div>
 
       {/* Cash Flow */}
-      <Card className="border-slate-200 bg-white shadow-sm">
+      <Card className="app-data-card">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Wallet className="h-5 w-5" />
@@ -840,7 +840,7 @@ export default function CFOBriefPage() {
 
       <div className="grid gap-4 xl:grid-cols-2">
         {/* Top Products */}
-        <Card className="border-slate-200 bg-white shadow-sm">
+        <Card className="app-data-card">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <BarChart3 className="h-5 w-5" />
@@ -853,7 +853,7 @@ export default function CFOBriefPage() {
                 {metrics.topProducts.map((product, index) => (
                   <div
                     key={index}
-                    className="rounded-xl border border-slate-100 bg-slate-50/60 px-3 py-2 sm:flex sm:items-center sm:justify-between"
+                    className="app-mini-surface px-3 py-2 sm:flex sm:items-center sm:justify-between"
                   >
                     <div className="flex-1">
                       <div className="font-medium">{product.name}</div>
@@ -884,7 +884,7 @@ export default function CFOBriefPage() {
         </Card>
 
         {/* Expenses Breakdown */}
-        <Card className="border-slate-200 bg-white shadow-sm">
+        <Card className="app-data-card">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <PieChart className="h-5 w-5" />
@@ -895,10 +895,7 @@ export default function CFOBriefPage() {
             {metrics.expensesByCategory.length > 0 ? (
               <div className="space-y-4">
                 {metrics.expensesByCategory.map((expense, index) => (
-                  <div
-                    key={index}
-                    className="rounded-xl border border-slate-100 bg-slate-50/60 px-3 py-2"
-                  >
+                  <div key={index} className="app-mini-surface px-3 py-2">
                     <div className="mb-1 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                       <span className="text-sm font-medium">
                         {expense.category}

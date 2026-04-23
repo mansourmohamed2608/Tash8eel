@@ -1132,7 +1132,7 @@ export default function OrdersPage() {
   }
 
   return (
-    <div className="space-y-8 animate-fadeIn">
+    <div className="space-y-8 animate-fadeIn pb-6">
       <PageHeader
         title="الطلبات"
         description="تشغيل ومتابعة الطلبات الحالية بسرعة، مع قراءة فورية للحالات الحرجة."
@@ -1202,7 +1202,7 @@ export default function OrdersPage() {
         </div>
       </section>
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="app-filter-card flex flex-wrap items-center gap-2 p-3">
         {STATUS_TABS.map((tab) => (
           <button
             key={tab.key}
@@ -1225,7 +1225,16 @@ export default function OrdersPage() {
 
       {/* Filters */}
       <Card className="app-data-card">
-        <CardContent className="p-4">
+        <CardContent className="p-5">
+          <div className="mb-4">
+            <h3 className="app-section-title">
+              <Filter className="h-4 w-4 text-primary" />
+              تصفية ومراجعة الطلبات
+            </h3>
+            <p className="app-section-copy">
+              ابحث بسرعة وبدّل بين لوحة التشغيل والجدول دون تغيير حالة الطلبات.
+            </p>
+          </div>
           <div className="flex flex-col gap-4 xl:flex-row">
             <div className="relative flex-1">
               <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -1332,113 +1341,125 @@ export default function OrdersPage() {
       ) : (
         <>
           {viewMode === "kanban" ? (
-            <div className="grid gap-4 xl:grid-cols-4">
-              {KANBAN_COLUMNS.map((column) => {
-                const columnOrders = filteredOrders.filter(
-                  (order) => getBoardStatus(order) === column.key,
-                );
+            <section className="app-workbench-strip p-3 md:p-4">
+              <div className="mb-4">
+                <h3 className="app-section-title">
+                  <LayoutGrid className="h-4 w-4 text-primary" />
+                  لوحة مراحل الطلب
+                </h3>
+                <p className="app-section-copy">
+                  عرض تشغيلي للحالات الحالية حسب المرحلة، مع إبقاء كل إجراءات
+                  الطلب من نفس الشاشة.
+                </p>
+              </div>
+              <div className="grid gap-4 xl:grid-cols-4">
+                {KANBAN_COLUMNS.map((column) => {
+                  const columnOrders = filteredOrders.filter(
+                    (order) => getBoardStatus(order) === column.key,
+                  );
 
-                return (
-                  <Card
-                    key={column.key}
-                    className={cn(
-                      "app-data-card max-h-[70vh] overflow-hidden border-t-2",
-                      column.border,
-                    )}
-                  >
-                    <CardContent className="flex h-full flex-col gap-3 p-4">
-                      <div className="flex items-center justify-between">
-                        <h3 className="text-sm font-bold">{column.label}</h3>
-                        <span className="rounded-[4px] bg-[var(--bg-surface-3)] px-2 py-1 font-mono text-[11px] text-[var(--text-secondary)]">
-                          {columnOrders.length}
-                        </span>
-                      </div>
-                      <div className="space-y-3 overflow-y-auto">
-                        {columnOrders.length === 0 ? (
-                          <div className="rounded-[var(--radius-sm)] border border-dashed border-[var(--border-default)] px-3 py-6 text-center text-xs text-[var(--text-muted)]">
-                            لا توجد طلبات في هذه المرحلة
-                          </div>
-                        ) : (
-                          columnOrders.map((order) => {
-                            const elapsedState = getElapsedState(order);
-                            return (
-                              <button
-                                key={order.id}
-                                type="button"
-                                onClick={() => setSelectedOrder(order)}
-                                className={cn(
-                                  "w-full rounded-[8px] border border-[var(--border-default)] border-r-[3px] bg-[var(--bg-surface-2)] p-3 text-right transition-colors hover:bg-[var(--bg-surface-3)]",
-                                  column.key === "pending" &&
-                                    "border-r-[var(--accent-warning)]",
-                                  column.key === "processing" &&
-                                    "border-r-[var(--accent-blue)]",
-                                  column.key === "shipped" &&
-                                    "border-r-[color:#8b5cf6]",
-                                  column.key === "completed" &&
-                                    "border-r-[var(--accent-success)]",
-                                )}
-                              >
-                                <div className="flex items-center justify-between gap-2">
-                                  <span className="font-mono text-xs text-[var(--accent-gold)]">
-                                    {order.orderNumber}
-                                  </span>
-                                  <div className="flex items-center gap-2">
-                                    <span
-                                      className={cn(
-                                        "text-[11px] font-mono",
-                                        elapsedState === "critical" &&
-                                          "text-[var(--accent-danger)]",
-                                        elapsedState === "warning" &&
-                                          "text-[var(--accent-warning)]",
-                                        elapsedState === "default" &&
-                                          "text-[var(--text-muted)]",
-                                      )}
-                                    >
-                                      {formatRelativeTime(order.createdAt)}
+                  return (
+                    <Card
+                      key={column.key}
+                      className={cn(
+                        "app-data-card max-h-[70vh] overflow-hidden border-t-2",
+                        column.border,
+                      )}
+                    >
+                      <CardContent className="flex h-full flex-col gap-3 p-4">
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-sm font-bold">{column.label}</h3>
+                          <span className="rounded-[4px] bg-[var(--bg-surface-3)] px-2 py-1 font-mono text-[11px] text-[var(--text-secondary)]">
+                            {columnOrders.length}
+                          </span>
+                        </div>
+                        <div className="space-y-3 overflow-y-auto">
+                          {columnOrders.length === 0 ? (
+                            <div className="rounded-[var(--radius-sm)] border border-dashed border-[var(--border-default)] px-3 py-6 text-center text-xs text-[var(--text-muted)]">
+                              لا توجد طلبات في هذه المرحلة
+                            </div>
+                          ) : (
+                            columnOrders.map((order) => {
+                              const elapsedState = getElapsedState(order);
+                              return (
+                                <button
+                                  key={order.id}
+                                  type="button"
+                                  onClick={() => setSelectedOrder(order)}
+                                  className={cn(
+                                    "w-full rounded-[8px] border border-[var(--border-default)] border-r-[3px] bg-[var(--bg-surface-2)] p-3 text-right transition-colors hover:bg-[var(--bg-surface-3)]",
+                                    column.key === "pending" &&
+                                      "border-r-[var(--accent-warning)]",
+                                    column.key === "processing" &&
+                                      "border-r-[var(--accent-blue)]",
+                                    column.key === "shipped" &&
+                                      "border-r-[color:#8b5cf6]",
+                                    column.key === "completed" &&
+                                      "border-r-[var(--accent-success)]",
+                                  )}
+                                >
+                                  <div className="flex items-center justify-between gap-2">
+                                    <span className="font-mono text-xs text-[var(--accent-gold)]">
+                                      {order.orderNumber}
                                     </span>
-                                    <span
-                                      className={cn(
-                                        "inline-flex items-center rounded-[4px] border px-1.5 py-0.5 text-[10px] font-semibold",
-                                        getSourceBadgeClass(
-                                          order.sourceChannel,
-                                        ),
-                                      )}
-                                    >
-                                      {getSourceLabel(order.sourceChannel)}
+                                    <div className="flex items-center gap-2">
+                                      <span
+                                        className={cn(
+                                          "text-[11px] font-mono",
+                                          elapsedState === "critical" &&
+                                            "text-[var(--accent-danger)]",
+                                          elapsedState === "warning" &&
+                                            "text-[var(--accent-warning)]",
+                                          elapsedState === "default" &&
+                                            "text-[var(--text-muted)]",
+                                        )}
+                                      >
+                                        {formatRelativeTime(order.createdAt)}
+                                      </span>
+                                      <span
+                                        className={cn(
+                                          "inline-flex items-center rounded-[4px] border px-1.5 py-0.5 text-[10px] font-semibold",
+                                          getSourceBadgeClass(
+                                            order.sourceChannel,
+                                          ),
+                                        )}
+                                      >
+                                        {getSourceLabel(order.sourceChannel)}
+                                      </span>
+                                    </div>
+                                  </div>
+                                  <div className="mt-3">
+                                    <p className="text-sm font-semibold text-[var(--text-primary)]">
+                                      {order.customerName}
+                                    </p>
+                                    <p className="mt-1 line-clamp-2 text-xs text-[var(--text-secondary)]">
+                                      {order.items.length > 0
+                                        ? order.items
+                                            .slice(0, 2)
+                                            .map((item) => item.name)
+                                            .join("، ")
+                                        : "بدون منتجات واضحة"}
+                                    </p>
+                                  </div>
+                                  <div className="mt-3 flex items-center justify-between">
+                                    <strong className="font-mono text-sm text-[var(--text-primary)]">
+                                      {formatCurrency(order.total)}
+                                    </strong>
+                                    <span className="text-xs text-[var(--text-secondary)]">
+                                      {getOrderDisplayStatus(order)}
                                     </span>
                                   </div>
-                                </div>
-                                <div className="mt-3">
-                                  <p className="text-sm font-semibold text-[var(--text-primary)]">
-                                    {order.customerName}
-                                  </p>
-                                  <p className="mt-1 line-clamp-2 text-xs text-[var(--text-secondary)]">
-                                    {order.items.length > 0
-                                      ? order.items
-                                          .slice(0, 2)
-                                          .map((item) => item.name)
-                                          .join("، ")
-                                      : "بدون منتجات واضحة"}
-                                  </p>
-                                </div>
-                                <div className="mt-3 flex items-center justify-between">
-                                  <strong className="font-mono text-sm text-[var(--text-primary)]">
-                                    {formatCurrency(order.total)}
-                                  </strong>
-                                  <span className="text-xs text-[var(--text-secondary)]">
-                                    {getOrderDisplayStatus(order)}
-                                  </span>
-                                </div>
-                              </button>
-                            );
-                          })
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
+                                </button>
+                              );
+                            })
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            </section>
           ) : (
             <>
               <div className="space-y-3 md:hidden">

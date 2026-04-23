@@ -626,13 +626,13 @@ export default function MerchantPricingPage() {
   }
 
   return (
-    <div className="space-y-8 p-4 sm:p-6">
+    <div className="space-y-8 animate-fadeIn p-4 sm:p-6">
       <PageHeader
         title="الأسعار والباقات"
         description="باقات التشغيل الكاملة + باقة الدردشة فقط + إضافات التوسّع"
       />
 
-      <Card className="app-data-card overflow-hidden border-slate-200 bg-white shadow-sm">
+      <Card className="app-hero-band overflow-hidden">
         <CardContent className="space-y-4 p-5 sm:p-7">
           <h1 className="text-2xl font-black leading-tight sm:text-3xl">
             شغّل المبيعات والعمليات ورسائل العملاء من مكان واحد
@@ -649,7 +649,7 @@ export default function MerchantPricingPage() {
         </CardContent>
       </Card>
 
-      <section className="space-y-4">
+      <section className="app-workbench-strip space-y-4 p-4 md:p-5">
         <div className="flex items-center gap-2">
           <Layers className="h-4 w-4 text-primary" />
           <h2 className="text-lg font-semibold">باقات التشغيل الكاملة</h2>
@@ -752,7 +752,7 @@ export default function MerchantPricingPage() {
       </section>
 
       {chatOnlyPlan ? (
-        <section className="space-y-4">
+        <section className="app-workbench-strip space-y-4 p-4 md:p-5">
           {(() => {
             const quotas = getDisplayQuotas(chatOnlyPlan);
             return (
@@ -857,7 +857,7 @@ export default function MerchantPricingPage() {
         </section>
       ) : null}
 
-      <Card className="app-data-card border-slate-200 bg-white shadow-sm">
+      <Card className="app-data-card">
         <CardHeader>
           <CardTitle>مقارنة تفصيلية بين الباقات</CardTitle>
           <CardDescription>
@@ -865,7 +865,7 @@ export default function MerchantPricingPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <details className="group rounded-xl border border-slate-200 bg-white p-3">
+          <details className="group app-mini-surface p-3">
             <summary className="cursor-pointer list-none text-sm font-semibold">
               فتح / إغلاق جدول المقارنة
             </summary>
