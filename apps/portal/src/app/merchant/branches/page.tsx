@@ -226,7 +226,7 @@ export default function BranchesPage() {
 
   // ── Render ──────────────────────────────────────────────────────
   return (
-    <div className="space-y-8">
+    <div className="app-page-frame space-y-6 pb-8">
       <PageHeader
         title="إدارة الفروع"
         description="إدارة الفروع، تشغيلها، ومتابعة انتشار النشاط جغرافياً من شاشة واحدة."

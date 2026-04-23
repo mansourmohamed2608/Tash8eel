@@ -69,11 +69,6 @@ import { useMerchant } from "@/hooks/use-merchant";
 import { useWebSocket, RealTimeEvent } from "@/hooks/use-websocket";
 import { useToast } from "@/hooks/use-toast";
 import { useRoleAccess } from "@/hooks/use-role-access";
-import {
-  AiInsightsCard,
-  generateInventoryInsights,
-} from "@/components/ai/ai-insights-card";
-import { SmartAnalysisButton } from "@/components/ai/smart-analysis-button";
 
 export default function InventoryPage() {
   const { merchantId, apiKey, isDemo } = useMerchant();
@@ -1443,7 +1438,7 @@ export default function InventoryPage() {
 
   if (loading) {
     return (
-      <div>
+      <div className="app-page-frame space-y-6 p-4 pb-8 sm:p-6">
         <PageHeader title="المخزون" />
         <TableSkeleton rows={5} columns={6} />
       </div>
@@ -1451,7 +1446,7 @@ export default function InventoryPage() {
   }
 
   return (
-    <div className="space-y-8 animate-fadeIn p-4 sm:p-6">
+    <div className="app-page-frame space-y-8 animate-fadeIn p-4 pb-8 sm:p-6">
       <PageHeader
         title="المخزون"
         description="إدارة منتجات وكميات المخزون"
@@ -1593,24 +1588,15 @@ export default function InventoryPage() {
           </div>
         </div>
       </section>
-      <AiInsightsCard
-        title="تنبيهات المخزون"
-        insights={generateInventoryInsights({
-          totalProducts: parseInt(summary?.total_items ?? "0"),
-          lowStockCount: parseInt(summary?.low_stock_count ?? "0"),
-          outOfStockCount: parseInt(summary?.out_of_stock_count ?? "0"),
-          totalValue: safeInventoryValue,
-        })}
-      />
       {/* Tab Navigation */}
-      <div className="flex border-b">
+      <div className="app-workbench-strip flex flex-wrap gap-2 rounded-3xl p-2">
         <button
           onClick={() => handleTabChange("inventory")}
           className={cn(
-            "px-4 py-2 font-medium text-sm border-b-2 -mb-px",
+            "inline-flex items-center rounded-2xl px-4 py-2 text-sm font-medium transition-colors",
             activeTab === "inventory"
-              ? "border-primary text-primary"
-              : "border-transparent text-muted-foreground hover:text-foreground",
+              ? "bg-background text-foreground shadow-sm"
+              : "text-muted-foreground hover:bg-background/70 hover:text-foreground",
           )}
         >
           <Package className="h-4 w-4 inline-block ml-2" />
@@ -1619,10 +1605,10 @@ export default function InventoryPage() {
         <button
           onClick={() => handleTabChange("locations")}
           className={cn(
-            "px-4 py-2 font-medium text-sm border-b-2 -mb-px",
+            "inline-flex items-center rounded-2xl px-4 py-2 text-sm font-medium transition-colors",
             activeTab === "locations"
-              ? "border-primary text-primary"
-              : "border-transparent text-muted-foreground hover:text-foreground",
+              ? "bg-background text-foreground shadow-sm"
+              : "text-muted-foreground hover:bg-background/70 hover:text-foreground",
           )}
         >
           <Warehouse className="h-4 w-4 inline-block ml-2" />
@@ -1631,10 +1617,10 @@ export default function InventoryPage() {
         <button
           onClick={() => handleTabChange("shrinkage")}
           className={cn(
-            "px-4 py-2 font-medium text-sm border-b-2 -mb-px",
+            "inline-flex items-center rounded-2xl px-4 py-2 text-sm font-medium transition-colors",
             activeTab === "shrinkage"
-              ? "border-primary text-primary"
-              : "border-transparent text-muted-foreground hover:text-foreground",
+              ? "bg-background text-foreground shadow-sm"
+              : "text-muted-foreground hover:bg-background/70 hover:text-foreground",
           )}
         >
           <TrendingDown className="h-4 w-4 inline-block ml-2" />
@@ -1903,9 +1889,6 @@ export default function InventoryPage() {
               </CardContent>
             </Card>
           )}
-
-          {/* AI Inventory Agent - GPT Deep Analysis */}
-          <SmartAnalysisButton context="inventory" />
 
           {/* Search and Filters */}
           <Card className="app-data-card">

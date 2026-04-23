@@ -12,9 +12,8 @@ const uiFont = IBM_Plex_Sans_Arabic({
 });
 
 export const metadata: Metadata = {
-  title: "Tash8eel AI",
-  description:
-    "تشغيل AI - منصة تشغيل ذكية للمطاعم والمقاهي ومتاجر التجزئة في مصر",
+  title: "Tash8eel - لوحة التحكم",
+  description: "منصة تشغيل ذكية للمطاعم والمقاهي ومتاجر التجزئة في مصر",
 };
 
 export default async function RootLayout({
@@ -25,7 +24,7 @@ export default async function RootLayout({
   return (
     <html lang="ar" dir="rtl">
       <head />
-      <body className={uiFont.variable}>
+      <body className={`${uiFont.variable} app-root`}>
         <AuthProvider>
           {children}
           <Toaster />

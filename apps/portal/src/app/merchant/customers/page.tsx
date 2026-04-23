@@ -58,10 +58,6 @@ import {
 import { cn, formatCurrency, formatRelativeTime } from "@/lib/utils";
 import { useMerchant } from "@/hooks/use-merchant";
 import { apiFetch } from "@/lib/client";
-import {
-  AiInsightsCard,
-  generateCustomerInsights,
-} from "@/components/ai/ai-insights-card";
 
 interface Customer {
   customerId: string;
@@ -326,7 +322,7 @@ export default function CustomersPage() {
 
   if (loading) {
     return (
-      <div>
+      <div className="app-page-frame space-y-6 p-4 pb-8 sm:p-6">
         <PageHeader title="العملاء" />
         <TableSkeleton rows={5} columns={6} />
       </div>
@@ -335,9 +331,9 @@ export default function CustomersPage() {
 
   if (error) {
     return (
-      <div>
+      <div className="app-page-frame space-y-6 p-4 pb-8 sm:p-6">
         <PageHeader title="العملاء" />
-        <Card>
+        <Card className="app-data-card">
           <CardContent className="p-12">
             <div className="flex flex-col items-center justify-center text-center">
               <AlertCircle className="h-16 w-16 text-destructive mb-4" />
@@ -359,7 +355,7 @@ export default function CustomersPage() {
   }
 
   return (
-    <div className="space-y-8 animate-fadeIn p-4 sm:p-6">
+    <div className="app-page-frame space-y-8 animate-fadeIn p-4 pb-8 sm:p-6">
       <PageHeader
         title="إدارة العملاء"
         description="فهم الشرائح، قيمة العميل، واحتمال فقدانه من شاشة تنفيذية واحدة."
@@ -425,23 +421,6 @@ export default function CustomersPage() {
           </div>
         </div>
       </section>
-
-      <AiInsightsCard
-        insights={generateCustomerInsights({
-          totalCustomers: customers.length ?? 0,
-          vipCount: segmentSummary?.VIP?.count ?? 0,
-          newThisMonth: segmentSummary?.NEW?.count ?? 0,
-          repeatRate:
-            customers.length > 0
-              ? Math.round(
-                  (((segmentSummary?.LOYAL?.count ?? 0) +
-                    (segmentSummary?.VIP?.count ?? 0)) /
-                    customers.length) *
-                    100,
-                )
-              : 0,
-        })}
-      />
 
       <Card className="app-data-card app-data-card--muted">
         <CardContent className="py-3 text-sm text-muted-foreground">
@@ -766,7 +745,7 @@ export default function CustomersPage() {
             </div>
           ) : customerInsights ? (
             <Tabs defaultValue="overview" className="mt-4">
-              <TabsList className="grid h-auto w-full grid-cols-1 gap-2 sm:grid-cols-3">
+              <TabsList className="app-workbench-strip grid h-auto w-full grid-cols-1 gap-2 p-2 sm:grid-cols-3">
                 <TabsTrigger value="overview" className="w-full">
                   نظرة عامة
                 </TabsTrigger>

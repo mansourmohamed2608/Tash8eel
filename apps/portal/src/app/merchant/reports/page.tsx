@@ -34,10 +34,6 @@ import { useMerchant } from "@/hooks/use-merchant";
 import { useRoleAccess } from "@/hooks/use-role-access";
 import { useToast } from "@/hooks/use-toast";
 import {
-  AiInsightsCard,
-  generateReportsInsights,
-} from "@/components/ai/ai-insights-card";
-import {
   getReportingDateRange,
   REPORTING_PERIOD_OPTIONS,
   getStoredReportingDays,
@@ -312,7 +308,7 @@ export default function ReportsPage() {
 
   if (loading) {
     return (
-      <div>
+      <div className="app-page-frame">
         <PageHeader title="التقارير" />
         <DashboardSkeleton />
       </div>
@@ -321,7 +317,7 @@ export default function ReportsPage() {
 
   if (error) {
     return (
-      <div className="space-y-6 p-4 sm:p-6">
+      <div className="app-page-frame space-y-6 p-4 pb-8 sm:p-6">
         <PageHeader title="التقارير" />
         <Card className="border-red-200 bg-red-50">
           <CardContent className="flex items-center gap-3 p-6">
@@ -345,7 +341,7 @@ export default function ReportsPage() {
 
   if (!dashboardData) {
     return (
-      <div className="space-y-6 p-4 sm:p-6">
+      <div className="app-page-frame space-y-6 p-4 pb-8 sm:p-6">
         <PageHeader title="التقارير" />
         <Card className="border-yellow-200 bg-yellow-50">
           <CardContent className="flex items-center gap-3 p-6">
@@ -396,7 +392,7 @@ export default function ReportsPage() {
       : 0;
 
   return (
-    <div className="space-y-8 animate-fadeIn p-4 sm:p-6">
+    <div className="app-page-frame space-y-6 animate-fadeIn p-4 pb-8 sm:p-6">
       <PageHeader
         title="التقارير"
         description="تحليل أداء متجرك ومؤشرات النجاح"
@@ -494,18 +490,6 @@ export default function ReportsPage() {
         </div>
       </section>
 
-      {/* AI Reports Insights */}
-      <AiInsightsCard
-        title="تحليلات التقارير"
-        insights={generateReportsInsights({
-          totalRevenue: realizedRevenue,
-          totalOrders: stats.totalOrders,
-          avgOrderValue:
-            completedOrders > 0 ? realizedRevenue / completedOrders : 0,
-        })}
-        loading={loading}
-      />
-
       {/* KPI Overview */}
       <KPIGrid>
         <StatCard
@@ -571,7 +555,7 @@ export default function ReportsPage() {
 
       {/* Tabs for different reports */}
       <Tabs defaultValue="sales" className="space-y-6">
-        <TabsList className="grid h-auto w-full grid-cols-1 gap-2 sm:grid-cols-3">
+        <TabsList className="app-workbench-strip grid h-auto w-full grid-cols-1 gap-2 p-2 sm:grid-cols-3">
           <TabsTrigger value="sales" className="w-full">
             المبيعات
           </TabsTrigger>

@@ -62,10 +62,6 @@ import { merchantApi } from "@/lib/client";
 import { useMerchant } from "@/hooks/use-merchant";
 import { useRoleAccess } from "@/hooks/use-role-access";
 import { useToast } from "@/hooks/use-toast";
-import {
-  AiInsightsCard,
-  generateKnowledgeBaseInsights,
-} from "@/components/ai/ai-insights-card";
 import { RecipeManager } from "@/components/inventory/recipe-manager";
 
 // ==================== INTERFACES ====================
@@ -909,7 +905,7 @@ export default function KnowledgeBasePage() {
 
   if (loading) {
     return (
-      <div>
+      <div className="app-page-frame space-y-6 p-4 pb-8 sm:p-6">
         <PageHeader title="قاعدة المعرفة" />
         <TableSkeleton rows={5} columns={4} />
       </div>
@@ -917,7 +913,7 @@ export default function KnowledgeBasePage() {
   }
 
   return (
-    <div className="space-y-6 animate-fadeIn p-4 sm:p-6">
+    <div className="app-page-frame space-y-6 animate-fadeIn p-4 pb-8 sm:p-6">
       <PageHeader
         title="قاعدة المعرفة"
         description="أضف المعلومات التي يستخدمها الذكاء الاصطناعي للرد على عملائك"
@@ -940,17 +936,8 @@ export default function KnowledgeBasePage() {
         }
       />
 
-      <AiInsightsCard
-        insights={generateKnowledgeBaseInsights({
-          totalEntries: menuItems.length ?? 0,
-          hasFaqs: faqs.length > 0,
-          hasOffers: offers.length > 0,
-          hasDeliveryPricing: hasValidDeliveryPricing ?? false,
-        })}
-      />
-
       {/* AI Info Banner */}
-      <Card className="border-primary/20 bg-primary/5">
+      <Card className="app-data-card border-primary/20 bg-primary/5">
         <CardContent className="p-4">
           <div className="flex items-start gap-3">
             <Sparkles className="h-5 w-5 text-primary mt-0.5" />
@@ -969,7 +956,7 @@ export default function KnowledgeBasePage() {
       </Card>
 
       {checklistPercent < 100 && (
-        <Card className="border-amber-200 bg-amber-50/60">
+        <Card className="app-data-card border-amber-200 bg-amber-50/60">
           <CardContent className="p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="font-medium text-amber-900">
@@ -996,7 +983,7 @@ export default function KnowledgeBasePage() {
       )}
 
       {/* Onboarding Checklist */}
-      <Card>
+      <Card className="app-data-card">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-primary" />
@@ -1034,7 +1021,7 @@ export default function KnowledgeBasePage() {
         </CardContent>
       </Card>
 
-      <Card className="border-dashed">
+      <Card className="app-data-card border-dashed">
         <CardContent className="p-4">
           <div className="flex items-start gap-3">
             <Info className="h-5 w-5 text-muted-foreground mt-0.5" />
@@ -1055,7 +1042,7 @@ export default function KnowledgeBasePage() {
       </Card>
 
       {/* Suggested Prompts */}
-      <Card>
+      <Card className="app-data-card">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Brain className="h-5 w-5 text-primary" />
@@ -1085,7 +1072,7 @@ export default function KnowledgeBasePage() {
 
       {/* Stats */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Card>
+        <Card className="app-data-card">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
@@ -1096,7 +1083,7 @@ export default function KnowledgeBasePage() {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="app-data-card">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
@@ -1109,7 +1096,7 @@ export default function KnowledgeBasePage() {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="app-data-card">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
@@ -1120,7 +1107,7 @@ export default function KnowledgeBasePage() {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="app-data-card">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
@@ -1136,7 +1123,7 @@ export default function KnowledgeBasePage() {
       </div>
 
       {/* Search */}
-      <div className="relative">
+      <div className="app-workbench-strip relative rounded-3xl p-3">
         <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
           placeholder="بحث في قاعدة المعرفة..."
@@ -1148,7 +1135,7 @@ export default function KnowledgeBasePage() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={handleTabChange}>
-        <TabsList className="grid h-auto w-full grid-cols-1 gap-2 sm:grid-cols-3">
+        <TabsList className="app-workbench-strip grid h-auto w-full grid-cols-1 gap-2 p-2 sm:grid-cols-3">
           <TabsTrigger value="menu" className="flex w-full items-center gap-2">
             <Package className="h-4 w-4" />
             المنتجات والخدمات

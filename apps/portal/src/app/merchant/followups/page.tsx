@@ -34,10 +34,6 @@ import {
 } from "lucide-react";
 import { cn, formatCurrency, formatRelativeTime } from "@/lib/utils";
 import { portalApi } from "@/lib/client";
-import {
-  AiInsightsCard,
-  generateFollowupInsights,
-} from "@/components/ai/ai-insights-card";
 import { EmptyState, LoadingState } from "@/components/ui/alerts";
 
 interface Followup {
@@ -222,7 +218,7 @@ export default function FollowupsPage() {
   };
 
   return (
-    <div className="space-y-8 animate-fadeIn p-4 sm:p-6">
+    <div className="app-page-frame space-y-6 animate-fadeIn px-4 pb-8 sm:px-6">
       <PageHeader
         title="المتابعات"
         description="مركز متابعة ذكي للطلبات التي تحتاج تحصيلاً أو تدخلاً أو تواصلاً سريعاً."
@@ -286,19 +282,6 @@ export default function FollowupsPage() {
           </div>
         </div>
       </section>
-
-      {/* AI Followup Insights */}
-      <AiInsightsCard
-        title="مساعد المتابعات"
-        insights={generateFollowupInsights({
-          totalFollowups: followups.length,
-          codFollowups: counts.cod_collection,
-          overdueCount: followups.filter(
-            (f) => f.followup_type === "delivery_check",
-          ).length,
-        })}
-        loading={loading}
-      />
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">

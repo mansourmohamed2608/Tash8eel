@@ -49,7 +49,7 @@ export default function HelpCenterPage() {
 
   if (loading) {
     return (
-      <div className="space-y-6 animate-fadeIn p-4 sm:p-6">
+      <div className="app-page-frame space-y-6 animate-fadeIn px-4 pb-8 sm:px-6">
         <Skeleton className="h-10 w-1/3" />
         <Skeleton className="h-4 w-1/2" />
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -65,7 +65,7 @@ export default function HelpCenterPage() {
   const summary = data?.summary ?? {};
 
   return (
-    <div className="space-y-6 animate-fadeIn p-4 sm:p-6">
+    <div className="app-page-frame space-y-6 animate-fadeIn px-4 pb-8 sm:px-6">
       <PageHeader
         title="مركز المساعدة"
         description="مسارات واضحة لتجهيز النظام وتشغيله بكفاءة"
@@ -87,7 +87,7 @@ export default function HelpCenterPage() {
       {(summary.totalProducts > 0 ||
         summary.totalOrders > 0 ||
         summary.totalCustomers > 0) && (
-        <div className="flex flex-wrap gap-3">
+        <div className="app-workbench-strip flex flex-wrap gap-3 p-4">
           {summary.totalProducts > 0 && (
             <Badge variant="secondary" className="text-sm py-1 px-3">
               {summary.totalProducts} منتج
@@ -115,10 +115,12 @@ export default function HelpCenterPage() {
         {sections.map((section: any) => {
           const Icon = ICON_MAP[section.icon] ?? BookOpen;
           return (
-            <Card key={section.id}>
+            <Card key={section.id} className="app-data-card">
               <CardHeader className="pb-2">
                 <CardTitle className="flex items-center gap-2 text-base">
-                  <Icon className="h-5 w-5 text-primary shrink-0" />
+                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-[14px] bg-primary/10 text-primary">
+                    <Icon className="h-5 w-5 shrink-0" />
+                  </span>
                   {section.title}
                 </CardTitle>
               </CardHeader>

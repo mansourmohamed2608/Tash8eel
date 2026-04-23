@@ -626,19 +626,20 @@ export default function MerchantPricingPage() {
   }
 
   return (
-    <div className="space-y-8 animate-fadeIn p-4 sm:p-6">
+    <div className="app-page-frame space-y-5 animate-fadeIn p-4 pb-8 sm:p-6">
       <PageHeader
         title="الأسعار والباقات"
-        description="باقات التشغيل الكاملة + باقة الدردشة فقط + إضافات التوسّع"
+        description="باقات التشغيل الكاملة، باقة الدردشة فقط، وإضافات التوسّع ضمن عرض أوضح."
       />
 
-      <Card className="app-hero-band overflow-hidden">
+      <Card className="app-hero-band app-hero-band--subtle overflow-hidden">
         <CardContent className="space-y-4 p-5 sm:p-7">
           <h1 className="text-2xl font-black leading-tight sm:text-3xl">
-            شغّل المبيعات والعمليات ورسائل العملاء من مكان واحد
+            بنية تسعير أوضح لتشغيل المبيعات والعمليات ورسائل العملاء
           </h1>
           <p className="text-sm text-muted-foreground sm:text-base">
-            اختَر باقة تشغيل كاملة أو ابدأ بباقة الدردشة فقط
+            اختَر باقة تشغيل كاملة أو ابدأ بباقة الدردشة فقط مع نفس الحقائق
+            الحالية للأسعار والقدرات.
           </p>
           <div className="flex flex-wrap gap-2">
             <Badge variant="secondary">كل الأسعار بالـ EGP</Badge>
@@ -649,7 +650,7 @@ export default function MerchantPricingPage() {
         </CardContent>
       </Card>
 
-      <section className="app-workbench-strip space-y-4 p-4 md:p-5">
+      <section className="app-workbench-strip app-workbench-strip--airy space-y-4 p-5 md:p-6">
         <div className="flex items-center gap-2">
           <Layers className="h-4 w-4 text-primary" />
           <h2 className="text-lg font-semibold">باقات التشغيل الكاملة</h2>
@@ -752,7 +753,7 @@ export default function MerchantPricingPage() {
       </section>
 
       {chatOnlyPlan ? (
-        <section className="app-workbench-strip space-y-4 p-4 md:p-5">
+        <section className="app-workbench-strip app-workbench-strip--airy space-y-4 p-5 md:p-6">
           {(() => {
             const quotas = getDisplayQuotas(chatOnlyPlan);
             return (

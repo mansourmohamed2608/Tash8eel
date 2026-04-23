@@ -55,7 +55,7 @@ export default function OnboardingPage() {
 
   if (loading) {
     return (
-      <div className="space-y-6 animate-fadeIn p-4 sm:p-6">
+      <div className="app-page-frame space-y-6 animate-fadeIn px-4 pb-8 sm:px-6">
         <Skeleton className="h-10 w-1/3" />
         <Skeleton className="h-4 w-1/2" />
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -75,7 +75,7 @@ export default function OnboardingPage() {
   };
 
   return (
-    <div className="space-y-6 animate-fadeIn p-4 sm:p-6">
+    <div className="app-page-frame space-y-6 animate-fadeIn px-4 pb-8 sm:px-6">
       <PageHeader
         title="البدء السريع"
         description="خطوات بسيطة لتجهيز النظام لعملك"
@@ -94,7 +94,7 @@ export default function OnboardingPage() {
       />
 
       {/* Progress Bar */}
-      <Card>
+      <Card className="app-data-card app-data-card--muted">
         <CardContent className="pt-6 space-y-3">
           <div className="flex flex-col gap-2 text-sm sm:flex-row sm:items-center sm:justify-between">
             <span className="font-medium">
@@ -117,7 +117,7 @@ export default function OnboardingPage() {
             <Link key={step.id} href={step.href}>
               <Card
                 className={cn(
-                  "cursor-pointer transition-shadow hover:shadow-md h-full",
+                  "app-data-card h-full cursor-pointer transition-shadow hover:shadow-md",
                   step.completed &&
                     "border-green-200 bg-green-50/30 dark:border-green-900 dark:bg-green-950/20",
                 )}
@@ -156,7 +156,7 @@ export default function OnboardingPage() {
         })}
       </div>
 
-      <Card>
+      <Card className="app-data-card app-data-card--muted">
         <CardHeader>
           <CardTitle>نصائح سريعة</CardTitle>
         </CardHeader>

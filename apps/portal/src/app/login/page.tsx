@@ -119,52 +119,49 @@ function LoginForm() {
           <div className="space-y-6">
             <span className="app-auth-kicker">
               <Sparkles className="h-4 w-4" />
-              Merchant Operating System
+              Merchant Workspace
             </span>
             <div className="space-y-4">
               <h1 className="app-auth-title">
-                واجهة تشغيل ذكية
+                تشغيل يومي أوضح
                 <br />
                 للتاجر وفريقه
               </h1>
               <p className="app-auth-copy">
-                من المحادثات والطلبات إلى التقارير والذكاء الاصطناعي، كل شيء
-                مرتبط داخل مساحة عمل واحدة مصممة للتشغيل اليومي السريع.
+                من المحادثات والطلبات إلى التقارير والكاشير، كل شيء مجمّع في
+                مساحة عمل واحدة بهدوء بصري أوضح وترتيب أسهل للفريق.
               </p>
             </div>
           </div>
 
           <div className="grid gap-4">
-            <div className="app-surface rounded-[24px] p-5">
-              <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-[16px] bg-primary/10 text-primary">
+            <div className="app-surface rounded-[20px] p-5">
+              <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-[14px] bg-primary/10 text-primary">
                 <ShieldCheck className="h-5 w-5" />
               </div>
-              <h2 className="text-lg font-bold tracking-[-0.02em]">
-                وصول سريع وآمن
-              </h2>
+              <h2 className="text-lg font-bold tracking-[-0.02em]">دخول آمن</h2>
               <p className="mt-2 text-sm leading-7 text-muted-foreground">
-                سجّل الدخول إلى لوحة موحدة تجمع التشغيل، التحليلات، والكاشير ضمن
-                نفس الجلسة.
+                ادخل إلى لوحة تشغيل موحدة تحافظ على نفس مسارات الطلبات،
+                المحادثات، والتقارير الحالية.
               </p>
             </div>
 
             <div className="grid gap-3 md:grid-cols-2">
-              <div className="app-surface rounded-[24px] p-5">
-                <p className="app-page-header-eyebrow">Workflows</p>
+              <div className="app-surface rounded-[20px] p-5">
+                <p className="app-page-header-eyebrow">Flows</p>
                 <p className="mt-3 text-base font-bold">
                   طلبات، متابعات، وتقارير
                 </p>
                 <p className="mt-2 text-sm leading-7 text-muted-foreground">
-                  بنية تشغيل مكثفة لفريق العمل من دون تنقل عشوائي بين الصفحات.
+                  مساحات أوضح للتشغيل اليومي بدل التكدس البصري والتنقل المربك.
                 </p>
               </div>
-              <div className="app-surface rounded-[24px] p-5">
-                <p className="app-page-header-eyebrow">AI Layer</p>
-                <p className="mt-3 text-base font-bold">
-                  ذكاء اصطناعي داخل النظام
-                </p>
+              <div className="app-surface rounded-[20px] p-5">
+                <p className="app-page-header-eyebrow">Control</p>
+                <p className="mt-3 text-base font-bold">وصول أسرع للأدوار</p>
                 <p className="mt-2 text-sm leading-7 text-muted-foreground">
-                  مساعد تشغيلي، رؤى، وسجل قرارات قابل للمراجعة عند الحاجة.
+                  التاجر، الفريق، والكاشير يدخلون إلى نفس الحقيقة التشغيلية من
+                  دون تغيير المسارات الحالية.
                 </p>
               </div>
             </div>
@@ -173,14 +170,13 @@ function LoginForm() {
 
         <Card className="app-auth-card w-full">
           <CardHeader className="space-y-5 pb-6 text-right">
-            <div className="inline-flex h-14 w-14 items-center justify-center rounded-[18px] bg-primary text-primary-foreground shadow-[0_18px_48px_rgba(31,111,255,0.2)]">
+            <div className="inline-flex h-14 w-14 items-center justify-center rounded-[16px] bg-primary text-primary-foreground shadow-[0_18px_48px_rgba(31,111,255,0.18)]">
               <Store className="h-7 w-7" />
             </div>
             <div className="space-y-2">
               <CardTitle className="text-[1.85rem]">تسجيل الدخول</CardTitle>
               <CardDescription className="text-sm leading-7">
-                أدخل بيانات المتجر للوصول إلى لوحة التحكم ومساحة العمل
-                التشغيلية.
+                أدخل بيانات المتجر للوصول إلى اللوحة التشغيلية الحالية.
               </CardDescription>
             </div>
           </CardHeader>
@@ -303,7 +299,7 @@ function LoginForm() {
             </form>
 
             {process.env.NODE_ENV === "development" && (
-              <div className="mt-6 rounded-[18px] border border-border/70 bg-background/80 p-4 text-xs text-muted-foreground">
+              <div className="mt-6 rounded-[16px] border border-border/70 bg-background/80 p-4 text-xs text-muted-foreground">
                 <p className="mb-2 font-semibold text-foreground">
                   بيانات تجريبية (اضغط للملء التلقائي):
                 </p>
@@ -352,7 +348,7 @@ function LoginFormSkeleton() {
     <div className="app-auth-shell">
       <Card className="app-auth-card w-full max-w-md">
         <CardHeader className="text-right">
-          <div className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-[18px] bg-primary text-primary-foreground">
+          <div className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-[16px] bg-primary text-primary-foreground">
             <Store className="h-8 w-8 text-white" />
           </div>
           <CardTitle className="text-2xl">تسجيل الدخول</CardTitle>

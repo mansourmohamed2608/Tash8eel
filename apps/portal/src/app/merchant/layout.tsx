@@ -289,7 +289,7 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   // Show loading while checking session
   if (status === "loading") {
     return (
-      <div className="app-shell flex min-h-screen items-center justify-center">
+      <div className="app-shell flex min-h-screen items-center justify-center px-4">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
           <p className="text-muted-foreground">جاري التحقق من الجلسة...</p>
@@ -300,7 +300,7 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
 
   if (isRecoveringSession) {
     return (
-      <div className="app-shell flex min-h-screen items-center justify-center">
+      <div className="app-shell flex min-h-screen items-center justify-center px-4">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
           <p className="text-muted-foreground">
@@ -316,7 +316,7 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     pathname !== "/merchant/change-password"
   ) {
     return (
-      <div className="app-shell flex min-h-screen items-center justify-center">
+      <div className="app-shell flex min-h-screen items-center justify-center px-4">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
           <p className="text-muted-foreground">
@@ -546,17 +546,19 @@ function MerchantLayoutContent({ children }: { children: React.ReactNode }) {
       >
         {showShellChrome && <TopBar role="merchant" collapsed={collapsed} />}
         <main
-          className={cn(isCashierRoute ? "p-0" : "app-shell-main p-4 lg:p-6")}
+          className={cn(
+            isCashierRoute ? "p-0" : "app-shell-main px-4 py-5 lg:px-6 lg:py-6",
+          )}
         >
           {shouldWaitForEntitlements ? (
-            <div className="app-surface mx-auto flex max-w-2xl flex-col items-center gap-4 rounded-[24px] p-8 text-center">
+            <div className="app-surface mx-auto flex max-w-2xl flex-col items-center gap-4 rounded-[20px] p-8 text-center">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
               <p className="text-sm text-muted-foreground">
                 جاري التحقق من الصلاحيات المتاحة لحسابك...
               </p>
             </div>
           ) : isChatOnlyRouteBlocked ? (
-            <div className="app-surface mx-auto flex max-w-2xl flex-col items-center gap-4 rounded-[24px] p-8 text-center">
+            <div className="app-surface mx-auto flex max-w-2xl flex-col items-center gap-4 rounded-[20px] p-8 text-center">
               <Lock className="h-6 w-6 text-muted-foreground" />
               <p className="text-sm text-muted-foreground">
                 خطة Chat Only مخصصة للمحادثات فقط. للوصول إلى التشغيل والمخزون
@@ -570,7 +572,7 @@ function MerchantLayoutContent({ children }: { children: React.ReactNode }) {
               </Link>
             </div>
           ) : isEntitlementBlocked ? (
-            <div className="app-surface mx-auto flex max-w-2xl flex-col items-center gap-4 rounded-[24px] p-8 text-center">
+            <div className="app-surface mx-auto flex max-w-2xl flex-col items-center gap-4 rounded-[20px] p-8 text-center">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
               <p className="text-sm text-muted-foreground">
                 هذه الصفحة غير متاحة ضمن خطتك الحالية. جاري التوجيه إلى صفحة

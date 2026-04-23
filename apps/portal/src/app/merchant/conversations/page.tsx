@@ -626,10 +626,10 @@ export default function ConversationsPage() {
   }
 
   return (
-    <div className="space-y-8 animate-fadeIn p-4 pb-6 sm:p-6">
+    <div className="app-page-frame space-y-5 animate-fadeIn p-4 pb-8 sm:p-6">
       <PageHeader
         title="المحادثات"
-        description="تابع كل محادثة نشطة، واعرف متى يتدخل الفريق أو الذكاء مباشرة."
+        description="تابع كل محادثة نشطة بترتيب أوضح للقنوات، الحالات، وتدخلات الفريق."
         actions={
           <Button
             variant="outline"
@@ -642,19 +642,19 @@ export default function ConversationsPage() {
         }
       />
 
-      <section className="app-hero-band">
+      <section className="app-hero-band app-hero-band--subtle">
         <div className="app-hero-band__grid">
           <div className="space-y-4">
             <span className="app-hero-band__eyebrow">Conversation Desk</span>
             <div className="space-y-3">
               <h2 className="app-hero-band__title">
-                شاشة تشغيل للمحادثات الحية، التحويل للبشري، والإشارات التنفيذية
-                داخل نفس السياق.
+                مساحة متابعة أوضح للمحادثات الحية والتحويل للبشري داخل نفس
+                السياق.
               </h2>
               <p className="app-hero-band__copy">
                 راقب حالة كل محادثة، التقط الحالات التي تحتاج تدخلاً بشرياً،
-                وتابع واتساب وماسنجر وإنستاجرام من عرض ثنائي يحافظ على سياق
-                العميل والرسائل.
+                وتابع واتساب وماسنجر وإنستاجرام من عرض ثنائي أكثر هدوءاً يحافظ
+                على سياق العميل والرسائل.
               </p>
             </div>
           </div>
@@ -690,9 +690,9 @@ export default function ConversationsPage() {
       </section>
 
       {/* Main Content - Split View */}
-      <div className="grid min-h-0 grid-cols-1 gap-4 xl:h-[calc(100vh-10rem)] xl:min-h-[52rem] xl:grid-cols-[380px_minmax(0,1fr)] 2xl:grid-cols-[440px_minmax(0,1fr)]">
+      <div className="grid min-h-0 grid-cols-1 gap-5 xl:h-[calc(100vh-10rem)] xl:min-h-[52rem] xl:grid-cols-[396px_minmax(0,1fr)] 2xl:grid-cols-[448px_minmax(0,1fr)]">
         {/* Conversations List */}
-        <Card className="app-data-card h-full overflow-hidden border-border/70">
+        <Card className="app-data-card app-data-card--muted h-full overflow-hidden border-border/70">
           <CardHeader className="border-b bg-[color:color-mix(in_srgb,var(--surface-muted)_55%,transparent)] pb-3">
             <div className="mb-1">
               <h3 className="app-section-title">
@@ -869,7 +869,7 @@ export default function ConversationsPage() {
         </Card>
 
         {/* Chat View */}
-        <Card className="app-data-card flex min-h-[28rem] flex-col overflow-hidden border-border/70 xl:h-full xl:min-h-0">
+        <Card className="app-data-card app-data-card--muted flex min-h-[28rem] flex-col overflow-hidden border-border/70 xl:h-full xl:min-h-0">
           {selectedConversation ? (
             <>
               {/* Chat Header */}

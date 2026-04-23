@@ -54,10 +54,6 @@ import { formatCurrency, cn } from "@/lib/utils";
 import { useMerchant } from "@/hooks/use-merchant";
 import { useRoleAccess } from "@/hooks/use-role-access";
 import { authenticatedFetch } from "@/lib/client";
-import {
-  AiInsightsCard,
-  generateExpenseInsights,
-} from "@/components/ai/ai-insights-card";
 
 interface Expense {
   id: string;
@@ -532,7 +528,7 @@ export default function ExpensesPage() {
   );
 
   return (
-    <div className="space-y-8">
+    <div className="app-page-frame space-y-8 p-4 pb-8 sm:p-6">
       <PageHeader
         title="المصروفات"
         description="إدارة وتتبع مصروفات العمل"
@@ -601,17 +597,6 @@ export default function ExpensesPage() {
           </div>
         </div>
       </section>
-
-      {/* AI Expense Insights */}
-      <AiInsightsCard
-        title="تحليلات المصروفات"
-        insights={generateExpenseInsights({
-          totalExpenses: totalAmount,
-          expensesByCategory: normalizedByCategory,
-          monthlyTrend: [expenses.length],
-        })}
-        loading={loading}
-      />
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">

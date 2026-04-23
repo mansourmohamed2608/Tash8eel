@@ -495,10 +495,10 @@ export default function CFOBriefPage() {
   );
 
   return (
-    <div className="space-y-8 animate-fadeIn p-4 sm:p-6">
+    <div className="app-page-frame space-y-5 animate-fadeIn p-4 pb-8 sm:p-6">
       <PageHeader
         title="ملخص المدير المالي"
-        description="نظرة شاملة على الأداء المالي والتشغيلي"
+        description="نظرة مالية وتشغيلية أوضح مبنية على نفس الأرقام الخلفية الحالية."
         actions={
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
             <Select
@@ -584,8 +584,8 @@ export default function CFOBriefPage() {
         }
       />
 
-      <Card className="app-data-card border-[color:color-mix(in_srgb,var(--accent)_18%,var(--border-strong))] bg-[var(--accent-muted)]">
-        <CardContent className="pt-4 space-y-1 text-sm">
+      <Card className="app-filter-card app-filter-card--muted border-[color:color-mix(in_srgb,var(--accent)_14%,var(--border-strong))] bg-[color:color-mix(in_srgb,var(--accent-muted)_78%,var(--surface))]">
+        <CardContent className="space-y-1 pt-4 text-sm">
           <p className="font-medium text-[var(--accent)]">
             مصدر الأرقام في هذا التقرير
           </p>
@@ -735,7 +735,7 @@ export default function CFOBriefPage() {
       )}
 
       {/* Revenue & Orders */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard
           title="إجمالي الإيرادات المحققة"
           value={realizedRevenue}
@@ -765,7 +765,7 @@ export default function CFOBriefPage() {
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard
           title="إجمالي المبيعات المحجوزة"
           value={metrics.bookedSales}

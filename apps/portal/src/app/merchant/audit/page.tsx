@@ -65,10 +65,6 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { portalApi } from "@/lib/client";
-import {
-  AiInsightsCard,
-  generateAuditInsights,
-} from "@/components/ai/ai-insights-card";
 
 interface AuditLog {
   id: string;
@@ -614,7 +610,7 @@ export default function AuditPage() {
   };
 
   return (
-    <div className="space-y-8 p-4 sm:p-6">
+    <div className="app-page-frame space-y-8 p-4 pb-8 sm:p-6">
       <PageHeader
         title="سجل التدقيق"
         description="تتبع جميع الإجراءات والتغييرات الحساسة داخل النشاط مع فلترة وسياق واضح."
@@ -683,20 +679,6 @@ export default function AuditPage() {
         </div>
       </section>
 
-      {/* AI Audit Insights */}
-      <AiInsightsCard
-        title="مساعد سجل النشاط"
-        insights={generateAuditInsights({
-          totalLogs: (summary?.byAction || []).reduce(
-            (sum: number, a: any) => sum + a.count,
-            0,
-          ),
-          staffCount: (summary?.byStaff || []).length,
-          recentActions: logs.length,
-        })}
-        loading={loading}
-      />
-
       {/* Summary Stats */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Card className="app-data-card">
@@ -745,7 +727,7 @@ export default function AuditPage() {
             <p className="text-xs text-muted-foreground">هذا الأسبوع</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="app-data-card">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">عمليات الحذف</CardTitle>
             <FileText className="h-4 w-4 text-red-500" />
@@ -761,7 +743,7 @@ export default function AuditPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <Card>
+        <Card className="app-data-card">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">
               آخر تحديث إعدادات
@@ -778,7 +760,7 @@ export default function AuditPage() {
             </p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="app-data-card">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">آخر دخول</CardTitle>
           </CardHeader>
@@ -807,7 +789,7 @@ export default function AuditPage() {
       </div>
 
       {/* Activity Timeline */}
-      <Card>
+      <Card className="app-data-card">
         <CardHeader>
           <CardTitle>نشاط آخر 7 أيام</CardTitle>
         </CardHeader>
@@ -849,7 +831,7 @@ export default function AuditPage() {
       </Card>
 
       <Tabs defaultValue="logs">
-        <TabsList className="grid h-auto w-full grid-cols-1 gap-2 sm:grid-cols-2">
+        <TabsList className="app-workbench-strip grid h-auto w-full grid-cols-1 gap-2 p-2 sm:grid-cols-2">
           <TabsTrigger value="logs" className="w-full">
             السجلات
           </TabsTrigger>
@@ -877,7 +859,7 @@ export default function AuditPage() {
             ))}
           </div>
           {/* Filters */}
-          <Card>
+          <Card className="app-data-card">
             <CardContent className="pt-6">
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 <div className="relative">

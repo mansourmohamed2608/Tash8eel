@@ -60,11 +60,6 @@ import {
 } from "lucide-react";
 import { authenticatedFetch } from "@/lib/client";
 import { useMerchant } from "@/hooks/use-merchant";
-import {
-  AiInsightsCard,
-  generateCampaignInsights,
-} from "@/components/ai/ai-insights-card";
-import { SmartAnalysisButton } from "@/components/ai/smart-analysis-button";
 import portalApi from "@/lib/client";
 import { useLocalStorageState } from "@/hooks/use-local-storage-state";
 
@@ -346,7 +341,7 @@ export default function WinbackCampaignsPage() {
   ];
 
   return (
-    <div className="space-y-6 p-4 sm:p-6">
+    <div className="app-page-frame space-y-6 p-4 pb-8 sm:p-6">
       <PageHeader
         title="الحملات التسويقية"
         description="إنشاء وإدارة حملات استعادة العملاء والتسويق الذكي"
@@ -366,18 +361,9 @@ export default function WinbackCampaignsPage() {
         }
       />
 
-      {/* AI Campaign Insights */}
-      <AiInsightsCard
-        title="مساعد الحملات"
-        insights={generateCampaignInsights({
-          totalCampaigns: 0,
-          activeCampaigns: result ? 1 : 0,
-        })}
-      />
-
       {/* WhatsApp Status */}
       {!waReady && (
-        <Card className="border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20">
+        <Card className="app-data-card border-amber-200 bg-amber-50/80 dark:border-amber-800 dark:bg-amber-900/20">
           <CardContent className="p-4 flex items-center gap-3">
             <AlertCircle className="h-5 w-5 text-amber-600 shrink-0" />
             <p className="text-sm text-amber-800 dark:text-amber-300">
@@ -388,7 +374,7 @@ export default function WinbackCampaignsPage() {
         </Card>
       )}
       {waReady && waNumber && (
-        <Card className="border-green-200 dark:border-green-800">
+        <Card className="app-data-card border-green-200 dark:border-green-800">
           <CardContent className="p-4 flex items-center gap-3">
             <MessageSquare className="h-5 w-5 text-green-600" />
             <div className="flex-1">
@@ -414,7 +400,7 @@ export default function WinbackCampaignsPage() {
 
       {/* Campaign Stats */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Card>
+        <Card className="app-data-card">
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
               <Users className="h-8 w-8 text-blue-500" />
@@ -428,7 +414,7 @@ export default function WinbackCampaignsPage() {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="app-data-card">
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
               <MessageSquare className="h-8 w-8 text-green-500" />
@@ -441,7 +427,7 @@ export default function WinbackCampaignsPage() {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="app-data-card">
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
               <TrendingUp className="h-8 w-8 text-purple-500" />
@@ -455,7 +441,7 @@ export default function WinbackCampaignsPage() {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="app-data-card">
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
               <Percent className="h-8 w-8 text-orange-500" />
@@ -469,7 +455,7 @@ export default function WinbackCampaignsPage() {
       </div>
 
       {/* AI Audience Picker */}
-      <Card className="border-purple-100 bg-gradient-to-br from-purple-50 to-white dark:from-purple-950/30 dark:to-background">
+      <Card className="app-data-card app-data-card--muted border-purple-100/70 bg-gradient-to-br from-purple-50/80 to-white dark:from-purple-950/20 dark:to-background">
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-purple-500" />

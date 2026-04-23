@@ -40,10 +40,6 @@ import {
 } from "lucide-react";
 import { merchantApi } from "@/lib/client";
 import { useMerchant } from "@/hooks/use-merchant";
-import {
-  AiInsightsCard,
-  generateSettingsInsights,
-} from "@/components/ai/ai-insights-card";
 import { DeleteAccountPanel } from "@/components/merchant/settings/delete-account-panel";
 
 // Settings structure matching API response
@@ -372,7 +368,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="space-y-8 animate-fadeIn p-4 sm:p-6">
+    <div className="app-page-frame space-y-6 animate-fadeIn px-4 pb-8 sm:px-6">
       <PageHeader
         title="الإعدادات"
         description="إدارة إعدادات المتجر والإشعارات"
@@ -437,22 +433,6 @@ export default function SettingsPage() {
         </section>
       )}
 
-      <AiInsightsCard
-        insights={generateSettingsInsights({
-          hasKnowledgeBase: Boolean(settings?.business?.name),
-          hasPayoutSetup: Boolean(
-            settings?.payout?.instapayAlias ||
-            settings?.payout?.vodafoneCashNumber ||
-            settings?.payout?.bankAccount,
-          ),
-          hasDeliveryRules: Boolean(settings?.preferences?.workingHours?.start),
-          hasWorkingHours: Boolean(
-            settings?.preferences?.workingHours?.start &&
-            settings?.preferences?.workingHours?.end,
-          ),
-        })}
-      />
-
       {error && (
         <AlertBanner
           type="error"
@@ -475,7 +455,7 @@ export default function SettingsPage() {
         onValueChange={handleTabChange}
         className="space-y-6"
       >
-        <TabsList className="grid h-auto w-full grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-6">
+        <TabsList className="app-workbench-strip grid h-auto w-full grid-cols-2 gap-2 p-2 sm:grid-cols-3 md:grid-cols-6">
           <TabsTrigger
             value="business"
             className="flex w-full items-center gap-2"

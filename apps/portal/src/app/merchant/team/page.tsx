@@ -60,11 +60,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { portalApi } from "@/lib/client";
-import { PageHeader } from "@/components/layout/sidebar";
-import {
-  AiInsightsCard,
-  generateTeamInsights,
-} from "@/components/ai/ai-insights-card";
+import { PageHeader } from "@/components/layout";
 
 interface Staff {
   id: string;
@@ -578,7 +574,7 @@ export default function TeamPage() {
   };
 
   return (
-    <div className="space-y-8 p-4 sm:p-6">
+    <div className="app-page-frame space-y-6 p-4 pb-8 sm:p-6">
       <PageHeader
         title="إدارة الفريق"
         description="إدارة الأدوار، الدعوات، وحوكمة الوصول داخل النشاط من واجهة واحدة."
@@ -737,17 +733,6 @@ export default function TeamPage() {
           </div>
         </div>
       </section>
-
-      {/* AI Team Insights */}
-      <AiInsightsCard
-        title="مساعد إدارة الفريق"
-        insights={generateTeamInsights({
-          totalStaff: staff.length,
-          activeStaff: staff.filter((s) => s.status === "ACTIVE").length,
-          inactiveStaff: staff.filter((s) => s.status !== "ACTIVE").length,
-        })}
-        loading={loading}
-      />
 
       {loading ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">

@@ -40,10 +40,6 @@ import { formatDate, formatCurrency } from "@/lib/utils";
 import { merchantApi } from "@/lib/client";
 import { useMerchant } from "@/hooks/use-merchant";
 import { useToast } from "@/hooks/use-toast";
-import {
-  AiInsightsCard,
-  generatePaymentsInsights,
-} from "@/components/ai/ai-insights-card";
 
 interface PaymentProof {
   id: string;
@@ -252,7 +248,7 @@ export default function PaymentProofsPage() {
   const proofImageUrl = resolveProofImageUrl(selectedProof?.imageUrl);
 
   return (
-    <div className="space-y-6 p-4 sm:p-6">
+    <div className="app-page-frame space-y-6 p-4 pb-8 sm:p-6">
       <PageHeader
         title="إثباتات الدفع"
         description="مراجعة واعتماد إثباتات الدفع من العملاء"
@@ -271,20 +267,9 @@ export default function PaymentProofsPage() {
         }
       />
 
-      {/* AI Payment Proofs Insights */}
-      <AiInsightsCard
-        title="مساعد إثباتات الدفع"
-        insights={generatePaymentsInsights({
-          totalLinks: 0,
-          pendingProofs: pendingCount,
-          totalProofs: summaryTotal,
-        })}
-        loading={loading}
-      />
-
       {/* Stats Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Card>
+        <Card className="app-data-card">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-amber-100 rounded-lg">
@@ -297,7 +282,7 @@ export default function PaymentProofsPage() {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="app-data-card">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-green-100 rounded-lg">
@@ -310,7 +295,7 @@ export default function PaymentProofsPage() {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="app-data-card">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-red-100 rounded-lg">
@@ -323,7 +308,7 @@ export default function PaymentProofsPage() {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="app-data-card">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-blue-100 rounded-lg">
@@ -339,7 +324,7 @@ export default function PaymentProofsPage() {
       </div>
 
       {/* Filters */}
-      <Card>
+      <Card className="app-data-card app-data-card--muted">
         <CardContent className="p-4">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
             <div className="w-full sm:w-48">
