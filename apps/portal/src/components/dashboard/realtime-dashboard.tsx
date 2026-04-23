@@ -52,9 +52,12 @@ function LiveMetricCard({
 }: LiveMetricCardProps) {
   const variantStyles = {
     default: "bg-[var(--bg-surface-1)]",
-    success: "border-[var(--accent-success)]/25 bg-[var(--accent-success-dim)]",
-    warning: "border-[var(--accent-warning)]/25 bg-[var(--accent-warning-dim)]",
-    danger: "border-[var(--accent-danger)]/25 bg-[var(--accent-danger-dim)]",
+    success:
+      "border-[var(--accent-success)]/22 bg-[color:color-mix(in_srgb,var(--accent-success-dim)_78%,white)]",
+    warning:
+      "border-[var(--accent-warning)]/22 bg-[color:color-mix(in_srgb,var(--accent-warning-dim)_78%,white)]",
+    danger:
+      "border-[var(--accent-danger)]/22 bg-[color:color-mix(in_srgb,var(--accent-danger-dim)_78%,white)]",
   };
 
   return (
@@ -91,7 +94,7 @@ function LiveMetricCard({
           </div>
           <div
             className={cn(
-              "rounded-[16px] border p-3",
+              "rounded-[14px] border p-3",
               variant === "default" && "bg-primary/10 text-primary",
               variant === "success" && "bg-green-100 text-green-600",
               variant === "warning" && "bg-amber-100 text-amber-600",

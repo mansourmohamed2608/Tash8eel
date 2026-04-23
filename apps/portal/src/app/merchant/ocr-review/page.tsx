@@ -49,10 +49,6 @@ import {
   RefreshCw,
 } from "lucide-react";
 import portalApi from "@/lib/client";
-import {
-  AiInsightsCard,
-  generateOcrInsights,
-} from "@/components/ai/ai-insights-card";
 
 interface OcrConfirmation {
   id: string;
@@ -180,7 +176,7 @@ export default function OcrReviewPage() {
   };
 
   return (
-    <div className="space-y-6 p-4 sm:p-6">
+    <div className="app-page-frame space-y-6 p-4 pb-8 sm:p-6">
       <PageHeader
         title="مراجعة التعرف الضوئي"
         description="مراجعة واعتماد المنتجات المكتشفة تلقائياً من صور الإيصالات والفواتير"
@@ -199,17 +195,9 @@ export default function OcrReviewPage() {
         }
       />
 
-      <AiInsightsCard
-        insights={generateOcrInsights({
-          pendingReview: pending.length ?? 0,
-          approved: approved.length ?? 0,
-          rejected: rejected.length ?? 0,
-        })}
-      />
-
       {/* Stats */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Card>
+        <Card className="app-data-card">
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
               <Clock className="h-8 w-8 text-yellow-500" />
@@ -222,7 +210,7 @@ export default function OcrReviewPage() {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="app-data-card">
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
               <CheckCircle2 className="h-8 w-8 text-green-500" />
@@ -233,7 +221,7 @@ export default function OcrReviewPage() {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="app-data-card">
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
               <XCircle className="h-8 w-8 text-red-500" />
@@ -244,7 +232,7 @@ export default function OcrReviewPage() {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="app-data-card">
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
               <ScanLine className="h-8 w-8 text-blue-500" />
@@ -265,7 +253,7 @@ export default function OcrReviewPage() {
 
       {/* Filter Tabs */}
       <Tabs value={filter} onValueChange={setFilter}>
-        <TabsList className="grid h-auto w-full grid-cols-1 gap-2 sm:grid-cols-3">
+        <TabsList className="app-workbench-strip grid h-auto w-full grid-cols-1 gap-2 p-2 sm:grid-cols-3">
           <TabsTrigger value="pending" className="w-full">
             بانتظار المراجعة
             {pending.length > 0 && (
@@ -289,7 +277,7 @@ export default function OcrReviewPage() {
           {loading ? (
             <TableSkeleton />
           ) : (
-            <Card>
+            <Card className="app-data-card">
               <CardContent className="pt-4">
                 <div className="space-y-3 md:hidden">
                   {displayItems.length === 0 ? (

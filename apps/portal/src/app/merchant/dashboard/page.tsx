@@ -260,10 +260,10 @@ export default function MerchantDashboard() {
   const refundsAmount = data.premium?.financeSummary?.refundsAmount ?? 0;
 
   return (
-    <div className="space-y-8 animate-fadeIn pb-6">
+    <div className="app-page-frame space-y-5 animate-fadeIn pb-8">
       <PageHeader
         title="لوحة التحكم"
-        description="مركز العمليات اليومي للنشاط، من الأداء اللحظي حتى الإشارات التي تحتاج قراراً الآن."
+        description="مركز متابعة يومي أوضح للأداء، الحالات المفتوحة، والتنبيهات التي تحتاج قراراً الآن."
         actions={
           <div className="flex items-center gap-2">
             <Select
@@ -300,18 +300,18 @@ export default function MerchantDashboard() {
         }
       />
 
-      <section className="app-hero-band">
+      <section className="app-hero-band app-hero-band--subtle">
         <div className="app-hero-band__grid">
           <div className="space-y-4">
             <span className="app-hero-band__eyebrow">Operating Brief</span>
             <div className="space-y-3">
               <h2 className="app-hero-band__title">
-                صورة واحدة للحركة المالية والتشغيلية بدل التنقل بين عدة شاشات.
+                صورة تشغيل واحدة للحركة المالية واليومية من دون تنقل مشتت.
               </h2>
               <p className="app-hero-band__copy">
-                راقب المبيعات المحققة، الطلبات المعلقة، المحادثات النشطة،
-                والتنبيهات التنفيذية من نفس الواجهة. كل بطاقة هنا مبنية لتجيب
-                على سؤال تشغيلي واضح.
+                راقب المبيعات المحققة، الطلبات المفتوحة، المحادثات النشطة،
+                والتنبيهات التنفيذية من نفس الواجهة مع ترتيب أبسط للقراءة
+                اليومية.
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -379,7 +379,7 @@ export default function MerchantDashboard() {
       )}
 
       {/* KPI Cards */}
-      <section className="app-workbench-strip p-4 md:p-5">
+      <section className="app-workbench-strip app-workbench-strip--airy p-5 md:p-6">
         <div className="mb-4">
           <h3 className="app-section-title">
             <TrendingUp className="h-4 w-4 text-primary" />

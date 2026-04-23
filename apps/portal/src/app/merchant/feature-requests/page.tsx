@@ -278,7 +278,7 @@ export default function FeatureRequestsPage() {
     );
 
   return (
-    <div className="space-y-8 animate-fadeIn p-4 sm:p-6">
+    <div className="app-page-frame space-y-6 animate-fadeIn p-4 pb-8 sm:p-6">
       <PageHeader
         title="الاقتراحات وعروض السعر"
         description="اقتراحات ميزات جديدة للنظام وعروض أسعار الباقات المخصصة"
@@ -332,7 +332,7 @@ export default function FeatureRequestsPage() {
       )}
 
       <Tabs value={activeTab} onValueChange={handleTabChange}>
-        <TabsList className="grid h-auto w-full grid-cols-1 gap-2 sm:w-[360px] sm:grid-cols-2">
+        <TabsList className="app-workbench-strip grid h-auto w-full grid-cols-1 gap-2 p-2 sm:w-[360px] sm:grid-cols-2">
           <TabsTrigger value="requests" className="w-full">
             الاقتراحات
           </TabsTrigger>

@@ -139,7 +139,7 @@ export default function CommandCenterPage() {
   const openDlq = overview?.connectors?.dlqOpen ?? 0;
 
   return (
-    <div className="space-y-8 animate-fadeIn">
+    <div className="app-page-frame space-y-6 animate-fadeIn pb-8">
       <PageHeader
         title="غرفة القيادة"
         description="عرض حقيقي لأحداث التحكم والتخطيط المسجلة في النظام، مع تلخيص سريع للحالات التي تحتاج متابعة."
@@ -156,7 +156,7 @@ export default function CommandCenterPage() {
         }
       />
 
-      <section className="app-hero-band">
+      <section className="app-hero-band app-hero-band--subtle">
         <div className="app-hero-band__grid">
           <div className="space-y-4">
             <span className="app-hero-band__eyebrow">Control Plane</span>
@@ -209,10 +209,10 @@ export default function CommandCenterPage() {
         </Card>
       )}
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
         {loading
           ? Array.from({ length: 6 }).map((_, index) => (
-              <Card key={index} className="app-data-card">
+              <Card key={index} className="app-data-card app-data-card--muted">
                 <CardContent className="p-4">
                   <div className="h-4 w-32 rounded bg-muted" />
                   <div className="mt-3 h-7 w-16 rounded bg-muted" />
@@ -241,7 +241,7 @@ export default function CommandCenterPage() {
             })}
       </div>
 
-      <Card className="app-data-card">
+      <Card className="app-data-card app-data-card--muted">
         <CardHeader>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
             <div>

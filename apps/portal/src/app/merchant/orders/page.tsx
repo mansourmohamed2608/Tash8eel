@@ -1132,10 +1132,10 @@ export default function OrdersPage() {
   }
 
   return (
-    <div className="space-y-8 animate-fadeIn pb-6">
+    <div className="app-page-frame space-y-5 animate-fadeIn pb-8">
       <PageHeader
         title="الطلبات"
-        description="تشغيل ومتابعة الطلبات الحالية بسرعة، مع قراءة فورية للحالات الحرجة."
+        description="تشغيل ومتابعة الطلبات الحالية بقراءة أوضح للحالات الحرجة والمصادر النشطة."
         actions={
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
             {canCreate && (
@@ -1144,7 +1144,7 @@ export default function OrdersPage() {
                 className="w-full sm:w-auto"
               >
                 <Plus className="h-4 w-4 ml-2" />
-                إنشاء طلب جديد
+                إنشاء طلب يدوي
               </Button>
             )}
             <Button
@@ -1170,14 +1170,13 @@ export default function OrdersPage() {
         }
       />
 
-      <section className="app-hero-band">
+      <section className="app-hero-band app-hero-band--subtle">
         <div className="app-hero-band__grid">
           <div className="space-y-4">
             <span className="app-hero-band__eyebrow">Order Operations</span>
             <div className="space-y-3">
               <h2 className="app-hero-band__title">
-                شاشة تشغيل للطلبات الحالية، الحالات المتأخرة، والمصادر المختلفة
-                من نفس المكان.
+                شاشة عمل هادئة للطلبات الحالية والحالات المتأخرة من نفس المكان.
               </h2>
               <p className="app-hero-band__copy">
                 اعرض الطلبات كلوحة كانبان أو جدول، أنشئ طلباً يدوياً، وراجع
@@ -1202,7 +1201,7 @@ export default function OrdersPage() {
         </div>
       </section>
 
-      <div className="app-filter-card flex flex-wrap items-center gap-2 p-3">
+      <div className="app-filter-card app-filter-card--muted flex flex-wrap items-center gap-2 p-3.5">
         {STATUS_TABS.map((tab) => (
           <button
             key={tab.key}
@@ -1224,7 +1223,7 @@ export default function OrdersPage() {
       </div>
 
       {/* Filters */}
-      <Card className="app-data-card">
+      <Card className="app-filter-card app-filter-card--muted">
         <CardContent className="p-5">
           <div className="mb-4">
             <h3 className="app-section-title">
@@ -1341,7 +1340,7 @@ export default function OrdersPage() {
       ) : (
         <>
           {viewMode === "kanban" ? (
-            <section className="app-workbench-strip p-3 md:p-4">
+            <section className="app-workbench-strip app-workbench-strip--airy p-4 md:p-5">
               <div className="mb-4">
                 <h3 className="app-section-title">
                   <LayoutGrid className="h-4 w-4 text-primary" />

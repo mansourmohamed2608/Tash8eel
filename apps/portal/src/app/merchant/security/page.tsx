@@ -56,10 +56,6 @@ import {
 import { cn } from "@/lib/utils";
 import { useMerchant } from "@/hooks/use-merchant";
 import portalApi from "@/lib/client";
-import {
-  AiInsightsCard,
-  generateSecurityInsights,
-} from "@/components/ai/ai-insights-card";
 
 interface Session {
   id: string;
@@ -324,7 +320,7 @@ export default function SecurityPage() {
   }
 
   return (
-    <div className="space-y-6 p-4 sm:p-6">
+    <div className="app-page-frame space-y-6 p-4 pb-8 sm:p-6">
       <PageHeader
         title="الأمان والخصوصية"
         description="إدارة الجلسات النشطة وإعدادات الأمان"
@@ -338,19 +334,8 @@ export default function SecurityPage() {
         }
       />
 
-      {/* AI Security Insights */}
-      <AiInsightsCard
-        title="مساعد الأمان"
-        insights={generateSecurityInsights({
-          twoFactorEnabled: settings?.twoFactorEnabled,
-          activeSessions: sessions.length,
-          lastPasswordChange: settings?.lastPasswordChange,
-        })}
-        loading={loading}
-      />
-
       <Tabs value={activeTab} onValueChange={handleTabChange}>
-        <TabsList className="grid h-auto w-full grid-cols-1 gap-2 sm:grid-cols-3">
+        <TabsList className="app-workbench-strip grid h-auto w-full grid-cols-1 gap-2 p-2 sm:grid-cols-3">
           <TabsTrigger value="sessions" className="w-full gap-2">
             <Laptop className="h-4 w-4" />
             الجلسات النشطة
@@ -367,7 +352,7 @@ export default function SecurityPage() {
 
         {/* Sessions Tab */}
         <TabsContent value="sessions" className="space-y-4">
-          <Card>
+          <Card className="app-data-card">
             <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <CardTitle>الأجهزة المتصلة</CardTitle>
@@ -493,7 +478,7 @@ export default function SecurityPage() {
         {/* Settings Tab */}
         <TabsContent value="settings" className="space-y-4">
           {/* Password */}
-          <Card>
+          <Card className="app-data-card">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Key className="h-5 w-5" />
@@ -671,7 +656,7 @@ export default function SecurityPage() {
             </CardContent>
           </Card>
 
-          <Card className="border-dashed">
+          <Card className="app-data-card border-dashed">
             <CardHeader>
               <CardTitle>تم نقل تفضيلات الأمان التشغيلية</CardTitle>
               <CardDescription>
@@ -691,7 +676,7 @@ export default function SecurityPage() {
 
         {/* Audit Log Tab */}
         <TabsContent value="audit" className="space-y-4">
-          <Card>
+          <Card className="app-data-card">
             <CardHeader>
               <CardTitle>سجل النشاط</CardTitle>
               <CardDescription>آخر الأنشطة على حسابك</CardDescription>

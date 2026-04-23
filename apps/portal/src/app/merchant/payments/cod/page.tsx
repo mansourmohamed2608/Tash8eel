@@ -53,10 +53,6 @@ import { useMerchant } from "@/hooks/use-merchant";
 import portalApi from "@/lib/client";
 import { branchesApi } from "@/lib/client";
 import { REPORTING_PERIOD_OPTIONS } from "@/lib/reporting-period";
-import {
-  AiInsightsCard,
-  generateCodInsights,
-} from "@/components/ai/ai-insights-card";
 
 interface CODOrder {
   id: string;
@@ -735,7 +731,7 @@ export default function CODReconciliationPage() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="app-page-frame space-y-6 p-4 pb-8 sm:p-6">
       <PageHeader
         title="تسوية الدفع عند الاستلام"
         description="متابعة وتسوية مبالغ COD من شركات الشحن"
@@ -801,18 +797,6 @@ export default function CODReconciliationPage() {
           </div>
         </div>
       </section>
-
-      {/* AI COD Insights */}
-      <AiInsightsCard
-        title="تحليلات الدفع عند الاستلام"
-        insights={generateCodInsights({
-          pendingAmount: summary?.totalPendingAmount ?? 0,
-          collectedAmount: summary?.totalCollectedAmount ?? 0,
-          disputedAmount: summary?.totalDisputedAmount ?? 0,
-          totalOrders: orders.length,
-        })}
-        loading={loading}
-      />
 
       {/* Summary Cards */}
       {summary && (
@@ -1000,7 +984,7 @@ export default function CODReconciliationPage() {
 
       {/* Orders Table with Tabs */}
       <Tabs value={activeTab} onValueChange={handleTabChange}>
-        <TabsList className="grid h-auto w-full grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-5">
+        <TabsList className="app-workbench-strip grid h-auto w-full grid-cols-1 gap-2 p-2 sm:grid-cols-2 xl:grid-cols-5">
           <TabsTrigger value="pending" className="w-full gap-2">
             <Clock className="h-4 w-4" />
             قيد الانتظار
@@ -1025,7 +1009,7 @@ export default function CODReconciliationPage() {
 
         <TabsContent value={activeTab}>
           {activeTab !== "reminders" ? (
-            <Card>
+            <Card className="app-data-card">
               <CardHeader>
                 <CardTitle>طلبات الدفع عند الاستلام</CardTitle>
                 <CardDescription>{filteredOrders.length} طلب</CardDescription>

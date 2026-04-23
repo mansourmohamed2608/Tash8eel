@@ -64,10 +64,6 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { portalApi } from "@/lib/client";
-import {
-  AiInsightsCard,
-  generateImportExportInsights,
-} from "@/components/ai/ai-insights-card";
 
 interface BulkOperation {
   id: string;
@@ -615,7 +611,7 @@ export default function BulkOperationsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="app-page-frame space-y-6 p-4 pb-8 sm:p-6">
       <PageHeader
         title="استيراد وتصدير البيانات"
         description="إدارة البيانات بالجملة عبر ملفات CSV"
@@ -631,19 +627,8 @@ export default function BulkOperationsPage() {
         }
       />
 
-      {/* AI Import/Export Insights */}
-      <AiInsightsCard
-        title="مساعد الاستيراد والتصدير"
-        insights={generateImportExportInsights({
-          totalOperations: operations.length,
-          failedOperations: operations.filter((op) => op.status === "FAILED")
-            .length,
-        })}
-        loading={loading}
-      />
-
       <Tabs value={activeTab} onValueChange={handleTabChange}>
-        <TabsList className="grid h-auto w-full grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
+        <TabsList className="app-workbench-strip grid h-auto w-full grid-cols-1 gap-2 p-2 sm:grid-cols-2 xl:grid-cols-4">
           <TabsTrigger
             value="products"
             className="flex w-full items-center gap-2"
@@ -679,7 +664,7 @@ export default function BulkOperationsPage() {
             {/* Action Cards */}
             <div className="grid gap-4 lg:grid-cols-2">
               {/* Import Card */}
-              <Card>
+              <Card className="app-data-card">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <FileUp className="h-5 w-5 text-green-500" />
@@ -816,7 +801,7 @@ export default function BulkOperationsPage() {
               </Card>
 
               {/* Export Card */}
-              <Card>
+              <Card className="app-data-card">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <FileDown className="h-5 w-5 text-blue-500" />

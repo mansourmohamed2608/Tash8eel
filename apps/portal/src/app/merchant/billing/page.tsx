@@ -23,10 +23,6 @@ import { merchantApi } from "@/lib/client";
 import { useMerchant } from "@/hooks/use-merchant";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
-import {
-  AiInsightsCard,
-  generateBillingInsights,
-} from "@/components/ai/ai-insights-card";
 
 interface BillingEvent {
   id: string;
@@ -257,7 +253,7 @@ export default function BillingPage() {
 
   if (loading) {
     return (
-      <div className="space-y-6 p-4 sm:p-6">
+      <div className="app-page-frame space-y-6 p-4 pb-8 sm:p-6">
         <PageHeader
           title="الفواتير"
           description="عرض تفاصيل الفواتير والمدفوعات"
@@ -273,7 +269,7 @@ export default function BillingPage() {
 
   if (error) {
     return (
-      <div className="space-y-6 p-4 sm:p-6">
+      <div className="app-page-frame space-y-6 p-4 pb-8 sm:p-6">
         <PageHeader
           title="الفواتير"
           description="عرض تفاصيل الفواتير والمدفوعات"
@@ -293,7 +289,7 @@ export default function BillingPage() {
   }
 
   return (
-    <div className="space-y-8 p-4 sm:p-6">
+    <div className="app-page-frame space-y-8 p-4 pb-8 sm:p-6">
       <PageHeader
         title="الفواتير"
         description="مركز الاشتراك والمدفوعات والفواتير مع قراءة واضحة للحالة الحالية."
@@ -350,17 +346,6 @@ export default function BillingPage() {
           </div>
         </div>
       </section>
-
-      {/* AI Billing Insights */}
-      <AiInsightsCard
-        title="مساعد الفواتير"
-        insights={generateBillingInsights({
-          plan: summary?.subscription?.planName?.toLowerCase(),
-          status: summary?.subscription?.status,
-          nextBillingDate: summary?.subscription?.nextBillingDate,
-        })}
-        loading={loading}
-      />
 
       {/* Current Subscription */}
       <Card className="app-data-card bg-gradient-to-l from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 border-blue-200 dark:border-blue-800/50 mb-6">

@@ -37,11 +37,6 @@ import { merchantApi } from "@/lib/client";
 import { formatCurrency } from "@/lib/utils";
 import { useMerchant } from "@/hooks/use-merchant";
 import {
-  AiInsightsCard,
-  generateAnalyticsInsights,
-} from "@/components/ai/ai-insights-card";
-import { SmartAnalysisButton } from "@/components/ai/smart-analysis-button";
-import {
   REPORTING_PERIOD_OPTIONS,
   getReportingDateRange,
   getStoredReportingDays,
@@ -240,7 +235,7 @@ export default function AnalyticsPage() {
 
   if (loading) {
     return (
-      <div className="p-4 sm:p-6">
+      <div className="app-page-frame p-4 pb-8 sm:p-6">
         <PageHeader title="التحليلات" />
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {[...Array(4)].map((_, i) => (
@@ -257,9 +252,9 @@ export default function AnalyticsPage() {
 
   if (error) {
     return (
-      <div className="p-4 sm:p-6">
+      <div className="app-page-frame p-4 pb-8 sm:p-6">
         <PageHeader title="التحليلات" />
-        <Card>
+        <Card className="app-data-card">
           <CardContent className="p-12">
             <div className="flex flex-col items-center justify-center text-center">
               <AlertCircle className="h-16 w-16 text-destructive mb-4" />
@@ -296,7 +291,7 @@ export default function AnalyticsPage() {
   };
 
   return (
-    <div className="space-y-8 animate-fadeIn p-4 sm:p-6">
+    <div className="app-page-frame space-y-6 animate-fadeIn p-4 pb-8 sm:p-6">
       <PageHeader
         title="التحليلات"
         description="قراءة تنفيذية دقيقة للتحويلات، الاستجابة، المنتجات، وأوقات الذروة."
@@ -389,23 +384,6 @@ export default function AnalyticsPage() {
         </div>
       </section>
 
-      {/* AI Analytics Insights */}
-      <AiInsightsCard
-        title="تحليلات ذكية"
-        insights={generateAnalyticsInsights({
-          conversionRate: conversionData?.rates?.conversionRate,
-          avgResponseTime: responseTimeData?.responseTimes?.averageSeconds
-            ? responseTimeData.responseTimes.averageSeconds / 60
-            : undefined,
-          topProductCount: popularProducts?.length ?? 0,
-          peakHour: peakHoursData?.peaks?.messages?.hour,
-        })}
-        loading={loading}
-      />
-
-      {/* GPT-Powered Smart Analysis */}
-      <SmartAnalysisButton context="analytics" />
-
       <div className="app-data-card app-data-card--muted rounded-[22px] px-3 py-2 text-sm text-muted-foreground">
         <div className="flex flex-wrap items-center gap-2">
           <span>الفترة الحالية: {selectedPeriodSummary}</span>
@@ -422,7 +400,7 @@ export default function AnalyticsPage() {
       )}
 
       <Tabs defaultValue="conversion" className="space-y-6">
-        <TabsList className="grid h-auto w-full grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
+        <TabsList className="app-workbench-strip grid h-auto w-full grid-cols-1 gap-2 p-2 sm:grid-cols-2 xl:grid-cols-4">
           <TabsTrigger value="conversion" className="w-full">
             <Target className="h-4 w-4 ml-2" />
             التحويلات

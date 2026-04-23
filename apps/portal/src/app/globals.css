@@ -14,10 +14,10 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
     color-scheme: light;
     --font-ui: "IBM Plex Sans Arabic", sans-serif;
 
-    --bg: #f4f7fb;
+    --bg: #f6f8fc;
     --surface: #ffffff;
-    --surface-muted: #eef3f9;
-    --border-strong: #d6dee8;
+    --surface-muted: #f1f4f9;
+    --border-strong: #dbe2ec;
     --text-primary: #111827;
     --text-muted: #5b6474;
     --text-secondary: #5b6474;
@@ -190,7 +190,9 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
   body {
     @apply bg-background text-foreground;
     background:
-      radial-gradient(circle at top, rgba(31, 111, 255, 0.08), transparent 28%),
+      radial-gradient(circle at 12% 0%, rgba(31, 111, 255, 0.045), transparent 34%),
+      radial-gradient(circle at 88% 10%, rgba(15, 138, 95, 0.03), transparent 30%),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.46), transparent 28%),
       var(--bg);
     color: var(--text-primary);
     font-family: var(--font-ui);
@@ -201,6 +203,10 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+  }
+
+  .app-root {
+    min-height: 100vh;
   }
 
   h1,
@@ -598,35 +604,35 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
     background:
       radial-gradient(
         circle at top right,
-        rgba(31, 111, 255, 0.08),
-        transparent 24%
+        rgba(31, 111, 255, 0.06),
+        transparent 26%
       ),
       radial-gradient(
         circle at left bottom,
-        rgba(17, 24, 39, 0.05),
-        transparent 22%
+        rgba(17, 24, 39, 0.04),
+        transparent 24%
       ),
       var(--bg);
   }
 
   .app-shell-main {
-    max-width: 1200px;
+    max-width: 1280px;
     margin-inline: auto;
   }
 
   .app-sidebar-shell {
-    background: color-mix(in srgb, var(--surface) 88%, transparent);
+    background: color-mix(in srgb, var(--surface) 94%, transparent);
     border-left: 1px solid
       color-mix(in srgb, var(--border-strong) 92%, transparent);
-    box-shadow: var(--shadow-panel);
-    backdrop-filter: blur(18px);
+    box-shadow: 0 18px 48px -32px rgba(15, 23, 42, 0.28);
+    backdrop-filter: blur(14px);
   }
 
   .app-topbar-shell {
-    background: color-mix(in srgb, var(--surface) 82%, transparent);
+    background: color-mix(in srgb, var(--surface) 90%, transparent);
     border-bottom: 1px solid
       color-mix(in srgb, var(--border-strong) 88%, transparent);
-    backdrop-filter: blur(18px);
+    backdrop-filter: blur(14px);
   }
 
   .app-surface {
@@ -639,11 +645,11 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
     display: grid;
     gap: var(--space-4);
     margin-bottom: var(--space-6);
-    padding: var(--space-5);
-    border-radius: var(--radius-xl);
+    padding: var(--space-5) var(--space-6);
+    border-radius: 24px;
     border: 1px solid color-mix(in srgb, var(--border-strong) 88%, transparent);
     background: color-mix(in srgb, var(--surface) 94%, transparent);
-    box-shadow: var(--shadow-soft);
+    box-shadow: 0 20px 48px -36px rgba(15, 23, 42, 0.22);
   }
 
   .app-page-header-eyebrow {
@@ -674,17 +680,17 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
     place-items: center;
     padding: var(--space-6);
     background:
-      radial-gradient(circle at top, rgba(31, 111, 255, 0.12), transparent 28%),
+      radial-gradient(circle at top, rgba(31, 111, 255, 0.1), transparent 30%),
       radial-gradient(
         circle at bottom left,
-        rgba(17, 24, 39, 0.08),
-        transparent 26%
+        rgba(17, 24, 39, 0.06),
+        transparent 28%
       ),
       var(--bg);
   }
 
   .app-auth-grid {
-    width: min(1120px, 100%);
+    width: min(1160px, 100%);
     display: grid;
     gap: var(--space-6);
   }
@@ -700,12 +706,12 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
   .app-auth-panel {
     display: grid;
     gap: var(--space-6);
-    border-radius: 32px;
-    padding: clamp(24px, 4vw, 48px);
+    border-radius: 26px;
+    padding: clamp(24px, 3.5vw, 42px);
   }
 
   .app-auth-card {
-    border-radius: 28px;
+    border-radius: 24px;
     padding: clamp(20px, 3vw, 32px);
   }
 
@@ -1082,16 +1088,24 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
 
   .app-hero-band {
     display: grid;
-    gap: var(--space-5);
+    gap: var(--space-6);
     padding: var(--space-6);
-    border-radius: 28px;
+    border-radius: 24px;
     border: 1px solid var(--border-strong);
     background: linear-gradient(
       135deg,
-      color-mix(in srgb, var(--surface) 96%, transparent) 0%,
-      color-mix(in srgb, var(--accent-muted) 58%, var(--surface)) 100%
+      color-mix(in srgb, var(--surface) 97%, transparent) 0%,
+      color-mix(in srgb, var(--accent-muted) 34%, var(--surface)) 100%
     );
-    box-shadow: 0 24px 64px -40px rgba(15, 23, 42, 0.52);
+    box-shadow: 0 24px 54px -40px rgba(15, 23, 42, 0.24);
+  }
+
+  .app-hero-band--subtle {
+    background: linear-gradient(
+      130deg,
+      color-mix(in srgb, var(--surface) 98%, transparent) 0%,
+      color-mix(in srgb, var(--accent-muted) 22%, var(--surface)) 100%
+    );
   }
 
   .app-hero-band__grid {
@@ -1124,16 +1138,16 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
   .app-hero-band__metrics {
     display: grid;
     gap: var(--space-3);
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   }
 
   .app-hero-band__metric {
     display: grid;
     gap: var(--space-2);
     padding: var(--space-4);
-    border-radius: var(--radius-lg);
+    border-radius: 18px;
     border: 1px solid color-mix(in srgb, var(--border-strong) 86%, transparent);
-    background: color-mix(in srgb, var(--surface) 94%, transparent);
+    background: color-mix(in srgb, var(--surface) 96%, transparent);
   }
 
   .app-hero-band__metric-label {
@@ -1149,35 +1163,50 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
   }
 
   .app-data-card {
-    border-radius: 26px;
+    border-radius: 18px;
     border: 1px solid var(--border-strong);
     background: color-mix(in srgb, var(--surface) 96%, transparent);
-    box-shadow: 0 20px 48px -36px rgba(15, 23, 42, 0.48);
+    box-shadow: 0 20px 50px -38px rgba(15, 23, 42, 0.24);
   }
 
   .app-data-card--muted {
-    background: color-mix(in srgb, var(--surface-muted) 72%, transparent);
+    background: color-mix(in srgb, var(--surface-muted) 62%, transparent);
+    box-shadow: 0 22px 54px -42px rgba(15, 23, 42, 0.2);
   }
 
   .app-workbench-strip {
-    border-radius: 26px;
+    border-radius: 18px;
     border: 1px solid color-mix(in srgb, var(--border-strong) 86%, transparent);
-    background: color-mix(in srgb, var(--surface) 90%, transparent);
-    box-shadow: 0 18px 44px -36px rgba(15, 23, 42, 0.5);
-    backdrop-filter: blur(14px);
+    background: color-mix(in srgb, var(--surface) 94%, transparent);
+    box-shadow: 0 22px 50px -40px rgba(15, 23, 42, 0.22);
+    backdrop-filter: blur(10px);
+  }
+
+  .app-workbench-strip--airy {
+    gap: var(--space-5);
   }
 
   .app-filter-card {
-    border-radius: 22px;
+    border-radius: 18px;
     border: 1px solid color-mix(in srgb, var(--border-strong) 86%, transparent);
-    background: color-mix(in srgb, var(--surface) 94%, transparent);
-    box-shadow: 0 16px 36px -34px rgba(15, 23, 42, 0.52);
+    background: color-mix(in srgb, var(--surface) 97%, transparent);
+    box-shadow: 0 18px 44px -36px rgba(15, 23, 42, 0.18);
+  }
+
+  .app-filter-card--muted {
+    background: color-mix(in srgb, var(--surface-muted) 76%, transparent);
   }
 
   .app-mini-surface {
-    border-radius: var(--radius-md);
+    border-radius: 14px;
     border: 1px solid color-mix(in srgb, var(--border-strong) 80%, transparent);
     background: color-mix(in srgb, var(--surface-muted) 58%, transparent);
+  }
+
+  .app-page-frame {
+    width: min(100%, 1440px);
+    margin-inline: auto;
+    padding-inline: clamp(1rem, 1.8vw, 1.5rem);
   }
 
   .app-section-title {
@@ -1199,15 +1228,29 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
   .cashier-command-bar {
     display: grid;
     gap: var(--space-4);
-    padding: var(--space-5);
-    border-radius: 28px;
+    padding: var(--space-6);
+    border-radius: 20px;
     border: 1px solid var(--border-strong);
     background: linear-gradient(
       135deg,
-      color-mix(in srgb, var(--surface) 96%, transparent) 0%,
-      color-mix(in srgb, var(--accent-muted) 34%, var(--surface)) 100%
+      color-mix(in srgb, var(--surface) 98%, transparent) 0%,
+      color-mix(in srgb, var(--accent-muted) 24%, var(--surface)) 100%
     );
-    box-shadow: 0 24px 64px -40px rgba(15, 23, 42, 0.52);
+    box-shadow: 0 24px 60px -46px rgba(15, 23, 42, 0.24);
+  }
+
+  .cashier-shell--calm {
+    background:
+      radial-gradient(circle at top, rgba(31, 111, 255, 0.04), transparent 40%),
+      var(--bg);
+  }
+
+  .cashier-command-bar--calm {
+    background: linear-gradient(
+      130deg,
+      color-mix(in srgb, var(--surface) 98%, transparent) 0%,
+      color-mix(in srgb, var(--accent-muted) 18%, var(--surface)) 100%
+    );
   }
 
   .cashier-command-bar__stats {
@@ -1219,10 +1262,10 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
   .cashier-command-bar__stat {
     display: grid;
     gap: var(--space-2);
-    padding: var(--space-4);
-    border-radius: var(--radius-lg);
+    padding: var(--space-3) var(--space-4);
+    border-radius: 18px;
     border: 1px solid color-mix(in srgb, var(--border-strong) 86%, transparent);
-    background: color-mix(in srgb, var(--surface) 94%, transparent);
+    background: color-mix(in srgb, var(--surface) 96%, transparent);
   }
 
   @media (min-width: 960px) {

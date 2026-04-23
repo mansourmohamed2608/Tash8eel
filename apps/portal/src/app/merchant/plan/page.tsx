@@ -1249,10 +1249,10 @@ export default function PlanPage() {
   }
 
   return (
-    <div className="space-y-8 animate-fadeIn p-4 sm:p-6">
+    <div className="app-page-frame space-y-5 animate-fadeIn p-4 pb-8 sm:p-6">
       <PageHeader
         title="الباقات والفوترة"
-        description="باقات التشغيل + إضافات التوسّع + خيارات مخصصة"
+        description="باقات التشغيل، إضافات التوسّع، وخيارات الفوترة الحالية بترتيب أوضح."
         actions={
           <Button
             variant="outline"
@@ -1265,7 +1265,7 @@ export default function PlanPage() {
         }
       />
 
-      <Card className="app-filter-card">
+      <Card className="app-filter-card app-filter-card--muted">
         <CardContent className="grid gap-4 pt-6 md:grid-cols-3">
           <div className="space-y-2">
             <p className="text-sm font-medium">الدولة</p>
@@ -1319,7 +1319,7 @@ export default function PlanPage() {
         </CardContent>
       </Card>
 
-      <Card className="app-data-card">
+      <Card className="app-data-card app-data-card--muted">
         <CardHeader>
           <CardTitle className="app-section-title text-base">
             <Layers className="h-4 w-4 text-primary" />
@@ -1420,7 +1420,7 @@ export default function PlanPage() {
         </CardContent>
       </Card>
 
-      <section className="app-workbench-strip space-y-4 p-4 md:p-5">
+      <section className="app-workbench-strip app-workbench-strip--airy space-y-4 p-5 md:p-6">
         <div className="flex items-center gap-2">
           <ShieldCheck className="h-4 w-4 text-primary" />
           <h2 className="text-lg font-semibold">باقات التشغيل الكاملة</h2>

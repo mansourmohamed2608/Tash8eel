@@ -2339,9 +2339,12 @@ export default function CashierPage() {
   ]);
 
   return (
-    <div dir="rtl" className="cashier-shell min-h-screen bg-[var(--bg)]">
-      <div className="mx-auto flex min-h-[100dvh] max-w-[1700px] flex-col px-3 py-3 lg:h-screen lg:px-5">
-        <header className="cashier-command-bar mb-4">
+    <div
+      dir="rtl"
+      className="cashier-shell cashier-shell--calm min-h-screen bg-[var(--bg)]"
+    >
+      <div className="mx-auto flex min-h-[100dvh] max-w-[1680px] flex-col px-3 py-3 lg:h-screen lg:px-4">
+        <header className="cashier-command-bar cashier-command-bar--calm mb-5">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-center gap-3">
               <div className="flex h-12 w-12 items-center justify-center rounded-[18px] border border-[var(--accent)]/25 bg-[var(--accent-muted)] text-[var(--accent)]">
@@ -2421,7 +2424,7 @@ export default function CashierPage() {
         </header>
 
         <div className="flex min-h-0 flex-1 flex-col gap-4 lg:flex-row-reverse">
-          <Card className="app-data-card flex min-h-0 flex-1 flex-col">
+          <Card className="app-data-card app-data-card--muted flex min-h-0 flex-1 flex-col">
             <CardHeader className="border-b border-border/70 bg-[color:color-mix(in_srgb,var(--surface-muted)_42%,transparent)] pb-3">
               <div>
                 <CardTitle className="flex items-center gap-2 text-base">

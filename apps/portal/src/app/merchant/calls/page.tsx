@@ -511,7 +511,7 @@ export default function CallsPage() {
   );
 
   return (
-    <>
+    <div className="app-page-frame space-y-6 animate-fadeIn px-4 pb-8 sm:px-6">
       <PageHeader
         title="المكالمات"
         description="متابعة المكالمات الفائتة والمكالمات التي تعامل معها الذكاء الاصطناعي"
@@ -535,14 +535,53 @@ export default function CallsPage() {
         }
       />
 
-      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Card>
+      <section className="app-hero-band app-hero-band--subtle">
+        <div className="app-hero-band__grid">
+          <div className="space-y-4">
+            <span className="app-hero-band__eyebrow">Voice Operations</span>
+            <div className="space-y-3">
+              <h2 className="app-hero-band__title">
+                أبقِ المكالمات داخل نفس مسار التشغيل بدل أن تبقى خارج المشهد.
+              </h2>
+              <p className="app-hero-band__copy">
+                راقب المكالمات النشطة، راجع السجل، وأنشئ الطلب اليدوي من نفس
+                الصفحة عندما تتحول المكالمة إلى بيع فعلي.
+              </p>
+            </div>
+          </div>
+          <div className="app-hero-band__metrics">
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">مكالمات اليوم</span>
+              <strong className="app-hero-band__metric-value">
+                {stats.callsToday}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">بواسطة الذكاء</span>
+              <strong className="app-hero-band__metric-value">
+                {stats.aiHandled}
+              </strong>
+            </div>
+            <div className="app-hero-band__metric">
+              <span className="app-hero-band__metric-label">
+                طلبات من المكالمات
+              </span>
+              <strong className="app-hero-band__metric-value">
+                {stats.ordersFromCalls}
+              </strong>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <Card className="app-data-card">
           <CardContent className="pt-6">
             <p className="text-sm text-muted-foreground">مكالمات اليوم</p>
             <p className="mt-1 text-2xl font-bold">{stats.callsToday}</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="app-data-card">
           <CardContent className="pt-6">
             <p className="text-sm text-muted-foreground">تمت بواسطة الذكاء</p>
             <p className="mt-1 text-2xl font-bold text-blue-600">
@@ -550,7 +589,7 @@ export default function CallsPage() {
             </p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="app-data-card">
           <CardContent className="pt-6">
             <p className="text-sm text-muted-foreground">طلبات من المكالمات</p>
             <p className="mt-1 text-2xl font-bold text-emerald-600">
@@ -558,7 +597,7 @@ export default function CallsPage() {
             </p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="app-data-card">
           <CardContent className="pt-6">
             <p className="text-sm text-muted-foreground">مكالمات فائتة</p>
             <p className="mt-1 text-2xl font-bold text-amber-600">
@@ -568,7 +607,7 @@ export default function CallsPage() {
         </Card>
       </div>
 
-      <Card>
+      <Card className="app-data-card">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <CalendarClock className="h-4 w-4" />
@@ -588,7 +627,7 @@ export default function CallsPage() {
               const isAi = String(call.handledBy || "").toLowerCase() === "ai";
 
               return (
-                <div key={call.id} className="rounded-lg border p-4 space-y-3">
+                <div key={call.id} className="app-filter-card space-y-3 p-4">
                   <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                     <div className="space-y-1">
                       <p className="text-sm font-semibold">
@@ -649,7 +688,7 @@ export default function CallsPage() {
                   </div>
 
                   {isExpanded && (
-                    <div className="rounded-md bg-muted/40 p-3 space-y-2">
+                    <div className="app-filter-card app-filter-card--muted space-y-2 p-3">
                       {call.transcript.length === 0 ? (
                         <p className="text-xs text-muted-foreground">
                           لا يوجد نص محادثة محفوظ.
@@ -951,6 +990,6 @@ export default function CallsPage() {
           </div>
         </DialogContent>
       </Dialog>
-    </>
+    </div>
   );
 }
