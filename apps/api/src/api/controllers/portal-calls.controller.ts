@@ -143,6 +143,154 @@ export class PortalCallsController {
     }
   }
 
+  @Get("calls/follow-up-queue")
+  @RequiresFeature("CONVERSATIONS")
+  @ApiOperation({ summary: "List read-only call follow-up queue records" })
+  async getFollowUpQueue(
+    @Req() req: Request,
+    @Query("limit") limitRaw?: string,
+    @Query("offset") offsetRaw?: string,
+    @Query("hours") hoursRaw?: string,
+    @Query("includeResolved") includeResolvedRaw?: string,
+    @Query("handledBy") handledBy?: string,
+  ) {
+    const merchantId = getMerchantId(req);
+    const limit = Math.min(Math.max(Number(limitRaw || 25) || 25, 1), 100);
+    const offset = Math.max(Number(offsetRaw || 0) || 0, 0);
+    const hours = Math.min(Math.max(Number(hoursRaw || 0) || 0, 0), 24 * 30);
+    const includeResolved =
+      String(includeResolvedRaw || "").toLowerCase() === "true";
+
+    const filters: string[] = ["cfw.merchant_id = $1"];
+    const params: unknown[] = [merchantId];
+
+    if (!includeResolved) {
+      filters.push("cfw.state <> 'RESOLVED'");
+    }
+
+    if (hours > 0) {
+      params.push(String(hours));
+      filters.push(
+        `cfw.updated_at >= NOW() - ($${params.length}::text || ' hours')::interval`,
+      );
+    }
+
+    const handledByNormalized = String(handledBy || "")
+      .trim()
+      .toLowerCase();
+    if (handledByNormalized) {
+      params.push(handledByNormalized);
+      filters.push(
+        `LOWER(COALESCE(cfw.assigned_to, cfw.claimed_by, vc.handled_by, '')) = $${params.length}`,
+      );
+    }
+
+    params.push(limit);
+    const limitIndex = params.length;
+    params.push(offset);
+    const offsetIndex = params.length;
+
+    try {
+      const result = await this.pool.query<{
+        call_id: string;
+        state: string;
+        claimed_by: string | null;
+        assigned_to: string | null;
+        disposition: string | null;
+        resolution_note: string | null;
+        callback_due_at: Date | null;
+        claimed_at: Date | null;
+        assigned_at: Date | null;
+        resolved_at: Date | null;
+        workflow_created_at: Date;
+        workflow_updated_at: Date;
+        customer_phone: string;
+        call_sid: string;
+        started_at: Date;
+        ended_at: Date | null;
+        duration_seconds: number | null;
+        handled_by: string | null;
+        call_status: string | null;
+        order_id: string | null;
+        order_number: string | null;
+        total_count: string;
+      }>(
+        `SELECT
+           cfw.call_id::text,
+           cfw.state,
+           cfw.claimed_by,
+           cfw.assigned_to,
+           cfw.disposition,
+           cfw.resolution_note,
+           cfw.callback_due_at,
+           cfw.claimed_at,
+           cfw.assigned_at,
+           cfw.resolved_at,
+           cfw.created_at as workflow_created_at,
+           cfw.updated_at as workflow_updated_at,
+           vc.customer_phone,
+           vc.call_sid,
+           vc.started_at,
+           vc.ended_at,
+           vc.duration_seconds,
+           vc.handled_by,
+           vc.status as call_status,
+           vc.order_id::text as order_id,
+           o.order_number,
+           COUNT(*) OVER()::text as total_count
+         FROM call_followup_workflows cfw
+         JOIN voice_calls vc ON vc.id = cfw.call_id
+         LEFT JOIN orders o ON o.id::text = vc.order_id::text
+         WHERE ${filters.join(" AND ")}
+         ORDER BY
+           cfw.callback_due_at ASC NULLS LAST,
+           cfw.updated_at DESC
+         LIMIT $${limitIndex}
+         OFFSET $${offsetIndex}`,
+        params,
+      );
+
+      const queue = result.rows.map((row) => ({
+        callId: row.call_id,
+        state: row.state,
+        claimedBy: row.claimed_by,
+        assignedTo: row.assigned_to,
+        disposition: row.disposition,
+        resolutionNote: row.resolution_note,
+        callbackDueAt: row.callback_due_at,
+        claimedAt: row.claimed_at,
+        assignedAt: row.assigned_at,
+        resolvedAt: row.resolved_at,
+        createdAt: row.workflow_created_at,
+        updatedAt: row.workflow_updated_at,
+        customerPhone: row.customer_phone,
+        callSid: row.call_sid,
+        startedAt: row.started_at,
+        endedAt: row.ended_at,
+        durationSeconds: row.duration_seconds,
+        handledBy: row.handled_by,
+        callStatus: row.call_status,
+        orderId: row.order_id,
+        orderNumber: row.order_number,
+      }));
+
+      return {
+        queue,
+        total: result.rows.length ? toNumber(result.rows[0].total_count, 0) : 0,
+      };
+    } catch (error: unknown) {
+      const message = (error as Error).message || "";
+      if (
+        message.includes("call_followup_workflows") ||
+        message.includes("voice_calls")
+      ) {
+        return { queue: [], total: 0 };
+      }
+
+      throw error;
+    }
+  }
+
   @Get("calls/stats")
   @RequiresFeature("CONVERSATIONS")
   @ApiOperation({ summary: "Voice call dashboard stats" })

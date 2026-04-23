@@ -1120,27 +1120,58 @@ export class CopilotDispatcherService {
     const expenses = parseFloat(expenseResult.rows[0].total);
     const revenue = parseFloat(summary.revenue);
     const netProfit = revenue - expenses;
+    const netMarginPct = revenue > 0 ? (netProfit / revenue) * 100 : 0;
+    const closeYear = monthStart.getFullYear();
+    const closeMonth = monthStart.getMonth() + 1;
 
-    // Create monthly report record
+    // Create canonical monthly close record.
     await this.pool.query(
-      `INSERT INTO monthly_reports 
-       (merchant_id, report_month, order_count, revenue, expenses, net_profit, status, closed_at, closed_by)
-       VALUES ($1, $2, $3, $4, $5, $6, 'CLOSED', NOW(), 'copilot')
-       ON CONFLICT (merchant_id, report_month) 
+      `INSERT INTO monthly_closes (
+         merchant_id,
+         year,
+         month,
+         period_start,
+         period_end,
+         total_revenue,
+         total_orders,
+         completed_orders,
+         cancelled_orders,
+         total_expenses,
+         net_profit,
+         net_margin_pct,
+         status,
+         closed_at,
+         closed_by
+       )
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'closed', NOW(), 'copilot')
+       ON CONFLICT (merchant_id, year, month)
        DO UPDATE SET 
-         order_count = EXCLUDED.order_count,
-         revenue = EXCLUDED.revenue,
-         expenses = EXCLUDED.expenses,
+         period_start = EXCLUDED.period_start,
+         period_end = EXCLUDED.period_end,
+         total_revenue = EXCLUDED.total_revenue,
+         total_orders = EXCLUDED.total_orders,
+         completed_orders = EXCLUDED.completed_orders,
+         cancelled_orders = EXCLUDED.cancelled_orders,
+         total_expenses = EXCLUDED.total_expenses,
          net_profit = EXCLUDED.net_profit,
-         status = 'CLOSED',
-         closed_at = NOW()`,
+         net_margin_pct = EXCLUDED.net_margin_pct,
+         status = 'closed',
+         closed_at = NOW(),
+         closed_by = 'copilot',
+         updated_at = NOW()`,
       [
         merchantId,
+        closeYear,
+        closeMonth,
         monthStart,
-        parseInt(summary.order_count),
+        monthEnd,
         revenue,
+        parseInt(summary.order_count),
+        parseInt(summary.delivered),
+        parseInt(summary.cancelled),
         expenses,
         netProfit,
+        netMarginPct,
       ],
     );
 

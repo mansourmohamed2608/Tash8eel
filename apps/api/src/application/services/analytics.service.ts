@@ -514,15 +514,19 @@ export class AnalyticsService {
   > {
     const result = await this.pool.query(
       `SELECT 
-        oi.product_id,
-        p.name,
-        SUM(oi.quantity) as quantity,
-        SUM(oi.price * oi.quantity) as revenue
+        COALESCE(oi.catalog_item_id::text, oi.sku, LOWER(COALESCE(oi.name, oi.product_name, 'unknown'))) as product_id,
+        COALESCE(ci.name_ar, ci.name_en, oi.name, oi.product_name, oi.sku, 'Unknown') as name,
+        SUM(COALESCE(oi.quantity, 0)) as quantity,
+        SUM(COALESCE(oi.total_price, oi.unit_price * oi.quantity, 0)) as revenue
        FROM order_items oi
        JOIN orders o ON oi.order_id = o.id
-       JOIN products p ON oi.product_id = p.id
+       LEFT JOIN catalog_items ci
+         ON ci.id = oi.catalog_item_id
+        AND ci.merchant_id = o.merchant_id
        WHERE o.merchant_id = $1 AND o.created_at >= $2 AND o.created_at <= $3
-       GROUP BY oi.product_id, p.name
+       GROUP BY
+        COALESCE(oi.catalog_item_id::text, oi.sku, LOWER(COALESCE(oi.name, oi.product_name, 'unknown'))),
+        COALESCE(ci.name_ar, ci.name_en, oi.name, oi.product_name, oi.sku, 'Unknown')
        ORDER BY revenue DESC
        LIMIT 20`,
       [merchantId, range.startDate, range.endDate],
@@ -542,14 +546,16 @@ export class AnalyticsService {
   ): Promise<Array<{ category: string; quantity: number; revenue: number }>> {
     const result = await this.pool.query(
       `SELECT 
-        COALESCE(p.category, 'Uncategorized') as category,
-        SUM(oi.quantity) as quantity,
-        SUM(oi.price * oi.quantity) as revenue
+        COALESCE(ci.category, 'Uncategorized') as category,
+        SUM(COALESCE(oi.quantity, 0)) as quantity,
+        SUM(COALESCE(oi.total_price, oi.unit_price * oi.quantity, 0)) as revenue
        FROM order_items oi
        JOIN orders o ON oi.order_id = o.id
-       JOIN products p ON oi.product_id = p.id
+       LEFT JOIN catalog_items ci
+         ON ci.id = oi.catalog_item_id
+        AND ci.merchant_id = o.merchant_id
        WHERE o.merchant_id = $1 AND o.created_at >= $2 AND o.created_at <= $3
-       GROUP BY p.category
+       GROUP BY COALESCE(ci.category, 'Uncategorized')
        ORDER BY revenue DESC`,
       [merchantId, range.startDate, range.endDate],
     );

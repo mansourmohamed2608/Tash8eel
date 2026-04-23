@@ -272,14 +272,17 @@ export class ForecastEngineService {
     if (productId) params.push(productId);
 
     const products = await this.pool.query(
-      `SELECT ip.id, COALESCE(NULLIF(ip.name, ''), ip.sku) AS name,
+      `SELECT ip.id,
+              ip.catalog_item_id::text as catalog_item_id,
+              ip.sku,
+              COALESCE(NULLIF(ip.name, ''), ip.sku) AS name,
               COALESCE(SUM(iv.quantity_on_hand), 0)::int AS current_stock,
               3 AS lead_time_days,
               20.0 AS safety_stock_pct
        FROM inventory_items ip
        LEFT JOIN inventory_variants iv ON iv.inventory_item_id = ip.id
        WHERE ip.merchant_id = $1 ${productFilter}
-       GROUP BY ip.id, ip.name, ip.sku
+       GROUP BY ip.id, ip.catalog_item_id, ip.name, ip.sku
        LIMIT 200`,
       params,
     );
@@ -304,10 +307,19 @@ export class ForecastEngineService {
              AND o.status NOT IN ('DRAFT', 'CANCELLED')
              AND DATE_TRUNC('day', o.created_at) = gs::date
            LEFT JOIN order_items oi ON oi.order_id = o.id
-             AND oi.sku = (SELECT sku FROM inventory_items WHERE id = $2)
+             AND (
+               ($4::text IS NOT NULL AND oi.catalog_item_id::text = $4::text)
+               OR ($5::text IS NOT NULL AND LOWER(COALESCE(oi.sku, '')) = LOWER($5::text))
+             )
            GROUP BY gs
            ORDER BY gs ASC`,
-          [merchantId, product.id, lookbackDays],
+          [
+            merchantId,
+            product.id,
+            lookbackDays,
+            product.catalog_item_id || null,
+            product.sku || null,
+          ],
         );
 
         const dailyNet: number[] = salesRows.rows.map((r: any) =>
@@ -500,20 +512,22 @@ export class ForecastEngineService {
                                   AND NOW() - INTERVAL '7 days'
        ),
        actuals AS (
-         SELECT oi.sku, SUM(oi.quantity)::numeric AS actual_units
+         SELECT
+           COALESCE(oi.catalog_item_id::text, NULLIF(oi.sku, '')) as product_key,
+           SUM(oi.quantity)::numeric AS actual_units
          FROM orders o
          JOIN order_items oi ON oi.order_id = o.id
          WHERE o.merchant_id = $1
            AND o.status NOT IN ('DRAFT','CANCELLED')
            AND o.created_at >= NOW() - INTERVAL '7 days'
-         GROUP BY oi.sku
+         GROUP BY COALESCE(oi.catalog_item_id::text, NULLIF(oi.sku, ''))
        ),
        joined AS (
          SELECT rf.predicted::numeric, a.actual_units,
                 ABS(rf.predicted - a.actual_units) AS abs_error
          FROM recent_forecasts rf
          JOIN inventory_items ip ON ip.id = rf.product_id AND ip.merchant_id = $1
-         JOIN actuals a ON a.sku = ip.sku
+         JOIN actuals a ON a.product_key = COALESCE(ip.catalog_item_id::text, NULLIF(ip.sku, ''))
          WHERE a.actual_units > 0
        )
        SELECT

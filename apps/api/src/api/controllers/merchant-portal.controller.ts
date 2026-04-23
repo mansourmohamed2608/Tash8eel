@@ -3518,10 +3518,10 @@ export class MerchantPortalController {
       } catch (error: any) {
         const code = String(error?.code || "");
         if (code === "42P01") {
-          this.logger.warn(
-            "order_items table is missing; skipping line inserts",
-          );
-          return;
+          throw new BadRequestException({
+            message: "Order line schema is unavailable",
+            code: "ORDER_ITEMS_SCHEMA_MISSING",
+          });
         }
         if (code !== "42703") {
           throw error;
@@ -3553,10 +3553,10 @@ export class MerchantPortalController {
       } catch (error: any) {
         const code = String(error?.code || "");
         if (code === "42P01") {
-          this.logger.warn(
-            "order_items table is missing; skipping line inserts",
-          );
-          return;
+          throw new BadRequestException({
+            message: "Order line schema is unavailable",
+            code: "ORDER_ITEMS_SCHEMA_MISSING",
+          });
         }
         if (code !== "42703") {
           throw error;
@@ -3942,32 +3942,113 @@ export class MerchantPortalController {
     }
   }
 
+  private async createOrderStockMovementSafely(
+    args: {
+      merchantId: string;
+      catalogItemId: string;
+      variantId?: string | null;
+      movementType: "SALE" | "RETURN";
+      quantity: number;
+      quantityBefore?: number | null;
+      quantityAfter?: number | null;
+      reason: string;
+      referenceId: string;
+      metadata?: Record<string, any>;
+    },
+    executor: Pool | PoolClient = this.pool,
+  ): Promise<void> {
+    try {
+      await executor.query(
+        `INSERT INTO stock_movements (
+           merchant_id,
+           catalog_item_id,
+           variant_id,
+           movement_type,
+           quantity,
+           quantity_before,
+           quantity_after,
+           reason,
+           reference_type,
+           reference_id,
+           metadata,
+           notes
+         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'ORDER', $9, $10::jsonb, $8)`,
+        [
+          args.merchantId,
+          args.catalogItemId,
+          args.variantId || null,
+          args.movementType,
+          args.quantity,
+          args.quantityBefore ?? null,
+          args.quantityAfter ?? null,
+          args.reason,
+          args.referenceId,
+          JSON.stringify(args.metadata || {}),
+        ],
+      );
+      return;
+    } catch (error: any) {
+      if (!["42703", "42P01"].includes(String(error?.code || ""))) {
+        throw error;
+      }
+    }
+
+    await executor.query(
+      `INSERT INTO stock_movements (
+         merchant_id,
+         catalog_item_id,
+         movement_type,
+         quantity,
+         reference_type,
+         reference_id,
+         notes
+       ) VALUES ($1, $2, $3, $4, 'ORDER', $5, $6)`,
+      [
+        args.merchantId,
+        args.catalogItemId,
+        args.movementType,
+        args.quantity,
+        args.referenceId,
+        args.reason,
+      ],
+    );
+  }
+
   /**
-   * Deduct or restore stock for an order's items.
-   * Two modes:
-   *   A) Recipe-based: if catalog_item has_recipe=true, deduct/restore individual ingredients
-   *      from inventory_items (restaurant model: burger = bun + patty + cheese)
-   *   B) Simple: deduct/restore catalog_items.stock_quantity directly (retail model)
-   * Tries order_items table first, falls back to orders.items JSON.
+   * Deduct or restore stock for an order's canonical order_items.
+   * Compatibility fallback to orders.items remains only for legacy orders with no
+   * normalized lines.
    */
   private async handleStockForOrder(
     orderId: string,
     merchantId: string,
     operation: "DEDUCT" | "RESTORE",
+    client?: PoolClient,
   ): Promise<number> {
+    const executor = client || this.pool;
     let affected = 0;
 
-    // Collect items from order_items table or orders.items JSON
     let orderLineItems: Array<{
       catalog_item_id?: string;
       sku?: string;
       quantity: number;
     }> = [];
 
-    const orderItems = await this.pool.query(
-      `SELECT catalog_item_id, sku, quantity FROM order_items WHERE order_id = $1`,
-      [orderId],
-    );
+    let orderItems;
+    try {
+      orderItems = await executor.query(
+        `SELECT catalog_item_id, sku, quantity FROM order_items WHERE order_id = $1`,
+        [orderId],
+      );
+    } catch (error: any) {
+      if (String(error?.code || "") !== "42P01") {
+        throw error;
+      }
+      this.logger.warn(
+        `[ORDER_LINES] order_items unavailable for stock operation on ${orderId}; using legacy orders.items fallback`,
+      );
+      orderItems = { rows: [] };
+    }
 
     if (orderItems.rows.length > 0) {
       orderLineItems = orderItems.rows.map((r) => ({
@@ -3976,7 +4057,10 @@ export class MerchantPortalController {
         quantity: parseInt(r.quantity, 10) || 0,
       }));
     } else {
-      const orderResult = await this.pool.query(
+      this.logger.warn(
+        `[ORDER_LINES] No normalized order_items for ${orderId}; using legacy orders.items fallback`,
+      );
+      const orderResult = await executor.query(
         `SELECT items FROM orders WHERE id = $1`,
         [orderId],
       );
@@ -3992,13 +4076,21 @@ export class MerchantPortalController {
       }
     }
 
+    if (orderLineItems.length === 0) {
+      throw new BadRequestException({
+        message: "Order has no line items for stock operation",
+        code: "ORDER_LINES_MISSING",
+        orderId,
+      });
+    }
+
     for (const lineItem of orderLineItems) {
       if (lineItem.quantity <= 0) continue;
 
       // Resolve catalog_item_id if we only have SKU
       let catalogItemId = lineItem.catalog_item_id;
       if (!catalogItemId && lineItem.sku) {
-        const lookup = await this.pool.query(
+        const lookup = await executor.query(
           `SELECT id FROM catalog_items WHERE merchant_id = $1 AND sku = $2 LIMIT 1`,
           [merchantId, lineItem.sku],
         );
@@ -4008,7 +4100,7 @@ export class MerchantPortalController {
       // Check if this item has a recipe (restaurant model)
       let hasRecipe = false;
       if (catalogItemId) {
-        const recipeCheck = await this.pool.query(
+        const recipeCheck = await executor.query(
           `SELECT has_recipe FROM catalog_items WHERE id = $1 AND merchant_id = $2`,
           [catalogItemId, merchantId],
         );
@@ -4018,7 +4110,7 @@ export class MerchantPortalController {
       if (hasRecipe && catalogItemId) {
         // ─── MODE A: Recipe-based deduction (restaurants) ─────
         // Deduct each ingredient from inventory_items
-        const recipe = await this.pool.query(
+        const recipe = await executor.query(
           `SELECT r.ingredient_inventory_item_id, r.ingredient_name, r.quantity_required, r.unit, r.waste_factor, r.is_optional
            FROM item_recipes r
            WHERE r.catalog_item_id = $1 AND r.merchant_id = $2 AND r.is_optional = false
@@ -4032,26 +4124,45 @@ export class MerchantPortalController {
               parseFloat(ing.quantity_required) *
               lineItem.quantity *
               (parseFloat(ing.waste_factor) || 1);
+            let variantMovementRow: any = null;
 
             if (ing.ingredient_inventory_item_id) {
               // Deduct from inventory_items (check inventory_variants first)
-              const variantResult = await this.pool.query(
-                `UPDATE inventory_variants SET quantity_on_hand = GREATEST(0, quantity_on_hand - $1), updated_at = NOW()
-                 WHERE inventory_item_id = $2 AND merchant_id = $3 AND is_active = true
-                 ORDER BY quantity_on_hand DESC LIMIT 1
-                 RETURNING id`,
+              const variantResult = await executor.query(
+                `WITH selected AS (
+                   SELECT id, quantity_on_hand
+                   FROM inventory_variants
+                   WHERE inventory_item_id = $2
+                     AND merchant_id = $3
+                     AND COALESCE(is_active, true) = true
+                   ORDER BY quantity_on_hand DESC, created_at ASC
+                   LIMIT 1
+                 )
+                 UPDATE inventory_variants iv
+                 SET quantity_on_hand = GREATEST(0, iv.quantity_on_hand - $1),
+                     updated_at = NOW()
+                 FROM selected
+                 WHERE iv.id = selected.id
+                 RETURNING iv.id, selected.quantity_on_hand::numeric as quantity_before, iv.quantity_on_hand::numeric as quantity_after`,
                 [
                   Math.ceil(totalQty),
                   ing.ingredient_inventory_item_id,
                   merchantId,
                 ],
               );
+              variantMovementRow = variantResult.rows[0] || null;
 
               // If no variants, try a simple stock_quantity on catalog_items linked to this inventory_item
               if ((variantResult.rowCount || 0) === 0) {
-                await this.pool.query(
-                  `UPDATE catalog_items SET stock_quantity = GREATEST(0, COALESCE(stock_quantity, 0) - $1), updated_at = NOW()
-                   WHERE id = (SELECT catalog_item_id FROM inventory_items WHERE id = $2 AND merchant_id = $3)`,
+                await executor.query(
+                  `UPDATE catalog_items
+                   SET stock_quantity = GREATEST(0, COALESCE(stock_quantity, 0) - $1),
+                       updated_at = NOW()
+                   WHERE id = (
+                     SELECT catalog_item_id
+                     FROM inventory_items
+                     WHERE id = $2 AND merchant_id = $3
+                   )`,
                   [
                     Math.ceil(totalQty),
                     ing.ingredient_inventory_item_id,
@@ -4062,7 +4173,7 @@ export class MerchantPortalController {
             }
 
             // Record the deduction for traceability
-            await this.pool.query(
+            await executor.query(
               `INSERT INTO order_ingredient_deductions (order_id, merchant_id, catalog_item_id, ingredient_inventory_item_id, ingredient_name, quantity_deducted, unit, status)
                VALUES ($1, $2, $3, $4, $5, $6, $7, 'deducted')`,
               [
@@ -4075,11 +4186,31 @@ export class MerchantPortalController {
                 ing.unit,
               ],
             );
+            await this.createOrderStockMovementSafely(
+              {
+                merchantId,
+                catalogItemId,
+                variantId: variantMovementRow?.id || null,
+                movementType: "SALE",
+                quantity: -Math.ceil(totalQty),
+                quantityBefore: variantMovementRow?.quantity_before ?? null,
+                quantityAfter: variantMovementRow?.quantity_after ?? null,
+                reason: `Order ${operation.toLowerCase()}`,
+                referenceId: orderId,
+                metadata: {
+                  source: "order_stock_lifecycle",
+                  mode: "recipe",
+                  ingredientInventoryItemId: ing.ingredient_inventory_item_id,
+                  ingredientName: ing.ingredient_name,
+                },
+              },
+              executor,
+            );
             affected++;
           }
         } else {
           // RESTORE: restore previously deducted ingredients
-          const deductions = await this.pool.query(
+          const deductions = await executor.query(
             `SELECT ingredient_inventory_item_id, ingredient_name, quantity_deducted, unit
              FROM order_ingredient_deductions
              WHERE order_id = $1 AND merchant_id = $2 AND catalog_item_id = $3 AND status = 'deducted'`,
@@ -4087,21 +4218,34 @@ export class MerchantPortalController {
           );
 
           for (const ded of deductions.rows) {
+            let variantMovementRow: any = null;
             if (ded.ingredient_inventory_item_id) {
-              const variantResult = await this.pool.query(
-                `UPDATE inventory_variants SET quantity_on_hand = quantity_on_hand + $1, updated_at = NOW()
-                 WHERE inventory_item_id = $2 AND merchant_id = $3 AND is_active = true
-                 ORDER BY quantity_on_hand ASC LIMIT 1
-                 RETURNING id`,
+              const variantResult = await executor.query(
+                `WITH selected AS (
+                   SELECT id, quantity_on_hand
+                   FROM inventory_variants
+                   WHERE inventory_item_id = $2
+                     AND merchant_id = $3
+                     AND COALESCE(is_active, true) = true
+                   ORDER BY quantity_on_hand ASC, created_at ASC
+                   LIMIT 1
+                 )
+                 UPDATE inventory_variants iv
+                 SET quantity_on_hand = iv.quantity_on_hand + $1,
+                     updated_at = NOW()
+                 FROM selected
+                 WHERE iv.id = selected.id
+                 RETURNING iv.id, selected.quantity_on_hand::numeric as quantity_before, iv.quantity_on_hand::numeric as quantity_after`,
                 [
                   Math.ceil(parseFloat(ded.quantity_deducted)),
                   ded.ingredient_inventory_item_id,
                   merchantId,
                 ],
               );
+              variantMovementRow = variantResult.rows[0] || null;
 
               if ((variantResult.rowCount || 0) === 0) {
-                await this.pool.query(
+                await executor.query(
                   `UPDATE catalog_items SET stock_quantity = COALESCE(stock_quantity, 0) + $1, updated_at = NOW()
                    WHERE id = (SELECT catalog_item_id FROM inventory_items WHERE id = $2 AND merchant_id = $3)`,
                   [
@@ -4112,11 +4256,31 @@ export class MerchantPortalController {
                 );
               }
             }
+            await this.createOrderStockMovementSafely(
+              {
+                merchantId,
+                catalogItemId,
+                variantId: variantMovementRow?.id || null,
+                movementType: "RETURN",
+                quantity: Math.ceil(parseFloat(ded.quantity_deducted)),
+                quantityBefore: variantMovementRow?.quantity_before ?? null,
+                quantityAfter: variantMovementRow?.quantity_after ?? null,
+                reason: `Order ${operation.toLowerCase()}`,
+                referenceId: orderId,
+                metadata: {
+                  source: "order_stock_lifecycle",
+                  mode: "recipe",
+                  ingredientInventoryItemId: ded.ingredient_inventory_item_id,
+                  ingredientName: ded.ingredient_name,
+                },
+              },
+              executor,
+            );
             affected++;
           }
 
           // Mark deductions as restored
-          await this.pool.query(
+          await executor.query(
             `UPDATE order_ingredient_deductions SET status = 'restored', restored_at = NOW()
              WHERE order_id = $1 AND merchant_id = $2 AND catalog_item_id = $3 AND status = 'deducted'`,
             [orderId, merchantId, catalogItemId],
@@ -4125,23 +4289,186 @@ export class MerchantPortalController {
       } else {
         // ─── MODE B: Simple stock deduction (retail / no recipe) ─────
         if (catalogItemId) {
-          const result = await this.pool.query(
+          const variantResult = await executor.query(
             operation === "DEDUCT"
-              ? `UPDATE catalog_items SET stock_quantity = GREATEST(0, COALESCE(stock_quantity, 0) - $1), updated_at = NOW() WHERE id = $2 AND merchant_id = $3`
-              : `UPDATE catalog_items SET stock_quantity = COALESCE(stock_quantity, 0) + $1, updated_at = NOW() WHERE id = $2 AND merchant_id = $3`,
+              ? `WITH selected AS (
+                   SELECT iv.id, iv.quantity_on_hand
+                   FROM inventory_variants iv
+                   JOIN inventory_items ii
+                     ON ii.id = iv.inventory_item_id
+                    AND ii.merchant_id = iv.merchant_id
+                   WHERE iv.merchant_id = $3
+                     AND ii.catalog_item_id = $2
+                     AND COALESCE(iv.is_active, true) = true
+                   ORDER BY iv.quantity_on_hand DESC, iv.created_at ASC
+                   LIMIT 1
+                 )
+                 UPDATE inventory_variants iv
+                 SET quantity_on_hand = GREATEST(0, iv.quantity_on_hand - $1),
+                     updated_at = NOW()
+                 FROM selected
+                 WHERE iv.id = selected.id
+                 RETURNING iv.id::text as variant_id, selected.quantity_on_hand::numeric as quantity_before, iv.quantity_on_hand::numeric as quantity_after`
+              : `WITH selected AS (
+                   SELECT iv.id, iv.quantity_on_hand
+                   FROM inventory_variants iv
+                   JOIN inventory_items ii
+                     ON ii.id = iv.inventory_item_id
+                    AND ii.merchant_id = iv.merchant_id
+                   WHERE iv.merchant_id = $3
+                     AND ii.catalog_item_id = $2
+                     AND COALESCE(iv.is_active, true) = true
+                   ORDER BY iv.quantity_on_hand ASC, iv.created_at ASC
+                   LIMIT 1
+                 )
+                 UPDATE inventory_variants iv
+                 SET quantity_on_hand = iv.quantity_on_hand + $1,
+                     updated_at = NOW()
+                 FROM selected
+                 WHERE iv.id = selected.id
+                 RETURNING iv.id::text as variant_id, selected.quantity_on_hand::numeric as quantity_before, iv.quantity_on_hand::numeric as quantity_after`,
             [lineItem.quantity, catalogItemId, merchantId],
           );
-          if (result.rowCount > 0) affected++;
-        } else if (lineItem.sku) {
-          const result = await this.pool.query(
+          if ((variantResult.rowCount || 0) > 0) {
+            const variant = variantResult.rows[0];
+            await this.createOrderStockMovementSafely(
+              {
+                merchantId,
+                catalogItemId,
+                variantId: variant.variant_id,
+                movementType: operation === "DEDUCT" ? "SALE" : "RETURN",
+                quantity:
+                  operation === "DEDUCT"
+                    ? -lineItem.quantity
+                    : lineItem.quantity,
+                quantityBefore: variant.quantity_before,
+                quantityAfter: variant.quantity_after,
+                reason: `Order ${operation.toLowerCase()}`,
+                referenceId: orderId,
+                metadata: {
+                  source: "order_stock_lifecycle",
+                  mode: "inventory_variant",
+                },
+              },
+              executor,
+            );
+            affected++;
+            continue;
+          }
+
+          const result = await executor.query(
             operation === "DEDUCT"
-              ? `UPDATE catalog_items SET stock_quantity = GREATEST(0, COALESCE(stock_quantity, 0) - $1), updated_at = NOW() WHERE merchant_id = $2 AND sku = $3 AND stock_quantity IS NOT NULL`
-              : `UPDATE catalog_items SET stock_quantity = COALESCE(stock_quantity, 0) + $1, updated_at = NOW() WHERE merchant_id = $2 AND sku = $3 AND stock_quantity IS NOT NULL`,
+              ? `WITH before_row AS (
+                   SELECT stock_quantity
+                   FROM catalog_items
+                   WHERE id = $2 AND merchant_id = $3
+                 )
+                 UPDATE catalog_items ci
+                 SET stock_quantity = GREATEST(0, COALESCE(ci.stock_quantity, 0) - $1),
+                     updated_at = NOW()
+                 FROM before_row
+                 WHERE ci.id = $2 AND ci.merchant_id = $3
+                 RETURNING before_row.stock_quantity::numeric as quantity_before, ci.stock_quantity::numeric as quantity_after`
+              : `WITH before_row AS (
+                   SELECT stock_quantity
+                   FROM catalog_items
+                   WHERE id = $2 AND merchant_id = $3
+                 )
+                 UPDATE catalog_items ci
+                 SET stock_quantity = COALESCE(ci.stock_quantity, 0) + $1,
+                     updated_at = NOW()
+                 FROM before_row
+                 WHERE ci.id = $2 AND ci.merchant_id = $3
+                 RETURNING before_row.stock_quantity::numeric as quantity_before, ci.stock_quantity::numeric as quantity_after`,
+            [lineItem.quantity, catalogItemId, merchantId],
+          );
+          if ((result.rowCount || 0) > 0) {
+            await this.createOrderStockMovementSafely(
+              {
+                merchantId,
+                catalogItemId,
+                movementType: operation === "DEDUCT" ? "SALE" : "RETURN",
+                quantity:
+                  operation === "DEDUCT"
+                    ? -lineItem.quantity
+                    : lineItem.quantity,
+                quantityBefore: result.rows[0]?.quantity_before ?? null,
+                quantityAfter: result.rows[0]?.quantity_after ?? null,
+                reason: `Order ${operation.toLowerCase()}`,
+                referenceId: orderId,
+                metadata: {
+                  source: "order_stock_lifecycle",
+                  mode: "catalog_stock",
+                },
+              },
+              executor,
+            );
+            affected++;
+          }
+        } else if (lineItem.sku) {
+          const result = await executor.query(
+            operation === "DEDUCT"
+              ? `WITH before_row AS (
+                   SELECT id, stock_quantity
+                   FROM catalog_items
+                   WHERE merchant_id = $2 AND sku = $3
+                   LIMIT 1
+                 )
+                 UPDATE catalog_items ci
+                 SET stock_quantity = GREATEST(0, COALESCE(ci.stock_quantity, 0) - $1),
+                     updated_at = NOW()
+                 FROM before_row
+                 WHERE ci.id = before_row.id
+                 RETURNING ci.id::text as catalog_item_id, before_row.stock_quantity::numeric as quantity_before, ci.stock_quantity::numeric as quantity_after`
+              : `WITH before_row AS (
+                   SELECT id, stock_quantity
+                   FROM catalog_items
+                   WHERE merchant_id = $2 AND sku = $3
+                   LIMIT 1
+                 )
+                 UPDATE catalog_items ci
+                 SET stock_quantity = COALESCE(ci.stock_quantity, 0) + $1,
+                     updated_at = NOW()
+                 FROM before_row
+                 WHERE ci.id = before_row.id
+                 RETURNING ci.id::text as catalog_item_id, before_row.stock_quantity::numeric as quantity_before, ci.stock_quantity::numeric as quantity_after`,
             [lineItem.quantity, merchantId, lineItem.sku],
           );
-          if (result.rowCount > 0) affected++;
+          if ((result.rowCount || 0) > 0) {
+            await this.createOrderStockMovementSafely(
+              {
+                merchantId,
+                catalogItemId: result.rows[0].catalog_item_id,
+                movementType: operation === "DEDUCT" ? "SALE" : "RETURN",
+                quantity:
+                  operation === "DEDUCT"
+                    ? -lineItem.quantity
+                    : lineItem.quantity,
+                quantityBefore: result.rows[0]?.quantity_before ?? null,
+                quantityAfter: result.rows[0]?.quantity_after ?? null,
+                reason: `Order ${operation.toLowerCase()}`,
+                referenceId: orderId,
+                metadata: {
+                  source: "order_stock_lifecycle",
+                  mode: "catalog_stock_sku",
+                  sku: lineItem.sku,
+                },
+              },
+              executor,
+            );
+            affected++;
+          }
         }
       }
+    }
+
+    if (affected === 0) {
+      throw new BadRequestException({
+        message: "No stock rows were affected by the order stock operation",
+        code: "STOCK_OPERATION_NO_EFFECT",
+        orderId,
+        operation,
+      });
     }
 
     return affected;
@@ -5182,6 +5509,20 @@ export class MerchantPortalController {
         );
 
         if (sourceChannel === "cashier") {
+          const deducted = await this.handleStockForOrder(
+            row.id,
+            merchantId,
+            "DEDUCT",
+            client,
+          );
+          await client.query(
+            `UPDATE orders SET stock_deducted = true WHERE id = $1`,
+            [row.id],
+          );
+          this.logger.log(
+            `[STOCK] Frozen stock for cashier order ${row.id} (${deducted} items deducted)`,
+          );
+
           await this.emitPosPlannerEvent({
             merchantId,
             eventType: EVENT_TYPES.POS_ORDER_CREATED,
@@ -5222,27 +5563,6 @@ export class MerchantPortalController {
         row = await createOrderAtomically(fallbackConversationId);
       } else {
         throw error;
-      }
-    }
-
-    if (source === "cashier") {
-      try {
-        const deducted = await this.handleStockForOrder(
-          row.id,
-          merchantId,
-          "DEDUCT",
-        );
-        await this.pool.query(
-          `UPDATE orders SET stock_deducted = true WHERE id = $1`,
-          [row.id],
-        );
-        this.logger.log(
-          `[STOCK] Frozen stock for cashier order ${row.id} (${deducted} items deducted)`,
-        );
-      } catch (stockErr) {
-        this.logger.error(
-          `[STOCK] Failed to freeze stock for cashier order ${row.id}: ${stockErr}`,
-        );
       }
     }
 
@@ -5441,10 +5761,12 @@ export class MerchantPortalController {
     try {
       const itemsByOrder = await this.loadOrderItemsFromTable(orderIds);
       const hydratedOrders = normalizedOrders.map((order: any) => {
-        const fallbackItems = itemsByOrder.get(String(order.id)) || [];
+        const tableItems = itemsByOrder.get(String(order.id)) || [];
+        const legacyItems = Array.isArray(order.items) ? order.items : [];
         return {
           ...order,
-          items: order.items.length > 0 ? order.items : fallbackItems,
+          items: tableItems.length > 0 ? tableItems : legacyItems,
+          itemsSource: tableItems.length > 0 ? "order_items" : "orders.items",
         };
       });
 
@@ -5481,24 +5803,22 @@ export class MerchantPortalController {
       throw new ForbiddenException("Access denied");
     }
 
-    const normalizedItems = this.normalizeOrderItems((order as any).items);
-    if (normalizedItems.length > 0) {
-      return { ...order, items: normalizedItems };
-    }
-
+    const legacyItems = this.normalizeOrderItems((order as any).items);
     try {
       const itemsByOrder = await this.loadOrderItemsFromTable([
         String(order.id),
       ]);
+      const tableItems = itemsByOrder.get(String(order.id)) || [];
       return {
         ...order,
-        items: itemsByOrder.get(String(order.id)) || [],
+        items: tableItems.length > 0 ? tableItems : legacyItems,
+        itemsSource: tableItems.length > 0 ? "order_items" : "orders.items",
       };
     } catch (error) {
       this.logger.warn(
         `Failed to load order items for order ${id}: ${String(error)}`,
       );
-      return { ...order, items: normalizedItems };
+      return { ...order, items: legacyItems, itemsSource: "orders.items" };
     }
   }
 
@@ -5538,18 +5858,21 @@ export class MerchantPortalController {
       );
     }
 
-    const oldStatus = order.status;
-    await this.pool.query(
-      `UPDATE orders SET status = $1, updated_at = NOW() WHERE id = $2 AND merchant_id = $3`,
-      [newStatus, id, merchantId],
-    );
-
     // ─── Auto stock lifecycle management ─────────────────────
     // Stock is FROZEN (deducted) when order enters active state for the first time
     // Stock is RELEASED (restored) when order is cancelled
     // No action needed for transitions between active states (DRAFT→CONFIRMED→SHIPPED etc.)
-    try {
-      const stockCheck = await this.pool.query(
+    let stockOperation: {
+      type: "DEDUCT" | "RESTORE";
+      affected: number;
+    } | null = null;
+    await this.executeInTransaction(async (client) => {
+      await client.query(
+        `UPDATE orders SET status = $1, updated_at = NOW() WHERE id = $2 AND merchant_id = $3`,
+        [newStatus, id, merchantId],
+      );
+
+      const stockCheck = await client.query(
         `SELECT COALESCE(stock_deducted, false) as stock_deducted FROM orders WHERE id = $1`,
         [id],
       );
@@ -5561,11 +5884,13 @@ export class MerchantPortalController {
           id,
           merchantId,
           "DEDUCT",
+          client,
         );
-        await this.pool.query(
+        await client.query(
           `UPDATE orders SET stock_deducted = true WHERE id = $1`,
           [id],
         );
+        stockOperation = { type: "DEDUCT", affected: deducted };
         this.logger.log(
           `[STOCK] Frozen stock for order ${id} (${deducted} items deducted)`,
         );
@@ -5577,23 +5902,20 @@ export class MerchantPortalController {
           id,
           merchantId,
           "RESTORE",
+          client,
         );
-        await this.pool.query(
+        await client.query(
           `UPDATE orders SET stock_deducted = false WHERE id = $1`,
           [id],
         );
+        stockOperation = { type: "RESTORE", affected: restored };
         this.logger.log(
           `[STOCK] Released stock for cancelled order ${id} (${restored} items restored)`,
         );
       }
-    } catch (stockErr) {
-      this.logger.error(
-        `[STOCK] Stock operation failed for order ${id}: ${stockErr}`,
-      );
-      // Don't fail the status update if stock operation fails
-    }
+    });
 
-    return { success: true, orderId: id, status: newStatus };
+    return { success: true, orderId: id, status: newStatus, stockOperation };
   }
 
   @Post("orders/:id/reorder")
@@ -5621,16 +5943,21 @@ export class MerchantPortalController {
       throw new ForbiddenException("Access denied");
     }
 
-    let sourceItems = this.normalizeOrderItems((originalOrder as any).items);
+    let sourceItems: any[] = [];
+    try {
+      const itemsByOrder = await this.loadOrderItemsFromTable([String(id)]);
+      sourceItems = itemsByOrder.get(String(id)) || [];
+    } catch (error) {
+      this.logger.warn(
+        `Failed to hydrate normalized items for reorder ${id}: ${String(error)}`,
+      );
+    }
+
     if (sourceItems.length === 0) {
-      try {
-        const itemsByOrder = await this.loadOrderItemsFromTable([String(id)]);
-        sourceItems = itemsByOrder.get(String(id)) || [];
-      } catch (error) {
-        this.logger.warn(
-          `Failed to hydrate items for reorder ${id}: ${String(error)}`,
-        );
-      }
+      this.logger.warn(
+        `[ORDER_LINES] Reorder ${id} using legacy orders.items compatibility fallback`,
+      );
+      sourceItems = this.normalizeOrderItems((originalOrder as any).items);
     }
 
     const reorderItems = sourceItems
@@ -5754,36 +6081,67 @@ export class MerchantPortalController {
 
     const newOrderNumber = await this.createUniquePortalOrderNumber(merchantId);
 
-    const result = await this.pool.query(
-      `INSERT INTO orders (
-        merchant_id, customer_id, customer_name, customer_phone, 
-        delivery_address, items, subtotal, total, status, order_number,
-        notes
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'DRAFT', $9, $10)
-      RETURNING *`,
-      [
-        merchantId,
-        originalOrder.customerId,
-        originalOrder.customerName,
-        originalOrder.customerPhone,
-        originalOrder.deliveryAddress,
-        JSON.stringify(
-          reorderItems.map((i) => ({
-            catalogItemId: i.catalogItemId,
-            sku: i.sku,
-            name: i.name,
-            quantity: i.quantity,
-            unitPrice: i.unitPrice,
-          })),
-        ),
-        total,
-        total,
-        newOrderNumber,
-        `إعادة طلب من #${originalOrder.orderNumber}`,
-      ],
-    );
+    const newOrder = await this.executeInTransaction(async (client) => {
+      const result = await client.query(
+        `INSERT INTO orders (
+          merchant_id, customer_id, customer_name, customer_phone, 
+          delivery_address, items, subtotal, total, status, order_number,
+          notes
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'DRAFT', $9, $10)
+        RETURNING *`,
+        [
+          merchantId,
+          originalOrder.customerId,
+          originalOrder.customerName,
+          originalOrder.customerPhone,
+          originalOrder.deliveryAddress,
+          JSON.stringify(
+            reorderItems.map((i) => ({
+              catalogItemId: i.catalogItemId,
+              sku: i.sku,
+              name: i.name,
+              quantity: i.quantity,
+              unitPrice: i.unitPrice,
+            })),
+          ),
+          total,
+          total,
+          newOrderNumber,
+          `إعادة طلب من #${originalOrder.orderNumber}`,
+        ],
+      );
 
-    const newOrder = result.rows[0];
+      const inserted = result.rows[0];
+      await this.insertOrderItemsCompat(
+        inserted.id,
+        merchantId,
+        reorderItems.map((item) => ({
+          catalogItemId: item.catalogItemId,
+          sku: item.sku,
+          name: item.name,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          lineTotal: item.lineTotal,
+        })),
+        client,
+      );
+
+      const stockDeducted = await this.handleStockForOrder(
+        inserted.id,
+        merchantId,
+        "DEDUCT",
+        client,
+      );
+      await client.query(
+        `UPDATE orders SET stock_deducted = true WHERE id = $1`,
+        [inserted.id],
+      );
+      this.logger.log(
+        `[STOCK] Frozen stock for reorder ${inserted.id} (${stockDeducted} items)`,
+      );
+
+      return inserted;
+    });
 
     // Audit log
     await this.auditService
@@ -5800,26 +6158,6 @@ export class MerchantPortalController {
         metadata: { reorderFromId: id },
       })
       .catch(() => {});
-
-    // Freeze stock for the created reorder immediately.
-    try {
-      const stockDeducted = await this.handleStockForOrder(
-        newOrder.id,
-        merchantId,
-        "DEDUCT",
-      );
-      await this.pool.query(
-        `UPDATE orders SET stock_deducted = true WHERE id = $1`,
-        [newOrder.id],
-      );
-      this.logger.log(
-        `[STOCK] Frozen stock for reorder ${newOrder.id} (${stockDeducted} items)`,
-      );
-    } catch (stockErr) {
-      this.logger.error(
-        `[STOCK] Failed to freeze stock for reorder ${newOrder.id}: ${stockErr}`,
-      );
-    }
 
     return {
       success: true,
