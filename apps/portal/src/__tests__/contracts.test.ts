@@ -149,6 +149,8 @@ const DashboardStatsSchema = z.object({
 const PlanSchema = z.enum([
   "TRIAL",
   "STARTER",
+  "CHAT_ONLY",
+  "BASIC",
   "GROWTH",
   "PRO",
   "ENTERPRISE",
