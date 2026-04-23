@@ -626,7 +626,7 @@ export default function ConversationsPage() {
   }
 
   return (
-    <div className="space-y-8 animate-fadeIn p-4 sm:p-6">
+    <div className="space-y-8 animate-fadeIn p-4 pb-6 sm:p-6">
       <PageHeader
         title="المحادثات"
         description="تابع كل محادثة نشطة، واعرف متى يتدخل الفريق أو الذكاء مباشرة."
@@ -693,7 +693,16 @@ export default function ConversationsPage() {
       <div className="grid min-h-0 grid-cols-1 gap-4 xl:h-[calc(100vh-10rem)] xl:min-h-[52rem] xl:grid-cols-[380px_minmax(0,1fr)] 2xl:grid-cols-[440px_minmax(0,1fr)]">
         {/* Conversations List */}
         <Card className="app-data-card h-full overflow-hidden border-border/70">
-          <CardHeader className="border-b bg-muted/20 pb-3">
+          <CardHeader className="border-b bg-[color:color-mix(in_srgb,var(--surface-muted)_55%,transparent)] pb-3">
+            <div className="mb-1">
+              <h3 className="app-section-title">
+                <MessageSquare className="h-4 w-4 text-primary" />
+                صندوق المحادثات
+              </h3>
+              <p className="app-section-copy">
+                فلترة حسب القناة والحالة مع الحفاظ على سياق العميل.
+              </p>
+            </div>
             <div className="space-y-3">
               <div className="flex items-center gap-2 overflow-x-auto pb-1">
                 {CHANNEL_FILTERS.map((filter) => {
@@ -765,16 +774,16 @@ export default function ConversationsPage() {
                   </p>
                 </div>
               ) : (
-                <div className="divide-y">
+                <div className="divide-y divide-border/70">
                   {filteredConversations.map((conv) => (
                     <button
                       key={conv.id}
                       onClick={() => setSelectedConversation(conv)}
                       className={cn(
                         "w-full px-4 py-4 text-right transition-colors",
-                        "hover:bg-muted/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+                        "hover:bg-[var(--bg-surface-2)] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
                         selectedConversation?.id === conv.id &&
-                          "bg-primary/5 ring-1 ring-inset ring-primary/15",
+                          "bg-[var(--accent-blue-dim)] ring-1 ring-inset ring-primary/15",
                       )}
                     >
                       <div className="flex items-start gap-3">
@@ -860,11 +869,11 @@ export default function ConversationsPage() {
         </Card>
 
         {/* Chat View */}
-        <Card className="flex min-h-[28rem] flex-col overflow-hidden border-border/70 xl:h-full xl:min-h-0">
+        <Card className="app-data-card flex min-h-[28rem] flex-col overflow-hidden border-border/70 xl:h-full xl:min-h-0">
           {selectedConversation ? (
             <>
               {/* Chat Header */}
-              <CardHeader className="border-b bg-muted/20 px-5 py-4">
+              <CardHeader className="border-b bg-[color:color-mix(in_srgb,var(--surface-muted)_55%,transparent)] px-5 py-4">
                 <div className="mb-3 flex flex-wrap gap-2">
                   {[
                     { label: "إجمالي", value: stats.total },
@@ -1075,7 +1084,7 @@ export default function ConversationsPage() {
               </CardContent>
 
               {/* Message Input */}
-              <div className="border-t bg-background/90 px-5 py-4">
+              <div className="border-t bg-[color:color-mix(in_srgb,var(--surface)_94%,transparent)] px-5 py-4">
                 {getEffectiveState(selectedConversation) ===
                 "HUMAN_TAKEOVER" ? (
                   <>

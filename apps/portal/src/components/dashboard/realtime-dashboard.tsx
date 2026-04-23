@@ -51,14 +51,16 @@ function LiveMetricCard({
   variant = "default",
 }: LiveMetricCardProps) {
   const variantStyles = {
-    default: "bg-card",
-    success: "bg-green-50 border-green-200",
-    warning: "bg-amber-50 border-amber-200",
-    danger: "bg-red-50 border-red-200",
+    default: "bg-[var(--bg-surface-1)]",
+    success: "border-[var(--accent-success)]/25 bg-[var(--accent-success-dim)]",
+    warning: "border-[var(--accent-warning)]/25 bg-[var(--accent-warning-dim)]",
+    danger: "border-[var(--accent-danger)]/25 bg-[var(--accent-danger-dim)]",
   };
 
   return (
-    <Card className={cn("transition-all", variantStyles[variant])}>
+    <Card
+      className={cn("app-data-card transition-all", variantStyles[variant])}
+    >
       <CardContent className="p-4">
         <div className="flex items-center justify-between">
           <div>
@@ -89,7 +91,7 @@ function LiveMetricCard({
           </div>
           <div
             className={cn(
-              "p-3 rounded-full",
+              "rounded-[16px] border p-3",
               variant === "default" && "bg-primary/10 text-primary",
               variant === "success" && "bg-green-100 text-green-600",
               variant === "warning" && "bg-amber-100 text-amber-600",
@@ -160,9 +162,9 @@ export function RealTimeDashboard() {
 
   if (loading) {
     return (
-      <div className="grid gap-4 grid-cols-2 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
         {[...Array(5)].map((_, i) => (
-          <Card key={i} className="animate-pulse">
+          <Card key={i} className="app-data-card animate-pulse">
             <CardContent className="p-4">
               <div className="h-16 bg-muted rounded" />
             </CardContent>
@@ -173,8 +175,8 @@ export function RealTimeDashboard() {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
+    <div className="app-workbench-strip space-y-4 p-4 md:p-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2">
           <Zap className="h-5 w-5 text-amber-500" />
           <h3 className="font-semibold">البيانات المباشرة</h3>
@@ -212,7 +214,7 @@ export function RealTimeDashboard() {
         )}
       </div>
 
-      <div className="grid gap-4 grid-cols-2 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
         <LiveMetricCard
           title="محادثات نشطة"
           value={stats?.activeConversations || 0}
@@ -290,7 +292,7 @@ export function QuickActionsPanel() {
   ];
 
   return (
-    <Card>
+    <Card className="app-data-card">
       <CardHeader className="pb-2">
         <CardTitle className="text-base">إجراءات سريعة</CardTitle>
       </CardHeader>
@@ -300,9 +302,9 @@ export function QuickActionsPanel() {
             <a
               key={action.label}
               href={action.href}
-              className="flex items-center gap-2 p-3 rounded-lg border hover:bg-muted transition-colors"
+              className="app-mini-surface flex items-center gap-2 p-3 transition-colors hover:bg-muted"
             >
-              <div className={cn("p-2 rounded-lg text-white", action.color)}>
+              <div className={cn("rounded-xl p-2 text-white", action.color)}>
                 <action.icon className="h-4 w-4" />
               </div>
               <span className="text-sm font-medium">{action.label}</span>
@@ -331,7 +333,7 @@ export function GoalProgress({
   const isComplete = current >= target;
 
   return (
-    <div className="space-y-2">
+    <div className="app-mini-surface space-y-2 p-3">
       <div className="flex items-center justify-between text-sm">
         <span className="text-muted-foreground">{label}</span>
         <span className="font-medium">
@@ -357,7 +359,7 @@ export function DailyGoalsCard() {
   ];
 
   return (
-    <Card>
+    <Card className="app-data-card">
       <CardHeader className="pb-2">
         <CardTitle className="text-base flex items-center gap-2">
           <TrendingUp className="h-4 w-4 text-primary" />

@@ -2339,9 +2339,9 @@ export default function CashierPage() {
   ]);
 
   return (
-    <div dir="rtl" className="cashier-shell min-h-screen bg-slate-50">
+    <div dir="rtl" className="cashier-shell min-h-screen bg-[var(--bg)]">
       <div className="mx-auto flex min-h-[100dvh] max-w-[1700px] flex-col px-3 py-3 lg:h-screen lg:px-5">
-        <header className="cashier-command-bar mb-3">
+        <header className="cashier-command-bar mb-4">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-center gap-3">
               <div className="flex h-12 w-12 items-center justify-center rounded-[18px] border border-[var(--accent)]/25 bg-[var(--accent-muted)] text-[var(--accent)]">
@@ -2420,13 +2420,18 @@ export default function CashierPage() {
           </div>
         </header>
 
-        <div className="flex min-h-0 flex-1 flex-col gap-3 lg:flex-row-reverse">
+        <div className="flex min-h-0 flex-1 flex-col gap-4 lg:flex-row-reverse">
           <Card className="app-data-card flex min-h-0 flex-1 flex-col">
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Package className="h-4 w-4 text-emerald-600" />
-                كتالوج المنتجات
-              </CardTitle>
+            <CardHeader className="border-b border-border/70 bg-[color:color-mix(in_srgb,var(--surface-muted)_42%,transparent)] pb-3">
+              <div>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Package className="h-4 w-4 text-emerald-600" />
+                  كتالوج المنتجات
+                </CardTitle>
+                <p className="app-section-copy mt-1">
+                  بحث سريع بالاسم أو SKU أو الباركود مع إضافة مباشرة للسلة.
+                </p>
+              </div>
               <div className="flex gap-2">
                 <div className="relative flex-1">
                   <ScanLine className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -2503,10 +2508,10 @@ export default function CashierPage() {
                       key={product.id}
                       type="button"
                       onClick={() => addToCart(product)}
-                      className="flex min-h-[132px] flex-col justify-between rounded-[22px] border border-slate-200 bg-white p-3 text-right transition-all duration-150 ease-in-out hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-[0_20px_38px_-28px_rgba(15,23,42,0.45)]"
+                      className="flex min-h-[132px] flex-col justify-between rounded-[22px] border border-[var(--border-default)] bg-[var(--bg-surface-1)] p-3 text-right transition-all duration-150 ease-in-out hover:-translate-y-0.5 hover:border-emerald-300 hover:bg-[var(--bg-surface-2)] hover:shadow-[0_20px_38px_-28px_rgba(15,23,42,0.45)]"
                     >
                       <div>
-                        <p className="line-clamp-2 text-sm font-semibold text-slate-900">
+                        <p className="line-clamp-2 text-sm font-semibold text-[var(--text-primary)]">
                           {product.name}
                         </p>
                         <p className="mt-1 text-xs text-muted-foreground">
@@ -2534,7 +2539,7 @@ export default function CashierPage() {
           </Card>
 
           <Card className="app-data-card flex min-h-0 w-full flex-col lg:w-[40%] xl:w-[37%]">
-            <CardHeader className="pb-2">
+            <CardHeader className="border-b border-border/70 bg-[color:color-mix(in_srgb,var(--surface-muted)_42%,transparent)] pb-3">
               <CardTitle className="flex flex-col gap-2 text-base sm:flex-row sm:items-center sm:justify-between">
                 <span className="flex items-center gap-2">
                   <ShoppingCart className="h-4 w-4 text-primary" />
@@ -2544,7 +2549,7 @@ export default function CashierPage() {
                   {cartItemsCount} عنصر
                 </Badge>
               </CardTitle>
-              <p className="text-xs text-muted-foreground">
+              <p className="app-section-copy">
                 الاختصارات: <strong>Enter</strong> تنفيذ الطلب،{" "}
                 <strong>+</strong> زيادة الكمية، <strong>-</strong> تقليل
                 الكمية، <strong>Ctrl+P</strong> طباعة الإيصال

@@ -1249,7 +1249,7 @@ export default function PlanPage() {
   }
 
   return (
-    <div className="space-y-6 p-4 sm:p-6">
+    <div className="space-y-8 animate-fadeIn p-4 sm:p-6">
       <PageHeader
         title="الباقات والفوترة"
         description="باقات التشغيل + إضافات التوسّع + خيارات مخصصة"
@@ -1265,7 +1265,7 @@ export default function PlanPage() {
         }
       />
 
-      <Card className="app-data-card border-slate-200 bg-white shadow-sm">
+      <Card className="app-filter-card">
         <CardContent className="grid gap-4 pt-6 md:grid-cols-3">
           <div className="space-y-2">
             <p className="text-sm font-medium">الدولة</p>
@@ -1319,9 +1319,12 @@ export default function PlanPage() {
         </CardContent>
       </Card>
 
-      <Card className="app-data-card border-slate-200 bg-white shadow-sm">
+      <Card className="app-data-card">
         <CardHeader>
-          <CardTitle className="text-base">استهلاكك الحالي</CardTitle>
+          <CardTitle className="app-section-title text-base">
+            <Layers className="h-4 w-4 text-primary" />
+            استهلاكك الحالي
+          </CardTitle>
         </CardHeader>
         <CardContent className="grid gap-3 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4">
           {Object.entries(usageStatus?.metrics || {})
@@ -1365,7 +1368,7 @@ export default function PlanPage() {
                 <div
                   key={metric}
                   className={cn(
-                    "rounded-xl p-3 shadow-sm",
+                    "rounded-xl border p-3 shadow-sm",
                     USAGE_BAND_CARD_CLASSES[thresholdBand] ||
                       USAGE_BAND_CARD_CLASSES.healthy,
                   )}
@@ -1417,7 +1420,7 @@ export default function PlanPage() {
         </CardContent>
       </Card>
 
-      <div className="space-y-3">
+      <section className="app-workbench-strip space-y-4 p-4 md:p-5">
         <div className="flex items-center gap-2">
           <ShieldCheck className="h-4 w-4 text-primary" />
           <h2 className="text-lg font-semibold">باقات التشغيل الكاملة</h2>
@@ -1573,7 +1576,7 @@ export default function PlanPage() {
               );
             })}
         </div>
-      </div>
+      </section>
 
       {(() => {
         const chatOnlyBundle = (catalog?.bundles || []).find(

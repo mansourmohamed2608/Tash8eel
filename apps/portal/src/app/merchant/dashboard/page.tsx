@@ -44,11 +44,6 @@ import { merchantApi } from "@/lib/client";
 import portalApi from "@/lib/client";
 import { useMerchant } from "@/hooks/use-merchant";
 import {
-  AiInsightsCard,
-  generateDashboardInsights,
-} from "@/components/ai/ai-insights-card";
-import { SmartAnalysisButton } from "@/components/ai/smart-analysis-button";
-import {
   getReportingDateRange,
   REPORTING_PERIOD_OPTIONS,
   getStoredReportingDays,
@@ -265,7 +260,7 @@ export default function MerchantDashboard() {
   const refundsAmount = data.premium?.financeSummary?.refundsAmount ?? 0;
 
   return (
-    <div className="space-y-8 animate-fadeIn">
+    <div className="space-y-8 animate-fadeIn pb-6">
       <PageHeader
         title="لوحة التحكم"
         description="مركز العمليات اليومي للنشاط، من الأداء اللحظي حتى الإشارات التي تحتاج قراراً الآن."
@@ -383,54 +378,48 @@ export default function MerchantDashboard() {
         </Card>
       )}
 
-      {/* AI Dashboard Insights */}
-      <AiInsightsCard
-        title="مساعد الذكاء الاصطناعي"
-        insights={generateDashboardInsights({
-          todayOrders: data.stats.totalOrders,
-          todayRevenue: realizedRevenue,
-          pendingOrders: data.stats.pendingDeliveries,
-          lowStockCount: 0,
-          unreadNotifications: 0,
-          activeConversations: data.stats.activeConversations,
-          periodLabel: selectedPeriodSummary,
-        })}
-      />
-
-      {/* GPT-Powered Smart Analysis */}
-      <SmartAnalysisButton context="dashboard" />
-
       {/* KPI Cards */}
-      <KPIGrid>
-        <StatCard
-          title="إجمالي الطلبات"
-          value={data.stats.totalOrders}
-          change={data.stats.ordersChange}
-          changeLabel="من الفترة السابقة"
-          icon={<ShoppingCart className="h-5 w-5" />}
-        />
-        <StatCard
-          title="إجمالي الإيرادات المحققة"
-          value={formatCurrency(realizedRevenue)}
-          change={data.stats.revenueChange}
-          changeLabel="من الفترة السابقة"
-          icon={<TrendingUp className="h-5 w-5" />}
-        />
-        <StatCard
-          title="المحادثات النشطة"
-          value={data.stats.activeConversations}
-          change={data.stats.conversationsChange}
-          changeLabel="من الفترة السابقة"
-          icon={<MessageSquare className="h-5 w-5" />}
-        />
-        <StatCard
-          title="التوصيلات المعلقة"
-          value={data.stats.pendingDeliveries}
-          change={data.stats.deliveriesChange}
-          changeLabel="من الفترة السابقة"
-          icon={<Package className="h-5 w-5" />}
-        />
-      </KPIGrid>
+      <section className="app-workbench-strip p-4 md:p-5">
+        <div className="mb-4">
+          <h3 className="app-section-title">
+            <TrendingUp className="h-4 w-4 text-primary" />
+            مؤشرات التشغيل
+          </h3>
+          <p className="app-section-copy">
+            قراءة مختصرة للأداء خلال {selectedPeriodSummary}.
+          </p>
+        </div>
+        <KPIGrid>
+          <StatCard
+            title="إجمالي الطلبات"
+            value={data.stats.totalOrders}
+            change={data.stats.ordersChange}
+            changeLabel="من الفترة السابقة"
+            icon={<ShoppingCart className="h-5 w-5" />}
+          />
+          <StatCard
+            title="إجمالي الإيرادات المحققة"
+            value={formatCurrency(realizedRevenue)}
+            change={data.stats.revenueChange}
+            changeLabel="من الفترة السابقة"
+            icon={<TrendingUp className="h-5 w-5" />}
+          />
+          <StatCard
+            title="المحادثات النشطة"
+            value={data.stats.activeConversations}
+            change={data.stats.conversationsChange}
+            changeLabel="من الفترة السابقة"
+            icon={<MessageSquare className="h-5 w-5" />}
+          />
+          <StatCard
+            title="التوصيلات المعلقة"
+            value={data.stats.pendingDeliveries}
+            change={data.stats.deliveriesChange}
+            changeLabel="من الفترة السابقة"
+            icon={<Package className="h-5 w-5" />}
+          />
+        </KPIGrid>
+      </section>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Card className="app-data-card">
@@ -746,7 +735,7 @@ export default function MerchantDashboard() {
         </Card>
 
         {/* Daily AI Brief */}
-        <Card className="border-purple-100">
+        <Card className="app-data-card border-[color:color-mix(in_srgb,var(--accent)_16%,var(--border-strong))]">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
               <DollarSign className="h-4 w-4 text-purple-500" />
@@ -782,27 +771,38 @@ export default function MerchantDashboard() {
       </div>
 
       {/* Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <AreaChart
-          data={data.revenueByDay}
-          title="الإيرادات خلال الفترة"
-          color="#3b82f6"
-        />
-        <BarChart
-          data={data.ordersByDay}
-          title="حالة الطلبات"
-          bars={[
-            { dataKey: "completed", color: "#22c55e", name: "مكتمل" },
-            { dataKey: "pending", color: "#f59e0b", name: "معلق" },
-            { dataKey: "cancelled", color: "#ef4444", name: "ملغي" },
-          ]}
-        />
-      </div>
+      <section className="app-workbench-strip space-y-4 p-4 md:p-5">
+        <div>
+          <h3 className="app-section-title">
+            <Calendar className="h-4 w-4 text-primary" />
+            اتجاهات الفترة
+          </h3>
+          <p className="app-section-copy">
+            الإيراد وحالة الطلبات بنفس تعريفات الفترة الحالية.
+          </p>
+        </div>
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <AreaChart
+            data={data.revenueByDay}
+            title="الإيرادات خلال الفترة"
+            color="#3b82f6"
+          />
+          <BarChart
+            data={data.ordersByDay}
+            title="حالة الطلبات"
+            bars={[
+              { dataKey: "completed", color: "#22c55e", name: "مكتمل" },
+              { dataKey: "pending", color: "#f59e0b", name: "معلق" },
+              { dataKey: "cancelled", color: "#ef4444", name: "ملغي" },
+            ]}
+          />
+        </div>
+      </section>
 
       {/* Second Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
-          <Card>
+          <Card className="app-data-card">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-base font-medium">
                 آخر الطلبات
