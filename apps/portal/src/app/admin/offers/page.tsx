@@ -186,7 +186,7 @@ export default function AdminOffersPage() {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <PageHeader
         title="عروض الاشتراك"
         description="إدارة العروض والخصومات الخاصة بالاشتراكات"
@@ -198,59 +198,14 @@ export default function AdminOffersPage() {
         }
       />
 
-      <section className="app-hero-band">
-        <div className="app-hero-band__grid">
-          <div>
-            <p className="app-hero-band__eyebrow">تسعير وتحويل</p>
-            <h2 className="app-hero-band__title">
-              أدر الحملات الترويجية للاشتراكات بنفس وضوح إدارة المنتج
-            </h2>
-            <p className="app-hero-band__copy">
-              راقب الخصومات الفعالة، نطاق كل عرض، وتواريخ التشغيل في واجهة موحدة
-              تساعد على تشغيل العروض بدون فوضى أو تضارب.
-            </p>
-          </div>
-          <div className="app-hero-band__metrics">
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">عدد العروض</span>
-              <strong className="app-hero-band__metric-value">
-                {offers.length}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">
-                العروض الفعالة
-              </span>
-              <strong className="app-hero-band__metric-value">
-                {offers.filter((offer) => offer.is_active !== false).length}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">
-                الخطط المستهدفة
-              </span>
-              <strong className="app-hero-band__metric-value">
-                {
-                  new Set(
-                    offers
-                      .map((offer) => offer.applies_to_plan || "ALL")
-                      .filter(Boolean),
-                  ).size
-                }
-              </strong>
-            </div>
-          </div>
-        </div>
-      </section>
-
       {loading ? (
-        <Card className="app-data-card">
+        <Card>
           <CardContent className="p-6 text-sm text-muted-foreground">
             جاري التحميل...
           </CardContent>
         </Card>
       ) : offers.length === 0 ? (
-        <Card className="app-data-card">
+        <Card>
           <CardContent className="p-6 text-sm text-muted-foreground">
             لا توجد عروض حالياً.
           </CardContent>
@@ -264,10 +219,7 @@ export default function AdminOffersPage() {
                 ? `${offer.discount_value} ${offer.currency || "EGP"}`
                 : `${offer.discount_value}%`;
             return (
-              <Card
-                key={offer.id}
-                className={`app-data-card ${!isActive ? "opacity-70" : ""}`}
-              >
+              <Card key={offer.id} className={!isActive ? "opacity-70" : ""}>
                 <CardHeader>
                   <div className="flex items-start justify-between">
                     <div>

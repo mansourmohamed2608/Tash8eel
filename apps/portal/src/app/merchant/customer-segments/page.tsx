@@ -403,7 +403,7 @@ export default function CustomerSegmentsPage() {
 
   // ─── Render ───────────────────────────────────────────────────
   return (
-    <div className="app-page-frame space-y-6 p-4 pb-8 sm:p-6">
+    <div className="space-y-6 p-4 sm:p-6">
       <PageHeader
         title="شرائح العملاء المخصصة"
         description="أنشئ شرائح بقواعد ذكية لاستهداف العملاء في حملاتك التسويقية"
@@ -435,9 +435,10 @@ export default function CustomerSegmentsPage() {
         }
       />
 
+      {/* AI Segment Insights */}
       {/* ─── Presets (empty state) ───────────────────────────── */}
       {segments.length === 0 && !loading && (
-        <Card className="app-data-card">
+        <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Target className="h-5 w-5 text-primary" />
@@ -478,7 +479,7 @@ export default function CustomerSegmentsPage() {
 
       {/* ─── Search bar ──────────────────────────────────────── */}
       {segments.length > 0 && (
-        <div className="app-workbench-strip flex items-center gap-2 rounded-3xl p-3">
+        <div className="flex items-center gap-2">
           <div className="relative w-full sm:max-w-sm">
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
@@ -492,7 +493,7 @@ export default function CustomerSegmentsPage() {
       )}
 
       {error && (
-        <div className="app-data-card border border-red-200 bg-red-50/80 p-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-300">
+        <div className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg p-3 text-sm text-red-700 dark:text-red-300">
           {error}
         </div>
       )}

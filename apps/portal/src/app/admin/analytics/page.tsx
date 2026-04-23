@@ -152,10 +152,10 @@ export default function AnalyticsPage() {
   }
 
   return (
-    <div className="space-y-8 animate-fadeIn">
+    <div className="space-y-6 animate-fadeIn">
       <PageHeader
         title="تحليلات المنصة"
-        description="تحليلات تنفيذية على مستوى المنصة: النمو، النشاط، وأداء التجار والوكلاء."
+        description="إحصائيات شاملة عن أداء المنصة والتجار"
         actions={
           <div className="flex w-full flex-wrap items-center gap-2 md:w-auto md:justify-end">
             <Select value={period} onValueChange={setPeriod}>
@@ -187,65 +187,6 @@ export default function AnalyticsPage() {
           </div>
         }
       />
-
-      <section className="app-hero-band">
-        <div className="app-hero-band__grid">
-          <div className="space-y-4">
-            <span className="app-hero-band__eyebrow">Platform Analytics</span>
-            <div className="space-y-3">
-              <h2 className="app-hero-band__title">
-                اقرأ الأداء الكلي للمنصة ثم انزل مباشرة إلى التجار والوكلاء
-                والساعات الأكثر نشاطاً.
-              </h2>
-              <p className="app-hero-band__copy">
-                هذه الصفحة مبنية كلوحة قرار، لا كصفحة تقارير تقليدية. كل قسم
-                يجيب على سؤال تشغيل واضح: أين النمو، من يقود الإيراد، ما أداء
-                الوكلاء، ومتى تتركز الذروة.
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <Badge variant="info">الفترة: {period}</Badge>
-              <Badge variant="secondary">
-                الإيراد المحقق: {formatCurrency(realizedPlatformRevenue)}
-              </Badge>
-            </div>
-          </div>
-          <div className="app-hero-band__metrics">
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">
-                الإيراد المحقق
-              </span>
-              <strong className="app-hero-band__metric-value">
-                {formatCurrency(realizedPlatformRevenue)}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">
-                إجمالي الطلبات
-              </span>
-              <strong className="app-hero-band__metric-value">
-                {formatNumber(platformStats.totalOrders)}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">
-                التجار النشطون
-              </span>
-              <strong className="app-hero-band__metric-value">
-                {platformStats.activeMerchants}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">
-                إجمالي المحادثات
-              </span>
-              <strong className="app-hero-band__metric-value">
-                {formatNumber(platformStats.totalConversations)}
-              </strong>
-            </div>
-          </div>
-        </div>
-      </section>
 
       {/* Platform KPIs */}
       <KPIGrid>
@@ -325,7 +266,7 @@ export default function AnalyticsPage() {
 
         <TabsContent value="merchants" className="space-y-6">
           {/* Top Merchants */}
-          <Card className="app-data-card">
+          <Card>
             <CardHeader>
               <CardTitle>أفضل التجار</CardTitle>
             </CardHeader>
@@ -439,7 +380,7 @@ export default function AnalyticsPage() {
           {/* Agent Performance Metrics */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {agentPerformance.length === 0 ? (
-              <Card className="app-data-card col-span-full">
+              <Card className="col-span-full">
                 <CardContent className="p-4">
                   <p className="text-sm text-muted-foreground text-center">
                     لا توجد بيانات أداء
@@ -448,7 +389,7 @@ export default function AnalyticsPage() {
               </Card>
             ) : (
               agentPerformance.map((metric) => (
-                <Card key={metric.name} className="app-data-card">
+                <Card key={metric.name}>
                   <CardContent className="p-4">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                       <div>
@@ -475,7 +416,7 @@ export default function AnalyticsPage() {
             )}
           </div>
 
-          <Card className="app-data-card">
+          <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Zap className="h-5 w-5" />
@@ -494,7 +435,7 @@ export default function AnalyticsPage() {
                     agentPerformance.map((metric) => (
                       <div
                         key={metric.name}
-                        className="flex flex-col gap-2 rounded-[18px] bg-[color:color-mix(in_srgb,var(--surface-muted)_72%,transparent)] p-3 sm:flex-row sm:items-center sm:justify-between"
+                        className="flex flex-col gap-2 rounded-lg bg-muted/50 p-3 sm:flex-row sm:items-center sm:justify-between"
                       >
                         <span className="text-sm">{metric.name}</span>
                         <div className="text-right sm:text-left">
@@ -530,7 +471,7 @@ export default function AnalyticsPage() {
                   {agentPerformance.slice(0, 2).map((metric) => (
                     <div
                       key={`${metric.name}-note`}
-                      className="rounded-[18px] border border-[color:color-mix(in_srgb,var(--border-strong)_84%,transparent)] bg-background p-3 text-sm"
+                      className="rounded-lg border bg-background p-3 text-sm"
                     >
                       <p className="font-medium">{metric.name}</p>
                       <p className="mt-1 text-muted-foreground">
@@ -558,7 +499,7 @@ export default function AnalyticsPage() {
             height={300}
           />
 
-          <Card className="app-data-card">
+          <Card>
             <CardHeader>
               <CardTitle>أكثر الساعات نشاطاً</CardTitle>
             </CardHeader>
@@ -572,7 +513,7 @@ export default function AnalyticsPage() {
                   {peakHours.map((entry) => (
                     <div
                       key={entry.name}
-                      className="rounded-[18px] border border-[color:color-mix(in_srgb,var(--border-strong)_84%,transparent)] bg-[color:color-mix(in_srgb,var(--surface-muted)_62%,transparent)] p-3"
+                      className="rounded-lg border bg-muted/20 p-3"
                     >
                       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                         <p className="font-medium">{entry.name}</p>

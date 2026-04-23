@@ -320,7 +320,7 @@ export default function SecurityPage() {
   }
 
   return (
-    <div className="app-page-frame space-y-6 p-4 pb-8 sm:p-6">
+    <div className="space-y-6 p-4 sm:p-6">
       <PageHeader
         title="الأمان والخصوصية"
         description="إدارة الجلسات النشطة وإعدادات الأمان"
@@ -334,8 +334,9 @@ export default function SecurityPage() {
         }
       />
 
+      {/* AI Security Insights */}
       <Tabs value={activeTab} onValueChange={handleTabChange}>
-        <TabsList className="app-workbench-strip grid h-auto w-full grid-cols-1 gap-2 p-2 sm:grid-cols-3">
+        <TabsList className="grid h-auto w-full grid-cols-1 gap-2 sm:grid-cols-3">
           <TabsTrigger value="sessions" className="w-full gap-2">
             <Laptop className="h-4 w-4" />
             الجلسات النشطة
@@ -352,7 +353,7 @@ export default function SecurityPage() {
 
         {/* Sessions Tab */}
         <TabsContent value="sessions" className="space-y-4">
-          <Card className="app-data-card">
+          <Card>
             <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <CardTitle>الأجهزة المتصلة</CardTitle>
@@ -478,7 +479,7 @@ export default function SecurityPage() {
         {/* Settings Tab */}
         <TabsContent value="settings" className="space-y-4">
           {/* Password */}
-          <Card className="app-data-card">
+          <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Key className="h-5 w-5" />
@@ -656,7 +657,7 @@ export default function SecurityPage() {
             </CardContent>
           </Card>
 
-          <Card className="app-data-card border-dashed">
+          <Card className="border-dashed">
             <CardHeader>
               <CardTitle>تم نقل تفضيلات الأمان التشغيلية</CardTitle>
               <CardDescription>
@@ -676,7 +677,7 @@ export default function SecurityPage() {
 
         {/* Audit Log Tab */}
         <TabsContent value="audit" className="space-y-4">
-          <Card className="app-data-card">
+          <Card>
             <CardHeader>
               <CardTitle>سجل النشاط</CardTitle>
               <CardDescription>آخر الأنشطة على حسابك</CardDescription>

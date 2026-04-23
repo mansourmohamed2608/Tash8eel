@@ -610,10 +610,10 @@ export default function AuditPage() {
   };
 
   return (
-    <div className="app-page-frame space-y-8 p-4 pb-8 sm:p-6">
+    <div className="space-y-6 p-4 sm:p-6">
       <PageHeader
         title="سجل التدقيق"
-        description="تتبع جميع الإجراءات والتغييرات الحساسة داخل النشاط مع فلترة وسياق واضح."
+        description="تتبع جميع الإجراءات والتغييرات في النظام"
         actions={
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
             <Button variant="outline" onClick={fetchAuditData}>
@@ -632,56 +632,10 @@ export default function AuditPage() {
         }
       />
 
-      <section className="app-hero-band">
-        <div className="app-hero-band__grid">
-          <div className="space-y-4">
-            <span className="app-hero-band__eyebrow">Audit Timeline</span>
-            <div className="space-y-3">
-              <h2 className="app-hero-band__title">
-                طبقة المراجعة التشغيلية لكل تغيير، من الإعدادات إلى المخزون
-                والمحادثات والطلبات.
-              </h2>
-              <p className="app-hero-band__copy">
-                راقب من نفذ الإجراء، على أي مورد، ومتى حدث، مع إمكان التصفية
-                بحسب المستخدم أو نوع المورد أو الفترة الزمنية والتصدير عند
-                الحاجة.
-              </p>
-            </div>
-          </div>
-          <div className="app-hero-band__metrics">
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">إجمالي السجل</span>
-              <strong className="app-hero-band__metric-value">
-                {logs.length}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">بعد الفلترة</span>
-              <strong className="app-hero-band__metric-value">
-                {sortedLogs.length}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">
-                مستخدمون نشطون
-              </span>
-              <strong className="app-hero-band__metric-value">
-                {summary?.byStaff?.length || 0}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">الصفحة</span>
-              <strong className="app-hero-band__metric-value">
-                {safePage}/{totalPages}
-              </strong>
-            </div>
-          </div>
-        </div>
-      </section>
-
+      {/* AI Audit Insights */}
       {/* Summary Stats */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Card className="app-data-card">
+        <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
               إجمالي السجلات
@@ -697,7 +651,7 @@ export default function AuditPage() {
             <p className="text-xs text-muted-foreground">آخر 30 يوم</p>
           </CardContent>
         </Card>
-        <Card className="app-data-card">
+        <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
               التغييرات اليوم
@@ -713,7 +667,7 @@ export default function AuditPage() {
             <p className="text-xs text-muted-foreground">+12% عن أمس</p>
           </CardContent>
         </Card>
-        <Card className="app-data-card">
+        <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
               المستخدمون النشطون
@@ -727,7 +681,7 @@ export default function AuditPage() {
             <p className="text-xs text-muted-foreground">هذا الأسبوع</p>
           </CardContent>
         </Card>
-        <Card className="app-data-card">
+        <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">عمليات الحذف</CardTitle>
             <FileText className="h-4 w-4 text-red-500" />
@@ -743,7 +697,7 @@ export default function AuditPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <Card className="app-data-card">
+        <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">
               آخر تحديث إعدادات
@@ -760,7 +714,7 @@ export default function AuditPage() {
             </p>
           </CardContent>
         </Card>
-        <Card className="app-data-card">
+        <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">آخر دخول</CardTitle>
           </CardHeader>
@@ -789,7 +743,7 @@ export default function AuditPage() {
       </div>
 
       {/* Activity Timeline */}
-      <Card className="app-data-card">
+      <Card>
         <CardHeader>
           <CardTitle>نشاط آخر 7 أيام</CardTitle>
         </CardHeader>
@@ -831,7 +785,7 @@ export default function AuditPage() {
       </Card>
 
       <Tabs defaultValue="logs">
-        <TabsList className="app-workbench-strip grid h-auto w-full grid-cols-1 gap-2 p-2 sm:grid-cols-2">
+        <TabsList className="grid h-auto w-full grid-cols-1 gap-2 sm:grid-cols-2">
           <TabsTrigger value="logs" className="w-full">
             السجلات
           </TabsTrigger>
@@ -859,7 +813,7 @@ export default function AuditPage() {
             ))}
           </div>
           {/* Filters */}
-          <Card className="app-data-card">
+          <Card>
             <CardContent className="pt-6">
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 <div className="relative">

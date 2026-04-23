@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { PageHeader } from "@/components/layout";
+import { PageHeader } from "@/components/layout/sidebar";
 import {
   Card,
   CardContent,
@@ -464,7 +464,7 @@ export default function PosIntegrationsPage() {
   const connectedProviders = integrations.map((i) => i.provider);
 
   return (
-    <div className="app-page-frame space-y-6 p-4 pb-8 sm:p-6">
+    <div className="space-y-6 p-4 sm:p-6">
       <PageHeader
         title="تكاملات أنظمة نقاط البيع (POS)"
         description="اربط نظام نقاط البيع الخاص بك لمزامنة الطلبات والمنتجات تلقائياً"
@@ -481,49 +481,9 @@ export default function PosIntegrationsPage() {
         }
       />
 
-      <section className="app-hero-band app-hero-band--subtle">
-        <div className="app-hero-band__grid">
-          <div className="space-y-4">
-            <span className="app-hero-band__eyebrow">POS Integrations</span>
-            <div className="space-y-3">
-              <h2 className="app-hero-band__title">
-                وحّد بين قنوات البيع، المخزون، والطلبات ضمن مسار تكامل أوضح.
-              </h2>
-              <p className="app-hero-band__copy">
-                الصفحة تبقي الربط مع أنظمة نقاط البيع ضمن الحقيقة الحالية
-                للتشغيل: حالة أوضح، بطاقات أبسط، وتجهيز أسرع للاتصال دون تغيير
-                سلوك الطلبات أو المخزون.
-              </p>
-            </div>
-          </div>
-          <div className="app-hero-band__metrics">
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">
-                التكاملات المفعلة
-              </span>
-              <strong className="app-hero-band__metric-value">
-                {integrations.length}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">النظم المتاحة</span>
-              <strong className="app-hero-band__metric-value">
-                {POS_PROVIDERS.length}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">جاهزة للربط</span>
-              <strong className="app-hero-band__metric-value">
-                {POS_PROVIDERS.length - connectedProviders.length}
-              </strong>
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* Connected Integrations */}
       {integrations.length > 0 && (
-        <Card className="app-data-card">
+        <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Zap className="h-5 w-5 text-green-500" />
@@ -539,7 +499,7 @@ export default function PosIntegrationsPage() {
                 return (
                   <div
                     key={integration.id}
-                    className="app-filter-card flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between"
+                    className="flex flex-col gap-4 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between"
                   >
                     <div className="flex items-start gap-3 sm:items-center">
                       <span className="text-2xl">{provider?.logo || "⚙️"}</span>
@@ -612,7 +572,7 @@ export default function PosIntegrationsPage() {
       )}
 
       {/* Available Providers */}
-      <Card className="app-data-card">
+      <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Store className="h-5 w-5" />
@@ -629,7 +589,7 @@ export default function PosIntegrationsPage() {
               return (
                 <div
                   key={provider.id}
-                  className={`app-filter-card p-5 transition-all hover:shadow-md ${provider.color}`}
+                  className={`border rounded-xl p-5 transition-all hover:shadow-md ${provider.color}`}
                 >
                   <div className="flex items-center gap-3 mb-3">
                     <span className="text-3xl">{provider.logo}</span>
@@ -675,7 +635,7 @@ export default function PosIntegrationsPage() {
       </Card>
 
       {/* How it works - Data Flow */}
-      <Card className="app-data-card app-data-card--muted border-green-200 bg-green-50/40">
+      <Card className="border-green-200 bg-green-50/40">
         <CardHeader>
           <CardTitle>كيف تعمل تكاملات POS؟ - تدفق البيانات</CardTitle>
           <CardDescription>

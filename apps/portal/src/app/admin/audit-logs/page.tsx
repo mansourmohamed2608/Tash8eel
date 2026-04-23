@@ -184,7 +184,7 @@ export default function AuditLogsPage() {
   }
 
   return (
-    <div className="space-y-8 animate-fadeIn">
+    <div className="space-y-6 animate-fadeIn">
       <PageHeader
         title="سجل النشاط"
         description="تتبع جميع الأحداث والتغييرات في النظام"
@@ -213,48 +213,9 @@ export default function AuditLogsPage() {
         }
       />
 
-      <section className="app-hero-band">
-        <div className="app-hero-band__grid">
-          <div>
-            <p className="app-hero-band__eyebrow">مراقبة وتدقيق</p>
-            <h2 className="app-hero-band__title">
-              راجع كل تغيير مؤثر في النظام مع توزيع واضح حسب الجهة المنفذة
-            </h2>
-            <p className="app-hero-band__copy">
-              هذه الصفحة تمنحك طبقة متابعة تشغيلية تساعد على التحقيق السريع،
-              تتبع الإجراءات الحساسة، والتأكد من سلامة النشاط الإداري والتجاري.
-            </p>
-          </div>
-          <div className="app-hero-band__metrics">
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">
-                إجمالي السجلات
-              </span>
-              <strong className="app-hero-band__metric-value">
-                {logs.length}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">نشاط المدراء</span>
-              <strong className="app-hero-band__metric-value">
-                {logs.filter((l) => l.actor.type === "admin").length}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">
-                النتائج المطابقة
-              </span>
-              <strong className="app-hero-band__metric-value">
-                {filteredLogs.length}
-              </strong>
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* Stats Summary */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-        <Card className="app-data-card">
+        <Card>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
@@ -265,7 +226,7 @@ export default function AuditLogsPage() {
             </div>
           </CardContent>
         </Card>
-        <Card className="app-data-card">
+        <Card>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
@@ -278,7 +239,7 @@ export default function AuditLogsPage() {
             </div>
           </CardContent>
         </Card>
-        <Card className="app-data-card">
+        <Card>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
@@ -291,7 +252,7 @@ export default function AuditLogsPage() {
             </div>
           </CardContent>
         </Card>
-        <Card className="app-data-card">
+        <Card>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
@@ -307,7 +268,7 @@ export default function AuditLogsPage() {
       </div>
 
       {/* Filters */}
-      <Card className="app-data-card app-data-card--muted">
+      <Card>
         <CardContent className="p-4">
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="relative flex-1">
@@ -348,7 +309,7 @@ export default function AuditLogsPage() {
       </Card>
 
       {/* Logs Table */}
-      <Card className="app-data-card">
+      <Card>
         <CardContent className="p-0">
           {filteredLogs.length === 0 ? (
             <EmptyState

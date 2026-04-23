@@ -91,11 +91,11 @@ export default function AiAuditPage() {
     .size;
 
   return (
-    <div className="space-y-8 animate-fadeIn p-4 sm:p-6">
+    <div className="space-y-6 animate-fadeIn p-4 sm:p-6">
       <PageHeader
         title="سجل قرارات الذكاء"
         titleEn="AI Decision Audit Trail"
-        description="مراجعة لماذا اتُخذ القرار، سياقه، وثقة النظام قبل التنفيذ."
+        description="تتبع كل قرار يتخذه الذكاء الاصطناعي مع السبب والسياق"
         actions={
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
             <Select value={agentFilter} onValueChange={setAgentFilter}>
@@ -121,58 +121,8 @@ export default function AiAuditPage() {
         }
       />
 
-      <section className="app-hero-band">
-        <div className="app-hero-band__grid">
-          <div className="space-y-4">
-            <span className="app-hero-band__eyebrow">AI Decision Audit</span>
-            <div className="space-y-3">
-              <h2 className="app-hero-band__title">
-                طبقة المراجعة التي تشرح لك كيف فكّر النظام، لا ماذا فعل فقط.
-              </h2>
-              <p className="app-hero-band__copy">
-                كل صف هنا يمثل قراراً محدداً مع نوع القرار، الوكيل المسؤول،
-                الثقة، والسياق المرتبط به. هذا السجل مهم للتدقيق الداخلي، وضبط
-                السياسات، ومراجعة جودة قرارات الذكاء عبر الوقت.
-              </p>
-            </div>
-          </div>
-          <div className="app-hero-band__metrics">
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">
-                القرارات المعروضة
-              </span>
-              <strong className="app-hero-band__metric-value">
-                {decisions.length}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">
-                أنواع القرارات
-              </span>
-              <strong className="app-hero-band__metric-value">
-                {decisionTypes}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">متوسط الثقة</span>
-              <strong className="app-hero-band__metric-value">
-                {avgConfidence}%
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">
-                الوكلاء المشاركون
-              </span>
-              <strong className="app-hero-band__metric-value">
-                {agentsInLog}
-              </strong>
-            </div>
-          </div>
-        </div>
-      </section>
-
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <Card className="app-data-card">
+        <Card className="border-purple-200 bg-purple-50/50">
           <CardContent className="p-4">
             <p className="text-sm text-muted-foreground">
               إجمالي القرارات المعروضة
@@ -186,7 +136,7 @@ export default function AiAuditPage() {
             </p>
           </CardContent>
         </Card>
-        <Card className="app-data-card border-[color:color-mix(in_srgb,var(--accent)_18%,var(--border-strong))] bg-[var(--accent-muted)]">
+        <Card className="border-blue-200 bg-blue-50/50">
           <CardContent className="p-4">
             <p className="text-sm text-muted-foreground">أنواع القرارات</p>
             <p className="mt-1 text-2xl font-bold text-blue-700">
@@ -197,7 +147,7 @@ export default function AiAuditPage() {
             </p>
           </CardContent>
         </Card>
-        <Card className="app-data-card border-[color:color-mix(in_srgb,var(--success)_18%,var(--border-strong))] bg-[var(--success-muted)]">
+        <Card className="border-emerald-200 bg-emerald-50/50">
           <CardContent className="p-4">
             <p className="text-sm text-muted-foreground">متوسط الثقة</p>
             <p className="mt-1 text-2xl font-bold text-emerald-700">
@@ -208,7 +158,7 @@ export default function AiAuditPage() {
             </p>
           </CardContent>
         </Card>
-        <Card className="app-data-card border-[color:color-mix(in_srgb,var(--warning)_18%,var(--border-strong))] bg-[var(--warning-muted)]">
+        <Card className="border-amber-200 bg-amber-50/50">
           <CardContent className="p-4">
             <p className="text-sm text-muted-foreground">الوكلاء المشاركون</p>
             <p className="mt-1 text-2xl font-bold text-amber-700">
@@ -246,8 +196,8 @@ export default function AiAuditPage() {
       <Card
         className={
           isDemo
-            ? "app-data-card border-[color:color-mix(in_srgb,var(--warning)_18%,var(--border-strong))] bg-[var(--warning-muted)]"
-            : "app-data-card border-[color:color-mix(in_srgb,var(--accent)_18%,var(--border-strong))] bg-[var(--accent-muted)]"
+            ? "border-amber-300 bg-amber-50/60"
+            : "border-blue-200 bg-blue-50/40"
         }
       >
         <CardContent className="pt-4 text-sm leading-6">
@@ -265,7 +215,7 @@ export default function AiAuditPage() {
         </CardContent>
       </Card>
 
-      <Card className="app-data-card app-data-card--muted border-dashed">
+      <Card className="border-dashed">
         <CardContent className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between">
           <div>
             <p className="font-medium">ما الذي تراه هنا بالضبط؟</p>
@@ -286,7 +236,7 @@ export default function AiAuditPage() {
 
       {/* Weekly stats */}
       {stats.length > 0 && (
-        <Card className="app-data-card">
+        <Card>
           <CardHeader>
             <CardTitle>إحصائيات الأسبوع</CardTitle>
           </CardHeader>
@@ -304,7 +254,7 @@ export default function AiAuditPage() {
       )}
 
       {/* Decision log */}
-      <Card className="app-data-card">
+      <Card>
         <CardHeader>
           <CardTitle>سجل القرارات</CardTitle>
           <CardDescription>{decisions.length} قرار</CardDescription>
@@ -319,7 +269,7 @@ export default function AiAuditPage() {
               {decisions.map((d: any) => (
                 <div
                   key={d.id}
-                  className="space-y-2 rounded-[22px] border border-[color:color-mix(in_srgb,var(--border-strong)_84%,transparent)] p-4 transition-colors hover:bg-[color:color-mix(in_srgb,var(--surface-muted)_56%,transparent)]"
+                  className="border rounded-lg p-4 hover:bg-gray-50 space-y-2"
                 >
                   {(() => {
                     const metadata = parseJsonMaybe(d.metadata);

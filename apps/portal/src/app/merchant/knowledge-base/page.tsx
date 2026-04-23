@@ -905,7 +905,7 @@ export default function KnowledgeBasePage() {
 
   if (loading) {
     return (
-      <div className="app-page-frame space-y-6 p-4 pb-8 sm:p-6">
+      <div>
         <PageHeader title="قاعدة المعرفة" />
         <TableSkeleton rows={5} columns={4} />
       </div>
@@ -913,7 +913,7 @@ export default function KnowledgeBasePage() {
   }
 
   return (
-    <div className="app-page-frame space-y-6 animate-fadeIn p-4 pb-8 sm:p-6">
+    <div className="space-y-6 animate-fadeIn p-4 sm:p-6">
       <PageHeader
         title="قاعدة المعرفة"
         description="أضف المعلومات التي يستخدمها الذكاء الاصطناعي للرد على عملائك"
@@ -935,9 +935,8 @@ export default function KnowledgeBasePage() {
           </div>
         }
       />
-
       {/* AI Info Banner */}
-      <Card className="app-data-card border-primary/20 bg-primary/5">
+      <Card className="border-primary/20 bg-primary/5">
         <CardContent className="p-4">
           <div className="flex items-start gap-3">
             <Sparkles className="h-5 w-5 text-primary mt-0.5" />
@@ -956,7 +955,7 @@ export default function KnowledgeBasePage() {
       </Card>
 
       {checklistPercent < 100 && (
-        <Card className="app-data-card border-amber-200 bg-amber-50/60">
+        <Card className="border-amber-200 bg-amber-50/60">
           <CardContent className="p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="font-medium text-amber-900">
@@ -983,7 +982,7 @@ export default function KnowledgeBasePage() {
       )}
 
       {/* Onboarding Checklist */}
-      <Card className="app-data-card">
+      <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-primary" />
@@ -1021,7 +1020,7 @@ export default function KnowledgeBasePage() {
         </CardContent>
       </Card>
 
-      <Card className="app-data-card border-dashed">
+      <Card className="border-dashed">
         <CardContent className="p-4">
           <div className="flex items-start gap-3">
             <Info className="h-5 w-5 text-muted-foreground mt-0.5" />
@@ -1042,7 +1041,7 @@ export default function KnowledgeBasePage() {
       </Card>
 
       {/* Suggested Prompts */}
-      <Card className="app-data-card">
+      <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Brain className="h-5 w-5 text-primary" />
@@ -1072,7 +1071,7 @@ export default function KnowledgeBasePage() {
 
       {/* Stats */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Card className="app-data-card">
+        <Card>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
@@ -1083,7 +1082,7 @@ export default function KnowledgeBasePage() {
             </div>
           </CardContent>
         </Card>
-        <Card className="app-data-card">
+        <Card>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
@@ -1096,7 +1095,7 @@ export default function KnowledgeBasePage() {
             </div>
           </CardContent>
         </Card>
-        <Card className="app-data-card">
+        <Card>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
@@ -1107,7 +1106,7 @@ export default function KnowledgeBasePage() {
             </div>
           </CardContent>
         </Card>
-        <Card className="app-data-card">
+        <Card>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
@@ -1123,7 +1122,7 @@ export default function KnowledgeBasePage() {
       </div>
 
       {/* Search */}
-      <div className="app-workbench-strip relative rounded-3xl p-3">
+      <div className="relative">
         <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
           placeholder="بحث في قاعدة المعرفة..."
@@ -1135,7 +1134,7 @@ export default function KnowledgeBasePage() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={handleTabChange}>
-        <TabsList className="app-workbench-strip grid h-auto w-full grid-cols-1 gap-2 p-2 sm:grid-cols-3">
+        <TabsList className="grid h-auto w-full grid-cols-1 gap-2 sm:grid-cols-3">
           <TabsTrigger value="menu" className="flex w-full items-center gap-2">
             <Package className="h-4 w-4" />
             المنتجات والخدمات

@@ -202,10 +202,10 @@ export default function MerchantsPage() {
   }
 
   return (
-    <div className="space-y-8 animate-fadeIn p-4 sm:p-6">
+    <div className="space-y-6 animate-fadeIn p-4 sm:p-6">
       <PageHeader
         title="إدارة التجار"
-        description="إدارة دورة حياة التجار، حالتهم، وبيانات التشغيل الأساسية من لوحة واحدة."
+        description="إنشاء وتعديل وإدارة حسابات التجار"
         actions={
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
             <Button
@@ -230,52 +230,9 @@ export default function MerchantsPage() {
         }
       />
 
-      <section className="app-hero-band">
-        <div className="app-hero-band__grid">
-          <div className="space-y-4">
-            <span className="app-hero-band__eyebrow">Merchant Management</span>
-            <div className="space-y-3">
-              <h2 className="app-hero-band__title">
-                تحكم كامل في حسابات التجار، تفعيلهم، وتصنيفهم دون مغادرة اللوحة.
-              </h2>
-              <p className="app-hero-band__copy">
-                هذه الصفحة مبنية للإدارة التشغيلية اليومية: مراجعة النشاط، فلترة
-                التجار، إنشاء حسابات جديدة، وتعطيل أو حذف الحسابات عند الحاجة.
-              </p>
-            </div>
-          </div>
-          <div className="app-hero-band__metrics">
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">إجمالي التجار</span>
-              <strong className="app-hero-band__metric-value">
-                {merchants.length}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">نشط</span>
-              <strong className="app-hero-band__metric-value">
-                {merchants.filter((m) => m.isActive).length}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">معطل</span>
-              <strong className="app-hero-band__metric-value">
-                {merchants.filter((m) => !m.isActive).length}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">نتائج الفلتر</span>
-              <strong className="app-hero-band__metric-value">
-                {filteredMerchants.length}
-              </strong>
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* Stats Summary */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card className="app-data-card">
+        <Card>
           <CardContent className="p-4">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>
@@ -286,7 +243,7 @@ export default function MerchantsPage() {
             </div>
           </CardContent>
         </Card>
-        <Card className="app-data-card">
+        <Card>
           <CardContent className="p-4">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>
@@ -299,7 +256,7 @@ export default function MerchantsPage() {
             </div>
           </CardContent>
         </Card>
-        <Card className="app-data-card">
+        <Card>
           <CardContent className="p-4">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>
@@ -315,7 +272,7 @@ export default function MerchantsPage() {
       </div>
 
       {/* Filters */}
-      <Card className="app-data-card">
+      <Card>
         <CardContent className="p-4">
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="relative flex-1">
@@ -355,7 +312,7 @@ export default function MerchantsPage() {
       </Card>
 
       {/* Merchants Table */}
-      <Card className="app-data-card">
+      <Card>
         <CardContent className="p-0">
           {filteredMerchants.length === 0 ? (
             <EmptyState
@@ -462,7 +419,7 @@ export default function MerchantsPage() {
               </div>
               <div className="hidden overflow-x-auto md:block">
                 <table className="w-full">
-                  <thead className="border-b bg-[color:color-mix(in_srgb,var(--surface-muted)_90%,transparent)]">
+                  <thead className="bg-muted/50 border-b">
                     <tr>
                       <th className="text-right p-4 font-medium text-sm">
                         المتجر
@@ -489,10 +446,7 @@ export default function MerchantsPage() {
                   </thead>
                   <tbody className="divide-y">
                     {paginatedMerchants.map((merchant) => (
-                      <tr
-                        key={merchant.id}
-                        className="hover:bg-[color:color-mix(in_srgb,var(--surface-muted)_60%,transparent)]"
-                      >
+                      <tr key={merchant.id} className="hover:bg-muted/30">
                         <td className="p-4">
                           <div className="flex items-center gap-3">
                             <div className="h-10 w-10 rounded-full bg-primary-100 flex items-center justify-center">

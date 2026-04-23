@@ -449,7 +449,7 @@ export default function NotificationsPage() {
   }
 
   return (
-    <div className="app-page-frame space-y-6 p-4 pb-8 sm:p-6">
+    <div className="container mx-auto space-y-6 p-4 sm:p-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <PageHeader
           title="مركز الإشعارات"
@@ -457,14 +457,15 @@ export default function NotificationsPage() {
           description="إدارة الإشعارات والتنبيهات"
         />
         {unreadCount > 0 && (
-          <Badge variant="destructive" className="px-3 py-1.5 text-base">
+          <Badge variant="destructive" className="text-lg px-3 py-1">
             {unreadCount} غير مقروء
           </Badge>
         )}
       </div>
 
+      {/* AI Notifications Insights */}
       {error && (
-        <Card className="app-data-card border-destructive bg-destructive/10">
+        <Card className="border-destructive bg-destructive/10">
           <CardContent className="py-4 flex items-center gap-2">
             <AlertCircle className="w-5 h-5 text-destructive" />
             <span className="text-destructive">{error}</span>
@@ -473,7 +474,7 @@ export default function NotificationsPage() {
       )}
 
       <Tabs value={activeTab} onValueChange={handleTabChange}>
-        <TabsList className="app-workbench-strip grid h-auto w-full grid-cols-1 gap-2 p-2 sm:grid-cols-3">
+        <TabsList className="grid h-auto w-full grid-cols-1 gap-2 sm:grid-cols-3">
           <TabsTrigger value="all" className="flex w-full items-center gap-2">
             <Bell className="w-4 h-4" />
             الإشعارات
@@ -539,7 +540,7 @@ export default function NotificationsPage() {
                 return (
                   <Card
                     key={notification.id}
-                    className={`app-data-card transition-all ${!notification.isRead ? "border-primary bg-primary/5" : ""}`}
+                    className={`transition-all ${!notification.isRead ? "border-primary bg-primary/5" : ""}`}
                   >
                     <CardContent className="p-4">
                       <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
@@ -615,7 +616,7 @@ export default function NotificationsPage() {
               })}
 
               {notifications.length === 0 && (
-                <Card className="app-data-card">
+                <Card>
                   <CardContent className="py-12 text-center">
                     <BellOff className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
                     <p className="text-muted-foreground">لا توجد إشعارات</p>
@@ -629,7 +630,7 @@ export default function NotificationsPage() {
         {/* Settings Tab */}
         <TabsContent value="settings" className="space-y-6">
           {preferencesDirty && (
-            <Card className="app-data-card border-amber-200 bg-amber-50/60">
+            <Card className="border-amber-200 bg-amber-50/60">
               <CardContent className="py-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-2 text-amber-800">
                   <AlertCircle className="w-4 h-4" />
@@ -661,14 +662,14 @@ export default function NotificationsPage() {
             </Card>
           )}
 
-          <Card className="app-data-card border-blue-200 bg-blue-50/50">
+          <Card className="border-blue-200 bg-blue-50/50">
             <CardContent className="py-3 text-sm text-blue-900">
               أدخل بريدك ورقم واتساب فقط. إعدادات مزوّد البريد والواتساب تُدار
               مركزياً بواسطة النظام.
             </CardContent>
           </Card>
 
-          <Card className="app-data-card">
+          <Card>
             <CardHeader>
               <CardTitle>قنوات الإشعارات</CardTitle>
               <CardDescription>اختر كيف تريد تلقي الإشعارات</CardDescription>
@@ -755,7 +756,7 @@ export default function NotificationsPage() {
             </CardContent>
           </Card>
 
-          <Card className="app-data-card">
+          <Card>
             <CardHeader>
               <CardTitle>ساعات الهدوء</CardTitle>
               <CardDescription>
@@ -793,7 +794,7 @@ export default function NotificationsPage() {
             </CardContent>
           </Card>
 
-          <Card className="app-data-card">
+          <Card>
             <CardHeader>
               <CardTitle>أنواع الإشعارات</CardTitle>
               <CardDescription>اختر الإشعارات التي تريد تلقيها</CardDescription>
@@ -832,7 +833,7 @@ export default function NotificationsPage() {
           </Card>
 
           {merchantSettingsDirty && (
-            <Card className="app-data-card border-amber-200 bg-amber-50/60">
+            <Card className="border-amber-200 bg-amber-50/60">
               <CardContent className="py-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-2 text-amber-800">
                   <AlertCircle className="w-4 h-4" />
@@ -859,7 +860,7 @@ export default function NotificationsPage() {
             </Card>
           )}
 
-          <Card className="app-data-card">
+          <Card>
             <CardHeader>
               <CardTitle>إشعارات التشغيل والتقارير</CardTitle>
               <CardDescription>

@@ -34,7 +34,6 @@ import {
 } from "lucide-react";
 import { cn, formatCurrency, formatRelativeTime } from "@/lib/utils";
 import { portalApi } from "@/lib/client";
-import { EmptyState, LoadingState } from "@/components/ui/alerts";
 
 interface Followup {
   id: string;
@@ -218,10 +217,10 @@ export default function FollowupsPage() {
   };
 
   return (
-    <div className="app-page-frame space-y-6 animate-fadeIn px-4 pb-8 sm:px-6">
+    <div className="space-y-6 animate-fadeIn p-4 sm:p-6">
       <PageHeader
         title="المتابعات"
-        description="مركز متابعة ذكي للطلبات التي تحتاج تحصيلاً أو تدخلاً أو تواصلاً سريعاً."
+        description="متابعة الطلبات التي تحتاج إجراء"
         actions={
           <Button
             variant="outline"
@@ -234,55 +233,7 @@ export default function FollowupsPage() {
         }
       />
 
-      <section className="app-hero-band">
-        <div className="app-hero-band__grid">
-          <div className="space-y-4">
-            <span className="app-hero-band__eyebrow">Followup Queue</span>
-            <div className="space-y-3">
-              <h2 className="app-hero-band__title">
-                اعرف فوراً ما يحتاج تواصلاً بشرياً أو إجراءً مالياً قبل أن
-                يتأخر.
-              </h2>
-              <p className="app-hero-band__copy">
-                هذه الشاشة تجمع تحصيلات COD، طلبات التقييم، التوصيلات المتأخرة،
-                والسلات المتروكة في قائمة واحدة قابلة للتنفيذ، مع انتقال مباشر
-                إلى واتساب وإغلاق المتابعة من نفس المكان.
-              </p>
-            </div>
-          </div>
-          <div className="app-hero-band__metrics">
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">
-                إجمالي المتابعات
-              </span>
-              <strong className="app-hero-band__metric-value">
-                {counts.all}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">تحصيلات COD</span>
-              <strong className="app-hero-band__metric-value">
-                {counts.cod_collection}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">
-                توصيلات تحتاج مراجعة
-              </span>
-              <strong className="app-hero-band__metric-value">
-                {counts.delivery_check}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">سلات متروكة</span>
-              <strong className="app-hero-band__metric-value">
-                {counts.abandoned_cart}
-              </strong>
-            </div>
-          </div>
-        </div>
-      </section>
-
+      {/* AI Followup Insights */}
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         {Object.entries(FOLLOWUP_CONFIG).map(([key, config]) => {
@@ -292,9 +243,8 @@ export default function FollowupsPage() {
             <Card
               key={key}
               className={cn(
-                "app-data-card cursor-pointer transition-all duration-150 ease-in-out hover:-translate-y-0.5",
-                activeTab === key &&
-                  "ring-2 ring-[color:color-mix(in_srgb,var(--accent)_28%,transparent)]",
+                "cursor-pointer transition-all hover:shadow-md",
+                activeTab === key && "ring-2 ring-primary",
               )}
               onClick={() => handleTabChange(activeTab === key ? "all" : key)}
             >
@@ -314,7 +264,7 @@ export default function FollowupsPage() {
         })}
       </div>
 
-      <Card className="app-data-card app-data-card--muted border-dashed">
+      <Card className="border-dashed bg-muted/20">
         <CardContent className="p-4 text-xs text-muted-foreground grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
           <div>
             <span className="font-medium text-foreground">
@@ -346,7 +296,7 @@ export default function FollowupsPage() {
       </Card>
 
       {/* Followups Table */}
-      <Card className="app-data-card">
+      <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <ClipboardList className="h-5 w-5" />
@@ -365,13 +315,17 @@ export default function FollowupsPage() {
         </CardHeader>
         <CardContent>
           {loading ? (
-            <LoadingState message="جاري تحميل المتابعات..." />
+            <div className="text-center py-12 text-muted-foreground">
+              جاري التحميل...
+            </div>
           ) : filteredFollowups.length === 0 ? (
-            <EmptyState
-              icon={<ClipboardList className="h-7 w-7" />}
-              title="لا توجد متابعات حالياً"
-              description="كل الطلبات المراقبة محدثة حالياً ولا تحتاج إجراء إضافياً."
-            />
+            <div className="text-center py-12 text-muted-foreground">
+              <ClipboardList className="h-12 w-12 mx-auto mb-4 opacity-30" />
+              <p className="text-lg font-medium">لا توجد متابعات</p>
+              <p className="text-sm mt-1">
+                جميع الطلبات محدثة ولا تحتاج متابعة 🎉
+              </p>
+            </div>
           ) : (
             <>
               <div className="space-y-3 md:hidden">
@@ -381,10 +335,7 @@ export default function FollowupsPage() {
                     FOLLOWUP_CONFIG.general;
                   const Icon = config.icon;
                   return (
-                    <div
-                      key={followup.id}
-                      className="rounded-[22px] border border-[color:color-mix(in_srgb,var(--border-strong)_86%,transparent)] bg-[color:color-mix(in_srgb,var(--surface)_96%,transparent)] p-4 shadow-[0_16px_34px_-28px_rgba(15,23,42,0.4)]"
-                    >
+                    <div key={followup.id} className="rounded-lg border p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <p className="font-mono text-xs">
@@ -485,9 +436,9 @@ export default function FollowupsPage() {
                   );
                 })}
               </div>
-              <div className="hidden overflow-hidden rounded-[24px] border border-[color:color-mix(in_srgb,var(--border-strong)_86%,transparent)] md:block">
+              <div className="hidden rounded-md border overflow-hidden md:block">
                 <table className="w-full text-sm" dir="rtl">
-                  <thead className="bg-[color:color-mix(in_srgb,var(--surface-muted)_90%,transparent)]">
+                  <thead className="bg-muted/50">
                     <tr>
                       <th className="p-3 text-right font-medium">رقم الطلب</th>
                       <th className="p-3 text-right font-medium">العميل</th>
@@ -511,7 +462,7 @@ export default function FollowupsPage() {
                       return (
                         <tr
                           key={followup.id}
-                          className="border-t border-[color:color-mix(in_srgb,var(--border-strong)_72%,transparent)] hover:bg-[color:color-mix(in_srgb,var(--surface-muted)_60%,transparent)]"
+                          className="border-t hover:bg-muted/30"
                         >
                           <td className="p-3 font-mono text-xs">
                             {followup.order_number}

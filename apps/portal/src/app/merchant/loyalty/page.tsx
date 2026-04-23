@@ -373,15 +373,16 @@ export default function LoyaltyPage() {
   }
 
   return (
-    <div className="app-page-frame space-y-6 p-4 pb-8 sm:p-6">
+    <div className="container mx-auto space-y-6 p-4 sm:p-6">
       <PageHeader
         title="برنامج الولاء"
         titleEn="Loyalty Program"
         description="إدارة برنامج ولاء العملاء والعروض الترويجية"
       />
 
+      {/* AI Loyalty Insights */}
       {error && (
-        <Card className="app-data-card border-destructive bg-destructive/10">
+        <Card className="border-destructive bg-destructive/10">
           <CardContent className="py-4 flex items-center gap-2">
             <AlertCircle className="w-5 h-5 text-destructive" />
             <span className="text-destructive">{error}</span>
@@ -390,7 +391,7 @@ export default function LoyaltyPage() {
       )}
 
       <Tabs value={activeTab} onValueChange={handleTabChange}>
-        <TabsList className="app-workbench-strip grid h-auto w-full grid-cols-1 gap-2 p-2 sm:grid-cols-2 xl:grid-cols-4">
+        <TabsList className="grid h-auto w-full grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
           <TabsTrigger
             value="overview"
             className="flex w-full items-center gap-2"
