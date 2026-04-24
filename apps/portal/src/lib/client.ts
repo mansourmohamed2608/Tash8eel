@@ -6598,6 +6598,27 @@ export const portalApi = {
 
 export default portalApi;
 
+// Public auth API — no authentication required
+export const publicAuthApi = {
+  requestPasswordReset: (merchantId: string, email: string) =>
+    apiFetch<{ message: string; token?: string }>("/api/v1/staff/forgot-password", {
+      method: "POST",
+      body: { merchantId, email },
+    }),
+
+  resetPassword: (resetToken: string, password: string) =>
+    apiFetch<{ success: boolean }>("/api/v1/staff/reset-password", {
+      method: "POST",
+      body: { resetToken, password },
+    }),
+
+  acceptInvite: (inviteToken: string, password: string) =>
+    apiFetch<any>("/api/v1/staff/accept-invite", {
+      method: "POST",
+      body: { inviteToken, password },
+    }),
+};
+
 export const client = {
   auth: { apiFetch, authenticatedFetch, checkApiHealth, getConnectionStatus },
   merchants: merchantApi,

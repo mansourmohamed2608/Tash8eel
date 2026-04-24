@@ -20,7 +20,7 @@ export const RATE_LIMIT_KEY = "rate_limit";
 export interface RateLimitConfig {
   limit: number; // Max requests
   window: number; // Window in seconds
-  keyType?: "ip" | "merchant" | "user" | "api_key";
+  keyType?: "ip" | "merchant" | "user" | "api_key" | "login_identifier";
   skipIf?: (req: Request) => boolean;
 }
 
@@ -133,6 +133,13 @@ export class EnhancedRateLimitGuard implements CanActivate {
         return `user:${staffId || merchantId || ip}:${endpoint}`;
       case "api_key":
         return `apikey:${merchantId || "unknown"}:${endpoint}`;
+      case "login_identifier": {
+        const body = (request as any).body;
+        const identifier = body?.email
+          ? `${body.merchantId || "unknown"}:${body.email}`
+          : ip;
+        return `login:${identifier}:${endpoint}`;
+      }
       case "ip":
       default:
         return `ip:${ip}:${endpoint}`;

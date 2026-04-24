@@ -326,7 +326,7 @@ const merchantNavItems: NavItem[] = [
   },
   { href: "/merchant/payments/proofs", label: "إثباتات الدفع", icon: Image },
   { href: "/merchant/billing", label: "الفواتير", icon: DollarSign },
-  { href: "/merchant/plan", label: "خطتي والأسعار", icon: TrendingUp },
+  { href: "/merchant/usage", label: "الاستخدام", icon: TrendingUp },
 
   // OTHER (أخيراً)
   { href: "/merchant/assistant", label: "مساعد التاجر", icon: Bot },
@@ -460,7 +460,7 @@ const MERCHANT_SECTION_CONFIG: MerchantSidebarSection[] = [
       { href: "/merchant/billing", label: "الفواتير" },
       { href: "/merchant/payments/cod", label: "تحصيل عند الاستلام" },
       { href: "/merchant/payments/proofs", label: "إثبات الدفع" },
-      { href: "/merchant/plan", label: "خطتي والأسعار" },
+      { href: "/merchant/usage", label: "الاستخدام" },
     ],
   },
   {

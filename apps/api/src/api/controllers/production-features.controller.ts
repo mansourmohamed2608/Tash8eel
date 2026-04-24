@@ -61,7 +61,6 @@ import {
   RateLimit,
   EnhancedRateLimitGuard,
 } from "../../shared/guards/rate-limit.guard";
-import { MerchantSignupDto } from "../dto/auth.dto";
 
 @ApiTags("Production Features")
 @Controller("v1/portal")
@@ -1387,7 +1386,7 @@ export class StaffAuthController {
 
   @Post("login")
   @UseGuards(EnhancedRateLimitGuard)
-  @RateLimit({ limit: 5, window: 60, keyType: "ip" })
+  @RateLimit({ limit: 5, window: 60, keyType: "login_identifier" })
   @ApiOperation({ summary: "Staff login" })
   @ApiBody({
     schema: {
@@ -1530,7 +1529,7 @@ export class StaffAuthController {
       body.merchantId,
       body.email,
     );
-    if (process.env.NODE_ENV !== "production") {
+    if (process.env.NODE_ENV !== "production" && token) {
       return {
         message: "If this email exists, a reset link will be sent",
         token,
@@ -1608,16 +1607,7 @@ export class StaffAuthController {
   }
 }
 
+// Public self-service signup removed — merchant creation is admin-only
 @ApiTags("Public Authentication")
 @Controller("v1/auth")
-export class PublicAuthController {
-  constructor(private readonly staffService: StaffService) {}
-
-  @Post("signup")
-  @UseGuards(EnhancedRateLimitGuard)
-  @RateLimit({ limit: 5, window: 900, keyType: "ip" })
-  @ApiOperation({ summary: "Merchant self-service signup" })
-  async signup(@Body() body: MerchantSignupDto): Promise<any> {
-    return this.staffService.signupMerchant(body);
-  }
-}
+export class PublicAuthController {}

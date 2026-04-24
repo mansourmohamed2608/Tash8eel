@@ -291,7 +291,7 @@ export const authOptions: NextAuthOptions = {
             refreshToken: data.tokens.refreshToken,
             adminKey:
               typeof data.adminKey === "string" ? data.adminKey : undefined,
-            requiresPasswordChange: false,
+            requiresPasswordChange: !!data.requiresPasswordChange,
           };
         } catch (error) {
           console.error("Auth error:", error);
@@ -331,7 +331,7 @@ export const authOptions: NextAuthOptions = {
           accessToken: user.accessToken,
           refreshToken: user.refreshToken,
           adminKey: user.adminKey,
-          requiresPasswordChange: false,
+          requiresPasswordChange: !!user.requiresPasswordChange,
           refreshFailureCount: 0,
           accessTokenExpires: Date.now() + 14 * 60 * 1000, // 14 minutes
           error: undefined, // clear any stale error from a previous session
@@ -376,7 +376,7 @@ export const authOptions: NextAuthOptions = {
       session.adminKey =
         typeof token.adminKey === "string" ? token.adminKey : undefined;
       session.error = token.error;
-      session.requiresPasswordChange = false;
+      session.requiresPasswordChange = !!token.requiresPasswordChange;
       return session;
     },
   },

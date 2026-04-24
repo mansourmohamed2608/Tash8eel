@@ -94,11 +94,15 @@ function LoginForm() {
         // Redirect based on role
         // ADMIN goes to admin dashboard (system admin only)
         // OWNER, MANAGER, STAFF go to merchant dashboard
-        const targetUrl =
+        let targetUrl =
           session?.user?.role === "ADMIN" &&
           session?.user?.merchantId === "system"
             ? "/admin/dashboard"
             : callbackUrl;
+
+        if (session?.requiresPasswordChange) {
+          targetUrl = "/merchant/change-password";
+        }
 
         // Keep client-side routing for immediate transition, then force full
         // navigation so the server picks up fresh auth session state.
@@ -218,12 +222,6 @@ function LoginForm() {
               )}
             </Button>
 
-            <div className="text-center text-sm text-muted-foreground">
-              <span>ليس لديك حساب؟ </span>
-              <Link href="/signup" className="text-primary-600 hover:underline">
-                تواصل معنا
-              </Link>
-            </div>
           </form>
 
           {/* Demo credentials hint — click any value to auto-fill */}

@@ -829,44 +829,45 @@ export class StaffService {
   }
 
   /**
-   * Request password reset
+   * Request password reset — writes dedicated reset token fields and sends email
    */
   async requestPasswordReset(
     merchantId: string,
     email: string,
-  ): Promise<string> {
+  ): Promise<string | null> {
     const result = await this.pool.query(
-      `SELECT id FROM merchant_staff 
+      `SELECT id, name FROM merchant_staff
        WHERE merchant_id = $1 AND email = $2 AND status = 'ACTIVE'`,
       [merchantId, email.toLowerCase()],
     );
 
     if (result.rows.length === 0) {
       // Don't reveal if email exists
-      return "If this email exists, a reset link will be sent";
+      return null;
     }
 
-    // Generate reset token (would normally send via email)
     const resetToken = crypto.randomBytes(32).toString("base64url");
 
     await this.pool.query(
-      `UPDATE merchant_staff SET 
-        invite_token = $1,
-        invite_expires_at = NOW() + INTERVAL '1 hour'
+      `UPDATE merchant_staff SET
+        password_reset_token = $1,
+        password_reset_expires_at = NOW() + INTERVAL '1 hour'
        WHERE id = $2`,
       [resetToken, result.rows[0].id],
     );
 
-    return resetToken; // In production, this would be sent via email
+    await this.sendPasswordResetEmail(email, result.rows[0].name, resetToken);
+
+    return resetToken;
   }
 
   /**
-   * Reset password with token
+   * Reset password using dedicated reset token fields
    */
   async resetPassword(resetToken: string, newPassword: string): Promise<void> {
     const result = await this.pool.query(
-      `SELECT id FROM merchant_staff 
-       WHERE invite_token = $1 AND invite_expires_at > NOW()`,
+      `SELECT id FROM merchant_staff
+       WHERE password_reset_token = $1 AND password_reset_expires_at > NOW()`,
       [resetToken],
     );
 
@@ -878,10 +879,10 @@ export class StaffService {
     const passwordHash = await bcrypt.hash(newPassword, this.saltRounds);
 
     await this.pool.query(
-      `UPDATE merchant_staff SET 
+      `UPDATE merchant_staff SET
         password_hash = $1,
-        invite_token = NULL,
-        invite_expires_at = NULL,
+        password_reset_token = NULL,
+        password_reset_expires_at = NULL,
         failed_login_attempts = 0,
         locked_until = NULL,
         must_change_password = false,
@@ -891,10 +892,118 @@ export class StaffService {
       [passwordHash, result.rows[0].id],
     );
 
-    // Invalidate all sessions
     await this.pool.query(`DELETE FROM staff_sessions WHERE staff_id = $1`, [
       result.rows[0].id,
     ]);
+  }
+
+  private async sendPasswordResetEmail(
+    email: string,
+    name: string,
+    resetToken: string,
+  ): Promise<void> {
+    const host = this.configService.get<string>("SMTP_HOST");
+    const port = parseInt(
+      this.configService.get<string>("SMTP_PORT", "587"),
+      10,
+    );
+    const user = this.configService.get<string>("SMTP_USER");
+    const pass = this.configService.get<string>("SMTP_PASS");
+    const from = this.configService.get<string>("SMTP_FROM");
+    const secure =
+      this.configService.get<string>("SMTP_SECURE", "false") === "true";
+
+    if (!host || !from) {
+      this.logger.warn(
+        "[EMAIL] SMTP not configured - skipping password reset email",
+      );
+      return;
+    }
+
+    let nodemailer: any;
+    try {
+      nodemailer = await import("nodemailer");
+    } catch {
+      this.logger.warn(
+        "[EMAIL] nodemailer not installed - skipping password reset email",
+      );
+      return;
+    }
+
+    const resetUrl = `${this.portalBaseUrl}/reset-password?token=${encodeURIComponent(resetToken)}`;
+
+    const transporter = nodemailer.createTransport({
+      host,
+      port,
+      secure,
+      auth: user && pass ? { user, pass } : undefined,
+    });
+
+    const htmlContent = `
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>إعادة تعيين كلمة المرور</title>
+</head>
+<body style="margin:0; padding:0; background-color:#f4f6f9; font-family: 'Segoe UI', Tahoma, Arial, sans-serif;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:#f4f6f9; padding:40px 20px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="600" cellspacing="0" cellpadding="0" style="background-color:#ffffff; border-radius:16px; overflow:hidden; box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+          <tr>
+            <td style="background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%); padding:40px 32px; text-align:center;">
+              <h1 style="color:#ffffff; font-size:24px; font-weight:700; margin:0 0 8px 0;">
+                إعادة تعيين كلمة المرور
+              </h1>
+              <p style="color:rgba(255,255,255,0.85); font-size:15px; margin:0;">
+                منصة تشغيل
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:32px;">
+              <p style="color:#1e293b; font-size:16px; margin:0 0 16px 0; font-weight:600;">
+                أهلاً ${name || "بك"} 👋
+              </p>
+              <p style="color:#64748b; font-size:14px; margin:0 0 24px 0; line-height:1.7;">
+                تلقّينا طلباً لإعادة تعيين كلمة المرور الخاصة بحسابك. اضغط على الزر أدناه لإتمام العملية.
+              </p>
+              <p style="color:#94a3b8; font-size:13px; margin:0 0 24px 0;">
+                الرابط صالح لمدة <strong>ساعة واحدة</strong> فقط.
+              </p>
+              <div style="text-align:center; margin:32px 0;">
+                <a href="${resetUrl}" style="display:inline-block; background-color:#2563eb; color:#ffffff; font-size:15px; font-weight:600; padding:14px 32px; border-radius:8px; text-decoration:none;">
+                  إعادة تعيين كلمة المرور
+                </a>
+              </div>
+              <p style="color:#94a3b8; font-size:12px; margin:24px 0 0 0; line-height:1.6;">
+                إذا لم تطلب إعادة تعيين كلمة المرور، يمكنك تجاهل هذا البريد بأمان.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+    try {
+      await transporter.sendMail({
+        from,
+        to: email,
+        subject: "إعادة تعيين كلمة المرور - تشغيل",
+        html: htmlContent,
+      });
+      this.logger.log(`[EMAIL] Password reset email sent to ${email}`);
+    } catch (error) {
+      this.logger.error("[EMAIL] Failed to send password reset email:", error);
+      throw new ServiceUnavailableException(
+        "تعذر إرسال بريد إعادة تعيين كلمة المرور. يرجى المحاولة لاحقاً.",
+      );
+    }
   }
 
   /**

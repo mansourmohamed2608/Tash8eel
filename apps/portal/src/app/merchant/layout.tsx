@@ -197,7 +197,7 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     }
     // Block access to removed/coming-soon pages
     if (status === "authenticated" && isHardBlockedRoute) {
-      router.replace("/merchant/plan");
+      router.replace("/merchant/usage");
     }
   }, [status, router, session, pathname, isHardBlockedRoute]);
 
@@ -430,7 +430,7 @@ function MerchantLayoutContent({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (isEntitlementBlocked && pathname) {
-      router.replace(`/merchant/plan?blocked=${encodeURIComponent(pathname)}`);
+      router.replace(`/merchant/usage?blocked=${encodeURIComponent(pathname)}`);
     }
   }, [isEntitlementBlocked, pathname, router]);
 
