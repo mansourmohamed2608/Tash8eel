@@ -626,31 +626,13 @@ export default function MerchantPricingPage() {
   }
 
   return (
-    <div className="app-page-frame space-y-5 animate-fadeIn p-4 pb-8 sm:p-6">
+    <div className="space-y-4 animate-fadeIn p-4 pb-8 sm:p-6">
       <PageHeader
         title="الأسعار والباقات"
-        description="باقات التشغيل الكاملة، باقة الدردشة فقط، وإضافات التوسّع ضمن عرض أوضح."
+        description="باقات التشغيل الكاملة، باقة الدردشة فقط، وإضافات التوسّع."
       />
 
-      <Card className="app-hero-band app-hero-band--subtle overflow-hidden">
-        <CardContent className="space-y-4 p-5 sm:p-7">
-          <h1 className="text-2xl font-black leading-tight sm:text-3xl">
-            بنية تسعير أوضح لتشغيل المبيعات والعمليات ورسائل العملاء
-          </h1>
-          <p className="text-sm text-muted-foreground sm:text-base">
-            اختَر باقة تشغيل كاملة أو ابدأ بباقة الدردشة فقط مع نفس الحقائق
-            الحالية للأسعار والقدرات.
-          </p>
-          <div className="flex flex-wrap gap-2">
-            <Badge variant="secondary">كل الأسعار بالـ EGP</Badge>
-            <Badge className="border-0 bg-amber-100 text-amber-800">
-              Trial لا يظهر كباقة مدفوعة رئيسية
-            </Badge>
-          </div>
-        </CardContent>
-      </Card>
-
-      <section className="app-workbench-strip app-workbench-strip--airy space-y-4 p-5 md:p-6">
+      <section className="space-y-4">
         <div className="flex items-center gap-2">
           <Layers className="h-4 w-4 text-primary" />
           <h2 className="text-lg font-semibold">باقات التشغيل الكاملة</h2>
@@ -663,7 +645,7 @@ export default function MerchantPricingPage() {
               <Card
                 key={plan.id}
                 className={cn(
-                  "app-data-card flex h-full flex-col bg-white shadow-sm",
+                  "flex h-full flex-col bg-white shadow-sm",
                   PLAN_COLORS[plan.id] || "border-[var(--border-default)]",
                 )}
               >
@@ -753,7 +735,7 @@ export default function MerchantPricingPage() {
       </section>
 
       {chatOnlyPlan ? (
-        <section className="app-workbench-strip app-workbench-strip--airy space-y-4 p-5 md:p-6">
+        <section className="space-y-4">
           {(() => {
             const quotas = getDisplayQuotas(chatOnlyPlan);
             return (
@@ -763,7 +745,7 @@ export default function MerchantPricingPage() {
                   <h2 className="text-lg font-semibold">باقة الدردشة فقط</h2>
                 </div>
 
-                <Card className="app-data-card border-blue-200 bg-blue-50/70 shadow-sm">
+                <Card className="border-blue-200 bg-blue-50/70 shadow-sm">
                   <CardHeader className="space-y-3">
                     <div className="flex flex-wrap items-center gap-2">
                       <CardTitle>{chatOnlyPlan.nameAr}</CardTitle>
@@ -858,7 +840,7 @@ export default function MerchantPricingPage() {
         </section>
       ) : null}
 
-      <Card className="app-data-card">
+      <Card>
         <CardHeader>
           <CardTitle>مقارنة تفصيلية بين الباقات</CardTitle>
           <CardDescription>
@@ -1052,7 +1034,7 @@ export default function MerchantPricingPage() {
         </div>
 
         <div className="grid gap-4 xl:grid-cols-2">
-          <Card className="app-data-card border-slate-200 bg-white shadow-sm">
+          <Card className="border-slate-200 bg-white shadow-sm">
             <CardHeader>
               <CardTitle>1) إضافات المزايا</CardTitle>
               <CardDescription>
@@ -1079,7 +1061,7 @@ export default function MerchantPricingPage() {
             </CardContent>
           </Card>
 
-          <Card className="app-data-card border-slate-200 bg-white shadow-sm">
+          <Card className="border-slate-200 bg-white shadow-sm">
             <CardHeader>
               <CardTitle>2) إضافات الوكلاء</CardTitle>
               <CardDescription>
@@ -1106,7 +1088,7 @@ export default function MerchantPricingPage() {
             </CardContent>
           </Card>
 
-          <Card className="app-data-card border-slate-200 bg-white shadow-sm">
+          <Card className="border-slate-200 bg-white shadow-sm">
             <CardHeader>
               <CardTitle>3) باقات الاستخدام</CardTitle>
               <CardDescription>
@@ -1133,7 +1115,7 @@ export default function MerchantPricingPage() {
             </CardContent>
           </Card>
 
-          <Card className="app-data-card border-slate-200 bg-white shadow-sm">
+          <Card className="border-slate-200 bg-white shadow-sm">
             <CardHeader>
               <CardTitle>4) الباقات المخصصة / المؤسسية</CardTitle>
               <CardDescription>
@@ -1174,7 +1156,7 @@ export default function MerchantPricingPage() {
         </div>
       </section>
 
-      <Card className="app-data-card border-slate-200 bg-white shadow-sm">
+      <Card className="border-slate-200 bg-white shadow-sm">
         <CardHeader>
           <CardTitle>ملاحظات مهمة</CardTitle>
         </CardHeader>

@@ -1249,7 +1249,7 @@ export default function PlanPage() {
   }
 
   return (
-    <div className="app-page-frame space-y-5 animate-fadeIn p-4 pb-8 sm:p-6">
+    <div className="space-y-4 animate-fadeIn p-4 pb-8 sm:p-6">
       <PageHeader
         title="الباقات والفوترة"
         description="باقات التشغيل، إضافات التوسّع، وخيارات الفوترة الحالية بترتيب أوضح."
@@ -1265,7 +1265,7 @@ export default function PlanPage() {
         }
       />
 
-      <Card className="app-filter-card app-filter-card--muted">
+      <Card className="bg-muted/30">
         <CardContent className="grid gap-4 pt-6 md:grid-cols-3">
           <div className="space-y-2">
             <p className="text-sm font-medium">الدولة</p>
@@ -1319,9 +1319,9 @@ export default function PlanPage() {
         </CardContent>
       </Card>
 
-      <Card className="app-data-card app-data-card--muted">
+      <Card className="bg-muted/30">
         <CardHeader>
-          <CardTitle className="app-section-title text-base">
+          <CardTitle className="text-base font-semibold">
             <Layers className="h-4 w-4 text-primary" />
             استهلاكك الحالي
           </CardTitle>
@@ -1420,7 +1420,7 @@ export default function PlanPage() {
         </CardContent>
       </Card>
 
-      <section className="app-workbench-strip app-workbench-strip--airy space-y-4 p-5 md:p-6">
+      <section className="space-y-4">
         <div className="flex items-center gap-2">
           <ShieldCheck className="h-4 w-4 text-primary" />
           <h2 className="text-lg font-semibold">باقات التشغيل الكاملة</h2>
@@ -1455,7 +1455,7 @@ export default function PlanPage() {
                 <Card
                   key={bundle.code}
                   className={cn(
-                    "app-data-card flex h-full flex-col border-slate-200 bg-white shadow-sm",
+                    "flex h-full flex-col border-slate-200 bg-white shadow-sm",
                     isCurrent && "border-primary ring-2 ring-primary/15",
                   )}
                 >
@@ -1599,7 +1599,7 @@ export default function PlanPage() {
               <h2 className="text-lg font-semibold">باقة الدردشة فقط</h2>
             </div>
 
-            <Card className="app-data-card border-blue-200 bg-blue-50/70 shadow-sm">
+            <Card className="border-blue-200 bg-blue-50/70 shadow-sm">
               <CardHeader className="space-y-2">
                 <div className="flex flex-wrap items-center gap-2">
                   <CardTitle>
@@ -1717,7 +1717,7 @@ export default function PlanPage() {
         </div>
 
         <div className="grid gap-4 xl:grid-cols-2">
-          <Card className="app-data-card border-slate-200 bg-white shadow-sm">
+          <Card className="border-slate-200 bg-white shadow-sm">
             <CardHeader>
               <CardTitle className="text-base">A) إضافات المزايا</CardTitle>
             </CardHeader>
@@ -1818,7 +1818,7 @@ export default function PlanPage() {
             </CardContent>
           </Card>
 
-          <Card className="app-data-card border-slate-200 bg-white shadow-sm">
+          <Card className="border-slate-200 bg-white shadow-sm">
             <CardHeader>
               <CardTitle className="text-base">B) إضافات الوكلاء</CardTitle>
             </CardHeader>
@@ -1844,7 +1844,7 @@ export default function PlanPage() {
             </CardContent>
           </Card>
 
-          <Card className="app-data-card border-slate-200 bg-white shadow-sm">
+          <Card className="border-slate-200 bg-white shadow-sm">
             <CardHeader>
               <CardTitle className="text-base">C) باقات الاستخدام</CardTitle>
             </CardHeader>
@@ -1939,7 +1939,7 @@ export default function PlanPage() {
             </CardContent>
           </Card>
 
-          <Card className="app-data-card border-slate-200 bg-white shadow-sm">
+          <Card className="border-slate-200 bg-white shadow-sm">
             <CardHeader>
               <CardTitle className="text-base">
                 D) الباقات المخصصة / المؤسسية
@@ -1968,7 +1968,7 @@ export default function PlanPage() {
         </div>
       </div>
 
-      <Card className="app-data-card border-slate-200 bg-white shadow-sm">
+      <Card className="border-slate-200 bg-white shadow-sm">
         <CardHeader>
           <CardTitle className="text-base">ملاحظات مهمة</CardTitle>
         </CardHeader>

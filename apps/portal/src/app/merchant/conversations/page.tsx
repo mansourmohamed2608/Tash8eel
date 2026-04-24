@@ -626,82 +626,49 @@ export default function ConversationsPage() {
   }
 
   return (
-    <div className="app-page-frame space-y-5 animate-fadeIn p-4 pb-8 sm:p-6">
-      <PageHeader
-        title="المحادثات"
-        description="تابع كل محادثة نشطة بترتيب أوضح للقنوات، الحالات، وتدخلات الفريق."
-        actions={
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={fetchConversations}
-            className="w-full sm:w-auto"
-          >
-            <RefreshCw className="h-4 w-4" />
-          </Button>
-        }
-      />
-
-      <section className="app-hero-band app-hero-band--subtle">
-        <div className="app-hero-band__grid">
-          <div className="space-y-4">
-            <span className="app-hero-band__eyebrow">Conversation Desk</span>
-            <div className="space-y-3">
-              <h2 className="app-hero-band__title">
-                مساحة متابعة أوضح للمحادثات الحية والتحويل للبشري داخل نفس
-                السياق.
-              </h2>
-              <p className="app-hero-band__copy">
-                راقب حالة كل محادثة، التقط الحالات التي تحتاج تدخلاً بشرياً،
-                وتابع واتساب وماسنجر وإنستاجرام من عرض ثنائي أكثر هدوءاً يحافظ
-                على سياق العميل والرسائل.
-              </p>
-            </div>
-          </div>
-          <div className="app-hero-band__metrics">
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">
-                إجمالي المحادثات
-              </span>
-              <strong className="app-hero-band__metric-value">
-                {stats.total}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">نشطة</span>
-              <strong className="app-hero-band__metric-value">
-                {stats.active}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">تدخل بشري</span>
-              <strong className="app-hero-band__metric-value">
-                {stats.humanTakeover}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">مكتملة</span>
-              <strong className="app-hero-band__metric-value">
-                {stats.completed}
-              </strong>
-            </div>
+    <div className="space-y-4 animate-fadeIn p-4 pb-6 sm:p-6">
+      <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-lg font-semibold text-foreground sm:text-xl">
+            المحادثات
+          </h1>
+          <div className="mt-1.5 flex flex-wrap gap-2">
+            <span className="inline-flex items-center gap-1 rounded border border-border/60 bg-muted/40 px-2 py-0.5 text-xs text-muted-foreground">
+              الإجمالي{" "}
+              <strong className="text-foreground">{stats.total}</strong>
+            </span>
+            <span className="inline-flex items-center gap-1 rounded border border-border/60 bg-muted/40 px-2 py-0.5 text-xs text-muted-foreground">
+              نشطة <strong className="text-foreground">{stats.active}</strong>
+            </span>
+            <span className="inline-flex items-center gap-1 rounded border border-amber-200/60 bg-amber-50/60 px-2 py-0.5 text-xs text-amber-700">
+              تدخل بشري <strong>{stats.humanTakeover}</strong>
+            </span>
+            <span className="inline-flex items-center gap-1 rounded border border-border/60 bg-muted/40 px-2 py-0.5 text-xs text-muted-foreground">
+              مكتملة{" "}
+              <strong className="text-foreground">{stats.completed}</strong>
+            </span>
           </div>
         </div>
-      </section>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={fetchConversations}
+          className="shrink-0"
+        >
+          <RefreshCw className="h-4 w-4" />
+        </Button>
+      </div>
 
       {/* Main Content - Split View */}
       <div className="grid min-h-0 grid-cols-1 gap-5 xl:h-[calc(100vh-10rem)] xl:min-h-[52rem] xl:grid-cols-[396px_minmax(0,1fr)] 2xl:grid-cols-[448px_minmax(0,1fr)]">
         {/* Conversations List */}
-        <Card className="app-data-card app-data-card--muted h-full overflow-hidden border-border/70">
+        <Card className="h-full overflow-hidden border-border/70">
           <CardHeader className="border-b bg-[color:color-mix(in_srgb,var(--surface-muted)_55%,transparent)] pb-3">
             <div className="mb-1">
-              <h3 className="app-section-title">
+              <h3 className="flex items-center gap-1.5 text-sm font-semibold">
                 <MessageSquare className="h-4 w-4 text-primary" />
                 صندوق المحادثات
               </h3>
-              <p className="app-section-copy">
-                فلترة حسب القناة والحالة مع الحفاظ على سياق العميل.
-              </p>
             </div>
             <div className="space-y-3">
               <div className="flex items-center gap-2 overflow-x-auto pb-1">
@@ -869,7 +836,7 @@ export default function ConversationsPage() {
         </Card>
 
         {/* Chat View */}
-        <Card className="app-data-card app-data-card--muted flex min-h-[28rem] flex-col overflow-hidden border-border/70 xl:h-full xl:min-h-0">
+        <Card className="flex min-h-[28rem] flex-col overflow-hidden border-border/70 xl:h-full xl:min-h-0">
           {selectedConversation ? (
             <>
               {/* Chat Header */}
