@@ -297,22 +297,19 @@ export default function KpisPage() {
     color?: "blue" | "green" | "yellow" | "red" | "purple";
   }) => {
     const colorClasses = {
-      blue: "bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400",
-      green:
-        "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400",
-      yellow:
-        "bg-yellow-100 text-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-400",
-      red: "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400",
-      purple:
-        "bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400",
+      blue: "bg-muted text-primary",
+      green: "bg-muted text-primary",
+      yellow: "bg-muted text-muted-foreground",
+      red: "bg-muted text-destructive",
+      purple: "bg-muted text-primary",
     };
     return (
       <Card>
-        <CardContent className="pt-6">
+        <CardContent className="pt-4">
           <div className="flex items-start justify-between">
             <div>
               <p className="text-sm text-muted-foreground">{title}</p>
-              <p className="text-2xl font-bold mt-1">{value}</p>
+              <p className="text-xl font-bold mt-1">{value}</p>
               {subtitle && (
                 <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>
               )}
@@ -322,8 +319,8 @@ export default function KpisPage() {
                 </div>
               )}
             </div>
-            <div className={cn("p-3 rounded-lg", colorClasses[color])}>
-              <Icon className="h-6 w-6" />
+            <div className={cn("p-2.5 rounded-md", colorClasses[color])}>
+              <Icon className="h-5 w-5" />
             </div>
           </div>
         </CardContent>
@@ -378,7 +375,7 @@ export default function KpisPage() {
   );
 
   return (
-    <div className="space-y-6 p-4 sm:p-6">
+    <div className="space-y-4 p-4 sm:p-6">
       <PageHeader
         title="مؤشرات الأداء (KPIs)"
         description="تحليل شامل لأداء متجرك ومعدلات النجاح"
@@ -438,7 +435,7 @@ export default function KpisPage() {
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="overview" className="space-y-6">
+          <TabsContent value="overview" className="space-y-4">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <StatCard
                 title="معدل استرداد السلات"
@@ -479,7 +476,7 @@ export default function KpisPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-3xl font-bold text-blue-600">
+                  <p className="text-xl font-bold text-primary">
                     {formatCurrency(bookedSales, "EGP")}
                   </p>
                 </CardContent>
@@ -492,7 +489,7 @@ export default function KpisPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-3xl font-bold text-green-600">
+                  <p className="text-xl font-bold text-foreground">
                     {formatCurrency(deliveredRevenue, "EGP")}
                   </p>
                 </CardContent>
@@ -505,7 +502,7 @@ export default function KpisPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-3xl font-bold text-amber-600">
+                  <p className="text-xl font-bold text-foreground">
                     {formatCurrency(pendingCollections, "EGP")}
                   </p>
                 </CardContent>
@@ -518,7 +515,7 @@ export default function KpisPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-3xl font-bold text-red-600">
+                  <p className="text-xl font-bold text-destructive">
                     {formatCurrency(refundsAmount, "EGP")}
                   </p>
                 </CardContent>
@@ -531,7 +528,7 @@ export default function KpisPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-3xl font-bold text-green-600">
+                  <p className="text-xl font-bold text-foreground">
                     {formatCurrency(recoveredCarts?.recoveredValue || 0, "EGP")}
                   </p>
                   <p className="text-sm text-muted-foreground mt-1">
@@ -548,7 +545,7 @@ export default function KpisPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-3xl font-bold text-purple-600">
+                  <p className="text-xl font-bold text-foreground">
                     {formatPercentValue(agentPerformance?.takeoverRate || 0)}
                   </p>
                   <p className="text-sm text-muted-foreground mt-1">
@@ -565,7 +562,7 @@ export default function KpisPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-3xl font-bold text-blue-600">
+                  <p className="text-xl font-bold text-primary">
                     {customers?.newCustomers || 0}
                   </p>
                   <p className="text-sm text-muted-foreground mt-1">
@@ -577,7 +574,7 @@ export default function KpisPage() {
             </div>
           </TabsContent>
 
-          <TabsContent value="carts" className="space-y-6">
+          <TabsContent value="carts" className="space-y-4">
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
               <StatCard
                 title="سلات متروكة"
@@ -607,7 +604,7 @@ export default function KpisPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-center py-8">
-                  <p className="text-5xl font-bold text-green-600">
+                  <p className="text-3xl font-bold text-foreground">
                     {formatCurrency(recoveredCarts?.recoveredValue || 0, "EGP")}
                   </p>
                   <p className="text-muted-foreground mt-2">
@@ -623,7 +620,7 @@ export default function KpisPage() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="delivery" className="space-y-6">
+          <TabsContent value="delivery" className="space-y-4">
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
               <StatCard
                 title="إجمالي التوصيلات"
@@ -699,7 +696,7 @@ export default function KpisPage() {
             </div>
           </TabsContent>
 
-          <TabsContent value="agents" className="space-y-6">
+          <TabsContent value="agents" className="space-y-4">
             {aiAvailable !== "active" && aiAvailable !== "unknown" && (
               <Card
                 className={
@@ -823,7 +820,7 @@ export default function KpisPage() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="customers" className="space-y-6">
+          <TabsContent value="customers" className="space-y-4">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <StatCard
                 title="عملاء نشطون خلال الفترة"
@@ -877,7 +874,7 @@ export default function KpisPage() {
                             {customer.totalOrders} طلب
                           </p>
                         </div>
-                        <p className="font-semibold text-green-600">
+                        <p className="font-semibold text-foreground">
                           {formatCurrency(customer.totalSpent, "EGP")}
                         </p>
                       </div>

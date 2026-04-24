@@ -253,12 +253,12 @@ export default function BillingPage() {
 
   if (loading) {
     return (
-      <div className="space-y-6 p-4 sm:p-6">
+      <div className="space-y-4 p-4 sm:p-6">
         <PageHeader
           title="الفواتير"
           description="عرض تفاصيل الفواتير والمدفوعات"
         />
-        <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
           {[1, 2, 3].map((i) => (
             <CardSkeleton key={i} />
           ))}
@@ -269,16 +269,21 @@ export default function BillingPage() {
 
   if (error) {
     return (
-      <div className="space-y-6 p-4 sm:p-6">
+      <div className="space-y-4 p-4 sm:p-6">
         <PageHeader
           title="الفواتير"
           description="عرض تفاصيل الفواتير والمدفوعات"
         />
-        <Card className="mt-6">
+        <Card>
           <CardContent className="p-8 text-center">
-            <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
-            <p className="text-lg font-medium text-foreground">{error}</p>
-            <Button onClick={fetchBilling} variant="outline" className="mt-4">
+            <AlertCircle className="h-8 w-8 text-destructive mx-auto mb-3" />
+            <p className="text-sm font-medium text-foreground">{error}</p>
+            <Button
+              onClick={fetchBilling}
+              variant="outline"
+              size="sm"
+              className="mt-3"
+            >
               <RefreshCw className="h-4 w-4 ml-2" />
               إعادة المحاولة
             </Button>
@@ -289,37 +294,38 @@ export default function BillingPage() {
   }
 
   return (
-    <div className="space-y-6 p-4 sm:p-6">
+    <div className="space-y-4 p-4 sm:p-6">
       <PageHeader
         title="الفواتير"
         description="عرض تفاصيل الفواتير والاشتراك والمدفوعات"
       />
 
-      {/* AI Billing Insights */}
       {/* Current Subscription */}
-      <Card className="bg-gradient-to-l from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 border-blue-200 dark:border-blue-800/50 mb-6">
-        <CardContent className="p-6">
+      <Card className="border-border/80">
+        <CardContent className="p-4">
           {summary?.subscription ? (
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               <div>
-                <p className="text-sm text-muted-foreground">الاشتراك الحالي</p>
-                <p className="text-2xl font-bold text-foreground mt-1">
+                <p className="text-xs text-muted-foreground uppercase tracking-wide">
+                  الاشتراك الحالي
+                </p>
+                <p className="text-lg font-semibold text-foreground mt-1">
                   {summary.subscription.planName}
                 </p>
-                <p className="text-sm text-muted-foreground mt-2 flex items-center gap-1">
-                  <Calendar className="h-4 w-4" />
+                <p className="text-sm text-muted-foreground mt-1.5 flex items-center gap-1">
+                  <Calendar className="h-3.5 w-3.5" />
                   الفاتورة القادمة:{" "}
                   {formatBillingDate(summary.subscription.nextBillingDate)}
                 </p>
               </div>
               <div className="text-start sm:text-end">
-                <p className="text-3xl font-bold text-foreground">
+                <p className="text-2xl font-bold text-foreground">
                   {formatCurrency(
                     summary.subscription.amount,
                     summary.subscription.currency,
                   )}
                 </p>
-                <p className="text-sm text-muted-foreground">/ شهرياً</p>
+                <p className="text-xs text-muted-foreground">/ شهرياً</p>
                 <Badge
                   variant={
                     subscriptionStatusInfo?.active ? "default" : "secondary"
@@ -364,16 +370,18 @@ export default function BillingPage() {
               </div>
             </div>
           ) : (
-            <div className="text-center py-4">
-              <CreditCard className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-              <p className="text-lg font-medium text-foreground">
-                لا يوجد اشتراك نشط
-              </p>
-              <p className="text-sm text-muted-foreground mt-1">
-                أنت على الخطة المجانية حالياً
-              </p>
-              <Link href="/merchant/plan">
-                <Button className="mt-4">عرض الأسعار والخطط</Button>
+            <div className="flex items-center gap-4 py-2">
+              <CreditCard className="h-8 w-8 text-muted-foreground shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-foreground">
+                  لا يوجد اشتراك نشط
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  أنت على الخطة المجانية حالياً
+                </p>
+              </div>
+              <Link href="/merchant/plan" className="mr-auto">
+                <Button size="sm">عرض الأسعار والخطط</Button>
               </Link>
             </div>
           )}
@@ -381,12 +389,12 @@ export default function BillingPage() {
       </Card>
 
       {/* Quick Actions */}
-      <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
         <Link href="/merchant/plan">
           <Card className="hover:border-primary/50 transition-colors cursor-pointer h-full">
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-950/50 flex items-center justify-center">
-                <CreditCard className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+            <CardContent className="p-3.5 flex items-center gap-3">
+              <div className="w-8 h-8 rounded-md bg-muted flex items-center justify-center shrink-0">
+                <CreditCard className="h-4 w-4 text-primary" />
               </div>
               <div>
                 <p className="font-medium text-foreground">إدارة الاشتراك</p>
@@ -399,12 +407,14 @@ export default function BillingPage() {
         </Link>
         <Link href="/merchant/plan#calculator">
           <Card className="hover:border-primary/50 transition-colors cursor-pointer h-full">
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-green-100 dark:bg-green-950/50 flex items-center justify-center">
-                <DollarSign className="h-5 w-5 text-green-600 dark:text-green-400" />
+            <CardContent className="p-3.5 flex items-center gap-3">
+              <div className="w-8 h-8 rounded-md bg-muted flex items-center justify-center shrink-0">
+                <DollarSign className="h-4 w-4 text-primary" />
               </div>
               <div>
-                <p className="font-medium text-foreground">حاسبة الأسعار</p>
+                <p className="text-sm font-medium text-foreground">
+                  حاسبة الأسعار
+                </p>
                 <p className="text-xs text-muted-foreground">
                   احسب تكلفة الخطة المناسبة
                 </p>
@@ -414,12 +424,14 @@ export default function BillingPage() {
         </Link>
         <Link href="/merchant/plan#usage">
           <Card className="hover:border-primary/50 transition-colors cursor-pointer h-full">
-            <CardContent className="p-4 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-purple-100 dark:bg-purple-950/50 flex items-center justify-center">
-                <FileText className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+            <CardContent className="p-3.5 flex items-center gap-3">
+              <div className="w-8 h-8 rounded-md bg-muted flex items-center justify-center shrink-0">
+                <FileText className="h-4 w-4 text-primary" />
               </div>
               <div>
-                <p className="font-medium text-foreground">بيانات الاستخدام</p>
+                <p className="text-sm font-medium text-foreground">
+                  بيانات الاستخدام
+                </p>
                 <p className="text-xs text-muted-foreground">
                   الرسائل والتوكنز المستخدمة
                 </p>
@@ -431,8 +443,8 @@ export default function BillingPage() {
 
       {/* Billing Events / History */}
       <div>
-        <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <h2 className="text-lg font-semibold text-foreground">
+        <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <h2 className="text-base font-semibold text-foreground">
             سجل الفواتير
           </h2>
           <Button variant="outline" size="sm" onClick={fetchBilling}>
@@ -442,9 +454,9 @@ export default function BillingPage() {
 
         {events.length === 0 ? (
           <Card>
-            <CardContent className="p-12 text-center">
-              <FileText className="h-12 w-12 text-muted-foreground/50 mx-auto mb-4" />
-              <p className="text-lg font-medium text-foreground">
+            <CardContent className="p-8 text-center">
+              <FileText className="h-8 w-8 text-muted-foreground/50 mx-auto mb-3" />
+              <p className="text-sm font-medium text-foreground">
                 لا توجد فواتير بعد
               </p>
               <p className="text-sm text-muted-foreground mt-2">
@@ -463,10 +475,10 @@ export default function BillingPage() {
               const StatusIcon = statusConfig.icon;
               return (
                 <Card key={event.id}>
-                  <CardContent className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex items-start gap-4 sm:items-center">
-                      <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-muted">
-                        <TypeIcon className={cn("h-5 w-5", typeConfig.color)} />
+                  <CardContent className="flex flex-col gap-3 p-3.5 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-start gap-3 sm:items-center">
+                      <div className="w-8 h-8 rounded-md flex items-center justify-center bg-muted shrink-0">
+                        <TypeIcon className={cn("h-4 w-4", typeConfig.color)} />
                       </div>
                       <div>
                         <p className="font-medium text-foreground">
@@ -484,9 +496,9 @@ export default function BillingPage() {
                       </Badge>
                       <span
                         className={cn(
-                          "font-bold text-lg",
+                          "font-semibold text-base",
                           event.type === "refund" || event.type === "credit"
-                            ? "text-green-600 dark:text-green-400"
+                            ? "text-green-600"
                             : "text-foreground",
                         )}
                       >

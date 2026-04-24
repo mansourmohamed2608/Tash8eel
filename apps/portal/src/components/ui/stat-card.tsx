@@ -25,9 +25,9 @@ export function StatCard({
 }: StatCardProps) {
   if (loading) {
     return (
-      <div className={cn("rounded-lg border bg-card p-6 shadow-sm", className)}>
-        <Skeleton className="h-4 w-1/2 mb-3" />
-        <Skeleton className="h-8 w-2/3 mb-2" />
+      <div className={cn("rounded-lg border bg-card p-4 shadow-sm", className)}>
+        <Skeleton className="h-3.5 w-1/2 mb-2.5" />
+        <Skeleton className="h-7 w-2/3 mb-2" />
         <Skeleton className="h-3 w-1/3" />
       </div>
     );
@@ -38,12 +38,12 @@ export function StatCard({
   const isNeutral = change === 0;
 
   return (
-    <div className={cn("rounded-lg border bg-card p-6 shadow-sm", className)}>
+    <div className={cn("rounded-lg border bg-card p-4 shadow-sm", className)}>
       <div className="flex items-center justify-between mb-2">
         <p className="text-sm font-medium text-muted-foreground">{title}</p>
         {icon && <div className="text-muted-foreground">{icon}</div>}
       </div>
-      <p className="text-2xl font-bold text-foreground">{value}</p>
+      <p className="text-xl font-bold text-foreground">{value}</p>
       {change !== undefined && (
         <div className="flex items-center gap-1 mt-2">
           {isPositive && <TrendingUp className="h-4 w-4 text-green-600" />}

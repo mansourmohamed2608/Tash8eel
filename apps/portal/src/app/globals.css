@@ -33,6 +33,46 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
     --input: 214.3 31.8% 91.4%;
     --ring: 221.2 83.2% 53.3%;
     --radius: 0.5rem;
+
+    /* ── Radius shortcuts ── */
+    --radius-sm: calc(var(--radius) - 4px);
+    --radius-md: calc(var(--radius) - 2px);
+
+    /* ── Surface / background layers ── */
+    --bg: #f8fafc;
+    --bg-surface-1: #ffffff;
+    --bg-surface-2: #f8fafc;
+    --bg-surface-3: #f1f5f9;
+    --surface: #ffffff;
+    --surface-muted: #f1f5f9;
+
+    /* ── Text hierarchy ── */
+    --text-primary: #0f172a;
+    --text-secondary: #475569;
+    --text-muted: #94a3b8;
+
+    /* ── Border hierarchy ── */
+    --border-default: #e2e8f0;
+    --border-active: #cbd5e1;
+    --border-subtle: #f1f5f9;
+
+    /* ── Semantic accent colors ── */
+    /* Operational blue — primary brand */
+    --accent-blue: #3b82f6;
+    --accent-blue-dim: rgba(59, 130, 246, 0.12);
+
+    /* Gold — AI highlights and premium context only */
+    --accent-gold: #c49a0a;
+    --accent-gold-dim: rgba(196, 154, 10, 0.12);
+
+    /* Status */
+    --accent-success: #22c55e;
+    --accent-warning: #f59e0b;
+    --accent-danger: #ef4444;
+
+    /* ── Cashier POS accent (maps to primary blue) ── */
+    --cashier-accent: #3b82f6;
+    --cashier-accent-muted: rgba(59, 130, 246, 0.10);
   }
 }
 
@@ -105,3 +145,64 @@ html {
   @apply overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0;
 }
 
+/* ─── Cashier POS shell ────────────────────────────────────── */
+
+.cashier-shell {
+  background-color: var(--bg-surface-2);
+}
+
+.cashier-command-bar {
+  background-color: var(--bg-surface-1);
+  border: 1px solid var(--border-default);
+  border-radius: calc(var(--radius) + 2px);
+  padding: 0.875rem 1rem;
+}
+
+.cashier-command-bar__stats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.5rem;
+  margin-top: 0.625rem;
+  padding-top: 0.625rem;
+  border-top: 1px solid var(--border-default);
+}
+
+@media (min-width: 640px) {
+  .cashier-command-bar__stats {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.cashier-command-bar__stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.cashier-command-bar__stat-label {
+  font-size: 0.7rem;
+  line-height: 1.2;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.cashier-command-bar__stat-value {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* ─── Generic app utilities ─────────────────────────────────── */
+
+.app-data-card {
+  border-radius: calc(var(--radius) + 2px);
+  border: 1px solid color-mix(in srgb, var(--border-default) 80%, transparent);
+  background-color: var(--bg-surface-1);
+}
+
+.app-section-copy {
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+}

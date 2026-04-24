@@ -1017,7 +1017,7 @@ export default function TeamPage() {
                   </Select>
                 </div>
                 {editRole !== selectedStaff?.role && (
-                  <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800">
+                  <div className="p-3 bg-muted/60 border border-border/80 rounded-lg text-sm text-muted-foreground">
                     <AlertCircle className="h-4 w-4 inline mr-1" />
                     سيتم تغيير صلاحيات هذا العضو فوراً بعد الحفظ
                   </div>

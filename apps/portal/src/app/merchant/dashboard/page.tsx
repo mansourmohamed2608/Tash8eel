@@ -211,19 +211,20 @@ export default function MerchantDashboard() {
 
   if (error || !data) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-4">
         <PageHeader title="لوحة التحكم" />
-        <Card className="border-red-200 bg-red-50">
-          <CardContent className="flex items-center gap-3 p-6">
-            <AlertCircle className="h-6 w-6 text-red-500" />
+        <Card className="border-destructive/30 bg-destructive/5">
+          <CardContent className="flex items-center gap-3 p-4">
+            <AlertCircle className="h-5 w-5 text-destructive shrink-0" />
             <div>
-              <p className="font-medium text-red-800">خطأ في تحميل البيانات</p>
-              <p className="text-sm text-red-600">
+              <p className="font-medium text-sm">خطأ في تحميل البيانات</p>
+              <p className="text-xs text-muted-foreground">
                 تعذر تحميل بيانات لوحة التحكم حالياً. حاول مرة أخرى بعد قليل.
               </p>
             </div>
             <Button
               variant="outline"
+              size="sm"
               onClick={handleRefresh}
               className="mr-auto"
             >
@@ -301,10 +302,10 @@ export default function MerchantDashboard() {
 
       {/* Demo Mode Banner */}
       {isDemo && (
-        <Card className="border-blue-200 bg-blue-50">
-          <CardContent className="flex items-center gap-3 p-4">
-            <AlertCircle className="h-5 w-5 text-blue-500" />
-            <p className="text-sm text-blue-700">
+        <Card className="border-border/80 bg-muted/50">
+          <CardContent className="flex items-center gap-3 p-3.5">
+            <AlertCircle className="h-4 w-4 text-muted-foreground shrink-0" />
+            <p className="text-sm text-muted-foreground">
               وضع العرض التجريبي - أنت تستخدم حساب تجريبي.
             </p>
           </CardContent>

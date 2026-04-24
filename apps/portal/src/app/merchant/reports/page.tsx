@@ -317,17 +317,18 @@ export default function ReportsPage() {
 
   if (error) {
     return (
-      <div className="space-y-6 p-4 sm:p-6">
+      <div className="space-y-4 p-4 sm:p-6">
         <PageHeader title="التقارير" />
-        <Card className="border-red-200 bg-red-50">
-          <CardContent className="flex items-center gap-3 p-6">
-            <AlertCircle className="h-6 w-6 text-red-500" />
+        <Card className="border-destructive/30 bg-destructive/5">
+          <CardContent className="flex items-center gap-3 p-4">
+            <AlertCircle className="h-5 w-5 text-destructive shrink-0" />
             <div>
-              <p className="font-medium text-red-800">خطأ في تحميل البيانات</p>
-              <p className="text-sm text-red-600">{error}</p>
+              <p className="font-medium text-sm">خطأ في تحميل البيانات</p>
+              <p className="text-xs text-muted-foreground">{error}</p>
             </div>
             <Button
               variant="outline"
+              size="sm"
               onClick={handleRefresh}
               className="mr-0 w-full sm:mr-auto sm:w-auto"
             >
@@ -341,12 +342,14 @@ export default function ReportsPage() {
 
   if (!dashboardData) {
     return (
-      <div className="space-y-6 p-4 sm:p-6">
+      <div className="space-y-4 p-4 sm:p-6">
         <PageHeader title="التقارير" />
-        <Card className="border-yellow-200 bg-yellow-50">
-          <CardContent className="flex items-center gap-3 p-6">
-            <AlertCircle className="h-6 w-6 text-yellow-500" />
-            <p className="text-yellow-800">لا توجد بيانات متاحة</p>
+        <Card className="border-border/80 bg-muted/50">
+          <CardContent className="flex items-center gap-3 p-4">
+            <AlertCircle className="h-4 w-4 text-muted-foreground shrink-0" />
+            <p className="text-sm text-muted-foreground">
+              لا توجد بيانات متاحة
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -392,7 +395,7 @@ export default function ReportsPage() {
       : 0;
 
   return (
-    <div className="space-y-6 animate-fadeIn p-4 sm:p-6">
+    <div className="space-y-4 animate-fadeIn p-4 sm:p-6">
       <PageHeader
         title="التقارير"
         description="تحليل أداء متجرك ومؤشرات النجاح"
@@ -488,29 +491,29 @@ export default function ReportsPage() {
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <Card>
-          <CardContent className="p-6">
+          <CardContent className="p-4">
             <p className="text-sm text-muted-foreground">
               إجمالي المبيعات المحجوزة
             </p>
-            <p className="mt-2 text-2xl font-bold">
+            <p className="mt-2 text-xl font-bold">
               {formatCurrency(bookedSales)}
             </p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-6">
+          <CardContent className="p-4">
             <p className="text-sm text-muted-foreground">
               الإيراد من الطلبات المسلّمة
             </p>
-            <p className="mt-2 text-2xl font-bold">
+            <p className="mt-2 text-xl font-bold">
               {formatCurrency(deliveredRevenue)}
             </p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-6">
+          <CardContent className="p-4">
             <p className="text-sm text-muted-foreground">مبالغ قيد التحصيل</p>
-            <p className="mt-2 text-2xl font-bold">
+            <p className="mt-2 text-xl font-bold">
               {formatCurrency(pendingCollections)}
             </p>
           </CardContent>
@@ -518,7 +521,7 @@ export default function ReportsPage() {
       </div>
 
       {/* Tabs for different reports */}
-      <Tabs defaultValue="sales" className="space-y-6">
+      <Tabs defaultValue="sales" className="space-y-4">
         <TabsList className="grid h-auto w-full grid-cols-1 gap-2 sm:grid-cols-3">
           <TabsTrigger value="sales" className="w-full">
             المبيعات
@@ -532,7 +535,7 @@ export default function ReportsPage() {
         </TabsList>
 
         {/* Sales Tab */}
-        <TabsContent value="sales" className="space-y-6">
+        <TabsContent value="sales" className="space-y-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <AreaChart
               data={revenueByDay}
@@ -593,7 +596,7 @@ export default function ReportsPage() {
         </TabsContent>
 
         {/* Products Tab */}
-        <TabsContent value="products" className="space-y-6">
+        <TabsContent value="products" className="space-y-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <PieChart data={statusDistribution} title="توزيع حالة الطلبات" />
             <Card>
@@ -652,7 +655,7 @@ export default function ReportsPage() {
         </TabsContent>
 
         {/* Conversion Tab */}
-        <TabsContent value="conversion" className="space-y-6">
+        <TabsContent value="conversion" className="space-y-4">
           {conversionData ? (
             <>
               <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
@@ -819,13 +822,15 @@ export default function ReportsPage() {
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <a href="/merchant/reports/cfo">
           <Card className="hover:border-primary/40 transition-colors cursor-pointer">
-            <CardContent className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center">
-              <div className="p-3 bg-blue-100 rounded-lg">
-                <FileText className="h-6 w-6 text-blue-600" />
+            <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
+              <div className="p-2.5 bg-muted rounded-md shrink-0">
+                <FileText className="h-5 w-5 text-primary" />
               </div>
               <div>
-                <h3 className="font-semibold">التقرير التنفيذي (CFO Brief)</h3>
-                <p className="text-sm text-muted-foreground">
+                <h3 className="font-semibold text-sm">
+                  التقرير التنفيذي (CFO Brief)
+                </h3>
+                <p className="text-xs text-muted-foreground">
                   ملخص مالي شامل بالإيرادات والمصروفات والتدفق النقدي
                 </p>
               </div>
@@ -834,13 +839,13 @@ export default function ReportsPage() {
         </a>
         <a href="/merchant/reports/accountant">
           <Card className="hover:border-primary/40 transition-colors cursor-pointer">
-            <CardContent className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center">
-              <div className="p-3 bg-green-100 rounded-lg">
-                <FileText className="h-6 w-6 text-green-600" />
+            <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
+              <div className="p-2.5 bg-muted rounded-md shrink-0">
+                <FileText className="h-5 w-5 text-primary" />
               </div>
               <div>
-                <h3 className="font-semibold">حزمة المحاسب</h3>
-                <p className="text-sm text-muted-foreground">
+                <h3 className="font-semibold text-sm">حزمة المحاسب</h3>
+                <p className="text-xs text-muted-foreground">
                   صدّر الطلبات والمصروفات وحركة المخزون بصيغة CSV لمحاسبك
                 </p>
               </div>

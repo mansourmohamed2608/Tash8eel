@@ -215,7 +215,7 @@ export default function AgentActivityPage() {
 
   if (loading) {
     return (
-      <div className="space-y-6 p-6" dir="rtl">
+      <div className="space-y-4 p-4 sm:p-6" dir="rtl">
         <PageHeader
           title="سجل نشاط الوكلاء"
           description="ما قامت به الوكلاء تلقائياً"
@@ -241,7 +241,7 @@ export default function AgentActivityPage() {
   const latestAction = actions[0];
 
   return (
-    <div className="space-y-6 p-6" dir="rtl">
+    <div className="space-y-4 p-4 sm:p-6" dir="rtl">
       {/* Back link */}
       <Link
         href="/merchant/agents"
@@ -256,45 +256,37 @@ export default function AgentActivityPage() {
       />
 
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <Card className="border-blue-200 bg-blue-50/50">
+        <Card className="border-border/80">
           <CardContent className="p-4">
             <p className="text-sm text-muted-foreground">إجمالي السجل الحالي</p>
-            <p className="mt-1 text-2xl font-bold text-blue-700">
-              {actions.length}
-            </p>
+            <p className="mt-1 text-xl font-bold">{actions.length}</p>
             <p className="mt-2 text-xs text-muted-foreground">
               هذا feed النشاط التشغيلي للوكلاء، وليس سجل قراراتهم.
             </p>
           </CardContent>
         </Card>
-        <Card className="border-amber-200 bg-amber-50/50">
+        <Card className="border-border/80">
           <CardContent className="p-4">
             <p className="text-sm text-muted-foreground">غير مُطّلع عليه</p>
-            <p className="mt-1 text-2xl font-bold text-amber-700">
-              {unresolvedCount}
-            </p>
+            <p className="mt-1 text-xl font-bold">{unresolvedCount}</p>
             <p className="mt-2 text-xs text-muted-foreground">
               عناصر ما زالت تحتاج اطلاع أو متابعة من التاجر.
             </p>
           </CardContent>
         </Card>
-        <Card className="border-emerald-200 bg-emerald-50/50">
+        <Card className="border-border/80">
           <CardContent className="p-4">
             <p className="text-sm text-muted-foreground">تم حلها تلقائياً</p>
-            <p className="mt-1 text-2xl font-bold text-emerald-700">
-              {autoResolvedCount}
-            </p>
+            <p className="mt-1 text-xl font-bold">{autoResolvedCount}</p>
             <p className="mt-2 text-xs text-muted-foreground">
               تنبيهات أو إجراءات أنجزها النظام بدون تدخل يدوي.
             </p>
           </CardContent>
         </Card>
-        <Card className="border-violet-200 bg-violet-50/50">
+        <Card className="border-border/80">
           <CardContent className="p-4">
             <p className="text-sm text-muted-foreground">وكلاء ظهر نشاطهم</p>
-            <p className="mt-1 text-2xl font-bold text-violet-700">
-              {activeAgentsCount}
-            </p>
+            <p className="mt-1 text-xl font-bold">{activeAgentsCount}</p>
             <p className="mt-2 text-xs text-muted-foreground">
               {latestAction
                 ? `آخر نشاط: ${timeAgo(latestAction.created_at)}`
@@ -309,7 +301,7 @@ export default function AgentActivityPage() {
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
           <Card>
             <CardContent className="pt-4 pb-3 text-center">
-              <div className="text-2xl font-bold">{summary.last_24h || 0}</div>
+              <div className="text-xl font-bold">{summary.last_24h || 0}</div>
               <div className="text-xs text-muted-foreground">
                 نشاط آخر 24 ساعة
               </div>
@@ -317,7 +309,7 @@ export default function AgentActivityPage() {
           </Card>
           <Card>
             <CardContent className="pt-4 pb-3 text-center">
-              <div className="text-2xl font-bold text-green-600">
+              <div className="text-xl font-bold">
                 {summary.auto_resolved_24h || 0}
               </div>
               <div className="text-xs text-muted-foreground">
@@ -327,7 +319,7 @@ export default function AgentActivityPage() {
           </Card>
           <Card>
             <CardContent className="pt-4 pb-3 text-center">
-              <div className="text-2xl font-bold text-orange-600">
+              <div className="text-xl font-bold">
                 {summary.actions_taken_24h || 0}
               </div>
               <div className="text-xs text-muted-foreground">
@@ -337,7 +329,7 @@ export default function AgentActivityPage() {
           </Card>
           <Card>
             <CardContent className="pt-4 pb-3 text-center">
-              <div className="text-2xl font-bold text-red-600">
+              <div className="text-xl font-bold text-destructive">
                 {summary.unack_critical || 0}
               </div>
               <div className="text-xs text-muted-foreground">
@@ -347,7 +339,7 @@ export default function AgentActivityPage() {
           </Card>
           <Card>
             <CardContent className="pt-4 pb-3 text-center">
-              <div className="text-2xl font-bold text-yellow-600">
+              <div className="text-xl font-bold">
                 {summary.unack_warning || 0}
               </div>
               <div className="text-xs text-muted-foreground">
