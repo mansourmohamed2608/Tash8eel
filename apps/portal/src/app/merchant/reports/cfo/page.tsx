@@ -168,7 +168,7 @@ function MetricCard({
           });
 
   return (
-    <Card className="app-data-card">
+    <Card className="">
       <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0 pb-2">
         <CardTitle className="text-sm font-medium text-slate-700">
           {title}
@@ -478,7 +478,7 @@ export default function CFOBriefPage() {
   if (loading || !metrics) {
     return (
       <div className="flex min-h-[400px] items-center justify-center p-4 sm:p-6">
-        <div className="app-data-card px-5 py-4 text-sm text-muted-foreground">
+        <div className="px-5 py-4 text-sm text-muted-foreground">
           جاري تحميل التقرير...
         </div>
       </div>
@@ -495,7 +495,7 @@ export default function CFOBriefPage() {
   );
 
   return (
-    <div className="app-page-frame space-y-5 animate-fadeIn p-4 pb-8 sm:p-6">
+    <div className="space-y-4 animate-fadeIn p-4 pb-8 sm:p-6">
       <PageHeader
         title="ملخص المدير المالي"
         description="نظرة مالية وتشغيلية أوضح مبنية على نفس الأرقام الخلفية الحالية."
@@ -584,7 +584,7 @@ export default function CFOBriefPage() {
         }
       />
 
-      <Card className="app-filter-card app-filter-card--muted border-[color:color-mix(in_srgb,var(--accent)_14%,var(--border-strong))] bg-[color:color-mix(in_srgb,var(--accent-muted)_78%,var(--surface))]">
+      <Card className="border-[color:color-mix(in_srgb,var(--accent)_14%,var(--border-strong))] bg-[color:color-mix(in_srgb,var(--accent-muted)_78%,var(--surface))]">
         <CardContent className="space-y-1 pt-4 text-sm">
           <p className="font-medium text-[var(--accent)]">
             مصدر الأرقام في هذا التقرير
@@ -602,7 +602,7 @@ export default function CFOBriefPage() {
 
       {/* Alerts Section */}
       {metrics.alerts.length > 0 && (
-        <Card className="app-data-card">
+        <Card className="">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-amber-600" />
@@ -646,7 +646,7 @@ export default function CFOBriefPage() {
         </Card>
       )}
       {aiBrief && (
-        <Card className="app-data-card border-[color:color-mix(in_srgb,var(--accent)_18%,var(--border-strong))] bg-[var(--accent-muted)]">
+        <Card className="border-[color:color-mix(in_srgb,var(--accent)_18%,var(--border-strong))] bg-[var(--accent-muted)]">
           <CardHeader>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <CardTitle className="flex items-center gap-2">
@@ -789,7 +789,7 @@ export default function CFOBriefPage() {
       </div>
 
       {/* Cash Flow */}
-      <Card className="app-data-card">
+      <Card className="">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Wallet className="h-5 w-5" />
@@ -840,7 +840,7 @@ export default function CFOBriefPage() {
 
       <div className="grid gap-4 xl:grid-cols-2">
         {/* Top Products */}
-        <Card className="app-data-card">
+        <Card className="">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <BarChart3 className="h-5 w-5" />
@@ -884,7 +884,7 @@ export default function CFOBriefPage() {
         </Card>
 
         {/* Expenses Breakdown */}
-        <Card className="app-data-card">
+        <Card className="">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <PieChart className="h-5 w-5" />

@@ -11,8 +11,8 @@ import {
   ShieldCheck,
   Workflow,
 } from "lucide-react";
-import { PageHeader } from "@/components/layout";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import {
   Card,
   CardContent,
@@ -139,69 +139,65 @@ export default function CommandCenterPage() {
   const openDlq = overview?.connectors?.dlqOpen ?? 0;
 
   return (
-    <div className="app-page-frame space-y-6 animate-fadeIn pb-8">
-      <PageHeader
-        title="غرفة القيادة"
-        description="عرض حقيقي لأحداث التحكم والتخطيط المسجلة في النظام، مع تلخيص سريع للحالات التي تحتاج متابعة."
-        actions={
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={fetchCommandCenter}
-            disabled={loading}
-          >
-            <RefreshCw className="me-2 h-4 w-4" />
-            تحديث
-          </Button>
-        }
-      />
-
-      <section className="app-hero-band app-hero-band--subtle">
-        <div className="app-hero-band__grid">
-          <div className="space-y-4">
-            <span className="app-hero-band__eyebrow">Control Plane</span>
-            <div className="space-y-3">
-              <h2 className="app-hero-band__title">
-                متابعة واحدة للمخطط، الموافقات، الموصلات، وأحداث التوصيل.
-              </h2>
-              <p className="app-hero-band__copy">
-                هذه الصفحة لا تعرض بيانات تجريبية. كل مؤشر وسجل هنا يأتي من
-                واجهات غرفة القيادة الحالية في الخادم، لتبقى شاشة المراقبة
-                مرتبطة بالحقيقة التشغيلية.
-              </p>
-            </div>
-          </div>
-          <div className="app-hero-band__metrics">
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">
-                تشغيلات المخطط
-              </span>
-              <strong className="app-hero-band__metric-value">
+    <div className="space-y-4 animate-fadeIn pb-6">
+      <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-lg font-semibold text-foreground sm:text-xl">
+            غرفة القيادة
+          </h1>
+          <div className="mt-1.5 flex flex-wrap gap-2">
+            <span className="inline-flex items-center gap-1 rounded border border-border/60 bg-muted/40 px-2 py-0.5 text-xs text-muted-foreground">
+              تشغيلات المخطط{" "}
+              <strong className="text-foreground">
                 {overview?.planner?.totalRuns24h ?? 0}
               </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">تشغيلات فاشلة</span>
-              <strong className="app-hero-band__metric-value">
-                {failedRuns}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">موافقات معلقة</span>
-              <strong className="app-hero-band__metric-value">
-                {pendingApprovals}
-              </strong>
-            </div>
-            <div className="app-hero-band__metric">
-              <span className="app-hero-band__metric-label">DLQ مفتوحة</span>
-              <strong className="app-hero-band__metric-value">{openDlq}</strong>
-            </div>
+            </span>
+            <span
+              className={cn(
+                "inline-flex items-center gap-1 rounded border px-2 py-0.5 text-xs",
+                failedRuns > 0
+                  ? "border-red-200/60 bg-red-50/60 text-red-700"
+                  : "border-border/60 bg-muted/40 text-muted-foreground",
+              )}
+            >
+              تشغيلات فاشلة <strong>{failedRuns}</strong>
+            </span>
+            <span
+              className={cn(
+                "inline-flex items-center gap-1 rounded border px-2 py-0.5 text-xs",
+                pendingApprovals > 0
+                  ? "border-amber-200/60 bg-amber-50/60 text-amber-700"
+                  : "border-border/60 bg-muted/40 text-muted-foreground",
+              )}
+            >
+              موافقات معلقة <strong>{pendingApprovals}</strong>
+            </span>
+            <span
+              className={cn(
+                "inline-flex items-center gap-1 rounded border px-2 py-0.5 text-xs",
+                openDlq > 0
+                  ? "border-red-200/60 bg-red-50/60 text-red-700"
+                  : "border-border/60 bg-muted/40 text-muted-foreground",
+              )}
+            >
+              DLQ مفتوحة <strong>{openDlq}</strong>
+            </span>
           </div>
         </div>
-      </section>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={fetchCommandCenter}
+          disabled={loading}
+          className="shrink-0"
+        >
+          <RefreshCw className="me-2 h-4 w-4" />
+          تحديث
+        </Button>
+      </div>
 
       {error && (
-        <Card className="app-data-card border-destructive/40 bg-destructive/5">
+        <Card className="border-destructive/40 bg-destructive/5">
           <CardContent className="flex items-start gap-3 p-4 text-sm text-destructive">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
             <span>{error}</span>
@@ -212,7 +208,7 @@ export default function CommandCenterPage() {
       <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
         {loading
           ? Array.from({ length: 6 }).map((_, index) => (
-              <Card key={index} className="app-data-card app-data-card--muted">
+              <Card key={index} className="bg-muted/30">
                 <CardContent className="p-4">
                   <div className="h-4 w-32 rounded bg-muted" />
                   <div className="mt-3 h-7 w-16 rounded bg-muted" />
@@ -222,7 +218,7 @@ export default function CommandCenterPage() {
           : overviewItems.map((item) => {
               const Icon = item.icon;
               return (
-                <Card key={item.label} className="app-data-card">
+                <Card key={item.label} className="">
                   <CardContent className="flex items-start justify-between gap-4 p-5">
                     <div className="min-w-0">
                       <div className="text-sm text-muted-foreground">
@@ -241,7 +237,7 @@ export default function CommandCenterPage() {
             })}
       </div>
 
-      <Card className="app-data-card app-data-card--muted">
+      <Card className="bg-muted/30">
         <CardHeader>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
             <div>

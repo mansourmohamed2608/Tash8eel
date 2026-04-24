@@ -1231,19 +1231,19 @@ export function PageHeader({
   actions,
 }: PageHeaderProps) {
   return (
-    <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+    <div className="mb-3 flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
       <div className="min-w-0">
-        <h1 className="break-words text-xl font-bold text-foreground sm:text-2xl">
+        <h1 className="break-words text-lg font-semibold text-foreground sm:text-xl">
           {title}
         </h1>
         {description && (
-          <p className="mt-1 break-words text-sm text-muted-foreground">
+          <p className="mt-0.5 break-words text-sm text-muted-foreground">
             {description}
           </p>
         )}
       </div>
       {actions && (
-        <div className="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end md:w-auto">
+        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto md:justify-end">
           {actions}
         </div>
       )}

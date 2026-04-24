@@ -1132,76 +1132,63 @@ export default function OrdersPage() {
   }
 
   return (
-    <div className="app-page-frame space-y-5 animate-fadeIn pb-8">
-      <PageHeader
-        title="الطلبات"
-        description="تشغيل ومتابعة الطلبات الحالية بقراءة أوضح للحالات الحرجة والمصادر النشطة."
-        actions={
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
-            {canCreate && (
-              <Button
-                onClick={openCreateOrderDialog}
-                className="w-full sm:w-auto"
+    <div className="space-y-3 animate-fadeIn pb-6">
+      <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-lg font-semibold text-foreground sm:text-xl">
+            الطلبات
+          </h1>
+          <div className="mt-1.5 flex flex-wrap gap-2">
+            {summaryColumns.map((item) => (
+              <span
+                key={item.label}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded border px-2 py-0.5 text-xs text-muted-foreground",
+                  item.tone
+                    ? "border-amber-200/60 bg-amber-50/60 text-amber-700"
+                    : "border-border/60 bg-muted/40",
+                )}
               >
-                <Plus className="h-4 w-4 ml-2" />
-                إنشاء طلب يدوي
-              </Button>
-            )}
+                {item.icon}
+                {item.label}{" "}
+                <strong className={item.tone ? "" : "text-foreground"}>
+                  {item.value}
+                </strong>
+              </span>
+            ))}
+            <span className="inline-flex items-center gap-1 rounded border border-border/60 bg-muted/40 px-2 py-0.5 text-xs text-muted-foreground">
+              اليوم{" "}
+              <strong className="text-foreground">
+                {formatCurrency(todayRevenue)}
+              </strong>
+            </span>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {canCreate && (
+            <Button onClick={openCreateOrderDialog} size="sm">
+              <Plus className="h-4 w-4 ml-2" />
+              إنشاء طلب يدوي
+            </Button>
+          )}
+          <Button variant="outline" size="sm" onClick={fetchOrders}>
+            <RefreshCw className="h-4 w-4" />
+          </Button>
+          {canExport && (
             <Button
               variant="outline"
               size="sm"
-              onClick={fetchOrders}
-              className="w-full sm:w-auto"
+              onClick={handleExportCSV}
+              disabled={filteredOrders.length === 0}
             >
-              <RefreshCw className="h-4 w-4" />
+              <FileSpreadsheet className="h-4 w-4 ml-2" />
+              تصدير CSV
             </Button>
-            {canExport && (
-              <Button
-                variant="outline"
-                onClick={handleExportCSV}
-                disabled={filteredOrders.length === 0}
-                className="w-full sm:w-auto"
-              >
-                <FileSpreadsheet className="h-4 w-4 ml-2" />
-                تصدير CSV
-              </Button>
-            )}
-          </div>
-        }
-      />
-
-      <section className="app-hero-band app-hero-band--subtle">
-        <div className="app-hero-band__grid">
-          <div className="space-y-4">
-            <span className="app-hero-band__eyebrow">Order Operations</span>
-            <div className="space-y-3">
-              <h2 className="app-hero-band__title">
-                شاشة عمل هادئة للطلبات الحالية والحالات المتأخرة من نفس المكان.
-              </h2>
-              <p className="app-hero-band__copy">
-                اعرض الطلبات كلوحة كانبان أو جدول، أنشئ طلباً يدوياً، وراجع
-                التحصيل والتسليم بدون الخروج من مسار العمل. إيراد اليوم{" "}
-                {formatCurrency(todayRevenue)} ومتوسط الطلب المكتمل{" "}
-                {formatCurrency(averageOrderValue)}.
-              </p>
-            </div>
-          </div>
-          <div className="app-hero-band__metrics">
-            {summaryColumns.map((item) => (
-              <div key={item.label} className="app-hero-band__metric">
-                <span className="app-hero-band__metric-label">
-                  {item.label}
-                </span>
-                <strong className="app-hero-band__metric-value">
-                  {item.value}
-                </strong>
-              </div>
-            ))}
-          </div>
+          )}
         </div>
-      </section>
+      </div>
 
-      <div className="app-filter-card app-filter-card--muted flex flex-wrap items-center gap-2 p-3.5">
+      <div className="flex flex-wrap items-center gap-2 p-3.5 rounded-lg border border-border/50 bg-muted/30">
         {STATUS_TABS.map((tab) => (
           <button
             key={tab.key}
@@ -1223,18 +1210,9 @@ export default function OrdersPage() {
       </div>
 
       {/* Filters */}
-      <Card className="app-filter-card app-filter-card--muted">
-        <CardContent className="p-5">
-          <div className="mb-4">
-            <h3 className="app-section-title">
-              <Filter className="h-4 w-4 text-primary" />
-              تصفية ومراجعة الطلبات
-            </h3>
-            <p className="app-section-copy">
-              ابحث بسرعة وبدّل بين لوحة التشغيل والجدول دون تغيير حالة الطلبات.
-            </p>
-          </div>
-          <div className="flex flex-col gap-4 xl:flex-row">
+      <Card>
+        <CardContent className="p-3.5">
+          <div className="flex flex-col gap-3 xl:flex-row">
             <div className="relative flex-1">
               <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -1321,7 +1299,7 @@ export default function OrdersPage() {
 
       {/* Orders Table */}
       {filteredOrders.length === 0 ? (
-        <Card className="app-data-card">
+        <Card>
           <CardContent className="p-12">
             <EmptyState
               icon={<ShoppingCart className="h-16 w-16" />}
@@ -1340,17 +1318,7 @@ export default function OrdersPage() {
       ) : (
         <>
           {viewMode === "kanban" ? (
-            <section className="app-workbench-strip app-workbench-strip--airy p-4 md:p-5">
-              <div className="mb-4">
-                <h3 className="app-section-title">
-                  <LayoutGrid className="h-4 w-4 text-primary" />
-                  لوحة مراحل الطلب
-                </h3>
-                <p className="app-section-copy">
-                  عرض تشغيلي للحالات الحالية حسب المرحلة، مع إبقاء كل إجراءات
-                  الطلب من نفس الشاشة.
-                </p>
-              </div>
+            <section className="p-0">
               <div className="grid gap-4 xl:grid-cols-4">
                 {KANBAN_COLUMNS.map((column) => {
                   const columnOrders = filteredOrders.filter(
@@ -1361,7 +1329,7 @@ export default function OrdersPage() {
                     <Card
                       key={column.key}
                       className={cn(
-                        "app-data-card max-h-[70vh] overflow-hidden border-t-2",
+                        "max-h-[70vh] overflow-hidden border-t-2",
                         column.border,
                       )}
                     >
@@ -1467,7 +1435,7 @@ export default function OrdersPage() {
                   return (
                     <Card
                       key={order.id}
-                      className="app-data-card cursor-pointer"
+                      className="cursor-pointer"
                       onClick={() => setSelectedOrder(order)}
                     >
                       <CardContent className="space-y-3 p-4 text-sm">

@@ -260,10 +260,9 @@ export default function MerchantDashboard() {
   const refundsAmount = data.premium?.financeSummary?.refundsAmount ?? 0;
 
   return (
-    <div className="space-y-6 animate-fadeIn">
+    <div className="space-y-4 animate-fadeIn">
       <PageHeader
         title="لوحة التحكم"
-        description="مرحباً بك! إليك ملخص نشاط متجرك"
         actions={
           <div className="flex items-center gap-2">
             <Select
