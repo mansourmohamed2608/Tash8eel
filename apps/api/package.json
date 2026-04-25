@@ -27,6 +27,7 @@
     "db:seed:clean": "ts-node -r tsconfig-paths/register src/cli/seed.ts --clean",
     "db:seed:demo-businesses": "ts-node -r tsconfig-paths/register src/database/seeds/demo-businesses.seed.ts",
     "test:ai-reply": "ts-node -r tsconfig-paths/register src/cli/test-ai-reply.ts",
+    "test:ai-multi-turn": "ts-node -r tsconfig-paths/register src/cli/test-ai-multi-turn.ts",
     "dlq:replay": "ts-node src/cli/dlq-replay.ts",
     "seed": "ts-node -r tsconfig-paths/register src/cli/seed.ts",
     "verify:foundations:migrations": "node scripts/verify-foundation-migrations.js",

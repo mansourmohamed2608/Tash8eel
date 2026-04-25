@@ -17,6 +17,14 @@ export interface ConversationContext {
     lastMediaItemIds?: string[];
     lastDecision?: string;
   };
+  // SaaS conversation memory (merchant-agnostic)
+  businessType?: string;
+  businessTypeConfidence?: number;
+  customSlots?: Record<string, unknown>;
+  slotConfidence?: Record<string, number>;
+  stillMissingImportant?: string[];
+  suggestedNextStep?: string;
+  memorySchema?: unknown;
 }
 
 // Lead score signals for AI/deterministic scoring
@@ -85,6 +93,10 @@ export interface Conversation {
     | null;
   requiresConfirmation?: boolean;
   recoveredFromFollowup?: boolean;
+
+  // Long-conversation memory (written by MemoryCompressionService)
+  conversationSummary?: string;
+  compressedHistory?: unknown;
 }
 
 export interface CreateConversationInput {
@@ -124,4 +136,7 @@ export interface UpdateConversationInput {
     | null;
   requiresConfirmation?: boolean;
   recoveredFromFollowup?: boolean;
+  // Long-conversation memory
+  conversationSummary?: string;
+  compressedHistory?: unknown;
 }

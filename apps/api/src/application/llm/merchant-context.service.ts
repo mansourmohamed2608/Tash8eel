@@ -1,4 +1,5 @@
 import { Injectable, Inject } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { Pool } from "pg";
 import { DATABASE_POOL } from "../../infrastructure/database/database.module";
 import { createLogger } from "../../shared/logging/logger";
@@ -8,6 +9,15 @@ import { Message } from "../../domain/entities/message.entity";
 import { EmbeddingService } from "./embedding.service";
 import { VectorSearchService } from "./vector-search.service";
 import { KbRetrievalService, KbChunk } from "./kb-retrieval.service";
+import {
+  UNIVERSAL_SLOTS,
+  UNIVERSAL_SLOT_LABELS_AR,
+  UniversalSlotKey,
+} from "../dialog/universal-slots";
+import {
+  CustomSlotDefinition,
+  MerchantMemorySchema,
+} from "../dialog/merchant-memory-schema.service";
 
 const logger = createLogger("MerchantContextService");
 
@@ -43,6 +53,7 @@ interface CatalogContextRow {
   is_available: boolean | null;
   is_active: boolean | null;
   variants: unknown;
+  tags?: string[] | null;
 }
 
 interface KnowledgeBaseEntry {
@@ -63,12 +74,18 @@ export interface CustomerReplyContext {
   productCatalog: string;
   knowledgeBase: string;
   conversationHistory: string;
+  conversationMemoryBrief: string;
   orderContext: string;
   fullContext: string;
   productCount: number;
   kbCount: number;
   historyCount: number;
 }
+
+const DEFAULT_RECENT_HISTORY_LIMIT = 18;
+const RECENT_HISTORY_LIMIT_MIN = 12;
+const RECENT_HISTORY_LIMIT_MAX = 24;
+const SUMMARY_MIN_MESSAGES = 20;
 
 /**
  * Shared service that builds rich cross-system context for AI prompts.
@@ -82,7 +99,20 @@ export class MerchantContextService {
     private readonly embeddingService: EmbeddingService,
     private readonly vectorSearchService: VectorSearchService,
     private readonly kbRetrievalService: KbRetrievalService,
+    private readonly configService: ConfigService,
   ) {}
+
+  private getRecentHistoryLimit(): number {
+    const raw = Number(
+      this.configService.get<string>("CUSTOMER_REPLY_HISTORY_LIMIT") ??
+        DEFAULT_RECENT_HISTORY_LIMIT,
+    );
+    if (!Number.isFinite(raw)) return DEFAULT_RECENT_HISTORY_LIMIT;
+    return Math.min(
+      RECENT_HISTORY_LIMIT_MAX,
+      Math.max(RECENT_HISTORY_LIMIT_MIN, Math.floor(raw)),
+    );
+  }
 
   async buildContext(
     merchantId: string,
@@ -162,6 +192,29 @@ export class MerchantContextService {
   ): Promise<CustomerReplyContext> {
     const { merchant, conversation, customerMessage, recentMessages } = params;
 
+    const ctx = (conversation.context || {}) as Record<string, any>;
+    const businessType: string | undefined =
+      typeof ctx.businessType === "string" && ctx.businessType
+        ? ctx.businessType
+        : undefined;
+    const universalFromContext: Record<string, unknown> =
+      (ctx?.dialog?.filledSlots as Record<string, unknown>) || {};
+    const customSlotsFromContext: Record<string, unknown> =
+      (ctx.customSlots as Record<string, unknown>) || {};
+    const slotConfidence: Record<string, number> =
+      (ctx.slotConfidence as Record<string, number>) || {};
+    const memorySchema: MerchantMemorySchema | undefined =
+      (ctx.memorySchema as MerchantMemorySchema) || undefined;
+    const stillMissingImportant: string[] = Array.isArray(
+      ctx.stillMissingImportant,
+    )
+      ? (ctx.stillMissingImportant as string[])
+      : [];
+    const suggestedNextStep: string | undefined =
+      typeof ctx.suggestedNextStep === "string"
+        ? ctx.suggestedNextStep
+        : undefined;
+
     const [allCatalogRows, hasStructuredKb] = await Promise.all([
       this.loadAllActiveCatalogRows(merchant.id),
       this.kbRetrievalService.hasStructuredKb(merchant.id),
@@ -171,6 +224,7 @@ export class MerchantContextService {
       merchant.id,
       customerMessage,
       allCatalogRows,
+      businessType,
     );
 
     // KB retrieval: use structured chunks when available; fall back to JSONB extraction.
@@ -183,7 +237,7 @@ export class MerchantContextService {
       const chunks = await this.kbRetrievalService.searchChunks(
         merchant.id,
         customerMessage,
-        { limit: 8 },
+        { limit: 8, businessType },
       );
       kbCount = chunks.length;
       knowledgeBase = this.buildStructuredKbSection(merchant, chunks);
@@ -223,8 +277,29 @@ export class MerchantContextService {
       visibleCatalogRows,
       visibleRelevantRows,
     );
-    const conversationHistory =
+    const recentHistoryText =
       this.buildCustomerConversationHistorySection(historyMessages);
+
+    const showSummary =
+      recentMessages.length > SUMMARY_MIN_MESSAGES &&
+      typeof conversation.conversationSummary === "string" &&
+      conversation.conversationSummary.trim().length > 0;
+    const conversationSummary = showSummary
+      ? String(conversation.conversationSummary).trim()
+      : "";
+
+    const conversationMemoryBrief = this.buildConversationMemoryBrief({
+      businessType,
+      universalSlots: universalFromContext,
+      customSlots: customSlotsFromContext,
+      slotConfidence,
+      schema: memorySchema,
+      missingImportantSlots: stillMissingImportant,
+      suggestedNextStep,
+      conversationSummary,
+      recentHistoryText,
+      historyCount: historyMessages.length,
+    });
 
     const fullContext = [
       "SECTION A — Business Identity:",
@@ -236,8 +311,8 @@ export class MerchantContextService {
       "SECTION C — Knowledge Base:",
       knowledgeBase,
       "",
-      "SECTION D — Conversation History:",
-      conversationHistory,
+      "SECTION D — Conversation Memory:",
+      conversationMemoryBrief,
       "",
       "SECTION E — Order Context:",
       orderContext,
@@ -247,13 +322,145 @@ export class MerchantContextService {
       businessInfo,
       productCatalog,
       knowledgeBase,
-      conversationHistory,
+      conversationHistory: conversationMemoryBrief,
+      conversationMemoryBrief,
       orderContext,
       fullContext,
       productCount: allCatalogRows.length,
       kbCount,
       historyCount: historyMessages.length,
     };
+  }
+
+  private buildConversationMemoryBrief(input: {
+    businessType?: string;
+    universalSlots: Record<string, unknown>;
+    customSlots: Record<string, unknown>;
+    slotConfidence: Record<string, number>;
+    schema?: MerchantMemorySchema;
+    missingImportantSlots: string[];
+    suggestedNextStep?: string;
+    conversationSummary: string;
+    recentHistoryText: string;
+    historyCount: number;
+  }): string {
+    const {
+      businessType,
+      universalSlots,
+      customSlots,
+      schema,
+      missingImportantSlots,
+      suggestedNextStep,
+      conversationSummary,
+      recentHistoryText,
+    } = input;
+
+    const lines: string[] = [];
+    lines.push("=== ذاكرة المحادثة ===");
+    lines.push(
+      `${UNIVERSAL_SLOT_LABELS_AR.business_type}: ${this.formatSlotValue(businessType)}`,
+    );
+
+    for (const key of UNIVERSAL_SLOTS) {
+      if (key === "business_type") continue;
+      const label = UNIVERSAL_SLOT_LABELS_AR[key as UniversalSlotKey];
+      lines.push(
+        `${label}: ${this.formatSlotValue(universalSlots[key])}`,
+      );
+    }
+
+    const customDefs: CustomSlotDefinition[] = schema?.customSlots ?? [];
+    const customLines: string[] = [];
+    if (customDefs.length > 0) {
+      const applicable = customDefs.filter((def) => {
+        if (
+          def.appliesToBusinessTypes &&
+          def.appliesToBusinessTypes.length > 0 &&
+          businessType
+        ) {
+          return def.appliesToBusinessTypes.includes(businessType);
+        }
+        return true;
+      });
+      for (const def of applicable) {
+        const value = customSlots[def.key];
+        if (value === undefined || value === null || value === "") continue;
+        const label = def.labelAr || def.key;
+        customLines.push(`${label}: ${this.formatSlotValue(value)}`);
+      }
+    } else {
+      for (const [key, value] of Object.entries(customSlots)) {
+        if (value === undefined || value === null || value === "") continue;
+        customLines.push(`${key}: ${this.formatSlotValue(value)}`);
+      }
+    }
+
+    lines.push("");
+    lines.push("=== تفاصيل إضافية (خاصة بالمتجر) ===");
+    if (customLines.length > 0) {
+      lines.push(...customLines);
+    } else {
+      lines.push("لا توجد تفاصيل إضافية");
+    }
+
+    lines.push("");
+    lines.push(
+      `المعلومات الناقصة المهمة: ${
+        missingImportantSlots.length > 0
+          ? missingImportantSlots
+              .map((k) => this.translateSlotKey(k, schema))
+              .join("، ")
+          : "لا يوجد"
+      }`,
+    );
+    lines.push(
+      `الخطوة التالية المقترحة: ${
+        suggestedNextStep && suggestedNextStep.trim().length > 0
+          ? suggestedNextStep.trim()
+          : "—"
+      }`,
+    );
+
+    if (conversationSummary && conversationSummary.length > 0) {
+      lines.push("");
+      lines.push("=== ملخص المحادثة الأقدم ===");
+      lines.push(conversationSummary);
+    }
+
+    lines.push("");
+    lines.push(`=== آخر ${input.historyCount} رسالة ===`);
+    lines.push(recentHistoryText || "No previous conversation history.");
+
+    return lines.join("\n");
+  }
+
+  private translateSlotKey(
+    key: string,
+    schema?: MerchantMemorySchema,
+  ): string {
+    const universal = UNIVERSAL_SLOT_LABELS_AR[key as UniversalSlotKey];
+    if (universal) return universal;
+    const def = schema?.customSlots.find((s) => s.key === key);
+    return def?.labelAr || key;
+  }
+
+  private formatSlotValue(value: unknown): string {
+    if (value === undefined || value === null || value === "") {
+      return "غير محدد";
+    }
+    if (Array.isArray(value)) {
+      return value.length === 0
+        ? "غير محدد"
+        : value.map((v) => String(v)).join("، ");
+    }
+    if (typeof value === "object") {
+      try {
+        return JSON.stringify(value);
+      } catch {
+        return String(value);
+      }
+    }
+    return String(value);
   }
 
   /**
@@ -328,7 +535,8 @@ export class MerchantContextService {
            stock_quantity,
            is_available,
            COALESCE(is_active, true) AS is_active,
-           variants
+           variants,
+           tags
          FROM catalog_items
          WHERE merchant_id = $1
            AND COALESCE(is_active, true) = true
@@ -352,7 +560,8 @@ export class MerchantContextService {
              NULL::numeric AS stock_quantity,
              is_available,
              true AS is_active,
-             variants
+             variants,
+             NULL::text[] AS tags
            FROM catalog_items
            WHERE merchant_id = $1
            ORDER BY COALESCE(category, ''), COALESCE(name_ar, name_en, sku, id::text)`,
@@ -368,6 +577,7 @@ export class MerchantContextService {
     merchantId: string,
     customerMessage: string,
     allCatalogRows: CatalogContextRow[],
+    businessType?: string,
   ): Promise<CatalogContextRow[]> {
     if (allCatalogRows.length === 0) {
       return [];
@@ -386,7 +596,7 @@ export class MerchantContextService {
           .map((match) => byId.get(match.id))
           .filter((row): row is CatalogContextRow => !!row);
         if (matchedRows.length > 0) {
-          return matchedRows;
+          return this.boostByBusinessType(matchedRows, businessType);
         }
       }
     } catch (error) {
@@ -396,20 +606,55 @@ export class MerchantContextService {
     const scored = allCatalogRows
       .map((row) => ({
         row,
-        score: this.keywordScore(customerMessage, [
-          row.name_ar,
-          row.name_en,
-          row.description_ar,
-          row.category,
-          row.sku,
-        ]),
+        score:
+          this.keywordScore(customerMessage, [
+            row.name_ar,
+            row.name_en,
+            row.description_ar,
+            row.category,
+            row.sku,
+          ]) + (this.rowMatchesBusinessType(row, businessType) ? 1 : 0),
       }))
       .filter((entry) => entry.score > 0)
       .sort((a, b) => b.score - a.score)
       .slice(0, 5)
       .map((entry) => entry.row);
 
-    return scored.length > 0 ? scored : allCatalogRows.slice(0, 5);
+    if (scored.length > 0) {
+      return scored;
+    }
+
+    return this.boostByBusinessType(
+      allCatalogRows.slice(0, 5),
+      businessType,
+    );
+  }
+
+  private rowMatchesBusinessType(
+    row: CatalogContextRow,
+    businessType?: string,
+  ): boolean {
+    if (!businessType) return false;
+    const tag = `business_type:${businessType}`;
+    const tagsField: unknown = (row as unknown as { tags?: unknown }).tags;
+    const tags = Array.isArray(tagsField)
+      ? tagsField.map((t) => String(t).toLowerCase())
+      : [];
+    return tags.includes(tag.toLowerCase());
+  }
+
+  private boostByBusinessType(
+    rows: CatalogContextRow[],
+    businessType?: string,
+  ): CatalogContextRow[] {
+    if (!businessType || rows.length === 0) return rows;
+    const matching = rows.filter((r) =>
+      this.rowMatchesBusinessType(r, businessType),
+    );
+    if (matching.length === 0) return rows;
+    const matchingIds = new Set(matching.map((r) => r.id));
+    const others = rows.filter((r) => !matchingIds.has(r.id));
+    return [...matching, ...others];
   }
 
   private buildCustomerProductCatalogSection(
@@ -700,7 +945,7 @@ export class MerchantContextService {
     ) {
       messages.pop();
     }
-    return messages.slice(-10);
+    return messages.slice(-this.getRecentHistoryLimit());
   }
 
   private buildCustomerConversationHistorySection(messages: Message[]): string {

@@ -49,9 +49,13 @@ export class DialogOrchestrator {
       context.merchant.id,
     );
     const previousDialog = (context.conversation.context || {}).dialog || {};
-    const filledSlots = {
+    const turnMemory = context.turnMemory;
+    const llmExtracted = turnMemory?.universalSlots;
+    const filledSlots: Record<string, unknown> = {
       ...(previousDialog.filledSlots || {}),
-      ...this.extractFilledSlots(context.customerMessage),
+      ...(llmExtracted && Object.keys(llmExtracted).length > 0
+        ? llmExtracted
+        : this.extractFilledSlots(context.customerMessage)),
     };
     const slotPlan = SlotPlan.chooseNext({
       slotGraph: playbook.slotGraph,
@@ -111,6 +115,18 @@ export class DialogOrchestrator {
       contextPatch: {
         lastIntent: classification.intent,
         lastActionType: gatedResult.action,
+        ...(turnMemory?.businessType
+          ? { businessType: turnMemory.businessType }
+          : {}),
+        ...(turnMemory?.businessTypeConfidence !== undefined
+          ? { businessTypeConfidence: turnMemory.businessTypeConfidence }
+          : {}),
+        ...(turnMemory
+          ? {
+              customSlots: turnMemory.customSlots,
+              slotConfidence: turnMemory.slotConfidence,
+            }
+          : {}),
         dialog: {
           lastIntent: classification.intent,
           filledSlots,

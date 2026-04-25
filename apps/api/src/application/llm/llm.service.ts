@@ -75,12 +75,23 @@ export function isObviouslyOffTopic(text: string): boolean {
   return hardDenyPatterns.some((re) => re.test(t));
 }
 
+export interface TurnMemory {
+  businessType?: string;
+  businessTypeConfidence?: number;
+  universalSlots: Record<string, unknown>;
+  customSlots: Record<string, unknown>;
+  slotConfidence: Record<string, number>;
+  stillMissingImportant: string[];
+  newlyFilled?: string[];
+}
+
 export interface LlmContext {
   merchant: Merchant;
   conversation: Conversation;
   catalogItems: CatalogItem[];
   recentMessages: Message[];
   customerMessage: string;
+  turnMemory?: TurnMemory;
 }
 
 export interface LlmResult {
@@ -552,12 +563,24 @@ export class LlmService {
         merchant,
         merchantContext,
       );
+      const conversationCtx = (conversation.context || {}) as Record<
+        string,
+        any
+      >;
       const userPrompt = JSON.stringify(
         {
           customerMessage,
           replyIntent,
           currentCart: conversation.cart || { items: [] },
-          dialogMemory: (conversation.context || {}).dialog || {},
+          dialogMemory: conversationCtx.dialog || {},
+          businessType: conversationCtx.businessType ?? null,
+          customSlots: conversationCtx.customSlots ?? {},
+          slotConfidence: conversationCtx.slotConfidence ?? {},
+          stillMissingImportant: Array.isArray(
+            conversationCtx.stillMissingImportant,
+          )
+            ? conversationCtx.stillMissingImportant
+            : [],
         },
         null,
         2,
@@ -688,12 +711,24 @@ export class LlmService {
         merchant,
         merchantContext,
       );
+      const conversationCtx = (conversation.context || {}) as Record<
+        string,
+        any
+      >;
       const userPrompt = JSON.stringify(
         {
           customerMessage,
           replyIntent,
           currentCart: conversation.cart || { items: [] },
-          dialogMemory: (conversation.context || {}).dialog || {},
+          dialogMemory: conversationCtx.dialog || {},
+          businessType: conversationCtx.businessType ?? null,
+          customSlots: conversationCtx.customSlots ?? {},
+          slotConfidence: conversationCtx.slotConfidence ?? {},
+          stillMissingImportant: Array.isArray(
+            conversationCtx.stillMissingImportant,
+          )
+            ? conversationCtx.stillMissingImportant
+            : [],
         },
         null,
         2,
@@ -795,6 +830,7 @@ export class LlmService {
       productCatalog: string;
       knowledgeBase: string;
       conversationHistory: string;
+      conversationMemoryBrief?: string;
       orderContext: string;
     },
   ): string {
@@ -833,8 +869,17 @@ ${merchantContext.knowledgeBase}
 سياق الطلب/السلة:
 ${merchantContext.orderContext}
 
-تاريخ مختصر:
-${merchantContext.conversationHistory}
+قواعد استخدام الذاكرة:
+- جاوب أولاً ثم اسأل سؤال واحد مفيد فقط.
+- لا تسأل عن معلومات موجودة في "ذاكرة المحادثة".
+- لو السعر/المعلومة موجودة في الكتالوج أو KB، استخدمها حرفياً.
+- التزم بنوع النشاط الموجود في الذاكرة إلا لو الرسالة الحالية فيها إشارة صريحة لتغييره.
+- لو عندك معلومات كافية تقدّم قيمة (سعر، مقترح، مقارنة)، قدّمها قبل السؤال.
+- لو العميل ذكر كمية/ميزانية/تفاصيل سابقاً وموجودة في الذاكرة، لا تعيد السؤال.
+- لخّص التفاصيل المعروفة لما يكون مفيد قبل ما تقترح الخطوة التالية.
+- تجنّب "محتاج تفاصيل" العامة لما تكون الذاكرة فيها ما يكفي.
+
+${merchantContext.conversationMemoryBrief ?? merchantContext.conversationHistory}
 
 طريقة الرد:
 - الرد يكون قصير، بشري، ودافي: جملة أو جملتين غالباً.
@@ -857,6 +902,7 @@ ${merchantContext.conversationHistory}
       productCatalog: string;
       knowledgeBase: string;
       conversationHistory: string;
+      conversationMemoryBrief?: string;
       orderContext: string;
     },
   ): string {
@@ -917,8 +963,17 @@ ${merchantContext.knowledgeBase}
 سياق الطلب/السلة:
 ${merchantContext.orderContext}
 
-تاريخ مختصر:
-${merchantContext.conversationHistory}`;
+قواعد استخدام الذاكرة:
+- جاوب أولاً ثم اسأل سؤال واحد مفيد فقط.
+- لا تسأل عن معلومات موجودة في "ذاكرة المحادثة".
+- لو السعر/المعلومة موجودة في الكتالوج أو KB، استخدمها حرفياً.
+- التزم بنوع النشاط الموجود في الذاكرة إلا لو الرسالة الحالية فيها إشارة صريحة لتغييره.
+- لو عندك معلومات كافية تقدّم قيمة (سعر، مقترح، مقارنة)، قدّمها قبل السؤال.
+- لو العميل ذكر كمية/ميزانية/تفاصيل سابقاً وموجودة في الذاكرة، لا تعيد السؤال.
+- لخّص التفاصيل المعروفة لما يكون مفيد قبل ما تقترح الخطوة التالية.
+- تجنّب "محتاج تفاصيل" العامة لما تكون الذاكرة فيها ما يكفي.
+
+${merchantContext.conversationMemoryBrief ?? merchantContext.conversationHistory}`;
   }
 
   private async callOpenAI(

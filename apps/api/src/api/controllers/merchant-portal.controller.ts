@@ -15025,20 +15025,30 @@ export class MerchantPortalController {
     const result = await this.pool.query(
       `SELECT
          COALESCE(SUM(mtu.tokens_used), 0)::int AS tokens_used,
-         COALESCE(sp.monthly_token_limit, 10000) AS token_limit,
-         COALESCE(sp.monthly_conversation_limit, 500) AS conversation_limit,
-         COALESCE(sp.name, 'Basic') AS plan_name,
-         sub.current_period_end,
+         COALESCE(
+           NULLIF(bp.limits->>'monthlyTokenLimit', '')::int,
+           NULLIF(bp.limits->>'monthly_token_limit', '')::int,
+           NULLIF(bp.limits->>'tokenBudgetDaily', '')::int * 30,
+           10000
+         ) AS token_limit,
+         COALESCE(
+           NULLIF(bp.limits->>'monthlyConversationLimit', '')::int,
+           NULLIF(bp.limits->>'monthly_conversation_limit', '')::int,
+           NULLIF(bp.limits->>'monthlyConversationsIncluded', '')::int,
+           NULLIF(bp.limits->>'messagesPerMonth', '')::int,
+           500
+         ) AS conversation_limit,
+         COALESCE(bp.name, 'Basic') AS plan_name,
+         ms.current_period_end,
          (SELECT COUNT(DISTINCT id)::int FROM conversations
           WHERE merchant_id = $1 AND created_at >= date_trunc('month', NOW())) AS conversations_used
        FROM merchants m
-       LEFT JOIN subscriptions sub ON sub.merchant_id = m.id AND sub.status = 'ACTIVE'
-       LEFT JOIN subscription_plans sp ON sp.id = sub.plan_id
+       LEFT JOIN merchant_subscriptions ms ON ms.merchant_id = m.id AND ms.status::text = 'ACTIVE'
+       LEFT JOIN billing_plans bp ON bp.id = ms.plan_id
        LEFT JOIN merchant_token_usage mtu ON mtu.merchant_id = m.id
          AND mtu.usage_date >= date_trunc('month', NOW())
        WHERE m.id = $1
-       GROUP BY sp.monthly_token_limit, sp.monthly_conversation_limit, sp.name,
-                sub.current_period_end`,
+       GROUP BY bp.limits, bp.name, ms.current_period_end`,
       [merchantId],
     );
 

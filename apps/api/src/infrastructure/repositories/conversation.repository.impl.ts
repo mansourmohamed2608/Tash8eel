@@ -192,6 +192,18 @@ export class ConversationRepository implements IConversationRepository {
       updates.push(`human_takeover_at = $${paramIndex++}`);
       values.push(input.takenOverAt ? input.takenOverAt.toISOString() : null);
     }
+    if (input.conversationSummary !== undefined) {
+      updates.push(`conversation_summary = $${paramIndex++}`);
+      values.push(input.conversationSummary);
+    }
+    if (input.compressedHistory !== undefined) {
+      updates.push(`compressed_history = $${paramIndex++}`);
+      values.push(
+        input.compressedHistory === null
+          ? null
+          : JSON.stringify(input.compressedHistory),
+      );
+    }
 
     if (updates.length === 0) return existing;
 
@@ -243,6 +255,9 @@ export class ConversationRepository implements IConversationRepository {
         : null,
       createdAt: new Date(row.created_at as string),
       updatedAt: new Date(row.updated_at as string),
+      conversationSummary:
+        (row.conversation_summary as string | undefined) ?? undefined,
+      compressedHistory: (row.compressed_history as unknown) ?? undefined,
     };
   }
 }

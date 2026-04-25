@@ -61,6 +61,11 @@ export interface KbSearchOptions {
   locale?: string;
   /** Max chunks to return (default 5). */
   limit?: number;
+  /**
+   * If set, prefer chunks whose business_type matches OR is NULL (universal).
+   * Untagged rows remain visible so merchants without tagged KB still get hits.
+   */
+  businessType?: string;
 }
 
 /**
@@ -99,7 +104,7 @@ export class KbRetrievalService {
     query: string,
     options: KbSearchOptions = {},
   ): Promise<KbChunk[]> {
-    const { sourceTypes, locale, limit = 5 } = options;
+    const { sourceTypes, locale, limit = 5, businessType } = options;
 
     try {
       const queryVec = await this.embeddingService.embed(query);
@@ -111,6 +116,7 @@ export class KbRetrievalService {
           sourceTypes,
           locale,
           limit,
+          businessType,
         );
         if (semanticResults.length > 0) {
           return semanticResults;
@@ -126,6 +132,7 @@ export class KbRetrievalService {
       sourceTypes,
       locale,
       limit,
+      businessType,
     );
   }
 
@@ -285,6 +292,7 @@ export class KbRetrievalService {
     sourceTypes: KbSourceType[] | undefined,
     locale: string | undefined,
     limit: number,
+    businessType?: string,
   ): Promise<KbChunk[]> {
     const pgVecLiteral = `[${queryVec.join(",")}]`;
     const params: unknown[] = [merchantId, pgVecLiteral];
@@ -306,6 +314,10 @@ export class KbRetrievalService {
       params.push(locale);
       sql += ` AND locale = $${params.length}`;
     }
+    if (businessType) {
+      params.push(businessType);
+      sql += ` AND (business_type = $${params.length} OR business_type IS NULL)`;
+    }
 
     params.push(limit);
     sql += ` ORDER BY distance ASC LIMIT $${params.length}`;
@@ -320,6 +332,7 @@ export class KbRetrievalService {
     sourceTypes: KbSourceType[] | undefined,
     locale: string | undefined,
     limit: number,
+    businessType?: string,
   ): Promise<KbChunk[]> {
     const params: unknown[] = [merchantId, `%${query}%`];
     let sql = `
@@ -338,6 +351,10 @@ export class KbRetrievalService {
     if (locale) {
       params.push(locale);
       sql += ` AND locale = $${params.length}`;
+    }
+    if (businessType) {
+      params.push(businessType);
+      sql += ` AND (business_type = $${params.length} OR business_type IS NULL)`;
     }
 
     params.push(limit);

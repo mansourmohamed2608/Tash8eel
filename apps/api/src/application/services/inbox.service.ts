@@ -41,6 +41,10 @@ import { UsageGuardService } from "./usage-guard.service";
 import { MessageRouterService } from "../llm/message-router.service";
 import { OutboundMediaAttachment } from "../adapters/channel.adapter.interface";
 import { DialogOrchestrator } from "../dialog/dialog-orchestrator";
+import { MerchantMemorySchemaService } from "../dialog/merchant-memory-schema.service";
+import { BusinessContextClassifierService } from "../dialog/business-context-classifier.service";
+import { SlotExtractorService } from "../dialog/slot-extractor.service";
+import { MemoryCompressionService } from "./memory-compression.service";
 
 // Repository imports
 import {
@@ -172,6 +176,10 @@ export class InboxService {
     private readonly customerReorderService: CustomerReorderService,
     private readonly usageGuard: UsageGuardService,
     private readonly messageRouter: MessageRouterService,
+    private readonly merchantMemorySchema: MerchantMemorySchemaService,
+    private readonly businessContextClassifier: BusinessContextClassifierService,
+    private readonly slotExtractor: SlotExtractorService,
+    private readonly memoryCompression: MemoryCompressionService,
   ) {
     this.planCacheTtlSeconds = Number(
       this.configService.get<string>("MERCHANT_PLAN_CACHE_TTL_SECONDS", "300"),
@@ -1171,6 +1179,14 @@ export class InboxService {
       };
     }
 
+    // 6.5 Build SaaS conversation memory: schema → classify business_type → extract slots.
+    // All steps fail-open: any failure returns priors so the reply path never breaks.
+    const turnMemory = await this.buildTurnMemory({
+      merchantId: params.merchantId,
+      conversation,
+      text: params.text ?? "",
+    });
+
     // 7. Get LLM response
     const model = "gpt-4o-mini";
     const llmOptions: LLMCallOptions = {
@@ -1226,13 +1242,18 @@ export class InboxService {
         estimatedCostUsd: 0,
       });
     }
+    const enrichedConversation = this.applyTurnMemoryToConversation(
+      conversation,
+      turnMemory,
+    );
     const dialogTurn = await this.dialogOrchestrator.processTurn(
       {
         merchant,
-        conversation,
+        conversation: enrichedConversation,
         catalogItems,
         recentMessages,
         customerMessage: params.text,
+        turnMemory,
       },
       quotaAwareLlm.options,
       {
@@ -1316,6 +1337,24 @@ export class InboxService {
       collectedInfo.address = this.normalizeAddress(address);
     }
 
+    const mergedContextPatch = {
+      ...(conversation.context || {}),
+      ...dialogTurn.contextPatch,
+      ...(turnMemory
+        ? {
+            businessType:
+              turnMemory.businessType ??
+              (conversation.context as any)?.businessType,
+            businessTypeConfidence:
+              turnMemory.businessTypeConfidence ??
+              (conversation.context as any)?.businessTypeConfidence,
+            customSlots: turnMemory.customSlots,
+            slotConfidence: turnMemory.slotConfidence,
+            stillMissingImportant: turnMemory.stillMissingImportant,
+          }
+        : {}),
+    };
+
     await this.conversationRepo.update(conversation.id, {
       cart: result.cart,
       state: this.determineNewState(
@@ -1323,11 +1362,14 @@ export class InboxService {
         conversation.state,
         llmResponse.conversationState,
       ),
-      context: dialogTurn.contextPatch,
+      context: mergedContextPatch,
       lastMessageAt: new Date(),
       collectedInfo,
       missingSlots: llmResponse.missingSlots || [],
     });
+
+    // Fire-and-forget compression: never block customer reply on summary work.
+    this.maybeTriggerCompression(conversation, recentMessages.length + 1);
 
     const processingTime = Date.now() - startTime;
     this.logger.log({
@@ -2313,5 +2355,176 @@ export class InboxService {
     }
 
     return false;
+  }
+
+  /**
+   * Build per-turn structured memory: load merchant schema, classify business
+   * context, and extract universal + custom slots. Fail-open at every stage —
+   * any error returns priors and lets the reply proceed.
+   */
+  private async buildTurnMemory(input: {
+    merchantId: string;
+    conversation: Conversation;
+    text: string;
+  }) {
+    const ctx = (input.conversation.context || {}) as Record<string, any>;
+    const priorUniversal: Record<string, unknown> =
+      (ctx?.dialog?.filledSlots as Record<string, unknown>) || {};
+    const priorCustom: Record<string, unknown> =
+      (ctx?.customSlots as Record<string, unknown>) || {};
+    const priorBusinessType: string | undefined =
+      typeof ctx?.businessType === "string" && ctx.businessType
+        ? ctx.businessType
+        : undefined;
+
+    let schema;
+    try {
+      schema = await this.merchantMemorySchema.load(input.merchantId);
+    } catch (err) {
+      this.logger.warn({
+        message: "MerchantMemorySchema load failed",
+        err: (err as Error).message,
+      });
+      return {
+        businessType: priorBusinessType,
+        businessTypeConfidence: undefined,
+        universalSlots: priorUniversal,
+        customSlots: priorCustom,
+        slotConfidence: (ctx?.slotConfidence as Record<string, number>) || {},
+        stillMissingImportant: Array.isArray(ctx?.stillMissingImportant)
+          ? (ctx.stillMissingImportant as string[])
+          : [],
+        newlyFilled: [],
+      };
+    }
+
+    let classification;
+    try {
+      classification = await this.businessContextClassifier.classify({
+        text: input.text,
+        priorBusinessType,
+        schema,
+      });
+    } catch (err) {
+      this.logger.warn({
+        message: "BusinessContextClassifier failed",
+        err: (err as Error).message,
+      });
+      classification = {
+        businessType: priorBusinessType,
+        confidence: priorBusinessType ? 0.6 : 0,
+        switched: false,
+        reason: "no_signal" as const,
+      };
+    }
+
+    let extraction;
+    try {
+      extraction = await this.slotExtractor.extract({
+        merchantId: input.merchantId,
+        text: input.text,
+        businessType: classification.businessType,
+        priorUniversalSlots: priorUniversal,
+        priorCustomSlots: priorCustom,
+        schema,
+      });
+    } catch (err) {
+      this.logger.warn({
+        message: "SlotExtractor failed",
+        err: (err as Error).message,
+      });
+      extraction = {
+        universalSlots: priorUniversal,
+        customSlots: priorCustom,
+        newlyFilled: [],
+        confidence: (ctx?.slotConfidence as Record<string, number>) || {},
+        stillMissingImportant: Array.isArray(ctx?.stillMissingImportant)
+          ? (ctx.stillMissingImportant as string[])
+          : [],
+        tokensUsed: 0,
+      };
+    }
+
+    return {
+      businessType: classification.businessType,
+      businessTypeConfidence: classification.confidence,
+      universalSlots: extraction.universalSlots,
+      customSlots: extraction.customSlots,
+      slotConfidence: extraction.confidence,
+      stillMissingImportant: extraction.stillMissingImportant,
+      newlyFilled: extraction.newlyFilled,
+    };
+  }
+
+  /**
+   * Merge turn memory + schema into conversation.context so the downstream
+   * MerchantContextService.buildCustomerReplyContext can read them off the
+   * conversation record without separate plumbing.
+   */
+  private applyTurnMemoryToConversation(
+    conversation: Conversation,
+    turnMemory: Awaited<ReturnType<InboxService["buildTurnMemory"]>>,
+  ): Conversation {
+    const ctx = (conversation.context || {}) as Record<string, any>;
+    const dialog = (ctx.dialog || {}) as Record<string, any>;
+    return {
+      ...conversation,
+      context: {
+        ...ctx,
+        businessType: turnMemory.businessType ?? ctx.businessType,
+        businessTypeConfidence:
+          turnMemory.businessTypeConfidence ?? ctx.businessTypeConfidence,
+        customSlots: turnMemory.customSlots,
+        slotConfidence: turnMemory.slotConfidence,
+        stillMissingImportant: turnMemory.stillMissingImportant,
+        dialog: {
+          ...dialog,
+          filledSlots: {
+            ...((dialog.filledSlots as Record<string, unknown>) || {}),
+            ...turnMemory.universalSlots,
+          },
+        },
+      },
+    };
+  }
+
+  /**
+   * Trigger MemoryCompressionService when the conversation has accumulated
+   * enough messages since the last summary. Always fire-and-forget.
+   */
+  private maybeTriggerCompression(
+    conversation: Conversation,
+    msgCount: number,
+  ): void {
+    const compressed = (conversation.compressedHistory || {}) as {
+      messageCountAtSummary?: number;
+    };
+    const lastCount = Number(compressed.messageCountAtSummary || 0);
+    const sinceLast = msgCount - lastCount;
+    if (msgCount <= 20) return;
+    if (sinceLast < 5) {
+      // Honour the service's own heuristic if available.
+      void this.memoryCompression
+        .needsCompression(conversation.id)
+        .then((needs) => {
+          if (!needs) return;
+          return this.memoryCompression.compressConversation(conversation.id);
+        })
+        .catch((err) =>
+          this.logger.warn({
+            message: "background compression failed",
+            err: (err as Error).message,
+          }),
+        );
+      return;
+    }
+    void this.memoryCompression
+      .compressConversation(conversation.id)
+      .catch((err) =>
+        this.logger.warn({
+          message: "background compression failed",
+          err: (err as Error).message,
+        }),
+      );
   }
 }

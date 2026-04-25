@@ -36,6 +36,9 @@ import { AiMetricsService } from "../../shared/services/ai-metrics.service";
 import { KbChunkService } from "./kb-chunk.service";
 import { DialogOrchestrator } from "../dialog/dialog-orchestrator";
 import { DialogPlaybookService } from "../dialog/dialog-playbook.service";
+import { MerchantMemorySchemaService } from "../dialog/merchant-memory-schema.service";
+import { BusinessContextClassifierService } from "../dialog/business-context-classifier.service";
+import { SlotExtractorService } from "../dialog/slot-extractor.service";
 
 // Infrastructure dependencies
 import { RepositoriesModule } from "../../infrastructure/repositories/repositories.module";
@@ -94,6 +97,9 @@ import { SharedAiModule } from "../shared/shared-ai.module";
     KbChunkService,
     DialogOrchestrator,
     DialogPlaybookService,
+    MerchantMemorySchemaService,
+    BusinessContextClassifierService,
+    SlotExtractorService,
   ],
   exports: [
     InboxService,
@@ -130,6 +136,9 @@ import { SharedAiModule } from "../shared/shared-ai.module";
     KbChunkService,
     DialogOrchestrator,
     DialogPlaybookService,
+    MerchantMemorySchemaService,
+    BusinessContextClassifierService,
+    SlotExtractorService,
     SharedAiModule,
   ],
 })
