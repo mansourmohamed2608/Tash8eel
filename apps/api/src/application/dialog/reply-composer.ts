@@ -13,6 +13,7 @@ export interface ReplyIntent {
   constraintAxes?: string[];
   slotPlan?: { nextSlot: string | null; promptSeed?: string };
   forbiddenClaims?: string[];
+  salesStage?: string;
 }
 
 export interface ReplyComposerOptions {
@@ -41,9 +42,16 @@ const STIFF_PHRASES: Array<[RegExp, string]> = [
   [/ممكن\s+تساعدني(?:\s+وتقول\s+لي)?/gi, "قولّي"],
   [/ممكن\s+تخبرني/gi, "قولّي"],
   [/ممكن\s+تخبريني/gi, "قولّي"],
+  [/يرجى\s+تزويدي[^\n.؟!]*/gi, "قولّي"],
   [/يرجى(?:\s+توضيح)?/gi, "قولّي"],
   [/هل\s+تريد/gi, "تحب"],
   [/هل\s+ترغب/gi, "تحب"],
+  [/هل\s+لديك/gi, "عندك"],
+  [/هل\s+(?:يمكنك|بإمكانك|تستطيع)\s+(?:إخباري|إعلامي|توضيح)[^\n.؟!]*/gi, "قولّي"],
+  [/كيف\s+يمكنني\s+مساعدتك[؟?]?/gi, "قولّي"],
+  [/كيف\s+أستطيع\s+مساعدتك[؟?]?/gi, "قولّي"],
+  [/ممكن\s+تزودني[^\n.؟!]*/gi, "قولّي"],
+  [/محتاج\s+(?:إلى\s+)?تفاصيل\s+(?:أكتر|أكثر)[.،؟!]?\s*/gi, ""],
   [/الرجاء/gi, "لو سمحت"],
   [/استمتع\s+بالمشاهدة[!！.\s]*/gi, ""],
 ];

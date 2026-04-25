@@ -82,7 +82,7 @@ export interface CustomerReplyContext {
   historyCount: number;
 }
 
-const DEFAULT_RECENT_HISTORY_LIMIT = 18;
+const DEFAULT_RECENT_HISTORY_LIMIT = 20;
 const RECENT_HISTORY_LIMIT_MIN = 12;
 const RECENT_HISTORY_LIMIT_MAX = 24;
 const SUMMARY_MIN_MESSAGES = 20;
@@ -214,6 +214,12 @@ export class MerchantContextService {
       typeof ctx.suggestedNextStep === "string"
         ? ctx.suggestedNextStep
         : undefined;
+    const askedSlots: string[] = Array.isArray(ctx?.dialog?.askedSlots)
+      ? (ctx.dialog.askedSlots as string[])
+      : [];
+    const answeredSlots: string[] = Array.isArray(ctx?.dialog?.answeredSlots)
+      ? (ctx.dialog.answeredSlots as string[])
+      : [];
 
     const [allCatalogRows, hasStructuredKb] = await Promise.all([
       this.loadAllActiveCatalogRows(merchant.id),
@@ -237,7 +243,7 @@ export class MerchantContextService {
       const chunks = await this.kbRetrievalService.searchChunks(
         merchant.id,
         customerMessage,
-        { limit: 8, businessType },
+        { limit: 8, businessType, customerVisibleOnly: true },
       );
       kbCount = chunks.length;
       knowledgeBase = this.buildStructuredKbSection(merchant, chunks);
@@ -299,6 +305,8 @@ export class MerchantContextService {
       conversationSummary,
       recentHistoryText,
       historyCount: historyMessages.length,
+      askedSlots,
+      answeredSlots,
     });
 
     const fullContext = [
@@ -343,6 +351,8 @@ export class MerchantContextService {
     conversationSummary: string;
     recentHistoryText: string;
     historyCount: number;
+    askedSlots?: string[];
+    answeredSlots?: string[];
   }): string {
     const {
       businessType,
@@ -353,6 +363,8 @@ export class MerchantContextService {
       suggestedNextStep,
       conversationSummary,
       recentHistoryText,
+      askedSlots = [],
+      answeredSlots = [],
     } = input;
 
     const lines: string[] = [];
@@ -419,6 +431,48 @@ export class MerchantContextService {
           ? suggestedNextStep.trim()
           : "—"
       }`,
+    );
+
+    // Known fields — do not re-ask
+    const knownSlotLines: string[] = [];
+    for (const key of UNIVERSAL_SLOTS) {
+      const val = universalSlots[key];
+      if (val !== undefined && val !== null && val !== "") {
+        const label = UNIVERSAL_SLOT_LABELS_AR[key as UniversalSlotKey];
+        knownSlotLines.push(`${label}: ${this.formatSlotValue(val)}`);
+      }
+    }
+    for (const [key, val] of Object.entries(customSlots)) {
+      if (val !== undefined && val !== null && val !== "") {
+        const def = schema?.customSlots?.find((s) => s.key === key);
+        knownSlotLines.push(
+          `${def?.labelAr || key}: ${this.formatSlotValue(val)}`,
+        );
+      }
+    }
+
+    lines.push("");
+    lines.push("=== معلومات معروفة — لا تسأل عنها مجدداً ===");
+    if (knownSlotLines.length > 0) {
+      lines.push(...knownSlotLines);
+    } else {
+      lines.push("لا توجد معلومات محددة بعد");
+    }
+
+    if (answeredSlots.length > 0) {
+      lines.push(
+        `حقول أُجيب عنها بالفعل: ${answeredSlots.map((k) => this.translateSlotKey(k, schema)).join("، ")}`,
+      );
+    }
+    if (askedSlots.length > 0) {
+      lines.push(
+        `حقول سُئل عنها: ${askedSlots.map((k) => this.translateSlotKey(k, schema)).join("، ")}`,
+      );
+    }
+
+    lines.push("");
+    lines.push(
+      "تعليمات: لا تسأل مجدداً عن أي معلومة موجودة في قسم 'معلومات معروفة'. اسأل عن سؤال واحد فقط إذا كانت هناك معلومات ناقصة فعلاً.",
     );
 
     if (conversationSummary && conversationSummary.length > 0) {

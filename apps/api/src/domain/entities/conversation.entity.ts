@@ -16,6 +16,16 @@ export interface ConversationContext {
     lastQuestion?: string;
     lastMediaItemIds?: string[];
     lastDecision?: string;
+    // Short-reply resolution fields (merchant-agnostic)
+    pendingQuestionType?: string;
+    pendingSlot?: string;
+    lastOfferedOptions?: string[];
+    lastRecommendation?: string;
+    lastProposal?: string;
+    lastQuotedItems?: string[];
+    lastCustomerSelection?: string;
+    // Sales stage tracking (derived each turn by SalesStageAdvancer)
+    salesStage?: string;
   };
   // SaaS conversation memory (merchant-agnostic)
   businessType?: string;

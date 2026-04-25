@@ -56,7 +56,7 @@ export class MemoryCompressionService {
     );
     this.RECENT_MESSAGES_TO_KEEP = this.configService.get<number>(
       "RECENT_MESSAGES_TO_KEEP",
-      10,
+      20,
     );
 
     this.openaiClient = new OpenAI({
@@ -167,9 +167,11 @@ export class MemoryCompressionService {
       existingSummary,
     );
 
-    // Update conversation with new summary
+    // Update conversation with new summary and record message count so
+    // maybeTriggerCompression can avoid re-compressing too aggressively.
     await this.conversationRepo.update(conversationId, {
       conversationSummary: newSummary,
+      compressedHistory: { messageCountAtSummary: allMessages.length },
     } as any);
 
     const compressedTokens =

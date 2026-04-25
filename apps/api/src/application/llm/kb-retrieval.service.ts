@@ -66,6 +66,13 @@ export interface KbSearchOptions {
    * Untagged rows remain visible so merchants without tagged KB still get hits.
    */
   businessType?: string;
+  /**
+   * When true, restricts retrieval to chunks with visibility='public'.
+   * MUST be true for all customer-facing reply paths.
+   * Internal/private KB chunks (visibility='internal') must never be
+   * exposed in customer replies — they are for staff/AI-only use.
+   */
+  customerVisibleOnly?: boolean;
 }
 
 /**
@@ -104,7 +111,7 @@ export class KbRetrievalService {
     query: string,
     options: KbSearchOptions = {},
   ): Promise<KbChunk[]> {
-    const { sourceTypes, locale, limit = 5, businessType } = options;
+    const { sourceTypes, locale, limit = 5, businessType, customerVisibleOnly } = options;
 
     try {
       const queryVec = await this.embeddingService.embed(query);
@@ -117,6 +124,7 @@ export class KbRetrievalService {
           locale,
           limit,
           businessType,
+          customerVisibleOnly,
         );
         if (semanticResults.length > 0) {
           return semanticResults;
@@ -133,6 +141,7 @@ export class KbRetrievalService {
       locale,
       limit,
       businessType,
+      customerVisibleOnly,
     );
   }
 
@@ -293,6 +302,7 @@ export class KbRetrievalService {
     locale: string | undefined,
     limit: number,
     businessType?: string,
+    customerVisibleOnly?: boolean,
   ): Promise<KbChunk[]> {
     const pgVecLiteral = `[${queryVec.join(",")}]`;
     const params: unknown[] = [merchantId, pgVecLiteral];
@@ -318,6 +328,9 @@ export class KbRetrievalService {
       params.push(businessType);
       sql += ` AND (business_type = $${params.length} OR business_type IS NULL)`;
     }
+    if (customerVisibleOnly) {
+      sql += ` AND visibility = 'public'`;
+    }
 
     params.push(limit);
     sql += ` ORDER BY distance ASC LIMIT $${params.length}`;
@@ -333,6 +346,7 @@ export class KbRetrievalService {
     locale: string | undefined,
     limit: number,
     businessType?: string,
+    customerVisibleOnly?: boolean,
   ): Promise<KbChunk[]> {
     const params: unknown[] = [merchantId, `%${query}%`];
     let sql = `
@@ -355,6 +369,9 @@ export class KbRetrievalService {
     if (businessType) {
       params.push(businessType);
       sql += ` AND (business_type = $${params.length} OR business_type IS NULL)`;
+    }
+    if (customerVisibleOnly) {
+      sql += ` AND visibility = 'public'`;
     }
 
     params.push(limit);

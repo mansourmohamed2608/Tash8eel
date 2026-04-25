@@ -18,6 +18,9 @@ import { DialogPlaybookService, MerchantSalesPlaybook } from "./dialog-playbook.
 import { MediaComposer } from "./media-composer";
 import { ReplyIntent } from "./reply-composer";
 import { SlotPlan } from "./slot-plan";
+import { OptionExtractor } from "./option-extractor";
+import { ShortReplyResolver, ShortReplyResolution } from "./short-reply-resolver";
+import { SalesStageAdvancer, SalesStage } from "./sales-stage-advancer";
 
 export interface DialogTurnResult {
   replyText: string;
@@ -48,11 +51,29 @@ export class DialogOrchestrator {
     const playbook = await this.playbookService.getForMerchant(
       context.merchant.id,
     );
-    const previousDialog = (context.conversation.context || {}).dialog || {};
+    const previousDialog = ((context.conversation.context || {}).dialog || {}) as Record<string, any>;
     const turnMemory = context.turnMemory;
+
+    // Resolve short reply using previous turn's context
+    const shortReply = ShortReplyResolver.resolve(context.customerMessage, {
+      pendingSlot: previousDialog.pendingSlot ?? null,
+      pendingQuestionType: previousDialog.pendingQuestionType ?? null,
+      lastOfferedOptions: previousDialog.lastOfferedOptions ?? null,
+      lastRecommendation: previousDialog.lastRecommendation ?? null,
+      lastProposal: previousDialog.lastProposal ?? null,
+    });
+    // Deterministically patch slots from unambiguous short-reply resolutions
+    // (e.g. numeric → quantity, location → delivery_area, date → deadline)
+    const shortReplySlotPatch = this.resolveShortReplySlots(
+      shortReply,
+      previousDialog,
+    );
     const llmExtracted = turnMemory?.universalSlots;
     const filledSlots: Record<string, unknown> = {
       ...(previousDialog.filledSlots || {}),
+      // Short-reply slot values are injected before LLM extraction so they
+      // appear in answeredSlots and the memory brief (preventing re-asking).
+      ...shortReplySlotPatch,
       ...(llmExtracted && Object.keys(llmExtracted).length > 0
         ? llmExtracted
         : this.extractFilledSlots(context.customerMessage)),
@@ -61,6 +82,20 @@ export class DialogOrchestrator {
       slotGraph: playbook.slotGraph,
       filledSlots,
       lastAskedFor: previousDialog.lastQuestion || null,
+    });
+
+    const cartItems = context.conversation.cart?.items || [];
+    const salesStage: SalesStage = SalesStageAdvancer.advance({
+      currentIntent: classification.intent,
+      customerMessage: context.customerMessage,
+      filledSlots,
+      lastOfferedOptions: previousDialog.lastOfferedOptions ?? [],
+      lastQuotedItems: previousDialog.lastQuotedItems ?? [],
+      lastRecommendation: previousDialog.lastRecommendation,
+      lastProposal: previousDialog.lastProposal,
+      cartItemCount: cartItems.length,
+      requiresConfirmation: context.conversation.requiresConfirmation,
+      lastActionType: (context.conversation.context?.lastActionType as string | undefined) ?? undefined,
     });
 
     const mediaAttachments = await MediaComposer.compose({
@@ -79,6 +114,11 @@ export class DialogOrchestrator {
       context.customerMessage,
       context.merchant,
     );
+    const shortReplyFacts = this.buildShortReplyFacts(
+      shortReply,
+      previousDialog,
+      shortReplySlotPatch,
+    );
     const replyIntent = this.buildReplyIntent({
       classification,
       playbook,
@@ -87,11 +127,17 @@ export class DialogOrchestrator {
       mediaAttachments,
       constraintPlan,
       escalationPlan,
+      shortReplyFacts,
+      salesStage,
     });
+    const stageMaxTokens = this.getStageMaxTokens(salesStage);
+    const dialogOptions: LLMCallOptions = options
+      ? { ...options, maxTokens: Math.max(options.maxTokens || 0, stageMaxTokens) }
+      : { maxTokens: stageMaxTokens };
     const dialogResult = await this.llmService.processDialogTurn(
       context,
       replyIntent,
-      options,
+      dialogOptions,
     );
     const gatedResult = this.gateCommerceAction(
       dialogResult,
@@ -108,8 +154,22 @@ export class DialogOrchestrator {
         .join("|"),
     };
 
+    const replyText = gatedResult.response.reply_ar;
+    const offeredOptions = OptionExtractor.extractOfferedOptions(replyText);
+    const pendingQType = OptionExtractor.detectPendingQuestionType(replyText);
+    const pendingSlotFromReply = OptionExtractor.detectPendingSlot(replyText);
+    const lastProposalFromReply = OptionExtractor.extractLastProposal(replyText);
+
+    // Carry forward selection from short-reply resolver if ordinal/all
+    const lastCustomerSelection =
+      shortReply.type === "ordinal_selection" && shortReply.resolvedValue
+        ? String(shortReply.resolvedValue)
+        : shortReply.type === "selecting_all_options" && shortReply.resolvedOptions?.length
+          ? shortReply.resolvedOptions.join(" + ")
+          : previousDialog.lastCustomerSelection;
+
     return {
-      replyText: gatedResult.response.reply_ar,
+      replyText,
       llmResult: gatedResult,
       mediaAttachments,
       contextPatch: {
@@ -144,6 +204,17 @@ export class DialogOrchestrator {
               ? mediaAttachments.map((item) => item.url)
               : previousDialog.lastMediaItemIds || [],
           lastDecision: gatedResult.response.reasoning || classification.intent,
+          // Short-reply context: extracted from this turn's reply for the next turn
+          lastOfferedOptions: offeredOptions.length > 0
+            ? offeredOptions
+            : previousDialog.lastOfferedOptions || [],
+          pendingQuestionType: pendingQType || previousDialog.pendingQuestionType,
+          pendingSlot: pendingSlotFromReply || slotPlan.nextSlot || previousDialog.pendingSlot,
+          lastProposal: lastProposalFromReply || previousDialog.lastProposal,
+          lastRecommendation: previousDialog.lastRecommendation,
+          lastCustomerSelection,
+          lastQuotedItems: previousDialog.lastQuotedItems,
+          salesStage,
         },
       },
       routingDecision: input.degraded
@@ -162,6 +233,8 @@ export class DialogOrchestrator {
     mediaAttachments: OutboundMediaAttachment[];
     constraintPlan: ReturnType<typeof ConstraintNegotiator.plan>;
     escalationPlan: ReturnType<typeof DeEscalator.plan>;
+    shortReplyFacts?: string[];
+    salesStage: SalesStage;
   }): ReplyIntent {
     const candidateItems = this.findMentionedCatalogItems(
       input.context.customerMessage,
@@ -171,6 +244,7 @@ export class DialogOrchestrator {
     const isEscalationLike =
       input.escalationPlan.hasComplaint || input.escalationPlan.hasHumanDemand;
     const isPolicyLike = this.isPolicyQuestion(input.context.customerMessage);
+    // Short-reply intents are answering an existing question — do NOT suppress slot questions
     const isEarlyHumanIntent = new Set([
       "greeting",
       "browsing",
@@ -188,9 +262,16 @@ export class DialogOrchestrator {
     const nextSlot = shouldSuppressSlotQuestion
       ? null
       : input.slotPlan.nextSlot;
+    const stageInstruction = SalesStageAdvancer.getStageInstructionAr(input.salesStage);
+    const stageReplyStructure = this.getStageReplyStructure(input.salesStage);
     const answerFacts = [
+      // Sales stage instruction — always first, governs the AI's closing posture
+      `[SALES_STAGE: ${input.salesStage}] ${stageInstruction}`,
+      ...(stageReplyStructure ? [`[REPLY_STRUCTURE] ${stageReplyStructure}`] : []),
       `Intent: ${input.classification.intent}. Treat this as the controlling intent unless the customer explicitly confirms a purchase.`,
       "Do not collect address, payment, or quantity unless the customer has clearly chosen/bought/confirmed a specific item or order.",
+      // Inject short-reply facts (context note + resolved slot + do-not-repeat)
+      ...(input.shortReplyFacts || []),
       ...(input.classification.intent === "greeting"
         ? [
             "Goal: greet naturally as the merchant team. Do not interpret the greeting as a product request. Do not ask quantity, address, or payment.",
@@ -214,6 +295,26 @@ export class DialogOrchestrator {
       ...(input.classification.intent === "infeasible_request"
         ? [
             "Goal: name the conflicting constraints and ask which one can flex. Do not hand off and do not suggest a random catalog substitute.",
+          ]
+        : []),
+      ...(input.classification.intent === "selecting_all_options"
+        ? [
+            "Goal: customer wants ALL recently offered options. Do NOT re-ask the choice question. Compare/continue with all options and ask ONE useful next question only.",
+          ]
+        : []),
+      ...(input.classification.intent === "ordinal_selection"
+        ? [
+            "Goal: customer selected a specific option by position. Store the selection and continue from that option. Do not re-ask which option they want.",
+          ]
+        : []),
+      ...(input.classification.intent === "affirmative"
+        ? [
+            "Goal: customer agrees with the last proposal/question. Proceed to the next useful step without restarting qualification or repeating already-answered questions.",
+          ]
+        : []),
+      ...(input.classification.intent === "negative_reply"
+        ? [
+            "Goal: customer rejected the last proposal. Offer one alternative or ask one narrow clarifying question. Keep the current business context.",
           ]
         : []),
       ...(isPolicyLike
@@ -267,6 +368,7 @@ export class DialogOrchestrator {
         "do not ask for quantity, address, or payment during greeting, media request, policy, guided choice, complaint, off-topic, or infeasible turns",
         ...(input.escalationPlan.forbiddenClaims || []),
       ],
+      salesStage: input.salesStage,
     };
   }
 
@@ -302,7 +404,12 @@ export class DialogOrchestrator {
       "off_topic",
       "media_request",
       "custom_request",
+      // Negative/rejection replies should not mutate cart
+      "negative_reply",
+      "changing_mind",
     ]);
+    // Note: "affirmative", "selecting_all_options", "ordinal_selection" are NOT
+    // in nonMutatingIntents — they may legitimately proceed to cart/order.
 
     const action = next.action || next.response.actionType;
     if (
@@ -358,6 +465,101 @@ export class DialogOrchestrator {
     );
   }
 
+  /**
+   * Deterministically map unambiguous short-reply resolutions to slot values.
+   * These values are merged into filledSlots BEFORE the LLM call so that the
+   * memory brief marks them as answered and the LLM does not re-ask.
+   */
+  private resolveShortReplySlots(
+    shortReply: ShortReplyResolution,
+    previousDialog: Record<string, any>,
+  ): Record<string, unknown> {
+    const patch: Record<string, unknown> = {};
+    const pendingSlot = (previousDialog.pendingSlot as string | undefined) ?? "";
+    const pendingQType =
+      (previousDialog.pendingQuestionType as string | undefined) ?? "";
+
+    if (
+      shortReply.type === "numeric_value" &&
+      shortReply.resolvedValue !== undefined
+    ) {
+      const num = shortReply.resolvedValue as number;
+      if (pendingSlot === "quantity" || pendingQType === "quantity") {
+        patch.quantity = num;
+      } else if (pendingSlot === "budget" || pendingQType === "budget") {
+        patch.budget = num;
+      }
+      // If pendingSlot is ambiguous, leave resolution to the LLM (contextNote
+      // already explains the number to it).
+    }
+
+    if (shortReply.type === "location_hint" && shortReply.resolvedValue) {
+      patch.delivery_area = shortReply.resolvedValue;
+    }
+
+    if (shortReply.type === "date_hint" && shortReply.resolvedValue) {
+      patch.deadline = shortReply.resolvedValue;
+    }
+
+    return patch;
+  }
+
+  /**
+   * Build the list of facts injected into replyIntent.answerFacts for the LLM.
+   * Produces three levels of signal:
+   *   1. The context note explaining what the short reply means.
+   *   2. One [ANSWERED_BY_SHORT_REPLY] line per deterministically resolved slot.
+   *   3. A [DO_NOT_REPEAT] line when the last asked slot has been answered.
+   */
+  private buildShortReplyFacts(
+    shortReply: ShortReplyResolution,
+    previousDialog: Record<string, any>,
+    slotPatch: Record<string, unknown>,
+  ): string[] {
+    if (shortReply.type === "not_short" && !shortReply.contextNote) return [];
+
+    const facts: string[] = [];
+
+    if (shortReply.contextNote) {
+      facts.push(`[SHORT_REPLY_CONTEXT] ${shortReply.contextNote}`);
+    }
+
+    for (const [slot, value] of Object.entries(slotPatch)) {
+      const label = this.slotLabelAr(slot);
+      facts.push(
+        `[ANSWERED_BY_SHORT_REPLY] ${label} = "${value}". لا تعيد السؤال عن ${label} في هذا الرد.`,
+      );
+    }
+
+    const lastQuestion = previousDialog.lastQuestion as string | undefined;
+    if (
+      lastQuestion &&
+      shortReply.type !== "not_short" &&
+      shortReply.type !== "needs_clarification"
+    ) {
+      facts.push(
+        `[DO_NOT_REPEAT] آخر سؤال كان "${lastQuestion}" وأُجيب عنه بالرسالة الحالية. لا تعيد نفس السؤال.`,
+      );
+    }
+
+    return facts;
+  }
+
+  private slotLabelAr(slot: string): string {
+    const labels: Record<string, string> = {
+      quantity: "الكمية",
+      budget: "الميزانية",
+      delivery_area: "منطقة التوصيل",
+      deadline: "الموعد",
+      product_interest: "المنتج",
+      business_type: "نوع النشاط",
+      payment_state: "طريقة الدفع",
+      customer_intent: "نية العميل",
+      closing_stage: "مرحلة الإغلاق",
+    };
+    return labels[slot] ?? slot;
+  }
+
   private extractFilledSlots(text: string): Record<string, unknown> {
     const filled: Record<string, unknown> = {};
     const raw = String(text || "");
@@ -411,5 +613,52 @@ export class DialogOrchestrator {
       .replace(/[^\p{L}\p{N}]+/gu, " ")
       .replace(/\s+/g, " ")
       .trim();
+  }
+
+  /**
+   * Token budget per sales stage.
+   * Rich stages (recommendation, comparison, quote, objection, order_draft) need
+   * more tokens to produce a quality reply with options, prices, and structure.
+   * Simple stages (discovery, qualification) stay short and WhatsApp-natural.
+   */
+  private getStageMaxTokens(stage: SalesStage): number {
+    const richStages = new Set<SalesStage>([
+      "recommendation",
+      "comparison",
+      "quote",
+      "objection_handling",
+      "order_draft",
+    ]);
+    const simpleStages = new Set<SalesStage>([
+      "discovery",
+      "qualification",
+      "followup",
+    ]);
+    if (richStages.has(stage)) return 680;
+    if (simpleStages.has(stage)) return 380;
+    return 520;
+  }
+
+  /**
+   * Stage-specific reply structure fact injected into answerFacts so the LLM
+   * knows exactly how to order and format its response.
+   * Returns null for stages that don't need explicit structure guidance.
+   */
+  private getStageReplyStructure(stage: SalesStage): string | null {
+    const structures: Partial<Record<SalesStage, string>> = {
+      recommendation:
+        "هيكل الرد: (1) اعتراف دافئ قصير → (2) قدّم 2-3 خيارات من الكتالوج بأسعارها الحقيقية → (3) رشّح الأنسب مع سبب موجز → (4) سؤال واحد يقرّب الاختيار. لا تخترع أسعاراً.",
+      comparison:
+        "هيكل الرد: (1) اعتراف قصير → (2) قارن الخيارات بوضوح (السعر والمزايا الجوهرية) → (3) رشّح الأفضل صراحةً مع سبب → (4) سؤال واحد للتأكيد.",
+      objection_handling:
+        "هيكل الرد: (1) تعاطف حقيقي أولاً ('مفهوم'/'حقك') → (2) اعرض بديلاً أوفر أو فسّر القيمة بوضوح → (3) سؤال واحد يحرّك الحوار للأمام. ممنوع إعادة أسئلة الاكتشاف.",
+      quote:
+        "هيكل الرد: (1) اذكر السعر أو الإجمالي المقدّر بوضوح من الكتالوج → (2) لو السعر غير موجود قل 'السعر مش متوفر دلوقتي' ولا تخمّن → (3) سؤال واحد للخطوة التالية.",
+      order_draft:
+        "هيكل الرد: (1) لخّص ما تم الاتفاق عليه (المنتج والكمية إن عُرفا) → (2) اسأل فقط عن أول تفصيل ناقص → (3) لا تدّعي إن الطلب اتعمل قبل التأكيد الصريح.",
+      confirmation:
+        "هيكل الرد: (1) لخّص الطلب كاملاً (المنتجات والكمية والسعر والتوصيل) → (2) اطلب تأكيداً صريحاً واحداً فقط ('تأكدلك على كده؟').",
+    };
+    return structures[stage] ?? null;
   }
 }

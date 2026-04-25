@@ -10,7 +10,12 @@ export type DialogIntent =
   | "infeasible_request"
   | "off_topic"
   | "media_request"
-  | "custom_request";
+  | "custom_request"
+  // Short-reply intents — resolved from recent conversation context
+  | "selecting_all_options"   // "الاثنين / both / all"
+  | "ordinal_selection"       // "الأول / التاني / first / second"
+  | "affirmative"             // "تمام / أيوه / yes / ok"
+  | "negative_reply";         // "لأ / no / مش كده"
 
 export interface IntentClassification {
   intent: DialogIntent;
@@ -64,6 +69,29 @@ export class IntentClassifier {
       return hit("asking_question", 0.76, "merchant_question_terms");
     }
 
+    // ── Short-reply intents (checked before generic commerce/mind-change) ─────
+
+    // "Both / all" — customer wants all recently offered options
+    if (/^(?:الاثنين|الاتنين|كلهم|كله|كلها|كل\s+الخيار|عايز\s+(?:الاتنين|الاثنين)|عاوز\s+(?:الاتنين|الاثنين)|أريد\s+(?:الاتنين|الاثنين)|كمل\s+في\s+الاتنين|عايز\s+أعرف\s+الاتنين|both|all\s*options?|both\s*options?)$/iu.test(text)) {
+      return hit("selecting_all_options", 0.92, "both_all_selection");
+    }
+
+    // Explicit ordinal selection — "الأول / التاني / first / second"
+    if (/^(?:الأول|الاول|الاختيار\s+الأول|الخيار\s+الأول|first|option\s+1|التاني|الثاني|الاختيار\s+التاني|الخيار\s+التاني|second|option\s+2|التالت|الثالث|الاختيار\s+التالت|الخيار\s+الثالث|third|option\s+3)$/iu.test(text)) {
+      return hit("ordinal_selection", 0.9, "ordinal_selection_terms");
+    }
+
+    // Affirmative short reply — "تمام / ماشي / أيوه / yes / ok"
+    if (/^(?:تمام|ماشي|أيوه|أيه|اه|آه|أه|نعم|أكيد|طبعاً|طبعا|يس|yes|ok|okay|sure|موافق|طيب|حلو|مظبوط|صح|اوك|اوكيه|تمام\s+كمل|تمام\s+جداً)$/iu.test(text)) {
+      return hit("affirmative", 0.88, "affirmative_short_reply");
+    }
+
+    // Negative short reply — "لأ / no / مش كده"
+    if (/^(?:لأ|لا|no|مش\s+كده|مش\s+مناسب|مش\s+عايز|مش\s+ده|غلط|مش\s+صح|مش\s+صحيح|مش\s+حلو|نفسي\s+حاجة\s+تانية)$/iu.test(text)) {
+      return hit("negative_reply", 0.85, "negative_short_reply");
+    }
+
+    // ── Original mind-change (broader pattern, lower priority) ──────────────
     if (/(^|\s)(?:لأ|لا)(?:\s|$)|مش\s*ده|غيرت\s*رأيي|خليها/i.test(normalized)) {
       return hit("changing_mind", 0.7, "change_mind_terms");
     }
