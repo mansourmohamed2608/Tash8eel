@@ -198,3 +198,16 @@ Do not restart discovery every turn unless asked.
 - do not invent pricing logic outside pricing authority
 - do not replace operational seriousness with decorative design
 - do not drift away from Arabic-first / RTL-native behavior
+
+## AI Closer Operating System
+
+Before working on AI conversation, inbox, dialog, RAG, catalog, order creation, or demo merchant behavior, read:
+
+`docs/AI_CLOSER_OPERATING_SYSTEM.md`
+
+Core rules:
+- Do not hardcode demo products, demo businesses, fixed product pairs, or fixed verticals in production services.
+- The AI is a sales closer/operator, not a FAQ bot.
+- The AI should progress toward order creation using memory, catalog, KB, sales stage, and backend order actions.
+- Work in small waves only.
+- Do not touch frontend unless explicitly requested.
