@@ -6603,19 +6603,22 @@ export const publicAuthApi = {
   requestPasswordReset: (merchantId: string, email: string) =>
     apiFetch<{ message: string; token?: string }>("/api/v1/staff/forgot-password", {
       method: "POST",
-      body: { merchantId, email },
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ merchantId, email }),
     }),
 
   resetPassword: (resetToken: string, password: string) =>
     apiFetch<{ success: boolean }>("/api/v1/staff/reset-password", {
       method: "POST",
-      body: { resetToken, password },
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ resetToken, password }),
     }),
 
   acceptInvite: (inviteToken: string, password: string) =>
     apiFetch<any>("/api/v1/staff/accept-invite", {
       method: "POST",
-      body: { inviteToken, password },
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ inviteToken, password }),
     }),
 };
 

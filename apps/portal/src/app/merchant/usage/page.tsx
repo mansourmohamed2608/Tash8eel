@@ -99,7 +99,7 @@ export default function UsagePage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="الاستخدام" subtitle="مراقبة استخدامك الحالي وحدود باقتك" />
+      <PageHeader title="الاستخدام" description="مراقبة استخدامك الحالي وحدود باقتك" />
 
       {error && <AlertBanner type="error" message={error} />}
 
