@@ -1,6 +1,25 @@
 import { ConversationState } from "../../shared/constants/enums";
 import { Cart, CollectedInfo, Address } from "../../shared/schemas";
 
+// Wave 1: generic choice frame (open → resolved → closed)
+export interface ActiveChoiceFrame {
+  axis: string;
+  options: string[];
+  status: "open" | "resolved" | "closed";
+  openedAt?: string;
+  resolvedAt?: string;
+  resolvedTo?: string[];
+  selectedCatalogItemIds?: string[];
+}
+
+// Wave 1: pending cart item after selection, before cart write
+export interface PendingCartItem {
+  catalogItemId: string;
+  quantity?: number;
+  variantKey?: string;
+  sourceText: string;
+}
+
 export interface ConversationContext {
   lastIntent?: string;
   lastActionType?: string;
@@ -26,6 +45,14 @@ export interface ConversationContext {
     lastCustomerSelection?: string;
     // Sales stage tracking (derived each turn by SalesStageAdvancer)
     salesStage?: string;
+    // Wave 1: active choice frame
+    activeChoice?: ActiveChoiceFrame | null;
+    // Wave 1: pending cart items (ephemeral — cleared once moved to cart)
+    pendingCartItems?: PendingCartItem[];
+    // Wave 1: purchase intent confirmed for selected items
+    purchaseIntentConfirmed?: boolean;
+    // Wave 2 placeholder: alternatives the customer mentioned
+    customerMentionedAlternatives?: string[];
   };
   // SaaS conversation memory (merchant-agnostic)
   businessType?: string;

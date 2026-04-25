@@ -7,7 +7,11 @@ import {
   LlmService,
 } from "../llm/llm.service";
 import { ActionType } from "../../shared/constants/enums";
-import { ConversationContext } from "../../domain/entities/conversation.entity";
+import {
+  ConversationContext,
+  ActiveChoiceFrame,
+  PendingCartItem,
+} from "../../domain/entities/conversation.entity";
 import { CatalogItem } from "../../domain/entities/catalog.entity";
 import { OutboundMediaAttachment } from "../adapters/channel.adapter.interface";
 import { DATABASE_POOL } from "../../infrastructure/database/database.module";
@@ -19,6 +23,7 @@ import { MediaComposer } from "./media-composer";
 import { ReplyIntent } from "./reply-composer";
 import { SlotPlan } from "./slot-plan";
 import { OptionExtractor } from "./option-extractor";
+import { OrderAssembler } from "./order-assembler";
 import { ShortReplyResolver, ShortReplyResolution } from "./short-reply-resolver";
 import { SalesStageAdvancer, SalesStage } from "./sales-stage-advancer";
 
@@ -68,6 +73,22 @@ export class DialogOrchestrator {
       shortReply,
       previousDialog,
     );
+
+    // Wave 1: determine if this turn resolves an active choice (R1, R2, R5, R8 fix)
+    const isSelectionResolution =
+      shortReply.type === "selecting_all_options" ||
+      shortReply.type === "ordinal_selection";
+    const resolvedTexts: string[] =
+      shortReply.type === "selecting_all_options"
+        ? (shortReply.resolvedOptions || []).filter(Boolean)
+        : shortReply.type === "ordinal_selection" && shortReply.resolvedValue != null
+          ? [String(shortReply.resolvedValue)]
+          : [];
+    const assembledItems =
+      isSelectionResolution && resolvedTexts.length > 0
+        ? OrderAssembler.assemble(resolvedTexts, context.catalogItems)
+        : [];
+
     const llmExtracted = turnMemory?.universalSlots;
     const filledSlots: Record<string, unknown> = {
       ...(previousDialog.filledSlots || {}),
@@ -85,11 +106,16 @@ export class DialogOrchestrator {
     });
 
     const cartItems = context.conversation.cart?.items || [];
+    // Wave 1: clear lastOfferedOptions fed to the stage advancer when a selection
+    // was just resolved so the stage can escape "comparison" (R1, R8 fix).
+    const lastOfferedOptionsForStage: string[] = isSelectionResolution
+      ? []
+      : (previousDialog.lastOfferedOptions as string[] | undefined) ?? [];
     const salesStage: SalesStage = SalesStageAdvancer.advance({
       currentIntent: classification.intent,
       customerMessage: context.customerMessage,
       filledSlots,
-      lastOfferedOptions: previousDialog.lastOfferedOptions ?? [],
+      lastOfferedOptions: lastOfferedOptionsForStage,
       lastQuotedItems: previousDialog.lastQuotedItems ?? [],
       lastRecommendation: previousDialog.lastRecommendation,
       lastProposal: previousDialog.lastProposal,
@@ -118,6 +144,7 @@ export class DialogOrchestrator {
       shortReply,
       previousDialog,
       shortReplySlotPatch,
+      resolvedTexts,
     );
     const replyIntent = this.buildReplyIntent({
       classification,
@@ -168,6 +195,56 @@ export class DialogOrchestrator {
           ? shortReply.resolvedOptions.join(" + ")
           : previousDialog.lastCustomerSelection;
 
+    // Wave 1: build/update activeChoice frame
+    const now = new Date().toISOString();
+    const previousActiveChoice =
+      (previousDialog.activeChoice as ActiveChoiceFrame | null | undefined) ?? null;
+    let newActiveChoice: ActiveChoiceFrame | null = previousActiveChoice;
+
+    if (isSelectionResolution && resolvedTexts.length > 0) {
+      // Resolve the open frame — customer just selected
+      newActiveChoice = {
+        axis: previousActiveChoice?.axis || "product_interest",
+        options:
+          previousActiveChoice?.options ||
+          (previousDialog.lastOfferedOptions as string[] | undefined) ||
+          resolvedTexts,
+        status: "resolved",
+        openedAt: previousActiveChoice?.openedAt || now,
+        resolvedAt: now,
+        resolvedTo: resolvedTexts,
+        selectedCatalogItemIds: assembledItems.map((i) => i.catalogItemId),
+      };
+    } else if (offeredOptions.length >= 2) {
+      // Open or update the frame when the AI just offered options this turn
+      if (!newActiveChoice || newActiveChoice.status !== "open") {
+        newActiveChoice = {
+          axis: "product_interest",
+          options: offeredOptions,
+          status: "open",
+          openedAt: now,
+        };
+      } else {
+        newActiveChoice = { ...newActiveChoice, options: offeredOptions };
+      }
+    }
+
+    // Wave 1: pendingCartItems — populated when items are deterministically assembled
+    const newPendingCartItems: PendingCartItem[] =
+      isSelectionResolution && assembledItems.length > 0
+        ? assembledItems.map((item) => ({
+            catalogItemId: item.catalogItemId,
+            quantity: 1,
+            variantKey: item.variantKey,
+            sourceText: item.sourceText,
+          }))
+        : (previousDialog.pendingCartItems as PendingCartItem[] | undefined) ?? [];
+
+    // Wave 1: purchaseIntentConfirmed — true once a selection has been resolved
+    const purchaseIntentConfirmed: boolean =
+      (isSelectionResolution && resolvedTexts.length > 0) ||
+      Boolean(previousDialog.purchaseIntentConfirmed);
+
     return {
       replyText,
       llmResult: gatedResult,
@@ -204,10 +281,14 @@ export class DialogOrchestrator {
               ? mediaAttachments.map((item) => item.url)
               : previousDialog.lastMediaItemIds || [],
           lastDecision: gatedResult.response.reasoning || classification.intent,
-          // Short-reply context: extracted from this turn's reply for the next turn
-          lastOfferedOptions: offeredOptions.length > 0
-            ? offeredOptions
-            : previousDialog.lastOfferedOptions || [],
+          // Wave 1: clear lastOfferedOptions after resolution so SalesStageAdvancer
+          // can escape comparison on the next turn (R1 fix). If the AI just offered
+          // new options, use those. Otherwise carry forward.
+          lastOfferedOptions: isSelectionResolution
+            ? []
+            : offeredOptions.length > 0
+              ? offeredOptions
+              : (previousDialog.lastOfferedOptions as string[] | undefined) || [],
           pendingQuestionType: pendingQType || previousDialog.pendingQuestionType,
           pendingSlot: pendingSlotFromReply || slotPlan.nextSlot || previousDialog.pendingSlot,
           lastProposal: lastProposalFromReply || previousDialog.lastProposal,
@@ -215,6 +296,10 @@ export class DialogOrchestrator {
           lastCustomerSelection,
           lastQuotedItems: previousDialog.lastQuotedItems,
           salesStage,
+          // Wave 1 additions
+          activeChoice: newActiveChoice,
+          pendingCartItems: newPendingCartItems,
+          purchaseIntentConfirmed,
         },
       },
       routingDecision: input.degraded
@@ -506,15 +591,17 @@ export class DialogOrchestrator {
 
   /**
    * Build the list of facts injected into replyIntent.answerFacts for the LLM.
-   * Produces three levels of signal:
+   * Produces:
    *   1. The context note explaining what the short reply means.
    *   2. One [ANSWERED_BY_SHORT_REPLY] line per deterministically resolved slot.
-   *   3. A [DO_NOT_REPEAT] line when the last asked slot has been answered.
+   *   3. Wave 1: [ACTIVE_CHOICE_RESOLVED] + [DO_NOT_RELIST] when a selection resolves.
+   *   4. A [DO_NOT_REPEAT] line when the last asked slot has been answered.
    */
   private buildShortReplyFacts(
     shortReply: ShortReplyResolution,
     previousDialog: Record<string, any>,
     slotPatch: Record<string, unknown>,
+    resolvedTexts: string[] = [],
   ): string[] {
     if (shortReply.type === "not_short" && !shortReply.contextNote) return [];
 
@@ -528,6 +615,20 @@ export class DialogOrchestrator {
       const label = this.slotLabelAr(slot);
       facts.push(
         `[ANSWERED_BY_SHORT_REPLY] ${label} = "${value}". لا تعيد السؤال عن ${label} في هذا الرد.`,
+      );
+    }
+
+    // Wave 1: deterministic active-choice resolution signal (R5, R6 fix)
+    if (
+      (shortReply.type === "selecting_all_options" ||
+        shortReply.type === "ordinal_selection") &&
+      resolvedTexts.length > 0
+    ) {
+      facts.push(
+        `[ACTIVE_CHOICE_RESOLVED] العميل اختار: ${resolvedTexts.join(" + ")}. هذا الاختيار مسجّل في الحالة — لا تعيد عرض نفس الخيارات.`,
+      );
+      facts.push(
+        `[DO_NOT_RELIST] لا تعيد عرض الخيارات التي اختار منها العميل للتو. انتقل للخطوة التالية مباشرةً.`,
       );
     }
 

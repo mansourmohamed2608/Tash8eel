@@ -662,6 +662,204 @@ describe("DialogOrchestrator — short reply facts in answerFacts", () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// DialogOrchestrator — Wave 1: activeChoice, pendingCartItems, lastOfferedOptions
+// ─────────────────────────────────────────────────────────────────────────────
+
+function makeCatalogItem(id: string, nameAr: string, nameEn?: string) {
+  return {
+    id,
+    merchantId: "test-merchant",
+    nameAr,
+    nameEn,
+    basePrice: 100,
+    variants: [],
+    options: [],
+    tags: [],
+    isAvailable: true,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+}
+
+describe("DialogOrchestrator — Wave 1 activeChoice + pendingCartItems", () => {
+  let orchestrator: DialogOrchestrator;
+  let mockLlm: ReturnType<typeof makeMockLlm>;
+
+  beforeEach(() => {
+    mockLlm = makeMockLlm();
+    orchestrator = new DialogOrchestrator(
+      mockLlm as any,
+      makeMockPlaybook() as any,
+      makeMockPool() as any,
+    );
+  });
+
+  it('"الاتنين" sets activeChoice.status to resolved', async () => {
+    const context = makeCtx({
+      customerMessage: "الاتنين",
+      dialog: {
+        lastOfferedOptions: ["الخيار ألفا", "الخيار بيتا"],
+        activeChoice: {
+          axis: "product_interest",
+          options: ["الخيار ألفا", "الخيار بيتا"],
+          status: "open",
+          openedAt: new Date().toISOString(),
+        },
+      },
+    });
+    const result = await orchestrator.processTurn(context, undefined);
+    const dialog = result.contextPatch.dialog as any;
+    expect(dialog.activeChoice).toBeDefined();
+    expect(dialog.activeChoice.status).toBe("resolved");
+    expect(dialog.activeChoice.resolvedTo).toEqual(["الخيار ألفا", "الخيار بيتا"]);
+  });
+
+  it('"الاتنين" clears lastOfferedOptions in contextPatch (R1 fix)', async () => {
+    const context = makeCtx({
+      customerMessage: "الاتنين",
+      dialog: {
+        lastOfferedOptions: ["الخيار ألفا", "الخيار بيتا"],
+      },
+    });
+    const result = await orchestrator.processTurn(context, undefined);
+    const dialog = result.contextPatch.dialog as any;
+    expect(dialog.lastOfferedOptions).toEqual([]);
+  });
+
+  it('"الاتنين" populates pendingCartItems when catalog matches (R2 fix)', async () => {
+    const context = makeCtx({
+      customerMessage: "الاتنين",
+      dialog: {
+        lastOfferedOptions: ["الخيار ألفا", "الخيار بيتا"],
+      },
+    });
+    // makeCtx sets catalogItems: [] — override directly for this test
+    (context as any).catalogItems = [
+      makeCatalogItem("id-alpha", "الخيار ألفا"),
+      makeCatalogItem("id-beta", "الخيار بيتا"),
+    ];
+    const result = await orchestrator.processTurn(context as any, undefined);
+    const dialog = result.contextPatch.dialog as any;
+    expect(Array.isArray(dialog.pendingCartItems)).toBe(true);
+    expect(dialog.pendingCartItems.length).toBeGreaterThanOrEqual(1);
+    const ids = dialog.pendingCartItems.map((i: any) => i.catalogItemId);
+    expect(ids).toContain("id-alpha");
+    expect(ids).toContain("id-beta");
+  });
+
+  it('"الاتنين" sets purchaseIntentConfirmed to true', async () => {
+    const context = makeCtx({
+      customerMessage: "الاتنين",
+      dialog: {
+        lastOfferedOptions: ["الخيار ألفا", "الخيار بيتا"],
+      },
+    });
+    const result = await orchestrator.processTurn(context, undefined);
+    const dialog = result.contextPatch.dialog as any;
+    expect(dialog.purchaseIntentConfirmed).toBe(true);
+  });
+
+  it('"الأول" resolves activeChoice to first option and clears lastOfferedOptions', async () => {
+    const context = makeCtx({
+      customerMessage: "الأول",
+      dialog: {
+        lastOfferedOptions: ["الخيار ألفا", "الخيار بيتا"],
+      },
+    });
+    const result = await orchestrator.processTurn(context, undefined);
+    const dialog = result.contextPatch.dialog as any;
+    expect(dialog.lastOfferedOptions).toEqual([]);
+    expect(dialog.activeChoice?.status).toBe("resolved");
+    expect(dialog.activeChoice?.resolvedTo).toEqual(["الخيار ألفا"]);
+  });
+
+  it('salesStage does not regress to comparison after "الاتنين" resolution (R8 fix)', async () => {
+    const context = makeCtx({
+      customerMessage: "الاتنين",
+      dialog: {
+        lastOfferedOptions: ["الخيار ألفا", "الخيار بيتا"],
+        filledSlots: { product_interest: "something" },
+      },
+    });
+    const result = await orchestrator.processTurn(context, undefined);
+    const dialog = result.contextPatch.dialog as any;
+    // With lastOfferedOptions cleared, stage should not be "comparison"
+    expect(dialog.salesStage).not.toBe("comparison");
+  });
+
+  it('[ACTIVE_CHOICE_RESOLVED] fact injected into answerFacts on selection (R5 fix)', async () => {
+    const context = makeCtx({
+      customerMessage: "الاتنين",
+      dialog: {
+        lastOfferedOptions: ["الخيار ألفا", "الخيار بيتا"],
+      },
+    });
+    await orchestrator.processTurn(context, undefined);
+    const facts = mockLlm.processDialogTurn.mock.calls[0][1].answerFacts as string[];
+    const resolvedFact = facts.find((f) => f.includes("[ACTIVE_CHOICE_RESOLVED]"));
+    expect(resolvedFact).toBeDefined();
+    expect(resolvedFact).toContain("الخيار ألفا");
+    expect(resolvedFact).toContain("الخيار بيتا");
+  });
+
+  it('[DO_NOT_RELIST] fact injected into answerFacts on selection', async () => {
+    const context = makeCtx({
+      customerMessage: "الأول",
+      dialog: {
+        lastOfferedOptions: ["الخيار ألفا", "الخيار بيتا"],
+      },
+    });
+    await orchestrator.processTurn(context, undefined);
+    const facts = mockLlm.processDialogTurn.mock.calls[0][1].answerFacts as string[];
+    const doNotRelist = facts.find((f) => f.includes("[DO_NOT_RELIST]"));
+    expect(doNotRelist).toBeDefined();
+  });
+
+  it('AI reply with new options opens activeChoice frame', async () => {
+    mockLlm.processDialogTurn.mockResolvedValueOnce({
+      response: {
+        reply_ar: "تحب الخيار ألفا ولا الخيار بيتا؟",
+        actionType: ActionType.ASK_CLARIFYING_QUESTION,
+        extracted_entities: { products: null, customerName: null, phone: null, address: null, substitutionAllowed: null, deliveryPreference: null },
+        missing_slots: null,
+        negotiation: { requestedDiscount: null, approved: false, offerText: null, finalPrices: null },
+        delivery_fee: null,
+        confidence: 0.8,
+        reasoning: "test",
+      },
+      tokensUsed: 0,
+      llmUsed: false,
+      action: ActionType.ASK_CLARIFYING_QUESTION,
+      reply: "تحب الخيار ألفا ولا الخيار بيتا؟",
+      cartItems: [],
+    });
+    const context = makeCtx({ customerMessage: "عايز أشوف خياراتك" });
+    const result = await orchestrator.processTurn(context, undefined);
+    const dialog = result.contextPatch.dialog as any;
+    expect(dialog.activeChoice).toBeDefined();
+    expect(dialog.activeChoice.status).toBe("open");
+    expect(dialog.activeChoice.options.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('non-selection turn preserves existing open activeChoice frame', async () => {
+    const existingFrame = {
+      axis: "product_interest",
+      options: ["الخيار ألفا", "الخيار بيتا"],
+      status: "open" as const,
+      openedAt: new Date().toISOString(),
+    };
+    const context = makeCtx({
+      customerMessage: "السعر كام؟",
+      dialog: { activeChoice: existingFrame },
+    });
+    const result = await orchestrator.processTurn(context, undefined);
+    const dialog = result.contextPatch.dialog as any;
+    // Frame should still be carried (status open, same options)
+    expect(dialog.activeChoice?.status).toBe("open");
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // No-hardcoding proof
 // ─────────────────────────────────────────────────────────────────────────────
 
