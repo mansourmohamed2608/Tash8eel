@@ -11,7 +11,9 @@ import {
   ConversationContext,
   ActiveChoiceFrame,
   PendingCartItem,
+  AskedQuestion,
 } from "../../domain/entities/conversation.entity";
+import { PostLlmGate } from "./post-llm-gate";
 import { CatalogItem } from "../../domain/entities/catalog.entity";
 import { OutboundMediaAttachment } from "../adapters/channel.adapter.interface";
 import { DATABASE_POOL } from "../../infrastructure/database/database.module";
@@ -22,6 +24,7 @@ import { DialogPlaybookService, MerchantSalesPlaybook } from "./dialog-playbook.
 import { MediaComposer } from "./media-composer";
 import { ReplyIntent } from "./reply-composer";
 import { SlotPlan } from "./slot-plan";
+import { CustomerOptionExtractor } from "./customer-option-extractor";
 import { OptionExtractor } from "./option-extractor";
 import { OrderAssembler } from "./order-assembler";
 import { ShortReplyResolver, ShortReplyResolution } from "./short-reply-resolver";
@@ -59,11 +62,36 @@ export class DialogOrchestrator {
     const previousDialog = ((context.conversation.context || {}).dialog || {}) as Record<string, any>;
     const turnMemory = context.turnMemory;
 
+    // Wave 2: extract customer-mentioned alternatives BEFORE the short-reply resolver.
+    // If the customer enumerates options ("بختار بين X و Y"), we open an activeChoice
+    // frame so that a following "الاتنين" / "الأول" has something to resolve against.
+    const customerExtraction = CustomerOptionExtractor.extract(context.customerMessage);
+    const previousActiveChoice =
+      (previousDialog.activeChoice as ActiveChoiceFrame | null | undefined) ?? null;
+
+    // Determine the effective lastOfferedOptions for the short-reply resolver:
+    // prefer customer-mentioned alternatives when there is no unresolved active choice
+    // and the assistant hasn't already offered options.
+    const hasOpenActiveChoice =
+      previousActiveChoice !== null && previousActiveChoice.status === "open";
+    const customerMentionedAlts: string[] =
+      customerExtraction.options.length >= 2 ? customerExtraction.options : [];
+    const effectiveLastOfferedOptions: string[] =
+      hasOpenActiveChoice
+        // When a choice frame is open, prefer its options as the resolution target.
+        // Fall back to lastOfferedOptions (AI-extracted) if the frame has no options.
+        ? (previousActiveChoice!.options.length > 0
+            ? previousActiveChoice!.options
+            : ((previousDialog.lastOfferedOptions as string[] | undefined) ?? []))
+        : customerMentionedAlts.length >= 2
+          ? customerMentionedAlts
+          : ((previousDialog.lastOfferedOptions as string[] | undefined) ?? []);
+
     // Resolve short reply using previous turn's context
     const shortReply = ShortReplyResolver.resolve(context.customerMessage, {
       pendingSlot: previousDialog.pendingSlot ?? null,
       pendingQuestionType: previousDialog.pendingQuestionType ?? null,
-      lastOfferedOptions: previousDialog.lastOfferedOptions ?? null,
+      lastOfferedOptions: effectiveLastOfferedOptions,
       lastRecommendation: previousDialog.lastRecommendation ?? null,
       lastProposal: previousDialog.lastProposal ?? null,
     });
@@ -140,11 +168,27 @@ export class DialogOrchestrator {
       context.customerMessage,
       context.merchant,
     );
+    // Wave 2: compute a preliminary activeChoice frame for pre-LLM fact injection.
+    // Customer-mentioned alternatives open a new frame if none is currently open.
+    // The final frame (after the AI reply) is computed below after the LLM call.
+    const preActiveChoice: ActiveChoiceFrame | null =
+      customerMentionedAlts.length >= 2 &&
+      (!previousActiveChoice || previousActiveChoice.status !== "open")
+        ? {
+            axis: "product_interest",
+            options: customerMentionedAlts,
+            status: "open",
+            openedAt: new Date().toISOString(),
+          }
+        : previousActiveChoice;
+
     const shortReplyFacts = this.buildShortReplyFacts(
       shortReply,
       previousDialog,
       shortReplySlotPatch,
       resolvedTexts,
+      customerMentionedAlts,
+      preActiveChoice,
     );
     const replyIntent = this.buildReplyIntent({
       classification,
@@ -181,7 +225,53 @@ export class DialogOrchestrator {
         .join("|"),
     };
 
+    // Wave 3: compute derived state needed by the post-LLM gate.
+    // purchaseIntentConfirmed and effectiveActiveChoice don't depend on
+    // offeredOptions so they can be computed before reading replyText.
+    const now = new Date().toISOString();
+    const purchaseIntentConfirmed: boolean =
+      (isSelectionResolution && resolvedTexts.length > 0) ||
+      Boolean(previousDialog.purchaseIntentConfirmed);
+    const effectiveActiveChoiceForGate: ActiveChoiceFrame | null =
+      isSelectionResolution && resolvedTexts.length > 0
+        ? {
+            axis: previousActiveChoice?.axis || "product_interest",
+            options:
+              previousActiveChoice?.options ||
+              (previousDialog.lastOfferedOptions as string[] | undefined) ||
+              resolvedTexts,
+            status: "resolved",
+            openedAt: previousActiveChoice?.openedAt || now,
+            resolvedAt: now,
+            resolvedTo: resolvedTexts,
+            selectedCatalogItemIds: assembledItems.map((i) => i.catalogItemId),
+          }
+        : previousActiveChoice;
+
+    // Wave 3: post-LLM gate — block premature delivery/payment questions and
+    // relisted resolved choices before the reply is consumed downstream.
+    const postGateOutput = PostLlmGate.gate({
+      replyText: gatedResult.response.reply_ar,
+      salesStage,
+      activeChoice: effectiveActiveChoiceForGate,
+      purchaseIntentConfirmed,
+      askedQuestions:
+        (previousDialog.askedQuestions as AskedQuestion[] | undefined) ?? [],
+      lastOfferedOptions: lastOfferedOptionsForStage,
+    });
+    if (postGateOutput.blocked) {
+      gatedResult.response.reply_ar = postGateOutput.replyText;
+      gatedResult.response.reasoning = [
+        gatedResult.response.reasoning,
+        `post_llm_gate:${postGateOutput.blockReason}`,
+      ]
+        .filter(Boolean)
+        .join("|");
+    }
+
     const replyText = gatedResult.response.reply_ar;
+    // Wave 3: detect what kind of question was asked this turn for the ledger
+    const askedQuestionThisTurn = PostLlmGate.detectAskedQuestion(replyText);
     const offeredOptions = OptionExtractor.extractOfferedOptions(replyText);
     const pendingQType = OptionExtractor.detectPendingQuestionType(replyText);
     const pendingSlotFromReply = OptionExtractor.detectPendingSlot(replyText);
@@ -196,9 +286,6 @@ export class DialogOrchestrator {
           : previousDialog.lastCustomerSelection;
 
     // Wave 1: build/update activeChoice frame
-    const now = new Date().toISOString();
-    const previousActiveChoice =
-      (previousDialog.activeChoice as ActiveChoiceFrame | null | undefined) ?? null;
     let newActiveChoice: ActiveChoiceFrame | null = previousActiveChoice;
 
     if (isSelectionResolution && resolvedTexts.length > 0) {
@@ -214,6 +301,18 @@ export class DialogOrchestrator {
         resolvedAt: now,
         resolvedTo: resolvedTexts,
         selectedCatalogItemIds: assembledItems.map((i) => i.catalogItemId),
+      };
+    } else if (
+      customerMentionedAlts.length >= 2 &&
+      (!previousActiveChoice || previousActiveChoice.status !== "open")
+    ) {
+      // Wave 2: customer just volunteered alternatives — open a choice frame
+      // before the LLM sees the message so short replies can resolve against it.
+      newActiveChoice = {
+        axis: "product_interest",
+        options: customerMentionedAlts,
+        status: "open",
+        openedAt: now,
       };
     } else if (offeredOptions.length >= 2) {
       // Open or update the frame when the AI just offered options this turn
@@ -239,11 +338,6 @@ export class DialogOrchestrator {
             sourceText: item.sourceText,
           }))
         : (previousDialog.pendingCartItems as PendingCartItem[] | undefined) ?? [];
-
-    // Wave 1: purchaseIntentConfirmed — true once a selection has been resolved
-    const purchaseIntentConfirmed: boolean =
-      (isSelectionResolution && resolvedTexts.length > 0) ||
-      Boolean(previousDialog.purchaseIntentConfirmed);
 
     return {
       replyText,
@@ -300,6 +394,16 @@ export class DialogOrchestrator {
           activeChoice: newActiveChoice,
           pendingCartItems: newPendingCartItems,
           purchaseIntentConfirmed,
+          // Wave 2: persist what the customer mentioned so compression keeps it
+          customerMentionedAlternatives:
+            customerMentionedAlts.length >= 2
+              ? customerMentionedAlts
+              : (previousDialog.customerMentionedAlternatives as string[] | undefined) ?? [],
+          // Wave 3: append the asked question kind to the ledger
+          askedQuestions: this.appendAskedQuestion(
+            (previousDialog.askedQuestions as AskedQuestion[] | undefined) ?? [],
+            askedQuestionThisTurn,
+          ),
         },
       },
       routingDecision: input.degraded
@@ -357,6 +461,8 @@ export class DialogOrchestrator {
       "Do not collect address, payment, or quantity unless the customer has clearly chosen/bought/confirmed a specific item or order.",
       // Inject short-reply facts (context note + resolved slot + do-not-repeat)
       ...(input.shortReplyFacts || []),
+      // Wave 3: inject forbidden repeated asks from the askedQuestions ledger
+      ...this.buildForbiddenAskFacts(input.context.conversation.context?.dialog),
       ...(input.classification.intent === "greeting"
         ? [
             "Goal: greet naturally as the merchant team. Do not interpret the greeting as a product request. Do not ask quantity, address, or payment.",
@@ -602,8 +708,10 @@ export class DialogOrchestrator {
     previousDialog: Record<string, any>,
     slotPatch: Record<string, unknown>,
     resolvedTexts: string[] = [],
+    customerMentionedAlts: string[] = [],
+    newActiveChoice: ActiveChoiceFrame | null = null,
   ): string[] {
-    if (shortReply.type === "not_short" && !shortReply.contextNote) return [];
+    if (shortReply.type === "not_short" && !shortReply.contextNote && customerMentionedAlts.length < 2) return [];
 
     const facts: string[] = [];
 
@@ -640,6 +748,24 @@ export class DialogOrchestrator {
     ) {
       facts.push(
         `[DO_NOT_REPEAT] آخر سؤال كان "${lastQuestion}" وأُجيب عنه بالرسالة الحالية. لا تعيد نفس السؤال.`,
+      );
+    }
+
+    // Wave 2: inject customer-mentioned alternatives fact
+    if (customerMentionedAlts.length >= 2) {
+      facts.push(
+        `[CUSTOMER_MENTIONED_OPTIONS] العميل ذكر أنه يتردد بين: ${customerMentionedAlts.join(" / ")}. هذه الخيارات مسجّلة الآن — لا تحتاج تعيد سؤال العميل عنها.`,
+      );
+    }
+
+    // Wave 2: signal that an active choice frame is now open
+    if (
+      newActiveChoice !== null &&
+      newActiveChoice.status === "open" &&
+      newActiveChoice.options.length >= 2
+    ) {
+      facts.push(
+        `[ACTIVE_CHOICE_OPEN] إطار اختيار مفتوح للمحور "${newActiveChoice.axis}": ${newActiveChoice.options.join(" / ")}. انتظر اختيار العميل أو اعرض مقارنة مفيدة بدون إعادة طرح نفس السؤال.`,
       );
     }
 
@@ -761,5 +887,73 @@ export class DialogOrchestrator {
         "هيكل الرد: (1) لخّص الطلب كاملاً (المنتجات والكمية والسعر والتوصيل) → (2) اطلب تأكيداً صريحاً واحداً فقط ('تأكدلك على كده؟').",
     };
     return structures[stage] ?? null;
+  }
+
+  /**
+   * Wave 3: build [ALREADY_ASKED_QUESTIONS] / [DO_NOT_ASK_AGAIN] facts from
+   * the askedQuestions ledger and any resolved activeChoice frame.
+   * Injected into answerFacts BEFORE the LLM call so the model respects them.
+   */
+  private buildForbiddenAskFacts(dialog: unknown): string[] {
+    const prevDialog = ((dialog || {}) as Record<string, any>);
+    const prevAskedQ =
+      (prevDialog.askedQuestions as AskedQuestion[] | undefined) ?? [];
+    const prevActiveChoice =
+      prevDialog.activeChoice as ActiveChoiceFrame | null | undefined;
+
+    const facts: string[] = [];
+
+    if (prevAskedQ.length > 0) {
+      const askedKinds = [
+        ...new Set(prevAskedQ.map((q: AskedQuestion) => q.kind)),
+      ];
+      facts.push(
+        `[ALREADY_ASKED_QUESTIONS] أسئلة سُئلت مسبقاً ولا تُعاد: ${askedKinds.join("، ")}`,
+      );
+      if (askedKinds.includes("delivery")) {
+        facts.push(
+          "[DO_NOT_ASK_AGAIN] العنوان/التوصيل — سُئل من قبل، لا تعيد السؤال عنه في هذا الرد.",
+        );
+      }
+      if (askedKinds.includes("payment")) {
+        facts.push(
+          "[DO_NOT_ASK_AGAIN] طريقة الدفع — سُئلت من قبل، لا تعيد السؤال عنها في هذا الرد.",
+        );
+      }
+      if (askedKinds.includes("quantity")) {
+        facts.push(
+          "[DO_NOT_ASK_AGAIN] الكمية — سُئلت من قبل، لا تعيد السؤال عنها.",
+        );
+      }
+      if (askedKinds.includes("choice")) {
+        facts.push(
+          "[DO_NOT_ASK_AGAIN] سؤال الاختيار — سُئل مسبقاً، لا تعيد نفس السؤال.",
+        );
+      }
+    }
+
+    if (
+      prevActiveChoice?.status === "resolved" &&
+      prevActiveChoice.resolvedTo?.length
+    ) {
+      facts.push(
+        `[DO_NOT_ASK_AGAIN] الاختيار ("${prevActiveChoice.resolvedTo.join(" + ")}") — العميل اختار بالفعل. لا تعيد عرض نفس الخيارات أو سؤال الاختيار.`,
+      );
+    }
+
+    return facts;
+  }
+
+  /**
+   * Wave 3: append a detected asked question to the ledger.
+   * Caps the ledger at 10 entries to prevent unbounded growth.
+   */
+  private appendAskedQuestion(
+    existing: AskedQuestion[],
+    newQ: AskedQuestion | null,
+  ): AskedQuestion[] {
+    if (!newQ) return existing;
+    const updated = [...existing, newQ];
+    return updated.length > 10 ? updated.slice(-10) : updated;
   }
 }

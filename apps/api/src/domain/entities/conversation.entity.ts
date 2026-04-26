@@ -1,6 +1,21 @@
 import { ConversationState } from "../../shared/constants/enums";
 import { Cart, CollectedInfo, Address } from "../../shared/schemas";
 
+// Wave 3: generic asked question ledger entry
+export interface AskedQuestion {
+  kind:
+    | "slot"
+    | "choice"
+    | "quantity"
+    | "delivery"
+    | "payment"
+    | "confirmation"
+    | "recommendation"
+    | "other";
+  key: string;
+  askedAt: string;
+}
+
 // Wave 1: generic choice frame (open → resolved → closed)
 export interface ActiveChoiceFrame {
   axis: string;
@@ -53,6 +68,8 @@ export interface ConversationContext {
     purchaseIntentConfirmed?: boolean;
     // Wave 2 placeholder: alternatives the customer mentioned
     customerMentionedAlternatives?: string[];
+    // Wave 3: ledger of questions asked across turns (prevents repeats)
+    askedQuestions?: AskedQuestion[];
   };
   // SaaS conversation memory (merchant-agnostic)
   businessType?: string;
