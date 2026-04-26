@@ -1,6 +1,8 @@
 /**
- * AI Reply Engine v2 — shared types.
- * Canonical sales state lives under conversation.context.aiV2.
+ * AI Reply Engine v2 shared contracts.
+ *
+ * v2 state is persisted only under conversation.context.aiV2 so rollback to v1
+ * remains safe.
  */
 
 import type { LlmResult } from "../llm/llm.service";
@@ -16,7 +18,8 @@ export type SalesStageV2 =
   | "checkout"
   | "support"
   | "complaint"
-  | "after_sales";
+  | "after_sales"
+  | "off_topic";
 
 export type CustomerLanguageV2 = "ar" | "en" | "mixed";
 
@@ -30,18 +33,37 @@ export type CustomerEmotionV2 =
   | "happy"
   | "complaining";
 
-export type CoarseIntentV2 =
+export type UnderstandingDomainV2 =
+  | "store_related"
+  | "small_talk"
+  | "off_topic_general";
+
+export type IntentTagV2 =
   | "greeting"
   | "small_talk"
   | "product_question"
+  | "recommendation_request"
   | "price_question"
-  | "policy_question"
+  | "availability_question"
+  | "offer_discount_question"
+  | "buying_intent"
+  | "selection_answer"
+  | "quantity_answer"
+  | "objection_price"
   | "complaint"
+  | "angry_escalation"
+  | "manager_request"
   | "feedback_positive"
   | "feedback_negative"
-  | "order_intent"
-  | "ambiguous"
-  | "other";
+  | "order_status_question"
+  | "payment_question"
+  | "delivery_question"
+  | "contact_question"
+  | "location_question"
+  | "policy_question"
+  | "support_question"
+  | "off_topic_general"
+  | "vague_followup";
 
 export type NextBestActionTypeV2 =
   | "greet"
@@ -63,7 +85,8 @@ export type NextBestActionTypeV2 =
   | "clarify"
   | "de_escalate"
   | "update_order"
-  | "create_order_draft";
+  | "create_order_draft"
+  | "redirect_off_topic";
 
 export interface NextBestActionV2 {
   type: NextBestActionTypeV2;
@@ -76,7 +99,7 @@ export interface SelectedItemV2 {
   quantity?: number;
   variant?: string;
   confidence: number;
-  source: "customer" | "catalog" | "ai";
+  source: "customer" | "catalog" | "ai" | "active_question";
 }
 
 export interface ActiveQuestionV2 {
@@ -93,38 +116,90 @@ export interface ActiveQuestionV2 {
     | "complaint"
     | "other";
   text: string;
-  options?: string[];
+  options?: Array<{
+    label: string;
+    catalogItemId?: string;
+    value?: unknown;
+  }>;
   askedAt: string;
 }
 
 export interface AnsweredQuestionV2 {
   kind: string;
   value: unknown;
+  confidence?: number;
   answeredAt: string;
 }
 
-/** Runtime sales state (v2 reducer output). */
+export interface OrderDraftItemV2 {
+  catalogItemId?: string;
+  label: string;
+  quantity?: number;
+  variant?: string;
+  source: "customer" | "catalog" | "ai" | "active_question";
+}
+
+export type OrderDraftStatusV2 =
+  | "collecting"
+  | "ready_to_confirm"
+  | "confirmed"
+  | "tool_unavailable";
+
+export interface OrderDraftV2 {
+  items: OrderDraftItemV2[];
+  quantity?: number;
+  deliveryAddress?: string;
+  paymentMethod?: string;
+  status: OrderDraftStatusV2;
+  missingFields: string[];
+  backendOrderId?: string;
+  backendOrderNumber?: string;
+}
+
+export interface ComplaintStateV2 {
+  status: "collecting_details" | "record_unavailable" | "recorded" | "resolved";
+  kind?:
+    | "quality"
+    | "delay"
+    | "wrong_item"
+    | "return_refund"
+    | "rude_service"
+    | "other";
+  requestedByCustomer: boolean;
+  summary?: string;
+  requiredFields: Array<"order_number" | "phone" | "photo" | "details">;
+  providedFields: string[];
+  lastAsked?: string;
+}
+
 export interface AiSalesState {
+  version: 2;
   engineVersion: 2;
   dialogTurnSeq: number;
+  salesStage: SalesStageV2;
+  /** Compatibility alias while inbox/v1 bridge still expects a stage-like field. */
   stage: SalesStageV2;
   language: CustomerLanguageV2;
   customerEmotion: CustomerEmotionV2;
-  customerGoal?: string;
+  customerGoal?: string | null;
   knownFacts: Record<string, unknown>;
   selectedItems: SelectedItemV2[];
   activeQuestion?: ActiveQuestionV2;
   answeredQuestions: AnsweredQuestionV2[];
+  orderDraft?: OrderDraftV2;
+  complaintState?: ComplaintStateV2;
   missingFields: string[];
-  lastRecommendationHash?: string;
+  lastCustomerIntent?: string;
+  lastAskedQuestionKind?: string;
+  lastRecommendationSummary?: string | null;
+  lastRecommendationHash?: string | null;
   lastComplaintSummary?: string;
   lastFeedbackSummary?: string;
   lastQuoteSummary?: string;
   nextBestAction: NextBestActionV2;
 }
 
-/** Persisted shape (JSON-serializable). */
-export type AiV2PersistedState = Omit<AiSalesState, never>;
+export type AiV2PersistedState = AiSalesState;
 
 export interface CatalogFactV2 {
   catalogItemId: string;
@@ -166,20 +241,29 @@ export interface RagContextV2 {
   confidence: number;
 }
 
-export interface MessageUnderstandingV2 {
-  language: CustomerLanguageV2;
-  coarseIntent: CoarseIntentV2;
-  urgency: boolean;
-  buyingIntentStrong: boolean;
-  resolutionSignal:
-    | "none"
-    | "ordinal_first"
-    | "ordinal_second"
-    | "both"
-    | "affirmative"
-    | "negative"
-    | "vague";
+export interface AnswerToActiveQuestionV2 {
+  kind: string;
+  value: unknown;
   confidence: number;
+}
+
+export interface MessageUnderstandingV2 {
+  domain: UnderstandingDomainV2;
+  language: CustomerLanguageV2;
+  intentTags: IntentTagV2[];
+  customerGoal: string | null;
+  customerEmotion: CustomerEmotionV2;
+  mentionedItems: string[];
+  mentionedPreferences: Record<string, unknown>;
+  answerToActiveQuestion: AnswerToActiveQuestionV2 | null;
+  buyingSignal: boolean;
+  needsStoreAnswer: boolean;
+  shouldGreet: boolean;
+  reason: string;
+  confidence: number;
+  usedOpenAI: boolean;
+  fallbackUsed: boolean;
+  errorCode?: string;
 }
 
 export type OperatorModeV2 =
@@ -213,13 +297,61 @@ export interface HumanOperatorPolicyOutputV2 {
   emojiBudget: number;
 }
 
+export type ToolActionNameV2 =
+  | "searchCatalog"
+  | "getCatalogItem"
+  | "calculateQuote"
+  | "createDraftOrder"
+  | "updateDraftOrder"
+  | "getMerchantPaymentSettings"
+  | "searchPublicKB"
+  | "getBusinessRules"
+  | "getOrderStatus"
+  | "recordComplaintNote"
+  | "recordCustomerFeedback"
+  | "attachProductMedia"
+  | "verifyPaymentProof";
+
+export interface ToolActionResultV2 {
+  actionName: ToolActionNameV2;
+  available: boolean;
+  attempted: boolean;
+  success: boolean;
+  resultFactIds: string[];
+  safeMessage: string | null;
+  errorCode: string | null;
+}
+
+export type PlannedToolActionStatusV2 =
+  | "needed"
+  | "not_available"
+  | "already_done"
+  | "done"
+  | "failed";
+
+export interface PlannedToolActionV2 {
+  actionName: ToolActionNameV2;
+  reason: string;
+  status: PlannedToolActionStatusV2;
+}
+
 export interface ReplyPlanV2 {
-  nextBestAction: NextBestActionV2;
-  operator: HumanOperatorPolicyOutputV2;
-  emotion: EmotionPolicyOutputV2;
-  /** Fact ids the renderer may cite (subset of RagContext). */
+  nextBestAction: NextBestActionTypeV2;
+  answerFirst: boolean;
+  allowedToAskDelivery: boolean;
+  allowedToAskPayment: boolean;
+  maxQuestions: 1;
+  mustNotInvent: string[];
   allowedFactIds: string[];
-  plannerNotes: string;
+  selectedItemsSummary: string | null;
+  orderDraftSummary: string | null;
+  complaintSummary: string | null;
+  activeQuestionSummary: string | null;
+  forbiddenRepeats: string[];
+  doNotGreetAgain: boolean;
+  offTopicRedirectRequired: boolean;
+  toolActions: PlannedToolActionV2[];
+  rendererInstructions: string[];
 }
 
 export interface LoadedConversationStateV2 {
@@ -228,9 +360,11 @@ export interface LoadedConversationStateV2 {
   customerMessage: string;
   channel: "whatsapp" | "messenger" | "instagram";
   conversationSummary?: string;
+  olderSummary?: string | null;
   priorAiV2: Partial<AiV2PersistedState> | null;
   cartItemCount: number;
   recentTurnsText: string[];
+  last20Messages?: RuntimeMessageV2[];
 }
 
 export interface AiV2RenderOutput {
@@ -245,8 +379,10 @@ export interface AiV2RunDebug {
   understanding: MessageUnderstandingV2;
   ragSummary: { catalogCount: number; kbCount: number };
   plan: ReplyPlanV2;
+  toolResults: ToolActionResultV2[];
   validationFailures: string[];
   usedFactIds: string[];
+  fallbackUsed: boolean;
 }
 
 export interface AiV2RunResult {
@@ -258,3 +394,114 @@ export interface AiV2RunResult {
   tokensUsed: number;
   llmUsed: boolean;
 }
+
+export type RuntimeMessageRoleV2 =
+  | "customer"
+  | "assistant"
+  | "merchant"
+  | "system";
+
+export interface RuntimeMessageV2 {
+  role: RuntimeMessageRoleV2;
+  text: string;
+  createdAt?: string;
+}
+
+export type MerchantFactTypeV2 =
+  | "merchant_name"
+  | "phone"
+  | "address"
+  | "working_hours"
+  | "payment_method"
+  | "policy"
+  | "delivery_rule"
+  | "return_rule"
+  | "business_info";
+
+export interface MerchantFactV2 {
+  id: string;
+  type: MerchantFactTypeV2;
+  value: string;
+  source: "merchant_profile" | "merchant_settings" | "kb";
+}
+
+export interface RuntimeCatalogFactV2 {
+  id: string;
+  type: "catalog";
+  catalogItemId?: string;
+  name: string;
+  price?: number | string | null;
+  availability?: string | null;
+  description?: string | null;
+  category?: string | null;
+  confidence?: number;
+}
+
+export interface RuntimeKbFactV2 {
+  id: string;
+  type: "kb";
+  text: string;
+  visibility: "public";
+  confidence?: number;
+}
+
+export interface RuntimeOfferFactV2 {
+  id: string;
+  title: string;
+  details: string;
+  validUntil?: string | null;
+  source: "merchant_settings" | "catalog" | "kb";
+}
+
+export interface RuntimeBusinessRuleFactV2 {
+  id: string;
+  key: string;
+  value: string;
+  source: "merchant_settings" | "kb";
+}
+
+export interface RuntimeRagFactsV2 {
+  catalogFacts: RuntimeCatalogFactV2[];
+  kbFacts: RuntimeKbFactV2[];
+  offerFacts: RuntimeOfferFactV2[];
+  businessRuleFacts: RuntimeBusinessRuleFactV2[];
+}
+
+export interface RuntimeTaskRulesV2 {
+  answerAsHumanStoreOwner: true;
+  answerCustomerQuestionFirst: true;
+  doNotInventFacts: true;
+  doNotAnswerOffTopicGeneralKnowledge: true;
+  askOneUsefulQuestionMax: true;
+  doNotGreetEveryTurn: true;
+  doNotResetConversation: true;
+  useMerchantFactsOnlyForPhoneAddressPaymentOffersPricesPolicies: true;
+  requireToolSuccessBeforeCompletionClaims: true;
+}
+
+export interface RuntimeContextV2 {
+  currentCustomerMessage: string;
+  last20Messages: RuntimeMessageV2[];
+  olderSummary?: string | null;
+  aiV2State: AiSalesState;
+  merchantFacts: MerchantFactV2[];
+  ragFacts: RuntimeRagFactsV2;
+  activeQuestion?: ActiveQuestionV2 | null;
+  selectedItems: SelectedItemV2[];
+  orderDraft?: OrderDraftV2 | null;
+  complaintState?: ComplaintStateV2 | null;
+  answeredQuestions: AnsweredQuestionV2[];
+  knownFacts: Record<string, unknown>;
+  lastRecommendationSummary?: string | null;
+  lastRecommendationHash?: string | null;
+  taskRules: RuntimeTaskRulesV2;
+}
+
+export const EMPTY_RAG_CONTEXT_V2: RagContextV2 = {
+  catalogFacts: [],
+  kbFacts: [],
+  offerFacts: [],
+  businessRuleFacts: [],
+  unavailableFacts: [],
+  confidence: 0,
+};

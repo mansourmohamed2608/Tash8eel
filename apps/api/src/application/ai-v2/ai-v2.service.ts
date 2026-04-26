@@ -1,9 +1,9 @@
 import { Injectable, Logger } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { Merchant } from "../../domain/entities/merchant.entity";
 import { Conversation } from "../../domain/entities/conversation.entity";
 import { Message } from "../../domain/entities/message.entity";
 import { CatalogItem } from "../../domain/entities/catalog.entity";
-import { AiV2RunResult } from "./ai-v2.types";
 import { ConversationStateLoaderV2 } from "./conversation-state-loader";
 import { MessageUnderstandingV2Service } from "./message-understanding";
 import { SalesPolicyV2 } from "./sales-policy";
@@ -11,18 +11,22 @@ import { EmotionPolicyV2 } from "./emotion-policy";
 import { HumanOperatorPolicyV2 } from "./human-operator-policy";
 import { SalesStateReducerV2 } from "./sales-state-reducer";
 import { RagContextBuilderServiceV2 } from "./rag-context-builder.service";
-import { ReplyPlannerV2, recommendationHashFromCatalog } from "./reply-planner";
+import { ReplyPlannerV2 } from "./reply-planner";
 import { ReplyRendererServiceV2 } from "./reply-renderer.service";
 import { ReplyValidatorV2 } from "./reply-validator";
 import { StatePersisterV2 } from "./state-persister";
-import { CustomerMemoryV2 } from "./customer-memory";
+import { RuntimeContextBuilderV2 } from "./runtime-context-builder";
+import { AiV2TraceLogger } from "./ai-v2-trace-logger";
 import { buildInboxLlmResultFromV2 } from "./ai-v2-llm-bridge";
-import { ReplyComposer } from "../dialog/reply-composer";
-import type {
-  AiSalesState,
+import { ActionExecutorV2 } from "./action-executor";
+import {
+  AiV2RenderOutput,
+  AiV2RunResult,
+  EMPTY_RAG_CONTEXT_V2,
   MessageUnderstandingV2,
-  EmotionPolicyOutputV2,
-  SalesStageV2,
+  ReplyPlanV2,
+  RuntimeContextV2,
+  ToolActionResultV2,
 } from "./ai-v2.types";
 
 export interface AiV2RunParams {
@@ -32,6 +36,7 @@ export interface AiV2RunParams {
   catalogItems: CatalogItem[];
   customerMessage: string;
   channel?: "whatsapp" | "messenger" | "instagram";
+  correlationId?: string;
   llmOptions?: { model?: string; maxTokens?: number };
 }
 
@@ -43,9 +48,12 @@ export class AiV2Service {
     private readonly understandingSvc: MessageUnderstandingV2Service,
     private readonly ragBuilder: RagContextBuilderServiceV2,
     private readonly renderer: ReplyRendererServiceV2,
+    private readonly actionExecutor: ActionExecutorV2,
+    private readonly config: ConfigService,
   ) {}
 
   async run(params: AiV2RunParams): Promise<AiV2RunResult> {
+    const start = Date.now();
     const loaded = ConversationStateLoaderV2.load({
       conversation: params.conversation,
       recentMessages: params.recentMessages,
@@ -53,140 +61,146 @@ export class AiV2Service {
       channel: params.channel,
     });
 
-    const understanding = this.understandingSvc.analyze(params.customerMessage);
-    const priorEmotion = loaded.priorAiV2?.customerEmotion as
-      | AiSalesState["customerEmotion"]
-      | undefined;
+    const baseState = SalesStateReducerV2.buildBaseState(loaded);
+    const initialRuntimeContext = RuntimeContextBuilderV2.build({
+      merchant: params.merchant,
+      loaded,
+      salesState: baseState,
+      rag: EMPTY_RAG_CONTEXT_V2,
+    });
+
+    const understanding = await this.understandingSvc.analyze(
+      params.customerMessage,
+      initialRuntimeContext,
+    );
 
     const { stage, nextBestAction } = SalesPolicyV2.decide({
       loaded,
       understanding,
     });
-
     const emotion = EmotionPolicyV2.decide({
       understanding,
       stage,
-      priorCustomerEmotion: priorEmotion,
+      priorCustomerEmotion: loaded.priorAiV2?.customerEmotion,
     });
-
-    const operator = HumanOperatorPolicyV2.decide({
+    HumanOperatorPolicyV2.decide({
       merchant: params.merchant,
       understanding,
       emotion,
       nextBestAction,
     });
 
-    const ctxRecord = (params.conversation.context || {}) as Record<
-      string,
-      unknown
-    >;
-    const businessType =
-      typeof ctxRecord.businessType === "string"
-        ? ctxRecord.businessType
-        : undefined;
-
-    const rag = await this.ragBuilder.build({
-      merchantId: params.merchant.id,
-      customerMessage: params.customerMessage,
-      catalogItems: params.catalogItems,
-      businessType,
-    });
-
-    const plan = ReplyPlannerV2.plan({
-      nextBestAction,
-      stage,
-      operator,
-      emotion,
-      rag,
-    });
-
-    const recHash = recommendationHashFromCatalog(rag);
-    const salesState = SalesStateReducerV2.reduce({
+    let salesState = SalesStateReducerV2.reduce({
       loaded,
       understanding,
       nextBestAction,
       stage,
       customerEmotion: emotion.customerEmotion,
     });
-    if (recHash) {
-      salesState.lastRecommendationHash = recHash;
-    }
 
-    const memoryBrief = CustomerMemoryV2.buildBrief(loaded);
+    const rag = await this.ragBuilder.build({
+      merchantId: params.merchant.id,
+      merchant: {
+        whatsappNumber: params.merchant.whatsappNumber,
+        address: params.merchant.address,
+        workingHours: params.merchant.workingHours,
+        name: params.merchant.name,
+      },
+      customerMessage: params.customerMessage,
+      catalogItems: params.catalogItems,
+      businessType: extractBusinessType(params.conversation.context),
+    });
+
+    let runtimeContext = RuntimeContextBuilderV2.build({
+      merchant: params.merchant,
+      loaded,
+      salesState,
+      rag,
+    });
+    let plan = ReplyPlannerV2.plan({ runtimeContext, understanding });
+
+    salesState = SalesStateReducerV2.applyPlan(salesState, plan);
+    runtimeContext = RuntimeContextBuilderV2.build({
+      merchant: params.merchant,
+      loaded,
+      salesState,
+      rag,
+    });
+    plan = ReplyPlannerV2.plan({ runtimeContext, understanding });
+
+    const toolResults = await this.actionExecutor.execute({
+      runtimeContext,
+      plan,
+    });
+    plan = withToolStatuses(plan, toolResults);
 
     const rendered = await this.renderer.render(
       {
-        merchant: params.merchant,
-        customerMessage: params.customerMessage,
-        memoryBrief,
+        runtimeContext,
+        understanding,
         plan,
-        rag,
+        validatorRules: plan.mustNotInvent,
+        toolResults,
       },
       params.llmOptions,
     );
 
-    let replyText: string;
-    let tokensUsed = 0;
-    let llmUsed = false;
-    let renderOut = rendered?.output;
-    let validationFailures: string[] = [];
-
-    if (!renderOut) {
-      replyText = deterministicFallback(understanding, emotion, stage);
-      this.logger.warn({
-        msg: "ai_v2_render_fallback",
-        stage,
-        reason: "no_llm",
-      });
-    } else {
-      const validated = ReplyValidatorV2.validate({
-        render: renderOut,
-        plan,
-        state: salesState,
-        rag,
-        allowedFactIds: plan.allowedFactIds,
-      });
-      validationFailures = validated.failures;
-      replyText = ReplyComposer.polish(validated.replyText, {
-        merchant: params.merchant,
-        recentMessages: params.recentMessages,
-      });
-      tokensUsed = rendered?.tokensUsed ?? 0;
-      llmUsed = true;
-      if (!validated.ok) {
-        this.logger.warn({
-          msg: "ai_v2_validator_adjusted",
-          failures: validated.failures,
-        });
-      }
-    }
-
-    const isGreeting = understanding.coarseIntent === "greeting";
-    const llmResultAdapter = buildInboxLlmResultFromV2({
-      replyText,
-      reasoning: `ai_v2:${nextBestAction.type}|${stage}`,
-      isGreeting,
-      tokensUsed,
-      llmUsed,
+    const renderOut =
+      rendered?.output || buildEmergencyRenderOutput(understanding, plan);
+    const validation = ReplyValidatorV2.validate({
+      render: renderOut,
+      runtimeContext,
+      understanding,
+      plan,
+      toolResults,
     });
+
+    const tokensUsed = rendered?.tokensUsed ?? 0;
+    const rendererUsedOpenAI = Boolean(rendered?.usedOpenAI);
+    const fallbackUsed = understanding.fallbackUsed || !rendered;
 
     const persisted = SalesStateReducerV2.toPersisted({
       ...salesState,
-      lastComplaintSummary:
-        understanding.coarseIntent === "complaint"
-          ? params.customerMessage.slice(0, 200)
-          : salesState.lastComplaintSummary,
+      lastRecommendationHash:
+        stage === "recommendation"
+          ? currentRecommendationHash(plan) || salesState.lastRecommendationHash
+          : salesState.lastRecommendationHash,
+      lastComplaintSummary: understanding.intentTags.includes("complaint")
+        ? params.customerMessage.slice(0, 200)
+        : salesState.lastComplaintSummary,
       lastFeedbackSummary:
-        understanding.coarseIntent === "feedback_positive" ||
-        understanding.coarseIntent === "feedback_negative"
+        understanding.intentTags.includes("feedback_positive") ||
+        understanding.intentTags.includes("feedback_negative")
           ? params.customerMessage.slice(0, 200)
           : salesState.lastFeedbackSummary,
     });
-
     const contextPatch = StatePersisterV2.buildContextPatch(persisted);
 
+    this.safeTrace({
+      params,
+      loaded,
+      runtimeContext,
+      understanding,
+      plan,
+      toolResults,
+      validationFailures: validation.failures,
+      fallbackUsed,
+      tokensUsed,
+      rendererUsedOpenAI,
+      latencyMs: Date.now() - start,
+    });
+
+    const llmResultAdapter = buildInboxLlmResultFromV2({
+      replyText: validation.replyText,
+      reasoning: `ai_v2:${plan.nextBestAction}|${stage}`,
+      isGreeting:
+        understanding.intentTags.includes("greeting") && stage === "greeting",
+      tokensUsed,
+      llmUsed: understanding.usedOpenAI || rendererUsedOpenAI,
+    });
+
     return {
-      replyText,
+      replyText: validation.replyText,
       llmResultAdapter,
       contextPatch: contextPatch as Record<string, unknown>,
       mediaAttachments: [],
@@ -197,31 +211,148 @@ export class AiV2Service {
           kbCount: rag.kbFacts.length,
         },
         plan,
-        validationFailures,
-        usedFactIds: renderOut?.used_fact_ids || [],
+        toolResults,
+        validationFailures: validation.failures,
+        usedFactIds: renderOut.used_fact_ids || [],
+        fallbackUsed,
       },
       tokensUsed,
-      llmUsed,
+      llmUsed: understanding.usedOpenAI || rendererUsedOpenAI,
     };
+  }
+
+  private safeTrace(input: {
+    params: AiV2RunParams;
+    loaded: ReturnType<typeof ConversationStateLoaderV2.load>;
+    runtimeContext: RuntimeContextV2;
+    understanding: MessageUnderstandingV2;
+    plan: ReplyPlanV2;
+    toolResults: ToolActionResultV2[];
+    validationFailures: string[];
+    fallbackUsed: boolean;
+    tokensUsed: number;
+    rendererUsedOpenAI: boolean;
+    latencyMs: number;
+  }) {
+    try {
+      AiV2TraceLogger.logTurn({
+        correlationId: input.params.correlationId,
+        merchantId: input.params.merchant.id,
+        conversationId: input.params.conversation.id,
+        aiReplyEngine: "v2",
+        localTestMode:
+          String(
+            this.config.get<string>("AI_V2_LOCAL_TEST_MODE") || "",
+          ).toLowerCase() === "true",
+        usedOpenAI: {
+          understanding: input.understanding.usedOpenAI,
+          renderer: input.rendererUsedOpenAI,
+        },
+        understanding: {
+          domain: input.understanding.domain,
+          intentTags: input.understanding.intentTags,
+        },
+        stageBefore:
+          (input.loaded.priorAiV2?.salesStage as string | undefined) ||
+          (input.loaded.priorAiV2?.stage as string | undefined) ||
+          "unknown",
+        stageAfter: input.runtimeContext.aiV2State.salesStage,
+        nextBestAction: input.plan.nextBestAction,
+        toolResults: input.toolResults,
+        activeQuestionKind: input.runtimeContext.activeQuestion?.kind ?? null,
+        selectedItemsCount: input.runtimeContext.selectedItems.length,
+        orderDraft: input.runtimeContext.orderDraft
+          ? {
+              status: input.runtimeContext.orderDraft.status,
+              missingFieldsCount:
+                input.runtimeContext.orderDraft.missingFields.length,
+            }
+          : null,
+        complaintState: input.runtimeContext.complaintState
+          ? { status: input.runtimeContext.complaintState.status }
+          : null,
+        merchantFactIds: input.runtimeContext.merchantFacts.map(
+          (fact) => fact.id,
+        ),
+        ragCounts: {
+          catalogFacts: input.runtimeContext.ragFacts.catalogFacts.length,
+          kbFacts: input.runtimeContext.ragFacts.kbFacts.length,
+        },
+        validationFailures: input.validationFailures,
+        fallbackUsed: input.fallbackUsed,
+        understandingError: input.understanding.errorCode
+          ? { code: input.understanding.errorCode }
+          : undefined,
+        rendererError: input.rendererUsedOpenAI
+          ? undefined
+          : { code: input.fallbackUsed ? "RENDERER_UNAVAILABLE" : undefined },
+        tokensUsed: input.tokensUsed,
+        latencyMs: input.latencyMs,
+      });
+    } catch (error: any) {
+      this.logger.debug({
+        msg: "ai_v2_trace_failed",
+        name: String(error?.name || "Error"),
+      });
+    }
   }
 }
 
-function deterministicFallback(
+function withToolStatuses(
+  plan: ReplyPlanV2,
+  results: ToolActionResultV2[],
+): ReplyPlanV2 {
+  return {
+    ...plan,
+    toolActions: plan.toolActions.map((action) => {
+      const result = results.find((r) => r.actionName === action.actionName);
+      if (!result) return action;
+      return {
+        ...action,
+        status: !result.available
+          ? "not_available"
+          : result.success
+            ? "done"
+            : result.attempted
+              ? "failed"
+              : action.status,
+      };
+    }),
+  };
+}
+
+function buildEmergencyRenderOutput(
   understanding: MessageUnderstandingV2,
-  emotion: EmotionPolicyOutputV2,
-  stage: SalesStageV2,
-): string {
-  if (emotion.empathyFirst && understanding.coarseIntent === "complaint") {
-    return "حقك علينا، وأسفين لو فيه إزعاج. اكتب لي بالظبط إيه اللي حصل وهنتابع معاك خطوة بخطوة.";
-  }
-  if (understanding.coarseIntent === "greeting") {
-    return "وعليكم السلام ورحمة الله 😊 أهلاً بيك، تحب أساعدك في حاجة معينة؟";
-  }
-  if (understanding.coarseIntent === "feedback_positive") {
-    return "مبسوطين إنك راضي 😊 لو حابب نكمل في طلب أو استفسار، قولّي.";
-  }
-  if (stage === "support") {
-    return "تمام، خليني أجاوبك بدقة — اكتب سؤالك باختصار وهرد عليك فورًا.";
-  }
-  return "معاك، قولّي تحب نعمل إيه؟";
+  plan: ReplyPlanV2,
+): AiV2RenderOutput {
+  const reply = plan.offTopicRedirectRequired
+    ? "أقدر أساعدك في أسئلة المتجر والمنتجات والطلبات فقط. ابعتلي طلبك من المتجر."
+    : understanding.intentTags.includes("complaint")
+      ? "حقك علينا. ابعت رقم الطلب وتفاصيل المشكلة عشان أسجلها بدقة."
+      : "معاك. ابعتلي تفاصيل طلبك أو سؤالك عن المتجر.";
+  return {
+    customer_reply: reply,
+    state_patch: {},
+    used_fact_ids: [],
+    risk_flags: ["emergency_fallback"],
+    confidence: 0.3,
+  };
+}
+
+function currentRecommendationHash(plan: ReplyPlanV2): string | null {
+  return (
+    plan.forbiddenRepeats
+      .find((item) => item.startsWith("recommendation_hash:"))
+      ?.replace("recommendation_hash:", "") || null
+  );
+}
+
+function extractBusinessType(context: unknown): string | undefined {
+  const record =
+    context && typeof context === "object" && !Array.isArray(context)
+      ? (context as Record<string, unknown>)
+      : {};
+  return typeof record.businessType === "string"
+    ? record.businessType
+    : undefined;
 }

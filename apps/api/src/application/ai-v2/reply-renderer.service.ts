@@ -1,23 +1,28 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import OpenAI from "openai";
-import { Merchant } from "../../domain/entities/merchant.entity";
-import { AiV2RenderOutput } from "./ai-v2.types";
-import { RagContextV2 } from "./ai-v2.types";
-import { ReplyPlanV2 } from "./ai-v2.types";
+import {
+  AiV2RenderOutput,
+  MessageUnderstandingV2,
+  ReplyPlanV2,
+  RuntimeContextV2,
+  ToolActionResultV2,
+} from "./ai-v2.types";
 import { AI_V2_RENDER_JSON_SCHEMA } from "./reply-v2-schema";
 import { withRetry, withTimeout } from "../../shared/utils/helpers";
+import { isLocalTestMode } from "./message-understanding";
 
 export interface ReplyRendererInputV2 {
-  merchant: Merchant;
-  customerMessage: string;
-  memoryBrief: string;
+  runtimeContext: RuntimeContextV2;
+  understanding: MessageUnderstandingV2;
   plan: ReplyPlanV2;
-  rag: RagContextV2;
+  validatorRules: string[];
+  toolResults: ToolActionResultV2[];
 }
 
 @Injectable()
 export class ReplyRendererServiceV2 {
+  private readonly logger = new Logger(ReplyRendererServiceV2.name);
   private readonly client: OpenAI;
   private readonly timeoutMs: number;
 
@@ -30,60 +35,50 @@ export class ReplyRendererServiceV2 {
     );
   }
 
-  /**
-   * Renders a human WhatsApp reply; returns null if API key missing or call fails.
-   */
   async render(
     input: ReplyRendererInputV2,
     options?: { model?: string; maxTokens?: number },
-  ): Promise<{ output: AiV2RenderOutput; tokensUsed: number } | null> {
+  ): Promise<{
+    output: AiV2RenderOutput;
+    tokensUsed: number;
+    usedOpenAI: boolean;
+  } | null> {
     const apiKey = this.config.get<string>("OPENAI_API_KEY");
-    if (!apiKey) return null;
-
-    const factsBlock = buildFactsForPrompt(
-      input.rag,
-      input.plan.allowedFactIds,
-    );
-    const system = buildSystemPrompt(input.merchant, input.plan);
-    const user = JSON.stringify(
-      {
-        customerMessage: input.customerMessage,
-        memoryBrief: input.memoryBrief,
-        plan: {
-          nextBestAction: input.plan.nextBestAction,
-          operatorMode: input.plan.operator.mode,
-          toneDialect: input.plan.operator.toneDialect,
-          warmth: input.plan.operator.warmth,
-          emojiBudget: input.plan.operator.emojiBudget,
-          emotion: input.plan.emotion,
-          plannerNotes: input.plan.plannerNotes,
-        },
-        facts: factsBlock,
-        rules: [
-          "Write one short WhatsApp message; at most one question mark.",
-          "Do not mention AI, bot, or system.",
-          "Use only prices and product names from facts when citing products.",
-          "If price is missing for an item, say the price is not available — do not invent.",
-          "Do not ask for address, delivery location, or payment unless plan allows checkout language (wave1: avoid payment/address entirely).",
-          "used_fact_ids must only list ids from facts list.",
-          "Match customer language (ar/en/mixed) naturally.",
-        ],
-      },
-      null,
-      2,
-    );
+    if (!apiKey) {
+      if (isLocalTestMode(this.config)) {
+        return {
+          output: buildLocalMockRender(input),
+          tokensUsed: 0,
+          usedOpenAI: false,
+        };
+      }
+      return null;
+    }
 
     try {
       const response = await withTimeout(
         withRetry(
           () =>
             this.client.beta.chat.completions.parse({
-              model: (options?.model as any) || "gpt-4o-mini",
-              temperature: 0.65,
-              max_tokens: options?.maxTokens ?? 380,
+              model:
+                (options?.model as any) ||
+                this.config.get<string>("OPENAI_MODEL", "gpt-4o-mini"),
+              temperature: 0.45,
+              max_tokens: options?.maxTokens ?? 420,
               messages: [
-                { role: "system", content: system },
-                { role: "user", content: user },
+                {
+                  role: "system",
+                  content: [
+                    "You are ReplyRendererV2 for a merchant WhatsApp operator.",
+                    "Write tone only; business truth must come only from allowed facts and successful tool results.",
+                    "Never claim an order, payment, refund, return, or status is complete unless a successful tool result proves it.",
+                    "Return structured JSON only.",
+                  ].join(" "),
+                },
+                {
+                  role: "user",
+                  content: JSON.stringify(buildRendererPayload(input), null, 2),
+                },
               ],
               response_format: {
                 type: "json_schema",
@@ -101,53 +96,139 @@ export class ReplyRendererServiceV2 {
         (response as any).choices?.[0]?.message?.parsed ||
         (response as any).parsed;
       if (!parsed?.customer_reply) return null;
-
-      const output: AiV2RenderOutput = {
-        customer_reply: String(parsed.customer_reply),
-        state_patch: {},
-        used_fact_ids: Array.isArray(parsed.used_fact_ids)
-          ? parsed.used_fact_ids.map(String)
-          : [],
-        risk_flags: Array.isArray(parsed.risk_flags)
-          ? parsed.risk_flags.map(String)
-          : [],
-        confidence: Number(parsed.confidence ?? 0.7),
+      return {
+        output: {
+          customer_reply: String(parsed.customer_reply),
+          state_patch: {},
+          used_fact_ids: Array.isArray(parsed.used_fact_ids)
+            ? parsed.used_fact_ids.map(String)
+            : [],
+          risk_flags: Array.isArray(parsed.risk_flags)
+            ? parsed.risk_flags.map(String)
+            : [],
+          confidence: Number(parsed.confidence ?? 0.7),
+        },
+        tokensUsed: (response as any).usage?.total_tokens ?? 0,
+        usedOpenAI: true,
       };
-
-      const tokensUsed = (response as any).usage?.total_tokens ?? 0;
-      return { output, tokensUsed };
-    } catch {
+    } catch (error: any) {
+      this.logger.warn({
+        msg: "ai_v2_renderer_llm_failed",
+        name: String(error?.name || "OpenAIError"),
+        code: error?.code ? String(error.code) : undefined,
+        message: sanitizeErrorMessage(error?.message),
+      });
       return null;
     }
   }
 }
 
-function buildSystemPrompt(merchant: Merchant, plan: ReplyPlanV2): string {
-  return `You are a real human from team ${merchant.name} replying on WhatsApp.
-Merchant mode: ${plan.operator.mode}. Next action: ${plan.nextBestAction.type} (${plan.nextBestAction.reason}).
-Be warm, concise, and natural. Dialect hint: ${plan.operator.toneDialect}.`;
+function buildRendererPayload(input: ReplyRendererInputV2) {
+  const ctx = input.runtimeContext;
+  return {
+    currentCustomerMessage: ctx.currentCustomerMessage,
+    last20Messages: ctx.last20Messages,
+    olderSummary: ctx.olderSummary || null,
+    aiV2State: {
+      salesStage: ctx.aiV2State.salesStage,
+      dialogTurnSeq: ctx.aiV2State.dialogTurnSeq,
+      activeQuestion: ctx.activeQuestion || null,
+      selectedItems: ctx.selectedItems,
+      orderDraft: ctx.orderDraft || null,
+      complaintState: ctx.complaintState || null,
+      knownFacts: ctx.knownFacts,
+    },
+    merchantFacts: ctx.merchantFacts.map((fact) => ({
+      id: fact.id,
+      type: fact.type,
+      value: fact.value,
+    })),
+    ragFacts: ctx.ragFacts,
+    understanding: input.understanding,
+    plan: input.plan,
+    toolResults: input.toolResults,
+    validatorRules: input.validatorRules,
+  };
 }
 
-function buildFactsForPrompt(
-  rag: RagContextV2,
-  allowedIds: string[],
-): Array<{ id: string; text: string }> {
-  const allowed = new Set(allowedIds);
-  const out: Array<{ id: string; text: string }> = [];
-  for (const c of rag.catalogFacts) {
-    const id = `cat:${c.catalogItemId}`;
-    if (!allowed.has(id)) continue;
-    const pricePart =
-      c.price != null ? `price=${c.price}` : "price=UNAVAILABLE";
-    out.push({
-      id,
-      text: `Product: ${c.name}; ${pricePart}; availability=${c.availability || "unknown"}`,
-    });
+function buildLocalMockRender(input: ReplyRendererInputV2): AiV2RenderOutput {
+  const allowedFacts = new Set(input.plan.allowedFactIds);
+  const firstCatalog = input.runtimeContext.ragFacts.catalogFacts.find((fact) =>
+    allowedFacts.has(fact.id),
+  );
+  const phone = input.runtimeContext.merchantFacts.find(
+    (fact) => fact.type === "phone" && allowedFacts.has(fact.id),
+  );
+  const address = input.runtimeContext.merchantFacts.find(
+    (fact) => fact.type === "address" && allowedFacts.has(fact.id),
+  );
+  const payment = input.runtimeContext.merchantFacts.find(
+    (fact) => fact.type === "payment_method" && allowedFacts.has(fact.id),
+  );
+
+  let reply = "تمام، أقدر أساعدك في تفاصيل المتجر والمنتجات والطلبات هنا.";
+  const tags = input.understanding.intentTags;
+
+  if (input.plan.offTopicRedirectRequired) {
+    reply =
+      "أقدر أساعدك في أسئلة المتجر والمنتجات والطلبات فقط. ابعتلي طلبك من المتجر.";
+  } else if (tags.includes("location_question")) {
+    reply = address
+      ? `العنوان المسجل للمتجر: ${address.value}.`
+      : "العنوان غير متاح عندي في بيانات المتجر حالياً.";
+  } else if (tags.includes("contact_question")) {
+    reply = phone
+      ? `رقم التواصل المتاح هو ${phone.value}.`
+      : "رقم التواصل غير متاح عندي في بيانات المتجر حالياً.";
+  } else if (tags.includes("delivery_question")) {
+    reply = "معلومات التوصيل غير متاحة عندي بشكل مؤكد حالياً.";
+  } else if (tags.includes("payment_question")) {
+    reply = payment
+      ? `طريقة الدفع المتاحة حسب بيانات المتجر: ${payment.value}.`
+      : "طرق الدفع غير متاحة عندي في بيانات المتجر حالياً.";
+  } else if (tags.includes("order_status_question")) {
+    reply =
+      "مش متاح عندي تأكيد حالة الطلب بدون أداة متابعة الطلب. ابعت رقم الطلب عشان أراجع المتاح.";
+  } else if (input.runtimeContext.aiV2State.salesStage === "complaint") {
+    reply = "حقك علينا. ابعت رقم الطلب وتفاصيل المشكلة عشان أسجلها بدقة.";
+  } else if (tags.includes("price_question") && firstCatalog) {
+    reply =
+      firstCatalog.price != null
+        ? `${firstCatalog.name} سعره ${firstCatalog.price}.`
+        : `السعر غير متاح عندي حالياً لـ ${firstCatalog.name}.`;
+  } else if (
+    (tags.includes("product_question") ||
+      tags.includes("recommendation_request")) &&
+    firstCatalog
+  ) {
+    reply = `المتاح عندي من البيانات: ${firstCatalog.name}${firstCatalog.price != null ? ` بسعر ${firstCatalog.price}` : ""}. تحب تعرف تفاصيله؟`;
+  } else if (tags.includes("buying_intent")) {
+    reply = "تمام، نبدأ مسودة طلب. ابعت اسم المنتج والكمية المطلوبة.";
   }
-  for (const k of rag.kbFacts) {
-    const id = `kb:${k.chunkId}`;
-    if (!allowed.has(id)) continue;
-    out.push({ id, text: k.text.slice(0, 900) });
+
+  return {
+    customer_reply: reply,
+    state_patch: {},
+    used_fact_ids: collectUsedFactIds(reply, input.runtimeContext),
+    risk_flags: [],
+    confidence: 0.72,
+  };
+}
+
+function collectUsedFactIds(reply: string, ctx: RuntimeContextV2): string[] {
+  const ids: string[] = [];
+  for (const fact of ctx.merchantFacts) {
+    if (reply.includes(fact.value)) ids.push(fact.id);
   }
-  return out;
+  for (const fact of ctx.ragFacts.catalogFacts) {
+    if (reply.includes(fact.name)) ids.push(fact.id);
+  }
+  return ids;
+}
+
+function sanitizeErrorMessage(message: unknown): string | undefined {
+  if (!message) return undefined;
+  return String(message)
+    .replace(/sk-[A-Za-z0-9_-]+/g, "[redacted_openai_key]")
+    .slice(0, 240);
 }

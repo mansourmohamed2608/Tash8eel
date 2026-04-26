@@ -1,7 +1,11 @@
 import { Conversation } from "../../domain/entities/conversation.entity";
 import { Message } from "../../domain/entities/message.entity";
 import { MessageDirection } from "../../shared/constants/enums";
-import { LoadedConversationStateV2, AiV2PersistedState } from "./ai-v2.types";
+import {
+  LoadedConversationStateV2,
+  AiV2PersistedState,
+  RuntimeMessageV2,
+} from "./ai-v2.types";
 
 export interface ConversationStateLoaderInputV2 {
   conversation: Conversation;
@@ -29,6 +33,24 @@ export class ConversationStateLoaderV2 {
       (a, b) =>
         new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
     );
+    const last20Messages: RuntimeMessageV2[] = recent
+      .slice(-20)
+      .map((m) => {
+        const text = String(m.text || "").trim();
+        const role =
+          m.direction === MessageDirection.INBOUND
+            ? ("customer" as const)
+            : ("assistant" as const);
+        return {
+          role,
+          text,
+          createdAt: m.createdAt
+            ? new Date(m.createdAt).toISOString()
+            : undefined,
+        };
+      })
+      .filter((m) => Boolean(m.text));
+
     const lastInbound = recent
       .filter((m) => m.direction === MessageDirection.INBOUND)
       .slice(-8);
@@ -45,9 +67,14 @@ export class ConversationStateLoaderV2 {
         typeof input.conversation.conversationSummary === "string"
           ? input.conversation.conversationSummary
           : undefined,
+      olderSummary:
+        typeof input.conversation.conversationSummary === "string"
+          ? input.conversation.conversationSummary
+          : null,
       priorAiV2,
       cartItemCount: cartItems.length,
       recentTurnsText,
+      last20Messages,
     };
   }
 }

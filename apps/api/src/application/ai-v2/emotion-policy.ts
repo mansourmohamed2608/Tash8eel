@@ -15,13 +15,15 @@ export class EmotionPolicyV2 {
     const u = input.understanding;
     let customerEmotion = input.priorCustomerEmotion || "neutral";
 
-    if (u.coarseIntent === "complaint") {
+    if (u.customerEmotion !== "neutral") {
+      customerEmotion = u.customerEmotion;
+    } else if (u.intentTags.includes("complaint")) {
       customerEmotion = "complaining";
-    } else if (u.coarseIntent === "feedback_negative") {
+    } else if (u.intentTags.includes("feedback_negative")) {
       customerEmotion = "frustrated";
-    } else if (u.coarseIntent === "feedback_positive") {
+    } else if (u.intentTags.includes("feedback_positive")) {
       customerEmotion = "happy";
-    } else if (u.resolutionSignal === "vague") {
+    } else if (u.intentTags.includes("vague_followup")) {
       customerEmotion = "hesitant";
     }
 
@@ -32,8 +34,8 @@ export class EmotionPolicyV2 {
 
     const sellingSuppressed =
       empathyFirst ||
-      u.coarseIntent === "complaint" ||
-      u.coarseIntent === "feedback_negative";
+      u.intentTags.includes("complaint") ||
+      u.intentTags.includes("feedback_negative");
 
     const toneNotes: string[] = [];
     if (empathyFirst) toneNotes.push("قصير ومتعاطف أولاً");

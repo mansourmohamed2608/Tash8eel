@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { CatalogItem } from "../../domain/entities/catalog.entity";
 import { KbRetrievalService } from "../llm/kb-retrieval.service";
+import { Merchant } from "../../domain/entities/merchant.entity";
 import {
   BusinessRuleFactV2,
   CatalogFactV2,
@@ -10,6 +11,10 @@ import {
 
 export interface RagContextBuilderInputV2 {
   merchantId: string;
+  merchant?: Pick<
+    Merchant,
+    "whatsappNumber" | "address" | "workingHours" | "name"
+  >;
   customerMessage: string;
   catalogItems: CatalogItem[];
   businessType?: string;
@@ -54,18 +59,91 @@ export class RagContextBuilderServiceV2 {
     }
 
     const businessRuleFacts: BusinessRuleFactV2[] = [];
+    const allRules = await this.loadBusinessRules(input.merchantId);
+    for (const [ruleType, rules] of Object.entries(allRules)) {
+      for (const rule of rules.slice(0, 5)) {
+        businessRuleFacts.push({
+          key: `${ruleType}:${rule.ruleName}`,
+          value: [rule.ruleDescription, rule.condition, rule.action]
+            .filter(Boolean)
+            .join(" | ")
+            .slice(0, 600),
+          source: "kb",
+        });
+      }
+    }
+
+    // Merchant settings facts: only include customer-visible values.
+    // These are not offers/policies and must never be invented.
+    // We expose them through KB-like facts so validator can allow them by id.
+    const settingsFacts: KbFactV2[] = [];
+    if (input.merchant?.whatsappNumber) {
+      settingsFacts.push({
+        chunkId: "ms:whatsappNumber",
+        text: `رقم واتساب المتجر: ${String(input.merchant.whatsappNumber)}`,
+        visibility: "public" as const,
+        confidence: 0.95,
+        source: "kb" as const,
+      });
+    } else {
+      unavailableFacts.push("merchant_whatsapp_number_missing");
+    }
+    if (input.merchant?.address) {
+      settingsFacts.push({
+        chunkId: "ms:address",
+        text: `عنوان المتجر: ${String(input.merchant.address)}`,
+        visibility: "public" as const,
+        confidence: 0.9,
+        source: "kb" as const,
+      });
+    } else {
+      unavailableFacts.push("merchant_address_missing");
+    }
+    if (input.merchant?.workingHours) {
+      settingsFacts.push({
+        chunkId: "ms:workingHours",
+        text: `مواعيد العمل: ${JSON.stringify(input.merchant.workingHours)}`,
+        visibility: "public" as const,
+        confidence: 0.8,
+        source: "kb" as const,
+      });
+    }
 
     const confidence =
-      catalogFacts.length > 0 || kbFacts.length > 0 ? 0.75 : 0.45;
+      catalogFacts.length > 0 || kbFacts.length > 0 || settingsFacts.length > 0
+        ? 0.78
+        : 0.45;
 
     return {
       catalogFacts,
-      kbFacts,
+      kbFacts: [...settingsFacts, ...kbFacts],
       offerFacts: [],
       businessRuleFacts,
       unavailableFacts,
       confidence,
     };
+  }
+
+  private async loadBusinessRules(
+    merchantId: string,
+  ): Promise<
+    Record<
+      string,
+      Array<{
+        ruleName: string;
+        ruleDescription?: string;
+        condition?: string;
+        action?: string;
+      }>
+    >
+  > {
+    const svc = this.kbRetrieval as any;
+    if (typeof svc.getAllRules !== "function") return {};
+    try {
+      return (await svc.getAllRules(merchantId)) || {};
+    } catch {
+      return {};
+    }
   }
 
   private buildCatalogFacts(

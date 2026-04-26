@@ -28,6 +28,8 @@
     "db:seed:demo-businesses": "ts-node -r tsconfig-paths/register src/database/seeds/demo-businesses.seed.ts",
     "test:ai-reply": "ts-node -r tsconfig-paths/register src/cli/test-ai-reply.ts",
     "test:ai-multi-turn": "ts-node -r tsconfig-paths/register src/cli/test-ai-multi-turn.ts",
+    "test:ai-v2-local": "set AI_V2_LOCAL_TEST_MODE=true&& ts-node -r tsconfig-paths/register src/application/ai-v2/transcript-evals/local-runner.ts",
+    "test:ai-v2-llm": "ts-node -r tsconfig-paths/register src/application/ai-v2/transcript-evals/llm-smoke-runner.ts",
     "dlq:replay": "ts-node src/cli/dlq-replay.ts",
     "seed": "ts-node -r tsconfig-paths/register src/cli/seed.ts",
     "verify:foundations:migrations": "node scripts/verify-foundation-migrations.js",

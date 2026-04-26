@@ -43,7 +43,7 @@ function pickMode(
     return emotion.empathyFirst ? "complaint_recovery" : "manager_apology";
   }
   if (nba.type === "acknowledge_feedback") {
-    return u.coarseIntent === "feedback_positive"
+    return u.intentTags.includes("feedback_positive")
       ? "feedback_ack"
       : "calm_de_escalate";
   }

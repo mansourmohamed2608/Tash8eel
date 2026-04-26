@@ -1,7 +1,7 @@
 [
   {
     "id": "ar_greeting",
-    "description": "Arabic greeting — short warm reply, no payment/delivery",
+    "description": "A. السلام عليكم — greeting only, no selling",
     "customerMessage": "السلام عليكم",
     "expect": {
       "stage": "greeting",
@@ -30,9 +30,95 @@
     }
   },
   {
-    "id": "product_question",
-    "description": "Product question — support stage",
+    "id": "birthday_gifts_discovery",
+    "description": "B. عندكم هدايا عيد ميلاد؟ — recommend or ask one useful preference",
     "customerMessage": "عندكم هدايا عيد ميلاد؟",
+    "expect": {
+      "stage": "recommendation",
+      "isGreetingScenario": false,
+      "userComplaint": false
+    }
+  },
+  {
+    "id": "price_question",
+    "description": "Price question — quote stage",
+    "customerMessage": "الباقة دي بكام؟",
+    "expect": {
+      "stage": "quote",
+      "isGreetingScenario": false,
+      "userComplaint": false
+    }
+  },
+  {
+    "id": "C_alternatives_after_context",
+    "description": "C. عندكم حاجات غير ده؟ — should not reset and should stay in recommendation/discovery",
+    "turns": [
+      { "customer": "عندكم هدايا عيد ميلاد؟" },
+      { "customer": "عندكم حاجات غير ده؟" }
+    ],
+    "expect": {
+      "stage": "recommendation",
+      "isGreetingScenario": false,
+      "userComplaint": false
+    }
+  },
+  {
+    "id": "D_box_request",
+    "description": "D. بدور على بوكس — recommendation stage",
+    "customerMessage": "بدور على بوكس",
+    "expect": {
+      "stage": "recommendation",
+      "isGreetingScenario": false,
+      "userComplaint": false
+    }
+  },
+  {
+    "id": "F_manager_request",
+    "description": "F. هاتلي المدير — complaint/manager flow",
+    "customerMessage": "هاتلي المدير",
+    "expect": {
+      "stage": "complaint",
+      "isGreetingScenario": false,
+      "userComplaint": true
+    }
+  },
+  {
+    "id": "G_quality_complaint",
+    "description": "G. الجودة وحشة — complaint apology + ask minimal detail",
+    "customerMessage": "الجودة وحشة",
+    "expect": {
+      "stage": "complaint",
+      "isGreetingScenario": false,
+      "userComplaint": true
+    }
+  },
+  {
+    "id": "I_buying_intent_order",
+    "description": "I. عايز اعمل اوردر — order taking flow",
+    "customerMessage": "عايز اعمل اوردر",
+    "expect": {
+      "stage": "order_draft",
+      "isGreetingScenario": false,
+      "userComplaint": false
+    }
+  },
+  {
+    "id": "J_selection_first_multi_turn",
+    "description": "J. الأول — selection answer from prior recommendation",
+    "turns": [
+      { "customer": "عندكم هدايا عيد ميلاد؟" },
+      { "customer": "الأول" }
+    ],
+    "expect": {
+      "stage": "selection",
+      "isGreetingScenario": false,
+      "userComplaint": false
+    }
+  },
+  {
+    "id": "K_phone_question",
+    "description": "K. رقمك كام — contact question (support)",
+    "customerMessage": "رقمك كام",
     "expect": {
       "stage": "support",
       "isGreetingScenario": false,
@@ -40,9 +126,29 @@
     }
   },
   {
-    "id": "price_question",
-    "description": "Price question",
-    "customerMessage": "الباقة دي بكام؟",
+    "id": "L_price_objection",
+    "description": "L. غالي — objection handling (discovery/support)",
+    "customerMessage": "غالي",
+    "expect": {
+      "stage": "discovery",
+      "isGreetingScenario": false,
+      "userComplaint": false
+    }
+  },
+  {
+    "id": "N_direct_payment_early",
+    "description": "N. Direct payment question early — must not push checkout",
+    "customerMessage": "تدفعوا ازاي؟",
+    "expect": {
+      "stage": "support",
+      "isGreetingScenario": false,
+      "userComplaint": false
+    }
+  },
+  {
+    "id": "delivery_question_early",
+    "description": "Direct delivery question early — support answer",
+    "customerMessage": "بتوصلوا فين؟",
     "expect": {
       "stage": "support",
       "isGreetingScenario": false,
@@ -84,7 +190,7 @@
     "description": "Mixed Arabic/English",
     "customerMessage": "hi عايز أعرف سعر الورد",
     "expect": {
-      "stage": "support",
+      "stage": "quote",
       "isGreetingScenario": false,
       "userComplaint": false
     }
@@ -95,6 +201,132 @@
     "customerMessage": "مش عارف",
     "expect": {
       "stage": "selection",
+      "isGreetingScenario": false,
+      "userComplaint": false
+    }
+  },
+  {
+    "id": "off_topic_general_sports",
+    "description": "Off-topic general knowledge question — must redirect",
+    "customerMessage": "مين كسب ماتش امبارح؟",
+    "expect": {
+      "stage": "off_topic",
+      "isGreetingScenario": false,
+      "userComplaint": false
+    }
+  },
+  {
+    "id": "store_related_sports_gift",
+    "description": "Store-related sports-themed gift request — NOT off-topic",
+    "customerMessage": "عايز هدية لحد بيحب الكورة",
+    "expect": {
+      "stage": "recommendation",
+      "isGreetingScenario": false,
+      "userComplaint": false
+    }
+  },
+  {
+    "id": "phone_exists_answer",
+    "description": "Ask phone when phone exists — support stage",
+    "customerMessage": "ممكن رقم الواتساب؟",
+    "expect": {
+      "stage": "support",
+      "isGreetingScenario": false,
+      "userComplaint": false
+    }
+  },
+  {
+    "id": "phone_missing_answer",
+    "description": "Ask phone when phone missing — must say unavailable",
+    "customerMessage": "ممكن رقم الواتساب؟",
+    "expect": {
+      "stage": "support",
+      "isGreetingScenario": false,
+      "userComplaint": false
+    }
+  },
+  {
+    "id": "address_exists_answer",
+    "description": "Ask address when address exists — support stage",
+    "customerMessage": "عنوانكم فين؟",
+    "expect": {
+      "stage": "support",
+      "isGreetingScenario": false,
+      "userComplaint": false
+    }
+  },
+  {
+    "id": "address_missing_answer",
+    "description": "Ask address when address missing — must say unavailable",
+    "customerMessage": "عنوانكم فين؟",
+    "expect": {
+      "stage": "support",
+      "isGreetingScenario": false,
+      "userComplaint": false
+    }
+  },
+  {
+    "id": "order_status_tool_unavailable",
+    "description": "Order status asked but tool unavailable — ask minimum details, no invented status",
+    "customerMessage": "فين طلبي؟",
+    "expect": {
+      "stage": "after_sales",
+      "isGreetingScenario": false,
+      "userComplaint": false
+    }
+  },
+  {
+    "id": "payment_proof_unavailable",
+    "description": "Customer says paid — no claim of verification",
+    "customerMessage": "انا دفعت خلاص",
+    "expect": {
+      "stage": "support",
+      "isGreetingScenario": false,
+      "userComplaint": false
+    }
+  },
+  {
+    "id": "support_mid_order_preserve_draft",
+    "description": "Support question mid-order should not reset draft",
+    "turns": [
+      { "customer": "عايز اعمل اوردر" },
+      { "customer": "بتوصلوا فين؟" }
+    ],
+    "expect": {
+      "stage": "support",
+      "isGreetingScenario": false,
+      "userComplaint": false
+    }
+  },
+  {
+    "id": "complaint_mid_order_preserve_draft",
+    "description": "Complaint mid-order should switch to complaint but preserve draft",
+    "turns": [
+      { "customer": "عايز اعمل اوردر" },
+      { "customer": "انتوا نصابين" }
+    ],
+    "expect": {
+      "stage": "complaint",
+      "isGreetingScenario": false,
+      "userComplaint": true
+    }
+  },
+  {
+    "id": "repeated_greeting_does_not_reset",
+    "description": "Repeated greeting should not reset product context",
+    "turns": [{ "customer": "عندكم هدايا عيد ميلاد؟" }, { "customer": "هاي" }],
+    "expect": {
+      "stage": "recommendation",
+      "isGreetingScenario": false,
+      "userComplaint": false
+    }
+  },
+  {
+    "id": "mixed_ar_en_off_topic_redirect",
+    "description": "Mixed language off-topic — redirect",
+    "customerMessage": "hi ممكن تشرحلي javascript بسرعة؟",
+    "expect": {
+      "stage": "off_topic",
       "isGreetingScenario": false,
       "userComplaint": false
     }

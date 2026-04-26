@@ -1,120 +1,171 @@
 import {
-  CoarseIntentV2,
   MessageUnderstandingV2,
   NextBestActionV2,
   SalesStageV2,
 } from "./ai-v2.types";
 import { LoadedConversationStateV2 } from "./ai-v2.types";
 
-/**
- * Chooses nextBestAction and target stage from understanding + cart.
- * Does not read RAG text — only structured signals.
- */
 export class SalesPolicyV2 {
   static decide(input: {
     loaded: LoadedConversationStateV2;
     understanding: MessageUnderstandingV2;
   }): { stage: SalesStageV2; nextBestAction: NextBestActionV2 } {
     const { understanding: u, loaded } = input;
+    const has = (tag: string) => u.intentTags.includes(tag as any);
+    const priorStage = (loaded.priorAiV2?.salesStage ||
+      loaded.priorAiV2?.stage) as SalesStageV2 | undefined;
 
-    if (u.coarseIntent === "complaint") {
+    if (u.domain === "off_topic_general" || has("off_topic_general")) {
+      return {
+        stage: "off_topic",
+        nextBestAction: {
+          type: "redirect_off_topic",
+          reason: "off_topic_general",
+        },
+      };
+    }
+
+    if (has("complaint") || has("angry_escalation") || has("manager_request")) {
       return {
         stage: "complaint",
         nextBestAction: {
           type: "handle_complaint",
-          reason: "complaint_terms",
+          reason: has("manager_request") ? "manager_request" : "complaint",
         },
       };
     }
 
-    if (u.coarseIntent === "feedback_negative") {
+    if (has("feedback_positive") || has("feedback_negative")) {
       return {
         stage: "support",
         nextBestAction: {
           type: "acknowledge_feedback",
-          reason: "negative_feedback",
+          reason: has("feedback_positive")
+            ? "positive_feedback"
+            : "negative_feedback",
         },
       };
     }
 
-    if (u.coarseIntent === "feedback_positive") {
-      return {
-        stage: "support",
-        nextBestAction: {
-          type: "acknowledge_feedback",
-          reason: "positive_feedback",
-        },
-      };
-    }
-
-    if (u.coarseIntent === "greeting") {
+    if (has("greeting") && !u.needsStoreAnswer && !u.buyingSignal) {
+      if (
+        priorStage &&
+        priorStage !== "greeting" &&
+        priorStage !== "off_topic" &&
+        priorStage !== "after_sales"
+      ) {
+        return {
+          stage: priorStage,
+          nextBestAction: {
+            type: "clarify",
+            reason: "greeting_with_existing_context",
+          },
+        };
+      }
       return {
         stage: "greeting",
-        nextBestAction: { type: "greet", reason: "greeting_phrase" },
+        nextBestAction: { type: "greet", reason: "greeting_only" },
+      };
+    }
+
+    if (has("order_status_question")) {
+      return {
+        stage: "after_sales",
+        nextBestAction: {
+          type: "support_answer",
+          reason: "order_status_requires_tool",
+        },
       };
     }
 
     if (
-      u.coarseIntent === "product_question" ||
-      u.coarseIntent === "price_question" ||
-      u.coarseIntent === "policy_question"
+      has("payment_question") ||
+      has("delivery_question") ||
+      has("contact_question") ||
+      has("location_question") ||
+      has("policy_question") ||
+      has("support_question")
     ) {
       return {
         stage: "support",
         nextBestAction: {
-          type: "answer_question",
-          reason: u.coarseIntent,
+          type: "support_answer",
+          reason: "direct_store_question",
         },
       };
     }
 
-    if (loaded.cartItemCount > 0 && u.buyingIntentStrong) {
+    if (has("selection_answer")) {
+      return {
+        stage: "selection",
+        nextBestAction: {
+          type: "update_order",
+          reason: "selection_answer",
+        },
+      };
+    }
+
+    if (u.buyingSignal || has("buying_intent")) {
       return {
         stage: "order_draft",
         nextBestAction: {
-          type: "confirm_order_draft",
-          reason: "cart_nonempty_and_buying_intent",
+          type: "create_order_draft",
+          reason: "buying_signal",
         },
       };
     }
 
-    if (u.coarseIntent === "order_intent") {
+    if (has("price_question")) {
       return {
-        stage: "discovery",
+        stage: "quote",
+        nextBestAction: { type: "quote", reason: "price_question" },
+      };
+    }
+
+    if (has("recommendation_request") || has("product_question")) {
+      return {
+        stage: "recommendation",
+        nextBestAction: {
+          type: has("recommendation_request") ? "recommend" : "answer_question",
+          reason: has("recommendation_request")
+            ? "recommendation_request"
+            : "product_question",
+        },
+      };
+    }
+
+    if (has("objection_price")) {
+      return {
+        stage: priorStage || "discovery",
+        nextBestAction: {
+          type: "handle_objection",
+          reason: "price_objection",
+        },
+      };
+    }
+
+    if (has("vague_followup") && priorStage && priorStage !== "off_topic") {
+      return {
+        stage: priorStage,
         nextBestAction: {
           type: "clarify",
-          reason: "order_intent_need_detail",
+          reason: "vague_followup_with_context",
         },
       };
     }
-
-    if (u.resolutionSignal !== "none") {
+    if (has("vague_followup")) {
       return {
         stage: "selection",
         nextBestAction: {
           type: "clarify",
-          reason: `resolution:${u.resolutionSignal}`,
+          reason: "vague_followup_without_context",
         },
       };
     }
 
     return {
-      stage: "discovery",
+      stage: priorStage && priorStage !== "greeting" ? priorStage : "discovery",
       nextBestAction: { type: "clarify", reason: "fallback_ambiguous" },
     };
-  }
-
-  /** Maps coarse intent to v2 stage when no cart conflict */
-  static stageForIntent(intent: CoarseIntentV2): SalesStageV2 {
-    if (intent === "greeting" || intent === "small_talk") return "greeting";
-    if (intent === "complaint") return "complaint";
-    if (
-      intent === "product_question" ||
-      intent === "price_question" ||
-      intent === "policy_question"
-    ) {
-      return "support";
-    }
-    return "discovery";
   }
 }
