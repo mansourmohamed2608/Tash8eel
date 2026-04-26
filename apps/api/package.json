@@ -78,7 +78,7 @@
     "pino-pretty": "^10.3.1",
     "redlock": "^5.0.0-beta.2",
     "reflect-metadata": "^0.2.1",
-    "rxjs": "^7.8.1",
+    "rxjs": "^7.8.2",
     "sharp": "^0.34.5",
     "socket.io": "^4.8.3",
     "swagger-ui-express": "^5.0.1",
