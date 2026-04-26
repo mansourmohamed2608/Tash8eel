@@ -84,6 +84,7 @@ describe("isObviouslyOffTopic — pass-through cases", () => {
   it("passes هاي", () => passes("هاي"));
 
   // Order intent
+  it("passes numeric-only short replies", () => passes("200"));
   it("passes عايز أطلب", () => passes("عايز أطلب بيتزا"));
   it("passes عاوز بيتزا", () => passes("عاوز بيتزا مارغريتا"));
   it("passes محتاج منتج", () => passes("محتاج جاكيت شتوي"));

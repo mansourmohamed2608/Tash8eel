@@ -68,8 +68,9 @@ export function isObviouslyOffTopic(text: string): boolean {
     /مسلسل\s*(إيه|ايه|جديد|حلو|ينتهي)/i,
     // Religion Q&A
     /ما\s*(حكم|رأي\s*الدين).{0,40}(في|على)/i,
-    // Pure math expression (no text at all)
-    /^[\d\s\+\-\*\/\^\(\)=]+$/,
+    // Pure math expression with an operator. Numeric-only replies are common
+    // WhatsApp commerce answers for quantity, budget, order number, or OTP.
+    /^(?=.*[\+\-\*\/\^\(\)=])[\d\s\+\-\*\/\^\(\)=]+$/,
   ];
 
   return hardDenyPatterns.some((re) => re.test(t));
@@ -596,8 +597,7 @@ export class LlmService {
         );
         return {
           replyText:
-            fallback ||
-            "معاك، قولّي التفاصيل الأساسية وأنا أساعدك خطوة بخطوة.",
+            fallback || "معاك، قولّي التفاصيل الأساسية وأنا أساعدك خطوة بخطوة.",
           tokensUsed: 0,
           llmUsed: false,
         };
@@ -618,14 +618,16 @@ export class LlmService {
                 : 220,
               temperature: 0.8,
             }),
-          { maxRetries: options?.disableSimplifiedRetry ? 0 : 1, initialDelayMs: 500 },
+          {
+            maxRetries: options?.disableSimplifiedRetry ? 0 : 1,
+            initialDelayMs: 500,
+          },
         ),
         Math.min(this.timeoutMs, 20000),
         "OpenAI dialog reply request timed out",
       );
 
-      const replyText =
-        response.choices?.[0]?.message?.content?.trim() || "";
+      const replyText = response.choices?.[0]?.message?.content?.trim() || "";
       const tokensUsed = response.usage?.total_tokens || 0;
       await this.recordTokenUsageSafely(
         merchant.id,
@@ -642,7 +644,10 @@ export class LlmService {
       });
 
       return {
-        replyText: ReplyComposer.polish(replyText, { merchant, recentMessages }),
+        replyText: ReplyComposer.polish(replyText, {
+          merchant,
+          recentMessages,
+        }),
         tokensUsed,
         llmUsed: true,
       };
@@ -683,8 +688,7 @@ export class LlmService {
               ? ActionType.GREET
               : ActionType.ASK_CLARIFYING_QUESTION,
           reply_ar:
-            replyText ||
-            "معاك، قولّي التفاصيل الأساسية ونكملها خطوة خطوة.",
+            replyText || "معاك، قولّي التفاصيل الأساسية ونكملها خطوة خطوة.",
           extracted_entities: createEmptyExtractedEntities(),
           missing_slots: null,
           negotiation: createEmptyNegotiation(),
@@ -755,7 +759,10 @@ export class LlmService {
                 : 520,
               temperature: 0.75,
             }),
-          { maxRetries: options?.disableSimplifiedRetry ? 0 : 1, initialDelayMs: 500 },
+          {
+            maxRetries: options?.disableSimplifiedRetry ? 0 : 1,
+            initialDelayMs: 500,
+          },
         ),
         Math.min(this.timeoutMs, 20000),
         "OpenAI dialog turn request timed out",
@@ -805,9 +812,7 @@ export class LlmService {
         serviceName: "LlmService",
         methodName: "processDialogTurn",
         merchantId: merchant.id,
-        outcome: err.message?.includes("timed out")
-          ? "timeout"
-          : "error",
+        outcome: err.message?.includes("timed out") ? "timeout" : "error",
       });
       if (is429) {
         this.fireOpenAiQuotaNotification(merchant.id);
@@ -2363,8 +2368,8 @@ ${customerMessage}
 
     const hasResolvedProduct = Boolean(
       response?.extracted_entities?.products?.[0]?.name ||
-        currentState.confirmedItems.length > 0 ||
-        context.conversation.cart.items?.length,
+      currentState.confirmedItems.length > 0 ||
+      context.conversation.cart.items?.length,
     );
     const selectionLikeMessage =
       this.isOrderIntentMessage(normalizedMessage) ||

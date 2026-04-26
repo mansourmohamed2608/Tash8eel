@@ -416,7 +416,8 @@ export class InboxService {
   private buildDeterministicOffTopicRedirectReply(
     merchantName: string,
   ): string {
-    return `ده خارج نطاق ${merchantName} عندي، بس لو محتاج أي حاجة تخص الطلب أو المنتجات أنا أكمل معاك.`;
+    void merchantName;
+    return "ده خارج نطاق المتجر عندي، بس لو محتاج أي حاجة تخص الطلب أو المنتجات أنا أكمل معاك.";
   }
 
   private async classifyOffTopicHandling(
