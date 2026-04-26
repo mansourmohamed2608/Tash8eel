@@ -1272,6 +1272,7 @@ export class InboxService {
         recentMessages,
         customerMessage: params.text ?? "",
         channel: params.channel,
+        correlationId,
         llmOptions: {
           model: quotaAwareLlm.options.model,
           maxTokens: quotaAwareLlm.options.maxTokens,
