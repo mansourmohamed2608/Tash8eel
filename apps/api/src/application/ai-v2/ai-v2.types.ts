@@ -203,9 +203,18 @@ export type AiV2PersistedState = AiSalesState;
 
 export interface CatalogFactV2 {
   catalogItemId: string;
+  sku?: string;
   name: string;
+  description?: string;
   price?: number;
   availability?: string;
+  customerFacingName: string;
+  customerFacingDescription?: string;
+  customerFacingPrice?: number;
+  customerFacingAvailability?: string;
+  customerVisibleSku?: boolean;
+  sourceLabel?: string;
+  isFixture?: boolean;
   confidence: number;
   source: "catalog";
 }
@@ -429,12 +438,39 @@ export interface RuntimeCatalogFactV2 {
   id: string;
   type: "catalog";
   catalogItemId?: string;
+  sku?: string | null;
   name: string;
   price?: number | string | null;
   availability?: string | null;
   description?: string | null;
   category?: string | null;
+  customerFacingName: string;
+  customerFacingDescription?: string | null;
+  customerFacingPrice?: number | string | null;
+  customerFacingAvailability?: string | null;
+  customerVisibleSku?: boolean;
+  sourceLabel?: string | null;
+  isFixture?: boolean;
   confidence?: number;
+}
+
+export interface RuntimeCustomerSafeCatalogFactV2 {
+  id: string;
+  type: "catalog";
+  name: string;
+  description?: string | null;
+  price?: number | string | null;
+  availability?: string | null;
+  sku?: string | null;
+}
+
+export interface RuntimeCustomerSafeFactsV2 {
+  catalogFacts: RuntimeCustomerSafeCatalogFactV2[];
+  merchantFacts: Array<{
+    id: string;
+    type: MerchantFactTypeV2;
+    value: string;
+  }>;
 }
 
 export interface RuntimeKbFactV2 {
@@ -486,6 +522,7 @@ export interface RuntimeContextV2 {
   aiV2State: AiSalesState;
   merchantFacts: MerchantFactV2[];
   ragFacts: RuntimeRagFactsV2;
+  customerSafeFacts: RuntimeCustomerSafeFactsV2;
   activeQuestion?: ActiveQuestionV2 | null;
   selectedItems: SelectedItemV2[];
   orderDraft?: OrderDraftV2 | null;

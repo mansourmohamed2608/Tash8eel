@@ -71,6 +71,8 @@ export class ReplyRendererServiceV2 {
                   content: [
                     "You are ReplyRendererV2 for a merchant WhatsApp operator.",
                     "Write tone only; business truth must come only from allowed facts and successful tool results.",
+                    "Use customerSafeFacts for customer-facing names, descriptions, prices, availability, and visible SKUs.",
+                    "Never show fact IDs, catalogItemId, database IDs, raw SKUs, source labels, tool names, action names, local mode, demo mode, fixture, test, internal, or scope wording.",
                     "Never claim an order, payment, refund, return, or status is complete unless a successful tool result proves it.",
                     "Return structured JSON only.",
                   ].join(" "),
@@ -138,23 +140,40 @@ function buildRendererPayload(input: ReplyRendererInputV2) {
       complaintState: ctx.complaintState || null,
       knownFacts: ctx.knownFacts,
     },
-    merchantFacts: ctx.merchantFacts.map((fact) => ({
-      id: fact.id,
-      type: fact.type,
-      value: fact.value,
-    })),
-    ragFacts: ctx.ragFacts,
+    customerSafeFacts: ctx.customerSafeFacts,
     understanding: input.understanding,
-    plan: input.plan,
-    toolResults: input.toolResults,
+    plan: {
+      nextBestAction: input.plan.nextBestAction,
+      answerFirst: input.plan.answerFirst,
+      allowedToAskDelivery: input.plan.allowedToAskDelivery,
+      allowedToAskPayment: input.plan.allowedToAskPayment,
+      maxQuestions: input.plan.maxQuestions,
+      allowedFactIds: input.plan.allowedFactIds,
+      selectedItemsSummary: input.plan.selectedItemsSummary,
+      orderDraftSummary: input.plan.orderDraftSummary,
+      complaintSummary: input.plan.complaintSummary,
+      activeQuestionSummary: input.plan.activeQuestionSummary,
+      doNotGreetAgain: input.plan.doNotGreetAgain,
+      offTopicRedirectRequired: input.plan.offTopicRedirectRequired,
+      rendererInstructions: input.plan.rendererInstructions,
+    },
+    toolAvailability: input.toolResults.map((result) => ({
+      capability: safeCapabilityName(result.actionName),
+      available: result.available,
+      attempted: result.attempted,
+      success: result.success,
+      errorCode: result.errorCode,
+      resultFactIds: result.resultFactIds,
+      safeMessage: result.safeMessage,
+    })),
     validatorRules: input.validatorRules,
   };
 }
 
 function buildLocalMockRender(input: ReplyRendererInputV2): AiV2RenderOutput {
   const allowedFacts = new Set(input.plan.allowedFactIds);
-  const firstCatalog = input.runtimeContext.ragFacts.catalogFacts.find((fact) =>
-    allowedFacts.has(fact.id),
+  const firstCatalog = input.runtimeContext.customerSafeFacts.catalogFacts.find(
+    (fact) => allowedFacts.has(fact.id),
   );
   const phone = input.runtimeContext.merchantFacts.find(
     (fact) => fact.type === "phone" && allowedFacts.has(fact.id),
@@ -172,6 +191,11 @@ function buildLocalMockRender(input: ReplyRendererInputV2): AiV2RenderOutput {
   if (input.plan.offTopicRedirectRequired) {
     reply =
       "أقدر أساعدك في أسئلة المتجر والمنتجات والطلبات فقط. ابعتلي طلبك من المتجر.";
+  } else if (
+    tags.includes("greeting") &&
+    input.runtimeContext.aiV2State.salesStage === "greeting"
+  ) {
+    reply = "وعليكم السلام، أهلاً بيك. أقدر أساعدك في المنتجات أو الطلبات.";
   } else if (tags.includes("location_question")) {
     reply = address
       ? `العنوان المسجل للمتجر: ${address.value}.`
@@ -191,6 +215,15 @@ function buildLocalMockRender(input: ReplyRendererInputV2): AiV2RenderOutput {
       "مش متاح عندي تأكيد حالة الطلب بدون أداة متابعة الطلب. ابعت رقم الطلب عشان أراجع المتاح.";
   } else if (input.runtimeContext.aiV2State.salesStage === "complaint") {
     reply = "حقك علينا. ابعت رقم الطلب وتفاصيل المشكلة عشان أسجلها بدقة.";
+  } else if (input.plan.nextBestAction === "ask_quantity") {
+    reply = "تمام، الكمية المطلوبة كام؟";
+  } else if (input.plan.nextBestAction === "ask_delivery") {
+    reply = "تمام، سجلت الكمية. تحب التوصيل يكون لأي منطقة أو عنوان؟";
+  } else if (
+    input.plan.nextBestAction === "clarify" &&
+    input.runtimeContext.orderDraft?.missingFields.includes("item")
+  ) {
+    reply = "تمام، نكمل الطلب. ابعت اسم المنتج اللي تحب تطلبه.";
   } else if (tags.includes("price_question") && firstCatalog) {
     reply =
       firstCatalog.price != null
@@ -201,9 +234,9 @@ function buildLocalMockRender(input: ReplyRendererInputV2): AiV2RenderOutput {
       tags.includes("recommendation_request")) &&
     firstCatalog
   ) {
-    reply = `المتاح عندي من البيانات: ${firstCatalog.name}${firstCatalog.price != null ? ` بسعر ${firstCatalog.price}` : ""}. تحب تعرف تفاصيله؟`;
+    reply = `المتاح عندي ضمن المنتجات: ${firstCatalog.name}${firstCatalog.price != null ? ` بسعر ${firstCatalog.price}` : ""}. تحب تعرف تفاصيله؟`;
   } else if (tags.includes("buying_intent")) {
-    reply = "تمام، نبدأ مسودة طلب. ابعت اسم المنتج والكمية المطلوبة.";
+    reply = "تمام، نبدأ نجمع تفاصيل الطلب. الكمية المطلوبة كام؟";
   }
 
   return {
@@ -221,9 +254,28 @@ function collectUsedFactIds(reply: string, ctx: RuntimeContextV2): string[] {
     if (reply.includes(fact.value)) ids.push(fact.id);
   }
   for (const fact of ctx.ragFacts.catalogFacts) {
-    if (reply.includes(fact.name)) ids.push(fact.id);
+    if (reply.includes(fact.customerFacingName)) ids.push(fact.id);
   }
   return ids;
+}
+
+function safeCapabilityName(actionName: string): string {
+  const map: Record<string, string> = {
+    searchCatalog: "catalog_search",
+    getCatalogItem: "catalog_item_lookup",
+    calculateQuote: "quote_calculation",
+    createDraftOrder: "order_collection",
+    updateDraftOrder: "order_collection_update",
+    getMerchantPaymentSettings: "payment_settings_lookup",
+    searchPublicKB: "public_knowledge_lookup",
+    getBusinessRules: "business_rule_lookup",
+    getOrderStatus: "order_status_lookup",
+    recordComplaintNote: "complaint_collection",
+    recordCustomerFeedback: "feedback_collection",
+    attachProductMedia: "product_media_lookup",
+    verifyPaymentProof: "payment_proof_check",
+  };
+  return map[actionName] || "backend_capability";
 }
 
 function sanitizeErrorMessage(message: unknown): string | undefined {

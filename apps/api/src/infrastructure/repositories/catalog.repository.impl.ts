@@ -338,6 +338,8 @@ export class CatalogRepository implements ICatalogRepository {
       tags: row.tags as string[],
       isAvailable: row.is_available as boolean,
       hasRecipe: (row.has_recipe as boolean) || false,
+      customerVisibleSku: Boolean(row.customer_visible_sku),
+      sourceLabel: row.source_label as string | undefined,
       createdAt: new Date(row.created_at as string),
       updatedAt: new Date(row.updated_at as string),
     };

@@ -12,8 +12,11 @@ import { EmotionPolicyV2 } from "../emotion-policy";
 import { ActionExecutorV2 } from "../action-executor";
 import { ToolRegistryV2 } from "../tool-registry";
 import { ReplyRendererServiceV2 } from "../reply-renderer.service";
+import { ReplyPlannerV2 } from "../reply-planner";
+import { RuntimeContextBuilderV2 } from "../runtime-context-builder";
 import type { TranscriptScenarioJson } from "../transcript-evals/runner";
 import { runTranscriptScenario } from "../transcript-evals/runner";
+import { runAiV2FullConversationTranscript } from "../transcript-evals/full-conversation-runner";
 import type {
   AiSalesState,
   MessageUnderstandingV2,
@@ -21,6 +24,7 @@ import type {
   RuntimeContextV2,
   ToolActionResultV2,
 } from "../ai-v2.types";
+import { EMPTY_RAG_CONTEXT_V2 } from "../ai-v2.types";
 import { ConversationStateLoaderV2 } from "../conversation-state-loader";
 import { ConfigService } from "@nestjs/config";
 
@@ -232,9 +236,30 @@ describe("AI Reply Engine v2 — core", () => {
             availability: "available",
             description: null,
             category: null,
+            customerFacingName: "منتج عام A",
+            customerFacingDescription: null,
+            customerFacingPrice: 120,
+            customerFacingAvailability: "available",
+            customerVisibleSku: false,
+            sourceLabel: null,
+            isFixture: false,
             confidence: 0.9,
           },
         ],
+      },
+      customerSafeFacts: {
+        catalogFacts: [
+          {
+            id: "cat:c1",
+            type: "catalog",
+            name: "منتج عام A",
+            description: null,
+            price: 120,
+            availability: "available",
+            sku: null,
+          },
+        ],
+        merchantFacts: [],
       },
     } as RuntimeContextV2;
     const plan = {
@@ -383,6 +408,171 @@ describe("AI Reply Engine v2 — core", () => {
     expect(v.replyText).not.toContain("999");
   });
 
+  it("ReplyValidatorV2 blocks generic internal RAG/catalog leakage without blocking merchant name Demo", () => {
+    const runtimeContext = runtimeContextWithInternalCatalogFacts();
+    const plan = {
+      ...basePlan(),
+      allowedFactIds: ["mf:merchant_name", "cat:abc123", "cat:visible"],
+    };
+
+    const allowedMerchantName = ReplyValidatorV2.validate({
+      render: {
+        customer_reply: "اسم المتجر Demo.",
+        state_patch: {},
+        used_fact_ids: ["mf:merchant_name"],
+        risk_flags: [],
+        confidence: 0.9,
+      },
+      runtimeContext,
+      understanding: baseUnderstanding(["support_question"]),
+      plan,
+      toolResults: [],
+    });
+    expect(allowedMerchantName.failures).not.toContain(
+      "possible_internal_source_leakage",
+    );
+    expect(allowedMerchantName.replyText).toContain("Demo");
+
+    const blockedSourcePhrase = ReplyValidatorV2.validate({
+      render: {
+        customer_reply: "ده خارج نطاق demo عندي.",
+        state_patch: {},
+        used_fact_ids: [],
+        risk_flags: [],
+        confidence: 0.7,
+      },
+      runtimeContext,
+      understanding: baseUnderstanding(["support_question"]),
+      plan,
+      toolResults: [],
+    });
+    expect(blockedSourcePhrase.failures).toContain(
+      "possible_internal_source_leakage",
+    );
+    expect(blockedSourcePhrase.replyText.toLowerCase()).not.toContain("demo");
+
+    const leakedIds = ReplyValidatorV2.validate({
+      render: {
+        customer_reply:
+          "المنتج عندي من بيانات المتجر: BAG-001 و PERF-RED-22 و cat:abc123 و mf:phone و 550e8400-e29b-41d4-a716-446655440000 و source: demo.",
+        state_patch: {},
+        used_fact_ids: ["cat:abc123"],
+        risk_flags: [],
+        confidence: 0.7,
+      },
+      runtimeContext,
+      understanding: baseUnderstanding(["product_question"]),
+      plan,
+      toolResults: [],
+    });
+    expect(leakedIds.failures).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("internal_catalog_code_leakage:BAG-001"),
+        expect.stringContaining("internal_fact_id_leakage:cat:abc123"),
+        expect.stringContaining("internal_fact_id_leakage:mf:phone"),
+        expect.stringContaining("internal_uuid_leakage"),
+        "possible_internal_source_leakage",
+      ]),
+    );
+    expect(leakedIds.replyText).not.toContain("BAG-001");
+    expect(leakedIds.replyText).not.toContain("cat:abc123");
+
+    const visibleSku = ReplyValidatorV2.validate({
+      render: {
+        customer_reply: "الكود المتاح للعميل PERF-RED-22.",
+        state_patch: {},
+        used_fact_ids: ["cat:visible"],
+        risk_flags: [],
+        confidence: 0.9,
+      },
+      runtimeContext,
+      understanding: baseUnderstanding(["product_question"]),
+      plan,
+      toolResults: [],
+    });
+    expect(visibleSku.failures).not.toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("internal_catalog_code_leakage:PERF-RED-22"),
+      ]),
+    );
+    expect(visibleSku.replyText).toContain("PERF-RED-22");
+  });
+
+  it("SalesStateReducerV2 resolves active quantity answers and advances to next missing field", async () => {
+    const prior = {
+      dialogTurnSeq: 4,
+      salesStage: "order_draft",
+      stage: "order_draft",
+      selectedItems: [
+        {
+          label: "منتج عام A",
+          confidence: 0.8,
+          source: "customer",
+        },
+      ],
+      activeQuestion: {
+        kind: "quantity",
+        text: "quantity",
+        askedAt: new Date().toISOString(),
+      },
+      orderDraft: {
+        items: [{ label: "منتج عام A", source: "customer" }],
+        status: "collecting",
+        missingFields: ["quantity", "delivery"],
+      },
+    };
+    const loaded = loadedWithPrior(prior, "200");
+    const baseRuntime = RuntimeContextBuilderV2.build({
+      merchant: { id: "m1", name: "Demo", config: {} } as any,
+      loaded,
+      salesState: SalesStateReducerV2.buildBaseState(loaded),
+      rag: EMPTY_RAG_CONTEXT_V2,
+    });
+    const understanding = await new MessageUnderstandingV2Service(
+      new ConfigService({ AI_V2_LOCAL_TEST_MODE: "true" } as any),
+    ).analyze("200", baseRuntime);
+    const state = SalesStateReducerV2.reduce({
+      loaded,
+      understanding,
+      nextBestAction: { type: "update_order", reason: "quantity_answer" },
+      stage: "order_draft",
+      customerEmotion: "neutral",
+    });
+    const plan = ReplyPlannerV2.plan({
+      runtimeContext: RuntimeContextBuilderV2.build({
+        merchant: { id: "m1", name: "Demo", config: {} } as any,
+        loaded,
+        salesState: state,
+        rag: EMPTY_RAG_CONTEXT_V2,
+      }),
+      understanding,
+    });
+    const plannedState = SalesStateReducerV2.applyPlan(state, plan);
+
+    expect(understanding.answerToActiveQuestion).toEqual(
+      expect.objectContaining({ kind: "quantity", value: 200 }),
+    );
+    expect(plannedState.orderDraft?.quantity).toBe(200);
+    expect(plannedState.answeredQuestions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ kind: "quantity", value: 200 }),
+      ]),
+    );
+    expect(plannedState.activeQuestion?.kind).toBe("delivery");
+    expect(plannedState.orderDraft?.missingFields).not.toContain("quantity");
+    expect(plan.nextBestAction).toBe("ask_delivery");
+  });
+
+  it("AI v2 full WhatsApp conversation preserves state and avoids leakage", async () => {
+    const result = await runAiV2FullConversationTranscript();
+    expect(result.orderDraftQuantityIs200).toBe(true);
+    expect(result.complaintStatePreserved).toBe(true);
+    expect(result.internalLeakageDetected).toBe(false);
+    expect(result.forbiddenCompletionClaimDetected).toBe(false);
+    expect(result.finalState?.activeQuestion?.kind).not.toBe("quantity");
+    expect(result.transcript).toHaveLength(7);
+  });
+
   it("SalesStateReducerV2 preserves order, complaint, question, and selection state across turns", () => {
     const prior = {
       dialogTurnSeq: 7,
@@ -490,6 +680,10 @@ function baseRuntimeContext(stage: AiSalesState["stage"]): RuntimeContextV2 {
       offerFacts: [],
       businessRuleFacts: [],
     },
+    customerSafeFacts: {
+      catalogFacts: [],
+      merchantFacts: [],
+    },
     activeQuestion: null,
     selectedItems: [],
     orderDraft: null,
@@ -510,6 +704,121 @@ function baseRuntimeContext(stage: AiSalesState["stage"]): RuntimeContextV2 {
       requireToolSuccessBeforeCompletionClaims: true,
     },
   };
+}
+
+function runtimeContextWithInternalCatalogFacts(): RuntimeContextV2 {
+  const ctx = baseRuntimeContext("support");
+  ctx.merchantFacts = [
+    {
+      id: "mf:merchant_name",
+      type: "merchant_name",
+      value: "Demo",
+      source: "merchant_profile",
+    },
+    {
+      id: "mf:phone",
+      type: "phone",
+      value: "+201000000000",
+      source: "merchant_profile",
+    },
+  ];
+  ctx.ragFacts.catalogFacts = [
+    {
+      id: "cat:abc123",
+      type: "catalog",
+      catalogItemId: "550e8400-e29b-41d4-a716-446655440000",
+      sku: "BAG-001",
+      name: "BAG-001",
+      price: 120,
+      availability: "available",
+      description: null,
+      category: null,
+      customerFacingName: "شنطة جلد",
+      customerFacingDescription: null,
+      customerFacingPrice: 120,
+      customerFacingAvailability: "available",
+      customerVisibleSku: false,
+      sourceLabel: "source: demo",
+      isFixture: true,
+      confidence: 0.9,
+    },
+    {
+      id: "cat:visible",
+      type: "catalog",
+      catalogItemId: "visible-product",
+      sku: "PERF-RED-22",
+      name: "عطر أحمر",
+      price: 220,
+      availability: "available",
+      description: null,
+      category: null,
+      customerFacingName: "عطر أحمر",
+      customerFacingDescription: null,
+      customerFacingPrice: 220,
+      customerFacingAvailability: "available",
+      customerVisibleSku: true,
+      sourceLabel: null,
+      isFixture: false,
+      confidence: 0.9,
+    },
+  ];
+  ctx.customerSafeFacts = {
+    catalogFacts: [
+      {
+        id: "cat:abc123",
+        type: "catalog",
+        name: "شنطة جلد",
+        description: null,
+        price: 120,
+        availability: "available",
+        sku: null,
+      },
+      {
+        id: "cat:visible",
+        type: "catalog",
+        name: "عطر أحمر",
+        description: null,
+        price: 220,
+        availability: "available",
+        sku: "PERF-RED-22",
+      },
+    ],
+    merchantFacts: ctx.merchantFacts.map((fact) => ({
+      id: fact.id,
+      type: fact.type,
+      value: fact.value,
+    })),
+  };
+  return ctx;
+}
+
+function loadedWithPrior(
+  priorAiV2: Record<string, unknown>,
+  customerMessage: string,
+) {
+  return ConversationStateLoaderV2.load({
+    conversation: {
+      id: "c1",
+      merchantId: "m1",
+      senderId: "s1",
+      state: ConversationState.GREETING,
+      context: { aiV2: priorAiV2 },
+      cart: {
+        items: [],
+        total: 0,
+        subtotal: 0,
+        discount: 0,
+        deliveryFee: 0,
+      },
+      collectedInfo: {},
+      missingSlots: [],
+      followupCount: 0,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as Conversation,
+    recentMessages: [],
+    customerMessage,
+  });
 }
 
 function baseUnderstanding(intentTags: any[]) {

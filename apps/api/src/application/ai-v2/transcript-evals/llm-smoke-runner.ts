@@ -37,6 +37,7 @@ interface LlmSmokeScenario {
   message: string;
   priorAiV2State?: Record<string, unknown>;
   recentMessages?: any[];
+  catalogItems?: any[];
   assert: (
     reply: string,
     understanding: MessageUnderstandingV2,
@@ -46,6 +47,8 @@ interface LlmSmokeScenario {
 
 const HALLUCINATED_FACT_RE =
   /(?:010[1-9]\d{7}|012[1-9]\d{7}|011[1-9]\d{7}|015[1-9]\d{7}|فودافون\s*كاش|vodafone\s*cash|instapay|انستاباي|خصم\s*\d+|discount\s*\d+|free\s+shipping|شحن\s+مجاني|refund\s+within|استرجاع\s+خلال|العنوان\s+هو)/iu;
+const INTERNAL_REPLY_LEAK_RE =
+  /\b(?:BAG-001|PERF-RED-22|cat:[A-Za-z0-9:_-]+|mf:phone|fixture|test\s+data|source\s*:|internal|local\s+mode|demo\s+mode|AI_V2_LOCAL_TEST_MODE)\b/iu;
 
 export async function runAiV2RealLlmSmokeTests(): Promise<SmokeResult[]> {
   loadLocalEnvFiles();
@@ -104,6 +107,109 @@ export async function runAiV2RealLlmSmokeTests(): Promise<SmokeResult[]> {
   );
 
   const scenarios: LlmSmokeScenario[] = [
+    {
+      name: "active quantity answer resolves",
+      message: "200",
+      priorAiV2State: {
+        dialogTurnSeq: 4,
+        salesStage: "order_draft",
+        stage: "order_draft",
+        activeQuestion: {
+          kind: "quantity",
+          text: "quantity",
+          askedAt: new Date().toISOString(),
+        },
+        selectedItems: [
+          { label: "منتج عام A", confidence: 0.8, source: "customer" },
+        ],
+        orderDraft: {
+          items: [{ label: "منتج عام A", source: "customer" }],
+          status: "collecting",
+          missingFields: ["quantity", "delivery"],
+        },
+      },
+      recentMessages: fixtureRecentMessages([
+        { role: "customer", text: "عايز اعمل اوردر" },
+        { role: "assistant", text: "تمام، الكمية المطلوبة كام؟" },
+      ]),
+      assert: (_reply, u, failures) => {
+        if (u.answerToActiveQuestion?.kind !== "quantity") {
+          failures.push("quantity_active_question_not_resolved");
+        }
+        if (u.answerToActiveQuestion?.value !== 200) {
+          failures.push("quantity_active_question_value_not_200");
+        }
+      },
+    },
+    {
+      name: "renderer hides internal catalog identifiers",
+      message: "عندكم هدايا عيد ميلاد؟",
+      catalogItems: [
+        {
+          id: "550e8400-e29b-41d4-a716-446655440000",
+          nameAr: "هدية عيد ميلاد فاخرة",
+          basePrice: 120,
+          sku: "BAG-001",
+          isActive: true,
+          isAvailable: true,
+          variants: [],
+          options: [],
+          tags: ["gift"],
+        },
+      ],
+      assert: (reply, _u, failures) => {
+        if (INTERNAL_REPLY_LEAK_RE.test(reply)) {
+          failures.push("internal_catalog_identifier_leaked");
+        }
+      },
+    },
+    {
+      name: "unsupported order creation is collection only",
+      message: "عايز اعمل اوردر",
+      assert: (reply, _u, failures) => {
+        if (
+          /تم\s+(?:إنشاء|تأكيد|تسجيل)|order\s+(?:created|confirmed)/iu.test(
+            reply,
+          )
+        ) {
+          failures.push("unsupported_order_creation_claimed");
+        }
+      },
+    },
+    {
+      name: "order status unavailable is not invented",
+      message: "فين الاوردر؟",
+      assert: (reply, _u, failures) => {
+        if (/في الطريق|اتشحن|وصل|جاهز|shipped|delivered|ready/iu.test(reply)) {
+          failures.push("invented_order_status");
+        }
+      },
+    },
+    {
+      name: "product details hide raw catalog id",
+      message: "تفاصيل هدية عيد ميلاد فاخرة؟",
+      catalogItems: [
+        {
+          id: "cat-db-raw-123",
+          nameAr: "هدية عيد ميلاد فاخرة",
+          basePrice: 120,
+          sku: "BAG-001",
+          isActive: true,
+          isAvailable: true,
+          variants: [],
+          options: [],
+          tags: ["gift"],
+        },
+      ],
+      assert: (reply, _u, failures) => {
+        if (
+          INTERNAL_REPLY_LEAK_RE.test(reply) ||
+          /cat-db-raw-123/i.test(reply)
+        ) {
+          failures.push("raw_catalog_id_or_sku_leaked");
+        }
+      },
+    },
     {
       name: "off-topic is redirected",
       message: "اشرحلي JavaScript closures بسرعة",
@@ -216,6 +322,7 @@ export async function runAiV2RealLlmSmokeTests(): Promise<SmokeResult[]> {
         message: scenario.message,
         priorAiV2State: scenario.priorAiV2State,
         recentMessages: scenario.recentMessages,
+        catalogItems: scenario.catalogItems,
         assert: scenario.assert,
       }),
     );
@@ -309,6 +416,7 @@ async function runAiScenario(input: {
   message: string;
   priorAiV2State?: Record<string, unknown>;
   recentMessages?: any[];
+  catalogItems?: any[];
   assert: (
     reply: string,
     understanding: MessageUnderstandingV2,
@@ -332,7 +440,7 @@ async function runAiScenario(input: {
     merchant,
     conversation,
     recentMessages: input.recentMessages || [],
-    catalogItems: fixtureCatalog(),
+    catalogItems: input.catalogItems || fixtureCatalog(),
     customerMessage: input.message,
     channel: "whatsapp",
     llmOptions: { model: input.model, maxTokens: 380 },
@@ -347,12 +455,19 @@ async function runAiScenario(input: {
     allowedPhone: "+201000000000",
     allowedAddress: "Store address (available in chat only)",
     allowedPayment: "Cash on delivery",
-    allowedPrices: ["99", "120", "180", "250"],
+    allowedPrices: [
+      "99",
+      "120",
+      "180",
+      "250",
+      String((result.contextPatch as any)?.aiV2?.orderDraft?.quantity || ""),
+    ].filter(Boolean),
   });
   if (result.debug.validationFailures.length > 0) {
     failures.push(
       ...result.debug.validationFailures
         .filter((failure) => failure !== "off_topic_general_redirect_required")
+        .filter((failure) => failure !== "more_than_one_question")
         .map((failure) => `validator:${failure}`),
     );
   }
@@ -448,6 +563,9 @@ function assertReplyBasics(reply: string, failures: string[]): void {
   if (!reply || typeof reply !== "string") failures.push("empty_reply");
   if ((reply.match(/[؟?]/g) || []).length > 1) {
     failures.push("more_than_one_question");
+  }
+  if (INTERNAL_REPLY_LEAK_RE.test(reply)) {
+    failures.push("internal_reply_leakage");
   }
 }
 

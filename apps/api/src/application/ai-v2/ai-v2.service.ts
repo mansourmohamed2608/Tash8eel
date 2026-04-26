@@ -15,7 +15,10 @@ import { ReplyPlannerV2 } from "./reply-planner";
 import { ReplyRendererServiceV2 } from "./reply-renderer.service";
 import { ReplyValidatorV2 } from "./reply-validator";
 import { StatePersisterV2 } from "./state-persister";
-import { RuntimeContextBuilderV2 } from "./runtime-context-builder";
+import {
+  hasFixtureLikeRagFacts,
+  RuntimeContextBuilderV2,
+} from "./runtime-context-builder";
 import { AiV2TraceLogger } from "./ai-v2-trace-logger";
 import { buildInboxLlmResultFromV2 } from "./ai-v2-llm-bridge";
 import { ActionExecutorV2 } from "./action-executor";
@@ -110,6 +113,22 @@ export class AiV2Service {
       catalogItems: params.catalogItems,
       businessType: extractBusinessType(params.conversation.context),
     });
+    const fixtureFactDetected = hasFixtureLikeRagFacts(rag);
+    if (
+      fixtureFactDetected &&
+      String(
+        this.config.get<string>("NODE_ENV") || process.env.NODE_ENV || "",
+      ).toLowerCase() === "production"
+    ) {
+      this.logger.error({
+        msg: "ai_v2_fixture_facts_blocked_in_production",
+        merchantId: params.merchant.id,
+        catalogFactIds: rag.catalogFacts
+          .filter((fact) => fact.isFixture)
+          .map((fact) => fact.catalogItemId)
+          .slice(0, 20),
+      });
+    }
 
     let runtimeContext = RuntimeContextBuilderV2.build({
       merchant: params.merchant,
@@ -187,6 +206,7 @@ export class AiV2Service {
       fallbackUsed,
       tokensUsed,
       rendererUsedOpenAI,
+      fixtureFactDetected,
       latencyMs: Date.now() - start,
     });
 
@@ -232,6 +252,7 @@ export class AiV2Service {
     fallbackUsed: boolean;
     tokensUsed: number;
     rendererUsedOpenAI: boolean;
+    fixtureFactDetected: boolean;
     latencyMs: number;
   }) {
     try {
@@ -240,6 +261,9 @@ export class AiV2Service {
         merchantId: input.params.merchant.id,
         conversationId: input.params.conversation.id,
         aiReplyEngine: "v2",
+        nodeEnv: String(
+          this.config.get<string>("NODE_ENV") || process.env.NODE_ENV || "",
+        ),
         localTestMode:
           String(
             this.config.get<string>("AI_V2_LOCAL_TEST_MODE") || "",
@@ -274,6 +298,24 @@ export class AiV2Service {
         merchantFactIds: input.runtimeContext.merchantFacts.map(
           (fact) => fact.id,
         ),
+        merchantFactSources: input.runtimeContext.merchantFacts.map((fact) => ({
+          id: fact.id,
+          type: fact.type,
+          source: fact.source,
+        })),
+        merchantPhoneSource:
+          input.runtimeContext.merchantFacts.find(
+            (fact) => fact.type === "phone",
+          )?.source || null,
+        catalogFactSummaries: input.runtimeContext.ragFacts.catalogFacts.map(
+          (fact) => ({
+            id: fact.id,
+            title: fact.customerFacingName,
+            customerVisibleSku: fact.customerVisibleSku === true,
+            fixture: fact.isFixture === true,
+          }),
+        ),
+        fixtureFactDetected: input.fixtureFactDetected,
         ragCounts: {
           catalogFacts: input.runtimeContext.ragFacts.catalogFacts.length,
           kbFacts: input.runtimeContext.ragFacts.kbFacts.length,

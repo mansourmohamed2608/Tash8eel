@@ -34,6 +34,8 @@ export interface CatalogItem {
   stock?: number;
   imageUrl?: string;
   hasRecipe?: boolean;
+  customerVisibleSku?: boolean;
+  sourceLabel?: string;
 }
 
 export interface CreateCatalogItemInput {

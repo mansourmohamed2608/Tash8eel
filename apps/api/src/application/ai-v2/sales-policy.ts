@@ -79,6 +79,22 @@ export class SalesPolicyV2 {
     }
 
     if (
+      has("quantity_answer") ||
+      u.answerToActiveQuestion?.kind === "quantity"
+    ) {
+      return {
+        stage:
+          priorStage && priorStage !== "greeting" && priorStage !== "off_topic"
+            ? priorStage
+            : "order_draft",
+        nextBestAction: {
+          type: "update_order",
+          reason: "quantity_answer",
+        },
+      };
+    }
+
+    if (
       has("payment_question") ||
       has("delivery_question") ||
       has("contact_question") ||

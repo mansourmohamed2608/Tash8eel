@@ -124,9 +124,7 @@ export class RagContextBuilderServiceV2 {
     };
   }
 
-  private async loadBusinessRules(
-    merchantId: string,
-  ): Promise<
+  private async loadBusinessRules(merchantId: string): Promise<
     Record<
       string,
       Array<{
@@ -169,19 +167,112 @@ export class RagContextBuilderServiceV2 {
 
     return sourceList.map(({ item }, idx) => {
       const hasPrice = typeof item.basePrice === "number" && item.basePrice > 0;
+      const rawName = item.nameAr || item.name || item.nameEn || "item";
+      const rawDescription =
+        item.descriptionAr || item.description || item.descriptionEn;
+      const customerVisibleSku = isCustomerVisibleSku(item);
+      const customerFacingName = customerSafeDisplayText(rawName, {
+        fallback: "منتج متاح",
+        allowSkuLike: customerVisibleSku,
+      });
+      const customerFacingDescription = rawDescription
+        ? customerSafeDisplayText(rawDescription, {
+            fallback: "",
+            allowSkuLike: customerVisibleSku,
+          })
+        : undefined;
       if (!hasPrice) {
         unavailableFacts.push(`price_missing:${item.id}`);
       }
       return {
         catalogItemId: item.id,
-        name: item.nameAr || item.name || item.nameEn || "item",
+        sku: item.sku,
+        name: rawName,
+        description: rawDescription,
         price: hasPrice ? item.basePrice : undefined,
         availability: item.isAvailable ? "available" : "unavailable",
+        customerFacingName,
+        customerFacingDescription: customerFacingDescription || undefined,
+        customerFacingPrice: hasPrice ? item.basePrice : undefined,
+        customerFacingAvailability: item.isAvailable
+          ? "available"
+          : "unavailable",
+        customerVisibleSku,
+        sourceLabel: extractSourceLabel(item),
+        isFixture: isFixtureLikeCatalogItem(item),
         confidence: Math.max(0.4, 0.85 - idx * 0.05),
         source: "catalog",
       };
     });
   }
+}
+
+function isCustomerVisibleSku(item: CatalogItem): boolean {
+  const record = item as unknown as Record<string, unknown>;
+  if (record.customerVisibleSku === true) return true;
+  const tags = Array.isArray(item.tags) ? item.tags.map(String) : [];
+  return tags.some((tag) =>
+    /^(customer[_-]?visible[_-]?sku|customerVisibleSku)(?::true)?$/i.test(
+      tag.trim(),
+    ),
+  );
+}
+
+function extractSourceLabel(item: CatalogItem): string | undefined {
+  const record = item as unknown as Record<string, unknown>;
+  if (typeof record.sourceLabel === "string" && record.sourceLabel.trim()) {
+    return record.sourceLabel.trim().slice(0, 80);
+  }
+  const tags = Array.isArray(item.tags) ? item.tags.map(String) : [];
+  const sourceTag = tags.find((tag) => /^source[:=_-]/i.test(tag.trim()));
+  return sourceTag?.trim().slice(0, 80);
+}
+
+function isFixtureLikeCatalogItem(item: CatalogItem): boolean {
+  const haystack = [
+    item.id,
+    item.sku,
+    item.nameAr,
+    item.nameEn,
+    item.category,
+    ...((Array.isArray(item.tags) ? item.tags : []) as string[]),
+    extractSourceLabel(item),
+  ]
+    .filter(Boolean)
+    .join(" ");
+  return /\b(?:fixture|test[_-]?data|local[_-]?fixture|source[:=_-]?demo)\b/i.test(
+    haystack,
+  );
+}
+
+function customerSafeDisplayText(
+  value: string,
+  opts: { fallback: string; allowSkuLike: boolean },
+): string {
+  const trimmed = String(value || "").trim();
+  if (!trimmed) return opts.fallback;
+  if (containsInternalSourceMarker(trimmed)) return opts.fallback;
+  if (!opts.allowSkuLike && isMostlyInternalCode(trimmed)) return opts.fallback;
+  return trimmed.slice(0, 240);
+}
+
+function containsInternalSourceMarker(value: string): boolean {
+  return /\b(?:fixture|test\s+data|internal|local\s+mode|demo\s+mode|source\s*:)\b/i.test(
+    value,
+  );
+}
+
+function isMostlyInternalCode(value: string): boolean {
+  const trimmed = value.trim();
+  if (/^(?:cat|kb|mf|br|offer):[A-Za-z0-9:_-]+$/i.test(trimmed)) return true;
+  if (
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      trimmed,
+    )
+  ) {
+    return true;
+  }
+  return /^[A-Z0-9]{2,}(?:-[A-Z0-9]{2,}){1,4}$/.test(trimmed);
 }
 
 function normalizeArabic(s: string): string {

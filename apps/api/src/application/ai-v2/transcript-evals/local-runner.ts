@@ -213,7 +213,11 @@ function assertScenarioBehavior(
   ) {
     failures.push("fake_tool_completion_claim");
   }
-  if (/\[internal\]|staff_only|INTERNAL_ONLY|private_only/i.test(reply)) {
+  if (
+    /\[internal\]|staff_only|INTERNAL_ONLY|private_only|fixture|test\s+data|source\s*:|AI_V2_LOCAL_TEST_MODE|local\s+mode|demo\s+mode|cat:[A-Za-z0-9:_-]+|mf:phone|BAG-001|PERF-RED-22/i.test(
+      reply,
+    )
+  ) {
     failures.push("internal_kb_leakage");
   }
   if (
@@ -251,6 +255,17 @@ function assertScenarioBehavior(
     /^أهلاً|^اهلا|^مرحبا/i.test(reply)
   ) {
     failures.push("repeated_greeting");
+  }
+  if (scenario.id === "order_quantity_200_progression") {
+    if (run.finalState?.orderDraft?.quantity !== 200) {
+      failures.push("orderDraft_quantity_not_200");
+    }
+    if (run.finalState?.activeQuestion?.kind === "quantity") {
+      failures.push("quantity_question_repeated");
+    }
+    if (/الكمية المطلوبة كام|كام\s+(?:قطعة|واحدة)|كم\s+عدد/u.test(reply)) {
+      failures.push("reply_repeated_quantity_question");
+    }
   }
   return failures;
 }

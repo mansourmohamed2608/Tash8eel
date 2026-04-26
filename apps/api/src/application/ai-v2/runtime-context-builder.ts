@@ -41,17 +41,28 @@ export class RuntimeContextBuilderV2 {
     const merchantFacts: MerchantFactV2[] =
       buildMerchantFactsFromMerchantEntity(input.merchant);
 
+    const catalogFacts = (input.rag.catalogFacts || []).filter(
+      (fact) => !shouldExcludeFixtureFactInProduction(fact),
+    );
     const ragFacts = {
-      catalogFacts: (input.rag.catalogFacts || []).map(
+      catalogFacts: catalogFacts.map(
         (c): RuntimeCatalogFactV2 => ({
           id: `cat:${c.catalogItemId}`,
           type: "catalog",
           catalogItemId: c.catalogItemId,
+          sku: c.sku ?? null,
           name: c.name,
           price: c.price ?? null,
           availability: c.availability ?? null,
-          description: null,
+          description: c.description ?? null,
           category: null,
+          customerFacingName: c.customerFacingName,
+          customerFacingDescription: c.customerFacingDescription ?? null,
+          customerFacingPrice: c.customerFacingPrice ?? null,
+          customerFacingAvailability: c.customerFacingAvailability ?? null,
+          customerVisibleSku: c.customerVisibleSku === true,
+          sourceLabel: c.sourceLabel ?? null,
+          isFixture: c.isFixture === true,
           confidence: c.confidence,
         }),
       ),
@@ -90,6 +101,22 @@ export class RuntimeContextBuilderV2 {
       aiV2State: input.salesState,
       merchantFacts,
       ragFacts,
+      customerSafeFacts: {
+        catalogFacts: ragFacts.catalogFacts.map((fact) => ({
+          id: fact.id,
+          type: "catalog",
+          name: fact.customerFacingName,
+          description: fact.customerFacingDescription ?? null,
+          price: fact.customerFacingPrice ?? null,
+          availability: fact.customerFacingAvailability ?? null,
+          sku: fact.customerVisibleSku ? (fact.sku ?? null) : null,
+        })),
+        merchantFacts: merchantFacts.map((fact) => ({
+          id: fact.id,
+          type: fact.type,
+          value: fact.value,
+        })),
+      },
       activeQuestion: input.salesState.activeQuestion ?? null,
       selectedItems: input.salesState.selectedItems ?? [],
       orderDraft: input.salesState.orderDraft ?? null,
@@ -103,6 +130,19 @@ export class RuntimeContextBuilderV2 {
       taskRules: STRICT_TASK_RULES,
     };
   }
+}
+
+export function hasFixtureLikeRagFacts(rag: RagContextV2): boolean {
+  return (rag.catalogFacts || []).some((fact) => fact.isFixture === true);
+}
+
+function shouldExcludeFixtureFactInProduction(
+  fact: RagContextV2["catalogFacts"][number],
+): boolean {
+  if (String(process.env.NODE_ENV || "").toLowerCase() !== "production") {
+    return false;
+  }
+  return fact.isFixture === true;
 }
 
 function buildMerchantFactsFromMerchantEntity(

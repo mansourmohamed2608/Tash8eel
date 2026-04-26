@@ -7,6 +7,7 @@ export interface AiV2TraceEvent {
   conversationId: string;
   messageId?: string;
   aiReplyEngine?: string;
+  nodeEnv?: string;
   localTestMode: boolean;
   usedOpenAI: {
     understanding: boolean;
@@ -25,6 +26,15 @@ export interface AiV2TraceEvent {
   orderDraft?: { status?: string; missingFieldsCount?: number } | null;
   complaintState?: { status?: string } | null;
   merchantFactIds?: string[];
+  merchantFactSources?: Array<{ id: string; type: string; source: string }>;
+  merchantPhoneSource?: string | null;
+  catalogFactSummaries?: Array<{
+    id: string;
+    title: string;
+    customerVisibleSku: boolean;
+    fixture: boolean;
+  }>;
+  fixtureFactDetected?: boolean;
   ragCounts?: { catalogFacts: number; kbFacts: number };
   validationFailures?: string[];
   fallbackUsed?: boolean;
@@ -46,6 +56,7 @@ export class AiV2TraceLogger {
       conversationId: event.conversationId,
       messageId: event.messageId,
       aiReplyEngine: event.aiReplyEngine,
+      nodeEnv: event.nodeEnv,
       localTestMode: event.localTestMode,
       usedOpenAI: event.usedOpenAI,
       understanding: {
@@ -67,6 +78,10 @@ export class AiV2TraceLogger {
       orderDraft: event.orderDraft,
       complaintState: event.complaintState,
       merchantFactIds: (event.merchantFactIds || []).slice(0, 20),
+      merchantFactSources: (event.merchantFactSources || []).slice(0, 20),
+      merchantPhoneSource: event.merchantPhoneSource,
+      catalogFactSummaries: (event.catalogFactSummaries || []).slice(0, 20),
+      fixtureFactDetected: event.fixtureFactDetected,
       ragCounts: event.ragCounts,
       validationFailures: event.validationFailures?.slice(0, 12) || [],
       fallbackUsed: event.fallbackUsed,

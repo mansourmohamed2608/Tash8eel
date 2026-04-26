@@ -63,14 +63,23 @@ export class MessageUnderstandingV2Service {
 
     if (apiKey) {
       const llm = await this.tryAnalyzeWithLlm(customerText, runtimeContext);
-      if (llm) return llm;
+      if (llm)
+        return repairActiveQuestionAnswer(llm, customerText, runtimeContext);
     }
 
     if (localMode) {
-      return buildLocalMockUnderstanding(customerText, runtimeContext);
+      return repairActiveQuestionAnswer(
+        buildLocalMockUnderstanding(customerText, runtimeContext),
+        customerText,
+        runtimeContext,
+      );
     }
 
-    return buildTinyFallbackUnderstanding(customerText);
+    return repairActiveQuestionAnswer(
+      buildTinyFallbackUnderstanding(customerText),
+      customerText,
+      runtimeContext,
+    );
   }
 
   private async tryAnalyzeWithLlm(
@@ -255,11 +264,67 @@ function normalizeActiveQuestionAnswer(
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const record = value as Record<string, unknown>;
   if (typeof record.kind !== "string") return null;
+  const normalizedValue =
+    record.kind === "quantity" &&
+    (typeof record.value === "string" || typeof record.value === "number")
+      ? (normalizeQuantityValue(record.value) ?? record.value)
+      : record.value;
   return {
     kind: record.kind,
-    value: record.value,
+    value: normalizedValue,
     confidence: clamp(Number(record.confidence ?? 0.5), 0, 1),
   };
+}
+
+function repairActiveQuestionAnswer(
+  understanding: MessageUnderstandingV2,
+  customerText: string,
+  runtimeContext?: RuntimeContextV2,
+): MessageUnderstandingV2 {
+  const active = runtimeContext?.activeQuestion;
+  if (active?.kind !== "quantity") return understanding;
+  const quantity = normalizeQuantityValue(customerText);
+  const llmQuantity = normalizeQuantityValue(
+    understanding.answerToActiveQuestion?.value,
+  );
+  const value = typeof quantity === "number" ? quantity : llmQuantity;
+  if (typeof value !== "number") return understanding;
+
+  const intentTags = understanding.intentTags.includes("quantity_answer")
+    ? understanding.intentTags
+    : [...understanding.intentTags, "quantity_answer"];
+  const repairedTags: IntentTagV2[] = intentTags.filter(
+    (tag): tag is IntentTagV2 => tag !== "support_question",
+  );
+  return {
+    ...understanding,
+    domain: "store_related",
+    intentTags: repairedTags,
+    mentionedItems: understanding.mentionedItems.filter(
+      (item) => normalizeQuantityValue(item) !== value,
+    ),
+    answerToActiveQuestion: {
+      kind: "quantity",
+      value,
+      confidence: Math.max(
+        understanding.answerToActiveQuestion?.confidence ?? 0,
+        0.92,
+      ),
+    },
+    needsStoreAnswer: true,
+    reason: `${understanding.reason}|active_quantity_resolved`,
+  };
+}
+
+function normalizeQuantityValue(value: unknown): number | null {
+  if (typeof value === "number" && Number.isInteger(value) && value > 0) {
+    return value;
+  }
+  if (typeof value !== "string") return null;
+  const match = value.trim().match(/^(\d{1,5})$/);
+  if (!match) return null;
+  const parsed = Number(match[1]);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
 }
 
 function buildTinyFallbackUnderstanding(text: string): MessageUnderstandingV2 {
@@ -310,7 +375,7 @@ function buildLocalMockUnderstanding(
     add("greeting");
   }
   if (
-    /ماتش|javascript|python|programming|homework|politics|انتخابات/i.test(
+    /ماتش|ميسي|javascript|python|programming|homework|politics|انتخابات/i.test(
       normalized,
     )
   ) {
@@ -345,7 +410,7 @@ function buildLocalMockUnderstanding(
   }
   if (/غالي|expensive|too much/i.test(normalized)) add("objection_price");
   if (
-    /شكوى|مشكلة|وحش|نصاب|اتأخر|تأخير|quality|wrong item|damaged/i.test(
+    /شكوى|مشكلة|وحش|نصاب|اتأخر|تأخير|مش\s+زي\s+الصور|الصور|quality|wrong item|damaged/i.test(
       normalized,
     )
   ) {
@@ -481,11 +546,30 @@ function resolveActiveQuestion(
 }
 
 function extractMentionedItems(text: string): string[] {
+  const stopwords = new Set([
+    "السلام",
+    "عليكم",
+    "عندكم",
+    "عايز",
+    "عاوز",
+    "اعمل",
+    "اوردر",
+    "الأوردر",
+    "الاوردر",
+    "فين",
+    "كام",
+    "ممكن",
+    "تحب",
+    "محتاج",
+  ]);
   const cleaned = text
     .replace(/[؟?!.,،]/g, " ")
     .split(/\s+/)
     .map((x) => x.trim())
-    .filter((x) => x.length > 2);
+    .filter(
+      (x) =>
+        x.length > 2 && !/^\d+$/.test(x) && !stopwords.has(x.toLowerCase()),
+    );
   return cleaned.slice(0, 6);
 }
 

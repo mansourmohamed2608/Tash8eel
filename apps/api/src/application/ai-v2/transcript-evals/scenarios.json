@@ -330,5 +330,19 @@
       "isGreetingScenario": false,
       "userComplaint": false
     }
+  },
+  {
+    "id": "order_quantity_200_progression",
+    "description": "Product/order flow with quantity 200 should persist quantity and not repeat quantity question",
+    "turns": [
+      { "customer": "عندكم هدايا عيد ميلاد؟" },
+      { "customer": "عايز اعمل اوردر" },
+      { "customer": "200" }
+    ],
+    "expect": {
+      "stage": "order_draft",
+      "isGreetingScenario": false,
+      "userComplaint": false
+    }
   }
 ]

@@ -132,6 +132,7 @@ export class SalesStateReducerV2 {
     }
 
     if (
+      shouldCaptureMentionedItems(input.understanding) &&
       input.understanding.mentionedItems.length > 0 &&
       selectedItems.length === 0
     ) {
@@ -147,7 +148,8 @@ export class SalesStateReducerV2 {
     if (
       input.understanding.buyingSignal ||
       input.stage === "order_draft" ||
-      input.stage === "selection"
+      input.stage === "selection" ||
+      answer?.kind === "quantity"
     ) {
       orderDraft = orderDraft || {
         items: selectedItems.map((item) => ({
@@ -208,10 +210,17 @@ export class SalesStateReducerV2 {
         typeof orderDraft.quantity === "number" ||
         orderDraft.items.some((item) => typeof item.quantity === "number");
       if (!hasQuantity) missing.push("quantity");
+      if (!orderDraft.deliveryAddress) missing.push("delivery");
       orderDraft = {
         ...orderDraft,
         missingFields: missing,
-        status: missing.length === 0 ? "ready_to_confirm" : orderDraft.status,
+        status:
+          missing.length === 0
+            ? "ready_to_confirm"
+            : orderDraft.status === "confirmed" ||
+                orderDraft.status === "tool_unavailable"
+              ? orderDraft.status
+              : "collecting",
       };
     }
 
@@ -255,6 +264,14 @@ export class SalesStateReducerV2 {
       };
     }
 
+    if (!activeQuestion && plan.nextBestAction === "ask_delivery") {
+      activeQuestion = {
+        kind: "delivery",
+        text: "delivery",
+        askedAt: now,
+      };
+    }
+
     if (!activeQuestion && plan.nextBestAction === "recommend") {
       const options = state.selectedItems.slice(0, 3).map((item) => ({
         label: item.label,
@@ -281,6 +298,20 @@ export class SalesStateReducerV2 {
   static toPersisted(state: AiSalesState): AiV2PersistedState {
     return { ...state };
   }
+}
+
+function shouldCaptureMentionedItems(
+  understanding: MessageUnderstandingV2,
+): boolean {
+  return understanding.intentTags.some((tag) =>
+    [
+      "product_question",
+      "recommendation_request",
+      "price_question",
+      "buying_intent",
+      "selection_answer",
+    ].includes(tag),
+  );
 }
 
 function resolveSelectionFromActiveQuestion(

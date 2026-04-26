@@ -17,6 +17,14 @@ const GENERIC_HELP_RE =
   /(?:ازاي\s+اقدر\s+اساعدك|أقدر\s+أساعدك|تحب\s+أساعدك\s+في\s+إيه|how\s+can\s+i\s+help|what\s+can\s+i\s+do\s+for\s+you)/iu;
 const INTERNAL_MARKERS =
   /\[internal\]|visibility:\s*internal|kb\s*internal|staff_only|INTERNAL_ONLY|private_only/i;
+const INTERNAL_SOURCE_CONTEXT_RE =
+  /(?:خارج\s+نطاق\s+demo|demo\s+(?:mode|data|source|scope|fixture|test)|source\s*:\s*demo|test\s+data|fixture|internal|local\s+mode|AI_V2_LOCAL_TEST_MODE|\bscope\b)/iu;
+const FACT_ID_RE = /\b(?:cat|kb|mf|br|offer):[A-Za-z0-9:_-]+\b/giu;
+const UUID_RE =
+  /\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/giu;
+const SKU_LIKE_RE = /\b[A-Z0-9]{2,}(?:-[A-Z0-9]{2,}){1,5}\b/g;
+const TOOL_OR_MODE_RE =
+  /\b(?:searchCatalog|getCatalogItem|calculateQuote|createDraftOrder|updateDraftOrder|getMerchantPaymentSettings|searchPublicKB|getBusinessRules|getOrderStatus|recordComplaintNote|recordCustomerFeedback|attachProductMedia|verifyPaymentProof|AI_V2_LOCAL_TEST_MODE|AI_REPLY_ENGINE)\b/g;
 const GREETING_RE = /^(?:أهلاً|اهلا|مرحبا|السلام عليكم|hi|hello|hey)\b/iu;
 const COMPLETION_CLAIM_RE =
   /(?:تم\s+(?:إنشاء|تأكيد|تسجيل|استرجاع|رد)|اتأكد|اتسجل|order\s+(?:created|confirmed|completed)|payment\s+(?:verified|confirmed)|refund\s+(?:done|completed)|return\s+(?:done|completed))/iu;
@@ -63,8 +71,8 @@ export class ReplyValidatorV2 {
       replyText = deterministicRewrite(input, failures);
     }
 
-    if (INTERNAL_MARKERS.test(replyText)) {
-      failures.push("possible_internal_kb_leakage");
+    validateInternalLeakage(input, replyText, failures);
+    if (failures.some((f) => shouldRewriteFor(f))) {
       replyText = deterministicRewrite(input, failures);
     }
 
@@ -116,6 +124,7 @@ export class ReplyValidatorV2 {
     }
 
     validateUsedFactIds(input, failures);
+    validateInternalLeakage(input, replyText, failures);
     validatePhone(input, replyText, failures);
     validateAddress(input, replyText, failures);
     validatePayment(input, replyText, failures);
@@ -134,6 +143,52 @@ export class ReplyValidatorV2 {
     }
 
     return { ok: failures.length === 0, replyText: replyText.trim(), failures };
+  }
+}
+
+function validateInternalLeakage(
+  input: Parameters<typeof ReplyValidatorV2.validate>[0],
+  replyText: string,
+  failures: string[],
+) {
+  const add = (failure: string) => {
+    if (!failures.includes(failure)) failures.push(failure);
+  };
+  if (
+    INTERNAL_MARKERS.test(replyText) ||
+    INTERNAL_SOURCE_CONTEXT_RE.test(replyText)
+  ) {
+    add("possible_internal_source_leakage");
+  }
+
+  const allowedTokens = customerVisibleTokens(input);
+  const internalTokens = internalTokensFromFacts(input);
+  for (const token of internalTokens) {
+    if (
+      token &&
+      replyText.includes(token) &&
+      !allowedTokens.has(normalizeToken(token))
+    ) {
+      add(`internal_identifier_leakage:${token}`);
+    }
+  }
+
+  for (const token of matchAll(replyText, FACT_ID_RE)) {
+    if (!allowedTokens.has(normalizeToken(token))) {
+      add(`internal_fact_id_leakage:${token}`);
+    }
+  }
+  for (const token of matchAll(replyText, UUID_RE)) {
+    add(`internal_uuid_leakage:${token}`);
+  }
+  for (const token of matchAll(replyText, TOOL_OR_MODE_RE)) {
+    add(`internal_tool_or_mode_leakage:${token}`);
+  }
+  for (const token of matchAll(replyText, SKU_LIKE_RE)) {
+    if (!/[A-Z]/.test(token)) continue;
+    if (!allowedTokens.has(normalizeToken(token))) {
+      add(`internal_catalog_code_leakage:${token}`);
+    }
   }
 }
 
@@ -250,13 +305,22 @@ function validatePrices(
   replyText: string,
   failures: string[],
 ) {
-  const pricesInReply = replyText.match(/\b\d{2,7}(?:\.\d+)?\b/g) || [];
+  let textForPriceScan = replyText;
+  for (const fact of input.runtimeContext.customerSafeFacts.catalogFacts) {
+    if (fact.sku) {
+      textForPriceScan = textForPriceScan.split(fact.sku).join("");
+    }
+  }
+  const pricesInReply = textForPriceScan.match(/\b\d{2,7}(?:\.\d+)?\b/g) || [];
   if (pricesInReply.length === 0) return;
   const allowedNumbers = new Set<string>();
   for (const fact of input.runtimeContext.ragFacts.catalogFacts) {
     if (fact.price != null && input.plan.allowedFactIds.includes(fact.id)) {
       allowedNumbers.add(String(fact.price));
     }
+  }
+  if (typeof input.runtimeContext.orderDraft?.quantity === "number") {
+    allowedNumbers.add(String(input.runtimeContext.orderDraft.quantity));
   }
   for (const number of pricesInReply) {
     const mightBePhone = input.runtimeContext.merchantFacts.some(
@@ -346,6 +410,28 @@ function deterministicRewrite(
   const fact = factAccess(input);
 
   if (
+    failures.some(
+      (failure) =>
+        failure.startsWith("internal_") ||
+        failure === "possible_internal_source_leakage",
+    ) &&
+    !tags.some((tag) =>
+      [
+        "product_question",
+        "recommendation_request",
+        "price_question",
+        "contact_question",
+        "location_question",
+        "delivery_question",
+        "payment_question",
+        "order_status_question",
+      ].includes(tag),
+    )
+  ) {
+    return "مش ظاهر عندي تفاصيل كفاية عن النقطة دي، بس أقدر أساعدك في الطلب أو المنتجات المتاحة.";
+  }
+
+  if (
     input.plan.offTopicRedirectRequired ||
     tags.includes("off_topic_general")
   ) {
@@ -398,7 +484,7 @@ function deterministicRewrite(
         input.plan.allowedFactIds.includes(catalogFact.id),
     );
     return priced
-      ? `${priced.name} سعره ${priced.price}.`
+      ? `${priced.customerFacingName} سعره ${priced.price}.`
       : "السعر غير متاح عندي من بيانات المتجر حالياً. ابعت اسم المنتج أو صورته عشان أراجع المتاح.";
   }
 
@@ -410,7 +496,7 @@ function deterministicRewrite(
       (catalogFact) => input.plan.allowedFactIds.includes(catalogFact.id),
     );
     return product
-      ? `المتاح عندي من بيانات المتجر: ${product.name}. تحب تعرف تفاصيله؟`
+      ? `المنتج ظاهر عندي ضمن المنتجات المتاحة: ${product.customerFacingName}. تحب أعرفك تفاصيله أو نكمل الطلب عليه؟`
       : "محتاج اسم المنتج أو وصفه عشان أراجع المتاح عندي بدقة.";
   }
 
@@ -472,6 +558,7 @@ function hasSuccessfulTool(
 function shouldRewriteFor(failure: string): boolean {
   return (
     failure.startsWith("used_fact_not_allowed:") ||
+    failure.startsWith("internal_") ||
     [
       "invented_phone",
       "invented_address",
@@ -492,9 +579,67 @@ function shouldRewriteFor(failure: string): boolean {
       "early_address_or_delivery_ask",
       "early_payment_ask",
       "possible_internal_kb_leakage",
+      "possible_internal_source_leakage",
       "empty_reply",
     ].includes(failure)
   );
+}
+
+function customerVisibleTokens(
+  input: Parameters<typeof ReplyValidatorV2.validate>[0],
+): Set<string> {
+  const tokens = new Set<string>();
+  const add = (value: unknown) => {
+    const normalized = normalizeToken(value);
+    if (normalized) tokens.add(normalized);
+  };
+  for (const fact of input.runtimeContext.merchantFacts) {
+    if (input.plan.allowedFactIds.includes(fact.id)) add(fact.value);
+  }
+  for (const fact of input.runtimeContext.customerSafeFacts.catalogFacts) {
+    if (!input.plan.allowedFactIds.includes(fact.id)) continue;
+    add(fact.name);
+    add(fact.description);
+    add(fact.sku);
+  }
+  return tokens;
+}
+
+function internalTokensFromFacts(
+  input: Parameters<typeof ReplyValidatorV2.validate>[0],
+): string[] {
+  const tokens = new Set<string>();
+  const add = (value: unknown) => {
+    const token = String(value || "").trim();
+    if (token) tokens.add(token);
+  };
+  for (const fact of input.runtimeContext.ragFacts.catalogFacts) {
+    add(fact.id);
+    add(fact.catalogItemId);
+    if (fact.customerVisibleSku !== true) add(fact.sku);
+    add(fact.sourceLabel);
+    if (normalizeToken(fact.name) !== normalizeToken(fact.customerFacingName)) {
+      add(fact.name);
+    }
+  }
+  for (const fact of input.runtimeContext.ragFacts.kbFacts) add(fact.id);
+  for (const fact of input.runtimeContext.ragFacts.offerFacts) add(fact.id);
+  for (const fact of input.runtimeContext.ragFacts.businessRuleFacts) {
+    add(fact.id);
+  }
+  for (const fact of input.runtimeContext.merchantFacts) add(fact.id);
+  return Array.from(tokens).sort((a, b) => b.length - a.length);
+}
+
+function normalizeToken(value: unknown): string {
+  return String(value || "")
+    .trim()
+    .toLowerCase();
+}
+
+function matchAll(text: string, regex: RegExp): string[] {
+  regex.lastIndex = 0;
+  return Array.from(text.matchAll(regex), (match) => match[0]);
 }
 
 function offTopicReply(): string {

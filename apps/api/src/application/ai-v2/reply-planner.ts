@@ -18,6 +18,7 @@ export class ReplyPlannerV2 {
     const toolActions = buildToolActions(ctx, understanding);
     const allowedFactIds = collectAllowedFactIds(ctx);
     const recHash = recommendationHashFromRuntime(ctx);
+    const missingOrderField = ctx.orderDraft?.missingFields?.[0];
 
     const nextBestAction =
       stage === "off_topic"
@@ -29,7 +30,13 @@ export class ReplyPlannerV2 {
             : stage === "quote"
               ? "quote"
               : stage === "order_draft"
-                ? "create_order_draft"
+                ? missingOrderField === "quantity"
+                  ? "ask_quantity"
+                  : missingOrderField === "delivery"
+                    ? "ask_delivery"
+                    : missingOrderField === "item"
+                      ? "clarify"
+                      : "create_order_draft"
                 : stage === "selection"
                   ? "update_order"
                   : has("recommendation_request")
@@ -149,6 +156,7 @@ function summarizeOrderDraft(ctx: RuntimeContextV2): string | null {
   return JSON.stringify({
     status: ctx.orderDraft.status,
     itemCount: ctx.orderDraft.items.length,
+    quantity: ctx.orderDraft.quantity ?? null,
     missingFields: ctx.orderDraft.missingFields,
   });
 }
@@ -177,6 +185,8 @@ function buildRendererInstructions(
   const instructions = [
     "Answer as a human store operator, not as a generic assistant.",
     "Use only allowed facts and successful tool results for business truth.",
+    "Use customerSafeFacts only for customer-facing catalog and merchant details.",
+    "Do not show fact IDs, catalog IDs, database IDs, raw SKUs, source labels, tool names, or mode names.",
     "Ask at most one useful question.",
     "Answer the customer's concrete question before asking anything.",
   ];
@@ -196,7 +206,7 @@ function buildRendererInstructions(
 export function recommendationHashFromRuntime(ctx: RuntimeContextV2): string {
   const top = ctx.ragFacts.catalogFacts
     .slice(0, 5)
-    .map((fact) => fact.catalogItemId || fact.name)
+    .map((fact) => fact.catalogItemId || fact.customerFacingName)
     .join("|");
   if (!top) return "";
   return createHash("sha256").update(top).digest("hex").slice(0, 16);

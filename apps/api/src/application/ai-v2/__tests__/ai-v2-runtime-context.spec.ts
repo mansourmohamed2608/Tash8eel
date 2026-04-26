@@ -70,8 +70,16 @@ describe("AI v2 RuntimeContextV2", () => {
         .map((c: any, idx) => ({
           catalogItemId: c.id,
           name: c.nameAr,
+          description: undefined,
           price: idx === 0 ? 100 : undefined,
           availability: "available",
+          customerFacingName: c.nameAr,
+          customerFacingDescription: undefined,
+          customerFacingPrice: idx === 0 ? 100 : undefined,
+          customerFacingAvailability: "available",
+          customerVisibleSku: false,
+          sourceLabel: undefined,
+          isFixture: false,
           confidence: 0.8,
           source: "catalog",
         })),
@@ -118,6 +126,7 @@ describe("AI v2 RuntimeContextV2", () => {
     );
 
     expect(ctx.ragFacts.catalogFacts.length).toBeGreaterThan(0);
+    expect(ctx.customerSafeFacts.catalogFacts[0].name).toBe("منتج عام A");
     expect(ctx.ragFacts.kbFacts.length).toBeGreaterThan(0);
     expect(ctx.taskRules.doNotInventFacts).toBe(true);
   });
