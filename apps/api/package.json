@@ -101,7 +101,7 @@
   },
   "devDependencies": {
     "@angular-devkit/core": "19.2.22",
-    "@angular-devkit/schematics": "19.2.22",
+    "@angular-devkit/schematics": "19.2.24",
     "@angular-devkit/schematics-cli": "19.2.22",
     "@nestjs/cli": "^11.0.16",
     "@nestjs/schematics": "^11.0.0",
