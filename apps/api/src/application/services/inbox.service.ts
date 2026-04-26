@@ -40,11 +40,16 @@ import { CustomerReorderService } from "./customer-reorder.service";
 import { UsageGuardService } from "./usage-guard.service";
 import { MessageRouterService } from "../llm/message-router.service";
 import { OutboundMediaAttachment } from "../adapters/channel.adapter.interface";
-import { DialogOrchestrator } from "../dialog/dialog-orchestrator";
+import {
+  DialogOrchestrator,
+  DialogTurnResult,
+} from "../dialog/dialog-orchestrator";
 import { MerchantMemorySchemaService } from "../dialog/merchant-memory-schema.service";
 import { BusinessContextClassifierService } from "../dialog/business-context-classifier.service";
 import { SlotExtractorService } from "../dialog/slot-extractor.service";
 import { MemoryCompressionService } from "./memory-compression.service";
+import { AiV2Service } from "../ai-v2/ai-v2.service";
+import { shouldUseAiReplyEngineV2 } from "../ai-v2/ai-reply-engine-flag";
 
 // Repository imports
 import {
@@ -82,7 +87,10 @@ import {
 
 // Entity imports
 import { Merchant } from "../../domain/entities/merchant.entity";
-import { Conversation } from "../../domain/entities/conversation.entity";
+import {
+  Conversation,
+  ConversationContext,
+} from "../../domain/entities/conversation.entity";
 import { Customer } from "../../domain/entities/customer.entity";
 import { Order } from "../../domain/entities/order.entity";
 import { Address } from "../../shared/schemas";
@@ -180,6 +188,7 @@ export class InboxService {
     private readonly businessContextClassifier: BusinessContextClassifierService,
     private readonly slotExtractor: SlotExtractorService,
     private readonly memoryCompression: MemoryCompressionService,
+    private readonly aiV2Service: AiV2Service,
   ) {
     this.planCacheTtlSeconds = Number(
       this.configService.get<string>("MERCHANT_PLAN_CACHE_TTL_SECONDS", "300"),
@@ -404,7 +413,9 @@ export class InboxService {
     return `inbox:offtopic_redirected:${merchantId}:${senderId}`;
   }
 
-  private buildDeterministicOffTopicRedirectReply(merchantName: string): string {
+  private buildDeterministicOffTopicRedirectReply(
+    merchantName: string,
+  ): string {
     return `ده خارج نطاق ${merchantName} عندي، بس لو محتاج أي حاجة تخص الطلب أو المنتجات أنا أكمل معاك.`;
   }
 
@@ -1246,22 +1257,51 @@ export class InboxService {
       conversation,
       turnMemory,
     );
-    const dialogTurn = await this.dialogOrchestrator.processTurn(
-      {
+
+    const useAiV2 = shouldUseAiReplyEngineV2(
+      merchant,
+      this.configService.get<string>("AI_REPLY_ENGINE"),
+    );
+
+    let dialogTurn: DialogTurnResult;
+    if (useAiV2) {
+      const v2 = await this.aiV2Service.run({
         merchant,
         conversation: enrichedConversation,
         catalogItems,
         recentMessages,
-        customerMessage: params.text,
-        turnMemory,
-      },
-      quotaAwareLlm.options,
-      {
+        customerMessage: params.text ?? "",
         channel: params.channel,
-        degraded: quotaAwareLlm.degraded,
-        offTopicRedirectMode: offTopicHandling.mode === "ai_redirect",
-      },
-    );
+        llmOptions: {
+          model: quotaAwareLlm.options.model,
+          maxTokens: quotaAwareLlm.options.maxTokens,
+        },
+      });
+      dialogTurn = {
+        replyText: v2.replyText,
+        llmResult: v2.llmResultAdapter,
+        mediaAttachments: v2.mediaAttachments,
+        contextPatch: v2.contextPatch as Partial<ConversationContext>,
+        routingDecision: "ai_v2",
+      };
+    } else {
+      dialogTurn = await this.dialogOrchestrator.processTurn(
+        {
+          merchant,
+          conversation: enrichedConversation,
+          catalogItems,
+          recentMessages,
+          customerMessage: params.text,
+          turnMemory,
+        },
+        quotaAwareLlm.options,
+        {
+          channel: params.channel,
+          degraded: quotaAwareLlm.degraded,
+          offTopicRedirectMode: offTopicHandling.mode === "ai_redirect",
+        },
+      );
+    }
     const llmResponse = dialogTurn.llmResult;
     await this.bumpConversationWindow(
       params.merchantId,
@@ -1274,11 +1314,13 @@ export class InboxService {
       planName: merchantPlan.name,
       messageType: effectiveMessageType,
       routingDecision:
-        quotaAwareLlm.degraded
-          ? "ai_4o_mini_degraded"
-          : offTopicHandling.mode === "ai_redirect"
-            ? "offtopic_ai_redirect"
-            : "ai_4o_mini",
+        dialogTurn.routingDecision === "ai_v2"
+          ? "ai_v2"
+          : quotaAwareLlm.degraded
+            ? "ai_4o_mini_degraded"
+            : offTopicHandling.mode === "ai_redirect"
+              ? "offtopic_ai_redirect"
+              : "ai_4o_mini",
       modelUsed: model,
       complexityScore: this.messageRouter.scoreComplexity(params.text ?? ""),
       estimatedCostUsd: this.estimateInboxCostUsd(
@@ -1389,11 +1431,13 @@ export class InboxService {
       cart: result.cart,
       modelUsed: llmOptions.model,
       routingDecision:
-        quotaAwareLlm.degraded
-          ? "ai_4o_mini_degraded"
-          : offTopicHandling.mode === "ai_redirect"
-            ? "offtopic_ai_redirect"
-            : "ai_4o_mini",
+        dialogTurn.routingDecision === "ai_v2"
+          ? "ai_v2"
+          : quotaAwareLlm.degraded
+            ? "ai_4o_mini_degraded"
+            : offTopicHandling.mode === "ai_redirect"
+              ? "offtopic_ai_redirect"
+              : "ai_4o_mini",
       orderId: result.orderId,
       orderNumber: result.orderNumber,
     };

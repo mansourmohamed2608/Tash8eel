@@ -1,0 +1,102 @@
+[
+  {
+    "id": "ar_greeting",
+    "description": "Arabic greeting — short warm reply, no payment/delivery",
+    "customerMessage": "السلام عليكم",
+    "expect": {
+      "stage": "greeting",
+      "isGreetingScenario": true,
+      "userComplaint": false
+    }
+  },
+  {
+    "id": "en_greeting",
+    "description": "English greeting",
+    "customerMessage": "hello",
+    "expect": {
+      "stage": "greeting",
+      "isGreetingScenario": true,
+      "userComplaint": false
+    }
+  },
+  {
+    "id": "casual_ar_greeting",
+    "description": "Casual Arabic greeting",
+    "customerMessage": "هاي",
+    "expect": {
+      "stage": "greeting",
+      "isGreetingScenario": true,
+      "userComplaint": false
+    }
+  },
+  {
+    "id": "product_question",
+    "description": "Product question — support stage",
+    "customerMessage": "عندكم هدايا عيد ميلاد؟",
+    "expect": {
+      "stage": "support",
+      "isGreetingScenario": false,
+      "userComplaint": false
+    }
+  },
+  {
+    "id": "price_question",
+    "description": "Price question",
+    "customerMessage": "الباقة دي بكام؟",
+    "expect": {
+      "stage": "support",
+      "isGreetingScenario": false,
+      "userComplaint": false
+    }
+  },
+  {
+    "id": "complaint_delay",
+    "description": "Complaint about delay — empathy required in validator path",
+    "customerMessage": "انتوا اتأخرتوا عليا جداً",
+    "expect": {
+      "stage": "complaint",
+      "isGreetingScenario": false,
+      "userComplaint": true
+    }
+  },
+  {
+    "id": "positive_feedback",
+    "description": "Positive feedback",
+    "customerMessage": "التغليف كان حلو جداً",
+    "expect": {
+      "stage": "support",
+      "isGreetingScenario": false,
+      "userComplaint": false
+    }
+  },
+  {
+    "id": "no_early_payment",
+    "description": "Policy question must not trigger payment language in validator",
+    "customerMessage": "عندكم استرجاع؟",
+    "expect": {
+      "stage": "support",
+      "isGreetingScenario": false,
+      "userComplaint": false
+    }
+  },
+  {
+    "id": "mixed_language",
+    "description": "Mixed Arabic/English",
+    "customerMessage": "hi عايز أعرف سعر الورد",
+    "expect": {
+      "stage": "support",
+      "isGreetingScenario": false,
+      "userComplaint": false
+    }
+  },
+  {
+    "id": "vague_after_context",
+    "description": "Vague message — discovery/clarify",
+    "customerMessage": "مش عارف",
+    "expect": {
+      "stage": "selection",
+      "isGreetingScenario": false,
+      "userComplaint": false
+    }
+  }
+]

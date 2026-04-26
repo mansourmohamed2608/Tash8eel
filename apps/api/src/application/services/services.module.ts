@@ -49,6 +49,7 @@ import { AdaptersModule } from "../adapters/adapters.module";
 import { EventsModule } from "../events/events.module";
 import { PoliciesModule } from "../policies/policies.module";
 import { SharedAiModule } from "../shared/shared-ai.module";
+import { AiV2Module } from "../ai-v2/ai-v2.module";
 
 @Module({
   imports: [
@@ -57,6 +58,7 @@ import { SharedAiModule } from "../shared/shared-ai.module";
     RedisModule,
     DatabaseModule,
     LlmModule,
+    AiV2Module,
     AdaptersModule,
     EventsModule,
     PoliciesModule,

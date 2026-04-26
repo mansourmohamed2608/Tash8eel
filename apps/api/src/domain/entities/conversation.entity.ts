@@ -79,6 +79,8 @@ export interface ConversationContext {
   stillMissingImportant?: string[];
   suggestedNextStep?: string;
   memorySchema?: unknown;
+  /** AI Reply Engine v2 structured state (see application/ai-v2) */
+  aiV2?: Record<string, unknown>;
 }
 
 // Lead score signals for AI/deterministic scoring
