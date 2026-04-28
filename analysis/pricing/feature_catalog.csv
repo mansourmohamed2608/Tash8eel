@@ -1,0 +1,19 @@
+addon_code,name,category,addon_type,description,feature_enables,limit_increments,scope,notes
+INBOX_AI_CHANNEL,WhatsApp Inbox AI Assistant,OPS,FEATURE,AI assistant for incoming WhatsApp conversations,CONVERSATIONS,,BYO,Core channel feature — most important BYO item
+WHATSAPP_BROADCASTS,WhatsApp Broadcast Campaigns,GROWTH,FEATURE,Outbound broadcast campaigns on WhatsApp,NOTIFICATIONS,,BYO,Template-based outbound messaging
+MAPS_LOCATION_FLOWS,Location and Directions Flows,GROWTH,FEATURE,Share location flows and map-assisted routing,,mapsLookupsPerMonth:500,BYO,Includes 500 map lookups/month
+PORTAL_ASSISTANT,Portal AI Assistant,OPS,FEATURE,AI copilot inside the merchant portal,COPILOT_CHAT,,BYO,High-margin — minimal AI cost
+COPILOT_WORKFLOWS,Copilot Workflow Commands,OPS,FEATURE,Workflow shortcuts and command execution from Copilot,"COPILOT_CHAT,AUTOMATIONS",,BYO,Requires PORTAL_ASSISTANT or equivalent
+COPILOT_VOICE_NOTES,Copilot Voice Notes,OPS,FEATURE,Voice-note understanding and copilot voice actions,"VOICE_NOTES,COPILOT_CHAT",,BYO,Includes Whisper transcription
+COPILOT_VISION_HELPER,Copilot Vision Helper,OPS,FEATURE,Vision helper for portal AI tasks,COPILOT_CHAT,,BYO,Uses GPT-4o vision
+FINANCE_AUTOMATION,Finance Automation Suggestions,FINANCE,FEATURE,Finance suggestions and AI-assisted automation,"REPORTS,AUTOMATIONS",,BYO,
+INVENTORY_INSIGHTS,Inventory AI Insights,INVENTORY,FEATURE,AI insights for stock and reorder patterns,INVENTORY,,BYO,
+PAYMENT_LINKS,Payment Links,FINANCE,FEATURE,Hosted payment links for checkout collection,PAYMENTS,,BYO,Near-zero infra cost
+DAILY_REPORTS,Daily Reports,FINANCE,FEATURE,Daily operational and financial reports,REPORTS,,BYO,Scheduler + AI summary
+FOLLOWUP_AUTOMATIONS,Follow-up Automations,GROWTH,FEATURE,Follow-up and lifecycle automations,AUTOMATIONS,,BYO,
+ANOMALY_MONITOR,Anomaly Monitor,FINANCE,FEATURE,Detect unusual sales and payment anomalies,REPORTS,,BYO,
+MULTI_BRANCH,Multi-Branch Management,PLATFORM,CAPACITY,Base package for managing multiple branches,,"branches:1,whatsappNumbers:1",BYO,Per-branch add-on
+TEAM_SEAT_EXPANSION,Additional Team Seats,PLATFORM,CAPACITY,Extra team seat capacity,TEAM,teamMembers:1,BYO,Per-seat add-on
+API_WEBHOOKS,API and Webhooks,PLATFORM,FEATURE,Direct API access and outbound webhooks,"API_ACCESS,WEBHOOKS",,BYO,Rate-limited
+PROACTIVE_ALERTS,Proactive Alerts,OPS,FEATURE,Automated rule-based alerts on stock and orders,,,BOTH,Available standalone and in bundle
+AUTONOMOUS_AGENT,Autonomous AI Agent,OPS,FEATURE,Fully autonomous proactive AI loops,,,BOTH,Highest AI usage; highest value

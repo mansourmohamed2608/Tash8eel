@@ -1,0 +1,25 @@
+plan_code,tier_rank,plan_name,region_code,currency,base_price_cents,price_readable,cycle_1_disc_pct,cycle_3_disc_pct,cycle_6_disc_pct,cycle_12_disc_pct,vat_included,notes
+STARTER,1,Starter,EG,EGP,99900,999,0,5,10,15,true,Egypt — acquisition-entry plan
+BASIC,2,Basic,EG,EGP,220000,2200,0,5,10,15,true,Egypt — inventory + finance agents
+GROWTH,3,Growth,EG,EGP,480000,4800,0,5,10,15,true,Egypt — team + loyalty + automations
+PRO,4,Pro,EG,EGP,1000000,10000,0,5,10,15,true,Egypt — KPI + audit + forecasting
+ENTERPRISE,5,Enterprise,EG,EGP,2150000,21500,0,5,10,15,true,Egypt — chains + SLA + custom integrations
+STARTER,1,Starter,SA,SAR,10500,105,0,5,10,15,true,Saudi Arabia
+BASIC,2,Basic,SA,SAR,23000,230,0,5,10,15,true,Saudi Arabia
+GROWTH,3,Growth,SA,SAR,51000,510,0,5,10,15,true,Saudi Arabia
+PRO,4,Pro,SA,SAR,106000,1060,0,5,10,15,true,Saudi Arabia
+ENTERPRISE,5,Enterprise,SA,SAR,228000,2280,0,5,10,15,true,Saudi Arabia
+STARTER,1,Starter,AE,AED,11000,110,0,5,10,15,true,UAE
+BASIC,2,Basic,AE,AED,24500,245,0,5,10,15,true,UAE
+GROWTH,3,Growth,AE,AED,53000,530,0,5,10,15,true,UAE
+PRO,4,Pro,AE,AED,110500,1105,0,5,10,15,true,UAE
+ENTERPRISE,5,Enterprise,AE,AED,238000,2380,0,5,10,15,true,UAE
+STARTER,1,Starter,OM,OMR,1050,10.50,0,4,8,14,false,Oman — ex-VAT (5% added at checkout)
+BASIC,2,Basic,OM,OMR,2250,22.50,0,4,8,14,false,Oman
+GROWTH,3,Growth,OM,OMR,4950,49.50,0,4,8,14,false,Oman
+PRO,4,Pro,OM,OMR,10350,103.50,0,4,8,14,false,Oman
+ENTERPRISE,5,Enterprise,OM,OMR,22300,223.00,0,4,8,14,false,Oman
+STARTER,1,Starter,KW,KWD,1960,19.60,0,5,9,15,false,Kuwait — no VAT; no BASIC tier
+GROWTH,3,Growth,KW,KWD,4280,42.80,0,5,9,15,false,Kuwait
+PRO,4,Pro,KW,KWD,8920,89.20,0,5,9,15,false,Kuwait
+ENTERPRISE,5,Enterprise,KW,KWD,19200,192.00,0,5,9,15,false,Kuwait
